@@ -1,0 +1,17 @@
+{
+  "name": "music-suite",
+  "private": true,
+  "description": "Monorepo for the Enkerli music suite: shared theory core, design tokens, codegen, and webapps",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc -b packages/theory packages/codegen"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.0",
+    "vitest": "^2.1.0"
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "description": "Cross-language test vectors for minimal L1 (taxicab) voice leading between pitch-class sets. Every implementation (TS reference, Lua/PdLua, C++) must reproduce these sizes exactly. Sizes are symmetric: size(from,to) === size(to,from).",
+  "algorithm": "Tymoczko 2006 supplement, dynamic-programming matrix with cyclic extension, doublings allowed",
+  "cases": [
+    { "name": "identity", "from": [0, 4, 7], "to": [0, 4, 7], "size": 0 },
+    { "name": "I to IV (C to F major)", "from": [0, 4, 7], "to": [5, 9, 0], "size": 3 },
+    { "name": "I to V (C to G major)", "from": [0, 4, 7], "to": [7, 11, 2], "size": 3 },
+    { "name": "Cmaj7 to Emaj7 (Tymoczko fig. S12)", "from": [0, 4, 7, 11], "to": [4, 8, 11, 3], "size": 3 },
+    { "name": "triad to seventh (C to C7, doubling)", "from": [0, 4, 7], "to": [0, 4, 7, 10], "size": 2 },
+    { "name": "tritone substitution (C7 to Gb7)", "from": [0, 4, 7, 10], "to": [6, 10, 1, 4], "size": 2 },
+    { "name": "dim7 semitone shift", "from": [0, 3, 6, 9], "to": [1, 4, 7, 10], "size": 4 },
+    { "name": "single pc, tritone apart", "from": [0], "to": [6], "size": 6 },
+    { "name": "semitone neighbors", "from": [0], "to": [11], "size": 1 },
+    { "name": "C major triad to full chromatic neighbor (B major)", "from": [0, 4, 7], "to": [11, 3, 6], "size": 3 },
+    { "name": "ii-V voice leading (Dm7 to G7)", "from": [2, 5, 9, 0], "to": [7, 11, 2, 5], "size": 3 },
+    { "name": "V-I resolution (G7 to C major, doubling)", "from": [7, 11, 2, 5], "to": [0, 4, 7], "size": 4 }
+  ]
+}

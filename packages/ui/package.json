@@ -1,0 +1,12 @@
+{
+  "name": "@enkerli/ui",
+  "version": "0.1.0",
+  "description": "Design tokens and shared web components for the Enkerli music suite (browsers and JUCE WebViews)",
+  "license": "CC0-1.0",
+  "exports": {
+    "./tokens.css": "./tokens/tokens.css"
+  },
+  "files": [
+    "tokens"
+  ]
+}

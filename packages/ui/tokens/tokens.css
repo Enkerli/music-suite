@@ -1,0 +1,102 @@
+/**
+ * @enkerli/ui — design tokens (draft 0.1)
+ *
+ * One token sheet for every suite surface: webapps and JUCE WebView plugin
+ * UIs. Plugin windows are small and fixed-size; tokens therefore favor
+ * compact spacing with explicitly sized touch targets.
+ *
+ * Accessibility ground rules encoded here:
+ *  - color is never the only channel (pair pitch-class colors with labels/shape)
+ *  - touch targets >= 44px on touch surfaces
+ *  - motion respects prefers-reduced-motion
+ *  - light and dark themes via prefers-color-scheme, overridable with
+ *    [data-theme="light"|"dark"] on :root
+ */
+
+:root {
+  /* ── Type scale ──────────────────────────────────────────────── */
+  --es-font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --es-font-mono: "SF Mono", ui-monospace, Menlo, Consolas, monospace;
+  --es-text-xs: 0.6875rem;  /* 11px — dense plugin labels */
+  --es-text-sm: 0.8125rem;  /* 13px */
+  --es-text-md: 1rem;       /* 16px — body */
+  --es-text-lg: 1.25rem;
+  --es-text-xl: 1.5625rem;
+
+  /* ── Spacing (compact, plugin-window friendly) ───────────────── */
+  --es-space-1: 0.25rem;
+  --es-space-2: 0.5rem;
+  --es-space-3: 0.75rem;
+  --es-space-4: 1rem;
+  --es-space-6: 1.5rem;
+
+  /* ── Interaction ─────────────────────────────────────────────── */
+  --es-touch-target: 44px;       /* minimum hit area on touch surfaces */
+  --es-section-header: 28px;     /* collapsed-section header (PitchFold grammar) */
+  --es-radius-sm: 4px;
+  --es-radius-md: 8px;
+  --es-focus-ring: 2px solid var(--es-accent);
+  --es-focus-offset: 2px;
+
+  /* ── Motion ──────────────────────────────────────────────────── */
+  --es-motion-fast: 120ms ease-out;
+  --es-motion-base: 200ms ease-out;
+
+  /* ── Pitch-class palette (draft) ─────────────────────────────────
+     12 hues, perceptually spaced, chosen to stay distinguishable under
+     the common color-vision deficiencies when paired with the mandatory
+     text/shape channel. PC 0 = C. To be validated in Phase 2 a11y pass. */
+  --es-pc-0: #4477aa;
+  --es-pc-1: #66ccee;
+  --es-pc-2: #228833;
+  --es-pc-3: #ccbb44;
+  --es-pc-4: #ee6677;
+  --es-pc-5: #aa3377;
+  --es-pc-6: #bbbbbb;
+  --es-pc-7: #225555;
+  --es-pc-8: #99ddff;
+  --es-pc-9: #997700;
+  --es-pc-10: #ee8866;
+  --es-pc-11: #663366;
+}
+
+/* ── Theme: light (default) ─────────────────────────────────────── */
+:root,
+:root[data-theme="light"] {
+  --es-bg: #fafafa;
+  --es-bg-raised: #ffffff;
+  --es-fg: #1a1a1a;
+  --es-fg-muted: #555555;
+  --es-border: #d4d4d4;
+  --es-accent: #2a6fdb;
+  --es-accent-fg: #ffffff;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --es-bg: #161618;
+    --es-bg-raised: #232327;
+    --es-fg: #ececec;
+    --es-fg-muted: #a8a8a8;
+    --es-border: #3c3c42;
+    --es-accent: #5e9bff;
+    --es-accent-fg: #101014;
+  }
+}
+
+:root[data-theme="dark"] {
+  --es-bg: #161618;
+  --es-bg-raised: #232327;
+  --es-fg: #ececec;
+  --es-fg-muted: #a8a8a8;
+  --es-border: #3c3c42;
+  --es-accent: #5e9bff;
+  --es-accent-fg: #101014;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --es-motion-fast: 0ms;
+    --es-motion-base: 0ms;
+  }
+}

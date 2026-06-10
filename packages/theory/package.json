@@ -1,0 +1,21 @@
+{
+  "name": "@enkerli/theory",
+  "version": "0.1.0",
+  "description": "Zero-dependency music theory core: pitch classes, PCS, chords, voice leading, rhythm",
+  "type": "module",
+  "license": "CC0-1.0",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": "./dist/index.js",
+    "./vectors/*": "./vectors/*"
+  },
+  "files": [
+    "dist",
+    "vectors"
+  ],
+  "scripts": {
+    "build": "tsc -b",
+    "test": "vitest run"
+  }
+}

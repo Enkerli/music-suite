@@ -1,0 +1,13 @@
+{
+  "name": "@enkerli/codegen",
+  "version": "0.1.0",
+  "description": "Generates Lua tables (PdLua) and C++ headers from @enkerli/theory canonical data",
+  "type": "module",
+  "license": "CC0-1.0",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc -b",
+    "test": "vitest run"
+  }
+}
