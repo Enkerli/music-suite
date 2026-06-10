@@ -1,0 +1,13 @@
+{
+  "confirm_delete_clip": "Supprimer « {{filename}} » ?",
+  "generated_variants_one": "{{count}} variante générée avec densité {{density}}",
+  "generated_variants_other": "{{count}} variantes générées avec des densités différentes",
+  "clip_deleted": "Extrait supprimé",
+  "midi_downloaded": "Fichier MIDI téléchargé",
+  "error_generating_variants": "Erreur lors de la génération des variantes",
+  "error_loading_clip": "Erreur lors du chargement de l'extrait",
+  "error_invalid_midi": "Fichier MIDI invalide",
+  "chord_input_placeholder": "Nouvel accord (ex. : Am)",
+  "chord_at_playhead": "Accord (à la tête de lecture)",
+  "chord_at_selection": "Accord ({{count}} notes sélectionnées)"
+}

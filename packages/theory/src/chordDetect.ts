@@ -162,7 +162,7 @@ function findBestSubsetMatch(uniquePcs: number[], lowestPitch?: number): ChordMa
 }
 
 /** Map a root-relative semitone distance to a readable interval label. */
-function intervalLabel(semitones: number): string {
+export function intervalLabel(semitones: number): string {
   const labels: Record<number, string> = {
     0: 'R', 1: 'b9', 2: '9', 3: '#9', 4: '3', 5: '11',
     6: '#11', 7: '5', 8: 'b13', 9: '13', 10: 'b7', 11: '7',

@@ -1,0 +1,13 @@
+{
+  "confirm_delete_clip": "Delete \"{{filename}}\"?",
+  "generated_variants_one": "Generated {{count}} variant with density {{density}}",
+  "generated_variants_other": "Generated {{count}} variants with different densities",
+  "clip_deleted": "Clip deleted",
+  "midi_downloaded": "MIDI file downloaded",
+  "error_generating_variants": "Error generating variants",
+  "error_loading_clip": "Error loading clip",
+  "error_invalid_midi": "Invalid MIDI file",
+  "chord_input_placeholder": "New chord (e.g., Am)",
+  "chord_at_playhead": "Chord (at playhead)",
+  "chord_at_selection": "Chord ({{count}} notes selected)"
+}
