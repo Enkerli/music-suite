@@ -1,0 +1,261 @@
+{
+  "description": "Cross-language vectors for chord detection from pitch classes (no register). Generated from the @enkerli/theory reference implementation (ported from MIDIcurator, verified by its original test suite). Symbols use the suite display convention (∆, -7, ø…).",
+  "dictionarySize": 167,
+  "cases": [
+    {
+      "name": "C major",
+      "pcs": [
+        0,
+        4,
+        7
+      ],
+      "match": {
+        "root": 0,
+        "qualityKey": "maj",
+        "symbol": "C"
+      }
+    },
+    {
+      "name": "C minor",
+      "pcs": [
+        0,
+        3,
+        7
+      ],
+      "match": {
+        "root": 0,
+        "qualityKey": "min",
+        "symbol": "C-"
+      }
+    },
+    {
+      "name": "G dominant 7th",
+      "pcs": [
+        7,
+        11,
+        2,
+        5
+      ],
+      "match": {
+        "root": 7,
+        "qualityKey": "7",
+        "symbol": "G7"
+      }
+    },
+    {
+      "name": "F# minor 7th",
+      "pcs": [
+        6,
+        9,
+        1,
+        4
+      ],
+      "match": {
+        "root": 6,
+        "qualityKey": "min7",
+        "symbol": "F♯-7"
+      }
+    },
+    {
+      "name": "B half-diminished (same PCS as Dm6; lower-root preference wins)",
+      "pcs": [
+        11,
+        2,
+        5,
+        9
+      ],
+      "match": {
+        "root": 2,
+        "qualityKey": "m6",
+        "symbol": "D-6"
+      }
+    },
+    {
+      "name": "C diminished 7th (symmetric)",
+      "pcs": [
+        0,
+        3,
+        6,
+        9
+      ],
+      "match": {
+        "root": 0,
+        "qualityKey": "dim7",
+        "symbol": "C°7"
+      }
+    },
+    {
+      "name": "Eb major 7th",
+      "pcs": [
+        3,
+        7,
+        10,
+        2
+      ],
+      "match": {
+        "root": 3,
+        "qualityKey": "maj7",
+        "symbol": "E♭∆"
+      }
+    },
+    {
+      "name": "D sus4",
+      "pcs": [
+        2,
+        7,
+        9
+      ],
+      "match": {
+        "root": 2,
+        "qualityKey": "sus4",
+        "symbol": "Dsus4"
+      }
+    },
+    {
+      "name": "A augmented (symmetric; lowest-root spelling C#+)",
+      "pcs": [
+        9,
+        1,
+        5
+      ],
+      "match": {
+        "root": 1,
+        "qualityKey": "aug",
+        "symbol": "C♯+"
+      }
+    },
+    {
+      "name": "C6 vs Am7 ambiguity",
+      "pcs": [
+        0,
+        4,
+        7,
+        9
+      ],
+      "match": {
+        "root": 0,
+        "qualityKey": "6",
+        "symbol": "C6"
+      }
+    },
+    {
+      "name": "C dominant 13th",
+      "pcs": [
+        0,
+        4,
+        7,
+        10,
+        2,
+        5,
+        9
+      ],
+      "match": {
+        "root": 0,
+        "qualityKey": "13",
+        "symbol": "C13"
+      }
+    },
+    {
+      "name": "Bb7#11",
+      "pcs": [
+        10,
+        2,
+        5,
+        8,
+        4
+      ],
+      "match": {
+        "root": 10,
+        "qualityKey": "7#11",
+        "symbol": "B♭7#11"
+      }
+    },
+    {
+      "name": "quartal stack on D (same PCS as Csus24)",
+      "pcs": [
+        2,
+        7,
+        0,
+        5
+      ],
+      "match": {
+        "root": 0,
+        "qualityKey": "sus24",
+        "symbol": "Csus24"
+      }
+    },
+    {
+      "name": "C power chord",
+      "pcs": [
+        0,
+        7
+      ],
+      "match": {
+        "root": 0,
+        "qualityKey": "5",
+        "symbol": "C5"
+      }
+    },
+    {
+      "name": "whole-tone hexachord (matches 9#5#11)",
+      "pcs": [
+        0,
+        2,
+        4,
+        6,
+        8,
+        10
+      ],
+      "match": {
+        "root": 0,
+        "qualityKey": "9#5#11",
+        "symbol": "C9#5#11"
+      }
+    }
+  ],
+  "slashCases": [
+    {
+      "name": "C/E first inversion",
+      "pitches": [
+        52,
+        60,
+        67
+      ],
+      "match": {
+        "root": 0,
+        "qualityKey": "maj",
+        "symbol": "C/E",
+        "bassPc": 4
+      }
+    },
+    {
+      "name": "C/G second inversion",
+      "pitches": [
+        55,
+        60,
+        64
+      ],
+      "match": {
+        "root": 0,
+        "qualityKey": "maj",
+        "symbol": "C/G",
+        "bassPc": 7
+      }
+    },
+    {
+      "name": "Dm7/C third in bass",
+      "pitches": [
+        48,
+        62,
+        65,
+        69
+      ],
+      "match": {
+        "root": 2,
+        "qualityKey": "min7",
+        "symbol": "D-7/C",
+        "bassPc": 0
+      }
+    }
+  ]
+}

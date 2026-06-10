@@ -9,7 +9,7 @@ in the jazz-progressions workspace for the full architecture.
 
 | Package | Purpose |
 |---|---|
-| [`@enkerli/theory`](packages/theory) | Zero-dependency TypeScript music-theory core: pitch classes, taxicab voice leading (Tymoczko L1), and — incoming — chord dictionary/detection, PCS classification, Roman-numeral analysis, rhythm algorithms. The **reference implementation**; Lua and C++ ports must match `packages/theory/vectors/*.json`. |
+| [`@enkerli/theory`](packages/theory) | Zero-dependency TypeScript music-theory core: pitch classes, taxicab voice leading (Tymoczko L1), the 146-quality chord dictionary (decimal-fingerprint lookup) and chord detector (exact + subset matching, slash chords) ported from MIDIcurator/MIDIsplainer, and — incoming — PCS classification, Roman-numeral analysis, rhythm algorithms. The **reference implementation**; Lua and C++ ports must match `packages/theory/vectors/*.json`. |
 | [`@enkerli/codegen`](packages/codegen) | Emits Lua tables (for PdLua/PlugData) and C++ headers from theory data, so no consumer hand-maintains copies. |
 | [`@enkerli/ui`](packages/ui) | Design tokens (CSS custom properties) and, later, shared components (PCS ring, hex grid, piano roll, collapsible-density shell) for webapps **and** JUCE WebView plugin UIs. |
 
