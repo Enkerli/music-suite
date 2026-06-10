@@ -3,3 +3,4 @@ export * from "./voiceLeading.js";
 export * from "./chords.js";
 export * from "./chordDetect.js";
 export * from "./pcs.js";
+export * from "./rhythm.js";
