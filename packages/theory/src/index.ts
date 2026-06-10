@@ -2,3 +2,4 @@ export * from "./pitch.js";
 export * from "./voiceLeading.js";
 export * from "./chords.js";
 export * from "./chordDetect.js";
+export * from "./pcs.js";

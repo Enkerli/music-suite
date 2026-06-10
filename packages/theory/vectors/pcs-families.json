@@ -1,0 +1,147 @@
+{
+  "description": "Cross-language vectors for Euclidean scale families and degree chords, ported from PickPCS. Bitmask convention: MSB = pitch class 0 (pc 0 contributes 2^11), matching the chord dictionary and PickPCS App.jsx. Note: PCS_SCHEMA.md's subset example (bitmask 145 for [0,4,7]) uses the opposite LSB-first convention and disagrees with the app code; the code's MSB convention is canonical here.",
+  "families": [
+    {
+      "k": 3,
+      "root": 0,
+      "pcs": [
+        0,
+        4,
+        8
+      ],
+      "bitmask": 2184,
+      "name": "augmented"
+    },
+    {
+      "k": 4,
+      "root": 0,
+      "pcs": [
+        0,
+        3,
+        6,
+        9
+      ],
+      "bitmask": 2340,
+      "name": "diminished seventh"
+    },
+    {
+      "k": 5,
+      "root": 0,
+      "pcs": [
+        0,
+        2,
+        4,
+        7,
+        9
+      ],
+      "bitmask": 2708,
+      "name": "major pentatonic"
+    },
+    {
+      "k": 6,
+      "root": 0,
+      "pcs": [
+        0,
+        2,
+        4,
+        6,
+        8,
+        10
+      ],
+      "bitmask": 2730,
+      "name": "whole tone"
+    },
+    {
+      "k": 7,
+      "root": 0,
+      "pcs": [
+        0,
+        2,
+        4,
+        5,
+        7,
+        9,
+        11
+      ],
+      "bitmask": 2773,
+      "name": "major scale"
+    },
+    {
+      "k": 8,
+      "root": 0,
+      "pcs": [
+        0,
+        2,
+        3,
+        5,
+        6,
+        8,
+        9,
+        11
+      ],
+      "bitmask": 2925,
+      "name": "octatonic half-whole"
+    },
+    {
+      "k": 7,
+      "root": 7,
+      "pcs": [
+        7,
+        9,
+        11,
+        0,
+        2,
+        4,
+        6
+      ],
+      "bitmask": 2741,
+      "name": "G major scale"
+    }
+  ],
+  "degreeChords": [
+    {
+      "scale": "C major",
+      "k": 7,
+      "root": 0,
+      "type": "triads",
+      "numerals": [
+        "I",
+        "ii",
+        "iii",
+        "IV",
+        "V",
+        "vi",
+        "VII°"
+      ]
+    },
+    {
+      "scale": "C major",
+      "k": 7,
+      "root": 0,
+      "type": "sevenths",
+      "numerals": [
+        "I∆",
+        "ii-7",
+        "iii-7",
+        "IV∆",
+        "V7",
+        "vi-7",
+        "viiø7"
+      ]
+    },
+    {
+      "scale": "C whole tone",
+      "k": 6,
+      "root": 0,
+      "type": "triads",
+      "numerals": [
+        "I",
+        "II",
+        "III",
+        "IV",
+        "V",
+        "VI"
+      ]
+    }
+  ]
+}
