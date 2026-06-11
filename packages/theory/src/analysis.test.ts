@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import vectors from "../vectors/degree-assertion.json";
-import { assertDegree, formatDegreeLabel, type Mode } from "./analysis.js";
+import { assertDegree, formatDegreeLabel, resolveDegree, type Mode } from "./analysis.js";
 import { isNoChord, parseChordSymbol } from "./chordSymbol.js";
 
 describe("degree assertion — strict (vectors)", () => {
@@ -79,4 +79,47 @@ describe("degree assertion — sharp tie-break (vectors)", () => {
       expect(result.respelled).toBe(c.respelled);
     });
   }
+});
+
+describe("display suffixes round-trip (convention integrity)", async () => {
+  const { displaySuffix, qualityKeyForSuffix } = await import("./chordSymbol.js");
+  const { getAllQualities } = await import("./chords.js");
+
+  it("every quality's display suffix parses back to the same key", () => {
+    for (const q of getAllQualities()) {
+      expect(qualityKeyForSuffix(displaySuffix(q.key)), q.key).toBe(q.key);
+    }
+  });
+
+  it("yields the legacy-style shorthand", () => {
+    expect(displaySuffix("min7")).toBe("m7");
+    expect(displaySuffix("maj")).toBe("");
+    expect(displaySuffix("maj7")).toBe("maj7");
+    expect(displaySuffix("m7b5")).toBe("m7b5");
+    expect(displaySuffix("aug")).toBe("+");
+  });
+});
+
+describe("resolveDegree (inverse of assertDegree)", () => {
+  it("resolves diatonic and altered degrees with proper spelling", () => {
+    expect(resolveDegree("V", { tonic: "E♭", mode: "major" })).toBe("B♭");
+    expect(resolveDegree("♭III", { tonic: "C", mode: "major" })).toBe("E♭");
+    expect(resolveDegree("bIII", { tonic: "C", mode: "major" })).toBe("E♭");
+    expect(resolveDegree("♯IV", { tonic: "C", mode: "major" })).toBe("F♯");
+    expect(resolveDegree("VII", { tonic: "C", mode: "minor" })).toBe("B♭");
+    expect(resolveDegree("♯VII", { tonic: "A", mode: "minor" })).toBe("G♯");
+    expect(resolveDegree("♭II", { tonic: "F♯", mode: "major" })).toBe("G");
+  });
+
+  it("round-trips with assertDegree on the vector cases", () => {
+    for (const c of vectors.strict) {
+      const key = { tonic: c.tonic, mode: c.mode as Mode };
+      expect(resolveDegree(c.numeral, key)).toBe(c.root);
+    }
+  });
+
+  it("rejects garbage numerals", () => {
+    expect(() => resolveDegree("VIII", { tonic: "C", mode: "major" })).toThrow();
+    expect(() => resolveDegree("", { tonic: "C", mode: "major" })).toThrow();
+  });
 });

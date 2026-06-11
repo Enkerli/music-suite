@@ -27,6 +27,7 @@ import {
   formatSpelled,
   parseSpelled,
   spelledToPc,
+  transposeSpelled,
   type SpelledNote,
 } from "./spelling.js";
 
@@ -165,4 +166,27 @@ export function assertDegree(
  */
 export function formatDegreeLabel(degree: RomanDegree, suffix: string): string {
   return degree.numeral + suffix;
+}
+
+/**
+ * Inverse of assertDegree: resolve a Roman numeral (with optional ♭/♯/𝄪/𝄫
+ * or ASCII b/# prefixes) to a properly spelled chord root in a key.
+ * resolveDegree("♭III", {tonic:"C", mode:"major"}) → "E♭".
+ */
+export function resolveDegree(numeral: string, key: KeyContext): string {
+  const tonic = parseSpelled(key.tonic);
+  if (!tonic) throw new Error(`Unparseable tonic: ${key.tonic}`);
+  const m = /^([♭♯b#𝄪𝄫]*)(VII|VI|V|IV|III|II|I)$/.exec(numeral.trim());
+  if (!m) throw new Error(`Unparseable numeral: ${numeral}`);
+  let alteration = 0;
+  for (const ch of m[1]!) {
+    if (ch === "♯" || ch === "#") alteration += 1;
+    else if (ch === "♭" || ch === "b") alteration -= 1;
+    else if (ch === "𝄪") alteration += 2;
+    else if (ch === "𝄫") alteration -= 2;
+  }
+  const degree = ROMANS.indexOf(m[2]! as (typeof ROMANS)[number]) + 1;
+  const frame = key.mode === "major" ? MAJOR_DEGREE_PCS : MINOR_DEGREE_PCS;
+  const semitones = frame[degree - 1]! + alteration;
+  return formatSpelled(transposeSpelled(tonic, degree - 1, semitones));
 }

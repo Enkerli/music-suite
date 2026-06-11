@@ -14,6 +14,7 @@
 
 import {
   assertDegree,
+  displaySuffix,
   formatDegreeLabel,
   isNoChord,
   parseChordSymbol,
@@ -126,7 +127,12 @@ export function extractTransitions(
       if (degree.respelled) {
         bump(audit.respelled, `${chord.rootName}→${degree.rootUsed} in ${inference.key.tonic} ${inference.key.mode}`);
       }
-      const label = formatDegreeLabel(degree, chord.qualityKey ?? chord.suffix);
+      // Canonical published labels: numeral + display suffix (CONVENTIONS.md);
+      // unknown suffixes keep their raw text so nothing is silently dropped.
+      const label = formatDegreeLabel(
+        degree,
+        chord.qualityKey !== undefined ? displaySuffix(chord.qualityKey) : chord.suffix,
+      );
 
       if (previous === label) {
         audit.repeatsCollapsed += 1;

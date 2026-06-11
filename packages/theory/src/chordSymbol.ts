@@ -158,3 +158,38 @@ export function parseChordSymbol(input: string): ParsedChordSymbol | null {
   const qualityKey = qualityKeyForSuffix(suffix);
   return qualityKey !== undefined ? { ...result, qualityKey } : result;
 }
+
+// ─── Display suffixes ────────────────────────────────────────────────────
+//
+// Canonical compact suffix for published labels (transition tables,
+// progression displays): jazz shorthand, ASCII, and — by contract — always
+// a recognized alias, so qualityKeyForSuffix(displaySuffix(key)) === key.
+// Qualities without an entry use their dictionary key (same guarantee).
+
+const DISPLAY_SUFFIXES: Record<string, string> = {
+  // bare "4" parses as sus4 (corpus convention), so quartal displays by its alias
+  "4": "quartal",
+  maj: "",
+  min: "m",
+  min7: "m7",
+  min9: "m9",
+  min11: "m11",
+  min13: "m13",
+  minMaj7: "mM7",
+  aug: "+",
+  aug7: "7#5",
+  augMaj7: "M7#5",
+  "6add9": "69",
+  "maj#4": "M7#11",
+  Maddb9: "addb9",
+  Madd9: "add9",
+  "M#5add9": "+add9",
+  b9sus: "7sus4b9",
+  "m#5": "m#5",
+  alt7: "7alt",
+};
+
+/** Canonical display suffix for a dictionary quality key. */
+export function displaySuffix(qualityKey: string): string {
+  return DISPLAY_SUFFIXES[qualityKey] ?? qualityKey;
+}

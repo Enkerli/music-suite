@@ -41,6 +41,19 @@ non-chord tones, and are documented as such in the code.
 | exquisite-fingerings | ✅ (2026-06-11, monorepo copy): spelled key selector (17 roots incl. D♭/D♯/G♭/G♯/A♯); grid labels spell structurally via theory (`spellScale` for heptatonic scales, degree labels for chords/pentatonics); chromatic fallback retained for chromatic/whole-tone/custom sets — correct, those are context-free PCS |
 | Local Lua / future Roman-numeral work | must consume codegen'd spelling rules; the degree-assertion regeneration (Phase 1) depends on this convention |
 
+## Degree labels in published tables
+
+Transition tables and progression displays label chords as
+**Roman numeral + compact display suffix**: `IIm7`, `V7`, `Imaj7`, `♭II7`,
+`VIIm7b5`, `Im7`. Numerals are always uppercase with Unicode accidental
+prefixes (♭ ♯ 𝄫 𝄪); quality is carried entirely by the suffix.
+The suffix is the dictionary key's canonical shorthand
+(`displaySuffix()` in `@enkerli/theory`), with a contract enforced by test:
+**every display suffix parses back to its quality**
+(`qualityKeyForSuffix(displaySuffix(k)) === k`), so labels are
+machine-round-trippable, never just decoration. Unknown corpus suffixes
+pass through as written (and are audited).
+
 ## Bit ordering (binary / decimal / hex) — strict, everywhere
 
 **The first element of any bit-encoded sequence is the leftmost bit, i.e. the

@@ -76,7 +76,7 @@ describe("transition extraction", () => {
     expect(minor).toEqual({});
     // F7 | Bb7 | F7 F7 | ... — repeats collapse, so I7→IV7 twice:
     expect(major["I7"]!["IV7"]).toBe(2);
-    expect(major["II min7"] ?? major["IImin7"]).toBeDefined();
+    expect(major["IIm7"]).toBeDefined();
     expect(audit.repeatsCollapsed).toBeGreaterThan(0);
   });
 
@@ -84,9 +84,9 @@ describe("transition extraction", () => {
     const { minor, audit } = extractTransitions([parseLeadSheet(MINOR_TUNE)]);
     expect(audit.modes.minor).toBe(1);
     // C minor: Cm7 = Imin7, Fm7 = IVmin7, G7 = V7
-    expect(minor["Imin7"]!["IVmin7"]).toBe(1);
-    expect(minor["IVmin7"]!["V7"]).toBe(1);
-    expect(minor["V7"]!["Imin7"]).toBe(1);
+    expect(minor["Im7"]!["IVm7"]).toBe(1);
+    expect(minor["IVm7"]!["V7"]).toBe(1);
+    expect(minor["V7"]!["Im7"]).toBe(1);
   });
 
   it("strict mode keeps written exotic spellings; NC breaks the chain", () => {
@@ -94,7 +94,7 @@ describe("transition extraction", () => {
     expect(major["Imaj7"]!["♯IIIdim7"]).toBe(1);
     expect(audit.noChordMarkers).toBe(1);
     // chain broken after NC: no IImin7→Imaj7 transition recorded
-    expect(major["IImin7"]?.["Imaj7"]).toBeUndefined();
+    expect(major["IIm7"]?.["Imaj7"]).toBeUndefined();
   });
 
   it("respell mode normalizes and reports", () => {
