@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import table from "./data/transitions.json";
 import { generateProgression, realizeLabel, voiceProgression } from "./generate.js";
+import { downloadProgression } from "./exportMidi.js";
 import {
   adjustTransition,
   exportCuration,
@@ -202,6 +203,13 @@ export default function App() {
             onClick={() => navigator.clipboard?.writeText(chords.map((c) => c.symbol).join(" | "))}
           >
             Copy chords
+          </button>
+          <button
+            style={{ ...control, padding: "0 var(--es-space-4)", cursor: "pointer" }}
+            title="Download as a Standard MIDI File (chord symbols as markers)"
+            onClick={() => downloadProgression(voicings, { bpm, tonic, mode, seed })}
+          >
+            Export MIDI
           </button>
         </div>
 
