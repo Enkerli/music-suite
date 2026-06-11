@@ -175,6 +175,7 @@ export default function App() {
   const [curation, setCuration] = useState(loadCuration);
   const [showCuration, setShowCuration] = useState(true);
   const [host, setHost] = useState({ playing: false, bpm: 0 });
+  const [runtime, setRuntime] = useState(null);
   const { play, stop, playing, playhead } = usePlayer();
 
   useEffect(() => { saveCuration(curation); }, [curation]);
@@ -183,6 +184,7 @@ export default function App() {
   useEffect(() => {
     if (!IN_PLUGIN) return;
     const offTransport = bridge.on("transport", (t) => setHost({ playing: !!t.playing, bpm: t.bpm || 0 }));
+    const offRuntime = bridge.on("runtime", setRuntime);
     const offState = bridge.on("state", (s) => {
       try {
         if (s.tonic) setTonic(s.tonic);
@@ -194,7 +196,7 @@ export default function App() {
       } catch { /* malformed saved state — keep defaults */ }
     });
     bridge.ready();
-    return () => { offTransport(); offState(); };
+    return () => { offTransport(); offRuntime(); offState(); };
   }, []);
 
   // Plugin: every regeneration updates the host clip (strict transport
@@ -254,6 +256,7 @@ export default function App() {
           <p style={{ color: "var(--es-fg-muted)", fontSize: "var(--es-text-sm)", margin: "var(--es-space-1) 0 0" }}>
             Markov walk over {Object.keys(table[mode]).length} degree labels from 2,611 jazz lead sheets
             {IN_PLUGIN && <> · host {host.playing ? "playing" : "stopped"}{host.bpm ? ` · ${Math.round(host.bpm)} bpm` : ""}</>}
+            {IN_PLUGIN && runtime && <> · {runtime.host} · {runtime.wrapper} · {runtime.memMB} MB</>}
             {curatedEntries.length > 0 && <> · {curatedEntries.length} curated weight{curatedEntries.length > 1 ? "s" : ""}</>}
           </p>
         </header>
