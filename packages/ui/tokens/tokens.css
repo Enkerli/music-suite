@@ -1,97 +1,134 @@
 /**
- * @enkerli/ui — design tokens (draft 0.1)
+ * @enkerli/ui — design tokens v0.2: the "paper & ink" language.
  *
- * One token sheet for every suite surface: webapps and JUCE WebView plugin
- * UIs. Plugin windows are small and fixed-size; tokens therefore favor
- * compact spacing with explicitly sized touch targets.
+ * Codified from the suite's two most mature UIs rather than invented:
+ * Vane (warm cream surfaces, warm dark counterpart, per-dimension accent
+ * colors, Inter/JetBrains Mono, soft 20/14/10 radii) and DrawnQurve
+ * (the same paper palette — its --paper-bg IS Vane's panel2 — plus serif
+ * and hand display faces). See packages/ui/DESIGN.md.
+ *
+ * Theming: LIGHT IS THE DEFAULT design target; dark is a first-class
+ * variant. Resolution order: [data-theme="light"|"dark"] wins; otherwise
+ * the OS preference applies. theme.js provides the persisted toggle.
  *
  * Accessibility ground rules encoded here:
- *  - color is never the only channel (pair pitch-class colors with labels/shape)
- *  - touch targets >= 44px on touch surfaces
+ *  - color is never the only channel (dimension dots pair with labels)
+ *  - touch targets ≥ 44px on coarse pointers (controls scale up)
  *  - motion respects prefers-reduced-motion
- *  - light and dark themes via prefers-color-scheme, overridable with
- *    [data-theme="light"|"dark"] on :root
  */
 
 :root {
-  /* ── Type scale ──────────────────────────────────────────────── */
-  --es-font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-  --es-font-mono: "SF Mono", ui-monospace, Menlo, Consolas, monospace;
+  /* ── Type ────────────────────────────────────────────────────────── */
+  --es-font-sans: "Inter Tight", Inter, -apple-system, BlinkMacSystemFont,
+                  "SF Pro Text", "Segoe UI", system-ui, sans-serif;
+  --es-font-mono: "JetBrains Mono", "SF Mono", ui-monospace, Menlo, Consolas, monospace;
+  /* Optional display voices (DrawnQurve's flavor — opt-in per app) */
+  --es-font-serif: "Domine", Georgia, "Iowan Old Style", serif;
+  --es-font-hand: "Caveat", "Segoe Script", cursive;
+
   --es-text-xs: 0.6875rem;  /* 11px — dense plugin labels */
   --es-text-sm: 0.8125rem;  /* 13px */
   --es-text-md: 1rem;       /* 16px — body */
   --es-text-lg: 1.25rem;
   --es-text-xl: 1.5625rem;
 
-  /* ── Spacing (compact, plugin-window friendly) ───────────────── */
+  /* ── Spacing ─────────────────────────────────────────────────────── */
   --es-space-1: 0.25rem;
   --es-space-2: 0.5rem;
   --es-space-3: 0.75rem;
   --es-space-4: 1rem;
   --es-space-6: 1.5rem;
+  --es-gap: 10px;
 
-  /* ── Interaction ─────────────────────────────────────────────── */
-  --es-touch-target: 44px;       /* minimum hit area on touch surfaces */
-  --es-section-header: 28px;     /* collapsed-section header (PitchFold grammar) */
-  --es-radius-sm: 4px;
-  --es-radius-md: 8px;
+  /* ── Shape (the Vane radii) ──────────────────────────────────────── */
+  --es-radius-lg: 20px;
+  --es-radius-md: 14px;
+  --es-radius-sm: 10px;
+  --es-shadow: 0 6px 22px rgba(28, 25, 20, 0.05);
+
+  /* ── Interaction ─────────────────────────────────────────────────── */
+  --es-ctl-h: 32px;            /* control height; scales up on touch */
+  --es-touch-target: 44px;
+  --es-section-header: 28px;   /* collapsed-section header (PitchFold grammar) */
   --es-focus-ring: 2px solid var(--es-accent);
   --es-focus-offset: 2px;
 
-  /* ── Motion ──────────────────────────────────────────────────── */
+  /* ── Motion ──────────────────────────────────────────────────────── */
   --es-motion-fast: 120ms ease-out;
   --es-motion-base: 200ms ease-out;
 
-  /* ── Pitch-class palette (draft) ─────────────────────────────────
-     12 hues, perceptually spaced, chosen to stay distinguishable under
-     the common color-vision deficiencies when paired with the mandatory
-     text/shape channel. PC 0 = C. To be validated in Phase 2 a11y pass. */
-  --es-pc-0: #4477aa;
-  --es-pc-1: #66ccee;
-  --es-pc-2: #228833;
-  --es-pc-3: #ccbb44;
-  --es-pc-4: #ee6677;
-  --es-pc-5: #aa3377;
-  --es-pc-6: #bbbbbb;
-  --es-pc-7: #225555;
-  --es-pc-8: #99ddff;
-  --es-pc-9: #997700;
-  --es-pc-10: #ee8866;
-  --es-pc-11: #663366;
+  /* ── Expressive-dimension semantics (Vane vocabulary, suite-wide;
+        pairs with manifold's controller dimensions). Always pair the
+        color with a label or dot — never color alone. ───────────────── */
+  --es-dim-breath: #4b86c7;   --es-dim-breath-tint: #dde8f4;
+  --es-dim-expr: #2d9d8a;     --es-dim-expr-tint: #d6ebe6;
+  --es-dim-pressure: #d28330; --es-dim-pressure-tint: #f4e3cf;
+  --es-dim-slide: #a35bbf;    --es-dim-slide-tint: #ecdcf2;
+  --es-dim-bend: #c39529;     --es-dim-bend-tint: #f1e6c3;
+  --es-dim-vel: #7a4cff;
+
+  /* ── Pitch-class palette (12 hues, draft — pair with labels) ─────── */
+  --es-pc-0: #4477aa;  --es-pc-1: #66ccee;  --es-pc-2: #228833;
+  --es-pc-3: #ccbb44;  --es-pc-4: #ee6677;  --es-pc-5: #aa3377;
+  --es-pc-6: #bbbbbb;  --es-pc-7: #225555;  --es-pc-8: #99ddff;
+  --es-pc-9: #997700;  --es-pc-10: #ee8866; --es-pc-11: #663366;
 }
 
-/* ── Theme: light (default) ─────────────────────────────────────── */
+/* ── Paper (light) — the default design target ─────────────────────── */
 :root,
 :root[data-theme="light"] {
-  --es-bg: #fafafa;
-  --es-bg-raised: #ffffff;
-  --es-fg: #1a1a1a;
-  --es-fg-muted: #555555;
-  --es-border: #d4d4d4;
-  --es-accent: #2a6fdb;
+  --es-bg: #f5f2eb;          /* paper */
+  --es-bg-raised: #fcfbf7;   /* panel */
+  --es-bg-sunken: #efebe2;   /* field / well */
+  --es-fg: #2d2b27;          /* ink */
+  --es-fg-2: #4b463e;
+  --es-fg-muted: #8b8678;
+  --es-border: #ddd6ca;
+  --es-border-soft: #eae3d4;
+  --es-accent: #4b86c7;      /* breath blue doubles as the action color */
   --es-accent-fg: #ffffff;
+  color-scheme: light;
 }
 
+/* ── Warm dark ─────────────────────────────────────────────────────── */
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --es-bg: #161618;
-    --es-bg-raised: #232327;
-    --es-fg: #ececec;
-    --es-fg-muted: #a8a8a8;
-    --es-border: #3c3c42;
-    --es-accent: #5e9bff;
-    --es-accent-fg: #101014;
+    --es-bg: #1a1814;
+    --es-bg-raised: #221f1a;
+    --es-bg-sunken: #14130f;
+    --es-fg: #e8e1d2;
+    --es-fg-2: #cfc7b5;
+    --es-fg-muted: #897f6c;
+    --es-border: #38332b;
+    --es-border-soft: #2b2620;
+    --es-accent: #6da3df;
+    --es-accent-fg: #14130f;
+    --es-shadow: 0 6px 22px rgba(0, 0, 0, 0.28);
+    color-scheme: dark;
   }
 }
 
 :root[data-theme="dark"] {
-  --es-bg: #161618;
-  --es-bg-raised: #232327;
-  --es-fg: #ececec;
-  --es-fg-muted: #a8a8a8;
-  --es-border: #3c3c42;
-  --es-accent: #5e9bff;
-  --es-accent-fg: #101014;
+  --es-bg: #1a1814;
+  --es-bg-raised: #221f1a;
+  --es-bg-sunken: #14130f;
+  --es-fg: #e8e1d2;
+  --es-fg-2: #cfc7b5;
+  --es-fg-muted: #897f6c;
+  --es-border: #38332b;
+  --es-border-soft: #2b2620;
+  --es-accent: #6da3df;
+  --es-accent-fg: #14130f;
+  --es-shadow: 0 6px 22px rgba(0, 0, 0, 0.28);
+  color-scheme: dark;
+}
+
+/* ── Touch scaling (the Vane --ctl-h pattern) ──────────────────────── */
+@media (pointer: coarse) {
+  :root {
+    --es-ctl-h: 44px;
+    --es-gap: 12px;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

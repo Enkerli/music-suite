@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from "react";
+import { resolvedTheme, toggleTheme } from "@enkerli/ui/theme";
 import {
   dictionarySize,
   getAllQualities,
@@ -17,7 +18,7 @@ const ROOTS = [
 
 const cell = { padding: "var(--es-space-2) var(--es-space-3)", borderBottom: "1px solid var(--es-border)", textAlign: "left", verticalAlign: "top" };
 const th = { ...cell, position: "sticky", top: 0, background: "var(--es-bg-raised)", fontSize: "var(--es-text-sm)", color: "var(--es-fg-muted)" };
-const mono = { fontFamily: "var(--es-font-mono)", fontSize: "var(--es-text-sm)" };
+const mono = { fontFamily: "var(--es-font-mono)", fontSize: "var(--es-text-sm)", fontVariantNumeric: "tabular-nums" };
 
 function exportJson(qualities) {
   const blob = new Blob([JSON.stringify(qualities, null, 2)], { type: "application/json" });
@@ -32,6 +33,7 @@ function exportJson(qualities) {
 export default function App() {
   const [root, setRoot] = useState("C");
   const [query, setQuery] = useState("");
+  const [theme, setThemeState] = useState(resolvedTheme);
 
   const qualities = useMemo(() => getAllQualities(), []);
   const rootPc = spelledToPc(parseSpelled(root));
@@ -54,7 +56,7 @@ export default function App() {
   }, [qualities, root, query]);
 
   return (
-    <div style={{ minHeight: "100vh", background: "var(--es-bg)", color: "var(--es-fg)", fontFamily: "var(--es-font-sans)", padding: "var(--es-space-4)" }}>
+    <div className="es-app" style={{ padding: "var(--es-space-4)" }}>
       <div style={{ maxWidth: 1200, margin: "0 auto" }}>
         <header style={{ display: "flex", flexWrap: "wrap", gap: "var(--es-space-3)", alignItems: "baseline", marginBottom: "var(--es-space-4)" }}>
           <h1 style={{ fontSize: "var(--es-text-xl)", margin: 0 }}>Chord Dictionary</h1>
@@ -69,7 +71,7 @@ export default function App() {
             <select
               value={root}
               onChange={(e) => setRoot(e.target.value)}
-              style={{ minHeight: "var(--es-touch-target)", fontSize: "var(--es-text-md)", borderRadius: "var(--es-radius-sm)", border: "1px solid var(--es-border)", background: "var(--es-bg-raised)", color: "var(--es-fg)", padding: "0 var(--es-space-2)" }}
+              className="es-control"
             >
               {ROOTS.map((r) => (
                 <option key={r} value={r}>{r}</option>
@@ -82,17 +84,22 @@ export default function App() {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             aria-label="Search chord qualities"
-            style={{ flex: "1 1 220px", minHeight: "var(--es-touch-target)", fontSize: "var(--es-text-md)", borderRadius: "var(--es-radius-sm)", border: "1px solid var(--es-border)", background: "var(--es-bg-raised)", color: "var(--es-fg)", padding: "0 var(--es-space-3)" }}
+            className="es-control"
+            style={{ flex: "1 1 220px" }}
           />
           <button
             onClick={() => exportJson(qualities)}
-            style={{ minHeight: "var(--es-touch-target)", padding: "0 var(--es-space-4)", borderRadius: "var(--es-radius-sm)", border: "1px solid var(--es-border)", background: "var(--es-accent)", color: "var(--es-accent-fg)", fontSize: "var(--es-text-md)", cursor: "pointer" }}
+            className="es-btn es-primary"
           >
             Export JSON
           </button>
+          <button className="es-btn" aria-label="Toggle color theme"
+            onClick={() => setThemeState(toggleTheme())}>
+            {theme === "dark" ? "☀︎ Light" : "● Dark"}
+          </button>
         </div>
 
-        <div style={{ overflowX: "auto", background: "var(--es-bg-raised)", borderRadius: "var(--es-radius-md)", border: "1px solid var(--es-border)" }}>
+        <div className="es-panel" style={{ overflowX: "auto", padding: 0 }}>
           <table style={{ borderCollapse: "collapse", width: "100%" }}>
             <thead>
               <tr>
