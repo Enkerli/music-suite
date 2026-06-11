@@ -7,6 +7,12 @@ import {
   barlowTransform,
   euclideanComplement,
   euclideanRhythm,
+  patternFromBinaryString,
+  patternFromDecimal,
+  patternFromHex,
+  patternToBinaryString,
+  patternToDecimal,
+  patternToHex,
   type BarlowTransformOptions,
 } from "./rhythm.js";
 
@@ -74,5 +80,30 @@ describe("Barlow transformer (vectors)", () => {
     const diluted = barlowTransform(original, 3);
     const restored = barlowTransform(diluted.pattern, 5);
     expect(restored.pattern.filter(Boolean).length).toBe(5);
+  });
+});
+
+describe("pattern codecs (MSB-first, vectors)", () => {
+  for (const c of vectors.codecs) {
+    it(c.name, () => {
+      const pattern = dec(c.pattern);
+      expect(patternToDecimal(pattern)).toBe(c.decimal);
+      expect(patternToHex(pattern)).toBe(c.hex);
+      expect(patternFromDecimal(c.decimal, c.pattern.length)).toEqual(pattern);
+      expect(patternFromHex(c.hex, c.pattern.length)).toEqual(pattern);
+      expect(patternFromHex("0x" + c.hex, c.pattern.length)).toEqual(pattern);
+      expect(patternToBinaryString(pattern)).toBe(c.pattern);
+      expect(patternFromBinaryString(c.pattern)).toEqual(pattern);
+    });
+  }
+
+  it("rejects values that do not fit the step count", () => {
+    expect(() => patternFromDecimal(16, 4)).toThrow();
+  });
+
+  it("rejects malformed input", () => {
+    expect(() => patternFromBinaryString("10x1")).toThrow();
+    expect(() => patternFromHex("0xZZ", 8)).toThrow();
+    expect(() => patternFromDecimal(-1, 4)).toThrow();
   });
 });

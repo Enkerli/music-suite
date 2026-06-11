@@ -359,3 +359,56 @@ function concentrate(
     description: `${mode} from ${currentOnsets} to ${finalOnsets} onsets by ${method}`,
   };
 }
+
+// ─── Pattern codecs (binary / decimal / hex) ────────────────────────────
+//
+// Suite-wide convention (strict): the FIRST element of a pattern is the
+// LEFTMOST bit — i.e. the most significant bit of the numeral. A pattern
+// string is read as an ordinary binary number:
+//   "1011"     = 0xB  = 11  → hit, rest, hit, hit
+//   "10111010" = 0xBA = 186 → hit, rest, hit, hit, hit, rest, hit, rest
+//   E(3,8) "10010010" = 0x92 = 146 (tresillo)
+// Because leading rests vanish in a bare number, decimal/hex forms carry an
+// explicit step count (the ":N" suffix in Serpe's UPI notation).
+
+/** Pattern → binary string, first step leftmost. */
+export function patternToBinaryString(pattern: boolean[]): string {
+  return pattern.map((s) => (s ? "1" : "0")).join("");
+}
+
+/** Binary string → pattern. Throws on characters other than 0/1. */
+export function patternFromBinaryString(binary: string): boolean[] {
+  if (!/^[01]*$/.test(binary)) throw new Error(`Invalid binary pattern: ${binary}`);
+  return [...binary].map((c) => c === "1");
+}
+
+/** Pattern → decimal value of its binary numeral (first step = MSB). */
+export function patternToDecimal(pattern: boolean[]): number {
+  let value = 0;
+  for (const step of pattern) value = value * 2 + (step ? 1 : 0);
+  return value;
+}
+
+/** Decimal + step count → pattern (left-padded with rests to `steps`). */
+export function patternFromDecimal(value: number, steps: number): boolean[] {
+  if (!Number.isInteger(value) || value < 0) throw new Error(`Invalid pattern value: ${value}`);
+  if (value >= 2 ** steps) throw new Error(`Value ${value} does not fit in ${steps} steps`);
+  const pattern = new Array<boolean>(steps).fill(false);
+  for (let i = steps - 1; i >= 0 && value > 0; i--) {
+    pattern[i] = (value & 1) === 1;
+    value = Math.floor(value / 2);
+  }
+  return pattern;
+}
+
+/** Pattern → uppercase hex of its binary numeral (no 0x prefix). */
+export function patternToHex(pattern: boolean[]): string {
+  return patternToDecimal(pattern).toString(16).toUpperCase();
+}
+
+/** Hex (with or without 0x) + step count → pattern. */
+export function patternFromHex(hex: string, steps: number): boolean[] {
+  const cleaned = hex.replace(/^0x/i, "");
+  if (!/^[0-9a-fA-F]+$/.test(cleaned)) throw new Error(`Invalid hex pattern: ${hex}`);
+  return patternFromDecimal(parseInt(cleaned, 16), steps);
+}

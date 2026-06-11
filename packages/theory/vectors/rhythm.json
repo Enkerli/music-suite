@@ -1,31 +1,218 @@
 {
-  "description": "Cross-language vectors for rhythm algorithms ported from Serpe (rhythm_pattern_explorer). Patterns encoded as strings, '1' = onset. Verified by differential testing against the original WebApp JS (all E(k,n) for n<=24 with offsets, Barlow tables, transforms).",
+  "description": "Cross-language vectors for rhythm algorithms ported from Serpe (rhythm_pattern_explorer). Patterns encoded as strings, '1' = onset. Verified by differential testing against the original WebApp JS (all E(k,n) for n<=24 with offsets, Barlow tables, transforms). Codec convention (strict, suite-wide): first step = leftmost bit = MSB; pattern string read as an ordinary binary numeral. See CONVENTIONS.md.",
   "euclidean": [
-    { "name": "tresillo", "beats": 3, "steps": 8, "offset": 0, "pattern": "10010010" },
-    { "name": "cinquillo", "beats": 5, "steps": 8, "offset": 0, "pattern": "10110110" },
-    { "name": "tresillo rotated right 2", "beats": 3, "steps": 8, "offset": 2, "pattern": "10100100" },
-    { "name": "four on the floor", "beats": 4, "steps": 4, "offset": 0, "pattern": "1111" },
-    { "name": "E(5,16) bossa-adjacent", "beats": 5, "steps": 16, "offset": 0, "pattern": "1001001001001000" },
-    { "name": "E(2,5) khafif-e-ramal", "beats": 2, "steps": 5, "offset": 0, "pattern": "10100" },
-    { "name": "zero beats", "beats": 0, "steps": 8, "offset": 0, "pattern": "00000000" },
-    { "name": "beats clamped to steps", "beats": 9, "steps": 8, "offset": 0, "pattern": "11111111" }
+    {
+      "name": "tresillo",
+      "beats": 3,
+      "steps": 8,
+      "offset": 0,
+      "pattern": "10010010"
+    },
+    {
+      "name": "cinquillo",
+      "beats": 5,
+      "steps": 8,
+      "offset": 0,
+      "pattern": "10110110"
+    },
+    {
+      "name": "tresillo rotated right 2",
+      "beats": 3,
+      "steps": 8,
+      "offset": 2,
+      "pattern": "10100100"
+    },
+    {
+      "name": "four on the floor",
+      "beats": 4,
+      "steps": 4,
+      "offset": 0,
+      "pattern": "1111"
+    },
+    {
+      "name": "E(5,16) bossa-adjacent",
+      "beats": 5,
+      "steps": 16,
+      "offset": 0,
+      "pattern": "1001001001001000"
+    },
+    {
+      "name": "E(2,5) khafif-e-ramal",
+      "beats": 2,
+      "steps": 5,
+      "offset": 0,
+      "pattern": "10100"
+    },
+    {
+      "name": "zero beats",
+      "beats": 0,
+      "steps": 8,
+      "offset": 0,
+      "pattern": "00000000"
+    },
+    {
+      "name": "beats clamped to steps",
+      "beats": 9,
+      "steps": 8,
+      "offset": 0,
+      "pattern": "11111111"
+    }
   ],
   "complement": [
-    { "name": "complement of tresillo is cinquillo", "beats": 3, "steps": 8, "offset": 0, "pattern": "10110110" }
+    {
+      "name": "complement of tresillo is cinquillo",
+      "beats": 3,
+      "steps": 8,
+      "offset": 0,
+      "pattern": "10110110"
+    }
   ],
   "barlowTables": [
-    { "length": 8, "table": [1, 0.125, 0.375, 0.125, 0.875, 0.125, 0.375, 0.75] },
-    { "length": 12, "table": [1, 0.08333333333333333, 0.16666666666666666, 0.25, 0.3333333333333333, 0.08333333333333333, 0.75, 0.08333333333333333, 0.3333333333333333, 0.25, 0.16666666666666666, 0.75] },
-    { "length": 16, "table": [1, 0.0625, 0.1875, 0.0625, 0.4375, 0.0625, 0.1875, 0.0625, 0.9375, 0.0625, 0.1875, 0.0625, 0.4375, 0.0625, 0.1875, 0.75] }
+    {
+      "length": 8,
+      "table": [
+        1,
+        0.125,
+        0.375,
+        0.125,
+        0.875,
+        0.125,
+        0.375,
+        0.75
+      ]
+    },
+    {
+      "length": 12,
+      "table": [
+        1,
+        0.08333333333333333,
+        0.16666666666666666,
+        0.25,
+        0.3333333333333333,
+        0.08333333333333333,
+        0.75,
+        0.08333333333333333,
+        0.3333333333333333,
+        0.25,
+        0.16666666666666666,
+        0.75
+      ]
+    },
+    {
+      "length": 16,
+      "table": [
+        1,
+        0.0625,
+        0.1875,
+        0.0625,
+        0.4375,
+        0.0625,
+        0.1875,
+        0.0625,
+        0.9375,
+        0.0625,
+        0.1875,
+        0.0625,
+        0.4375,
+        0.0625,
+        0.1875,
+        0.75
+      ]
+    }
   ],
   "syncopation": [
-    { "name": "tresillo onsets", "onsets": [0, 3, 6], "steps": 8, "value": 0.5 },
-    { "name": "downbeat + mid", "onsets": [0, 4], "steps": 8, "value": 0.0625 }
+    {
+      "name": "tresillo onsets",
+      "onsets": [
+        0,
+        3,
+        6
+      ],
+      "steps": 8,
+      "value": 0.5
+    },
+    {
+      "name": "downbeat + mid",
+      "onsets": [
+        0,
+        4
+      ],
+      "steps": 8,
+      "value": 0.0625
+    }
   ],
   "transforms": [
-    { "name": "dilute cinquillo to 3", "pattern": "10110110", "target": 3, "options": {}, "result": "10100010", "transformation": "dilution" },
-    { "name": "concentrate tresillo to 5", "pattern": "10010010", "target": 5, "options": {}, "result": "10011011", "transformation": "concentration" },
-    { "name": "wolrab-dilute cinquillo to 3", "pattern": "10110110", "target": 3, "options": { "wolrabMode": true }, "result": "00010110", "transformation": "wolrab-dilution" },
-    { "name": "no-op at target", "pattern": "10010010", "target": 3, "options": {}, "result": "10010010", "transformation": "none" }
+    {
+      "name": "dilute cinquillo to 3",
+      "pattern": "10110110",
+      "target": 3,
+      "options": {},
+      "result": "10100010",
+      "transformation": "dilution"
+    },
+    {
+      "name": "concentrate tresillo to 5",
+      "pattern": "10010010",
+      "target": 5,
+      "options": {},
+      "result": "10011011",
+      "transformation": "concentration"
+    },
+    {
+      "name": "wolrab-dilute cinquillo to 3",
+      "pattern": "10110110",
+      "target": 3,
+      "options": {
+        "wolrabMode": true
+      },
+      "result": "00010110",
+      "transformation": "wolrab-dilution"
+    },
+    {
+      "name": "no-op at target",
+      "pattern": "10010010",
+      "target": 3,
+      "options": {},
+      "result": "10010010",
+      "transformation": "none"
+    }
+  ],
+  "codecs": [
+    {
+      "name": "1011 = 0xB = 11",
+      "pattern": "1011",
+      "decimal": 11,
+      "hex": "B"
+    },
+    {
+      "name": "10111010 = 0xBA = 186",
+      "pattern": "10111010",
+      "decimal": 186,
+      "hex": "BA"
+    },
+    {
+      "name": "tresillo = 0x92 = 146",
+      "pattern": "10010010",
+      "decimal": 146,
+      "hex": "92"
+    },
+    {
+      "name": "leading rests need step count",
+      "pattern": "0010",
+      "decimal": 2,
+      "hex": "2"
+    },
+    {
+      "name": "non-nibble length is a plain numeral",
+      "pattern": "101110",
+      "decimal": 46,
+      "hex": "2E"
+    },
+    {
+      "name": "all rests",
+      "pattern": "0000",
+      "decimal": 0,
+      "hex": "0"
+    }
   ]
 }
