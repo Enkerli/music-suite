@@ -1,0 +1,34 @@
+{
+  "name": "exquisite-fingerings",
+  "version": "0.2.0",
+  "description": "Interactive fingering explorer for Intuitive Instruments Exquis controller",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "test": "vitest",
+    "test:ui": "vitest --ui",
+    "test:coverage": "vitest --coverage"
+  },
+  "keywords": [
+    "exquis",
+    "hex-grid",
+    "music-theory",
+    "fingering",
+    "midi",
+    "isomorphic-keyboard"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "@vitest/coverage-v8": "^1.0.0",
+    "@vitest/ui": "^1.0.0",
+    "jsdom": "^27.0.1",
+    "vite": "^5.0.0",
+    "vitest": "^1.0.0"
+  },
+  "dependencies": {
+    "@enkerli/theory": "*"
+  }
+}

@@ -38,7 +38,7 @@ non-chord tones, and are documented as such in the code.
 | `@enkerli/theory` | ✅ `spelling.ts` reference; `buildChordToneSpellingMap` + slash-chord bass names rewired to structural spelling |
 | MIDIcurator (via theory) | ✅ chord tones structurally spelled through the shims |
 | PickPCS | ✅ by design: PCS display (chromatic) — correct for its context |
-| exquisite-fingerings | ⚠️ labels are chromatic PC display; its key picker is pitch-class-based ("C#/Db") so a proper root spelling cannot be known. Blocked on a spelled key selector; planned for its monorepo migration onto `@enkerli/theory` |
+| exquisite-fingerings | ✅ (2026-06-11, monorepo copy): spelled key selector (17 roots incl. D♭/D♯/G♭/G♯/A♯); grid labels spell structurally via theory (`spellScale` for heptatonic scales, degree labels for chords/pentatonics); chromatic fallback retained for chromatic/whole-tone/custom sets — correct, those are context-free PCS |
 | Local Lua / future Roman-numeral work | must consume codegen'd spelling rules; the degree-assertion regeneration (Phase 1) depends on this convention |
 
 ## Bit ordering (binary / decimal / hex) — strict, everywhere

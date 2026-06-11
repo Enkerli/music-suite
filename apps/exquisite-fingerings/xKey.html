@@ -1,0 +1,552 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Exquis Fingering Explorer — MVP</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    :root { --bg:#fafafa; --ink:#222; --grid:#888; --on:#6aa5ff; --on2:#ffad66; }
+    body { margin:0; font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; background:var(--bg);
+           display:grid; grid-template-columns: 280px 1fr; height:100vh;}
+    aside { padding:14px; border-right:1px solid #ddd; overflow:auto;}
+    h3 { margin:.3rem 0 .6rem; font-size:1rem; }
+    label { display:block; margin:.25rem 0; font-size:.95rem; }
+    select, input[type="number"], input[type="text"] { width:100%; padding:.4rem; margin:.25rem 0 .6rem; }
+    button { padding:.5rem 1rem; margin:.25rem 0; cursor:pointer; background:#007bff; color:#fff; border:none; border-radius:4px; }
+    button:hover { background:#0056b3; }
+    button:disabled { background:#ccc; cursor:not-allowed; }
+    button.secondary { background:#6c757d; }
+    button.secondary:hover { background:#545b62; }
+    .sep { height:1px; background:#e7e7e7; margin:.8rem 0; }
+    #grid { width:100%; height:100%; display:block;}
+    .pad { cursor:pointer; }
+    .pad.on { fill: var(--on); fill-opacity: .28; }
+    .pad.on.chord { fill: var(--on2); fill-opacity: .35; }
+    .pad.fingering-mode { cursor: crosshair; }
+    .label { font-size:10px; fill:var(--ink); pointer-events:none; }
+    .fing { font-size:13px; font-weight:700; fill:#d00; pointer-events:none; }
+    .fing.left { fill:#0066cc; }
+    .fing.right { fill:#d00; }
+    .legend { font-size: .85rem; color:#444; }
+    .info-box { background:#e7f3ff; padding:.5rem; margin:.5rem 0; border-radius:4px; font-size:.85rem; }
+    .warning-box { background:#fff3cd; padding:.5rem; margin:.5rem 0; border-radius:4px; font-size:.85rem; }
+    .button-group { display:flex; gap:.25rem; }
+    .button-group button { flex:1; padding:.4rem; font-size:.85rem; }
+  </style>
+</head>
+<body>
+  <aside>
+    <h3>Orientation</h3>
+    <label><input type="radio" name="ori" value="portrait" checked> Portrait (peaks up)</label>
+    <label><input type="radio" name="ori" value="landscape"> Landscape (flats up)</label>
+
+    <div class="sep"></div>
+    <h3>Key / Set</h3>
+    <label>Key
+      <select id="key">
+        <option>C</option><option>C#</option><option>D</option><option>Eb</option>
+        <option>E</option><option>F</option><option>F#</option><option>G</option>
+        <option>Ab</option><option>A</option><option>Bb</option><option>B</option>
+      </select>
+    </label>
+    <label>Type
+      <select id="set">
+        <option value="maj">Major scale</option>
+        <option value="natmin">Natural minor</option>
+        <option value="majtriad">Major triad</option>
+        <option value="min7">Minor 7th</option>
+        <option value="dom7">Dominant 7th</option>
+        <option value="custom">Custom (PCs)</option>
+      </select>
+    </label>
+    <label>Custom pitch classes (0–11, comma-separated)
+      <input id="customPC" placeholder="e.g. 0,2,4,5,7,9,11" />
+    </label>
+    <label>Base MIDI (row0 pad0)
+      <input id="baseMidi" type="number" value="48" min="0" max="120" />
+    </label>
+
+    <div class="sep"></div>
+    <h3>Labels</h3>
+    <label><input type="radio" name="lab" value="pc" checked> Pitch class (0–11)</label>
+    <label><input type="radio" name="lab" value="note"> Note names</label>
+    <label><input type="radio" name="lab" value="midi"> MIDI number</label>
+
+    <div class="sep"></div>
+    <h3>Fingering</h3>
+    <div id="fingeringModeInfo" class="info-box" style="display:none;">
+      Click pads to assign fingerings. Use keys 1-5 or click buttons below.
+    </div>
+    <label>
+      <input type="checkbox" id="fingeringMode"> Enable Fingering Mode
+    </label>
+    <label>Hand
+      <select id="fingeringHand">
+        <option value="right">Right (red)</option>
+        <option value="left">Left (blue)</option>
+      </select>
+    </label>
+    <div class="button-group">
+      <button id="fingBtn1" disabled>1</button>
+      <button id="fingBtn2" disabled>2</button>
+      <button id="fingBtn3" disabled>3</button>
+      <button id="fingBtn4" disabled>4</button>
+      <button id="fingBtn5" disabled>5</button>
+    </div>
+    <button id="clearFingerings" class="secondary" style="width:100%;">Clear All Fingerings</button>
+
+    <div class="sep"></div>
+    <h3>Fingering Patterns</h3>
+    <label>Pattern Name
+      <input type="text" id="patternName" placeholder="e.g., C Major Scale" />
+    </label>
+    <button id="savePattern" style="width:100%;">Save Pattern</button>
+    <label>Load Pattern
+      <select id="loadPattern">
+        <option value="">-- Select Pattern --</option>
+      </select>
+    </label>
+    <button id="deletePattern" class="secondary" style="width:100%;">Delete Selected</button>
+
+    <div class="sep"></div>
+    <h3>MIDI Output</h3>
+    <div id="midiStatus" class="warning-box">
+      MIDI not available (use Chrome/Brave/Edge)
+    </div>
+    <button id="enableMidi" style="width:100%;">Enable MIDI Output</button>
+    <label>MIDI Device
+      <select id="midiDevice" disabled>
+        <option value="">-- No devices --</option>
+      </select>
+    </label>
+    <label><input type="checkbox" id="midiSendOnHighlight"> Send MIDI on pad highlight</label>
+
+    <div class="sep"></div>
+    <p class="legend">
+      Even rows have 6 pads, odd rows 5 pads.<br>
+      Row starts (pad index): 0, 4, 7, 11, 14, 18, 21, 25, 28, 32, 35.<br>
+      midi = baseMidi + padIndex.
+    </p>
+  </aside>
+
+  <svg id="grid" aria-label="Exquis hex grid"></svg>
+
+  <script type="module">
+    // ---------- Exquis lattice (from your clarification) ----------
+    // 11 rows, lengths alternate: 6,5,6,5,...; row start pad indexes:
+    // 0,4,7,11,14,18,21,25,28,32,35 (increments +4,+3,...)
+    const ROW_COUNT = 11;
+    const ROW_LENGTH = r => (r % 2 === 0 ? 6 : 5);
+    const ROW_START = (() => {
+      const starts = [0];
+      for (let r = 1; r < ROW_COUNT; r++) {
+        const prev = starts[r-1];
+        starts.push(prev + ( (r-1) % 2 === 0 ? 4 : 3 )); // +4, +3 alternating
+      }
+      return starts; // [0,4,7,11,14,18,21,25,28,32,35]
+    })();
+
+    // padIndex = ROW_START[row] + col; MIDI = baseMidi + padIndex
+    const padIndex = (row, col) => ROW_START[row] + col;
+
+    // ---------- Music theory helpers ----------
+    const NOTE_TO_PC = { C:0,'C#':1,Db:1,D:2,'D#':3,Eb:3,E:4,F:5,'F#':6,Gb:6,G:7,'G#':8,Ab:8,A:9,'A#':10,Bb:10,B:11 };
+    const PC_TO_NOTE_SHARP = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+
+    const SETS = {
+      maj:    [0,2,4,5,7,9,11],
+      natmin: [0,2,3,5,7,8,10],
+      majtriad:[0,4,7],
+      min7:   [0,3,7,10],
+      dom7:   [0,4,7,10]
+    };
+
+    function pcsForSelection() {
+      const key = document.getElementById('key').value;
+      const typ = document.getElementById('set').value;
+      if (typ === 'custom') {
+        const txt = document.getElementById('customPC').value.trim();
+        const pcs = new Set();
+        if (txt) txt.split(',').forEach(s => {
+          const n = Number(s.trim());
+          if (!Number.isNaN(n)) pcs.add(((n%12)+12)%12);
+        });
+        return pcs;
+      }
+      const root = NOTE_TO_PC[key];
+      const pcs = new Set();
+      for (const n of SETS[typ]) pcs.add((root + n) % 12);
+      return pcs;
+    }
+
+    function labelText(kind, midi) {
+      const pc = ((midi % 12)+12)%12;
+      if (kind === 'pc')   return pc;
+      if (kind === 'note') return PC_TO_NOTE_SHARP[pc];
+      return midi; // 'midi'
+    }
+
+    // ---------- MIDI Output ----------
+    let midiAccess = null;
+    let selectedMidiOutput = null;
+
+    async function initMIDI() {
+      if (!navigator.requestMIDIAccess) {
+        document.getElementById('midiStatus').textContent = 'WebMIDI not supported (use Chrome/Brave/Edge)';
+        document.getElementById('midiStatus').className = 'warning-box';
+        return;
+      }
+
+      try {
+        midiAccess = await navigator.requestMIDIAccess();
+        document.getElementById('midiStatus').textContent = 'MIDI ready!';
+        document.getElementById('midiStatus').className = 'info-box';
+
+        updateMIDIDeviceList();
+
+        // Listen for device changes
+        midiAccess.onstatechange = updateMIDIDeviceList;
+      } catch (err) {
+        document.getElementById('midiStatus').textContent = `MIDI error: ${err.message}`;
+        document.getElementById('midiStatus').className = 'warning-box';
+      }
+    }
+
+    function updateMIDIDeviceList() {
+      const select = document.getElementById('midiDevice');
+      select.innerHTML = '<option value="">-- Select device --</option>';
+
+      if (!midiAccess) return;
+
+      const outputs = Array.from(midiAccess.outputs.values());
+      outputs.forEach(output => {
+        const option = document.createElement('option');
+        option.value = output.id;
+        option.textContent = output.name;
+        select.appendChild(option);
+      });
+
+      select.disabled = outputs.length === 0;
+    }
+
+    function sendMIDINote(midiNote, velocity = 127, duration = 100) {
+      if (!selectedMidiOutput) return;
+
+      try {
+        // Note On
+        selectedMidiOutput.send([0x90, midiNote, velocity]);
+        // Note Off after duration
+        setTimeout(() => {
+          selectedMidiOutput.send([0x80, midiNote, 0]);
+        }, duration);
+      } catch (err) {
+        console.error('MIDI send error:', err);
+      }
+    }
+
+    function sendHighlightedNotes() {
+      if (!selectedMidiOutput || !document.getElementById('midiSendOnHighlight').checked) return;
+
+      const baseMidi = Number(document.getElementById('baseMidi').value) || 48;
+      const pcs = pcsForSelection();
+
+      // Send all highlighted notes
+      for (let r = 0; r < ROW_COUNT; r++) {
+        const cols = ROW_LENGTH(r);
+        for (let c = 0; c < cols; c++) {
+          const pIndex = padIndex(r, c);
+          const midi = baseMidi + pIndex;
+          const pc = ((midi%12)+12)%12;
+
+          if (pcs.has(pc)) {
+            setTimeout(() => sendMIDINote(midi, 100, 500), pIndex * 20);
+          }
+        }
+      }
+    }
+
+    // ---------- Fingering System ----------
+    // fingerings: Map of padKey -> {hand: 'left'|'right', finger: 1-5}
+    const fingerings = new Map();
+    let fingeringMode = false;
+    let currentFinger = 1;
+
+    function getPadKey(row, col) {
+      return `${row},${col}`;
+    }
+
+    function setFingering(row, col, hand, finger) {
+      const key = getPadKey(row, col);
+      if (finger === null) {
+        fingerings.delete(key);
+      } else {
+        fingerings.set(key, { hand, finger });
+      }
+      draw();
+    }
+
+    function clearAllFingerings() {
+      fingerings.clear();
+      draw();
+    }
+
+    // ---------- Pattern Save/Load ----------
+    function savePattern() {
+      const name = document.getElementById('patternName').value.trim();
+      if (!name) {
+        alert('Please enter a pattern name');
+        return;
+      }
+
+      const patterns = JSON.parse(localStorage.getItem('exquisPatterns') || '{}');
+      patterns[name] = {
+        fingerings: Array.from(fingerings.entries()),
+        key: document.getElementById('key').value,
+        set: document.getElementById('set').value,
+        baseMidi: document.getElementById('baseMidi').value
+      };
+      localStorage.setItem('exquisPatterns', JSON.stringify(patterns));
+
+      updatePatternList();
+      document.getElementById('patternName').value = '';
+      alert(`Pattern "${name}" saved!`);
+    }
+
+    function loadPattern(name) {
+      if (!name) return;
+
+      const patterns = JSON.parse(localStorage.getItem('exquisPatterns') || '{}');
+      const pattern = patterns[name];
+      if (!pattern) return;
+
+      fingerings.clear();
+      pattern.fingerings.forEach(([key, val]) => fingerings.set(key, val));
+
+      document.getElementById('key').value = pattern.key;
+      document.getElementById('set').value = pattern.set;
+      document.getElementById('baseMidi').value = pattern.baseMidi;
+
+      draw();
+    }
+
+    function deletePattern() {
+      const name = document.getElementById('loadPattern').value;
+      if (!name) {
+        alert('Please select a pattern to delete');
+        return;
+      }
+
+      if (!confirm(`Delete pattern "${name}"?`)) return;
+
+      const patterns = JSON.parse(localStorage.getItem('exquisPatterns') || '{}');
+      delete patterns[name];
+      localStorage.setItem('exquisPatterns', JSON.stringify(patterns));
+
+      updatePatternList();
+    }
+
+    function updatePatternList() {
+      const select = document.getElementById('loadPattern');
+      const patterns = JSON.parse(localStorage.getItem('exquisPatterns') || '{}');
+
+      select.innerHTML = '<option value="">-- Select Pattern --</option>';
+      Object.keys(patterns).sort().forEach(name => {
+        const option = document.createElement('option');
+        option.value = name;
+        option.textContent = name;
+        select.appendChild(option);
+      });
+    }
+
+    // ---------- Rendering ----------
+    const svg = document.getElementById('grid');
+
+    // Geometry: portrait (pointy-top) vs landscape (flat-top)
+    const GEO = {
+      portrait: { size: 22, w: 38, h: 33 }
+    };
+
+    function hexPoints(cx, cy, s){
+      // pointy-top hex (portrait). Landscape will be achieved by rotating the whole group.
+      const A = [[0,-s],[+0.866*s,-0.5*s],[+0.866*s,+0.5*s],[0,+s],[-0.866*s,+0.5*s],[-0.866*s,-0.5*s]];
+      return A.map(([dx,dy]) => `${cx+dx},${cy+dy}`).join(' ');
+    }
+
+    // Visual staggering: compute portrait (pointy-top) centers always.
+    function cellCenter(row, col) {
+      const g = GEO.portrait; // portrait geometry
+      const x = col * g.w + (row % 2 ? g.w/2 : 0) + 48;
+      const y = (ROW_COUNT-1-row) * g.h + 48; // bottom row = row 0
+      return [x, y];
+    }
+
+    function draw() {
+      const portrait = document.querySelector('input[name="ori"]:checked').value === 'portrait';
+      const baseMidi = Number(document.getElementById('baseMidi').value) || 48;
+      const labKind = document.querySelector('input[name="lab"]:checked').value;
+      const pcs = pcsForSelection();
+
+      // We'll draw once in portrait coordinates, then rotate the whole group if landscape.
+      const vbW_p = (6*GEO.portrait.w + 120);
+      const vbH_p = (ROW_COUNT*GEO.portrait.h + 120);
+
+      // Set viewBox depending on orientation
+      if (portrait) {
+        svg.setAttribute('viewBox', `0 0 ${vbW_p} ${vbH_p}`);
+      } else {
+        // swap width/height for 90° rotation
+        svg.setAttribute('viewBox', `0 0 ${vbH_p} ${vbW_p}`);
+      }
+      svg.innerHTML = '';
+
+      // Create a group to hold all pads/labels; rotate it for landscape
+      const gNode = document.createElementNS('http://www.w3.org/2000/svg','g');
+      if (!portrait) {
+        // After rotate(90) around origin, content lies in x:[-vbH_p,0], y:[0,vbW_p].
+        // Translate right by vbH_p to fit the swapped viewBox.
+        gNode.setAttribute('transform', `translate(${vbH_p},0) rotate(90)`);
+      }
+
+      for (let r = 0; r < ROW_COUNT; r++) {
+        const cols = ROW_LENGTH(r);
+        for (let c = 0; c < cols; c++) {
+          const [cx, cy] = cellCenter(r, c);
+          const poly = document.createElementNS('http://www.w3.org/2000/svg','polygon');
+          poly.setAttribute('points', hexPoints(cx, cy, GEO.portrait.size));
+          poly.setAttribute('class', 'pad');
+          poly.setAttribute('stroke', '#666');
+          poly.setAttribute('fill', '#6aa5ff');
+          poly.setAttribute('fill-opacity', '0.12');
+
+          const pIndex = padIndex(r, c);
+          const midi = baseMidi + pIndex;
+          const pc = ((midi%12)+12)%12;
+
+          if (pcs.has(pc)) poly.classList.add('on');
+          if (fingeringMode) poly.classList.add('fingering-mode');
+
+          // Click handler for fingering mode
+          poly.addEventListener('click', () => {
+            if (fingeringMode) {
+              const hand = document.getElementById('fingeringHand').value;
+              const existing = fingerings.get(getPadKey(r, c));
+              if (existing && existing.hand === hand && existing.finger === currentFinger) {
+                setFingering(r, c, null, null); // Remove fingering
+              } else {
+                setFingering(r, c, hand, currentFinger);
+              }
+            } else {
+              // Click to play MIDI note
+              sendMIDINote(midi);
+            }
+          });
+
+          gNode.appendChild(poly);
+
+          const t = document.createElementNS('http://www.w3.org/2000/svg','text');
+          t.setAttribute('x', cx);
+          t.setAttribute('y', cy + 4);
+          t.setAttribute('text-anchor','middle');
+          t.setAttribute('class', 'label');
+          // Keep labels horizontal when the whole grid is rotated for landscape
+          if (!portrait) {
+            t.setAttribute('transform', `rotate(-90 ${cx} ${cy})`);
+          }
+          t.textContent = labelText(labKind, midi);
+          gNode.appendChild(t);
+
+          // Draw fingering if exists
+          const fingering = fingerings.get(getPadKey(r, c));
+          if (fingering) {
+            const ft = document.createElementNS('http://www.w3.org/2000/svg','text');
+            ft.setAttribute('x', cx);
+            ft.setAttribute('y', cy - 8);
+            ft.setAttribute('text-anchor','middle');
+            ft.setAttribute('class', `fing ${fingering.hand}`);
+            if (!portrait) {
+              ft.setAttribute('transform', `rotate(-90 ${cx} ${cy})`);
+            }
+            ft.textContent = fingering.finger;
+            gNode.appendChild(ft);
+          }
+        }
+      }
+      svg.appendChild(gNode);
+    }
+
+    // ---------- UI Event Handlers ----------
+
+    // Fingering mode toggle
+    document.getElementById('fingeringMode').addEventListener('change', (e) => {
+      fingeringMode = e.target.checked;
+      document.getElementById('fingeringModeInfo').style.display = fingeringMode ? 'block' : 'none';
+      document.querySelectorAll('#fingBtn1, #fingBtn2, #fingBtn3, #fingBtn4, #fingBtn5').forEach(btn => {
+        btn.disabled = !fingeringMode;
+      });
+      draw();
+    });
+
+    // Finger selection buttons
+    for (let i = 1; i <= 5; i++) {
+      document.getElementById(`fingBtn${i}`).addEventListener('click', () => {
+        currentFinger = i;
+        document.querySelectorAll('#fingBtn1, #fingBtn2, #fingBtn3, #fingBtn4, #fingBtn5').forEach((btn, idx) => {
+          btn.style.opacity = (idx + 1 === i) ? '1' : '0.5';
+        });
+      });
+    }
+
+    // Keyboard shortcuts for finger selection
+    document.addEventListener('keydown', (e) => {
+      if (fingeringMode && e.key >= '1' && e.key <= '5') {
+        const finger = parseInt(e.key);
+        currentFinger = finger;
+        document.getElementById(`fingBtn${finger}`).click();
+      }
+    });
+
+    // Clear fingerings
+    document.getElementById('clearFingerings').addEventListener('click', clearAllFingerings);
+
+    // Pattern management
+    document.getElementById('savePattern').addEventListener('click', savePattern);
+    document.getElementById('loadPattern').addEventListener('change', (e) => {
+      loadPattern(e.target.value);
+    });
+    document.getElementById('deletePattern').addEventListener('click', deletePattern);
+
+    // MIDI setup
+    document.getElementById('enableMidi').addEventListener('click', initMIDI);
+    document.getElementById('midiDevice').addEventListener('change', (e) => {
+      if (!midiAccess) return;
+      const output = midiAccess.outputs.get(e.target.value);
+      selectedMidiOutput = output || null;
+    });
+
+    // Send MIDI when highlights change
+    document.getElementById('midiSendOnHighlight').addEventListener('change', (e) => {
+      if (e.target.checked) sendHighlightedNotes();
+    });
+
+    // ---------- UI wiring ----------
+    document.querySelectorAll('input[name="ori"]').forEach(el => el.addEventListener('change', draw));
+    document.querySelectorAll('input[name="lab"]').forEach(el => el.addEventListener('change', draw));
+    ['key','set','baseMidi','customPC'].forEach(id => document.getElementById(id).addEventListener('input', () => {
+      draw();
+      if (document.getElementById('midiSendOnHighlight').checked) {
+        sendHighlightedNotes();
+      }
+    }));
+
+    // live: disable customPC unless needed
+    document.getElementById('set').addEventListener('change', (e)=>{
+      document.getElementById('customPC').disabled = (e.target.value !== 'custom');
+    });
+
+    // init
+    document.getElementById('customPC').disabled = true;
+    updatePatternList();
+    draw();
+  </script>
+</body>
+</html>

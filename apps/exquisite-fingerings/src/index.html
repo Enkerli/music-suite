@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Exquisite Fingerings - Exquis Controller Explorer</title>
+  <meta name="description" content="Interactive fingering explorer for Intuitive Instruments Exquis hex grid controller" />
+  <link rel="stylesheet" href="./assets/css/styles.css" />
+</head>
+<body>
+  <aside>
+    <h2>Exquis Fingerings</h2>
+
+    <!-- Chord Fingering Capture - Main workflow -->
+    <details open>
+      <summary><h3>Chord Fingering Capture</h3></summary>
+      <p style="font-size:0.85em; opacity:0.8; margin:4px 0 12px 0;">
+        Select a chord, place your hand naturally, and press pads in finger sequence (1→5).
+      </p>
+
+      <label>Chord Root
+        <select id="chordRoot">
+          <option value="0">C</option>
+          <option value="1">C#/Db</option>
+          <option value="2">D</option>
+          <option value="3">D#/Eb</option>
+          <option value="4">E</option>
+          <option value="5">F</option>
+          <option value="6">F#/Gb</option>
+          <option value="7">G</option>
+          <option value="8">G#/Ab</option>
+          <option value="9">A</option>
+          <option value="10">A#/Bb</option>
+          <option value="11">B</option>
+        </select>
+      </label>
+
+      <label>Chord Quality
+        <select id="chordQuality">
+          <optgroup label="Triads">
+            <option value="major">Major</option>
+            <option value="minor">Minor</option>
+            <option value="dim">Diminished</option>
+            <option value="aug">Augmented</option>
+            <option value="sus2">Sus2</option>
+            <option value="sus4">Sus4</option>
+          </optgroup>
+          <optgroup label="7th Chords">
+            <option value="maj7">Major 7th</option>
+            <option value="min7">Minor 7th</option>
+            <option value="dom7" selected>Dominant 7th</option>
+            <option value="dim7">Diminished 7th</option>
+            <option value="hdim7">Half-diminished 7th</option>
+            <option value="minmaj7">Minor-Major 7th</option>
+            <option value="aug7">Augmented 7th</option>
+          </optgroup>
+          <optgroup label="Extended">
+            <option value="maj9">Major 9th</option>
+            <option value="min9">Minor 9th</option>
+            <option value="dom9">Dominant 9th</option>
+            <option value="6">6th</option>
+            <option value="min6">Minor 6th</option>
+          </optgroup>
+        </select>
+      </label>
+
+      <label>Hand
+        <div class="control-row" style="margin-top:4px;">
+          <button id="captureLeftHand" class="hand-select-btn" style="flex:1; padding:12px;">
+            👈 Left
+          </button>
+          <button id="captureRightHand" class="hand-select-btn active" style="flex:1; padding:12px;">
+            Right 👉
+          </button>
+        </div>
+      </label>
+
+      <button id="startChordCapture" style="width:100%; margin-top:12px; background:#446; font-weight:bold;">
+        Start Capture
+      </button>
+
+      <div id="chordCaptureStatus" style="margin-top:8px;"></div>
+
+      <div id="chordCaptureActive" style="display:none; margin-top:12px; background:#eef; padding:12px; border-radius:4px;">
+        <h4 style="margin:0 0 8px 0; color:#446;">Capturing Fingering</h4>
+        <p style="font-size:0.85em; margin:4px 0;">
+          Press pads in finger sequence (1→2→3→4→5).
+          Press non-chord tones to skip fingers.
+        </p>
+        <div id="captureProgress" style="margin:8px 0; font-size:0.9em; font-weight:bold;"></div>
+        <button id="stopChordCapture" style="width:100%; background:#d44; color:#fff; font-weight:bold;">
+          Stop Capture
+        </button>
+      </div>
+
+      <div id="chordCaptureRate" style="display:none; margin-top:12px; background:#f5f5f5; padding:12px; border-radius:4px;">
+        <h4 style="margin:0 0 8px 0;">Rate This Fingering</h4>
+        <div id="capturedFingeringDisplay" style="font-size:0.85em; margin-bottom:12px;"></div>
+        <label style="display:block; margin-bottom:8px;">
+          Comfort: <span id="captureComfortValue">5</span>/5
+          <input type="range" id="captureComfort" min="1" max="5" value="5" step="1" style="width:100%;" />
+        </label>
+        <div style="display:flex; gap:8px;">
+          <button id="saveCapturedFingering" style="flex:2; background:#446; color:#fff; font-weight:bold;">
+            Save
+          </button>
+          <button id="discardCapturedFingering" style="flex:1; background:#666; color:#fff;">
+            Discard
+          </button>
+        </div>
+      </div>
+
+      <details style="margin-top:12px;">
+        <summary><h4 style="font-size:0.9em; margin:0;">Saved Chord Fingerings</h4></summary>
+        <div id="savedChordFingerings" style="margin-top:8px;">
+          <div id="chordFingeringList" style="font-size:0.85em; opacity:0.7;">
+            No chord fingerings captured yet.
+          </div>
+          <button id="exportChordFingerings" style="width:100%; margin-top:8px; display:none;">
+            Export All
+          </button>
+          <button id="clearChordFingerings" class="danger" style="width:100%; margin-top:4px; display:none;">
+            Clear All
+          </button>
+        </div>
+      </details>
+    </details>
+
+    <div class="sep"></div>
+
+    <!-- Advanced: Handprint Capture -->
+    <details>
+      <summary><h3>Advanced: Geometric Analysis</h3></summary>
+      <p style="font-size:0.85em; opacity:0.8; margin:4px 0 12px 0;">
+        Capture your hand's natural reach on the Exquis grid to validate fingerings.
+        Developer Mode automatically detects pad positions regardless of layout.
+      </p>
+
+      <label>Select Hand
+        <div class="control-row" style="margin-top:4px;">
+          <button id="selectLeftHand" class="hand-select-btn" style="flex:1; padding:12px;">
+            👈 Left
+          </button>
+          <button id="selectRightHand" class="hand-select-btn active" style="flex:1; padding:12px;">
+            Right 👉
+          </button>
+        </div>
+      </label>
+
+      <button id="startHandprintCapture" style="width:100%; margin-top:12px; background:#446; font-weight:bold;">
+        Start Capture
+      </button>
+
+      <div id="handprintCaptureStatus" style="margin-top:8px;"></div>
+
+      <details style="margin-top:12px;">
+        <summary><h4 style="font-size:0.9em; margin:0;">Saved Handprints</h4></summary>
+        <div id="savedHandprints" style="margin-top:8px;">
+          <div id="handprintList" style="font-size:0.85em; opacity:0.7;">
+            No handprints captured yet.
+          </div>
+          <button id="exportHandprints" style="width:100%; margin-top:8px; display:none;">
+            Export All Handprints
+          </button>
+          <button id="clearHandprints" class="danger" style="width:100%; margin-top:4px; display:none;">
+            Clear All Handprints
+          </button>
+        </div>
+        <details style="margin-top:12px;">
+          <summary><h4 style="font-size:0.9em; margin:0;">AI Suggestions</h4></summary>
+          <p style="font-size:0.85em; opacity:0.8; margin:4px 0 8px 0;">
+            Generate fingering suggestions based on captured hand geometry.
+          </p>
+
+          <label>
+            <input type="checkbox" id="autoSuggestChords"> Auto-suggest when chord selected
+          </label>
+
+          <label>Hand
+            <select id="suggestionHand">
+              <option value="right">Right</option>
+              <option value="left">Left</option>
+            </select>
+          </label>
+
+          <button id="generateSuggestion" style="width:100%; background:#446; font-weight:bold; margin-top:8px;">
+            Generate Suggestion
+          </button>
+
+          <div id="currentSuggestion" style="margin-top:12px; display:none;">
+            <h4 style="font-size:0.9em; margin:8px 0 4px 0;">Current Suggestion</h4>
+            <div id="suggestionDisplay" style="background:#f5f5f5; padding:8px; border-radius:4px; font-size:0.85em;">
+              <!-- Suggestion will be displayed here -->
+            </div>
+
+            <div style="margin-top:8px;">
+              <label style="display:block; margin-bottom:4px;">
+                Comfort Rating: <span id="comfortRatingValue">3</span>/5
+              </label>
+              <input type="range" id="comfortRating" min="1" max="5" value="3" step="1" style="width:100%;" />
+            </div>
+
+            <div style="margin-top:12px; display:flex; gap:8px;">
+              <button id="saveSuggestion" style="flex:2; background:#446; font-weight:bold;">Save as Pattern</button>
+              <button id="nextSuggestion" style="flex:1; background:#666;">Next</button>
+            </div>
+
+            <div id="suggestionInfo" style="margin-top:8px; font-size:0.8em; opacity:0.7;">
+              Click pads on the grid to modify finger assignments.
+            </div>
+          </div>
+
+          <details style="margin-top:12px;">
+            <summary style="font-size:0.85em;">Exact Match Search</summary>
+            <p style="font-size:0.85em; opacity:0.8; margin:4px 0 8px 0;">
+              Find fingerings that exactly match your handprints.
+            </p>
+
+            <label>Chord Notes
+              <div style="margin-top:8px;">
+                <div style="display:grid; grid-template-columns:repeat(4, 1fr); gap:4px; font-size:0.85em;">
+                  <label style="display:flex; align-items:center; padding:4px; background:#eee; border-radius:3px; cursor:pointer;">
+                    <input type="checkbox" name="chordNote" value="0" style="margin-right:4px;">
+                    <span>C</span>
+                  </label>
+                  <label style="display:flex; align-items:center; padding:4px; background:#ddd; border-radius:3px; cursor:pointer;">
+                    <input type="checkbox" name="chordNote" value="1" style="margin-right:4px;">
+                    <span>C#</span>
+                  </label>
+                  <label style="display:flex; align-items:center; padding:4px; background:#eee; border-radius:3px; cursor:pointer;">
+                    <input type="checkbox" name="chordNote" value="2" style="margin-right:4px;">
+                    <span>D</span>
+                  </label>
+                  <label style="display:flex; align-items:center; padding:4px; background:#ddd; border-radius:3px; cursor:pointer;">
+                    <input type="checkbox" name="chordNote" value="3" style="margin-right:4px;">
+                    <span>D#</span>
+                  </label>
+                  <label style="display:flex; align-items:center; padding:4px; background:#eee; border-radius:3px; cursor:pointer;">
+                    <input type="checkbox" name="chordNote" value="4" style="margin-right:4px;">
+                    <span>E</span>
+                  </label>
+                  <label style="display:flex; align-items:center; padding:4px; background:#eee; border-radius:3px; cursor:pointer;">
+                    <input type="checkbox" name="chordNote" value="5" style="margin-right:4px;">
+                    <span>F</span>
+                  </label>
+                  <label style="display:flex; align-items:center; padding:4px; background:#ddd; border-radius:3px; cursor:pointer;">
+                    <input type="checkbox" name="chordNote" value="6" style="margin-right:4px;">
+                    <span>F#</span>
+                  </label>
+                  <label style="display:flex; align-items:center; padding:4px; background:#eee; border-radius:3px; cursor:pointer;">
+                    <input type="checkbox" name="chordNote" value="7" style="margin-right:4px;">
+                    <span>G</span>
+                  </label>
+                  <label style="display:flex; align-items:center; padding:4px; background:#ddd; border-radius:3px; cursor:pointer;">
+                    <input type="checkbox" name="chordNote" value="8" style="margin-right:4px;">
+                    <span>G#</span>
+                  </label>
+                  <label style="display:flex; align-items:center; padding:4px; background:#eee; border-radius:3px; cursor:pointer;">
+                    <input type="checkbox" name="chordNote" value="9" style="margin-right:4px;">
+                    <span>A</span>
+                  </label>
+                  <label style="display:flex; align-items:center; padding:4px; background:#ddd; border-radius:3px; cursor:pointer;">
+                    <input type="checkbox" name="chordNote" value="10" style="margin-right:4px;">
+                    <span>A#</span>
+                  </label>
+                  <label style="display:flex; align-items:center; padding:4px; background:#eee; border-radius:3px; cursor:pointer;">
+                    <input type="checkbox" name="chordNote" value="11" style="margin-right:4px;">
+                    <span>B</span>
+                  </label>
+                </div>
+              </div>
+            </label>
+
+            <div style="margin-top:12px; display:flex; gap:8px;">
+              <button id="clearChordNotes" style="flex:1; background:#666;">Clear</button>
+              <button id="findChordFingerings" style="flex:2; background:#446; font-weight:bold;">Find Matches</button>
+            </div>
+
+            <div id="chordSuggestionsStatus" style="margin-top:8px;"></div>
+
+            <div id="chordSuggestions" style="margin-top:12px; display:none;">
+              <h4 style="font-size:0.9em; margin:8px 0 4px 0;">Matched Handprints</h4>
+              <div id="suggestionsList" style="font-size:0.85em;">
+                <!-- Matches will be populated here -->
+              </div>
+            </div>
+          </details>
+        </details>
+      </details>
+    </details>
+
+    <div class="sep"></div>
+
+    <!-- Fingering Patterns -->
+    <details>
+      <summary><h3>Fingering Patterns</h3></summary>
+      <label>Pattern Name
+        <input type="text" id="patternName" placeholder="e.g., C7 Root Position" />
+      </label>
+      <button id="savePattern" style="width:100%;">Save Pattern</button>
+      <label>Load Pattern
+        <select id="loadPattern">
+          <option value="">-- Select Pattern --</option>
+        </select>
+      </label>
+      <button id="deletePattern" class="danger" style="width:100%;">Delete Selected</button>
+
+      <div style="margin-top:12px;">
+        <button id="exportPattern" style="width:100%;">Export to JSON</button>
+        <label style="width:100%; display:block; margin-top:4px;">
+          <input type="file" id="importPattern" accept=".json" style="display:none;" />
+          <button id="importPatternBtn" style="width:100%;" type="button">Import from JSON</button>
+        </label>
+      </div>
+    </details>
+
+    <div class="sep"></div>
+
+    <!-- Advanced: Manual Fingering & Scales -->
+    <details>
+      <summary><h3>Advanced: Manual Fingering & Scales</h3></summary>
+
+      <h4 style="margin-top:0;">Manual Fingering Mode</h4>
+      <div id="fingeringModeInfo" class="info-box" style="display:none;">
+        Click pads to assign fingerings. Use keys 1-5 or click buttons below.
+      </div>
+      <label>
+        <input type="checkbox" id="fingeringMode"> Enable Fingering Mode
+      </label>
+      <label>Hand
+        <select id="fingeringHand">
+          <option value="right">Right (red)</option>
+          <option value="left">Left (blue)</option>
+        </select>
+      </label>
+      <div class="button-group">
+        <button id="fingBtn1" class="finger-btn" disabled>1</button>
+        <button id="fingBtn2" class="finger-btn" disabled>2</button>
+        <button id="fingBtn3" class="finger-btn" disabled>3</button>
+        <button id="fingBtn4" class="finger-btn" disabled>4</button>
+        <button id="fingBtn5" class="finger-btn" disabled>5</button>
+      </div>
+      <button id="suggestFingerings" style="width:100%;">Suggest Fingerings for Highlighted Notes</button>
+      <button id="clearFingerings" class="secondary" style="width:100%;">Clear All Fingerings</button>
+
+      <h4 style="margin-top:16px;">Scale/Melodic Patterns</h4>
+      <label>Key
+        <select id="key">
+          <option>C</option><option>C#</option><option>Db</option><option>D</option>
+          <option>D#</option><option>Eb</option><option>E</option><option>F</option>
+          <option>F#</option><option>Gb</option><option>G</option><option>G#</option>
+          <option>Ab</option><option>A</option><option>A#</option><option>Bb</option>
+          <option>B</option>
+        </select>
+      </label>
+      <label>Type
+        <select id="set">
+          <option value="maj">Major scale</option>
+          <option value="natmin">Natural minor</option>
+          <option value="harmin">Harmonic minor</option>
+          <option value="melmin">Melodic minor</option>
+          <option value="dorian">Dorian</option>
+          <option value="phrygian">Phrygian</option>
+          <option value="lydian">Lydian</option>
+          <option value="mixolydian">Mixolydian</option>
+          <option value="majpent">Major pentatonic</option>
+          <option value="minpent">Minor pentatonic</option>
+          <option value="chromatic">Chromatic</option>
+          <option value="custom">Custom (PCs)</option>
+        </select>
+      </label>
+      <label>Custom pitch classes (0–11, comma-separated)
+        <input id="customPC" type="text" placeholder="e.g. 0,2,4,5,7,9,11" disabled />
+      </label>
+
+      <h4 style="margin-top:16px;">Ergonomics</h4>
+      <label>Hand Size Preset
+        <select id="handSize">
+          <option value="small">Small</option>
+          <option value="medium" selected>Medium</option>
+          <option value="large">Large</option>
+          <option value="custom">Custom (from handprints)</option>
+        </select>
+      </label>
+
+      <label>Fingering Type
+        <select id="fingeringType">
+          <option value="chord">Chord (static hand position)</option>
+          <option value="scale">Scale (sequential/moving)</option>
+        </select>
+      </label>
+
+      <button id="analyzeErgo" style="width:100%;">Analyze Fingering</button>
+      <div id="ergoResult"></div>
+    </details>
+
+    <div class="sep"></div>
+
+    <!-- Display Options -->
+    <details>
+      <summary><h3>Display Options</h3></summary>
+      <label>Base MIDI (row0 pad0)
+        <input id="baseMidi" type="number" value="48" min="0" max="120" />
+      </label>
+
+      <h4 style="margin-top:12px;">Orientation</h4>
+      <label><input type="radio" name="ori" value="portrait" checked> Portrait (peaks up)</label>
+      <label><input type="radio" name="ori" value="landscape"> Landscape (flats up)</label>
+
+      <h4>Labels</h4>
+      <label><input type="radio" name="lab" value="pc" checked> Pitch class (0–11)</label>
+      <label><input type="radio" name="lab" value="note"> Note names</label>
+      <label><input type="radio" name="lab" value="midi"> MIDI number</label>
+    </details>
+
+    <div class="sep"></div>
+
+    <!-- MIDI I/O -->
+    <details>
+      <summary><h3>MIDI I/O</h3></summary>
+      <div id="midiStatus" class="warning-box">
+        MIDI not available (use Chrome/Brave/Edge)
+      </div>
+      <button id="enableMidi" style="width:100%;">Enable MIDI</button>
+      <label>MIDI Device
+        <select id="midiDevice" disabled>
+          <option value="">-- No devices --</option>
+        </select>
+      </label>
+
+      <div class="control-row">
+        <label style="flex:2;">
+          Hold Duration
+          <input type="range" id="midiHoldDuration" min="100" max="10000" step="100" value="1000" />
+        </label>
+        <span class="range-value" id="holdDurationValue">1.0s</span>
+      </div>
+
+      <div class="control-row">
+        <label style="flex:2;">
+          Octave Range
+          <input type="range" id="midiOctaveRange" min="0" max="2" step="1" value="0" />
+        </label>
+        <span class="range-value" id="octaveRangeValue">0</span>
+      </div>
+
+      <label><input type="checkbox" id="midiHoldToggle"> Hold Notes (toggle)</label>
+      <button id="midiSendHighlighted" style="width:100%;">Send Highlighted Notes</button>
+    </details>
+
+    <div class="sep"></div>
+
+    <p class="legend">
+      Exquis: 11 rows, alternating 6/5 pads.<br>
+      NW diagonal = minor 3rd up<br>
+      NE diagonal = major 3rd up<br>
+      Row start indexes: 0,4,7,11,14,18,21,25,28,32,35
+    </p>
+  </aside>
+
+  <main>
+    <svg id="grid" aria-label="Exquis hex grid"></svg>
+  </main>
+
+  <script type="module" src="./app.js"></script>
+</body>
+</html>
