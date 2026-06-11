@@ -199,16 +199,6 @@ export default function App() {
     return () => { offTransport(); offRuntime(); offState(); };
   }, []);
 
-  // Plugin: every regeneration updates the host clip (strict transport
-  // sync — the host's play button is the play button) and persists the
-  // session state into the plugin (DAW sessions recall it).
-  useEffect(() => {
-    if (!IN_PLUGIN) return;
-    const { notes, lengthBeats } = voicingsToClip(voicings);
-    bridge.setClip(notes, lengthBeats, { loop: true });
-    bridge.send("enkerliState", { tonic, mode, length, seed, method, curation });
-  }, [voicings, tonic, mode, length, seed, method, curation]);
-
   const labels = useMemo(
     () => generateLabels(table[mode], mode, { length, seed, curation, method }),
     [mode, length, seed, curation, method],
@@ -218,6 +208,19 @@ export default function App() {
     [labels, tonic, mode],
   );
   const voicings = useMemo(() => voiceProgression(chords), [chords]);
+
+  // Plugin: every regeneration updates the host clip (strict transport
+  // sync — the host's play button is the play button) and persists the
+  // session state into the plugin (DAW sessions recall it).
+  // NB: must live AFTER the voicings memo — dependency arrays evaluate at
+  // render time, and a use-before-declare here is a TDZ crash (found by
+  // the WKWebView smoke after shipping blank to an iPad, 2026-06-12).
+  useEffect(() => {
+    if (!IN_PLUGIN) return;
+    const { notes, lengthBeats } = voicingsToClip(voicings);
+    bridge.setClip(notes, lengthBeats, { loop: true });
+    bridge.send("enkerliState", { tonic, mode, length, seed, method, curation });
+  }, [voicings, tonic, mode, length, seed, method, curation]);
 
   const transitions = useMemo(() => {
     const seen = new Set();
