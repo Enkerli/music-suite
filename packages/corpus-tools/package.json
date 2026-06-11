@@ -1,0 +1,19 @@
+{
+  "name": "@enkerli/corpus-tools",
+  "version": "0.1.0",
+  "description": "Lead-sheet corpus pipeline: parsing, key/mode inference, degree assertion, transition-table extraction with audit. Operates on a local corpus directory — no corpus data ships with this package.",
+  "type": "module",
+  "license": "CC0-1.0",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "bin": {
+    "regenerate-transitions": "dist/cli.js"
+  },
+  "scripts": {
+    "build": "tsc -b",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@enkerli/theory": "*"
+  }
+}

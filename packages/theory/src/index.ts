@@ -5,3 +5,5 @@ export * from "./chordDetect.js";
 export * from "./pcs.js";
 export * from "./rhythm.js";
 export * from "./spelling.js";
+export * from "./chordSymbol.js";
+export * from "./analysis.js";

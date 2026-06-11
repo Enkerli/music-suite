@@ -1,0 +1,285 @@
+{
+  "description": "Cross-language vectors for degree assertion (Roman numerals from spelled chord roots in a key context). Strict mode trusts the written spelling (letter distance fixes the degree); respell mode minimizes the alteration enharmonically, ties broken toward flats, and reports the respelling. Minor keys use the natural-minor diatonic frame.",
+  "strict": [
+    {
+      "name": "V7 in Eb",
+      "root": "B♭",
+      "tonic": "E♭",
+      "mode": "major",
+      "numeral": "V"
+    },
+    {
+      "name": "IV in Eb",
+      "root": "A♭",
+      "tonic": "E♭",
+      "mode": "major",
+      "numeral": "IV"
+    },
+    {
+      "name": "VI in Eb (C is the sixth letter)",
+      "root": "C",
+      "tonic": "E♭",
+      "mode": "major",
+      "numeral": "VI"
+    },
+    {
+      "name": "written G# in Eb is #III, not IV",
+      "root": "G♯",
+      "tonic": "E♭",
+      "mode": "major",
+      "numeral": "♯III"
+    },
+    {
+      "name": "written Cb in Eb is bVI",
+      "root": "C♭",
+      "tonic": "E♭",
+      "mode": "major",
+      "numeral": "♭VI"
+    },
+    {
+      "name": "tritone sub: Db in C is bII",
+      "root": "D♭",
+      "tonic": "C",
+      "mode": "major",
+      "numeral": "♭II"
+    },
+    {
+      "name": "F# in C is #IV",
+      "root": "F♯",
+      "tonic": "C",
+      "mode": "major",
+      "numeral": "♯IV"
+    },
+    {
+      "name": "D# in C is #II (written sharp)",
+      "root": "D♯",
+      "tonic": "C",
+      "mode": "major",
+      "numeral": "♯II"
+    },
+    {
+      "name": "Cb in C is bI (written, exotic)",
+      "root": "C♭",
+      "tonic": "C",
+      "mode": "major",
+      "numeral": "♭I"
+    },
+    {
+      "name": "V in A minor",
+      "root": "E",
+      "tonic": "A",
+      "mode": "minor",
+      "numeral": "V"
+    },
+    {
+      "name": "leading-tone dim in A minor is #VII",
+      "root": "G♯",
+      "tonic": "A",
+      "mode": "minor",
+      "numeral": "♯VII"
+    },
+    {
+      "name": "VI in C minor is natural (Ab)",
+      "root": "A♭",
+      "tonic": "C",
+      "mode": "minor",
+      "numeral": "VI"
+    },
+    {
+      "name": "VII in C minor is natural (Bb)",
+      "root": "B♭",
+      "tonic": "C",
+      "mode": "minor",
+      "numeral": "VII"
+    },
+    {
+      "name": "B natural in C minor is #VII",
+      "root": "B",
+      "tonic": "C",
+      "mode": "minor",
+      "numeral": "♯VII"
+    },
+    {
+      "name": "sharp-key context: A# in F# major is III",
+      "root": "A♯",
+      "tonic": "F♯",
+      "mode": "major",
+      "numeral": "III"
+    }
+  ],
+  "respell": [
+    {
+      "name": "G# in Eb respells to Ab = IV",
+      "root": "G♯",
+      "tonic": "E♭",
+      "mode": "major",
+      "numeral": "IV",
+      "rootUsed": "A♭",
+      "respelled": true
+    },
+    {
+      "name": "D# in C respells to Eb = bIII (flat tie-break)",
+      "root": "D♯",
+      "tonic": "C",
+      "mode": "major",
+      "numeral": "♭III",
+      "rootUsed": "E♭",
+      "respelled": true
+    },
+    {
+      "name": "Cb in C respells to B = VII",
+      "root": "C♭",
+      "tonic": "C",
+      "mode": "major",
+      "numeral": "VII",
+      "rootUsed": "B",
+      "respelled": true
+    },
+    {
+      "name": "already diatonic: Bb in Eb stays V",
+      "root": "B♭",
+      "tonic": "E♭",
+      "mode": "major",
+      "numeral": "V",
+      "rootUsed": "B♭",
+      "respelled": false
+    },
+    {
+      "name": "Db in C stays bII (already minimal)",
+      "root": "D♭",
+      "tonic": "C",
+      "mode": "major",
+      "numeral": "♭II",
+      "rootUsed": "D♭",
+      "respelled": false
+    },
+    {
+      "name": "A in Eb stays #IV (no B-double-flat nonsense)",
+      "root": "A",
+      "tonic": "E♭",
+      "mode": "major",
+      "numeral": "♯IV",
+      "rootUsed": "A",
+      "respelled": false
+    },
+    {
+      "name": "E in Eb stays #I (passing-dim territory)",
+      "root": "E",
+      "tonic": "E♭",
+      "mode": "major",
+      "numeral": "♯I",
+      "rootUsed": "E",
+      "respelled": false
+    },
+    {
+      "name": "F# in C reads bV under flat tie-break",
+      "root": "F♯",
+      "tonic": "C",
+      "mode": "major",
+      "numeral": "♭V",
+      "rootUsed": "G♭",
+      "respelled": true
+    }
+  ],
+  "symbols": [
+    {
+      "symbol": "Bbm7",
+      "rootName": "B♭",
+      "suffix": "m7",
+      "qualityKey": "min7"
+    },
+    {
+      "symbol": "EbM7",
+      "rootName": "E♭",
+      "suffix": "M7",
+      "qualityKey": "maj7"
+    },
+    {
+      "symbol": "F7#5b9",
+      "rootName": "F",
+      "suffix": "7#5b9",
+      "qualityKey": "7#5b9"
+    },
+    {
+      "symbol": "G#dim7",
+      "rootName": "G♯",
+      "suffix": "dim7",
+      "qualityKey": "dim7"
+    },
+    {
+      "symbol": "Cm7/Bb",
+      "rootName": "C",
+      "suffix": "m7",
+      "qualityKey": "min7",
+      "bassName": "B♭"
+    },
+    {
+      "symbol": "A69",
+      "rootName": "A",
+      "suffix": "69",
+      "qualityKey": "6add9"
+    },
+    {
+      "symbol": "Eb7alt",
+      "rootName": "E♭",
+      "suffix": "7alt",
+      "qualityKey": "alt7"
+    },
+    {
+      "symbol": "Bh7",
+      "rootName": "B",
+      "suffix": "h7",
+      "qualityKey": "m7b5"
+    },
+    {
+      "symbol": "C7+",
+      "rootName": "C",
+      "suffix": "7+",
+      "qualityKey": "aug7"
+    },
+    {
+      "symbol": "FmM7",
+      "rootName": "F",
+      "suffix": "mM7",
+      "qualityKey": "minMaj7"
+    },
+    {
+      "symbol": "Db7sus",
+      "rootName": "D♭",
+      "suffix": "7sus",
+      "qualityKey": "7sus4"
+    },
+    {
+      "symbol": "G7b9b5",
+      "rootName": "G",
+      "suffix": "7b9b5",
+      "qualityKey": null
+    },
+    {
+      "symbol": "Cbmaj7#11",
+      "rootName": "C♭",
+      "suffix": "maj7#11",
+      "qualityKey": null
+    }
+  ],
+  "respellSharpTieBreak": [
+    {
+      "name": "C# in C with sharp tie-break stays #I (dim family)",
+      "root": "C♯",
+      "tonic": "C",
+      "mode": "major",
+      "numeral": "♯I",
+      "rootUsed": "C♯",
+      "respelled": false
+    },
+    {
+      "name": "Db in C with sharp tie-break becomes #I",
+      "root": "D♭",
+      "tonic": "C",
+      "mode": "major",
+      "numeral": "♯I",
+      "rootUsed": "C♯",
+      "respelled": true
+    }
+  ]
+}
