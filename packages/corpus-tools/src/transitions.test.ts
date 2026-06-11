@@ -103,3 +103,39 @@ describe("transition extraction", () => {
     expect(Object.keys(audit.respelled)).toContain("G♯→A♭ in E♭ major");
   });
 });
+
+describe("Impro-Visor adapter", async () => {
+  const { keySigFromSharps, parseImproVisorLeadSheet } = await import("./improvisor.js");
+
+  it("maps sharps counts to spelled tonics", () => {
+    expect(keySigFromSharps(0)).toBe("C");
+    expect(keySigFromSharps(-3)).toBe("E♭");
+    expect(keySigFromSharps(3)).toBe("A");
+    expect(keySigFromSharps(6)).toBe("F♯");
+    expect(keySigFromSharps(-6)).toBe("G♭");
+    expect(keySigFromSharps(-7)).toBe("C♭");
+    expect(keySigFromSharps(8)).toBeUndefined();
+  });
+
+  it("parses headers, chord grid, slash repeats; skips melody", () => {
+    const ls = `(title Test Tune)
+(composer Fixture)
+(meter 4 4)
+(key -3)
+(section (style swing))
+
+EbM7 | Bbm7 Eb7 | AbM7 | / |
+(part
+    (type melody)
+)
+ r1+1 g8 a8 b8 c8 | d4 e4 |
+`;
+    const sheet = parseImproVisorLeadSheet(ls);
+    expect(sheet.title).toBe("Test Tune");
+    expect(sheet.keySig).toBe("E♭");
+    expect(sheet.timeSig).toBe("4 4");
+    expect(sheet.bars).toHaveLength(4);
+    expect(sheet.bars[3]).toEqual(["AbM7"]); // '/' expanded to previous chord
+    expect(sheet.issues).toEqual([]);
+  });
+});

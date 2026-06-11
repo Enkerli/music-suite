@@ -253,13 +253,37 @@
       "symbol": "G7b9b5",
       "rootName": "G",
       "suffix": "7b9b5",
-      "qualityKey": null
+      "qualityKey": "7b5b9"
     },
     {
       "symbol": "Cbmaj7#11",
       "rootName": "C♭",
       "suffix": "maj7#11",
-      "qualityKey": null
+      "qualityKey": "maj#4"
+    },
+    {
+      "symbol": "Gadd9no3",
+      "rootName": "G",
+      "suffix": "add9no3",
+      "qualityKey": "add9no3"
+    },
+    {
+      "symbol": "Gm11b5",
+      "rootName": "G",
+      "suffix": "m11b5",
+      "qualityKey": "m11b5"
+    },
+    {
+      "symbol": "G7b5#9",
+      "rootName": "G",
+      "suffix": "7b5#9",
+      "qualityKey": "7b5#9"
+    },
+    {
+      "symbol": "GM7#9b5",
+      "rootName": "G",
+      "suffix": "M7#9b5",
+      "qualityKey": "M7#9b5"
     }
   ],
   "respellSharpTieBreak": [

@@ -1,6 +1,6 @@
 {
-  "description": "Cross-language vectors for chord detection from pitch classes (no register). Generated from the @enkerli/theory reference implementation (ported from MIDIcurator, verified by its original test suite). Symbols use the suite display convention (∆, -7, ø…).",
-  "dictionarySize": 167,
+  "description": "Cross-language vectors for chord detection from pitch classes (no register). Generated from the @enkerli/theory reference implementation (ported from MIDIcurator, verified by its original test suite). Symbols use the suite display convention (∆, -7, ø…). Note: adding qualities can re-resolve exact-match ties (lower root wins); e.g. {Bb,D,F,Ab,E} reads as both Bb7#11 and its tritone twin E7b5b9 — E wins by the lower-root rule since 2026-06-11.",
+  "dictionarySize": 172,
   "cases": [
     {
       "name": "C major",
@@ -156,7 +156,7 @@
       }
     },
     {
-      "name": "Bb7#11",
+      "name": "Bb7#11 = E7b5b9 tritone twins (lower root wins)",
       "pcs": [
         10,
         2,
@@ -165,9 +165,9 @@
         4
       ],
       "match": {
-        "root": 10,
-        "qualityKey": "7#11",
-        "symbol": "B♭7#11"
+        "root": 4,
+        "qualityKey": "7b5b9",
+        "symbol": "E7♭5♭9"
       }
     },
     {

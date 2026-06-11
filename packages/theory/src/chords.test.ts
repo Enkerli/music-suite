@@ -125,8 +125,8 @@ describe('lookupByDecimal', () => {
 });
 
 describe('getAllQualities', () => {
-  it('returns all 167 qualities', () => {
-    expect(getAllQualities().length).toBe(167);
+  it('returns all 172 qualities', () => {
+    expect(getAllQualities().length).toBe(172);
   });
 
   it('each quality has required fields', () => {
@@ -143,8 +143,8 @@ describe('getAllQualities', () => {
 });
 
 describe('dictionarySize', () => {
-  it('returns 167', () => {
-    expect(dictionarySize()).toBe(167);
+  it('returns 172', () => {
+    expect(dictionarySize()).toBe(172);
   });
 });
 

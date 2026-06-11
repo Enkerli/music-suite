@@ -402,6 +402,12 @@ const CHORD_QUALITIES: ChordQuality[] = [
   // ── Qualities identified from Apple Loop Sequ analysis (batch 6) ─────────
   { key: "7b9#5no3",    fullName: "dominant seventh flat ninth sharp fifth no third",          displayName: "(7,♭9,♯5)",   pcs: [0,1,8,10],      binary: "110000001010", decimal: 3082, intervals: ["R","♭9","♯5","♭7"],                  aliases: ["7b9#5no3","5(7,♭9,♯5)"] },
   { key: "6#9",         fullName: "major sixth sharp ninth",                                   displayName: "6(♯9)",       pcs: [0,3,4,7,9],     binary: "100110010100", decimal: 2452, intervals: ["R","♯9","3","5","6"],                  aliases: ["6#9","6(♯9)"] },
+  // ── Qualities identified from the Bunks corpus pipeline audit (2026-06-11) ──
+  { key: "7b5b9",       fullName: "dominant seventh flat fifth flat ninth",                    displayName: "7♭5♭9",       pcs: [0,4,6,10,1],    binary: "110010100010", decimal: 3234, intervals: ["R","3","♭5","♭7","♭9"],                aliases: ["7b5b9","7b9b5"] },
+  { key: "7b5#9",       fullName: "dominant seventh flat fifth sharp ninth",                   displayName: "7♭5♯9",       pcs: [0,4,6,10,3],    binary: "100110100010", decimal: 2466, intervals: ["R","3","♭5","♭7","♯9"],                aliases: ["7b5#9","7#9b5"] },
+  { key: "M7#9b5",      fullName: "major seventh flat fifth sharp ninth",                      displayName: "∆♭5♯9",       pcs: [0,4,6,11,3],    binary: "100110100001", decimal: 2465, intervals: ["R","3","♭5","7","♯9"],                 aliases: ["M7#9b5","maj7#9b5","M7b5#9"] },
+  { key: "add9no3",     fullName: "added ninth no third",                                      displayName: "add9no3",     pcs: [0,7,2],         binary: "101000010000", decimal: 2576, intervals: ["R","5","9"],                            aliases: ["add9no3","add9(no3)"] },
+  { key: "m11b5",       fullName: "minor eleventh flat fifth",                                 displayName: "ø11",         pcs: [0,3,6,10,2,5],  binary: "101101100010", decimal: 2914, intervals: ["R","♭3","♭5","♭7","9","11"],            aliases: ["m11b5","ø11","m11(b5)"] },
 ];
 
 // ─── Lookup index ──────────────────────────────────────────────────────
@@ -413,7 +419,10 @@ const CHORD_QUALITIES: ChordQuality[] = [
 const DECIMAL_INDEX: Map<number, ChordQuality> = new Map();
 
 for (const q of CHORD_QUALITIES) {
-  DECIMAL_INDEX.set(q.decimal, q);
+  // First entry wins: enharmonically/structurally equivalent later entries
+  // (e.g. add9no3 vs sus2 — same PCS) parse by name but never change
+  // what detection reports for the shared fingerprint.
+  if (!DECIMAL_INDEX.has(q.decimal)) DECIMAL_INDEX.set(q.decimal, q);
 }
 
 /**

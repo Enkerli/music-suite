@@ -11,6 +11,7 @@
 import { readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { looksLikeLeadSheet, parseLeadSheet } from "./leadsheet.js";
+import { looksLikeImproVisor, parseImproVisorLeadSheet } from "./improvisor.js";
 import { extractTransitions } from "./transitions.js";
 
 const args = process.argv.slice(2);
@@ -26,13 +27,17 @@ if (!corpusDir || !outPrefix) {
 const sheets = [];
 let nonSheets = 0;
 for (const name of readdirSync(corpusDir).sort()) {
-  if (!name.endsWith(".txt")) continue;
+  const isTxt = name.endsWith(".txt");
+  const isLs = name.endsWith(".ls");
+  if (!isTxt && !isLs) continue;
   const text = readFileSync(join(corpusDir, name), "utf8");
-  if (!looksLikeLeadSheet(text)) {
+  if (isLs && looksLikeImproVisor(text)) {
+    sheets.push(parseImproVisorLeadSheet(text));
+  } else if (isTxt && looksLikeLeadSheet(text)) {
+    sheets.push(parseLeadSheet(text));
+  } else {
     nonSheets += 1;
-    continue;
   }
-  sheets.push(parseLeadSheet(text));
 }
 
 const { major, minor, audit } = extractTransitions(sheets, { respell });
