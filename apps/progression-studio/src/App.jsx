@@ -1,7 +1,12 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import table from "./data/transitions.json";
 import { generateLabels, labelMass, realizeLabel, startLabel, voiceProgression } from "./generate.js";
-import { downloadProgression } from "./exportMidi.js";
+import { downloadProgression, voicingsToClip } from "./exportMidi.js";
+import { createBridge } from "./juceBridge.js";
+
+// Module singleton: detected once, same UI runs in browser and plugin.
+const bridge = createBridge();
+const IN_PLUGIN = bridge.kind === "juce";
 import {
   adjustTransition,
   exportCuration,
@@ -169,9 +174,38 @@ export default function App() {
   const [bpm, setBpm] = useState(120);
   const [curation, setCuration] = useState(loadCuration);
   const [showCuration, setShowCuration] = useState(true);
+  const [host, setHost] = useState({ playing: false, bpm: 0 });
   const { play, stop, playing, playhead } = usePlayer();
 
   useEffect(() => { saveCuration(curation); }, [curation]);
+
+  // Plugin integration: host transport display + session-state restore.
+  useEffect(() => {
+    if (!IN_PLUGIN) return;
+    const offTransport = bridge.on("transport", (t) => setHost({ playing: !!t.playing, bpm: t.bpm || 0 }));
+    const offState = bridge.on("state", (s) => {
+      try {
+        if (s.tonic) setTonic(s.tonic);
+        if (s.mode) setMode(s.mode);
+        if (s.length) setLength(s.length);
+        if (s.seed !== undefined) setSeed(s.seed);
+        if (s.method) setMethod(s.method);
+        if (s.curation && typeof s.curation.multipliers === "object") setCuration(s.curation);
+      } catch { /* malformed saved state — keep defaults */ }
+    });
+    bridge.ready();
+    return () => { offTransport(); offState(); };
+  }, []);
+
+  // Plugin: every regeneration updates the host clip (strict transport
+  // sync — the host's play button is the play button) and persists the
+  // session state into the plugin (DAW sessions recall it).
+  useEffect(() => {
+    if (!IN_PLUGIN) return;
+    const { notes, lengthBeats } = voicingsToClip(voicings);
+    bridge.setClip(notes, lengthBeats, { loop: true });
+    bridge.send("enkerliState", { tonic, mode, length, seed, method, curation });
+  }, [voicings, tonic, mode, length, seed, method, curation]);
 
   const labels = useMemo(
     () => generateLabels(table[mode], mode, { length, seed, curation, method }),
@@ -219,6 +253,7 @@ export default function App() {
           <h1 style={{ fontSize: "var(--es-text-xl)", margin: 0 }}>Progression Studio</h1>
           <p style={{ color: "var(--es-fg-muted)", fontSize: "var(--es-text-sm)", margin: "var(--es-space-1) 0 0" }}>
             Markov walk over {Object.keys(table[mode]).length} degree labels from 2,611 jazz lead sheets
+            {IN_PLUGIN && <> · host {host.playing ? "playing" : "stopped"}{host.bpm ? ` · ${Math.round(host.bpm)} bpm` : ""}</>}
             {curatedEntries.length > 0 && <> · {curatedEntries.length} curated weight{curatedEntries.length > 1 ? "s" : ""}</>}
           </p>
         </header>
@@ -247,18 +282,18 @@ export default function App() {
               {[8, 12, 16, 24, 32].map((n) => <option key={n} value={n}>{n}</option>)}
             </select>
           </label>
-          <label style={{ display: "grid", gap: 4, fontSize: "var(--es-text-sm)" }}>Tempo
+          {!IN_PLUGIN && <label style={{ display: "grid", gap: 4, fontSize: "var(--es-text-sm)" }}>Tempo
             <input style={{ ...control, width: 72 }} type="number" min="40" max="300" value={bpm} onChange={(e) => setBpm(Number(e.target.value))} />
-          </label>
+          </label>}
           <button style={{ ...control, padding: "0 var(--es-space-4)", cursor: "pointer" }} onClick={() => setSeed((s) => s + 1)}>
             New progression
           </button>
-          <button
+          {!IN_PLUGIN && <button
             style={{ ...control, padding: "0 var(--es-space-4)", cursor: "pointer", background: "var(--es-accent)", color: "var(--es-accent-fg)", border: "none" }}
             onClick={() => (playing ? stop() : play(voicings, bpm))}
           >
             {playing ? "Stop" : "Play"}
-          </button>
+          </button>}
           <button
             style={{ ...control, padding: "0 var(--es-space-4)", cursor: "pointer" }}
             onClick={() => navigator.clipboard?.writeText(chords.map((c) => c.symbol).join(" | "))}

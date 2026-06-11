@@ -10,21 +10,35 @@ import { createSMF } from "@enkerli/midi";
 export const TICKS_PER_BEAT = 480;
 export const BEATS_PER_CHORD = 2;
 
-/** Build SMF bytes from voiced chords (see generate.js voiceProgression). */
-export function progressionToSMF(voicings, { bpm = 120, name = "Progression" } = {}) {
-  const ticksPerChord = TICKS_PER_BEAT * BEATS_PER_CHORD;
+/**
+ * Beat-positioned clip from voiced chords — shared by SMF export and the
+ * plugin bridge (enkerli MidiClipScheduler takes the same shape).
+ */
+export function voicingsToClip(voicings) {
   const notes = [];
-  const markers = [];
-
   voicings.forEach((v, i) => {
-    const startTick = i * ticksPerChord;
-    markers.push({ tick: startTick, text: `${v.symbol} (${v.label})` });
-    notes.push({ pitch: v.bass, startTick, durationTicks: ticksPerChord, velocity: 88 });
+    const startBeat = i * BEATS_PER_CHORD;
+    notes.push({ startBeat, lengthBeats: BEATS_PER_CHORD, pitch: v.bass, velocity: 88, channel: 1 });
     for (const pitch of v.notes) {
-      notes.push({ pitch, startTick, durationTicks: ticksPerChord, velocity: 72 });
+      notes.push({ startBeat, lengthBeats: BEATS_PER_CHORD, pitch, velocity: 72, channel: 1 });
     }
   });
+  return { notes, lengthBeats: voicings.length * BEATS_PER_CHORD };
+}
 
+/** Build SMF bytes from voiced chords (see generate.js voiceProgression). */
+export function progressionToSMF(voicings, { bpm = 120, name = "Progression" } = {}) {
+  const { notes: clipNotes } = voicingsToClip(voicings);
+  const markers = voicings.map((v, i) => ({
+    tick: i * TICKS_PER_BEAT * BEATS_PER_CHORD,
+    text: `${v.symbol} (${v.label})`,
+  }));
+  const notes = clipNotes.map((n) => ({
+    pitch: n.pitch,
+    startTick: Math.round(n.startBeat * TICKS_PER_BEAT),
+    durationTicks: Math.round(n.lengthBeats * TICKS_PER_BEAT),
+    velocity: n.velocity,
+  }));
   return createSMF(notes, { bpm, ticksPerBeat: TICKS_PER_BEAT, trackName: name, markers });
 }
 
