@@ -1,6 +1,19 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import table from "./data/transitions.json";
 import { generateProgression, realizeLabel, voiceProgression } from "./generate.js";
+import {
+  adjustTransition,
+  exportCuration,
+  importCuration,
+  loadCuration,
+  multiplierFor,
+  pairKey,
+  PROGRESSION_STEP,
+  rateProgression,
+  resetTransition,
+  saveCuration,
+  TRANSITION_STEP,
+} from "./curation.js";
 
 const ROOTS = [
   "C", "C♯", "D♭", "D", "D♯", "E♭", "E", "F",
@@ -14,6 +27,14 @@ const control = {
   border: "1px solid var(--es-border)",
   background: "var(--es-bg-raised)",
   color: "var(--es-fg)",
+  padding: "0 var(--es-space-2)",
+};
+const smallBtn = {
+  ...control,
+  minHeight: 32,
+  minWidth: 32,
+  fontSize: "var(--es-text-sm)",
+  cursor: "pointer",
   padding: "0 var(--es-space-2)",
 };
 
@@ -33,7 +54,7 @@ function usePlayer() {
     stopRef.current();
     const ctx = (ctxRef.current ??= new (window.AudioContext || window.webkitAudioContext)());
     const beat = 60 / bpm;
-    const barDur = 2 * beat; // two beats per chord keeps audition brisk
+    const barDur = 2 * beat;
     const t0 = ctx.currentTime + 0.05;
     const nodes = [];
     const timers = [];
@@ -68,23 +89,70 @@ function usePlayer() {
   return { play, stop, playing, playhead };
 }
 
+function MultiplierBadge({ value }) {
+  if (Math.abs(value - 1) < 1e-9) return null;
+  const up = value > 1;
+  return (
+    <span style={{
+      fontSize: "var(--es-text-xs)",
+      fontFamily: "var(--es-font-mono)",
+      padding: "1px 6px",
+      borderRadius: 999,
+      background: up ? "var(--es-accent)" : "var(--es-border)",
+      color: up ? "var(--es-accent-fg)" : "var(--es-fg)",
+    }}>
+      ×{value >= 1 ? value.toFixed(2).replace(/\.?0+$/, "") : value.toPrecision(2)}
+    </span>
+  );
+}
+
 export default function App() {
   const [tonic, setTonic] = useState("C");
   const [mode, setMode] = useState("major");
   const [length, setLength] = useState(16);
   const [seed, setSeed] = useState(1);
   const [bpm, setBpm] = useState(120);
+  const [curation, setCuration] = useState(loadCuration);
+  const [showCuration, setShowCuration] = useState(true);
   const { play, stop, playing, playhead } = usePlayer();
 
+  useEffect(() => { saveCuration(curation); }, [curation]);
+
   const labels = useMemo(
-    () => generateProgression(table[mode], mode, length, seed),
-    [mode, length, seed],
+    () => generateProgression(table[mode], mode, length, seed, curation),
+    [mode, length, seed, curation],
   );
   const chords = useMemo(
     () => labels.map((l) => realizeLabel(l, { tonic, mode })).filter(Boolean),
     [labels, tonic, mode],
   );
   const voicings = useMemo(() => voiceProgression(chords), [chords]);
+
+  const transitions = useMemo(() => {
+    const seen = new Set();
+    const out = [];
+    for (let i = 1; i < labels.length; i++) {
+      if (labels[i - 1] === labels[i]) continue;
+      const key = pairKey(labels[i - 1], labels[i]);
+      if (seen.has(key)) continue;
+      seen.add(key);
+      out.push({ from: labels[i - 1], to: labels[i], key });
+    }
+    return out;
+  }, [labels]);
+
+  const curatedEntries = Object.entries(curation.multipliers)
+    .sort((a, b) => b[1] - a[1]);
+
+  function importProfile() {
+    const json = window.prompt("Paste a curation profile (JSON):");
+    if (!json) return;
+    try {
+      setCuration(importCuration(json));
+    } catch {
+      window.alert("That doesn't look like a curation profile.");
+    }
+  }
 
   const rows = [];
   for (let i = 0; i < chords.length; i += 4) rows.push(chords.slice(i, i + 4));
@@ -96,6 +164,7 @@ export default function App() {
           <h1 style={{ fontSize: "var(--es-text-xl)", margin: 0 }}>Progression Studio</h1>
           <p style={{ color: "var(--es-fg-muted)", fontSize: "var(--es-text-sm)", margin: "var(--es-space-1) 0 0" }}>
             Markov walk over {Object.keys(table[mode]).length} degree labels from 2,611 jazz lead sheets
+            {curatedEntries.length > 0 && <> · {curatedEntries.length} curated weight{curatedEntries.length > 1 ? "s" : ""}</>}
           </p>
         </header>
 
@@ -158,11 +227,85 @@ export default function App() {
               })}
             </div>
           ))}
+
+          <div style={{ display: "flex", gap: "var(--es-space-2)", marginTop: "var(--es-space-4)", flexWrap: "wrap" }}>
+            <button
+              style={{ ...control, cursor: "pointer", padding: "0 var(--es-space-3)" }}
+              title={`Multiply every transition in this progression by ${PROGRESSION_STEP}`}
+              onClick={() => setCuration((c) => rateProgression(c, labels, PROGRESSION_STEP))}
+            >
+              👍 More like this
+            </button>
+            <button
+              style={{ ...control, cursor: "pointer", padding: "0 var(--es-space-3)" }}
+              title={`Divide every transition in this progression by ${PROGRESSION_STEP}`}
+              onClick={() => setCuration((c) => rateProgression(c, labels, 1 / PROGRESSION_STEP))}
+            >
+              👎 Bit meh
+            </button>
+            <button
+              style={{ ...smallBtn, marginLeft: "auto" }}
+              onClick={() => setShowCuration((s) => !s)}
+              aria-expanded={showCuration}
+            >
+              {showCuration ? "Hide curation ▾" : "Curation ▸"}
+            </button>
+          </div>
         </div>
+
+        {showCuration && (
+          <div style={{ background: "var(--es-bg-raised)", border: "1px solid var(--es-border)", borderRadius: "var(--es-radius-md)", padding: "var(--es-space-4)", marginTop: "var(--es-space-3)" }}>
+            <h2 style={{ fontSize: "var(--es-text-md)", margin: "0 0 var(--es-space-2)" }}>Transitions in this progression</h2>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: "var(--es-space-2)" }}>
+              {transitions.map(({ from, to, key }) => {
+                const mult = multiplierFor(curation, from, to);
+                return (
+                  <div key={key} style={{ display: "flex", alignItems: "center", gap: "var(--es-space-2)", fontSize: "var(--es-text-sm)" }}>
+                    <span style={{ flex: 1, fontFamily: "var(--es-font-mono)" }}>{key}</span>
+                    <MultiplierBadge value={mult} />
+                    <button style={smallBtn} aria-label={`Emphasize ${key}`} title="Sounds good — emphasize"
+                      onClick={() => setCuration((c) => adjustTransition(c, from, to, TRANSITION_STEP))}>▲</button>
+                    <button style={smallBtn} aria-label={`De-emphasize ${key}`} title="De-emphasize"
+                      onClick={() => setCuration((c) => adjustTransition(c, from, to, 1 / TRANSITION_STEP))}>▼</button>
+                  </div>
+                );
+              })}
+            </div>
+
+            {curatedEntries.length > 0 && (
+              <>
+                <h2 style={{ fontSize: "var(--es-text-md)", margin: "var(--es-space-4) 0 var(--es-space-2)" }}>
+                  Curated weights ({curatedEntries.length})
+                </h2>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: "var(--es-space-2)" }}>
+                  {curatedEntries.map(([key, value]) => (
+                    <div key={key} style={{ display: "flex", alignItems: "center", gap: "var(--es-space-2)", fontSize: "var(--es-text-sm)" }}>
+                      <span style={{ flex: 1, fontFamily: "var(--es-font-mono)" }}>{key}</span>
+                      <MultiplierBadge value={value} />
+                      <button style={smallBtn} aria-label={`Reset ${key}`} title="Reset to corpus weight"
+                        onClick={() => setCuration((c) => resetTransition(c, key))}>↺</button>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+
+            <div style={{ display: "flex", gap: "var(--es-space-2)", marginTop: "var(--es-space-4)", flexWrap: "wrap" }}>
+              <button style={smallBtn} onClick={() => navigator.clipboard?.writeText(exportCuration(curation))}>
+                Copy profile
+              </button>
+              <button style={smallBtn} onClick={importProfile}>Import profile…</button>
+              <button style={smallBtn} onClick={() => window.confirm("Reset all curated weights?") && setCuration({ multipliers: {} })}>
+                Reset all
+              </button>
+            </div>
+          </div>
+        )}
 
         <footer style={{ marginTop: "var(--es-space-4)", color: "var(--es-fg-muted)", fontSize: "var(--es-text-sm)" }}>
           Transition statistics derived from the Impro-Visor imaginary-book corpus
           (github.com/Impro-Visor/Impro-Visor, GPL) — counts of chord changes only.
+          Curation multiplies those counts locally (saved in this browser; export to share).
           Degree labels per the suite conventions; voicings via minimal (taxicab) voice leading.
         </footer>
       </div>

@@ -8,6 +8,7 @@
  * pitch classes, and minimalVoiceLeading smooths the playback voicings.
  */
 
+import { effectiveRow } from "./curation.js";
 import {
   findQualityByKey,
   minimalVoiceLeading,
@@ -50,6 +51,9 @@ function weightedPick(row, rng) {
   return Object.keys(row)[0];
 }
 
+/** Identity curation used when none is supplied. */
+const NO_CURATION = { multipliers: {} };
+
 /** Most common tonic-family label to start from, per mode. */
 export function startLabel(table, mode) {
   const preferred = mode === "minor" ? ["Im7", "Im", "Im6", "ImM7"] : ["Imaj7", "I", "I6"];
@@ -67,15 +71,18 @@ export function startLabel(table, mode) {
 /**
  * Generate a progression of `length` labels by weighted Markov walk.
  * Dead ends (labels with no outgoing row) restart from the start label.
+ * `curation` (optional) multiplies corpus counts per transition — the
+ * ear-driven layer (see curation.js); generation stays deterministic
+ * for a given (seed, curation) pair.
  */
-export function generateProgression(table, mode, length, seed) {
+export function generateProgression(table, mode, length, seed, curation = NO_CURATION) {
   const rng = mulberry32(seed);
   const start = startLabel(table, mode);
   const labels = [start];
   let current = start;
   while (labels.length < length) {
     const row = table[current];
-    current = row ? weightedPick(row, rng) : start;
+    current = row ? weightedPick(effectiveRow(row, current, curation), rng) : start;
     labels.push(current);
   }
   return labels;
