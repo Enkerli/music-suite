@@ -87,6 +87,11 @@ export interface DegreeChordInfo {
  * PickPCS's lightweight degree-chord classifier (triads, sus4, common
  * sevenths). Distinct from the full 146-quality detector in chordDetect.ts —
  * this one labels diatonic stacks for ring display and Roman numerals.
+ *
+ * ⚠️ The `name` field uses chromatic PC display (rootName) — correct for
+ * PickPCS's context-free ring, but NOT proper spelling. Scale-degree and
+ * functional-analysis work must spell from a named root via spelling.ts
+ * (see CONVENTIONS.md).
  */
 export function classifyDegreeChord(pcsInput: number[]): DegreeChordInfo {
   const pcs = [...pcsInput].sort((a, b) => a - b);

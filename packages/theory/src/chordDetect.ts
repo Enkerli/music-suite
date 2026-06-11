@@ -17,6 +17,7 @@
 import {
   type ChordMatch,
   type ChordQuality,
+  buildChordToneSpellingMap,
   lookupByDecimal,
   pcsToDecimal,
   rotatePcs,
@@ -202,7 +203,10 @@ function buildMatch(
     const lowestPc = ((lowestPitch % 12) + 12) % 12;
     if (lowestPc !== root && templateSet.has(lowestPc)) {
       bassPc = lowestPc;
-      bassName = spellInChordContext(lowestPc, root, rn);
+      // The bass is a chord tone, so it gets proper structural spelling
+      // (letter from interval degree); spellInChordContext stays for NCTs.
+      bassName = buildChordToneSpellingMap(root, quality, rn).get(lowestPc)
+        ?? spellInChordContext(lowestPc, root, rn);
       bassSuffix = `/${bassName}`;
     }
   }

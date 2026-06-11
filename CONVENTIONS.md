@@ -1,5 +1,46 @@
 # Suite conventions
 
+## Note spelling in chords and scales — structural, never chromatic-table lookup
+
+**In a chord or scale context, notes are called by their proper names.**
+B♯ is the same pitch class as C and F♭ the same as E, but from G♯ the major
+third is **B♯** — C would be a diminished fourth. Proper names are derived
+structurally, never by looking a pitch class up in a chromatic table:
+
+1. **The interval's degree fixes the letter.** A third above G♯ is some kind
+   of B; a seventh above G♯ is some kind of F. Compound degrees keep their
+   letter (9th = 2nd, 11th = 4th, 13th = 6th).
+2. **The interval's size in semitones fixes the alteration.** G♯ + 4
+   semitones on letter B → B♯; G♯maj7's seventh → F𝄪. Double accidentals
+   are correct outcomes, not errors.
+3. **Heptatonic scales use seven consecutive letters, one each.**
+   F♯ major ends with E♯; C♭ major contains F♭.
+4. **The root's spelling is the only free enharmonic choice.** Once the root
+   is named (G♯ vs A♭), every chord tone and scale degree follows
+   deterministically. This is what makes scale-degree work and functional
+   analysis trustworthy.
+
+**Pitch-class sets are different.** A bare PCS has no proper spelling —
+there is no way to tell G from F𝄪 without context. Context-free PCS display
+uses chromatic names (a declared sharp/flat policy) and that's fine; what's
+forbidden is using chromatic tables where a chord/scale context exists.
+
+Reference implementation: `@enkerli/theory` `spelling.ts`
+(`parseSpelled`, `transposeSpelled`, `spellChordTones`, `spellScale`),
+pinned by `packages/theory/vectors/spelling.json`. Chord-tone naming flows
+through `buildChordToneSpellingMap` (structural); `spellRoot` /
+`spellInChordContext` are heuristics reserved for context-free display and
+non-chord tones, and are documented as such in the code.
+
+### Compliance status (2026-06-10)
+| Codebase | Status |
+|---|---|
+| `@enkerli/theory` | ✅ `spelling.ts` reference; `buildChordToneSpellingMap` + slash-chord bass names rewired to structural spelling |
+| MIDIcurator (via theory) | ✅ chord tones structurally spelled through the shims |
+| PickPCS | ✅ by design: PCS display (chromatic) — correct for its context |
+| exquisite-fingerings | ⚠️ labels are chromatic PC display; its key picker is pitch-class-based ("C#/Db") so a proper root spelling cannot be known. Blocked on a spelled key selector; planned for its monorepo migration onto `@enkerli/theory` |
+| Local Lua / future Roman-numeral work | must consume codegen'd spelling rules; the degree-assertion regeneration (Phase 1) depends on this convention |
+
 ## Bit ordering (binary / decimal / hex) — strict, everywhere
 
 **The first element of any bit-encoded sequence is the leftmost bit, i.e. the

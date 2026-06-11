@@ -11,6 +11,8 @@
  *   4. Return the best match (fewest notes = simplest quality; or exact match).
  */
 
+import { spellChordTones } from "./spelling.js";
+
 export interface ChordQuality {
   /** Key in the original dictionary (e.g. "maj7", "min", "7b9") */
   key: string;
@@ -86,6 +88,10 @@ const FLAT_KEYS: ReadonlySet<number> = new Set([5, 10, 3, 8, 1]);
  *   - Flat keys  → flat chromatic names  (+ diatonic C♭, F♭ where needed)
  *   - C          → mixed default
  * When keyPc is omitted, falls back to the existing mixed NOTE_NAMES spelling.
+ *
+ * ⚠️ Heuristic, for context-free display and non-chord tones ONLY. For chord
+ * tones use buildChordToneSpellingMap; for scales use spellScale (spelling.ts)
+ * — proper names are structural, not key-signature lookups (CONVENTIONS.md).
  */
 export function spellRoot(pc: number, keyPc?: number): string {
   if (keyPc === undefined) return rootName(pc);
@@ -114,6 +120,9 @@ export function spellRoot(pc: number, keyPc?: number): string {
  *
  * This avoids the mixed-default contradiction where rootName(1) = "C♯"
  * but key-signature classification of PC 1 = D♭ major (flat key).
+ *
+ * ⚠️ Heuristic, for non-chord tones ONLY (no degree information available).
+ * Chord tones must go through buildChordToneSpellingMap (structural spelling).
  */
 export function spellInChordContext(pc: number, rootPc: number, rootNameStr?: string): string {
   const rn = rootNameStr ?? rootName(rootPc);
@@ -144,12 +153,12 @@ export function spellInChordContext(pc: number, rootPc: number, rootNameStr?: st
 }
 
 /**
- * Build a map from absolute pitch class → correctly spelled note name for all
- * chord tones in a given chord, using the quality's own interval labels to
- * determine flat/sharp direction rather than the root's key signature.
+ * Build a map from absolute pitch class → properly spelled note name for all
+ * chord tones, using structural spelling: each interval label's degree fixes
+ * the letter, its semitone offset fixes the alteration (spelling.ts).
  *
- * This correctly spells e.g. A♭ (not G♯) as the ♭5 of Dm7♭5, even though
- * D is a "sharp key" in key-signature terms.
+ * This correctly spells e.g. A♭ (not G♯) as the ♭5 of Dm7♭5, and B♯ (not C)
+ * as the major third of a G♯ chord.
  *
  * Notes not in the template (NCTs) are not included; callers should fall back
  * to `spellInChordContext` for those.
@@ -157,25 +166,20 @@ export function spellInChordContext(pc: number, rootPc: number, rootNameStr?: st
 export function buildChordToneSpellingMap(
   rootPc: number,
   quality: ChordQuality,
+  rootNameStr?: string,
 ): Map<number, string> {
+  // Proper structural spelling (see spelling.ts / CONVENTIONS.md): the
+  // interval's degree fixes the letter, the semitone count fixes the
+  // alteration. From a G♯ root the major third maps to B♯, never C.
+  // The root's own spelling comes from the caller (or the chromatic
+  // display default) — that choice is the only enharmonic decision left.
   const map = new Map<number, string>();
   const r = ((rootPc % 12) + 12) % 12;
+  const rn = rootNameStr ?? rootName(r);
+  const spelled = spellChordTones(rn, quality.intervals, quality.pcs);
   for (let i = 0; i < quality.pcs.length; i++) {
-    const relPc = quality.pcs[i]!;
-    const absPc = (r + relPc) % 12;
-    const interval = quality.intervals[i] ?? '';
-    let name: string;
-    if (interval.includes('♭') || interval.includes('b')) {
-      // Flat interval → always spell flat
-      name = rootNameFlat(absPc);
-    } else if (interval.includes('♯') || interval.includes('#')) {
-      // Sharp interval → always spell sharp
-      name = rootNameSharp(absPc);
-    } else {
-      // Unaltered interval — use root-context spelling
-      name = spellInChordContext(absPc, r);
-    }
-    map.set(absPc, name);
+    const absPc = (r + quality.pcs[i]!) % 12;
+    map.set(absPc, spelled ? spelled[i]! : rootName(absPc));
   }
   return map;
 }

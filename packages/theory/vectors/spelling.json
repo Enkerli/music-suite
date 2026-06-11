@@ -1,0 +1,21 @@
+{
+  "description": "Cross-language vectors for proper enharmonic spelling in chord and scale contexts (see CONVENTIONS.md). The interval's degree fixes the letter; the semitone count fixes the alteration. Bare pitch classes have no proper spelling without such context.",
+  "chords": [
+    { "name": "G# major 7th — the motivating case", "root": "G♯", "intervals": ["R", "3", "5", "7"], "semitones": [0, 4, 7, 11], "spelled": ["G♯", "B♯", "D♯", "F𝄪"] },
+    { "name": "Ab major 7th (enharmonic root, plain spelling)", "root": "A♭", "intervals": ["R", "3", "5", "7"], "semitones": [0, 4, 7, 11], "spelled": ["A♭", "C", "E♭", "G"] },
+    { "name": "D half-diminished", "root": "D", "intervals": ["R", "♭3", "♭5", "♭7"], "semitones": [0, 3, 6, 10], "spelled": ["D", "F", "A♭", "C"] },
+    { "name": "C diminished 7th (doubly-flat seventh)", "root": "C", "intervals": ["R", "♭3", "♭5", "𝄫7"], "semitones": [0, 3, 6, 9], "spelled": ["C", "E♭", "G♭", "B𝄫"] },
+    { "name": "Bb7#11 (sharp eleventh is E natural)", "root": "B♭", "intervals": ["R", "3", "5", "♭7", "♯11"], "semitones": [0, 4, 7, 10, 6], "spelled": ["B♭", "D", "F", "A♭", "E"] },
+    { "name": "C#7b9 (flat ninth is D natural)", "root": "C♯", "intervals": ["R", "3", "5", "♭7", "♭9"], "semitones": [0, 4, 7, 10, 1], "spelled": ["C♯", "E♯", "G♯", "B", "D"] },
+    { "name": "Fb major triad", "root": "F♭", "intervals": ["R", "3", "5"], "semitones": [0, 4, 7], "spelled": ["F♭", "A♭", "C♭"] },
+    { "name": "B augmented (sharp fifth is F double-sharp... no: F##? = Fx)", "root": "B", "intervals": ["R", "3", "♯5"], "semitones": [0, 4, 8], "spelled": ["B", "D♯", "F𝄪"] }
+  ],
+  "scales": [
+    { "name": "C major", "root": "C", "intervals": [0, 2, 4, 5, 7, 9, 11], "spelled": ["C", "D", "E", "F", "G", "A", "B"] },
+    { "name": "F# major (E# leading tone)", "root": "F♯", "intervals": [0, 2, 4, 5, 7, 9, 11], "spelled": ["F♯", "G♯", "A♯", "B", "C♯", "D♯", "E♯"] },
+    { "name": "Cb major (all flats incl. Fb)", "root": "C♭", "intervals": [0, 2, 4, 5, 7, 9, 11], "spelled": ["C♭", "D♭", "E♭", "F♭", "G♭", "A♭", "B♭"] },
+    { "name": "Db major", "root": "D♭", "intervals": [0, 2, 4, 5, 7, 9, 11], "spelled": ["D♭", "E♭", "F", "G♭", "A♭", "B♭", "C"] },
+    { "name": "G# harmonic minor (F double-sharp)", "root": "G♯", "intervals": [0, 2, 3, 5, 7, 8, 11], "spelled": ["G♯", "A♯", "B", "C♯", "D♯", "E", "F𝄪"] },
+    { "name": "D melodic minor", "root": "D", "intervals": [0, 2, 3, 5, 7, 9, 11], "spelled": ["D", "E", "F", "G", "A", "B", "C♯"] }
+  ]
+}
