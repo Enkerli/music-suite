@@ -1,12 +1,38 @@
 import type { Gesture, Harmonic, Clip, Segmentation, BarChordInfo, Leadsheet, LoopMeta } from '../types/clip';
 import { createZip } from './zip';
 
-// The SMF encoding core now lives in the suite's shared package
-// (@enkerli/midi, promoted from this file); re-exported so existing
-// imports keep working. The previous implementation is preserved in
-// ./midi-export.local.ts until the migration is finalized.
-export { encodeVariableLength, encodeTextMeta, createMIDIHeader } from '@enkerli/midi';
-import { encodeVariableLength, encodeTextMeta, createMIDIHeader } from '@enkerli/midi';
+export function encodeVariableLength(value: number): number[] {
+  const bytes: number[] = [];
+  bytes.push(value & 0x7F);
+
+  value >>= 7;
+  while (value > 0) {
+    bytes.unshift((value & 0x7F) | 0x80);
+    value >>= 7;
+  }
+
+  return bytes;
+}
+
+/**
+ * Encode a text or marker meta event.
+ * @param metaType 0x01 for text, 0x06 for marker
+ * @param text UTF-8 string content
+ */
+export function encodeTextMeta(metaType: 0x01 | 0x03 | 0x06, text: string): number[] {
+  const textBytes = new TextEncoder().encode(text);
+  return [0xFF, metaType, ...encodeVariableLength(textBytes.length), ...textBytes];
+}
+
+export function createMIDIHeader(format: number, ticksPerBeat: number): number[] {
+  return [
+    0x4D, 0x54, 0x68, 0x64,                            // "MThd"
+    0x00, 0x00, 0x00, 0x06,                             // Header length (6 bytes)
+    0x00, format,                                        // Format type
+    0x00, 0x01,                                          // Number of tracks
+    (ticksPerBeat >> 8) & 0xFF, ticksPerBeat & 0xFF,    // Ticks per beat
+  ];
+}
 
 /**
  * Build a marker + text JSON pair for a single segment boundary.

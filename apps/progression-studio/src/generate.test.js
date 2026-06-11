@@ -77,3 +77,36 @@ describe("voicing", () => {
     expect(r()).toBeCloseTo(mulberry32(1)(), 12);
   });
 });
+
+describe("rule-based engines", async () => {
+  const { applyCadence, commonLabelForNumeral, commonPredecessor, generateCircleOfFifths, generateLabels } =
+    await import("./generate.js");
+
+  it("the corpus picks its most-used quality per numeral", () => {
+    // The data's own answers: plain triads dominate I (11,735 vs 9,482 for
+    // Imaj7); VII's champion is VII7 — apt, since in the circle VII
+    // resolves to III, where VII7 is the secondary dominant.
+    expect(commonLabelForNumeral(table.major, "I")).toBe("I");
+    expect(commonLabelForNumeral(table.major, "II")).toBe("IIm7");
+    expect(commonLabelForNumeral(table.major, "V")).toBe("V7");
+    expect(commonLabelForNumeral(table.major, "VII")).toBe("VII7");
+  });
+
+  it("cadence mode ends on most-common-predecessor → tonic", () => {
+    const labels = generateLabels(table.major, "major", { length: 8, seed: 9, method: "markov-cadence" });
+    expect(labels[labels.length - 1]).toBe("Imaj7");
+    expect(labels[labels.length - 2]).toBe(commonPredecessor(table.major, "Imaj7"));
+    expect(labels).toHaveLength(8);
+  });
+
+  it("circle of fifths walks I IV VII III VI II V and resolves home", () => {
+    const labels = generateCircleOfFifths(table.major, "major", 8);
+    expect(labels).toEqual([
+      "I", "IV", "VII7", "IIIm7", "VIm7", "IIm7", "V7", "Imaj7",
+    ]);
+  });
+
+  it("applyCadence leaves short progressions alone", () => {
+    expect(applyCadence(table.major, "major", ["Imaj7"])).toEqual(["Imaj7"]);
+  });
+});

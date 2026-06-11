@@ -154,3 +154,95 @@ export function voiceProgression(chords) {
   }
   return voicings;
 }
+
+// ─── Rule-based engines ──────────────────────────────────────────────────
+//
+// Rules give the root path; the corpus gives the qualities. labelMass and
+// commonLabelForNumeral derive, per numeral, the label the corpus uses
+// most (in C major: I→Imaj7, II→IIm7, V→V7, VII→VIIm7b5 …).
+
+/** Total corpus mass of each label (outgoing + incoming counts). */
+export function labelMass(table) {
+  const mass = new Map();
+  for (const [from, row] of Object.entries(table)) {
+    for (const [to, n] of Object.entries(row)) {
+      mass.set(from, (mass.get(from) ?? 0) + n);
+      mass.set(to, (mass.get(to) ?? 0) + n);
+    }
+  }
+  return mass;
+}
+
+/** The corpus's most common label for a bare numeral ("II" → "IIm7"). */
+export function commonLabelForNumeral(table, numeral) {
+  const mass = labelMass(table);
+  let best = null;
+  let bestMass = -1;
+  for (const [label, m] of mass) {
+    const parts = splitLabel(label);
+    if (parts && parts.numeral === numeral && m > bestMass) {
+      best = label;
+      bestMass = m;
+    }
+  }
+  return best;
+}
+
+/** The label most often preceding `target` in the corpus. */
+export function commonPredecessor(table, target) {
+  let best = null;
+  let bestCount = -1;
+  for (const [from, row] of Object.entries(table)) {
+    const n = row[target];
+    if (n !== undefined && from !== target && n > bestCount) {
+      best = from;
+      bestCount = n;
+    }
+  }
+  return best;
+}
+
+/**
+ * Force a cadential ending: the last two labels become the corpus's most
+ * common pre-tonic label and the tonic itself.
+ */
+export function applyCadence(table, mode, labels) {
+  if (labels.length < 2) return labels;
+  const tonic = startLabel(table, mode);
+  const pre = commonPredecessor(table, tonic);
+  if (!pre) return labels;
+  const out = [...labels];
+  out[out.length - 2] = pre;
+  out[out.length - 1] = tonic;
+  // avoid an accidental immediate repeat just before the cadence
+  if (out.length >= 3 && out[out.length - 3] === pre) out[out.length - 3] = tonic;
+  return out;
+}
+
+/** Diatonic circle of fifths: I IV VII III VI II V, ending on the tonic. */
+const FIFTHS_CYCLE = ["I", "IV", "VII", "III", "VI", "II", "V"];
+
+/**
+ * Rule-based generation: roots walk the diatonic circle of fifths
+ * (the classic I–IV–VII–III–VI–II–V–I cycle), qualities are the
+ * corpus's most common per degree. Deterministic.
+ */
+export function generateCircleOfFifths(table, mode, length) {
+  const labels = [];
+  for (let i = 0; i < length - 1; i++) {
+    const numeral = FIFTHS_CYCLE[i % 7];
+    labels.push(commonLabelForNumeral(table, numeral) ?? numeral);
+  }
+  labels.push(startLabel(table, mode));
+  return labels;
+}
+
+/**
+ * Unified entry point for the UI.
+ * method: "markov" | "markov-cadence" | "circle"
+ */
+export function generateLabels(table, mode, { length, seed, curation, method = "markov" }) {
+  if (method === "circle") return generateCircleOfFifths(table, mode, length);
+  const labels = generateProgression(table, mode, length, seed, curation);
+  return method === "markov-cadence" ? applyCadence(table, mode, labels) : labels;
+}
