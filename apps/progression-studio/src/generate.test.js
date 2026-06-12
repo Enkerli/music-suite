@@ -110,3 +110,26 @@ describe("rule-based engines", async () => {
     expect(applyCadence(table.major, "major", ["Imaj7"])).toEqual(["Imaj7"]);
   });
 });
+
+describe("temperature", async () => {
+  const { generateLabels } = await import("./generate.js");
+
+  it("near-zero temperature is the argmax walk (IIm7 always goes to V7)", () => {
+    const labels = generateLabels(table.major, "major", { length: 12, seed: 3, temperature: 0.01 });
+    for (let i = 1; i < labels.length; i++) {
+      if (labels[i - 1] === "IIm7") expect(labels[i]).toBe("V7");
+    }
+  });
+
+  it("high temperature diverges from the corpus walk (same seed)", () => {
+    const cold = generateLabels(table.major, "major", { length: 24, seed: 5, temperature: 1 });
+    const hot = generateLabels(table.major, "major", { length: 24, seed: 5, temperature: 4 });
+    expect(hot).not.toEqual(cold);
+  });
+
+  it("stays deterministic per (seed, temperature)", () => {
+    const a = generateLabels(table.major, "major", { length: 16, seed: 7, temperature: 2.5 });
+    const b = generateLabels(table.major, "major", { length: 16, seed: 7, temperature: 2.5 });
+    expect(a).toEqual(b);
+  });
+});

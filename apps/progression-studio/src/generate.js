@@ -40,15 +40,21 @@ export function splitLabel(label) {
   return { numeral: m[1], suffix: m[2] };
 }
 
-function weightedPick(row, rng) {
+function weightedPick(row, rng, temperature = 1) {
+  const entries = Object.entries(row);
+  const inv = 1 / Math.max(0.01, temperature);
   let total = 0;
-  for (const n of Object.values(row)) total += n;
+  const weights = entries.map(([, n]) => {
+    const w = temperature === 1 ? n : Math.pow(n, inv);
+    total += w;
+    return w;
+  });
   let r = rng() * total;
-  for (const [label, n] of Object.entries(row)) {
-    r -= n;
-    if (r <= 0) return label;
+  for (let i = 0; i < entries.length; i++) {
+    r -= weights[i];
+    if (r <= 0) return entries[i][0];
   }
-  return Object.keys(row)[0];
+  return entries[0][0];
 }
 
 /** Identity curation used when none is supplied. */
@@ -75,14 +81,14 @@ export function startLabel(table, mode) {
  * ear-driven layer (see curation.js); generation stays deterministic
  * for a given (seed, curation) pair.
  */
-export function generateProgression(table, mode, length, seed, curation = NO_CURATION) {
+export function generateProgression(table, mode, length, seed, curation = NO_CURATION, temperature = 1) {
   const rng = mulberry32(seed);
   const start = startLabel(table, mode);
   const labels = [start];
   let current = start;
   while (labels.length < length) {
     const row = table[current];
-    current = row ? weightedPick(effectiveRow(row, current, curation), rng) : start;
+    current = row ? weightedPick(effectiveRow(row, current, curation), rng, temperature) : start;
     labels.push(current);
   }
   return labels;
@@ -241,8 +247,8 @@ export function generateCircleOfFifths(table, mode, length) {
  * Unified entry point for the UI.
  * method: "markov" | "markov-cadence" | "circle"
  */
-export function generateLabels(table, mode, { length, seed, curation, method = "markov" }) {
+export function generateLabels(table, mode, { length, seed, curation, method = "markov", temperature = 1 }) {
   if (method === "circle") return generateCircleOfFifths(table, mode, length);
-  const labels = generateProgression(table, mode, length, seed, curation);
+  const labels = generateProgression(table, mode, length, seed, curation, temperature);
   return method === "markov-cadence" ? applyCadence(table, mode, labels) : labels;
 }

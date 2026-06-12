@@ -37,3 +37,29 @@ describe("progression MIDI export", () => {
     expect(noteOns).toBe(expected);
   });
 });
+
+describe("channel modes", async () => {
+  const { voicingsToClip } = await import("./exportMidi.js");
+  const { realizeLabel, voiceProgression } = await import("./generate.js");
+  const voicings = voiceProgression(
+    ["IIm7", "V7", "Imaj7"].map((l) => realizeLabel(l, { tonic: "C", mode: "major" })),
+  );
+
+  it("single puts everything on channel 1", () => {
+    const { notes } = voicingsToClip(voicings, "single");
+    expect(new Set(notes.map((n) => n.channel))).toEqual(new Set([1]));
+  });
+
+  it("split puts bass on 1, voices on 2", () => {
+    const { notes } = voicingsToClip(voicings, "split");
+    expect(new Set(notes.map((n) => n.channel))).toEqual(new Set([1, 2]));
+  });
+
+  it("perVoice gives each voice its own channel from 2 up", () => {
+    const { notes } = voicingsToClip(voicings, "perVoice");
+    const channels = [...new Set(notes.map((n) => n.channel))].sort((a, b) => a - b);
+    expect(channels[0]).toBe(1);
+    expect(channels.length).toBeGreaterThan(2);
+    expect(Math.max(...channels)).toBeLessThanOrEqual(16);
+  });
+});

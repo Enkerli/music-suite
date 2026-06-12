@@ -154,6 +154,9 @@ export default function App() {
   const [host, setHost] = useState({ playing: false, bpm: 0 });
   const [runtime, setRuntime] = useState(null);
   const [theme, setThemeState] = useState(resolvedTheme);
+  const [temperature, setTemperature] = useState(1);
+  const [channelMode, setChannelMode] = useState("single");
+  const [hostPlayhead, setHostPlayhead] = useState(-1);
   const { play, stop, playing, playhead } = usePlayer();
 
   useEffect(() => { saveCuration(curation); }, [curation]);
@@ -161,7 +164,12 @@ export default function App() {
   // Plugin integration: host transport display + session-state restore.
   useEffect(() => {
     if (!IN_PLUGIN) return;
-    const offTransport = bridge.on("transport", (t) => setHost({ playing: !!t.playing, bpm: t.bpm || 0 }));
+    const offTransport = bridge.on("transport", (t) => {
+      setHost({ playing: !!t.playing, bpm: t.bpm || 0 });
+      // Chord-follow: the scheduler reports its clip-relative beat;
+      // 2 beats per chord (voicingsToClip's grid).
+      setHostPlayhead(t.playing && t.beat >= 0 ? Math.floor(t.beat / 2) : -1);
+    });
     const offRuntime = bridge.on("runtime", setRuntime);
     const offState = bridge.on("state", (s) => {
       try {
@@ -171,6 +179,8 @@ export default function App() {
         if (s.seed !== undefined) setSeed(s.seed);
         if (s.method) setMethod(s.method);
         if (s.curation && typeof s.curation.multipliers === "object") setCuration(s.curation);
+        if (typeof s.temperature === "number") setTemperature(s.temperature);
+        if (s.channelMode) setChannelMode(s.channelMode);
       } catch { /* malformed saved state — keep defaults */ }
     });
     bridge.ready();
@@ -178,8 +188,8 @@ export default function App() {
   }, []);
 
   const labels = useMemo(
-    () => generateLabels(table[mode], mode, { length, seed, curation, method }),
-    [mode, length, seed, curation, method],
+    () => generateLabels(table[mode], mode, { length, seed, curation, method, temperature }),
+    [mode, length, seed, curation, method, temperature],
   );
   const chords = useMemo(
     () => labels.map((l) => realizeLabel(l, { tonic, mode })).filter(Boolean),
@@ -195,10 +205,10 @@ export default function App() {
   // the WKWebView smoke after shipping blank to an iPad, 2026-06-12).
   useEffect(() => {
     if (!IN_PLUGIN) return;
-    const { notes, lengthBeats } = voicingsToClip(voicings);
+    const { notes, lengthBeats } = voicingsToClip(voicings, channelMode);
     bridge.setClip(notes, lengthBeats, { loop: true });
-    bridge.send("enkerliState", { tonic, mode, length, seed, method, curation });
-  }, [voicings, tonic, mode, length, seed, method, curation]);
+    bridge.send("enkerliState", { tonic, mode, length, seed, method, curation, temperature, channelMode });
+  }, [voicings, tonic, mode, length, seed, method, curation, temperature, channelMode]);
 
   const transitions = useMemo(() => {
     const seen = new Set();
@@ -261,6 +271,22 @@ export default function App() {
               <option value="circle">circle of fifths</option>
             </select>
           </label>
+          <label style={{ display: "grid", gap: 4, fontSize: "var(--es-text-sm)" }}>
+            Temperature <span className="es-num">{temperature.toFixed(2)}</span>
+            <input type="range" min="0" max="100" style={{ width: 110, minHeight: "var(--es-ctl-h)" }}
+              aria-label="Transition temperature: higher surfaces more unusual transitions"
+              value={Math.round(50 + 50 * Math.log(temperature) / Math.log(4))}
+              onChange={(e) => setTemperature(Number((4 ** ((Number(e.target.value) - 50) / 50)).toFixed(2)))}
+            />
+          </label>
+          <label style={{ display: "grid", gap: 4, fontSize: "var(--es-text-sm)" }}>Channels
+            <select className="es-control" value={channelMode} onChange={(e) => setChannelMode(e.target.value)}
+              title="Route bass and voices to separate MIDI channels">
+              <option value="single">single (1)</option>
+              <option value="split">bass 1 · chords 2</option>
+              <option value="perVoice">per voice (1…)</option>
+            </select>
+          </label>
           <label style={{ display: "grid", gap: 4, fontSize: "var(--es-text-sm)" }}>Chords
             <select className="es-control" value={length} onChange={(e) => setLength(Number(e.target.value))}>
               {[8, 12, 16, 24, 32].map((n) => <option key={n} value={n}>{n}</option>)}
@@ -287,7 +313,7 @@ export default function App() {
           <button
             className="es-btn"
             title="Download as a Standard MIDI File (chord symbols as markers)"
-            onClick={() => downloadProgression(voicings, { bpm, tonic, mode, seed })}
+            onClick={() => downloadProgression(voicings, { bpm, tonic, mode, seed, channelMode })}
           >
             Export MIDI
           </button>
@@ -306,7 +332,7 @@ export default function App() {
             <div key={ri} style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "var(--es-space-2)", marginBottom: ri < rows.length - 1 ? "var(--es-space-3)" : 0 }}>
               {row.map((c, ci) => {
                 const idx = ri * 4 + ci;
-                const active = idx === playhead;
+                const active = idx === (IN_PLUGIN ? hostPlayhead : playhead);
                 return (
                   <div key={idx} role="button" tabIndex={0}
                     onClick={() => setStatsLabel(c.label)}
