@@ -31,11 +31,17 @@ on their own; this package makes the convergence official.
 
 ## Requirements checklist (every app, every release)
 
-- **Accessibility**: WCAG 2.1 AA contrast on both themes; full keyboard
-  operability; visible focus rings (`--es-focus-ring`); 44px touch
-  targets; `prefers-reduced-motion` zeroes the motion tokens; no
-  color-only encoding (the pitch-class palette and dimension colors are
-  always paired with text/shape).
+- **Accessibility**: WCAG 2.1 AA contrast on both themes — enforced by
+  `tools/contrast-audit.mjs` (run it after ANY token change; text ≥4.5:1,
+  accent buttons/focus rings, `--es-border-strong` and the per-theme
+  pitch-class palette ≥3:1 against bg AND bg-raised). Border discipline:
+  `--es-border`/`--es-border-soft` are decorative separation only;
+  boundaries that *identify a control* use `--es-border-strong`
+  (es-control/es-btn already do). Full keyboard operability; visible
+  focus rings (`--es-focus-ring`); 44px touch targets;
+  `prefers-reduced-motion` zeroes the motion tokens; no color-only
+  encoding (the pitch-class palette and dimension colors are always
+  paired with text/shape).
 - **Personas** (docs/personas.md): every screen names which of the five
   it serves; the stage-performer persona gets a density toggle, the
   educator persona gets precise labels and screen-reader-meaningful

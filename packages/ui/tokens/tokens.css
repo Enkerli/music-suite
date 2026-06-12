@@ -67,11 +67,14 @@
   --es-dim-bend: #c39529;     --es-dim-bend-tint: #f1e6c3;
   --es-dim-vel: #7a4cff;
 
-  /* ── Pitch-class palette (12 hues, draft — pair with labels) ─────── */
-  --es-pc-0: #4477aa;  --es-pc-1: #66ccee;  --es-pc-2: #228833;
-  --es-pc-3: #ccbb44;  --es-pc-4: #ee6677;  --es-pc-5: #aa3377;
-  --es-pc-6: #bbbbbb;  --es-pc-7: #225555;  --es-pc-8: #99ddff;
-  --es-pc-9: #997700;  --es-pc-10: #ee8866; --es-pc-11: #663366;
+  /* ── Pitch-class palette (12 hues — pair with labels) ──────────────
+        Per-theme: every value holds ≥3:1 (WCAG 1.4.11 graphics) against
+        both bg and bg-raised of its theme. :root carries the light set;
+        the dark blocks override with the brighter originals. ─────────── */
+  --es-pc-0: #4477aa;  --es-pc-1: #1697c2;  --es-pc-2: #228833;
+  --es-pc-3: #9c8d2a;  --es-pc-4: #ec586b;  --es-pc-5: #aa3377;
+  --es-pc-6: #8c8c8c;  --es-pc-7: #225555;  --es-pc-8: #0092db;
+  --es-pc-9: #997700;  --es-pc-10: #e86134; --es-pc-11: #663366;
 }
 
 /* ── Paper (light) — the default design target ─────────────────────── */
@@ -82,10 +85,13 @@
   --es-bg-sunken: #efebe2;   /* field / well */
   --es-fg: #2d2b27;          /* ink */
   --es-fg-2: #4b463e;
-  --es-fg-muted: #8b8678;
-  --es-border: #ddd6ca;
+  --es-fg-muted: #736e62;    /* ≥4.5:1 on bg and bg-raised */
+  --es-border: #ddd6ca;      /* decorative — separation, not identification */
   --es-border-soft: #eae3d4;
-  --es-accent: #4b86c7;      /* breath blue doubles as the action color */
+  --es-border-strong: #9d8967; /* ≥3:1 — boundaries that identify a control */
+  --es-accent: #3b79be;      /* breath blue, deepened: white text ≥4.5:1,
+                                ≥3:1 vs paper as a focus ring (the graphic
+                                dim-breath hue stays #4b86c7) */
   --es-accent-fg: #ffffff;
   color-scheme: light;
 }
@@ -98,11 +104,16 @@
     --es-bg-sunken: #14130f;
     --es-fg: #e8e1d2;
     --es-fg-2: #cfc7b5;
-    --es-fg-muted: #897f6c;
+    --es-fg-muted: #908672;    /* ≥4.5:1 on bg and bg-raised */
     --es-border: #38332b;
     --es-border-soft: #2b2620;
+    --es-border-strong: #736958; /* ≥3:1 — boundaries that identify a control */
     --es-accent: #6da3df;
     --es-accent-fg: #14130f;
+    /* pc palette: the brighter originals hold ≥3:1 on the dark surfaces */
+    --es-pc-1: #66ccee;  --es-pc-3: #ccbb44;  --es-pc-4: #ee6677;
+    --es-pc-5: #b6377f;  --es-pc-6: #bbbbbb;  --es-pc-7: #2e7474;
+    --es-pc-8: #99ddff;  --es-pc-10: #ee8866; --es-pc-11: #994d99;
     --es-shadow: 0 6px 22px rgba(0, 0, 0, 0.28);
     color-scheme: dark;
   }
@@ -114,11 +125,16 @@
   --es-bg-sunken: #14130f;
   --es-fg: #e8e1d2;
   --es-fg-2: #cfc7b5;
-  --es-fg-muted: #897f6c;
+  --es-fg-muted: #908672;    /* ≥4.5:1 on bg and bg-raised */
   --es-border: #38332b;
   --es-border-soft: #2b2620;
+  --es-border-strong: #736958; /* ≥3:1 — boundaries that identify a control */
   --es-accent: #6da3df;
   --es-accent-fg: #14130f;
+  /* pc palette: the brighter originals hold ≥3:1 on the dark surfaces */
+  --es-pc-1: #66ccee;  --es-pc-3: #ccbb44;  --es-pc-4: #ee6677;
+  --es-pc-5: #b6377f;  --es-pc-6: #bbbbbb;  --es-pc-7: #2e7474;
+  --es-pc-8: #99ddff;  --es-pc-10: #ee8866; --es-pc-11: #994d99;
   --es-shadow: 0 6px 22px rgba(0, 0, 0, 0.28);
   color-scheme: dark;
 }
