@@ -22,30 +22,48 @@ export interface UsePlaybackReturn {
  */
 function useHostPlayback(): UsePlaybackReturn {
   const [playbackState, setPlaybackState] = useState<PlaybackState>('stopped');
-  const activeClipIdRef = useRef<string | null>(null);
+  const [currentTime, setCurrentTime] = useState(0);
+  // bpm of the armed clip: the playhead maps seconds → ticks with the
+  // clip's own bpm, so clipBeat * 60 / bpm lands on the right tick no
+  // matter what tempo the host runs at.
+  const armedRef = useRef<{ id: string; bpm: number } | null>(null);
+
+  // The editor streams transport { bpm, playing, beat } at 10 Hz, with
+  // beat = the scheduler's clip-relative (loop-wrapped) position.
+  useEffect(() => {
+    return bridge.on('transport', (data) => {
+      const armed = armedRef.current;
+      if (!armed) return;
+      const { playing, beat } = (data ?? {}) as { playing?: boolean; beat?: number };
+      setPlaybackState(playing ? 'playing' : 'paused');
+      if (playing && typeof beat === 'number')
+        setCurrentTime((beat * 60) / armed.bpm);
+    });
+  }, []);
 
   const play = useCallback((clip: Clip) => {
     const { notes, lengthBeats } = clipToHostClip(clip);
     bridge.setClip(notes, lengthBeats, true);
-    activeClipIdRef.current = clip.id;
-    setPlaybackState('playing');
+    armedRef.current = { id: clip.id, bpm: clip.bpm || 120 };
+    setPlaybackState('paused'); // armed; the next transport tick refines it
   }, []);
 
   const stop = useCallback(() => {
     bridge.clearClip();
-    activeClipIdRef.current = null;
+    armedRef.current = null;
     setPlaybackState('stopped');
+    setCurrentTime(0);
   }, []);
 
   const toggle = useCallback(
     (clip: Clip) => {
-      if (activeClipIdRef.current === clip.id) stop();
+      if (armedRef.current?.id === clip.id) stop();
       else play(clip);
     },
     [play, stop],
   );
 
-  return { playbackState, currentTime: 0, play, pause: stop, stop, toggle };
+  return { playbackState, currentTime, play, pause: stop, stop, toggle };
 }
 
 function useWebAudioPlayback(): UsePlaybackReturn {

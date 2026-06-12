@@ -1,4 +1,5 @@
 import type { PlaybackState } from '../lib/playback';
+import { IN_PLUGIN } from '../lib/juce-bridge';
 
 interface TransportBarProps {
   state: PlaybackState;
@@ -22,7 +23,13 @@ export function TransportBar({
   onPause,
   onStop,
 }: TransportBarProps) {
-  const stateText = state === 'playing' ? 'Playing' : state === 'paused' ? 'Paused' : '';
+  // In the plugin the host transport drives playback: "play" only arms the
+  // clip. Say so, or the silence with an armed clip looks like a bug.
+  const stateText = IN_PLUGIN
+    ? state === 'playing' ? 'Playing (host transport)'
+      : state === 'paused' ? 'Armed — start the host transport'
+      : ''
+    : state === 'playing' ? 'Playing' : state === 'paused' ? 'Paused' : '';
 
   return (
     <div className="mc-transport">
