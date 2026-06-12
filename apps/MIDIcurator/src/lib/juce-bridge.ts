@@ -1,0 +1,115 @@
+/**
+ * Adapted from enkerli-juce/web/enkerli-bridge.js (source of truth) —
+ * keep in sync when the bridge contract changes. TS port for MIDIcurator.
+ *
+ * One UI codebase, plugin and browser (CONVENTIONS F7):
+ *   - JUCE WebView (plugin): window.__JUCE__ native integration
+ *   - browser: no bridge — IndexedDB, blob downloads and <input type=file>
+ *     keep working exactly as before.
+ *
+ * Contract with the C++ side (midicurator-plugin PluginEditor.h):
+ *   send(id, payload)  → C++ withEventListener(id, …)
+ *   on(id, cb)         ← C++ emitEventIfBrowserIsVisible(id, …)
+ */
+
+interface JuceBackend {
+  emitEvent(id: string, payload: unknown): void;
+  addEventListener(id: string, cb: (data: unknown) => void): void;
+}
+
+declare global {
+  interface Window {
+    __JUCE__?: { backend?: JuceBackend };
+  }
+}
+
+const backend: JuceBackend | null =
+  (typeof window !== "undefined" && window.__JUCE__?.backend) || null;
+
+/** True when running inside the JUCE plugin WebView. */
+export const IN_PLUGIN = backend !== null;
+
+export interface HostClipNote {
+  startBeat: number;
+  lengthBeats: number;
+  pitch: number;
+  velocity: number;
+  channel: number;
+}
+
+type Listener = (data: unknown) => void;
+const listeners = new Map<string, Set<Listener>>();
+
+function send(id: string, payload?: unknown): void {
+  backend?.emitEvent(id, payload ?? {});
+}
+
+function on(id: string, callback: Listener): () => void {
+  if (!listeners.has(id)) {
+    listeners.set(id, new Set());
+    backend?.addEventListener(id, (data) => {
+      for (const cb of listeners.get(id)!) cb(data);
+    });
+  }
+  listeners.get(id)!.add(callback);
+  return () => {
+    listeners.get(id)?.delete(callback);
+  };
+}
+
+export const bridge = {
+  send,
+  on,
+
+  /**
+   * Save bytes through native UI (enkerli::exportBytes — FileChooser on
+   * desktop, share sheet on iPadOS). Returns false outside the plugin so
+   * callers can fall back to a browser download. NEVER use blob:/data:
+   * anchor downloads in the plugin: WKWebView has no download manager
+   * under the juce:// scheme and kills the page ("Frame load interrupted").
+   */
+  saveFile(filename: string, bytes: Uint8Array): boolean {
+    if (!backend) return false;
+    let bin = "";
+    for (let i = 0; i < bytes.length; i += 0x8000) {
+      bin += String.fromCharCode.apply(null, Array.from(bytes.subarray(i, i + 0x8000)));
+    }
+    send("enkerliSaveFile", { name: filename, b64: btoa(bin) });
+    return true;
+  },
+
+  /**
+   * Open a file through native UI (enkerli::importFile). The chosen file
+   * arrives via on("fileOpened", ({ name, b64 }) => …); nothing fires on
+   * cancel. Returns false outside the plugin.
+   */
+  openFile(patterns = "*"): boolean {
+    if (!backend) return false;
+    send("enkerliOpenFile", { patterns });
+    return true;
+  },
+
+  /** Host-synced clip playback via the C++ MidiClipScheduler. */
+  setClip(notes: HostClipNote[], lengthBeats: number, loop = true): boolean {
+    if (!backend) return false;
+    send("enkerliSetClip", { notes, lengthBeats, loop });
+    return true;
+  },
+
+  clearClip(): void {
+    send("enkerliClearClip");
+  },
+
+  /** Tell C++ the page is alive; C++ answers with initial state. */
+  ready(): void {
+    send("uiReady");
+  },
+};
+
+/** Decode a bridge base64 payload into bytes. */
+export function b64ToBytes(b64: string): Uint8Array {
+  const bin = atob(b64);
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  return bytes;
+}

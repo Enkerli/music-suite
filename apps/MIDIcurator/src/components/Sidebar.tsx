@@ -4,6 +4,7 @@ import type { VoicingShape } from '../lib/progressions';
 import { getEffectiveBarChords } from '../lib/gesture';
 import { parseChordSymbol } from '../lib/chord-parser';
 import { DropZone } from './DropZone';
+import { IN_PLUGIN, bridge } from '../lib/juce-bridge';
 import { ClipCard } from './ClipCard';
 import { ThemeToggle } from './ThemeToggle';
 import { ProgressionGenerator } from './ProgressionGenerator';
@@ -135,6 +136,9 @@ export function Sidebar({
       }
       lines.push('');
     }
+    // Bridge first: blob downloads kill the page in the plugin WebView.
+    if (bridge.saveFile('unknown-chords.txt', new TextEncoder().encode(lines.join('\n'))))
+      return;
     const blob = new Blob([lines.join('\n')], { type: 'text/plain' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -169,9 +173,33 @@ export function Sidebar({
         <ThemeToggle />
       </div>
 
-      <DropZone onFilesDropped={onFilesDropped} fileInputRef={fileInputRef} />
+      {IN_PLUGIN ? (
+        // <input type=file> is as unreliable in the plugin WebView as blob
+        // downloads; import goes through the native picker instead
+        // (MidiCurator listens for the "fileOpened" answer).
+        <div
+          className="mc-dropzone"
+          role="button"
+          tabIndex={0}
+          aria-label="Import MIDI files"
+          onClick={() => bridge.openFile('*.mid;*.midi')}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              bridge.openFile('*.mid;*.midi');
+            }
+          }}
+        >
+          <div className="mc-dropzone-main">Import MIDI…</div>
+          <div className="mc-dropzone-sub">opens the host file picker</div>
+        </div>
+      ) : (
+        <DropZone onFilesDropped={onFilesDropped} fileInputRef={fileInputRef} />
+      )}
 
-      {onLoadLoopDb && (
+      {/* Apple Loops DB stays browser-only: sql.js (WASM) and <input
+          type=file> are both non-starters inside the plugin WebView. */}
+      {onLoadLoopDb && !IN_PLUGIN && (
         <div className="mc-loop-db-row">
           <button
             className={[
@@ -219,7 +247,9 @@ export function Sidebar({
         <ProgressionGenerator onGenerate={onGenerateProgression} />
       )}
 
-      {onLoadSamples && clips.length === 0 && (
+      {/* Samples fetch from /samples/ — not served by the plugin's
+          resource provider, which only ships the single-page bundle. */}
+      {onLoadSamples && !IN_PLUGIN && clips.length === 0 && (
         <button
           className="mc-btn--load-samples"
           onClick={onLoadSamples}

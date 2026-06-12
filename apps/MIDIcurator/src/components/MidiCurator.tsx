@@ -21,6 +21,7 @@ import { loadLoopDb, lookupLoopMeta, getLoadedDbFileName, keyTypeLabel, rootPcNa
 import { PROGRESSIONS, transposeProgression } from '../lib/progressions';
 import type { VoicingShape } from '../lib/progressions';
 import { generateProgressionClip } from '../lib/generate-clip';
+import { IN_PLUGIN, bridge, b64ToBytes } from '../lib/juce-bridge';
 import { Sidebar } from './Sidebar';
 import { ClipDetail } from './ClipDetail';
 import { KeyboardShortcutsBar } from './KeyboardShortcutsBar';
@@ -577,6 +578,21 @@ export function MidiCurator() {
       await db.addTag(clip.id, tag);
     }
   }, [db]);
+
+  // Plugin bridge: announce the page, and receive native-picker imports
+  // ("fileOpened" answers Sidebar's bridge.openFile; nothing on cancel).
+  useEffect(() => {
+    if (!IN_PLUGIN || !db) return;
+    bridge.ready();
+    return bridge.on('fileOpened', (data) => {
+      const { name, b64 } = (data ?? {}) as { name?: string; b64?: string };
+      if (!name || !b64) return;
+      void (async () => {
+        await importMidiBuffer(b64ToBytes(b64).buffer as ArrayBuffer, name);
+        refreshClips();
+      })();
+    });
+  }, [db, importMidiBuffer, refreshClips]);
 
   const handleFileUpload = useCallback(async (files: File[]) => {
     if (!db) return;

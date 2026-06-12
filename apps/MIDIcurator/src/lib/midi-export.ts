@@ -1,5 +1,6 @@
 import type { Gesture, Harmonic, Clip, Segmentation, BarChordInfo, Leadsheet, LoopMeta } from '../types/clip';
 import { createZip } from './zip';
+import { bridge } from './juce-bridge';
 
 // The SMF encoding core now lives in the suite's shared package
 // (@enkerli/midi, promoted from this file); re-exported so existing
@@ -245,22 +246,32 @@ export function createMIDI(
 
 // DOM-dependent download helpers (future Electron IPC boundary)
 
+/**
+ * Hand a file to the user: native save via the plugin bridge when present
+ * (blob downloads kill the page in WKWebView — "Frame load interrupted"),
+ * ordinary anchor download in browsers.
+ */
+function deliverFile(filename: string, data: Uint8Array, mime: string): void {
+  if (bridge.saveFile(filename, data)) return;
+  const blob = new Blob([data as BlobPart], { type: mime });
+  const url = URL.createObjectURL(blob);
+
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
 export function downloadMIDI(clip: Clip): void {
   const title = clip.filename.replace(/\.mid$/i, '');
   const midiData = createMIDI(
     clip.gesture, clip.harmonic, clip.bpm, clip.segmentation, clip.leadsheet,
     title, clip.sourceFilename, clip.notes || undefined, clip.loopMeta,
   );
-  const blob = new Blob([midiData], { type: 'audio/midi' });
-  const url = URL.createObjectURL(blob);
-
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = clip.filename;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
+  deliverFile(clip.filename, midiData, 'audio/midi');
 }
 
 export function downloadAllClips(clips: Clip[]): void {
@@ -293,17 +304,7 @@ export async function downloadAllAsZip(clips: Clip[], zipName = 'MIDIcurator-exp
     return { name: `${folder}${clip.filename}`, data: midiData };
   });
 
-  const zipData = createZip(files);
-  const blob = new Blob([zipData], { type: 'application/zip' });
-  const url = URL.createObjectURL(blob);
-
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = zipName;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
+  deliverFile(zipName, createZip(files), 'application/zip');
 }
 
 export async function downloadVariantsAsZip(
@@ -322,17 +323,7 @@ export async function downloadVariantsAsZip(
     return { name: filename, data: midiData };
   });
 
-  const zipData = createZip(files);
-  const blob = new Blob([zipData], { type: 'application/zip' });
-  const url = URL.createObjectURL(blob);
-
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `${sourceFilename.replace(/\.mid$/i, '')}_variants.zip`;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
+  deliverFile(`${sourceFilename.replace(/\.mid$/i, '')}_variants.zip`, createZip(files), 'application/zip');
 }
 
 /**
@@ -431,14 +422,9 @@ export function generateChordDebugJSON(clip: Clip): string {
  */
 export function downloadChordDebug(clip: Clip): void {
   const json = generateChordDebugJSON(clip);
-  const blob = new Blob([json], { type: 'application/json' });
-  const url = URL.createObjectURL(blob);
-
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `${clip.filename.replace(/\.mid$/i, '')}_chord-debug.json`;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
+  deliverFile(
+    `${clip.filename.replace(/\.mid$/i, '')}_chord-debug.json`,
+    new TextEncoder().encode(json),
+    'application/json',
+  );
 }
