@@ -82,7 +82,7 @@ function getInnerRingConfig(k, triads, sus, sevenths) {
 }
 
 function Dot({ x, y, active }) {
-  return <circle cx={x} cy={y} r={active ? 7 : 0} fill="#0f172a" opacity={active ? 0.9 : 0} />;
+  return <circle cx={x} cy={y} r={active ? 7 : 0} fill="var(--es-fg)" opacity={active ? 0.9 : 0} />;
 }
 
 export default function App() {
@@ -160,9 +160,9 @@ export default function App() {
   }, [selectedScaleSet, subsetSet]);
 
   return (
-    <div style={{ minHeight: "100vh", background: "#f1f5f9", padding: 16 }}>
-      <div style={{ maxWidth: 1100, margin: "0 auto", background: "white", border: "1px solid #cbd5e1", borderRadius: 28, padding: 12, boxShadow: "0 1px 3px rgba(0,0,0,0.05)" }}>
-        <div style={{ borderRadius: 24, overflow: "hidden", background: "radial-gradient(circle at center, white, #edf2f7)" }}>
+    <div style={{ minHeight: "100vh", background: "var(--es-bg)", padding: 16, fontFamily: "var(--es-font-sans)", color: "var(--es-fg)" }}>
+      <div style={{ maxWidth: 1100, margin: "0 auto", background: "var(--es-bg-raised)", border: "1px solid var(--es-border)", borderRadius: 28, padding: 12, boxShadow: "0 1px 3px rgba(0,0,0,0.05)" }}>
+        <div style={{ borderRadius: 24, overflow: "hidden", background: "radial-gradient(circle at center, var(--es-bg-raised), var(--es-bg-sunken))" }}>
           <svg viewBox="0 0 840 840" style={{ width: "100%", height: "auto", display: "block" }}>
             <circle cx={cx} cy={cy} r={376} fill="none" stroke="rgba(148,163,184,0.25)" strokeWidth="1.5" />
 
@@ -288,7 +288,7 @@ export default function App() {
                   dominantBaseline="middle"
                   fontSize="16"
                   fontWeight={selected ? 700 : 500}
-                  fill="#0f172a"
+                  fill="var(--es-fg)"
                 >
                   {label}
                 </text>
@@ -298,7 +298,7 @@ export default function App() {
             {mode === "browse" && browseRings.map(({ k, outer, inner }) => {
               const p = polar(cx, cy, (outer + inner) / 2, Math.PI * 0.08);
               return (
-                <text key={`k-${k}`} x={p.x} y={p.y} fontSize="12" fill="#334155" textAnchor="start" dominantBaseline="middle">
+                <text key={`k-${k}`} x={p.x} y={p.y} fontSize="12" fill="var(--es-fg-2)" textAnchor="start" dominantBaseline="middle">
                   {k}
                 </text>
               );
@@ -309,7 +309,7 @@ export default function App() {
               const inner = outer - 38;
               const p = polar(cx, cy, (outer + inner) / 2, Math.PI * 0.08);
               return (
-                <text key={`inner-label-${ring.key}`} x={p.x} y={p.y} fontSize="12" fill="#334155" textAnchor="start" dominantBaseline="middle">
+                <text key={`inner-label-${ring.key}`} x={p.x} y={p.y} fontSize="12" fill="var(--es-fg-2)" textAnchor="start" dominantBaseline="middle">
                   {ring.shortLabel}
                 </text>
               );
@@ -320,31 +320,31 @@ export default function App() {
               const inner = outer - 52;
               const p = polar(cx, cy, (outer + inner) / 2, Math.PI * 0.08);
               return (
-                <text key={`small-label-${ring.key}`} x={p.x} y={p.y} fontSize="12" fill="#334155" textAnchor="start" dominantBaseline="middle">
+                <text key={`small-label-${ring.key}`} x={p.x} y={p.y} fontSize="12" fill="var(--es-fg-2)" textAnchor="start" dominantBaseline="middle">
                   {ring.shortLabel}
                 </text>
               );
             })}
 
-            <circle cx={cx} cy={cy} r={86} fill="white" stroke="rgba(148,163,184,0.42)" strokeWidth="1.5" />
+            <circle cx={cx} cy={cy} r={86} fill="var(--es-bg-raised)" stroke="rgba(148,163,184,0.42)" strokeWidth="1.5" />
 
             {mode === "browse" ? (
               <>
-                <text x={cx} y={cy - 8} textAnchor="middle" fontSize="28" fontWeight="700" fill="#0f172a">12</text>
-                <text x={cx} y={cy + 18} textAnchor="middle" fontSize="13" fill="#64748b">8 7 6 5 4 3</text>
+                <text x={cx} y={cy - 8} textAnchor="middle" fontSize="28" fontWeight="700" fill="var(--es-fg)">12</text>
+                <text x={cx} y={cy + 18} textAnchor="middle" fontSize="13" fill="var(--es-fg-muted)">8 7 6 5 4 3</text>
               </>
             ) : (
               <>
-                <text x={cx} y={cy - 26} textAnchor="middle" fontSize="20" fontWeight="700" fill="#0f172a">
+                <text x={cx} y={cy - 26} textAnchor="middle" fontSize="20" fontWeight="700" fill="var(--es-fg)">
                   {selectedK}
                 </text>
-                <text x={cx} y={cy} textAnchor="middle" fontSize="26" fontWeight="700" fill="#0f172a">
+                <text x={cx} y={cy} textAnchor="middle" fontSize="26" fontWeight="700" fill="var(--es-fg)">
                   {pcsToBitmask(selectedScaleOrdered)}
                 </text>
-                <text x={cx} y={cy + 24} textAnchor="middle" fontSize="14" fill="#475569">
+                <text x={cx} y={cy + 24} textAnchor="middle" fontSize="14" fill="var(--es-fg-2)">
                   {activeItem?.numeral ?? "–"}
                 </text>
-                <text x={cx} y={cy + 44} textAnchor="middle" fontSize="12" fill="#64748b">
+                <text x={cx} y={cy + 44} textAnchor="middle" fontSize="12" fill="var(--es-fg-muted)">
                   {activeItem?.bitmask ?? ""}
                 </text>
               </>

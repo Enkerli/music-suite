@@ -29,6 +29,7 @@
     "vitest": "^1.0.0"
   },
   "dependencies": {
-    "@enkerli/theory": "*"
+    "@enkerli/theory": "*",
+    "@enkerli/ui": "*"
   }
 }

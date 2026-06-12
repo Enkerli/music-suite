@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Enkerli suite — style gallery</title>
+<!-- Dependency-free on purpose: this page is the design system's mirror.
+     If it looks wrong, the tokens are wrong. Serve from the repo
+     (npx vite apps/style-gallery) or open the file directly. -->
+<link rel="stylesheet" href="../../packages/ui/tokens/tokens.css" />
+<link rel="stylesheet" href="../../packages/ui/tokens/components.css" />
+<style>
+  body { margin: 0; padding: var(--es-space-6); display: grid; gap: var(--es-space-6);
+         max-width: 1080px; margin-inline: auto; }
+  h1 { font-size: var(--es-text-xl); margin: 0; font-family: var(--es-font-serif); }
+  h2 { font-size: var(--es-text-lg); margin: 0 0 var(--es-space-3); }
+  .row { display: flex; flex-wrap: wrap; gap: var(--es-gap); align-items: center; }
+  .sw { width: 86px; border-radius: var(--es-radius-sm); overflow: hidden;
+        border: 1px solid var(--es-border); font-size: var(--es-text-xs); }
+  .sw > div:first-child { height: 44px; }
+  .sw > div:last-child { padding: 4px 6px; background: var(--es-bg-raised); }
+  .sw code { display: block; color: var(--es-fg-muted); }
+  .type-sample { display: grid; gap: var(--es-space-1); }
+  .pc-chip { display: inline-flex; align-items: center; gap: 6px;
+             border: 1px solid var(--es-border); border-radius: 999px;
+             padding: 3px 10px 3px 5px; font-size: var(--es-text-sm);
+             background: var(--es-bg-raised); }
+  .pc-chip i { width: 16px; height: 16px; border-radius: 50%; display: inline-block; }
+  header { display: flex; justify-content: space-between; align-items: center; }
+</style>
+</head>
+<body class="es-app">
+
+<header>
+  <div>
+    <div class="es-eyebrow">@enkerli/ui · paper &amp; ink</div>
+    <h1>Style gallery</h1>
+  </div>
+  <button class="es-btn" id="theme-toggle" aria-label="Toggle color theme">◐ theme</button>
+</header>
+
+<section class="es-panel">
+  <h2>Surfaces &amp; ink</h2>
+  <div class="row" id="surfaces"></div>
+</section>
+
+<section class="es-panel">
+  <h2>Type</h2>
+  <div class="type-sample">
+    <div style="font-size:var(--es-text-xl)">Voice leading is a path through chord space — xl</div>
+    <div style="font-size:var(--es-text-lg)">Voice leading is a path through chord space — lg</div>
+    <div style="font-size:var(--es-text-md)">Voice leading is a path through chord space — md (body)</div>
+    <div style="font-size:var(--es-text-sm); color:var(--es-fg-2)">Secondary ink at sm — fg-2</div>
+    <div style="font-size:var(--es-text-xs); color:var(--es-fg-muted)">MUTED LABEL AT XS — FG-MUTED (≥4.5:1)</div>
+    <div style="font-family:var(--es-font-mono)">mono · 2773 = 101011010101 (C ionian, MSB-first)</div>
+    <div style="font-family:var(--es-font-serif)">Domine serif — DrawnQurve's display voice</div>
+    <div style="font-family:var(--es-font-hand); font-size:var(--es-text-lg)">Caveat hand — annotations only</div>
+  </div>
+</section>
+
+<section class="es-panel">
+  <h2>Actions &amp; controls</h2>
+  <div class="row">
+    <button class="es-btn">Button</button>
+    <button class="es-btn es-primary">Primary</button>
+    <button class="es-btn" disabled>Disabled</button>
+    <input class="es-control" placeholder="es-control input" />
+    <select class="es-control"><option>es-control select</option></select>
+    <span class="es-badge">badge</span>
+    <span class="es-badge es-up">badge up</span>
+  </div>
+  <p style="color:var(--es-fg-muted); font-size:var(--es-text-sm)">
+    Controls use <code>--es-border-strong</code> (≥3:1); panels keep the decorative border.
+    Tab through to see the focus ring.
+  </p>
+</section>
+
+<section class="es-panel">
+  <h2>Expressive dimensions <span style="color:var(--es-fg-muted);font-size:var(--es-text-sm)">(never color alone — always with the label)</span></h2>
+  <div class="row" id="dims"></div>
+</section>
+
+<section class="es-panel">
+  <h2>Pitch-class palette <span style="color:var(--es-fg-muted);font-size:var(--es-text-sm)">(per-theme, ≥3:1 on both surfaces)</span></h2>
+  <div class="row" id="pcs"></div>
+</section>
+
+<script type="module">
+  import { initTheme, toggleTheme } from "../../packages/ui/theme.js";
+  initTheme();
+  document.getElementById("theme-toggle").addEventListener("click", toggleTheme);
+
+  const css = (name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+  const el = (html) => { const t = document.createElement("template"); t.innerHTML = html.trim(); return t.content.firstChild; };
+
+  const render = () => {
+    const surfaces = [
+      ["--es-bg", "bg"], ["--es-bg-raised", "raised"], ["--es-bg-sunken", "sunken"],
+      ["--es-fg", "fg"], ["--es-fg-2", "fg-2"], ["--es-fg-muted", "muted"],
+      ["--es-border", "border"], ["--es-border-strong", "strong"], ["--es-accent", "accent"],
+    ];
+    document.getElementById("surfaces").replaceChildren(...surfaces.map(([v, label]) =>
+      el(`<div class="sw"><div style="background:var(${v})"></div><div>${label}<code>${css(v)}</code></div></div>`)));
+
+    const dims = ["breath", "expr", "pressure", "slide", "bend", "vel"];
+    document.getElementById("dims").replaceChildren(...dims.map((d) =>
+      el(`<span class="pc-chip"><i style="background:var(--es-dim-${d})"></i>${d}</span>`)));
+
+    const names = ["C", "C♯/D♭", "D", "D♯/E♭", "E", "F", "F♯/G♭", "G", "G♯/A♭", "A", "A♯/B♭", "B"];
+    document.getElementById("pcs").replaceChildren(...names.map((n, i) =>
+      el(`<span class="pc-chip"><i style="background:var(--es-pc-${i})"></i>${i} · ${n}</span>`)));
+  };
+  render();
+  new MutationObserver(render).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+</script>
+</body>
+</html>

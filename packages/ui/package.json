@@ -6,10 +6,14 @@
   "exports": {
     "./tokens.css": "./tokens/tokens.css",
     "./components.css": "./tokens/components.css",
-    "./theme": "./theme.js"
+    "./theme": {
+      "types": "./theme.d.ts",
+      "default": "./theme.js"
+    }
   },
   "files": [
     "tokens",
-    "theme.js"
+    "theme.js",
+    "theme.d.ts"
   ]
 }

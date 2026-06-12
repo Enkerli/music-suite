@@ -3,6 +3,7 @@
  * Wires together all components and manages app state
  */
 
+import '@enkerli/ui/tokens.css';
 import { GridRenderer } from './ui/svg-grid.js';
 import { midiManager } from './core/midi.js';
 import { FingeringPattern, ergoAnalyzer } from './core/fingering.js';

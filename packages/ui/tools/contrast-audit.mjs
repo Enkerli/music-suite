@@ -23,6 +23,7 @@ for (const theme of ['light','dark']) {
   t('accent-fg on accent', v['accent-fg'], 4.5, [v['accent']]);
   t('accent vs bg (ring)', v['accent'], 3);
   t('border-strong', v['border-strong'], 3);
+  t('danger', v['danger'], 3);
   for (let i=0;i<12;i++) t(`pc-${i}`, v[`pc-${i}`], 3);
 }
 console.log(fail ? `${fail} FAILURES` : 'ALL PASS');

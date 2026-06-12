@@ -1,55 +1,31 @@
-/* Dark theme (default) */
+/* Palette: aliases over the suite's paper & ink tokens (@enkerli/ui).
+   Light/dark resolve via the tokens (ThemeToggle sets data-theme through
+   the shared theme.js; OS preference applies until a choice is made).
+   color-mix derives the app-specific shades so both themes stay true. */
 :root {
-  --mc-bg: #1a1a1a;
-  --mc-bg-raised: #202020;
-  --mc-bg-card: #252525;
-  --mc-border: #333;
-  --mc-text: #e0e0e0;
-  --mc-text-muted: #888;
-  --mc-text-dim: #666;
-  --mc-text-label: #aaa;
-  --mc-accent: #4a7a9a;
-  --mc-accent-light: #6a9aba;
-  --mc-selected: #2a4a6a;
-  --mc-selected-border: #4a7a9a;
-  --mc-success: #2a6a4a;
-  --mc-danger: #6a2a2a;
-  --mc-green-muted: #6a9a6a;
-  --mc-green-bg: #2a3a2a;
-  --mc-green-text: #9aba9a;
-  --mc-piano-bg: #181818;
-  --mc-piano-lane-dark: #1e1e1e;
-  --mc-piano-lane-light: #222;
-  --mc-piano-grid-bar: #444;
-  --mc-piano-grid-beat: #2a2a2a;
-  --mc-piano-label: #666;
-}
-
-/* Light theme */
-:root[data-theme="light"] {
-  --mc-bg: #f0f0f0;
-  --mc-bg-raised: #e8e8e8;
-  --mc-bg-card: #ffffff;
-  --mc-border: #ccc;
-  --mc-text: #222;
-  --mc-text-muted: #666;
-  --mc-text-dim: #999;
-  --mc-text-label: #555;
-  --mc-accent: #2a6090;
-  --mc-accent-light: #1a5080;
-  --mc-selected: #d0e0f0;
-  --mc-selected-border: #2a6090;
-  --mc-success: #2a8a5a;
-  --mc-danger: #c04040;
-  --mc-green-muted: #4a8a4a;
-  --mc-green-bg: #e0f0e0;
-  --mc-green-text: #2a5a2a;
-  --mc-piano-bg: #f8f8f8;
-  --mc-piano-lane-dark: #eee;
-  --mc-piano-lane-light: #f4f4f4;
-  --mc-piano-grid-bar: #aaa;
-  --mc-piano-grid-beat: #ddd;
-  --mc-piano-label: #888;
+  --mc-bg: var(--es-bg);
+  --mc-bg-raised: var(--es-bg-sunken);
+  --mc-bg-card: var(--es-bg-raised);
+  --mc-border: var(--es-border);
+  --mc-text: var(--es-fg);
+  --mc-text-muted: var(--es-fg-muted);
+  --mc-text-dim: var(--es-fg-muted);
+  --mc-text-label: var(--es-fg-2);
+  --mc-accent: var(--es-accent);
+  --mc-accent-light: color-mix(in srgb, var(--es-accent) 80%, var(--es-fg));
+  --mc-selected: color-mix(in srgb, var(--es-accent) 22%, var(--es-bg));
+  --mc-selected-border: var(--es-accent);
+  --mc-success: var(--es-dim-expr);
+  --mc-danger: var(--es-danger);
+  --mc-green-muted: var(--es-dim-expr);
+  --mc-green-bg: color-mix(in srgb, var(--es-dim-expr) 16%, var(--es-bg));
+  --mc-green-text: color-mix(in srgb, var(--es-dim-expr) 60%, var(--es-fg));
+  --mc-piano-bg: var(--es-bg-sunken);
+  --mc-piano-lane-dark: color-mix(in srgb, var(--es-fg) 6%, var(--es-bg-sunken));
+  --mc-piano-lane-light: color-mix(in srgb, var(--es-fg) 2%, var(--es-bg-sunken));
+  --mc-piano-grid-bar: var(--es-border-strong);
+  --mc-piano-grid-beat: var(--es-border);
+  --mc-piano-label: var(--es-fg-muted);
 }
 
 * {
@@ -59,7 +35,7 @@
 }
 
 body {
-  font-family: system-ui, -apple-system, sans-serif;
+  font-family: var(--es-font-sans);
   background: var(--mc-bg);
   color: var(--mc-text);
 }

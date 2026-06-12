@@ -93,6 +93,7 @@
                                 ≥3:1 vs paper as a focus ring (the graphic
                                 dim-breath hue stays #4b86c7) */
   --es-accent-fg: #ffffff;
+  --es-danger: #b3403a;        /* destructive actions; ≥3:1 on both surfaces */
   color-scheme: light;
 }
 
@@ -110,6 +111,7 @@
     --es-border-strong: #736958; /* ≥3:1 — boundaries that identify a control */
     --es-accent: #6da3df;
     --es-accent-fg: #14130f;
+    --es-danger: #cf6a5e;        /* destructive actions; ≥3:1 on both surfaces */
     /* pc palette: the brighter originals hold ≥3:1 on the dark surfaces */
     --es-pc-1: #66ccee;  --es-pc-3: #ccbb44;  --es-pc-4: #ee6677;
     --es-pc-5: #b6377f;  --es-pc-6: #bbbbbb;  --es-pc-7: #2e7474;
@@ -131,6 +133,7 @@
   --es-border-strong: #736958; /* ≥3:1 — boundaries that identify a control */
   --es-accent: #6da3df;
   --es-accent-fg: #14130f;
+  --es-danger: #cf6a5e;        /* destructive actions; ≥3:1 on both surfaces */
   /* pc palette: the brighter originals hold ≥3:1 on the dark surfaces */
   --es-pc-1: #66ccee;  --es-pc-3: #ccbb44;  --es-pc-4: #ee6677;
   --es-pc-5: #b6377f;  --es-pc-6: #bbbbbb;  --es-pc-7: #2e7474;
