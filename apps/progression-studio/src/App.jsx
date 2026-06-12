@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import table from "./data/transitions.json";
 import { generateSections, labelMass, realizeLabel, startLabel, voiceProgression } from "./generate.js";
-import { downloadProgression, voicingsToClip } from "./exportMidi.js";
+import { exportProgression, voicingsToClip } from "./exportMidi.js";
 import { createBridge } from "./juceBridge.js";
 import { resolvedTheme, toggleTheme } from "@enkerli/ui/theme";
 
@@ -337,7 +337,7 @@ export default function App() {
           <button
             className="es-btn"
             title="Download as a Standard MIDI File (chord symbols as markers)"
-            onClick={() => downloadProgression(voicings, { bpm, tonic, mode, seed, channelMode })}
+            onClick={() => exportProgression(bridge, voicings, { bpm, tonic, mode, seed, channelMode })}
           >
             Export MIDI
           </button>

@@ -58,6 +58,24 @@ export function createBridge() {
       if (HAS_JUCE) bridge.send("enkerliClearClip", {});
     },
 
+    /**
+     * Save bytes through native UI (enkerli::exportBytes — FileChooser on
+     * desktop, share sheet on iPadOS). Returns false outside the plugin so
+     * callers can fall back to a browser download. NEVER use blob:/data:
+     * anchor downloads in the plugin: WKWebView has no download manager
+     * under the juce:// scheme and kills the page ("Frame load
+     * interrupted"). bytes: Uint8Array.
+     */
+    saveFile(filename, bytes) {
+      if (!HAS_JUCE) return false;
+      let bin = "";
+      for (let i = 0; i < bytes.length; i += 0x8000) {
+        bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+      }
+      bridge.send("enkerliSaveFile", { name: filename, b64: btoa(bin) });
+      return true;
+    },
+
     /** Tell C++ the page is alive; C++ answers with initial state. */
     ready() {
       if (HAS_JUCE) bridge.send("uiReady", {});

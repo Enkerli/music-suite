@@ -54,15 +54,25 @@ export function progressionToSMF(voicings, { bpm = 120, name = "Progression", ch
   return createSMF(notes, { bpm, ticksPerBeat: TICKS_PER_BEAT, trackName: name, markers });
 }
 
-/** Browser download helper. */
-export function downloadProgression(voicings, { bpm, tonic, mode, seed, channelMode }) {
+function exportFileName({ tonic, mode, seed }) {
+  return `progression_${tonic.replace(/♯/g, "#").replace(/♭/g, "b")}_${mode}_${seed}.mid`;
+}
+
+/**
+ * Export entry point. In the plugin the bytes go over the bridge and C++
+ * saves them natively (blob:/data: downloads kill the page in WKWebView —
+ * "Frame load interrupted"); in a browser, ordinary download.
+ */
+export function exportProgression(bridge, voicings, { bpm, tonic, mode, seed, channelMode }) {
   const name = `progression ${tonic} ${mode} #${seed}`;
   const bytes = progressionToSMF(voicings, { bpm, name, channelMode });
+  const filename = exportFileName({ tonic, mode, seed });
+  if (bridge?.saveFile?.(filename, bytes)) return;
   const blob = new Blob([bytes], { type: "audio/midi" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = `progression_${tonic.replace(/♯/g, "#").replace(/♭/g, "b")}_${mode}_${seed}.mid`;
+  a.download = filename;
   a.click();
   URL.revokeObjectURL(url);
 }
