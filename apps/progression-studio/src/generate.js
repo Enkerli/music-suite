@@ -8,7 +8,7 @@
  * pitch classes, and minimalVoiceLeading smooths the playback voicings.
  */
 
-import { effectiveRow } from "./curation.js";
+import { effectiveRow, tripleMultiplier } from "./curation.js";
 import {
   findQualityByKey,
   minimalVoiceLeading,
@@ -81,14 +81,33 @@ export function startLabel(table, mode) {
  * ear-driven layer (see curation.js); generation stays deterministic
  * for a given (seed, curation) pair.
  */
-export function generateProgression(table, mode, length, seed, curation = NO_CURATION, temperature = 1) {
+export function generateProgression(table, mode, length, seed, curation = NO_CURATION, temperature = 1, startFrom = null) {
   const rng = mulberry32(seed);
-  const start = startLabel(table, mode);
+  const tonic = startLabel(table, mode);
+  const start = startFrom && table[startFrom] ? startFrom : (startFrom ?? tonic);
   const labels = [start];
   let current = start;
   while (labels.length < length) {
-    const row = table[current];
-    current = row ? weightedPick(effectiveRow(row, current, curation), rng, temperature) : start;
+    let row = table[current];
+    if (row) {
+      row = effectiveRow(row, current, curation);
+      // Longer-context (triple) gesture weights on top of pair weights.
+      const prev2 = labels.length >= 2 ? labels[labels.length - 2] : null;
+      if (prev2 !== null) {
+        let adjusted = null;
+        for (const to of Object.keys(row)) {
+          const m = tripleMultiplier(curation, prev2, current, to);
+          if (m !== 1) {
+            adjusted ??= { ...row };
+            adjusted[to] = row[to] * m;
+          }
+        }
+        if (adjusted) row = adjusted;
+      }
+      current = weightedPick(row, rng, temperature);
+    } else {
+      current = tonic; // dead end: come home
+    }
     labels.push(current);
   }
   return labels;
@@ -247,8 +266,28 @@ export function generateCircleOfFifths(table, mode, length) {
  * Unified entry point for the UI.
  * method: "markov" | "markov-cadence" | "circle"
  */
-export function generateLabels(table, mode, { length, seed, curation, method = "markov", temperature = 1 }) {
+export function generateLabels(table, mode, { length, seed, curation, method = "markov", temperature = 1, startFrom = null }) {
   if (method === "circle") return generateCircleOfFifths(table, mode, length);
-  const labels = generateProgression(table, mode, length, seed, curation, temperature);
+  const labels = generateProgression(table, mode, length, seed, curation, temperature, startFrom);
   return method === "markov-cadence" ? applyCadence(table, mode, labels) : labels;
+}
+
+/**
+ * Sectioned generation: a base section plus extensions, each continuing
+ * from the previous section's last chord ("string sections together").
+ * Deterministic from the full parameter set.
+ */
+export function generateSections(table, mode, base, extensions) {
+  let labels = generateLabels(table, mode, base);
+  for (const ext of extensions) {
+    const segment = generateLabels(table, mode, {
+      ...base,
+      method: "markov", // extensions always walk the corpus
+      length: ext.length + 1,
+      seed: ext.seed,
+      startFrom: labels[labels.length - 1],
+    });
+    labels = labels.concat(segment.slice(1)); // joint chord not duplicated
+  }
+  return labels;
 }

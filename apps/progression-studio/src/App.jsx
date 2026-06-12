@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import table from "./data/transitions.json";
-import { generateLabels, labelMass, realizeLabel, startLabel, voiceProgression } from "./generate.js";
+import { generateSections, labelMass, realizeLabel, startLabel, voiceProgression } from "./generate.js";
 import { downloadProgression, voicingsToClip } from "./exportMidi.js";
 import { createBridge } from "./juceBridge.js";
 import { resolvedTheme, toggleTheme } from "@enkerli/ui/theme";
@@ -11,6 +11,7 @@ const IN_PLUGIN = bridge.kind === "juce";
 import {
   adjustTransition,
   exportCuration,
+  rateGesture,
   importCuration,
   loadCuration,
   multiplierFor,
@@ -157,6 +158,10 @@ export default function App() {
   const [temperature, setTemperature] = useState(1);
   const [channelMode, setChannelMode] = useState("single");
   const [hostPlayhead, setHostPlayhead] = useState(-1);
+  const [startFrom, setStartFrom] = useState(null);
+  const [extensions, setExtensions] = useState([]);
+  const [gestureAnchor, setGestureAnchor] = useState(null);
+  const [gestureRange, setGestureRange] = useState(null); // [from, to] indices
   const { play, stop, playing, playhead } = usePlayer();
 
   useEffect(() => { saveCuration(curation); }, [curation]);
@@ -181,6 +186,8 @@ export default function App() {
         if (s.curation && typeof s.curation.multipliers === "object") setCuration(s.curation);
         if (typeof s.temperature === "number") setTemperature(s.temperature);
         if (s.channelMode) setChannelMode(s.channelMode);
+        if (s.startFrom !== undefined) setStartFrom(s.startFrom);
+        if (Array.isArray(s.extensions)) setExtensions(s.extensions);
       } catch { /* malformed saved state — keep defaults */ }
     });
     bridge.ready();
@@ -188,8 +195,9 @@ export default function App() {
   }, []);
 
   const labels = useMemo(
-    () => generateLabels(table[mode], mode, { length, seed, curation, method, temperature }),
-    [mode, length, seed, curation, method, temperature],
+    () => generateSections(table[mode], mode,
+      { length, seed, curation, method, temperature, startFrom }, extensions),
+    [mode, length, seed, curation, method, temperature, startFrom, extensions],
   );
   const chords = useMemo(
     () => labels.map((l) => realizeLabel(l, { tonic, mode })).filter(Boolean),
@@ -207,8 +215,13 @@ export default function App() {
     if (!IN_PLUGIN) return;
     const { notes, lengthBeats } = voicingsToClip(voicings, channelMode);
     bridge.setClip(notes, lengthBeats, { loop: true });
-    bridge.send("enkerliState", { tonic, mode, length, seed, method, curation, temperature, channelMode });
-  }, [voicings, tonic, mode, length, seed, method, curation, temperature, channelMode]);
+    bridge.send("enkerliState", { tonic, mode, length, seed, method, curation, temperature, channelMode, startFrom, extensions });
+  }, [voicings, tonic, mode, length, seed, method, curation, temperature, channelMode, startFrom, extensions]);
+
+  const startOptions = useMemo(() => {
+    const mass = labelMass(table[mode]);
+    return [...mass.entries()].sort((a, b) => b[1] - a[1]).slice(0, 80).map(([l]) => l);
+  }, [mode]);
 
   const transitions = useMemo(() => {
     const seen = new Set();
@@ -264,6 +277,13 @@ export default function App() {
               <option value="minor">minor</option>
             </select>
           </label>
+          <label style={{ display: "grid", gap: 4, fontSize: "var(--es-text-sm)" }}>Start from
+            <select className="es-control" value={startFrom ?? ""} title="Seed the walk from an arbitrary chord"
+              onChange={(e) => setStartFrom(e.target.value || null)}>
+              <option value="">tonic (auto)</option>
+              {startOptions.map((l) => <option key={l} value={l}>{l}</option>)}
+            </select>
+          </label>
           <label style={{ display: "grid", gap: 4, fontSize: "var(--es-text-sm)" }}>Engine
             <select className="es-control" value={method} onChange={(e) => setMethod(e.target.value)}>
               <option value="markov">corpus walk</option>
@@ -295,8 +315,12 @@ export default function App() {
           {!IN_PLUGIN && <label style={{ display: "grid", gap: 4, fontSize: "var(--es-text-sm)" }}>Tempo
             <input className="es-control" style={{ width: 72 }} type="number" min="40" max="300" value={bpm} onChange={(e) => setBpm(Number(e.target.value))} />
           </label>}
-          <button className="es-btn" onClick={() => setSeed((s) => s + 1)}>
+          <button className="es-btn" onClick={() => { setSeed((s) => s + 1); setExtensions([]); setGestureAnchor(null); setGestureRange(null); }}>
             New progression
+          </button>
+          <button className="es-btn" title="Append a section continuing from the last chord"
+            onClick={() => setExtensions((x) => [...x, { seed: seed * 31 + x.length + 1, length }])}>
+            + Extend
           </button>
           {!IN_PLUGIN && <button
             className="es-btn es-primary"
@@ -333,15 +357,23 @@ export default function App() {
               {row.map((c, ci) => {
                 const idx = ri * 4 + ci;
                 const active = idx === (IN_PLUGIN ? hostPlayhead : playhead);
+                const inRange = gestureRange && idx >= gestureRange[0] && idx <= gestureRange[1];
+                const isAnchor = gestureAnchor === idx && !gestureRange;
                 return (
                   <div key={idx} role="button" tabIndex={0}
-                    onClick={() => setStatsLabel(c.label)}
+                    onClick={() => {
+                      setStatsLabel(c.label);
+                      if (gestureAnchor === null || gestureRange) { setGestureAnchor(idx); setGestureRange(null); }
+                      else if (Math.abs(idx - gestureAnchor) >= 2) { setGestureRange([Math.min(gestureAnchor, idx), Math.max(gestureAnchor, idx)]); }
+                      else { setGestureAnchor(idx); }
+                    }}
                     onKeyDown={(e) => e.key === "Enter" && setStatsLabel(c.label)}
-                    title={`Show corpus statistics for ${c.label}`}
+                    title={`Stats for ${c.label} · tap another chord 2+ away to select a gesture`}
                     style={{
                     borderLeft: "2px solid var(--es-border)",
                     paddingLeft: "var(--es-space-2)",
-                    background: active ? "var(--es-accent)" : "transparent",
+                    background: active ? "var(--es-accent)" : inRange ? "var(--es-dim-bend-tint)" : "transparent",
+                    outline: isAnchor ? "2px dashed var(--es-fg-muted)" : "none",
                     color: active ? "var(--es-accent-fg)" : "inherit",
                     borderRadius: "var(--es-radius-sm)",
                     transition: "background var(--es-motion-fast)",
@@ -370,6 +402,21 @@ export default function App() {
             >
               👎 Bit meh
             </button>
+            {gestureRange && <>
+              <span className="es-num" style={{ alignSelf: "center", fontSize: "var(--es-text-sm)" }}>
+                gesture: {labels.slice(gestureRange[0], gestureRange[1] + 1).join(" → ")}
+              </span>
+              <button className="es-btn" title="Emphasize this stretch as a unit (triple contexts)"
+                onClick={() => { setCuration((c) => rateGesture(c, labels.slice(gestureRange[0], gestureRange[1] + 1), TRANSITION_STEP)); }}>
+                👍 gesture
+              </button>
+              <button className="es-btn" title="De-emphasize this stretch"
+                onClick={() => { setCuration((c) => rateGesture(c, labels.slice(gestureRange[0], gestureRange[1] + 1), 1 / TRANSITION_STEP)); }}>
+                👎 gesture
+              </button>
+              <button className="es-btn es-small" aria-label="Clear gesture selection"
+                onClick={() => { setGestureAnchor(null); setGestureRange(null); }}>✕</button>
+            </>}
             <button
               className="es-btn es-small" style={{ marginLeft: "auto" }}
               onClick={() => setShowCuration((s) => !s)}

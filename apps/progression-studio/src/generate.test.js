@@ -133,3 +133,53 @@ describe("temperature", async () => {
     expect(a).toEqual(b);
   });
 });
+
+describe("start-from and sections", async () => {
+  const { generateLabels, generateSections } = await import("./generate.js");
+
+  it("starts the walk from an arbitrary chord", () => {
+    const labels = generateLabels(table.major, "major", { length: 8, seed: 2, startFrom: "♭II7" });
+    expect(labels[0]).toBe("♭II7");
+  });
+
+  it("extensions continue from the previous section's last chord", () => {
+    const base = { length: 8, seed: 4, temperature: 1 };
+    const one = generateSections(table.major, "major", base, []);
+    const two = generateSections(table.major, "major", base, [{ seed: 9, length: 8 }]);
+    expect(two.slice(0, 8)).toEqual(one);
+    expect(two).toHaveLength(16);
+    // the joint is continuous: extension was seeded from one[7]
+    const ext = generateLabels(table.major, "major", { ...base, method: "markov", length: 9, seed: 9, startFrom: one[7] });
+    expect(two.slice(7)).toEqual(ext);
+  });
+});
+
+describe("gesture curation steers triples", async () => {
+  const { rateGesture, emptyCuration, tripleMultiplier } = await import("./curation.js");
+  const { generateProgression } = await import("./generate.js");
+
+  it("rates overlapping triples in a stretch", () => {
+    const c = rateGesture(emptyCuration(), ["Imaj7", "VIm7", "IIm7", "V7"], 2);
+    expect(tripleMultiplier(c, "Imaj7", "VIm7", "IIm7")).toBe(2);
+    expect(tripleMultiplier(c, "VIm7", "IIm7", "V7")).toBe(2);
+  });
+
+  it("a heavily boosted triple changes generation given its context", () => {
+    // After the common context Imaj7 → IIm7, boost the SECOND most common
+    // continuation (real base probability, so the effect is measurable).
+    const rare = Object.keys(table.major["IIm7"])[1];
+    let c = emptyCuration();
+    for (let i = 0; i < 14; i++) c = rateGesture(c, ["Imaj7", "IIm7", rare], 2);
+    const count = (curation) => {
+      let hits = 0;
+      for (let seed = 0; seed < 80; seed++) {
+        const l = generateProgression(table.major, "major", 12, seed, curation);
+        for (let i = 2; i < l.length; i++) {
+          if (l[i - 2] === "Imaj7" && l[i - 1] === "IIm7" && l[i] === rare) hits++;
+        }
+      }
+      return hits;
+    };
+    expect(count(c)).toBeGreaterThan(count(emptyCuration()));
+  });
+});

@@ -21,6 +21,11 @@ export function pairKey(from, to) {
   return `${from} → ${to}`;
 }
 
+/** n-gram key: "A → B → C" — same map as pairs, longer context. */
+export function sequenceKey(labels) {
+  return labels.join(" → ");
+}
+
 export function emptyCuration() {
   return { multipliers: {} };
 }
@@ -48,6 +53,29 @@ export function rateProgression(curation, labels, factor) {
     result = adjustTransition(result, labels[i - 1], labels[i], factor);
   }
   return result;
+}
+
+/**
+ * Gesture curation: rate a stretch of 3+ chords as a unit. Stores a
+ * multiplier on every overlapping TRIPLE in the stretch — generation
+ * consults triples as longer-context weights on top of pairs (the first
+ * step toward variable-order generation).
+ */
+export function rateGesture(curation, labels, factor) {
+  if (labels.length < 3) return rateProgression(curation, labels, factor);
+  let multipliers = { ...curation.multipliers };
+  for (let i = 2; i < labels.length; i++) {
+    const key = sequenceKey([labels[i - 2], labels[i - 1], labels[i]]);
+    const next = Math.min(16, Math.max(1 / 16, (multipliers[key] ?? 1) * factor));
+    if (Math.abs(next - 1) < 1e-9) delete multipliers[key];
+    else multipliers[key] = next;
+  }
+  return { multipliers };
+}
+
+/** Triple-context multiplier for a candidate next label, default 1. */
+export function tripleMultiplier(curation, prev2, prev1, candidate) {
+  return curation.multipliers[sequenceKey([prev2, prev1, candidate])] ?? 1;
 }
 
 export function resetTransition(curation, key) {
