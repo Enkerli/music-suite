@@ -113,3 +113,52 @@
 .es-dot.slide { background: var(--es-dim-slide); }
 .es-dot.bend { background: var(--es-dim-bend); }
 .es-dot.vel { background: var(--es-dim-vel); }
+
+/* ── Collapsible section shell (the PitchFold grammar, suite-wide) ────
+   AUv3 windows are small and fixed: every plugin UI is a stack of
+   collapsible sections, and a density toggle (.es-dense on a container)
+   tightens the whole stack for stage use. Native <details> keeps it
+   keyboard- and screen-reader-correct with zero JS. */
+.es-section {
+  background: var(--es-bg-raised);
+  border: 1px solid var(--es-border);
+  border-radius: var(--es-radius-md);
+  overflow: hidden;
+}
+.es-section + .es-section { margin-top: var(--es-gap); }
+.es-section > summary {
+  min-height: var(--es-section-header);
+  display: flex;
+  align-items: center;
+  gap: var(--es-space-2);
+  padding: var(--es-space-1) var(--es-space-3);
+  cursor: pointer;
+  list-style: none;
+  font-size: var(--es-text-sm);
+  font-weight: 600;
+  color: var(--es-fg-2);
+  user-select: none;
+}
+.es-section > summary::-webkit-details-marker { display: none; }
+.es-section > summary::before {
+  content: "▸";
+  color: var(--es-fg-muted);
+  transition: transform var(--es-motion-fast);
+}
+.es-section[open] > summary::before { transform: rotate(90deg); }
+.es-section > summary:focus-visible {
+  outline: var(--es-focus-ring);
+  outline-offset: calc(var(--es-focus-offset) * -1);
+}
+.es-section > .es-section-body {
+  padding: var(--es-space-3);
+  border-top: 1px solid var(--es-border-soft);
+}
+
+/* Density toggle: tighten the stack (stage-performer persona) */
+.es-dense {
+  --es-gap: 6px;
+  --es-section-header: 22px;
+  --es-text-md: 0.875rem;
+}
+.es-dense .es-section > .es-section-body { padding: var(--es-space-2); }

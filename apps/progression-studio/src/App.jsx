@@ -4,6 +4,7 @@ import { generateSections, labelMass, realizeLabel, startLabel, voiceProgression
 import { exportProgression, voicingsToClip } from "./exportMidi.js";
 import { createBridge } from "./juceBridge.js";
 import { resolvedTheme, toggleTheme } from "@enkerli/ui/theme";
+import { createPianoRoll } from "@enkerli/ui/piano-roll";
 
 // Module singleton: detected once, same UI runs in browser and plugin.
 const bridge = createBridge();
@@ -78,6 +79,23 @@ function usePlayer() {
 
   useEffect(() => () => stopRef.current(), []);
   return { play, stop, playing, playhead };
+}
+
+/** Progression shape — the suite's shared piano roll, read-only. */
+function ProgressionShape({ voicings, channelMode, beat }) {
+  const hostRef = useRef(null);
+  const rollRef = useRef(null);
+  const { notes, lengthBeats } = useMemo(
+    () => voicingsToClip(voicings, channelMode),
+    [voicings, channelMode],
+  );
+  useEffect(() => {
+    rollRef.current = createPianoRoll(hostRef.current, { height: 120 });
+    return () => rollRef.current.destroy();
+  }, []);
+  useEffect(() => { rollRef.current.update({ notes, lengthBeats }); }, [notes, lengthBeats]);
+  useEffect(() => { rollRef.current.setPlayhead(beat); }, [beat]);
+  return <div ref={hostRef} />;
 }
 
 function MultiplierBadge({ value }) {
@@ -158,6 +176,7 @@ export default function App() {
   const [temperature, setTemperature] = useState(1);
   const [channelMode, setChannelMode] = useState("single");
   const [hostPlayhead, setHostPlayhead] = useState(-1);
+  const [hostBeat, setHostBeat] = useState(-1);
   const [startFrom, setStartFrom] = useState(null);
   const [extensions, setExtensions] = useState([]);
   const [gestureAnchor, setGestureAnchor] = useState(null);
@@ -174,6 +193,7 @@ export default function App() {
       // Chord-follow: the scheduler reports its clip-relative beat;
       // 2 beats per chord (voicingsToClip's grid).
       setHostPlayhead(t.playing && t.beat >= 0 ? Math.floor(t.beat / 2) : -1);
+      setHostBeat(t.playing && t.beat >= 0 ? t.beat : -1);
     });
     const offRuntime = bridge.on("runtime", setRuntime);
     const offState = bridge.on("state", (s) => {
@@ -426,6 +446,17 @@ export default function App() {
             </button>
           </div>
         </div>
+
+        <details className="es-section" open style={{ marginTop: "var(--es-space-3)" }}>
+          <summary>Progression shape</summary>
+          <div className="es-section-body">
+            <ProgressionShape
+              voicings={voicings}
+              channelMode={channelMode}
+              beat={IN_PLUGIN ? hostBeat : playhead >= 0 ? playhead * 2 : -1}
+            />
+          </div>
+        </details>
 
         {showCuration && (
           <div className="es-panel" style={{ marginTop: "var(--es-space-3)" }}>

@@ -85,8 +85,60 @@
   <div class="row" id="pcs"></div>
 </section>
 
+<section class="es-panel">
+  <h2>Shared components</h2>
+  <div class="row" style="align-items:flex-start">
+    <div>
+      <div class="es-eyebrow">pcs ring (tap to toggle)</div>
+      <div id="ring"></div>
+    </div>
+    <div>
+      <div class="es-eyebrow">pitch grid (hex, Exquis layout)</div>
+      <div id="grid"></div>
+    </div>
+  </div>
+  <div style="margin-top:var(--es-space-4)">
+    <div class="es-eyebrow">piano roll (ii–V–I shape, animated playhead)</div>
+    <div id="roll" style="max-width:560px"></div>
+  </div>
+  <div style="margin-top:var(--es-space-4); max-width:560px">
+    <div class="es-eyebrow">collapsible sections — <label><input type="checkbox" id="dense"> dense (stage)</label></div>
+    <div id="sections"></div>
+  </div>
+</section>
+
 <script type="module">
   import { initTheme, toggleTheme } from "../../packages/ui/theme.js";
+  import { createPcsRing } from "../../packages/ui/components/pcs-ring.js";
+  import { createPitchGrid } from "../../packages/ui/components/pitch-grid.js";
+  import { createPianoRoll } from "../../packages/ui/components/piano-roll.js";
+  import { createSection } from "../../packages/ui/components/section.js";
+
+  const ring = createPcsRing(document.getElementById("ring"), {
+    pcs: 2773, root: 0, colorByPc: true,
+    onToggle: (pc, on) => { const pcs = ring.pcs; on ? pcs.add(pc) : pcs.delete(pc); ring.update({ pcs }); grid.update({ highlight: pcs }); },
+  });
+  const grid = createPitchGrid(document.getElementById("grid"), {
+    layout: "hex", rows: 5, cols: 5, cellSize: 38, highlight: ring.pcs,
+  });
+  const roll = createPianoRoll(document.getElementById("roll"), {
+    notes: [
+      { startBeat: 0, lengthBeats: 2, pitch: 50 }, { startBeat: 0, lengthBeats: 2, pitch: 60 }, { startBeat: 0, lengthBeats: 2, pitch: 65 }, { startBeat: 0, lengthBeats: 2, pitch: 69 },
+      { startBeat: 2, lengthBeats: 2, pitch: 55 }, { startBeat: 2, lengthBeats: 2, pitch: 59 }, { startBeat: 2, lengthBeats: 2, pitch: 65 }, { startBeat: 2, lengthBeats: 2, pitch: 69 },
+      { startBeat: 4, lengthBeats: 4, pitch: 48 }, { startBeat: 4, lengthBeats: 4, pitch: 59 }, { startBeat: 4, lengthBeats: 4, pitch: 64 }, { startBeat: 4, lengthBeats: 4, pitch: 67 },
+    ],
+    lengthBeats: 8, height: 140,
+  });
+  let beat = 0;
+  setInterval(() => { beat = (beat + 0.1) % 8; roll.setPlayhead(beat); }, 100);
+
+  const sections = document.getElementById("sections");
+  for (const [title, text] of [["Scale", "PCS controls live here."], ["Quantizer", "Strength, direction, range."], ["Pads", "Chord pad bank."]]) {
+    const { body } = createSection(sections, { title, open: title === "Scale" });
+    body.textContent = text;
+  }
+  document.getElementById("dense").addEventListener("change", (e) =>
+    sections.classList.toggle("es-dense", e.target.checked));
   initTheme();
   document.getElementById("theme-toggle").addEventListener("click", toggleTheme);
 

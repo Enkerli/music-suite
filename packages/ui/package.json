@@ -9,11 +9,16 @@
     "./theme": {
       "types": "./theme.d.ts",
       "default": "./theme.js"
-    }
+    },
+    "./pcs-ring": "./components/pcs-ring.js",
+    "./pitch-grid": "./components/pitch-grid.js",
+    "./piano-roll": "./components/piano-roll.js",
+    "./section": "./components/section.js"
   },
   "files": [
     "tokens",
     "theme.js",
-    "theme.d.ts"
+    "theme.d.ts",
+    "components"
   ]
 }
