@@ -65,13 +65,15 @@ export interface SmfOptions {
   bpm?: number;
   ticksPerBeat?: number;
   trackName?: string;
-  /** DAW-visible marker meta events (e.g. chord symbols per bar). */
+  /** DAW-visible marker meta events (0x06; e.g. chord symbols per bar). */
   markers?: MidiMarker[];
+  /** Text meta events (0x01; e.g. embedded MCURATOR JSON payloads). */
+  textEvents?: MidiMarker[];
 }
 
 /** Build a single-track (format 0) Standard MIDI File. */
 export function createSMF(notes: MidiNote[], options: SmfOptions = {}): Uint8Array {
-  const { bpm = 120, ticksPerBeat = 480, trackName, markers = [] } = options;
+  const { bpm = 120, ticksPerBeat = 480, trackName, markers = [], textEvents = [] } = options;
 
   const allEvents: Array<{ tick: number; order: number; data: number[] }> = [];
 
@@ -86,6 +88,9 @@ export function createSMF(notes: MidiNote[], options: SmfOptions = {}): Uint8Arr
   });
   if (trackName) {
     allEvents.push({ tick: 0, order: 1, data: encodeTextMeta(0x03, trackName) });
+  }
+  for (const ev of textEvents) {
+    allEvents.push({ tick: ev.tick, order: 1, data: encodeTextMeta(0x01, ev.text) });
   }
   for (const marker of markers) {
     allEvents.push({ tick: marker.tick, order: 2, data: encodeTextMeta(0x06, marker.text) });
@@ -128,3 +133,73 @@ export function createSMF(notes: MidiNote[], options: SmfOptions = {}): Uint8Arr
     ...trackData,
   ]);
 }
+
+// ── Reading: extract text-family meta events (for embedded payloads) ─────
+
+/** A text-family meta event recovered from an SMF. */
+export interface MetaTextEvent {
+  tick: number;
+  /** 0x01 text · 0x03 track name · 0x06 marker. */
+  metaType: number;
+  text: string;
+}
+
+/**
+ * Minimal SMF walker that recovers text(0x01), track-name(0x03) and
+ * marker(0x06) meta events with their absolute ticks. Skips notes and
+ * other events (handles running status); enough to read back embedded
+ * MCURATOR/leadsheet payloads without a full MIDI parser.
+ */
+export function readMetaTextEvents(bytes: Uint8Array): MetaTextEvent[] {
+  const out: MetaTextEvent[] = [];
+  const decoder = new TextDecoder();
+  let p = 0;
+  const u32 = () => ((bytes[p++]! << 24) | (bytes[p++]! << 16) | (bytes[p++]! << 8) | bytes[p++]!) >>> 0;
+
+  if (bytes.length < 14) return out;
+  p = 8 + 6; // skip "MThd" + length(6) + format/tracks/division (6 bytes)
+
+  while (p + 8 <= bytes.length) {
+    const chunkId = decoder.decode(bytes.subarray(p, p + 4));
+    p += 4;
+    const len = u32();
+    const end = p + len;
+    if (chunkId !== "MTrk") { p = end; continue; }
+
+    let tick = 0;
+    let lastStatus = 0;
+    while (p < end) {
+      let delta = 0;
+      let b: number;
+      do { b = bytes[p++]!; delta = (delta << 7) | (b & 0x7f); } while (b & 0x80);
+      tick += delta;
+
+      let status = bytes[p]!;
+      if (status & 0x80) p++; else status = lastStatus; // running status
+      if (status !== 0xff && status !== 0xf0 && status !== 0xf7) lastStatus = status;
+
+      if (status === 0xff) {
+        const metaType = bytes[p++]!;
+        let mlen = 0;
+        do { b = bytes[p++]!; mlen = (mlen << 7) | (b & 0x7f); } while (b & 0x80);
+        const data = bytes.subarray(p, p + mlen);
+        p += mlen;
+        if (metaType === 0x01 || metaType === 0x03 || metaType === 0x06) {
+          out.push({ tick, metaType, text: decoder.decode(data) });
+        }
+        if (metaType === 0x2f) break; // end of track
+      } else if (status === 0xf0 || status === 0xf7) {
+        let slen = 0;
+        do { b = bytes[p++]!; slen = (slen << 7) | (b & 0x7f); } while (b & 0x80);
+        p += slen;
+      } else {
+        const hi = status & 0xf0;
+        p += (hi === 0xc0 || hi === 0xd0) ? 1 : 2; // 1 data byte for program/aftertouch, else 2
+      }
+    }
+    p = end;
+  }
+  return out;
+}
+
+export * from "./leadsheet-smf.js";

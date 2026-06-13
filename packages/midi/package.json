@@ -1,7 +1,7 @@
 {
   "name": "@enkerli/midi",
   "version": "0.1.0",
-  "description": "Standard MIDI File writing for the suite — encoding core promoted from MIDIcurator",
+  "description": "Standard MIDI File writing for the suite \u2014 encoding core promoted from MIDIcurator",
   "type": "module",
   "license": "CC0-1.0",
   "main": "dist/index.js",
@@ -9,5 +9,8 @@
   "scripts": {
     "build": "tsc -b",
     "test": "vitest run"
+  },
+  "dependencies": {
+    "@enkerli/theory": "*"
   }
 }
