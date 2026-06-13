@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { progressionToSMF, TICKS_PER_BEAT, BEATS_PER_CHORD } from "./exportMidi.js";
+import { progressionFromSMF } from "@enkerli/midi";
+import { progressionToSMF, progressionFromVoicings, TICKS_PER_BEAT, BEATS_PER_CHORD } from "./exportMidi.js";
 import { realizeLabel, voiceProgression } from "./generate.js";
 
 describe("progression MIDI export", () => {
@@ -35,6 +36,35 @@ describe("progression MIDI export", () => {
     }
     const expected = voicings.reduce((n, v) => n + 1 + v.notes.length, 0);
     expect(noteOns).toBe(expected);
+  });
+});
+
+describe("embedded canonical progression (the suite interchange)", () => {
+  const key = { tonic: "F♯", mode: "major" };
+  const labels = ["IIm7", "V7", "Imaj7"];
+  const voicings = voiceProgression(labels.map((l) => realizeLabel(l, key)));
+
+  it("builds a degree-based Progression from the voicings' labels", () => {
+    const prog = progressionFromVoicings(voicings, key);
+    expect(prog.key).toEqual(key);
+    expect(prog.sections[0].bars.map((b) => b.chords[0])).toMatchObject([
+      { source: "degree", degree: { numeral: "II", suffix: "m7" } },
+      { source: "degree", degree: { numeral: "V", suffix: "7" } },
+      { source: "degree", degree: { numeral: "I", suffix: "maj7" } },
+    ]);
+  });
+
+  it("embeds it in the exported SMF and recovers it losslessly", () => {
+    const smf = progressionToSMF(voicings, { bpm: 120, name: "X", key });
+    const back = progressionFromSMF(smf);
+    expect(back.key).toEqual(key);
+    expect(back.sections[0].bars).toHaveLength(3);
+    expect(back.sections[0].bars[2].chords[0].degree).toEqual({ numeral: "I", suffix: "maj7" });
+  });
+
+  it("omits the payload when no key is given (back-compat)", () => {
+    const smf = progressionToSMF(voicings, { bpm: 120, name: "X" });
+    expect(progressionFromSMF(smf)).toBeNull();
   });
 });
 

@@ -22,6 +22,7 @@ import { PROGRESSIONS, transposeProgression } from '../lib/progressions';
 import type { VoicingShape } from '../lib/progressions';
 import { generateProgressionClip } from '../lib/generate-clip';
 import { IN_PLUGIN, bridge, b64ToBytes } from '../lib/juce-bridge';
+import { readEmbeddedProgression, leadsheetTextFromProgression } from '../lib/progression-import';
 import { Sidebar } from './Sidebar';
 import { ClipDetail } from './ClipDetail';
 import { KeyboardShortcutsBar } from './KeyboardShortcutsBar';
@@ -504,6 +505,14 @@ export function MidiCurator() {
             }
           }
         }
+      }
+    } else {
+      // ProgGenie-exported clip: recover its embedded leadsheet (the first
+      // horizontal suite link — plan §7 step 4).
+      const prog = readEmbeddedProgression(midiBuffer);
+      if (prog) {
+        const text = leadsheetTextFromProgression(prog, gesture.num_bars);
+        if (text) leadsheet = parseLeadsheet(text, gesture.num_bars);
       }
     }
 

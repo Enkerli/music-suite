@@ -16,6 +16,15 @@ import { createSMF, readMetaTextEvents, type MidiMarker, type MidiNote } from ".
 /** Marker prefix for the embedded progression (the MCURATOR JSON family). */
 const PROG_PREFIX = "MCURATOR:v1 PROG ";
 
+/**
+ * The text-meta event that embeds a Progression in an SMF. Apps that build
+ * their own richer SMF (e.g. ProgGenie's voiced, channel-split export) add
+ * this to `textEvents` so the file still carries the canonical leadsheet.
+ */
+export function progressionTextEvent(prog: Progression): MidiMarker {
+  return { tick: 0, text: PROG_PREFIX + JSON.stringify(prog) };
+}
+
 export interface ProgressionSmfOptions {
   bpm?: number;
   /** Beats each chord occupies in the realized clip (default 2). */
@@ -60,7 +69,7 @@ export function progressionToSMF(prog: Progression, opts: ProgressionSmfOptions 
     ticksPerBeat,
     ...(trackName ? { trackName } : {}),
     markers,
-    textEvents: [{ tick: 0, text: PROG_PREFIX + JSON.stringify(prog) }],
+    textEvents: [progressionTextEvent(prog)],
   });
 }
 

@@ -5,10 +5,25 @@
  * degree label as DAW-visible markers.
  */
 
-import { createSMF } from "@enkerli/midi";
+import { createSMF, progressionTextEvent } from "@enkerli/midi";
+import { parseLeadsheet } from "@enkerli/theory";
 
 export const TICKS_PER_BEAT = 480;
 export const BEATS_PER_CHORD = 2;
+
+/**
+ * Build the canonical theory Progression from the voiced chords' degree
+ * labels ("IIm7", "V7", …) — one chord per bar, key-relative — so the
+ * exported SMF carries the leadsheet (parseLeadsheet reads each label as a
+ * degree chord). Returns null when there are no labels to embed.
+ */
+export function progressionFromVoicings(voicings, key, meta) {
+  const labels = voicings.map((v) => v.label).filter(Boolean);
+  if (labels.length === 0 || !key) return null;
+  const prog = parseLeadsheet(labels.join(" | "), key);
+  if (meta) prog.meta = meta;
+  return prog;
+}
 
 /**
  * Beat-positioned clip from voiced chords — shared by SMF export and the
@@ -37,8 +52,13 @@ export function voicingsToClip(voicings, channelMode = "single") {
   return { notes, lengthBeats: voicings.length * BEATS_PER_CHORD };
 }
 
-/** Build SMF bytes from voiced chords (see generate.js voiceProgression). */
-export function progressionToSMF(voicings, { bpm = 120, name = "Progression", channelMode = "single" } = {}) {
+/**
+ * Build SMF bytes from voiced chords (see generate.js voiceProgression).
+ * Keeps ProgGenie's rich voiced, channel-split realization AND embeds the
+ * canonical Progression (when `key` is given) so MIDIcurator and the rest
+ * of the suite can recover the leadsheet from the file.
+ */
+export function progressionToSMF(voicings, { bpm = 120, name = "Progression", channelMode = "single", key = null } = {}) {
   const { notes: clipNotes } = voicingsToClip(voicings, channelMode);
   const markers = voicings.map((v, i) => ({
     tick: i * TICKS_PER_BEAT * BEATS_PER_CHORD,
@@ -51,7 +71,14 @@ export function progressionToSMF(voicings, { bpm = 120, name = "Progression", ch
     velocity: n.velocity,
     channel: (n.channel ?? 1) - 1, // SMF channels are 0-based
   }));
-  return createSMF(notes, { bpm, ticksPerBeat: TICKS_PER_BEAT, trackName: name, markers });
+  const prog = progressionFromVoicings(voicings, key, { bpm, title: name });
+  return createSMF(notes, {
+    bpm,
+    ticksPerBeat: TICKS_PER_BEAT,
+    trackName: name,
+    markers,
+    textEvents: prog ? [progressionTextEvent(prog)] : [],
+  });
 }
 
 function exportFileName({ tonic, mode, seed }) {
@@ -65,7 +92,7 @@ function exportFileName({ tonic, mode, seed }) {
  */
 export function exportProgression(bridge, voicings, { bpm, tonic, mode, seed, channelMode }) {
   const name = `progression ${tonic} ${mode} #${seed}`;
-  const bytes = progressionToSMF(voicings, { bpm, name, channelMode });
+  const bytes = progressionToSMF(voicings, { bpm, name, channelMode, key: { tonic, mode } });
   const filename = exportFileName({ tonic, mode, seed });
   if (bridge?.saveFile?.(filename, bytes)) return;
   const blob = new Blob([bytes], { type: "audio/midi" });
