@@ -13,6 +13,7 @@ import {
   getMidiNote
 } from '../core/grid.js';
 import { midiToPitchClass } from '../core/music.js';
+import { padColor, padInk } from '@enkerli/ui/pitch-class-colors';
 import { debugLog } from '../utils/debug.js';
 
 /**
@@ -140,13 +141,13 @@ export class GridRenderer {
     const midiNote = getMidiNote(row, col, this.baseMidi);
     const pc = midiToPitchClass(midiNote);
 
-    // Create hexagon
+    // Create hexagon. Every pad is painted in its canonical Exquis pad
+    // colour (padColor) so the grid matches the hardware LEDs; highlight is
+    // a stroke ring drawn on top (see .pad.on in styles.css).
     const poly = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
     poly.setAttribute('points', getHexPoints(cx, cy, 22));
     poly.setAttribute('class', 'pad');
-    poly.setAttribute('stroke', '#666');
-    poly.setAttribute('fill', '#6aa5ff');
-    poly.setAttribute('fill-opacity', '0.12');
+    poly.setAttribute('fill', padColor(pc));
 
     // Add highlighted class if this PC is highlighted
     if (this.highlightedPCs.has(pc)) {
@@ -191,6 +192,9 @@ export class GridRenderer {
     text.setAttribute('y', cy + 4);
     text.setAttribute('text-anchor', 'middle');
     text.setAttribute('class', 'label');
+    // Per-pad ink (black/white) chosen for legibility on the pad colour,
+    // exactly as the Exquis labels its keys.
+    text.setAttribute('fill', padInk(pc));
 
     // Keep labels horizontal in landscape mode
     if (this.orientation === 'landscape') {

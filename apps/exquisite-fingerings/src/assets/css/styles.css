@@ -287,28 +287,30 @@ main {
 }
 
 /* SVG Styles */
+/* Pad fill (canonical Exquis pad colour) and label fill (per-pad ink) are
+   set per-pad in svg-grid.js from @enkerli/ui/pitch-class-colors, matching
+   the hardware LEDs. Here we only style strokes/state so we don't override
+   the per-pad fill. */
 .pad {
   cursor: pointer;
-  transition: fill-opacity 0.15s, stroke-width 0.15s;
+  transition: stroke-width 0.15s, stroke 0.15s;
+  stroke: var(--es-border-strong);
   stroke-width: 1;
 }
 
 .pad:hover {
-  fill-opacity: 0.35 !important;
-}
-
-.pad.on {
-  fill: var(--on);
-  fill-opacity: 0.5;
-  stroke: var(--on);
+  stroke: var(--es-fg);
   stroke-width: 2;
 }
 
+.pad.on {
+  stroke: var(--es-fg);
+  stroke-width: 3;
+}
+
 .pad.on.chord {
-  fill: var(--on2);
-  fill-opacity: 0.6;
-  stroke: var(--on2);
-  stroke-width: 2.5;
+  stroke: var(--es-fg);
+  stroke-width: 3.5;
 }
 
 .pad.fingering-mode {
@@ -317,7 +319,6 @@ main {
 
 .label {
   font-size: 10px;
-  fill: var(--ink);
   pointer-events: none;
   user-select: none;
 }
