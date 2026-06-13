@@ -17,7 +17,7 @@ stated preference); warm dark is a first-class one-tap variant.
 | Tokens | `packages/ui/tokens/tokens.css` | surfaces, ink, type, spacing, radii, motion, dimension accents, per-theme pitch-class palette |
 | Components CSS | `packages/ui/tokens/components.css` | `.es-panel/.es-btn/.es-control/.es-badge/.es-section/.es-dense` … |
 | Theme machinery | `packages/ui/theme.js` (+ `theme.d.ts`) | `data-theme` on `<html>`; OS pref until chosen; persisted |
-| Shared components | `packages/ui/components/*.js` | `pcs-ring`, `pitch-grid`, `piano-roll`, `section` — framework-agnostic `create*(el, opts)` |
+| Shared components | `packages/ui/components/*.js` | `pcs-ring`, `pitch-grid`, `piano-roll`, `section`, `range-slider` — framework-agnostic `create*(el, opts)` |
 | Icons | `packages/ui/icons/*.svg` + `tools/make-icons.mjs` | one grammar: paper tile, ink glyph, ONE dimension accent per app |
 | Living spec | `apps/style-gallery/index.html` | renders everything above, live theme toggle — **if it looks wrong, the tokens are wrong** |
 | Requirements | `packages/ui/DESIGN.md` | a11y/personas/localization checklist per release |
@@ -70,12 +70,22 @@ PitchFold validates the WebView pattern.
 
 ## Open design work (good Claude Design targets)
 
+- ✅ **Output-range control** (DrawnQurve-style slideable touch targets) —
+  shipped as `components/range-slider.js` (dual-thumb, elastic edge,
+  draggable/compressing band, 44px targets, keyboard + aria). Ready to
+  wire into PitchFold's output range. *(from the 2026-06-13 design session)*
+- ✅ **Arming affordance** — shipped as the `.es-transport`/`.es-tbtn`
+  chrome in components.css: armed pulses danger-red, playing pulses
+  accent, state word always spelled out, reduced-motion honored. Ready to
+  replace the transport-bar text in ProgGenie/MIDIcurator.
 - PitchFold pad editor: entry into edit mode is unclear on iPad; PCS
-  building wants a suggestions list + the shared `pcs-ring`. Output-range
-  control needs DrawnQurve-style slideable touch targets.
-- Arming affordance in plugins: "armed vs playing" needs more than the
-  transport-bar text (pulsing play button? clip-card state?).
+  building wants a suggestions list + the shared `pcs-ring`.
 - Free/sync mode toggle UI (suite-wide; scheduler work lands separately).
 - Icon refinement: the generated set (see `icons/`) is v1 — geometry is
   in `tools/make-icons.mjs`, regenerate cheaply.
 - Manual VoiceOver/keyboard sweep (the one remaining Phase-2 a11y item).
+- Pitch-class palette as a perceptual wheel: the design session explored
+  an OKLCH circle-of-fifths generator (even fifth-steps, contrast peaks at
+  the tritone). Worth prototyping as an *opt-in alternate* `--es-pc-*`
+  generator gated on the ≥3:1 AA bar — the shipped categorical palette
+  stays the default.

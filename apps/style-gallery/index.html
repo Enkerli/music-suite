@@ -66,13 +66,41 @@
     <button class="es-btn es-primary">Primary</button>
     <button class="es-btn" disabled>Disabled</button>
     <input class="es-control" placeholder="es-control input" />
-    <select class="es-control"><option>es-control select</option></select>
+    <select class="es-control" aria-label="Key">
+      <option>C major</option><option>G major</option><option>D major</option><option>A minor</option>
+    </select>
     <span class="es-badge">badge</span>
     <span class="es-badge es-up">badge up</span>
   </div>
   <p style="color:var(--es-fg-muted); font-size:var(--es-text-sm)">
     Controls use <code>--es-border-strong</code> (≥3:1); panels keep the decorative border.
+    The select wears an ink chevron (theme-aware) instead of OS chrome.
     Tab through to see the focus ring.
+  </p>
+</section>
+
+<section class="es-panel">
+  <h2>Output range <span style="color:var(--es-fg-muted);font-size:var(--es-text-sm)">(dual-thumb, elastic edge, draggable band — the DrawnQurve/PitchFold control)</span></h2>
+  <div id="range" style="max-width:520px"></div>
+  <p class="readout" id="range-readout" style="font-family:var(--es-font-mono); color:var(--es-fg-2)"></p>
+  <p style="color:var(--es-fg-muted); font-size:var(--es-text-sm)">
+    Drag a thumb (rubber-bands past either end), drag the band to slide the whole range,
+    or shove it into a wall to compress. 44px touch targets, larger on coarse pointers.
+    Keyboard: ←/→, Shift for an octave, Home/End.
+  </p>
+</section>
+
+<section class="es-panel">
+  <h2>Transport &amp; arming <span style="color:var(--es-fg-muted);font-size:var(--es-text-sm)">(state word never colour-only; motion doubles the cue)</span></h2>
+  <div class="es-transport" id="transport">
+    <button class="es-tbtn arm" type="button" aria-label="Arm" aria-pressed="false">●</button>
+    <button class="es-tbtn play" type="button" aria-label="Play" aria-pressed="false">▶</button>
+    <span class="es-transport-state" id="transport-state" role="status" aria-live="polite">idle</span>
+  </div>
+  <p style="color:var(--es-fg-muted); font-size:var(--es-text-sm)">
+    Armed pulses danger-red; playing pulses the accent. Both spell out the state
+    (idle / armed / playing / recording). Pulsing is suppressed under
+    <code>prefers-reduced-motion</code>.
   </p>
 </section>
 
@@ -114,6 +142,7 @@
   import { createPitchGrid } from "../../packages/ui/components/pitch-grid.js";
   import { createPianoRoll } from "../../packages/ui/components/piano-roll.js";
   import { createSection } from "../../packages/ui/components/section.js";
+  import { createRangeSlider, midiName } from "../../packages/ui/components/range-slider.js";
 
   const ring = createPcsRing(document.getElementById("ring"), {
     pcs: 2773, root: 0, colorByPc: true,
@@ -140,6 +169,31 @@
   }
   document.getElementById("dense").addEventListener("change", (e) =>
     sections.classList.toggle("es-dense", e.target.checked));
+
+  // Output-range slider — MIDI note range, live readout.
+  const readout = document.getElementById("range-readout");
+  createRangeSlider(document.getElementById("range"), {
+    min: 12, max: 108, step: 1, values: [36, 84], format: midiName,
+    onChange: (lo, hi) =>
+      (readout.textContent = `${midiName(lo)} – ${midiName(hi)} · ${hi - lo} st`),
+  });
+
+  // Transport: arm + play, state word + pulse (never colour alone).
+  const tp = document.getElementById("transport");
+  const tpState = document.getElementById("transport-state");
+  let armed = false, playing = false;
+  const armBtn = tp.querySelector(".arm");
+  const playBtn = tp.querySelector(".play");
+  const syncTransport = () => {
+    armBtn.classList.toggle("armed", armed);
+    armBtn.setAttribute("aria-pressed", String(armed));
+    playBtn.classList.toggle("playing", playing);
+    playBtn.setAttribute("aria-pressed", String(playing));
+    playBtn.textContent = playing ? "❚❚" : "▶";
+    tpState.textContent = playing ? (armed ? "recording" : "playing") : armed ? "armed" : "idle";
+  };
+  armBtn.addEventListener("click", () => { armed = !armed; syncTransport(); });
+  playBtn.addEventListener("click", () => { playing = !playing; syncTransport(); });
   initTheme();
   document.getElementById("theme-toggle").addEventListener("click", toggleTheme);
 

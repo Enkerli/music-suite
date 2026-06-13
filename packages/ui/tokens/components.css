@@ -162,3 +162,95 @@
   --es-text-md: 0.875rem;
 }
 .es-dense .es-section > .es-section-body { padding: var(--es-space-2); }
+
+/* ── Form controls: custom select (no OS chrome) ─────────────────────
+   The native <select> falls back to platform chrome that breaks the
+   paper & ink language. Give it an ink chevron + theme-aware caret so
+   it reads as part of the GUI. */
+select.es-control {
+  appearance: none; -webkit-appearance: none; -moz-appearance: none;
+  padding-right: 36px; cursor: pointer;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%234b463e' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 12px center; background-size: 14px;
+  transition: background-color var(--es-motion-fast), border-color var(--es-motion-fast);
+}
+select.es-control:hover { background-color: var(--es-bg-sunken); border-color: var(--es-fg-muted); }
+:root[data-theme="dark"] select.es-control,
+[data-theme="dark"] select.es-control {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%23cfc7b5' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+}
+select.es-control option { background: var(--es-bg-raised); color: var(--es-fg); }
+
+/* ── Transport with arming affordance (plugin chrome) ────────────────
+   "Armed vs playing" must read without colour alone: the state word is
+   always spelled out, and motion (a pulsing ring) doubles the cue.
+   armed = danger red pulse, playing = accent pulse. Honors
+   prefers-reduced-motion. */
+.es-transport { display: flex; align-items: center; gap: var(--es-space-2); }
+.es-tbtn {
+  display: grid; place-items: center;
+  min-width: var(--es-ctl-h); height: var(--es-ctl-h);
+  padding: 0 var(--es-space-2);
+  border: 1px solid var(--es-border-strong); border-radius: var(--es-radius-sm);
+  background: var(--es-bg-raised); color: var(--es-fg); cursor: pointer;
+  transition: background var(--es-motion-fast), border-color var(--es-motion-fast), color var(--es-motion-fast);
+}
+.es-tbtn:hover { background: var(--es-bg-sunken); }
+.es-tbtn:focus-visible { outline: var(--es-focus-ring); outline-offset: 2px; }
+.es-tbtn svg { width: 15px; height: 15px; display: block; }
+.es-tbtn.play.playing { background: var(--es-accent); border-color: var(--es-accent); color: var(--es-accent-fg); animation: es-pulse-play 1.2s ease-in-out infinite; }
+.es-tbtn.arm.armed { background: var(--es-danger); border-color: var(--es-danger); color: #fff; animation: es-pulse-arm 1.05s ease-in-out infinite; }
+.es-transport-state { font-size: var(--es-text-sm); color: var(--es-fg-2); }
+@keyframes es-pulse-play { 0%,100% { box-shadow: 0 0 0 0 color-mix(in oklab, var(--es-accent) 55%, transparent); } 50% { box-shadow: 0 0 0 5px transparent; } }
+@keyframes es-pulse-arm  { 0%,100% { box-shadow: 0 0 0 0 color-mix(in oklab, var(--es-danger) 60%, transparent); } 50% { box-shadow: 0 0 0 6px transparent; } }
+@media (prefers-reduced-motion: reduce) {
+  .es-tbtn.play.playing, .es-tbtn.arm.armed { animation: none; }
+}
+
+/* ── Range slider (dual-thumb output range; see components/range-slider.js)
+   44px touch targets, elastic edge, draggable band. Visual only. */
+.es-range { user-select: none; -webkit-user-select: none; }
+.es-range-track {
+  position: relative; height: 8px; border-radius: 6px;
+  background: var(--es-bg-sunken); border: 1px solid var(--es-border);
+  margin: 30px 22px;
+}
+.es-range-band {
+  position: absolute; top: -1px; bottom: -1px; border-radius: 6px;
+  background: var(--es-accent); transition: filter var(--es-motion-fast);
+  cursor: grab; touch-action: none;
+}
+.es-range-band.grab { cursor: grabbing; }
+.es-range.dragging .es-range-band { filter: saturate(1.15) brightness(1.04); }
+.es-range-thumb {
+  position: absolute; top: 50%; width: var(--es-touch-target); height: var(--es-touch-target);
+  margin: 0; padding: 0; border: none; background: transparent; cursor: grab; touch-action: none;
+  display: grid; place-items: center;
+  transform: translate(-50%, -50%) translateX(var(--ovr, 0px));
+}
+.es-range-thumb.releasing { transition: transform 500ms cubic-bezier(.2, 1.5, .35, 1); }
+.es-range-thumb::after {
+  content: ""; width: 26px; height: 26px; border-radius: 50%;
+  background: var(--es-bg-raised); border: 2px solid var(--es-border-strong);
+  box-shadow: var(--es-shadow);
+  transition: transform 360ms cubic-bezier(.2, 1.4, .3, 1), border-color var(--es-motion-fast), background var(--es-motion-fast);
+}
+.es-range-thumb::before {
+  content: ""; position: absolute; width: 2px; height: 10px; border-radius: 2px;
+  background: var(--es-border-strong); opacity: .55;
+  transition: background var(--es-motion-fast);
+}
+.es-range-thumb:hover::after, .es-range-thumb.grab::after { border-color: var(--es-accent); }
+.es-range-thumb:hover::before, .es-range-thumb.grab::before { background: var(--es-accent); opacity: 1; }
+.es-range-thumb.grab { cursor: grabbing; }
+.es-range-thumb.grab::after { transform: scale(1.16); }
+.es-range-thumb:focus-visible { outline: none; }
+.es-range-thumb:focus-visible::after { outline: var(--es-focus-ring); outline-offset: 3px; }
+.es-range-scale {
+  display: flex; justify-content: space-between; margin: 0 22px;
+  font-family: var(--es-font-mono); font-size: 10px; color: var(--es-fg-muted);
+}
+@media (pointer: coarse) {
+  .es-range-track { height: 12px; margin: 34px 24px; }
+  .es-range-thumb::after { width: 32px; height: 32px; }
+}

@@ -4,6 +4,7 @@ import { createPcsRing, maskToPcs, pcsToMask } from "./pcs-ring.js";
 import { createPitchGrid, layoutCells } from "./pitch-grid.js";
 import { layoutNotes } from "./piano-roll.js";
 import { createSection } from "./section.js";
+import { createRangeSlider, midiName } from "./range-slider.js";
 
 describe("pcs mask codec (MSB-first, CONVENTIONS.md)", () => {
   it("C ionian 2773 decodes leftmost-bit-first", () => {
@@ -89,6 +90,46 @@ describe("piano roll layout (pure)", () => {
 
   it("handles empty input", () => {
     expect(layoutNotes([], { width: 100, height: 100 }).rects).toEqual([]);
+  });
+});
+
+describe("range slider (dual-thumb output range)", () => {
+  it("midiName maps notes (middle C = C4)", () => {
+    expect(midiName(60)).toBe("C4");
+    expect(midiName(69)).toBe("A4");
+    expect(midiName(0)).toBe("C-1");
+  });
+
+  it("renders two role=slider thumbs with aria values and a band", () => {
+    const el = document.createElement("div");
+    createRangeSlider(el, { min: 24, max: 96, values: [36, 84], format: midiName });
+    const thumbs = el.querySelectorAll('[role="slider"]');
+    expect(thumbs).toHaveLength(2);
+    expect(thumbs[0].getAttribute("aria-valuenow")).toBe("36");
+    expect(thumbs[1].getAttribute("aria-valuetext")).toBe("C6"); // 84
+    expect(el.querySelector(".es-range-band")).not.toBeNull();
+  });
+
+  it("emits onChange and exposes values; update() re-renders", () => {
+    const el = document.createElement("div");
+    const onChange = vi.fn();
+    const slider = createRangeSlider(el, { min: 0, max: 100, values: [25, 75], onChange });
+    expect(onChange).toHaveBeenLastCalledWith(25, 75); // fires once on init
+    expect(slider.values).toEqual([25, 75]);
+    slider.update({ values: [10, 90] });
+    expect(slider.values).toEqual([10, 90]);
+  });
+
+  it("keyboard: arrows step, shift jumps an octave, thumbs never cross", () => {
+    const el = document.createElement("div");
+    const onChange = vi.fn();
+    const slider = createRangeSlider(el, { min: 0, max: 48, step: 1, values: [10, 12], onChange });
+    const [lo, hi] = el.querySelectorAll('[role="slider"]');
+    lo.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowRight", shiftKey: true, bubbles: true }));
+    // +12 would be 22, but the high thumb at 12 is the ceiling → pinned to 12
+    expect(slider.values[0]).toBe(12);
+    hi.dispatchEvent(new KeyboardEvent("keydown", { key: "End", bubbles: true }));
+    expect(slider.values[1]).toBe(48);
   });
 });
 

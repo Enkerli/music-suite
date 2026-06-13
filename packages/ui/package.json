@@ -13,7 +13,8 @@
     "./pcs-ring": "./components/pcs-ring.js",
     "./pitch-grid": "./components/pitch-grid.js",
     "./piano-roll": "./components/piano-roll.js",
-    "./section": "./components/section.js"
+    "./section": "./components/section.js",
+    "./range-slider": "./components/range-slider.js"
   },
   "files": [
     "tokens",
