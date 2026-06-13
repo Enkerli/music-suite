@@ -14,7 +14,8 @@
     "./pitch-grid": "./components/pitch-grid.js",
     "./piano-roll": "./components/piano-roll.js",
     "./section": "./components/section.js",
-    "./range-slider": "./components/range-slider.js"
+    "./range-slider": "./components/range-slider.js",
+    "./pitch-class-colors": "./components/pitch-class-colors.js"
   },
   "files": [
     "tokens",

@@ -64,6 +64,10 @@ export function createPitchGrid(el, opts = {}) {
     names: null,
     cellSize: 44, // touch target
     onTap: null,
+    // colorByPc: paint EVERY cell by its pitch class with the canonical
+    // Exquis pad colours (the Exquis grid look); labels use the per-pad
+    // ink. highlight/highlight2 still draw a ring on top.
+    colorByPc: false,
     ...opts,
   };
   state.highlight = new Set(state.highlight);
@@ -101,9 +105,15 @@ export function createPitchGrid(el, opts = {}) {
         shape.setAttribute("height", unit * 0.92);
         shape.setAttribute("rx", unit * 0.18);
       }
-      shape.setAttribute("fill", on ? "var(--es-dim-breath)" : on2 ? "var(--es-dim-pressure)" : "var(--es-bg-raised)");
-      shape.setAttribute("stroke", on || on2 ? "var(--es-border-strong)" : "var(--es-border)");
-      shape.setAttribute("stroke-width", "1");
+      if (state.colorByPc) {
+        shape.setAttribute("fill", `var(--es-pc-pad-${cell.pc})`);
+        shape.setAttribute("stroke", on || on2 ? "var(--es-fg)" : "var(--es-border-strong)");
+        shape.setAttribute("stroke-width", on || on2 ? "3" : "1");
+      } else {
+        shape.setAttribute("fill", on ? "var(--es-dim-breath)" : on2 ? "var(--es-dim-pressure)" : "var(--es-bg-raised)");
+        shape.setAttribute("stroke", on || on2 ? "var(--es-border-strong)" : "var(--es-border)");
+        shape.setAttribute("stroke-width", "1");
+      }
       shape.dataset.midi = String(cell.midi);
       if (state.onTap) {
         shape.setAttribute("role", "button");
@@ -127,7 +137,9 @@ export function createPitchGrid(el, opts = {}) {
         text.setAttribute("dominant-baseline", "central");
         text.setAttribute("font-size", String(unit * 0.32));
         text.setAttribute("font-family", "var(--es-font-sans)");
-        text.setAttribute("fill", on || on2 ? "var(--es-accent-fg)" : "var(--es-fg-2)");
+        text.setAttribute("fill", state.colorByPc
+          ? `var(--es-pc-pad-ink-${cell.pc})`
+          : on || on2 ? "var(--es-accent-fg)" : "var(--es-fg-2)");
         text.setAttribute("pointer-events", "none");
         text.textContent = labelFor(cell);
         children.push(text);

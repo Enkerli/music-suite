@@ -110,8 +110,16 @@
 </section>
 
 <section class="es-panel">
-  <h2>Pitch-class palette <span style="color:var(--es-fg-muted);font-size:var(--es-text-sm)">(per-theme, ≥3:1 on both surfaces)</span></h2>
+  <h2>Pitch-class palette <span style="color:var(--es-fg-muted);font-size:var(--es-text-sm)">(canonical Exquis "Chromeful" identity — hardware-validated)</span></h2>
+  <div class="es-eyebrow">chips (tone-mapped to ≥3:1 on this theme)</div>
   <div class="row" id="pcs"></div>
+  <div class="es-eyebrow" style="margin-top:var(--es-space-3)">pads (exact Exquis LED colours, per-pad ink)</div>
+  <div class="row" id="pcs-pad"></div>
+  <p style="color:var(--es-fg-muted); font-size:var(--es-text-sm)">
+    One hue per pitch class — C yellow, C♯ purple, D green … — from Alex's Exquis
+    layout. The pads are the exact device colours; the chips keep the same hue,
+    darkened only where the paper surface needs it for contrast.
+  </p>
 </section>
 
 <section class="es-panel">
@@ -124,6 +132,10 @@
     <div>
       <div class="es-eyebrow">pitch grid (hex, Exquis layout)</div>
       <div id="grid"></div>
+    </div>
+    <div>
+      <div class="es-eyebrow">pitch grid · pad colours (the Exquis look)</div>
+      <div id="grid-pad"></div>
     </div>
   </div>
   <div style="margin-top:var(--es-space-4)">
@@ -143,14 +155,30 @@
   import { createPianoRoll } from "../../packages/ui/components/piano-roll.js";
   import { createSection } from "../../packages/ui/components/section.js";
   import { createRangeSlider, midiName } from "../../packages/ui/components/range-slider.js";
+  import { PITCH_CLASS_COLORS } from "../../packages/ui/components/pitch-class-colors.js";
+
+  // Pad chips — exact Exquis colours with per-pad ink (the device look).
+  const padHost = document.getElementById("pcs-pad");
+  padHost.replaceChildren(...PITCH_CLASS_COLORS.map((c, pc) => {
+    const chip = document.createElement("span");
+    chip.className = "pc-chip";
+    chip.style.cssText = `background:${c.pad};color:${c.ink};border-color:transparent`;
+    chip.innerHTML = `<i style="background:${c.ink};opacity:.35"></i>${pc} · ${c.name}`;
+    return chip;
+  }));
+
+  const grid = createPitchGrid(document.getElementById("grid"), {
+    layout: "hex", rows: 5, cols: 5, cellSize: 38,
+  });
+  createPitchGrid(document.getElementById("grid-pad"), {
+    layout: "hex", rows: 5, cols: 5, cellSize: 38, colorByPc: true,
+  });
 
   const ring = createPcsRing(document.getElementById("ring"), {
     pcs: 2773, root: 0, colorByPc: true,
     onToggle: (pc, on) => { const pcs = ring.pcs; on ? pcs.add(pc) : pcs.delete(pc); ring.update({ pcs }); grid.update({ highlight: pcs }); },
   });
-  const grid = createPitchGrid(document.getElementById("grid"), {
-    layout: "hex", rows: 5, cols: 5, cellSize: 38, highlight: ring.pcs,
-  });
+  grid.update({ highlight: ring.pcs });
   const roll = createPianoRoll(document.getElementById("roll"), {
     notes: [
       { startBeat: 0, lengthBeats: 2, pitch: 50 }, { startBeat: 0, lengthBeats: 2, pitch: 60 }, { startBeat: 0, lengthBeats: 2, pitch: 65 }, { startBeat: 0, lengthBeats: 2, pitch: 69 },

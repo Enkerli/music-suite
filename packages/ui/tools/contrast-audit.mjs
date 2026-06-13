@@ -26,4 +26,12 @@ for (const theme of ['light','dark']) {
   t('danger', v['danger'], 3);
   for (let i=0;i<12;i++) t(`pc-${i}`, v[`pc-${i}`], 3);
 }
+// Pad palette is theme-independent (dark/LED surfaces): check each pad's
+// ink (bold note label) is legible on its own pad colour (≥3:1, large text).
+for (let i=0;i<12;i++) {
+  const pad = root[`pc-pad-${i}`], ink = root[`pc-pad-ink-${i}`];
+  const r = ratio(pad, ink), ok = r >= 3;
+  if (!ok) fail++;
+  console.log(`pad pc-${i} ink ${ink} on ${pad} ${r.toFixed(2)} ${ok?'PASS':'FAIL'}`);
+}
 console.log(fail ? `${fail} FAILURES` : 'ALL PASS');

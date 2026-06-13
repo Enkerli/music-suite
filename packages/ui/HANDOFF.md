@@ -14,7 +14,8 @@ stated preference); warm dark is a first-class one-tap variant.
 
 | Piece | File | Notes |
 |---|---|---|
-| Tokens | `packages/ui/tokens/tokens.css` | surfaces, ink, type, spacing, radii, motion, dimension accents, per-theme pitch-class palette |
+| Tokens | `packages/ui/tokens/tokens.css` | surfaces, ink, type, spacing, radii, motion, dimension accents, the canonical pitch-class palette (chips `--es-pc-N` per theme + exact-Exquis pads `--es-pc-pad-N`/`--es-pc-pad-ink-N`) |
+| Pitch-class colours | `components/pitch-class-colors.js` + `tools/make-pc-palette.mjs` | Alex's hardware-validated Exquis "Chromeful" identity (C yellow, C♯ purple, …); generator derives the AA chip tokens from the pad colours |
 | Components CSS | `packages/ui/tokens/components.css` | `.es-panel/.es-btn/.es-control/.es-badge/.es-section/.es-dense` … |
 | Theme machinery | `packages/ui/theme.js` (+ `theme.d.ts`) | `data-theme` on `<html>`; OS pref until chosen; persisted |
 | Shared components | `packages/ui/components/*.js` | `pcs-ring`, `pitch-grid`, `piano-roll`, `section`, `range-slider` — framework-agnostic `create*(el, opts)` |
@@ -31,6 +32,10 @@ stated preference); warm dark is a first-class one-tap variant.
    this reason — don't unify it back.
 2. **Color is never the only channel.** Dimension hues pair with labels
    or dots; pc hues pair with note names/numbers.
+   - The pitch-class hue *identity* is fixed (the Exquis "Chromeful"
+     scheme): one hue per pc, hue preserved across pad/chip/theme — only
+     lightness moves for contrast. Change it only in
+     `tools/make-pc-palette.mjs` + re-audit; don't reassign hues per app.
 3. **Border discipline**: `--es-border`/`--es-border-soft` are
    decorative; anything a user must *identify as a control* uses
    `--es-border-strong`.

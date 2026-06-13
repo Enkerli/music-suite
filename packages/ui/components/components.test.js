@@ -5,6 +5,7 @@ import { createPitchGrid, layoutCells } from "./pitch-grid.js";
 import { layoutNotes } from "./piano-roll.js";
 import { createSection } from "./section.js";
 import { createRangeSlider, midiName } from "./range-slider.js";
+import { PITCH_CLASS_COLORS, padColor, padInk } from "./pitch-class-colors.js";
 
 describe("pcs mask codec (MSB-first, CONVENTIONS.md)", () => {
   it("C ionian 2773 decodes leftmost-bit-first", () => {
@@ -66,6 +67,29 @@ describe("pitch grid", () => {
     expect(c48.getAttribute("fill")).toBe("var(--es-dim-breath)");
     grid.update({ highlight: [] });
     expect(el.querySelector('rect[data-midi="48"]').getAttribute("fill")).toBe("var(--es-bg-raised)");
+  });
+
+  it("colorByPc paints each cell by its pitch class (Exquis pad tokens)", () => {
+    const el = document.createElement("div");
+    createPitchGrid(el, { layout: "square", rows: 1, cols: 3, baseMidi: 48, colStep: 2, colorByPc: true });
+    // 48=C(pc0), 50=D(pc2), 52=E(pc4)
+    expect(el.querySelector('rect[data-midi="48"]').getAttribute("fill")).toBe("var(--es-pc-pad-0)");
+    expect(el.querySelector('rect[data-midi="50"]').getAttribute("fill")).toBe("var(--es-pc-pad-2)");
+    expect(el.querySelector("text").getAttribute("fill")).toBe("var(--es-pc-pad-ink-0)");
+  });
+});
+
+describe("canonical pitch-class colours (Exquis Chromeful)", () => {
+  it("has 12 entries, pc0 = yellow C with black ink", () => {
+    expect(PITCH_CLASS_COLORS).toHaveLength(12);
+    expect(PITCH_CLASS_COLORS[0]).toEqual({ name: "C", pad: "#f2f20d", ink: "#0d0d0d" });
+    expect(padColor(1)).toBe("#7f0df2"); // C♯ purple
+    expect(padInk(1)).toBe("#ffffff");   // white ink on purple
+    expect(padInk(6)).toBe("#ffffff");   // white ink on blue F♯
+  });
+  it("wraps octaves", () => {
+    expect(padColor(12)).toBe(padColor(0));
+    expect(padColor(-1)).toBe(padColor(11));
   });
 });
 

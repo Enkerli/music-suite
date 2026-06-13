@@ -67,14 +67,32 @@
   --es-dim-bend: #c39529;     --es-dim-bend-tint: #f1e6c3;
   --es-dim-vel: #7a4cff;
 
-  /* ── Pitch-class palette (12 hues — pair with labels) ──────────────
-        Per-theme: every value holds ≥3:1 (WCAG 1.4.11 graphics) against
-        both bg and bg-raised of its theme. :root carries the light set;
-        the dark blocks override with the brighter originals. ─────────── */
-  --es-pc-0: #4477aa;  --es-pc-1: #1697c2;  --es-pc-2: #228833;
-  --es-pc-3: #9c8d2a;  --es-pc-4: #ec586b;  --es-pc-5: #aa3377;
-  --es-pc-6: #8c8c8c;  --es-pc-7: #225555;  --es-pc-8: #0092db;
-  --es-pc-9: #997700;  --es-pc-10: #e86134; --es-pc-11: #663366;
+  /* ── Pitch-class palette — the canonical Exquis "Chromeful" identity
+        (Alex's hardware-validated scheme; provenance + derivation in
+        tools/make-pc-palette.mjs). ONE hue per pc — C yellow, C♯ purple,
+        D green, D♯ rose, E cyan, F orange, F♯ blue, G spring, G♯ magenta,
+        A green, A♯ red, B azure — expressed two ways:
+         · --es-pc-pad-* : the EXACT vivid Exquis LED colours, for dark /
+           pad surfaces, with --es-pc-pad-ink-* (black or white per pad,
+           chosen for legibility exactly as the Exquis does).
+         · --es-pc-* : the same hue tone-mapped to ≥3:1 (WCAG 1.4.11) on
+           chips against the theme surfaces — this :root carries the light
+           (paper) set; the dark blocks override. Hue is preserved; only
+           lightness moves to satisfy contrast. ─────────────────────────── */
+  --es-pc-0: #919108;  --es-pc-1: #7f0df2;  --es-pc-2: #09a309;
+  --es-pc-3: #f24060;  --es-pc-4: #089b9b;  --es-pc-5: #d7710c;
+  --es-pc-6: #0d0df2;  --es-pc-7: #0ba05c;  --es-pc-8: #f20df2;
+  --es-pc-9: #0ba236;  --es-pc-10: #f20d0d; --es-pc-11: #0d7ff2;
+  /* exact Exquis pad colours (dark/LED surfaces) */
+  --es-pc-pad-0: #f2f20d;  --es-pc-pad-1: #7f0df2;  --es-pc-pad-2: #0df20d;
+  --es-pc-pad-3: #f24060;  --es-pc-pad-4: #0df2f2;  --es-pc-pad-5: #f27f0d;
+  --es-pc-pad-6: #0d0df2;  --es-pc-pad-7: #40f2a0;  --es-pc-pad-8: #f20df2;
+  --es-pc-pad-9: #0dbf40;  --es-pc-pad-10: #f20d0d; --es-pc-pad-11: #0d7ff2;
+  /* per-pad ink (black/white, ≥4.4:1 on its pad) */
+  --es-pc-pad-ink-0: #0d0d0d;  --es-pc-pad-ink-1: #ffffff;  --es-pc-pad-ink-2: #0d0d0d;
+  --es-pc-pad-ink-3: #0d0d0d;  --es-pc-pad-ink-4: #0d0d0d;  --es-pc-pad-ink-5: #0d0d0d;
+  --es-pc-pad-ink-6: #ffffff;  --es-pc-pad-ink-7: #0d0d0d;  --es-pc-pad-ink-8: #0d0d0d;
+  --es-pc-pad-ink-9: #0d0d0d;  --es-pc-pad-ink-10: #0d0d0d; --es-pc-pad-ink-11: #0d0d0d;
 }
 
 /* ── Paper (light) — the default design target ─────────────────────── */
@@ -112,10 +130,12 @@
     --es-accent: #6da3df;
     --es-accent-fg: #14130f;
     --es-danger: #cf6a5e;        /* destructive actions; ≥3:1 on both surfaces */
-    /* pc palette: the brighter originals hold ≥3:1 on the dark surfaces */
-    --es-pc-1: #66ccee;  --es-pc-3: #ccbb44;  --es-pc-4: #ee6677;
-    --es-pc-5: #b6377f;  --es-pc-6: #bbbbbb;  --es-pc-7: #2e7474;
-    --es-pc-8: #99ddff;  --es-pc-10: #ee8866; --es-pc-11: #994d99;
+    /* pc palette: the Exquis hues, kept vivid on the dark surfaces
+       (only C♯ and F♯ lifted to clear the near-black). */
+    --es-pc-0: #f2f20d;  --es-pc-1: #902ef4;  --es-pc-2: #0df20d;
+    --es-pc-3: #f24060;  --es-pc-4: #0df2f2;  --es-pc-5: #f27f0d;
+    --es-pc-6: #5151f6;  --es-pc-7: #40f2a0;  --es-pc-8: #f20df2;
+    --es-pc-9: #0dbf40;  --es-pc-10: #f20d0d; --es-pc-11: #0d7ff2;
     --es-shadow: 0 6px 22px rgba(0, 0, 0, 0.28);
     color-scheme: dark;
   }
@@ -134,10 +154,12 @@
   --es-accent: #6da3df;
   --es-accent-fg: #14130f;
   --es-danger: #cf6a5e;        /* destructive actions; ≥3:1 on both surfaces */
-  /* pc palette: the brighter originals hold ≥3:1 on the dark surfaces */
-  --es-pc-1: #66ccee;  --es-pc-3: #ccbb44;  --es-pc-4: #ee6677;
-  --es-pc-5: #b6377f;  --es-pc-6: #bbbbbb;  --es-pc-7: #2e7474;
-  --es-pc-8: #99ddff;  --es-pc-10: #ee8866; --es-pc-11: #994d99;
+  /* pc palette: the Exquis hues, kept vivid on the dark surfaces
+     (only C♯ and F♯ lifted to clear the near-black). */
+  --es-pc-0: #f2f20d;  --es-pc-1: #902ef4;  --es-pc-2: #0df20d;
+  --es-pc-3: #f24060;  --es-pc-4: #0df2f2;  --es-pc-5: #f27f0d;
+  --es-pc-6: #5151f6;  --es-pc-7: #40f2a0;  --es-pc-8: #f20df2;
+  --es-pc-9: #0dbf40;  --es-pc-10: #f20d0d; --es-pc-11: #0d7ff2;
   --es-shadow: 0 6px 22px rgba(0, 0, 0, 0.28);
   color-scheme: dark;
 }
