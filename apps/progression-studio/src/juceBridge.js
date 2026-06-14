@@ -59,6 +59,14 @@ export function createBridge() {
     },
 
     /**
+     * Incoming MIDI notes (chord input): the editor emits "midiNotes"
+     * batches { notes: [{ note, velocity, on }] }. See chordInput.js.
+     */
+    onMidiNotes(callback) {
+      return bridge.on("midiNotes", (data) => callback(data?.notes ?? []));
+    },
+
+    /**
      * Save bytes through native UI (enkerli::exportBytes — FileChooser on
      * desktop, share sheet on iPadOS). Returns false outside the plugin so
      * callers can fall back to a browser download. NEVER use blob:/data:

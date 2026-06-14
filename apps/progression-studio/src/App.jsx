@@ -7,6 +7,7 @@ import { parseLeadsheet, realizeChord } from "@enkerli/theory";
 import { resolvedTheme, toggleTheme } from "@enkerli/ui/theme";
 import { createPianoRoll } from "@enkerli/ui/piano-roll";
 import { createLeadsheetEditor } from "@enkerli/ui/leadsheet-editor";
+import { createChordInput } from "./chordInput.js";
 
 /**
  * Realize a Progression to the chord shape the rest of ProgGenie expects
@@ -32,6 +33,9 @@ function chordsFromProgression(prog, key) {
 }
 
 const clone = (o) => JSON.parse(JSON.stringify(o));
+
+const SHARP = ["C", "C♯", "D", "D♯", "E", "F", "F♯", "G", "G♯", "A", "A♯", "B"];
+const midiName = (m) => SHARP[((m % 12) + 12) % 12] + (Math.floor(m / 12) - 1);
 
 /** Generated labels → bar-notation text, CHORDS_PER_BAR per bar (the
  *  generation plays 2 beats/chord, i.e. 2 chords per 4/4 bar — so the
@@ -242,6 +246,7 @@ export default function App() {
   const [opCount, setOpCount] = useState(0); // bumps on extend/clear (forces editor remount)
   const [voiceLead, setVoiceLead] = useState(true); // taxicab smoothing on/off
   const [voicingShape, setVoicingShape] = useState("close"); // close|open|drop2|shell
+  const [midiChord, setMidiChord] = useState({ notes: [], chord: null }); // MIDI chord input
   const { play, stop, playing, playhead } = usePlayer();
 
   useEffect(() => { saveCuration(curation); }, [curation]);
@@ -275,6 +280,15 @@ export default function App() {
     });
     bridge.ready();
     return () => { offTransport(); offRuntime(); offState(); };
+  }, []);
+
+  // MIDI chord input (ChordID): the processor forwards played notes; we
+  // track the held set and detect the chord. Plugin-only (the browser has
+  // no bridge MIDI yet — a WebMIDI feed could fill the same shape later).
+  useEffect(() => {
+    if (!IN_PLUGIN) return;
+    const ci = createChordInput(bridge, { onUpdate: setMidiChord });
+    return () => ci.stop();
   }, []);
 
   const labels = useMemo(
@@ -374,6 +388,19 @@ export default function App() {
     }
     setEdited({ genId: genIdFor(opCount + 1), prog: next });
     setOpCount((n) => n + 1);
+  }
+
+  /** Insert the chord currently played on MIDI into the leadsheet (ChordID).
+   *  The played chord is absolute (its actual spelling), appended to the end. */
+  function insertMidiChord() {
+    if (!midiChord.chord) return;
+    const ch = parseLeadsheet(midiChord.chord.symbol, { tonic, mode }).sections[0]?.bars[0]?.chords[0];
+    if (!ch) return;
+    const next = clone(effectiveProg);
+    appendChord(next, ch);
+    setEdited({ genId: genIdFor(opCount + 1), prog: next });
+    setOpCount((n) => n + 1);
+    setSurfaceMode("edit");
   }
 
   /** Blank the leadsheet — start from scratch (type a chord, then Extend). */
@@ -614,6 +641,27 @@ export default function App() {
             />
           </div>
         </details>
+
+        {IN_PLUGIN && (
+          <details className="es-section" open style={{ marginTop: "var(--es-space-3)" }}>
+            <summary>MIDI chord input {midiChord.chord && <span style={{ color: "var(--es-accent)", fontWeight: 400 }}>· {midiChord.chord.symbol}</span>}</summary>
+            <div className="es-section-body">
+              {midiChord.notes.length === 0 ? (
+                <p style={{ color: "var(--es-fg-muted)", margin: 0 }}>Play a chord on a MIDI keyboard routed into this plugin — it's identified here and can be added to the leadsheet.</p>
+              ) : (
+                <div style={{ display: "flex", alignItems: "center", gap: "var(--es-space-3)", flexWrap: "wrap" }}>
+                  <span style={{ fontSize: "var(--es-text-lg)", fontWeight: 600 }}>{midiChord.chord ? midiChord.chord.symbol : "—"}</span>
+                  <span className="es-num" style={{ color: "var(--es-fg-muted)", fontSize: "var(--es-text-sm)" }}>
+                    {midiChord.notes.map((n) => midiName(n)).join(" ")}
+                  </span>
+                  <button className="es-btn es-primary" disabled={!midiChord.chord} onClick={insertMidiChord}>
+                    Add to leadsheet
+                  </button>
+                </div>
+              )}
+            </div>
+          </details>
+        )}
 
 
         {showCuration && (
