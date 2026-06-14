@@ -14,6 +14,6 @@ describe("App render smoke", () => {
     const html = renderToString(React.createElement(App));
     expect(html).toContain("Progression Studio");
     expect(html).toContain("Generate");
-    expect(html).toContain("Edit"); // leadsheet surface toggle
+    expect(html).toContain("More like this"); // unified leadsheet + curation surface
   });
 });

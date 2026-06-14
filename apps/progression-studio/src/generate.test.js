@@ -126,6 +126,60 @@ describe("voicing", () => {
     // every chord voiced-lead-off begins on its root pc
     for (const v of off) expect(v.notes[0] % 12).toBe(v.rootPc % 12);
   });
+
+  it("voice-leading modes: none = home, strict = taxicab, loose keeps home pcs but follows register", () => {
+    const key = { tonic: "C", mode: "major" };
+    const chords = ["IIm7", "V7", "Imaj7"].map((l) => realizeLabel(l, key));
+    const none = voiceProgression(chords, { mode: "none", shape: "close" });
+    const strict = voiceProgression(chords, { mode: "strict", shape: "close" });
+    const loose = voiceProgression(chords, { mode: "loose", shape: "close" });
+    const mean = (a) => a.reduce((s, n) => s + n, 0) / a.length;
+    const pcs = (a) => [...new Set(a.map((n) => ((n % 12) + 12) % 12))].sort((x, y) => x - y);
+    // none begins each chord on its root; strict smooths (differs from none)
+    for (const v of none) expect(v.notes[0] % 12).toBe(v.rootPc % 12);
+    expect(strict[1].notes).not.toEqual(none[1].notes);
+    // loose preserves each chord's home pitch classes (harmony stays clear)…
+    for (let i = 0; i < chords.length; i++) expect(pcs(loose[i].notes)).toEqual(pcs(none[i].notes));
+    // …while keeping consecutive voicings in a nearby register
+    expect(Math.abs(mean(loose[1].notes) - mean(loose[0].notes))).toBeLessThanOrEqual(6);
+  });
+});
+
+describe("harmonic rhythm", async () => {
+  const { rhythmPlan, rhythmBeats, chordSlots, BEATS_PER_BAR } = await import("./generate.js");
+  const planBeats = (plan) =>
+    plan.reduce((sum, b) => sum + (b.repeat ? BEATS_PER_BAR : b.durs.reduce((s, d) => s + d, 0)), 0);
+
+  it("sub-bar rhythms tile each bar (½-bar → 2 chords/bar, no repeats)", () => {
+    expect(rhythmBeats("half")).toBe(2);
+    const half = rhythmPlan(8, "half", 1);
+    expect(half).toHaveLength(8); // 8 bars
+    expect(half.every((b) => b.durs && b.durs.length === 2 && b.durs.every((d) => d === 2))).toBe(true);
+    expect(chordSlots(half)).toBe(16);
+    expect(planBeats(half)).toBe(8 * BEATS_PER_BAR);
+  });
+
+  it("multi-bar rhythms hold with repeat bars (2-bar → whole-bar chord + %)", () => {
+    const dbl = rhythmPlan(8, "double", 1);
+    expect(dbl).toHaveLength(8);
+    expect(dbl.filter((b) => b.repeat)).toHaveLength(4); // every other bar is held
+    expect(chordSlots(dbl)).toBe(4); // 4 chords, each held 2 bars
+    expect(dbl[0].durs).toEqual([4]);
+    expect(dbl[1].repeat).toBe(true);
+    expect(planBeats(dbl)).toBe(8 * BEATS_PER_BAR);
+  });
+
+  it("varied is deterministic by seed, bar-complete, and mixes lengths", () => {
+    const a = rhythmPlan(8, "varied", 7);
+    const b = rhythmPlan(8, "varied", 7);
+    const c = rhythmPlan(8, "varied", 8);
+    expect(a).toEqual(b);
+    expect(a).not.toEqual(c);
+    expect(planBeats(a)).toBe(8 * BEATS_PER_BAR);
+    for (const bar of a) if (bar.durs) expect(bar.durs.reduce((s, d) => s + d, 0)).toBe(BEATS_PER_BAR);
+    const shapes = new Set(a.filter((b) => b.durs).map((b) => b.durs.join(",")));
+    expect(shapes.size).toBeGreaterThan(1); // genuinely varied
+  });
 });
 
 describe("chord completions", async () => {

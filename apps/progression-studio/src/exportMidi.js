@@ -38,19 +38,28 @@ export function progressionFromVoicings(voicings, key, meta) {
  */
 export function voicingsToClip(voicings, channelMode = "single") {
   const notes = [];
-  voicings.forEach((v, i) => {
-    const startBeat = i * BEATS_PER_CHORD;
-    const bassCh = 1;
-    notes.push({ startBeat, lengthBeats: BEATS_PER_CHORD, pitch: v.bass, velocity: 88, channel: bassCh });
+  let startBeat = 0;
+  for (const v of voicings) {
+    const len = v.dur ?? BEATS_PER_CHORD; // per-chord duration (harmonic rhythm)
+    notes.push({ startBeat, lengthBeats: len, pitch: v.bass, velocity: 88, channel: 1 });
     v.notes.forEach((pitch, vi) => {
       const channel =
         channelMode === "perVoice" ? Math.min(16, 2 + vi)
         : channelMode === "split" ? 2
         : 1;
-      notes.push({ startBeat, lengthBeats: BEATS_PER_CHORD, pitch, velocity: 72, channel });
+      notes.push({ startBeat, lengthBeats: len, pitch, velocity: 72, channel });
     });
-  });
-  return { notes, lengthBeats: voicings.length * BEATS_PER_CHORD };
+    startBeat += len;
+  }
+  return { notes, lengthBeats: startBeat };
+}
+
+/** Cumulative start beat of each voicing (for markers / chord-follow). */
+export function chordStartBeats(voicings) {
+  const starts = [];
+  let acc = 0;
+  for (const v of voicings) { starts.push(acc); acc += v.dur ?? BEATS_PER_CHORD; }
+  return starts;
 }
 
 /**
@@ -61,8 +70,9 @@ export function voicingsToClip(voicings, channelMode = "single") {
  */
 export function progressionToSMF(voicings, { bpm = 120, name = "Progression", channelMode = "single", key = null } = {}) {
   const { notes: clipNotes } = voicingsToClip(voicings, channelMode);
+  const starts = chordStartBeats(voicings);
   const markers = voicings.map((v, i) => ({
-    tick: i * TICKS_PER_BEAT * BEATS_PER_CHORD,
+    tick: Math.round(starts[i] * TICKS_PER_BEAT),
     text: `${v.symbol} (${v.label})`,
   }));
   const notes = clipNotes.map((n) => ({

@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import table from "./data/transitions.json";
-import { chordCompletions, generateLabels, generateSections, labelMass, nextChordSuggestions, realizeLabel, startLabel, voiceChord, voiceProgression, voicingSuggestions } from "./generate.js";
-import { exportProgression, voicingsToClip } from "./exportMidi.js";
+import { BEATS_PER_BAR, chordCompletions, chordSlots, generateLabels, generateSections, labelMass, nextChordSuggestions, realizeLabel, rhythmBeats, rhythmPlan, startLabel, voiceChord, voiceProgression, voicingSuggestions } from "./generate.js";
+import { chordStartBeats, exportProgression, voicingsToClip } from "./exportMidi.js";
 import { createBridge } from "./juceBridge.js";
 import { assertDegree, parseLeadsheet, realizeChord } from "@enkerli/theory";
 import { resolvedTheme, toggleTheme } from "@enkerli/ui/theme";
@@ -26,7 +26,7 @@ function chordsFromProgression(prog, key) {
       const label = c.source === "degree" && c.degree
         ? c.degree.numeral + c.degree.suffix
         : (c.inputText ?? r.symbol);
-      out.push({ ...r, label, voicing: c.voicing });
+      out.push({ ...r, label, voicing: c.voicing, dur: c.dur ?? 2 });
     }
   }
   return out;
@@ -52,27 +52,62 @@ function labelOfChord(c, key) {
   }
 }
 
-/** Generated labels → bar-notation text, CHORDS_PER_BAR per bar (the
- *  generation plays 2 beats/chord, i.e. 2 chords per 4/4 bar — so the
- *  editable/curatable leadsheet matches what's heard and exported). */
-const CHORDS_PER_BAR = 2;
-function labelsToBars(labels, perBar = CHORDS_PER_BAR) {
+/** Map a clip-relative beat to the index of the chord sounding then, given
+ *  cumulative chord start beats (chord-follow with variable durations). */
+function beatToChordIndex({ starts, total }, beat) {
+  if (!starts.length) return -1;
+  const b = total > 0 ? ((beat % total) + total) % total : beat;
+  let idx = -1;
+  for (let i = 0; i < starts.length; i++) { if (starts[i] <= b + 1e-6) idx = i; else break; }
+  return idx;
+}
+
+/** The corpus transition label (numeral + suffix) of a realized chord — used
+ *  to map per-chord ratings onto the corpus's functional transition keys, so
+ *  degree and absolute chords rate the same pair. */
+function functionalOfRealized(r, key) {
+  if (!r?.rootName) return null;
+  try {
+    return assertDegree(r.rootName, key).numeral + (r.suffix ?? "");
+  } catch {
+    return null;
+  }
+}
+
+/** Build a Progression from generated labels and a bar plan (from rhythmPlan).
+ *  Chord-bars consume labels and stamp each chord's `dur`; held bars become
+ *  repeat bars (`%`), so a multi-bar chord keeps its barlines. */
+function buildProgression(labels, plan, key) {
   const bars = [];
-  for (let i = 0; i < labels.length; i += perBar) bars.push(labels.slice(i, i + perBar).join(" "));
-  return bars.join(" | ");
+  let li = 0;
+  for (const p of plan) {
+    if (p.repeat) { bars.push({ chords: [], repeat: true }); continue; }
+    const chords = [];
+    for (const d of p.durs) {
+      const label = labels[li++];
+      if (label == null) break;
+      const ch = parseLeadsheet(label, key).sections[0]?.bars[0]?.chords[0];
+      if (ch) { ch.dur = d; chords.push(ch); }
+    }
+    bars.push({ chords });
+  }
+  if (!bars.length) bars.push({ chords: [] });
+  return { key, sections: [{ bars }] };
 }
 
 /** Editable leadsheet — the shared @enkerli/ui editor, the primary surface.
  *  Mounts once; the caller forces a remount (via React key) on external
  *  ops (generate/extend/clear/key change) so internal edits don't reset it.
  *  activeIndex drives the chord-follow highlight without remounting. */
-function LeadsheetEdit({ progression, activeIndex, onEdit, suggest }) {
+function LeadsheetEdit({ progression, activeIndex, onEdit, suggest, onRate, ratingOf, ratingSignal, tool }) {
   const hostRef = useRef(null);
   const edRef = useRef(null);
-  // The editor is built once (remounted via key); read suggestions through a
-  // ref so the "+" picker always sees current state (latched chord, voicings).
-  const suggestRef = useRef(suggest);
-  suggestRef.current = suggest;
+  // The editor is built once (remounted via key); read callbacks through refs
+  // so the "+" picker and the 👍/👎 controls always see current state (latched
+  // chord, voicings, curation).
+  const suggestRef = useRef(suggest); suggestRef.current = suggest;
+  const onRateRef = useRef(onRate); onRateRef.current = onRate;
+  const ratingOfRef = useRef(ratingOf); ratingOfRef.current = ratingOf;
   useEffect(() => {
     edRef.current = createLeadsheetEditor(hostRef.current, {
       progression: clone(progression),
@@ -80,10 +115,16 @@ function LeadsheetEdit({ progression, activeIndex, onEdit, suggest }) {
       activeIndex,
       onChange: (prog) => onEdit(clone(prog)),
       suggest: (ctx) => suggestRef.current?.(ctx) ?? [],
+      onRate: (i, dir) => onRateRef.current?.(i, dir),
+      ratingOf: (i) => ratingOfRef.current?.(i) ?? 1,
+      tool,
     });
     return () => edRef.current.destroy();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps -- remount via key
   useEffect(() => { edRef.current?.update({ activeIndex }); }, [activeIndex]);
+  useEffect(() => { edRef.current?.update({ tool }); }, [tool]);
+  // Ratings changed (curation) — re-render chips to re-reflect the 👍/👎 state.
+  useEffect(() => { edRef.current?.refresh(); }, [ratingSignal]);
   return <div ref={hostRef} />;
 }
 
@@ -93,7 +134,6 @@ const IN_PLUGIN = bridge.kind === "juce";
 import {
   adjustTransition,
   exportCuration,
-  rateGesture,
   importCuration,
   loadCuration,
   multiplierFor,
@@ -127,13 +167,14 @@ function usePlayer() {
     stopRef.current();
     const ctx = (ctxRef.current ??= new (window.AudioContext || window.webkitAudioContext)());
     const beat = 60 / bpm;
-    const barDur = 2 * beat;
     const t0 = ctx.currentTime + 0.05;
     const nodes = [];
     const timers = [];
 
+    let accBeats = 0;
     voicings.forEach((v, i) => {
-      const start = t0 + i * barDur;
+      const start = t0 + accBeats * beat;
+      const dur = (v.dur ?? 2) * beat; // honor the harmonic rhythm
       for (const midi of [v.bass, ...v.notes]) {
         const osc = ctx.createOscillator();
         const gain = ctx.createGain();
@@ -141,15 +182,16 @@ function usePlayer() {
         osc.frequency.value = 440 * 2 ** ((midi - 69) / 12);
         gain.gain.setValueAtTime(0, start);
         gain.gain.linearRampToValueAtTime(midi === v.bass ? 0.12 : 0.07, start + 0.02);
-        gain.gain.setTargetAtTime(0, start + barDur - 0.15, 0.05);
+        gain.gain.setTargetAtTime(0, start + Math.max(0.05, dur - 0.15), 0.05);
         osc.connect(gain).connect(ctx.destination);
         osc.start(start);
-        osc.stop(start + barDur);
+        osc.stop(start + dur);
         nodes.push(osc);
       }
       timers.push(setTimeout(() => setPlayhead(i), (start - ctx.currentTime) * 1000));
+      accBeats += v.dur ?? 2;
     });
-    timers.push(setTimeout(() => { setPlaying(false); setPlayhead(-1); }, (t0 - ctx.currentTime + voicings.length * barDur) * 1000));
+    timers.push(setTimeout(() => { setPlaying(false); setPlayhead(-1); }, (t0 - ctx.currentTime + accBeats * beat) * 1000));
 
     stopRef.current = () => {
       for (const n of nodes) { try { n.stop(); } catch { /* already stopped */ } }
@@ -244,7 +286,8 @@ function CorpusStats({ table, mode, statsLabel, setStatsLabel, curation, setCura
 export default function App() {
   const [tonic, setTonic] = useState("C");
   const [mode, setMode] = useState("major");
-  const [length, setLength] = useState(16);
+  const [bars, setBars] = useState(8);             // progression length in 4/4 bars
+  const [harmonicRhythm, setHarmonicRhythm] = useState("half"); // quarter|half|whole|double|quad|varied
   const [seed, setSeed] = useState(1);
   const [method, setMethod] = useState("markov");
   const [statsLabel, setStatsLabel] = useState(null);
@@ -258,13 +301,13 @@ export default function App() {
   const [channelMode, setChannelMode] = useState("single");
   const [hostPlayhead, setHostPlayhead] = useState(-1);
   const [hostBeat, setHostBeat] = useState(-1);
+  const chordSpansRef = useRef({ starts: [], total: 0 }); // cumulative chord beats, for host chord-follow
   const [startFrom, setStartFrom] = useState(null);
   const [extensions, setExtensions] = useState([]);
-  const [gestureAnchor, setGestureAnchor] = useState(null);
-  const [gestureRange, setGestureRange] = useState(null); // [from, to] indices
-  const [surfaceMode, setSurfaceMode] = useState("edit"); // "edit" | "curate"
   const [opCount, setOpCount] = useState(0); // bumps on extend/clear (forces editor remount)
-  const [voiceLead, setVoiceLead] = useState(true); // taxicab smoothing on/off
+  const [tool, setTool] = useState("edit"); // leadsheet tool: edit | rate-up | rate-down
+  const [resetArmed, setResetArmed] = useState(false); // two-tap confirm (WKWebView has no window.confirm)
+  const [voiceLeadMode, setVoiceLeadMode] = useState("strict"); // none | loose | strict
   const [voicingShape, setVoicingShape] = useState("close"); // close|open|drop2|drop3|spread|rootless|shell
   const [midiChord, setMidiChord] = useState({ notes: [], chord: null, symbol: null }); // live MIDI chord input
   const [latched, setLatched] = useState(null); // { symbol, notes } — last chord played, kept after release
@@ -277,9 +320,9 @@ export default function App() {
     if (!IN_PLUGIN) return;
     const offTransport = bridge.on("transport", (t) => {
       setHost({ playing: !!t.playing, bpm: t.bpm || 0 });
-      // Chord-follow: the scheduler reports its clip-relative beat;
-      // 2 beats per chord (voicingsToClip's grid).
-      setHostPlayhead(t.playing && t.beat >= 0 ? Math.floor(t.beat / 2) : -1);
+      // Chord-follow: the scheduler reports its clip-relative beat; map it to
+      // the sounding chord via the cumulative durations (variable rhythm).
+      setHostPlayhead(t.playing && t.beat >= 0 ? beatToChordIndex(chordSpansRef.current, t.beat) : -1);
       setHostBeat(t.playing && t.beat >= 0 ? t.beat : -1);
     });
     const offRuntime = bridge.on("runtime", setRuntime);
@@ -287,7 +330,9 @@ export default function App() {
       try {
         if (s.tonic) setTonic(s.tonic);
         if (s.mode) setMode(s.mode);
-        if (s.length) setLength(s.length);
+        if (s.bars) setBars(s.bars);
+        else if (s.length) setBars(Math.max(1, Math.round(s.length / 2))); // migrate chord-count → bars (½-bar default)
+        if (s.harmonicRhythm) setHarmonicRhythm(s.harmonicRhythm);
         if (s.seed !== undefined) setSeed(s.seed);
         if (s.method) setMethod(s.method);
         if (s.curation && typeof s.curation.multipliers === "object") setCuration(s.curation);
@@ -295,7 +340,8 @@ export default function App() {
         if (s.channelMode) setChannelMode(s.channelMode);
         if (s.startFrom !== undefined) setStartFrom(s.startFrom);
         if (Array.isArray(s.extensions)) setExtensions(s.extensions);
-        if (typeof s.voiceLead === "boolean") setVoiceLead(s.voiceLead);
+        if (typeof s.voiceLeadMode === "string") setVoiceLeadMode(s.voiceLeadMode);
+        else if (typeof s.voiceLead === "boolean") setVoiceLeadMode(s.voiceLead ? "strict" : "none"); // migrate older sessions
         if (s.voicingShape) setVoicingShape(s.voicingShape);
       } catch { /* malformed saved state — keep defaults */ }
     });
@@ -322,18 +368,21 @@ export default function App() {
     }
   }, [midiChord]);
 
+  // Harmonic rhythm: a bar plan (chord durations + held bars) for `bars` bars;
+  // the number of chord slots is how many chords to generate.
+  const rhythm = useMemo(() => rhythmPlan(bars, harmonicRhythm, seed), [bars, harmonicRhythm, seed]);
   const labels = useMemo(
     () => generateSections(table[mode], mode,
-      { length, seed, curation, method, temperature, startFrom }, extensions),
-    [mode, length, seed, curation, method, temperature, startFrom, extensions],
+      { length: chordSlots(rhythm), seed, curation, method, temperature, startFrom }, extensions),
+    [mode, rhythm, seed, curation, method, temperature, startFrom, extensions],
   );
   // The progression as an editable theory object: generated by default,
   // overridden when the user hand-edits in the leadsheet editor. Editing
   // flows through to the sheet, playback, and export (the embedded
   // Progression). Regeneration or a key change resets the edits.
   const baseProg = useMemo(
-    () => parseLeadsheet(labelsToBars(labels), { tonic, mode }),
-    [labels, tonic, mode],
+    () => buildProgression(labels, rhythm, { tonic, mode }),
+    [labels, rhythm, tonic, mode],
   );
   // genId changes on any GENERATION op (every param that produces `labels`,
   // plus opCount for extend/clear) — but NOT on an edit. An edit is stamped
@@ -341,7 +390,7 @@ export default function App() {
   // is stale and effectiveProg falls back to the fresh generation. This is
   // synchronous (no post-render effect), so a Generate from a blank sheet
   // shows the new progression immediately, without a Curate/Edit toggle.
-  const genId = `${tonic}|${mode}|${seed}|${length}|${temperature}|${method}|${startFrom}|${opCount}`;
+  const genId = `${tonic}|${mode}|${seed}|${bars}|${harmonicRhythm}|${temperature}|${method}|${startFrom}|${opCount}`;
   const [edited, setEdited] = useState(null); // { genId, prog } | null
   const effectiveProg = edited && edited.genId === genId ? edited.prog : baseProg;
   const chords = useMemo(
@@ -349,9 +398,17 @@ export default function App() {
     [effectiveProg, tonic, mode],
   );
   const voicings = useMemo(
-    () => voiceProgression(chords, { voiceLead, shape: voicingShape }),
-    [chords, voiceLead, voicingShape],
+    () => voiceProgression(chords, { mode: voiceLeadMode, shape: voicingShape }),
+    [chords, voiceLeadMode, voicingShape],
   );
+  // Cumulative chord start beats (chord-follow + the local player + the shape
+  // playhead all read this so they agree with the harmonic rhythm).
+  const chordSpans = useMemo(() => {
+    const starts = chordStartBeats(voicings);
+    const total = starts.length ? starts[starts.length - 1] + (voicings[voicings.length - 1].dur ?? 2) : 0;
+    return { starts, total };
+  }, [voicings]);
+  chordSpansRef.current = chordSpans;
 
   // Plugin: every regeneration updates the host clip (strict transport
   // sync — the host's play button is the play button) and persists the
@@ -363,8 +420,8 @@ export default function App() {
     if (!IN_PLUGIN) return;
     const { notes, lengthBeats } = voicingsToClip(voicings, channelMode);
     bridge.setClip(notes, lengthBeats, { loop: true });
-    bridge.send("enkerliState", { tonic, mode, length, seed, method, curation, temperature, channelMode, startFrom, extensions, voiceLead, voicingShape });
-  }, [voicings, tonic, mode, length, seed, method, curation, temperature, channelMode, startFrom, extensions, voiceLead, voicingShape]);
+    bridge.send("enkerliState", { tonic, mode, bars, harmonicRhythm, seed, method, curation, temperature, channelMode, startFrom, extensions, voiceLeadMode, voicingShape });
+  }, [voicings, tonic, mode, bars, harmonicRhythm, seed, method, curation, temperature, channelMode, startFrom, extensions, voiceLeadMode, voicingShape]);
 
   const startOptions = useMemo(() => {
     const mass = labelMass(table[mode]);
@@ -434,16 +491,19 @@ export default function App() {
     [latched],
   );
   // The genId an op produces (only opCount changes for extend/clear/reset).
-  const genIdFor = (op) => `${tonic}|${mode}|${seed}|${length}|${temperature}|${method}|${startFrom}|${op}`;
+  const genIdFor = (op) => `${tonic}|${mode}|${seed}|${bars}|${harmonicRhythm}|${temperature}|${method}|${startFrom}|${op}`;
 
-  /** Append a chord into the working progression, keeping CHORDS_PER_BAR
-   *  per bar (fill the last bar, then start new ones). */
+  /** Append a chord into the working progression, packing 4/4 bars by
+   *  duration (an added chord defaults to the current harmonic rhythm; fill
+   *  the last bar until it's full, then start a new one). */
   function appendChord(prog, ch) {
+    if (!ch.dur) ch.dur = rhythmBeats(harmonicRhythm);
     if (!prog.sections.length) prog.sections = [{ bars: [] }];
-    const bars = prog.sections[0].bars;
-    const last = bars[bars.length - 1];
-    if (last && !last.repeat && last.chords.length < CHORDS_PER_BAR) last.chords.push(ch);
-    else bars.push({ chords: [ch] });
+    const barsArr = prog.sections[0].bars;
+    const last = barsArr[barsArr.length - 1];
+    const beats = (b) => b.chords.reduce((s, c) => s + (c.dur ?? 2), 0);
+    if (last && !last.repeat && beats(last) + ch.dur <= BEATS_PER_BAR) last.chords.push(ch);
+    else barsArr.push({ chords: [ch] });
   }
 
   /** Append a generated continuation from the working progression's last
@@ -474,7 +534,24 @@ export default function App() {
     appendChord(next, ch);
     setEdited({ genId: genIdFor(opCount + 1), prog: next });
     setOpCount((n) => n + 1);
-    setSurfaceMode("edit");
+  }
+
+  /** Rate the transition INTO chord `i` (👍 dir +1 / 👎 dir −1): nudges the
+   *  corpus weight for the move prev→this. The first chord has no incoming
+   *  transition. */
+  function rateIncoming(i, dir) {
+    if (i <= 0 || i >= chords.length) return;
+    const from = functionalOfRealized(chords[i - 1], { tonic, mode });
+    const to = functionalOfRealized(chords[i], { tonic, mode });
+    if (!from || !to || from === to) return;
+    setCuration((c) => adjustTransition(c, from, to, dir > 0 ? TRANSITION_STEP : 1 / TRANSITION_STEP));
+  }
+  /** Current multiplier on the transition into chord `i` (drives 👍/👎 state). */
+  function incomingRating(i) {
+    if (i <= 0 || i >= chords.length) return 1;
+    const from = functionalOfRealized(chords[i - 1], { tonic, mode });
+    const to = functionalOfRealized(chords[i], { tonic, mode });
+    return from && to ? multiplierFor(curation, from, to) : 1;
   }
 
   /** Add the latched MIDI chord to the leadsheet (ChordID), locking a voicing
@@ -503,7 +580,6 @@ export default function App() {
   /** Blank the leadsheet — start from scratch (type a chord, then Extend). */
   function handleClear() {
     setEdited({ genId: genIdFor(opCount + 1), prog: { key: { tonic, mode }, sections: [{ bars: [] }] } });
-    setSurfaceMode("edit");
     setOpCount((n) => n + 1);
   }
 
@@ -516,9 +592,6 @@ export default function App() {
       window.alert("That doesn't look like a curation profile.");
     }
   }
-
-  const rows = [];
-  for (let i = 0; i < chords.length; i += 4) rows.push(chords.slice(i, i + 4));
 
   return (
     <div className="es-app" style={{ padding: "var(--es-space-4)" }}>
@@ -587,20 +660,34 @@ export default function App() {
               <option value="shell">shell (3rd+7th)</option>
             </select>
           </label>
-          <label style={{ display: "flex", gap: 6, alignItems: "center", fontSize: "var(--es-text-sm)", minHeight: "var(--es-ctl-h)" }}
-            title="Taxicab voice leading: smooth each chord from the previous, or voice each in its home position">
-            <input type="checkbox" checked={voiceLead} onChange={(e) => setVoiceLead(e.target.checked)} />
-            voice-lead
+          <label style={{ display: "grid", gap: 4, fontSize: "var(--es-text-sm)" }}>Voice leading
+            <select className="es-control" value={voiceLeadMode} onChange={(e) => setVoiceLeadMode(e.target.value)}
+              title="none: home-position shapes · loose: home shapes nudged to the nearest register · strict: minimal taxicab motion (smoothest, may obscure the chord)">
+              <option value="none">none</option>
+              <option value="loose">loose</option>
+              <option value="strict">strict</option>
+            </select>
           </label>
-          <label style={{ display: "grid", gap: 4, fontSize: "var(--es-text-sm)" }}>Chords
-            <select className="es-control" value={length} onChange={(e) => setLength(Number(e.target.value))}>
-              {[8, 12, 16, 24, 32].map((n) => <option key={n} value={n}>{n}</option>)}
+          <label style={{ display: "grid", gap: 4, fontSize: "var(--es-text-sm)" }}>Bars
+            <select className="es-control" value={bars} onChange={(e) => setBars(Number(e.target.value))}>
+              {[2, 4, 8, 12, 16, 24, 32].map((n) => <option key={n} value={n}>{n}</option>)}
+            </select>
+          </label>
+          <label style={{ display: "grid", gap: 4, fontSize: "var(--es-text-sm)" }}>Harmonic rhythm
+            <select className="es-control" value={harmonicRhythm} onChange={(e) => setHarmonicRhythm(e.target.value)}
+              title="Default chord length; 'varied' mixes lengths for a breathing harmonic rhythm">
+              <option value="quarter">1 beat</option>
+              <option value="half">½ bar (2 beats)</option>
+              <option value="whole">1 bar</option>
+              <option value="double">2 bars</option>
+              <option value="quad">4 bars</option>
+              <option value="varied">varied</option>
             </select>
           </label>
           {!IN_PLUGIN && <label style={{ display: "grid", gap: 4, fontSize: "var(--es-text-sm)" }}>Tempo
             <input className="es-control" style={{ width: 72 }} type="number" min="40" max="300" value={bpm} onChange={(e) => setBpm(Number(e.target.value))} />
           </label>}
-          <button className="es-btn" onClick={() => { setSeed((s) => s + 1); setExtensions([]); setGestureAnchor(null); setGestureRange(null); }}>
+          <button className="es-btn" onClick={() => { setSeed((s) => s + 1); setExtensions([]); }}>
             Generate
           </button>
           <button className="es-btn" title="Append a continuation from the last chord (works from a typed chord, too)"
@@ -642,54 +729,26 @@ export default function App() {
 
         <div className="es-panel">
           <div style={{ display: "flex", gap: "var(--es-space-2)", alignItems: "center", marginBottom: "var(--es-space-3)" }}>
-            <div role="tablist" aria-label="Leadsheet surface" style={{ display: "flex", gap: 4 }}>
-              <button className={`es-btn es-small ${surfaceMode === "edit" ? "es-primary" : ""}`} aria-pressed={surfaceMode === "edit"} onClick={() => setSurfaceMode("edit")}>Edit</button>
-              <button className={`es-btn es-small ${surfaceMode === "curate" ? "es-primary" : ""}`} aria-pressed={surfaceMode === "curate"} onClick={() => setSurfaceMode("curate")}>Curate</button>
+            <div role="toolbar" aria-label="Leadsheet tool" style={{ display: "flex", gap: 4 }}>
+              {[
+                { id: "edit", label: "✏️ Edit", hint: "Tap a chord to retype it" },
+                { id: "rate-up", label: "👍", hint: "Tap chords to reinforce the move into them" },
+                { id: "rate-down", label: "👎", hint: "Tap chords to weaken the move into them" },
+              ].map((t) => (
+                <button key={t.id} className={`es-btn es-small ${tool === t.id ? "es-primary" : ""}`}
+                  aria-pressed={tool === t.id} title={t.hint}
+                  onClick={() => setTool(t.id)}>{t.label}</button>
+              ))}
             </div>
             {edited && edited.genId === genId && <span style={{ color: "var(--es-accent)", fontSize: "var(--es-text-sm)" }}>· edited</span>}
             {edited && edited.genId === genId && <button className="es-btn es-small" onClick={() => { setEdited(null); setOpCount((n) => n + 1); }}>Reset to generated</button>}
             <span style={{ marginLeft: "auto", color: "var(--es-fg-muted)", fontSize: "var(--es-text-sm)" }}>
-              {surfaceMode === "edit" ? "click a chord to retype · Roman (IIm7) or absolute (Dm7)" : "tap a chord for stats · tap 2 apart to rate a gesture"}
+              {tool === "edit" ? "tap a chord to retype · + to add" : "tap chords to rate the move into each"}
             </span>
           </div>
-          {surfaceMode === "edit" ? (
-            <LeadsheetEdit key={genId} progression={effectiveProg} activeIndex={playIdx} onEdit={(p) => setEdited({ genId, prog: p })} suggest={suggestNext} />
-          ) : (
-          rows.map((row, ri) => (
-            <div key={ri} style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "var(--es-space-2)", marginBottom: ri < rows.length - 1 ? "var(--es-space-3)" : 0 }}>
-              {row.map((c, ci) => {
-                const idx = ri * 4 + ci;
-                const active = idx === (IN_PLUGIN ? hostPlayhead : playhead);
-                const inRange = gestureRange && idx >= gestureRange[0] && idx <= gestureRange[1];
-                const isAnchor = gestureAnchor === idx && !gestureRange;
-                return (
-                  <div key={idx} role="button" tabIndex={0}
-                    onClick={() => {
-                      setStatsLabel(c.label);
-                      if (gestureAnchor === null || gestureRange) { setGestureAnchor(idx); setGestureRange(null); }
-                      else if (Math.abs(idx - gestureAnchor) >= 2) { setGestureRange([Math.min(gestureAnchor, idx), Math.max(gestureAnchor, idx)]); }
-                      else { setGestureAnchor(idx); }
-                    }}
-                    onKeyDown={(e) => e.key === "Enter" && setStatsLabel(c.label)}
-                    title={`Stats for ${c.label} · tap another chord 2+ away to select a gesture`}
-                    style={{
-                    borderLeft: "2px solid var(--es-border)",
-                    paddingLeft: "var(--es-space-2)",
-                    background: active ? "var(--es-accent)" : inRange ? "var(--es-dim-bend-tint)" : "transparent",
-                    outline: isAnchor ? "2px dashed var(--es-fg-muted)" : "none",
-                    color: active ? "var(--es-accent-fg)" : "inherit",
-                    borderRadius: "var(--es-radius-sm)",
-                    transition: "background var(--es-motion-fast)",
-                    cursor: "pointer",
-                  }}>
-                    <div style={{ fontSize: "var(--es-text-lg)", fontWeight: 600 }}>{c.symbol}</div>
-                    <div style={{ fontSize: "var(--es-text-sm)", color: active ? "var(--es-accent-fg)" : "var(--es-fg-muted)" }}>{c.label}</div>
-                  </div>
-                );
-              })}
-            </div>
-          ))
-          )}
+          <LeadsheetEdit key={genId} progression={effectiveProg} activeIndex={playIdx}
+            onEdit={(p) => setEdited({ genId, prog: p })} suggest={suggestNext}
+            onRate={rateIncoming} ratingOf={incomingRating} ratingSignal={curation} tool={tool} />
 
           <div style={{ display: "flex", gap: "var(--es-space-2)", marginTop: "var(--es-space-4)", flexWrap: "wrap" }}>
             <button
@@ -706,21 +765,6 @@ export default function App() {
             >
               👎 Bit meh
             </button>
-            {gestureRange && <>
-              <span className="es-num" style={{ alignSelf: "center", fontSize: "var(--es-text-sm)" }}>
-                gesture: {labels.slice(gestureRange[0], gestureRange[1] + 1).join(" → ")}
-              </span>
-              <button className="es-btn" title="Emphasize this stretch as a unit (triple contexts)"
-                onClick={() => { setCuration((c) => rateGesture(c, labels.slice(gestureRange[0], gestureRange[1] + 1), TRANSITION_STEP)); }}>
-                👍 gesture
-              </button>
-              <button className="es-btn" title="De-emphasize this stretch"
-                onClick={() => { setCuration((c) => rateGesture(c, labels.slice(gestureRange[0], gestureRange[1] + 1), 1 / TRANSITION_STEP)); }}>
-                👎 gesture
-              </button>
-              <button className="es-btn es-small" aria-label="Clear gesture selection"
-                onClick={() => { setGestureAnchor(null); setGestureRange(null); }}>✕</button>
-            </>}
             <button
               className="es-btn es-small" style={{ marginLeft: "auto" }}
               onClick={() => setShowCuration((s) => !s)}
@@ -737,7 +781,7 @@ export default function App() {
             <ProgressionShape
               voicings={voicings}
               channelMode={channelMode}
-              beat={IN_PLUGIN ? hostBeat : playhead >= 0 ? playhead * 2 : -1}
+              beat={IN_PLUGIN ? hostBeat : playhead >= 0 ? (chordSpans.starts[playhead] ?? 0) : -1}
             />
           </div>
         </details>
@@ -850,8 +894,13 @@ export default function App() {
                 Copy profile
               </button>
               <button className="es-btn es-small" onClick={importProfile}>Import profile…</button>
-              <button className="es-btn es-small" onClick={() => window.confirm("Reset all curated weights?") && setCuration({ multipliers: {} })}>
-                Reset all
+              <button className={`es-btn es-small ${resetArmed ? "es-primary" : ""}`}
+                title="Clear every curated weight"
+                onClick={() => {
+                  if (resetArmed) { setCuration({ multipliers: {} }); setResetArmed(false); }
+                  else { setResetArmed(true); setTimeout(() => setResetArmed(false), 3000); }
+                }}>
+                {resetArmed ? "Tap again to reset" : "Reset all"}
               </button>
             </div>
           </div>

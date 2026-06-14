@@ -260,29 +260,44 @@ select.es-control option { background: var(--es-bg-raised); color: var(--es-fg);
    editable chord chips. The shared editor for ProgGenie & MIDIcurator. */
 .es-ls { display: flex; flex-direction: column; gap: var(--es-space-3); }
 .es-ls-toolbar { display: flex; flex-wrap: wrap; gap: var(--es-gap); align-items: center; }
-.es-ls-bars { display: flex; flex-wrap: wrap; gap: var(--es-space-2); }
+/* Spreadsheet-style: a fixed column grid wide enough for any chord name.
+   A bar spans one column per chord, so cells stay legible and bars align
+   vertically; a 2-chord bar lines up with two 1-chord bars. */
+.es-ls-bars { display: grid; grid-template-columns: repeat(auto-fill, 116px); gap: var(--es-space-2); align-items: stretch; justify-content: start; }
 .es-ls-bar {
-  display: flex; align-items: stretch; gap: 4px;
-  padding: var(--es-space-2) var(--es-space-2) var(--es-space-2) var(--es-space-3);
-  border-left: 2px solid var(--es-border-strong); border-radius: 0;
-  background: var(--es-bg-raised); min-width: 92px;
+  display: flex; align-items: stretch; gap: var(--es-space-2);
+  padding: var(--es-space-2) var(--es-space-2) var(--es-space-2) 0;
+  background: var(--es-bg-raised); border-radius: var(--es-radius-sm); min-width: 0;
 }
+.es-ls-bar > .es-ls-chord { flex: 1 1 0; min-width: 0; }            /* chords share the bar's columns */
+.es-ls-bar > .es-ls-chord + .es-ls-chord { border-left: 1px solid var(--es-border); } /* faint divider within a bar */
+.es-ls-repeat { align-items: center; justify-content: center; color: var(--es-fg-muted); font-size: var(--es-text-lg); }
+.es-ls-add { grid-column: span 1; }                                /* "+" and "+ bar" each own one column */
+.es-ls-add:not(.bar) { align-self: center; }
 .es-ls-chord {
-  position: relative;
-  display: inline-flex; flex-direction: column; justify-content: center;
-  min-height: var(--es-ctl-h); min-width: 44px; padding: 2px var(--es-space-2);
-  border: 1px solid transparent; border-radius: var(--es-radius-sm);
-  background: transparent; color: var(--es-fg); cursor: text;
-  font-family: var(--es-font-sans); font-size: var(--es-text-md); text-align: left;
+  display: flex; flex-direction: column; justify-content: center; gap: 1px;
+  min-height: 44px; min-width: 0;
+  padding: var(--es-space-1) var(--es-space-2);
+  border: none; border-left: 2px solid var(--es-border-strong);     /* the barline */
+  border-radius: 0; background: transparent; color: var(--es-fg); cursor: text;
+  font-family: var(--es-font-sans); text-align: left;
 }
 .es-ls-chord:hover { background: var(--es-bg-sunken); }
 .es-ls-chord:focus-visible { outline: var(--es-focus-ring); outline-offset: 1px; }
-.es-ls-chord .es-ls-real { font-size: var(--es-text-xs); color: var(--es-fg-muted); font-family: var(--es-font-mono); }
-/* Consonance badge: dark (dissonant) → bright (consonant), top-right corner */
-.es-ls-consonance {
-  position: absolute; top: 3px; right: 3px; width: 6px; height: 6px; border-radius: 50%;
-  box-shadow: 0 0 0 1px rgba(0, 0, 0, .15);
-}
+.es-ls-chord + .es-ls-chord { border-left-color: var(--es-border); } /* inner chords: light rule (set above too) */
+.es-ls-name { font-size: 1.125rem; font-weight: 600; line-height: 1.1; white-space: nowrap; overflow: hidden; }
+.es-ls-sub { display: flex; align-items: center; gap: var(--es-space-1); min-height: 1em; }
+.es-ls-real { font-size: var(--es-text-sm); color: var(--es-fg-muted); font-family: var(--es-font-mono); }
+/* Consonance: small inline dot, dark (dissonant) → bright (consonant) */
+.es-ls-consonance { width: 6px; height: 6px; border-radius: 50%; flex: 0 0 auto; box-shadow: 0 0 0 1px rgba(0, 0, 0, .12); }
+
+/* Curation folded into the edit surface, tool-mode: a tap applies the active
+   tool (edit / rate-up / rate-down). Cells stay clean — the rating shows as a
+   subtle tint, not buttons. */
+.es-ls.tool-rate-up .es-ls-chord,
+.es-ls.tool-rate-down .es-ls-chord { cursor: pointer; }
+.es-ls-chord.rated-up { box-shadow: inset 0 -2px 0 hsl(140, 55%, 45%); }
+.es-ls-chord.rated-down { box-shadow: inset 0 -2px 0 hsl(8, 60%, 52%); }
 .es-ls-input {
   min-height: var(--es-ctl-h); width: 6ch; padding: 2px var(--es-space-2);
   border: 1px solid var(--es-border-strong); border-radius: var(--es-radius-sm);

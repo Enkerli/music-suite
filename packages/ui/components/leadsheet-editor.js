@@ -63,6 +63,14 @@ function parseChordToken(text, key) {
  *        Optional next-chord suggester. When present, clicking a "+" opens a
  *        picker (type a token, or choose a voiceled suggestion); a chosen
  *        suggestion is inserted with its `notes` locked as the voicing.
+ * @param {(flatIndex:number,dir:1|-1)=>void} [opts.onRate]
+ *        Optional per-chord rating. When present, each chord (after the first)
+ *        shows 👍/👎 — rating the transition into it. The first chord has no
+ *        incoming transition, so it has no rating controls.
+ * @param {(flatIndex:number)=>number} [opts.ratingOf]
+ *        Current rating multiplier for the transition into a chord (>1 up,
+ *        <1 down, 1 neutral) — drives the 👍/👎 highlight. Call refresh()
+ *        after ratings change externally to re-reflect.
  */
 export function createLeadsheetEditor(el, opts = {}) {
   const key = opts.key ?? opts.progression?.key ?? { tonic: "C", mode: "major" };
@@ -73,6 +81,11 @@ export function createLeadsheetEditor(el, opts = {}) {
     /** Flattened chord index to highlight (chord-follow); -1 = none. */
     activeIndex: opts.activeIndex ?? -1,
     onChange: opts.onChange ?? null,
+    onRate: opts.onRate ?? null,
+    ratingOf: opts.ratingOf ?? null,
+    /** Active tool: "edit" (default) | "rate-up" | "rate-down". A tap applies
+     *  the tool, so cells stay uncluttered (no per-chip buttons). */
+    tool: opts.tool ?? "edit",
     suggest: opts.suggest ?? null,
   };
   if (!state.prog.sections.length) state.prog.sections = [{ bars: [] }];
@@ -238,27 +251,46 @@ export function createLeadsheetEditor(el, opts = {}) {
       const fn = functionalOf(chord, state.prog.key);
       if (fn) { primary = fn; secondary = token; }
     }
-    chip.append(Object.assign(document.createElement("span"), { textContent: primary || "—" }));
+    chip.append(Object.assign(document.createElement("span"), { className: "es-ls-name", textContent: primary || "—" }));
+    // Second line: the other reading + a small inline consonance dot
+    // (dark = dissonant, bright = consonant). Inline so it never overlaps the
+    // barline or the neighbouring chord the way an absolute badge did.
+    const sub = document.createElement("span");
+    sub.className = "es-ls-sub";
     if (secondary && secondary !== primary) {
-      chip.append(Object.assign(document.createElement("span"), { className: "es-ls-real", textContent: secondary }));
+      sub.append(Object.assign(document.createElement("span"), { className: "es-ls-real", textContent: secondary }));
     }
-    // Consonance badge (top-right): dark = dissonant, bright = consonant.
     if (realized.pcs.length >= 2) {
       const c = consonance(realized.pcs);
       const dot = document.createElement("span");
       dot.className = "es-ls-consonance";
       dot.style.background = `hsl(48, 85%, ${Math.round(22 + c * 56)}%)`;
       dot.title = `consonance ${(c * 100).toFixed(0)}%`;
-      chip.append(dot);
+      sub.append(dot);
     }
+    if (sub.childNodes.length) chip.append(sub);
     chip.title = realized.symbol;
+    // Subtle rating tint (no buttons — the toolbar's active tool does the
+    // rating; cells are dense enough): the move into a boosted chord reads
+    // warm, a suppressed one cool.
+    if (state.ratingOf && flatIndex > 0) {
+      const m = state.ratingOf(flatIndex);
+      if (m > 1.001) chip.classList.add("rated-up");
+      else if (m < 0.999) chip.classList.add("rated-down");
+    }
     if (state.editable) {
-      chip.addEventListener("click", () => beginEdit(chip, bi, ci, token));
+      chip.addEventListener("click", () => {
+        const tool = state.tool ?? "edit";
+        if (tool === "rate-up") state.onRate?.(flatIndex, 1);
+        else if (tool === "rate-down") state.onRate?.(flatIndex, -1);
+        else beginEdit(chip, bi, ci, token);
+      });
     }
     return chip;
   }
 
   function render() {
+    root.className = "es-ls" + (state.tool && state.tool !== "edit" ? ` tool-${state.tool}` : "");
     const children = [];
     if (state.showKey) {
       const bar = document.createElement("div");
@@ -287,47 +319,50 @@ export function createLeadsheetEditor(el, opts = {}) {
     const barsEl = document.createElement("div");
     barsEl.className = "es-ls-bars";
     let flat = 0;
+    // Index of the last chord-bar — the standalone "+" appends there.
+    let lastChordBar = -1;
+    bars().forEach((b, i) => { if (!b.repeat) lastChordBar = i; });
     bars().forEach((b, bi) => {
       const cell = document.createElement("div");
       cell.className = "es-ls-bar";
       if (b.repeat) {
-        cell.append(Object.assign(document.createElement("span"), { className: "es-ls-chord", textContent: "%" }));
+        // A held chord — repeat sign, one bar wide (keeps the barline).
+        const rep = Object.assign(document.createElement("span"), { className: "es-ls-chord es-ls-repeat", textContent: "%" });
+        rep.title = "held — same chord as the previous bar";
+        cell.append(rep);
         flat += 1;
       } else {
         b.chords.forEach((c, ci) => cell.append(chordChip(bi, ci, c, flat++)));
-        if (state.editable) {
-          const add = document.createElement("button");
-          add.type = "button"; add.className = "es-ls-add";
-          add.textContent = "+"; add.setAttribute("aria-label", "Add chord to bar");
-          add.addEventListener("click", () => {
-            if (state.suggest) openPicker(add, bi);
-            else openInlineAdd(add, bi, b.chords.length);
-          });
-          cell.append(add);
-        }
+        // Each chord wants ~one column; the bar spans that many columns so
+        // cells stay legible and bars align vertically (spreadsheet style).
+        cell.style.gridColumn = `span ${Math.max(1, b.chords.length)}`;
       }
       barsEl.append(cell);
     });
-    if (state.editable) {
+    if (state.editable && state.tool === "edit") {
+      // Standalone append "+": add a chord after the last bar (one append
+      // point, its own grid cell — bars stay clean).
+      const add = document.createElement("button");
+      add.type = "button"; add.className = "es-ls-add";
+      add.textContent = "+"; add.setAttribute("aria-label", "Add a chord");
+      add.addEventListener("click", () => {
+        let bi = lastChordBar;
+        if (bi < 0) { bars().push({ chords: [] }); bi = bars().length - 1; }
+        if (state.suggest) openPicker(add, bi);
+        else openInlineAdd(add, bi, bars()[bi].chords.length);
+      });
+      barsEl.append(add);
+
       const addBar = document.createElement("button");
       addBar.type = "button"; addBar.className = "es-ls-add bar";
       addBar.textContent = "+ bar"; addBar.setAttribute("aria-label", "Add bar");
       addBar.addEventListener("click", () => {
         bars().push({ chords: [] });
         render();
-        const cells = root.querySelectorAll(".es-ls-bar");
-        const cell = cells[cells.length - 1];
-        if (!cell) return;
-        if (state.suggest) {
-          // open the picker on the new bar (first-chord → opener suggestions)
-          const add = cell.querySelector(".es-ls-add");
-          if (add) openPicker(add, bars().length - 1);
-        } else {
-          const fresh = document.createElement("button");
-          fresh.className = "es-ls-chord";
-          cell.prepend(fresh);
-          beginEdit(fresh, bars().length - 1, 0, "");
-        }
+        const fresh = root.querySelector(".es-ls-add:not(.bar)");
+        if (!fresh) return;
+        if (state.suggest) openPicker(fresh, bars().length - 1);
+        else openInlineAdd(fresh, bars().length - 1, 0);
       });
       barsEl.append(addBar);
     }
@@ -348,9 +383,12 @@ export function createLeadsheetEditor(el, opts = {}) {
       if (next.key) state.prog.key = next.key;
       if (next.editable !== undefined) state.editable = next.editable;
       if (next.activeIndex !== undefined) state.activeIndex = next.activeIndex;
+      if (next.tool !== undefined) state.tool = next.tool;
       if (!state.prog.sections.length) state.prog.sections = [{ bars: [] }];
       render();
     },
+    /** Re-render in place (e.g. after ratings change, to re-reflect 👍/👎). */
+    refresh() { render(); },
     destroy() { root.remove(); },
   };
 }

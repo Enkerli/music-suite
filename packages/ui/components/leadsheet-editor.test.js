@@ -132,6 +132,27 @@ describe("leadsheet editor", () => {
     expect(ed.getText()).toBe("Cmaj7 A-7");
   });
 
+  it("a rating tool turns chord taps into transition ratings (and tints)", () => {
+    const el = document.createElement("div");
+    const rated = [];
+    const ed = createLeadsheetEditor(el, {
+      text: "Dm7 | G7 | Cmaj7", key: C, showKey: false,
+      onRate: (i, dir) => rated.push([i, dir]),
+      ratingOf: (i) => (i === 1 ? 2 : 1), // the move into chord 1 is boosted
+      tool: "rate-down",
+    });
+    const chips = () => [...el.querySelectorAll(".es-ls-chord")];
+    expect(chips()[1].classList.contains("rated-up")).toBe(true); // chord 1 tinted up
+    // with the rate-down tool, a tap rates (no editor opens)
+    chips()[2].dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    expect(rated).toContainEqual([2, -1]);
+    expect(el.querySelector("input.es-ls-input")).toBeNull();
+    // switch to the edit tool — a tap now opens the editor instead
+    ed.update({ tool: "edit" });
+    chips()[0].dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    expect(el.querySelector("input.es-ls-input")).not.toBeNull();
+  });
+
   it("getText round-trips to bar notation", () => {
     const el = document.createElement("div");
     const ed = createLeadsheetEditor(el, { text: "Dm7 G7 | Cmaj7", key: C });

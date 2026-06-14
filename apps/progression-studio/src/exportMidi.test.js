@@ -1,7 +1,26 @@
 import { describe, expect, it } from "vitest";
 import { progressionFromSMF } from "@enkerli/midi";
-import { progressionToSMF, progressionFromVoicings, TICKS_PER_BEAT, BEATS_PER_CHORD } from "./exportMidi.js";
+import { progressionToSMF, progressionFromVoicings, voicingsToClip, TICKS_PER_BEAT, BEATS_PER_CHORD } from "./exportMidi.js";
 import { realizeLabel, voiceProgression } from "./generate.js";
+
+describe("voicingsToClip honors per-chord duration (harmonic rhythm)", () => {
+  it("lays chords out by their dur, cumulative", () => {
+    const voicings = [
+      { bass: 36, notes: [60, 64, 67], dur: 2 },
+      { bass: 38, notes: [62, 65, 69], dur: 4 },
+      { bass: 43, notes: [55, 59, 62], dur: 2 },
+    ];
+    const { notes, lengthBeats } = voicingsToClip(voicings, "single");
+    expect(lengthBeats).toBe(8); // 2 + 4 + 2
+    expect([...new Set(notes.map((n) => n.startBeat))].sort((a, b) => a - b)).toEqual([0, 2, 6]);
+    expect(notes.find((n) => n.startBeat === 2).lengthBeats).toBe(4); // the 1-bar chord
+  });
+
+  it("defaults to a ½-bar chord when dur is absent (back-compat)", () => {
+    const { lengthBeats } = voicingsToClip([{ bass: 36, notes: [60] }, { bass: 38, notes: [62] }]);
+    expect(lengthBeats).toBe(2 * BEATS_PER_CHORD);
+  });
+});
 
 describe("progression MIDI export", () => {
   const key = { tonic: "C", mode: "major" };

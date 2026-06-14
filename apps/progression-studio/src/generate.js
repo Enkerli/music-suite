@@ -346,17 +346,94 @@ export function nextChordSuggestions(table, key, lastLabel, lastVoicing, { fallb
   return out.slice(0, max).map((s) => ({ ...s, fromCorpus }));
 }
 
-export function voiceProgression(chords, { voiceLead = true, shape = "close" } = {}) {
+// ── Harmonic rhythm ──────────────────────────────────────────────────────
+// Chord durations in beats. A 4/4 bar is 4 beats; the generator lays out a
+// requested number of bars at a chosen rhythm (or a varied mix).
+export const BEATS_PER_BAR = 4;
+const RHYTHM_BEATS = { quarter: 1, half: 2, whole: 4, double: 8, quad: 16 };
+
+/** Beats per chord for a named rhythm (varied/unknown → ½-bar default). */
+export function rhythmBeats(rhythm) {
+  return RHYTHM_BEATS[rhythm] ?? 2;
+}
+
+/**
+ * A bar plan for `bars` bars at the given rhythm: an array of bars, each
+ * either `{ durs: [...] }` (chord durations within the bar, summing to a bar)
+ * or `{ repeat: true }` (a held bar — shown as a repeat sign, sounded again).
+ * Chords held across bars are a whole-bar chord followed by repeat bars, so
+ * the barlines stay and long chords read as `%`. "varied" mixes bar
+ * subdivisions and occasional 2-bar holds — deterministic by `seed`.
+ */
+export function rhythmPlan(bars, rhythm, seed = 1) {
+  const plan = [];
+  if (rhythm === "varied") {
+    const rng = mulberry32(seed);
+    const patterns = [[4], [2, 2], [2, 2], [1, 1, 2], [2, 1, 1], [1, 1, 1, 1]];
+    let b = 0;
+    while (b < bars) {
+      if (bars - b >= 2 && rng() < 0.18) { plan.push({ durs: [4] }, { repeat: true }); b += 2; continue; }
+      plan.push({ durs: patterns[Math.floor(rng() * patterns.length)] });
+      b += 1;
+    }
+    return plan;
+  }
+  const per = rhythmBeats(rhythm);
+  if (per <= BEATS_PER_BAR) {
+    const durs = [];
+    for (let acc = 0; acc < BEATS_PER_BAR; acc += per) durs.push(Math.min(per, BEATS_PER_BAR - acc));
+    for (let i = 0; i < bars; i++) plan.push({ durs: [...durs] });
+    return plan;
+  }
+  const span = Math.round(per / BEATS_PER_BAR); // chord held this many bars
+  for (let i = 0; i < bars; i++) plan.push(i % span === 0 ? { durs: [BEATS_PER_BAR] } : { repeat: true });
+  return plan;
+}
+
+/** How many chords a bar plan needs (the generation length). */
+export function chordSlots(plan) {
+  return plan.reduce((n, b) => n + (b.durs ? b.durs.length : 0), 0);
+}
+
+/** Shift a whole voicing by octaves to sit in the register nearest `prev`
+ *  (keeps register continuity without revoicing — the "loose" middle). */
+function octaveAlign(notes, prev) {
+  if (!prev?.length || !notes.length) return notes;
+  const mean = (a) => a.reduce((s, n) => s + n, 0) / a.length;
+  const target = mean(prev);
+  let best = notes;
+  let bestD = Infinity;
+  for (let k = -2; k <= 2; k++) {
+    const shifted = notes.map((n) => n + k * 12);
+    const d = Math.abs(mean(shifted) - target);
+    if (d < bestD) { bestD = d; best = shifted; }
+  }
+  return best;
+}
+
+/**
+ * Voice a realized progression for playback. Three voice-leading modes:
+ *   none   — every chord in its `shape` home position (no smoothing);
+ *   loose  — home position, octave-shifted to the nearest register (the
+ *            harmony stays clear; only the register follows the prior chord);
+ *   strict — minimal taxicab motion from the previous voicing (smoothest,
+ *            but may invert/obscure the chord).
+ * A locked `chord.voicing` is always honored verbatim. The legacy
+ * `voiceLead` boolean maps to strict (true) / none (false).
+ */
+export function voiceProgression(chords, { mode, voiceLead, shape = "close" } = {}) {
+  const m = mode ?? (voiceLead === false ? "none" : "strict");
   const voicings = [];
   let previous = null;
   for (const chord of chords) {
     let notes;
     if (chord.voicing && chord.voicing.length) {
       notes = [...chord.voicing]; // user-chosen voicing (locked)
-    } else if (!voiceLead || !previous) {
-      notes = voiceChord(chord.pcs, chord.rootPc, shape);
-    } else {
+    } else if (m === "strict" && previous) {
       notes = voiceLed(previous.notes, chord.pcs);
+    } else {
+      notes = voiceChord(chord.pcs, chord.rootPc, shape);
+      if (m === "loose" && previous) notes = octaveAlign(notes, previous.notes);
     }
     const bass = 36 + mod12(chord.rootPc);
     voicings.push({ ...chord, notes, bass });
