@@ -249,7 +249,7 @@ export function Sidebar({
 
       {/* Samples fetch from /samples/ — not served by the plugin's
           resource provider, which only ships the single-page bundle. */}
-      {onLoadSamples && CAN_FETCH_ASSETS && clips.length === 0 && (
+      {onLoadSamples && clips.length === 0 && (
         <button
           className="mc-btn--load-samples"
           onClick={onLoadSamples}

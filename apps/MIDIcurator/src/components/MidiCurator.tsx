@@ -1042,6 +1042,19 @@ export function MidiCurator() {
   }, [selectedClip, db]);
 
   const [loadingSamples, setLoadingSamples] = useState(false);
+  // Only offer "Load sample progressions" if the manifest is actually
+  // fetchable. The JUCE WebView serves over an https origin with no
+  // co-located server, so a path check can't tell it from a real deploy —
+  // probing the manifest is the only reliable signal (the standalone 404'd
+  // because __JUCE__.backend was null at module-eval, fooling IN_PLUGIN).
+  const [samplesAvailable, setSamplesAvailable] = useState(false);
+  useEffect(() => {
+    let live = true;
+    fetch(`${import.meta.env.BASE_URL}samples/manifest.json`, { method: 'GET' })
+      .then((r) => { if (live) setSamplesAvailable(r.ok); })
+      .catch(() => { if (live) setSamplesAvailable(false); });
+    return () => { live = false; };
+  }, []);
 
   const handleLoadSamples = useCallback(async () => {
     if (!db || loadingSamples) return;
@@ -1477,7 +1490,7 @@ export function MidiCurator() {
           onClearAll={clearAllClips}
           onFilesDropped={handleFileUpload}
           fileInputRef={fileInputRef}
-          onLoadSamples={handleLoadSamples}
+          onLoadSamples={samplesAvailable ? handleLoadSamples : undefined}
           loadingSamples={loadingSamples}
           onGenerateProgression={handleGenerateProgression}
           onLoadLoopDb={handleLoadLoopDb}

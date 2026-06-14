@@ -38,7 +38,11 @@ export const IN_PLUGIN = backend !== null;
  * case the bridge hasn't injected `__JUCE__` by module-eval time.
  */
 export const CAN_FETCH_ASSETS =
-  !IN_PLUGIN &&
+  typeof window !== "undefined" &&
+  // any JUCE WebView injects __JUCE__ (the object exists even before its
+  // backend handshake completes — so this catches the standalone where
+  // backend is null at module-eval and IN_PLUGIN reads false)
+  typeof (window as { __JUCE__?: unknown }).__JUCE__ === "undefined" &&
   typeof location !== "undefined" &&
   /^https?:$/i.test(location.protocol);
 
