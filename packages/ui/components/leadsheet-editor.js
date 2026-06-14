@@ -51,6 +51,8 @@ export function createLeadsheetEditor(el, opts = {}) {
     prog: opts.progression ?? parseLeadsheet(opts.text ?? "", key),
     showKey: opts.showKey !== false,
     editable: opts.editable !== false,
+    /** Flattened chord index to highlight (chord-follow); -1 = none. */
+    activeIndex: opts.activeIndex ?? -1,
     onChange: opts.onChange ?? null,
   };
   if (!state.prog.sections.length) state.prog.sections = [{ bars: [] }];
@@ -100,10 +102,10 @@ export function createLeadsheetEditor(el, opts = {}) {
     });
   }
 
-  function chordChip(bi, ci, chord) {
+  function chordChip(bi, ci, chord, flatIndex) {
     const chip = document.createElement("button");
     chip.type = "button";
-    chip.className = "es-ls-chord";
+    chip.className = "es-ls-chord" + (flatIndex === state.activeIndex ? " active" : "");
     chip.dataset.bar = String(bi);
     chip.dataset.chord = String(ci);
     const token = tokenOf(chord);
@@ -147,13 +149,15 @@ export function createLeadsheetEditor(el, opts = {}) {
 
     const barsEl = document.createElement("div");
     barsEl.className = "es-ls-bars";
+    let flat = 0;
     bars().forEach((b, bi) => {
       const cell = document.createElement("div");
       cell.className = "es-ls-bar";
       if (b.repeat) {
         cell.append(Object.assign(document.createElement("span"), { className: "es-ls-chord", textContent: "%" }));
+        flat += 1;
       } else {
-        b.chords.forEach((c, ci) => cell.append(chordChip(bi, ci, c)));
+        b.chords.forEach((c, ci) => cell.append(chordChip(bi, ci, c, flat++)));
         if (state.editable) {
           const add = document.createElement("button");
           add.type = "button"; add.className = "es-ls-add";
@@ -203,6 +207,7 @@ export function createLeadsheetEditor(el, opts = {}) {
       else if (next.text !== undefined) state.prog = parseLeadsheet(next.text, next.key ?? state.prog.key);
       if (next.key) state.prog.key = next.key;
       if (next.editable !== undefined) state.editable = next.editable;
+      if (next.activeIndex !== undefined) state.activeIndex = next.activeIndex;
       if (!state.prog.sections.length) state.prog.sections = [{ bars: [] }];
       render();
     },

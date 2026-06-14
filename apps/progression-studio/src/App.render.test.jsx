@@ -13,6 +13,7 @@ describe("App render smoke", () => {
   it("renders without throwing and mounts the core UI", () => {
     const html = renderToString(React.createElement(App));
     expect(html).toContain("Progression Studio");
-    expect(html).toContain("New progression");
+    expect(html).toContain("Generate");
+    expect(html).toContain("Edit"); // leadsheet surface toggle
   });
 });

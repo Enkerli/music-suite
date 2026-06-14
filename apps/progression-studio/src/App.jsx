@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import table from "./data/transitions.json";
-import { generateSections, labelMass, startLabel, voiceProgression } from "./generate.js";
+import { generateLabels, generateSections, labelMass, startLabel, voiceProgression } from "./generate.js";
 import { exportProgression, voicingsToClip } from "./exportMidi.js";
 import { createBridge } from "./juceBridge.js";
 import { parseLeadsheet, realizeChord } from "@enkerli/theory";
@@ -31,18 +31,25 @@ function chordsFromProgression(prog, key) {
   return out;
 }
 
-/** Editable leadsheet — the shared @enkerli/ui editor, bound to the
- *  current progression; edits override what plays and exports. */
-function LeadsheetEdit({ progression, onEdit }) {
+const clone = (o) => JSON.parse(JSON.stringify(o));
+
+/** Editable leadsheet — the shared @enkerli/ui editor, the primary surface.
+ *  Mounts once; the caller forces a remount (via React key) on external
+ *  ops (generate/extend/clear/key change) so internal edits don't reset it.
+ *  activeIndex drives the chord-follow highlight without remounting. */
+function LeadsheetEdit({ progression, activeIndex, onEdit }) {
   const hostRef = useRef(null);
+  const edRef = useRef(null);
   useEffect(() => {
-    const ed = createLeadsheetEditor(hostRef.current, {
-      progression: JSON.parse(JSON.stringify(progression)),
+    edRef.current = createLeadsheetEditor(hostRef.current, {
+      progression: clone(progression),
       showKey: false, // the main UI owns the key
-      onChange: (prog) => onEdit(JSON.parse(JSON.stringify(prog))),
+      activeIndex,
+      onChange: (prog) => onEdit(clone(prog)),
     });
-    return () => ed.destroy();
-  }, [progression, onEdit]);
+    return () => edRef.current.destroy();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps -- remount via key
+  useEffect(() => { edRef.current?.update({ activeIndex }); }, [activeIndex]);
   return <div ref={hostRef} />;
 }
 
@@ -221,6 +228,8 @@ export default function App() {
   const [extensions, setExtensions] = useState([]);
   const [gestureAnchor, setGestureAnchor] = useState(null);
   const [gestureRange, setGestureRange] = useState(null); // [from, to] indices
+  const [surfaceMode, setSurfaceMode] = useState("edit"); // "edit" | "curate"
+  const [opCount, setOpCount] = useState(0); // bumps on extend/clear (forces editor remount)
   const { play, stop, playing, playhead } = usePlayer();
 
   useEffect(() => { saveCuration(curation); }, [curation]);
@@ -310,6 +319,39 @@ export default function App() {
   const curatedEntries = Object.entries(curation.multipliers)
     .sort((a, b) => b[1] - a[1]);
 
+  // Remount key for the editor: changes on external ops (new/extend/clear/
+  // key), not on internal edits — so editing never resets the editor.
+  const genId = `${tonic}|${mode}|${seed}|${opCount}`;
+  const playIdx = IN_PLUGIN ? hostPlayhead : playhead;
+
+  /** Append a generated continuation from the working progression's last
+   *  chord (extend-from-chord; works from a hand-typed chord or blank). */
+  function handleExtend() {
+    const flat = effectiveProg.sections.flatMap((s) => s.bars).flatMap((b) => (b.repeat ? [] : b.chords));
+    const last = flat[flat.length - 1];
+    const startTok = last
+      ? (last.source === "degree" && last.degree ? last.degree.numeral + last.degree.suffix : (last.inputText ?? null))
+      : null;
+    const cont = generateLabels(table[mode], mode,
+      { length: 5, seed: seed * 31 + opCount + 1, curation, method: "markov", temperature, startFrom: startTok });
+    const toks = startTok && cont[0] === startTok ? cont.slice(1) : cont;
+    const next = clone(effectiveProg);
+    if (!next.sections.length) next.sections = [{ bars: [] }];
+    for (const tok of toks) {
+      const ch = parseLeadsheet(tok, { tonic, mode }).sections[0]?.bars[0]?.chords[0];
+      if (ch) next.sections[0].bars.push({ chords: [ch] });
+    }
+    setEditedProg(next);
+    setOpCount((n) => n + 1);
+  }
+
+  /** Blank the leadsheet — start from scratch (type a chord, then Extend). */
+  function handleClear() {
+    setEditedProg({ key: { tonic, mode }, sections: [{ bars: [] }] });
+    setSurfaceMode("edit");
+    setOpCount((n) => n + 1);
+  }
+
   function importProfile() {
     const json = window.prompt("Paste a curation profile (JSON):");
     if (!json) return;
@@ -387,11 +429,15 @@ export default function App() {
             <input className="es-control" style={{ width: 72 }} type="number" min="40" max="300" value={bpm} onChange={(e) => setBpm(Number(e.target.value))} />
           </label>}
           <button className="es-btn" onClick={() => { setSeed((s) => s + 1); setExtensions([]); setGestureAnchor(null); setGestureRange(null); }}>
-            New progression
+            Generate
           </button>
-          <button className="es-btn" title="Append a section continuing from the last chord"
-            onClick={() => setExtensions((x) => [...x, { seed: seed * 31 + x.length + 1, length }])}>
+          <button className="es-btn" title="Append a continuation from the last chord (works from a typed chord, too)"
+            onClick={handleExtend}>
             + Extend
+          </button>
+          <button className="es-btn" title="Clear the leadsheet — start from scratch"
+            onClick={handleClear}>
+            Blank
           </button>
           {!IN_PLUGIN && <button
             className="es-btn es-primary"
@@ -423,7 +469,21 @@ export default function App() {
         </div>
 
         <div className="es-panel">
-          {rows.map((row, ri) => (
+          <div style={{ display: "flex", gap: "var(--es-space-2)", alignItems: "center", marginBottom: "var(--es-space-3)" }}>
+            <div role="tablist" aria-label="Leadsheet surface" style={{ display: "flex", gap: 4 }}>
+              <button className={`es-btn es-small ${surfaceMode === "edit" ? "es-primary" : ""}`} aria-pressed={surfaceMode === "edit"} onClick={() => setSurfaceMode("edit")}>Edit</button>
+              <button className={`es-btn es-small ${surfaceMode === "curate" ? "es-primary" : ""}`} aria-pressed={surfaceMode === "curate"} onClick={() => setSurfaceMode("curate")}>Curate</button>
+            </div>
+            {editedProg && <span style={{ color: "var(--es-accent)", fontSize: "var(--es-text-sm)" }}>· edited</span>}
+            {editedProg && <button className="es-btn es-small" onClick={() => { setEditedProg(null); setOpCount((n) => n + 1); }}>Reset to generated</button>}
+            <span style={{ marginLeft: "auto", color: "var(--es-fg-muted)", fontSize: "var(--es-text-sm)" }}>
+              {surfaceMode === "edit" ? "click a chord to retype · Roman (IIm7) or absolute (Dm7)" : "tap a chord for stats · tap 2 apart to rate a gesture"}
+            </span>
+          </div>
+          {surfaceMode === "edit" ? (
+            <LeadsheetEdit key={genId} progression={effectiveProg} activeIndex={playIdx} onEdit={(p) => setEditedProg(p)} />
+          ) : (
+          rows.map((row, ri) => (
             <div key={ri} style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "var(--es-space-2)", marginBottom: ri < rows.length - 1 ? "var(--es-space-3)" : 0 }}>
               {row.map((c, ci) => {
                 const idx = ri * 4 + ci;
@@ -456,7 +516,8 @@ export default function App() {
                 );
               })}
             </div>
-          ))}
+          ))
+          )}
 
           <div style={{ display: "flex", gap: "var(--es-space-2)", marginTop: "var(--es-space-4)", flexWrap: "wrap" }}>
             <button
@@ -509,17 +570,6 @@ export default function App() {
           </div>
         </details>
 
-        <details className="es-section" style={{ marginTop: "var(--es-space-3)" }}>
-          <summary>Edit chords {editedProg && <span style={{ color: "var(--es-accent)", fontWeight: 400 }}>· edited</span>}</summary>
-          <div className="es-section-body">
-            <LeadsheetEdit progression={baseProg} onEdit={setEditedProg} />
-            <p style={{ color: "var(--es-fg-muted)", fontSize: "var(--es-text-sm)", margin: "var(--es-space-2) 0 0" }}>
-              Click a chord to retype it (Roman <span className="es-num">IIm7</span> or absolute <span className="es-num">Dm7</span>).
-              Edits drive playback and export; regenerate to reset.
-              {editedProg && <> · <button className="es-btn es-small" onClick={() => setEditedProg(null)}>Reset to generated</button></>}
-            </p>
-          </div>
-        </details>
 
         {showCuration && (
           <div className="es-panel" style={{ marginTop: "var(--es-space-3)" }}>

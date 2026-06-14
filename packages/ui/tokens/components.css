@@ -289,3 +289,7 @@ select.es-control option { background: var(--es-bg-raised); color: var(--es-fg);
 }
 .es-ls-add:hover { color: var(--es-accent); border-color: var(--es-accent); }
 .es-ls-add.bar { align-self: stretch; }
+
+/* Chord-follow highlight on the leadsheet editor (playhead) */
+.es-ls-chord.active { background: var(--es-accent); color: var(--es-accent-fg); }
+.es-ls-chord.active .es-ls-real { color: var(--es-accent-fg); opacity: .8; }

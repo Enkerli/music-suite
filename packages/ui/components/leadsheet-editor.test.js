@@ -56,6 +56,17 @@ describe("leadsheet editor", () => {
     expect(ed.value.key.tonic).toBe("F♯");
   });
 
+  it("highlights the active chord (chord-follow) and moves it via update()", () => {
+    const el = document.createElement("div");
+    const ed = createLeadsheetEditor(el, { text: "Dm7 | G7 | Cmaj7", key: C, activeIndex: 0 });
+    const activeChips = () => [...el.querySelectorAll(".es-ls-chord.active")].map((c) => c.querySelector("span")?.textContent);
+    expect(activeChips()).toEqual(["Dm7"]);
+    ed.update({ activeIndex: 2 });
+    expect(activeChips()).toEqual(["Cmaj7"]);
+    ed.update({ activeIndex: -1 });
+    expect(activeChips()).toEqual([]);
+  });
+
   it("getText round-trips to bar notation", () => {
     const el = document.createElement("div");
     const ed = createLeadsheetEditor(el, { text: "Dm7 G7 | Cmaj7", key: C });
