@@ -254,3 +254,38 @@ select.es-control option { background: var(--es-bg-raised); color: var(--es-fg);
   .es-range-track { height: 12px; margin: 34px 24px; }
   .es-range-thumb::after { width: 32px; height: 32px; }
 }
+
+/* ── Leadsheet editor (components/leadsheet-editor.js) ────────────────
+   Bars in a wrapping grid (left-rule = the barline), each holding 1..n
+   editable chord chips. The shared editor for ProgGenie & MIDIcurator. */
+.es-ls { display: flex; flex-direction: column; gap: var(--es-space-3); }
+.es-ls-toolbar { display: flex; flex-wrap: wrap; gap: var(--es-gap); align-items: center; }
+.es-ls-bars { display: flex; flex-wrap: wrap; gap: var(--es-space-2); }
+.es-ls-bar {
+  display: flex; align-items: stretch; gap: 4px;
+  padding: var(--es-space-2) var(--es-space-2) var(--es-space-2) var(--es-space-3);
+  border-left: 2px solid var(--es-border-strong); border-radius: 0;
+  background: var(--es-bg-raised); min-width: 92px;
+}
+.es-ls-chord {
+  display: inline-flex; flex-direction: column; justify-content: center;
+  min-height: var(--es-ctl-h); min-width: 44px; padding: 2px var(--es-space-2);
+  border: 1px solid transparent; border-radius: var(--es-radius-sm);
+  background: transparent; color: var(--es-fg); cursor: text;
+  font-family: var(--es-font-sans); font-size: var(--es-text-md); text-align: left;
+}
+.es-ls-chord:hover { background: var(--es-bg-sunken); }
+.es-ls-chord:focus-visible { outline: var(--es-focus-ring); outline-offset: 1px; }
+.es-ls-chord .es-ls-real { font-size: var(--es-text-xs); color: var(--es-fg-muted); font-family: var(--es-font-mono); }
+.es-ls-input {
+  min-height: var(--es-ctl-h); width: 6ch; padding: 2px var(--es-space-2);
+  border: 1px solid var(--es-border-strong); border-radius: var(--es-radius-sm);
+  background: var(--es-bg); color: var(--es-fg); font-family: var(--es-font-mono); font-size: var(--es-text-md);
+}
+.es-ls-add {
+  min-width: 28px; min-height: var(--es-ctl-h); padding: 0 var(--es-space-2);
+  border: 1px dashed var(--es-border-strong); border-radius: var(--es-radius-sm);
+  background: transparent; color: var(--es-fg-muted); cursor: pointer; font-size: var(--es-text-md);
+}
+.es-ls-add:hover { color: var(--es-accent); border-color: var(--es-accent); }
+.es-ls-add.bar { align-self: stretch; }

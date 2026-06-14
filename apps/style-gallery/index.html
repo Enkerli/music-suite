@@ -10,6 +10,11 @@
      (npx vite apps/style-gallery) or open the file directly. -->
 <link rel="stylesheet" href="../../packages/ui/tokens/tokens.css" />
 <link rel="stylesheet" href="../../packages/ui/tokens/components.css" />
+<!-- The leadsheet editor imports @enkerli/theory (bare specifier); this
+     bundler-less gallery resolves it to the built dist via an import map. -->
+<script type="importmap">
+{ "imports": { "@enkerli/theory": "../../packages/theory/dist/index.js" } }
+</script>
 <style>
   body { margin: 0; padding: var(--es-space-6); display: grid; gap: var(--es-space-6);
          max-width: 1080px; margin-inline: auto; }
@@ -146,6 +151,11 @@
     <div class="es-eyebrow">collapsible sections — <label><input type="checkbox" id="dense"> dense (stage)</label></div>
     <div id="sections"></div>
   </div>
+  <div style="margin-top:var(--es-space-4)">
+    <div class="es-eyebrow">leadsheet editor (click a chord to edit; the shared ProgGenie/MIDIcurator editor)</div>
+    <div id="leadsheet"></div>
+    <p class="readout" id="leadsheet-text" style="font-family:var(--es-font-mono); color:var(--es-fg-2)"></p>
+  </div>
 </section>
 
 <script type="module">
@@ -156,6 +166,15 @@
   import { createSection } from "../../packages/ui/components/section.js";
   import { createRangeSlider, midiName } from "../../packages/ui/components/range-slider.js";
   import { PITCH_CLASS_COLORS } from "../../packages/ui/components/pitch-class-colors.js";
+  import { createLeadsheetEditor } from "../../packages/ui/components/leadsheet-editor.js";
+
+  const lsText = document.getElementById("leadsheet-text");
+  const leadsheet = createLeadsheetEditor(document.getElementById("leadsheet"), {
+    text: "IIm7 V7 | Imaj7 | ♭II7 | Imaj7",
+    key: { tonic: "C", mode: "major" },
+    onChange: () => { lsText.textContent = "bar notation: " + leadsheet.getText(); },
+  });
+  lsText.textContent = "bar notation: " + leadsheet.getText();
 
   // Pad chips — exact Exquis colours with per-pad ink (the device look).
   const padHost = document.getElementById("pcs-pad");

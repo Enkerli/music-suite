@@ -19,7 +19,8 @@
     "./naming": {
       "types": "./naming.d.ts",
       "default": "./naming.js"
-    }
+    },
+    "./leadsheet-editor": "./components/leadsheet-editor.js"
   },
   "files": [
     "tokens",
@@ -28,5 +29,8 @@
     "components",
     "naming.js",
     "naming.d.ts"
-  ]
+  ],
+  "dependencies": {
+    "@enkerli/theory": "*"
+  }
 }
