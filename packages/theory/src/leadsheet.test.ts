@@ -93,6 +93,17 @@ describe("realization", () => {
     expect(r.rootName).toBe("C♯");
   });
 
+  it("resolves qualities with accidentals regardless of ASCII/Unicode", () => {
+    // the "5 voices to 2" bug: the dictionary aliases are ASCII (m7b5,
+    // 7#5) but the leadsheet stores Unicode — both must realize fully.
+    for (const tok of ["IIIm7b5", "IIIm7♭5", "V7#5", "V7♯5"]) {
+      const ch = parseLeadsheet(tok, C).sections[0]!.bars[0]!.chords[0]!;
+      const r = realizeChord(ch, C);
+      expect(r.qualityKey, tok).not.toBeNull();
+      expect(r.pcs.length, tok).toBeGreaterThanOrEqual(4);
+    }
+  });
+
   it("falls back to the paren-stripped base, then bare root", () => {
     const p = parseLeadsheet("C7(∆7,9) Czzz", C);
     const [a, b] = p.sections[0]!.bars[0]!.chords;

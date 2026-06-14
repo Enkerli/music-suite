@@ -189,8 +189,26 @@ export function formatLeadsheet(prog: Progression): string {
 // ── Realization ─────────────────────────────────────────────────────────
 
 /** qualityKey for a suffix, falling back to the paren-stripped base. */
+/** Unicode accidentals → ASCII, for the dictionary's ASCII suffix aliases. */
+function toAsciiAccidentals(s: string): string {
+  return s.replace(/𝄪/g, "##").replace(/𝄫/g, "bb").replace(/♯/g, "#").replace(/♭/g, "b");
+}
+
+/**
+ * Resolve a (possibly Unicode-accidental) suffix to a dictionary quality
+ * key. The suffix alias index is keyed on ASCII accidentals (m7b5, 7#5),
+ * but the leadsheet stores Unicode for display — so try the ASCII form and
+ * the paren-stripped base too, or chords like m7♭5 / 7♯5 fall back to a
+ * bare root (the "5 voices to 2" bug).
+ */
 function resolveQuality(suffix: string): string | undefined {
-  return qualityKeyForSuffix(suffix) ?? qualityKeyForSuffix(stripParens(suffix));
+  const ascii = toAsciiAccidentals(suffix);
+  return (
+    qualityKeyForSuffix(suffix) ??
+    qualityKeyForSuffix(ascii) ??
+    qualityKeyForSuffix(stripParens(suffix)) ??
+    qualityKeyForSuffix(stripParens(ascii))
+  );
 }
 
 /**

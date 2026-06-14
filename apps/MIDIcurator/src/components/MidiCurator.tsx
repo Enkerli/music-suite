@@ -1553,7 +1553,10 @@ export function MidiCurator() {
             <div className="mc-welcome">
               <h2>Welcome to MIDI Curator</h2>
               <p>Drop MIDI files to get started, or select a clip from the sidebar.</p>
-              {clips.length === 0 && (
+              {/* samplesAvailable is false in any plugin/standalone build
+                  (the manifest can't be fetched there), so this welcome-
+                  screen loader is hidden the same way the sidebar one is. */}
+              {clips.length === 0 && samplesAvailable && (
                 <button
                   className="mc-btn--samples"
                   onClick={handleLoadSamples}
