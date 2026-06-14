@@ -7,6 +7,7 @@
 
 import { createSMF, progressionTextEvent } from "@enkerli/midi";
 import { parseLeadsheet } from "@enkerli/theory";
+import { timestampedName } from "@enkerli/ui/naming";
 
 export const TICKS_PER_BEAT = 480;
 export const BEATS_PER_CHORD = 2;
@@ -82,7 +83,10 @@ export function progressionToSMF(voicings, { bpm = 120, name = "Progression", ch
 }
 
 function exportFileName({ tonic, mode, seed }) {
-  return `progression_${tonic.replace(/♯/g, "#").replace(/♭/g, "b")}_${mode}_${seed}.mid`;
+  // Timestamped so repeated exports never collide ("…_1 2.mid"): the seed
+  // identifies the progression, the timestamp keeps the file unique.
+  const t = tonic.replace(/♯/g, "#").replace(/♭/g, "b");
+  return timestampedName(`progression_${t}_${mode}_${seed}`, "mid");
 }
 
 /**

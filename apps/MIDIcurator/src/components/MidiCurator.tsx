@@ -1049,6 +1049,7 @@ export function MidiCurator() {
       if (!res.ok) throw new Error(`Failed to fetch manifest: ${res.status}`);
       const manifest: Array<{ filename: string }> = await res.json();
 
+      let loaded = 0;
       for (const entry of manifest) {
         const midiRes = await fetch(`${base}samples/${entry.filename}`);
         if (!midiRes.ok) continue;
@@ -1056,9 +1057,15 @@ export function MidiCurator() {
         // Create a File object so the existing pipeline can handle it
         const file = new File([arrayBuffer], entry.filename, { type: 'audio/midi' });
         await handleFileUpload([file]);
+        loaded++;
+      }
+      if (loaded === 0) {
+        setImportWarnings((w) => [...w, 'Sample progressions: none could be loaded (none found at the expected path).']);
       }
     } catch (error) {
+      // Don't fail silently — the button must never look like it "does nothing".
       console.error('Error loading samples:', error);
+      setImportWarnings((w) => [...w, `Could not load sample progressions: ${error instanceof Error ? error.message : 'unavailable'}.`]);
     } finally {
       setLoadingSamples(false);
     }

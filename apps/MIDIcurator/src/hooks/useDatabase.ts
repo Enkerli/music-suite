@@ -24,6 +24,8 @@ export function useDatabase() {
       // In the plugin, IndexedDB is unreliable under the juce:// scheme —
       // the library lives in a C++-owned file instead (see bridge-db.ts).
       const database: ClipStore = IN_PLUGIN ? new BridgeDB() : new MidiDB();
+      // A late library reply (cold WebView) re-reads the store into state.
+      if (database instanceof BridgeDB) database.onHydrate = () => loadClips(database);
       await database.init();
       setDb(database);
       loadClips(database);

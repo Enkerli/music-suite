@@ -37,27 +37,43 @@ export class BridgeDB implements ClipStore {
   private clips = new Map<string, Clip>();
   private tags: TagRecord[] = [];
   private persistTimer: ReturnType<typeof setTimeout> | null = null;
+  /**
+   * Called whenever the library arrives — including LATE, after init's
+   * timeout already resolved. On a cold WebView the C++ reply can take
+   * several seconds (longer than the init timeout), so the hook re-reads
+   * the store when this fires (otherwise the list shows empty until the
+   * next add). useDatabase wires this to reload clips.
+   */
+  onHydrate?: () => void;
+
+  private ingest(data: unknown): void {
+    try {
+      const json = (data as { json?: string })?.json;
+      if (json) {
+        const lib = JSON.parse(json) as LibraryFile;
+        this.clips = new Map((lib.clips ?? []).map((c) => [c.id, c]));
+        this.tags = lib.tags ?? [];
+      }
+    } catch {
+      // Corrupt library file: keep current state rather than brick the UI.
+    }
+  }
 
   /** Hydrate from the C++-owned library file (empty when none yet). */
   async init(): Promise<void> {
+    // Persistent listener (not one-shot): a late reply still refreshes the UI.
+    bridge.on('library', (data) => {
+      this.ingest(data);
+      this.onHydrate?.();
+    });
     await new Promise<void>((resolve) => {
-      // The editor always answers; the timeout only covers a broken bridge.
-      const timeout = setTimeout(resolve, 1500);
-      const off = bridge.on('library', (data) => {
-        try {
-          const json = (data as { json?: string })?.json;
-          if (json) {
-            const lib = JSON.parse(json) as LibraryFile;
-            this.clips = new Map((lib.clips ?? []).map((c) => [c.id, c]));
-            this.tags = lib.tags ?? [];
-          }
-        } catch {
-          // Corrupt library file: start empty rather than brick the UI.
-        } finally {
-          clearTimeout(timeout);
-          off();
-          resolve();
-        }
+      // Generous timeout — cold AUv3 WebViews can take ~4s to first paint;
+      // onHydrate covers any reply that lands after this resolves.
+      const timeout = setTimeout(resolve, 4000);
+      const off = bridge.on('library', () => {
+        clearTimeout(timeout);
+        off();
+        resolve();
       });
       bridge.send('enkerliLoadLibrary');
     });

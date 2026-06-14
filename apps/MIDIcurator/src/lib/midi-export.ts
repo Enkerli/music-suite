@@ -1,6 +1,7 @@
 import type { Gesture, Harmonic, Clip, Segmentation, BarChordInfo, Leadsheet, LoopMeta } from '../types/clip';
 import { createZip } from './zip';
 import { bridge } from './juce-bridge';
+import { timestampedName } from '@enkerli/ui/naming';
 
 // The SMF encoding core now lives in the suite's shared package
 // (@enkerli/midi, promoted from this file); re-exported so existing
@@ -271,7 +272,8 @@ export function downloadMIDI(clip: Clip): void {
     clip.gesture, clip.harmonic, clip.bpm, clip.segmentation, clip.leadsheet,
     title, clip.sourceFilename, clip.notes || undefined, clip.loopMeta,
   );
-  deliverFile(clip.filename, midiData, 'audio/midi');
+  // Timestamped so re-exports don't collide / get OS-deduped ("… 2.mid").
+  deliverFile(timestampedName(title, 'mid'), midiData, 'audio/midi');
 }
 
 export function downloadAllClips(clips: Clip[]): void {

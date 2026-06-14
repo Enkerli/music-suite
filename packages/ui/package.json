@@ -15,12 +15,18 @@
     "./piano-roll": "./components/piano-roll.js",
     "./section": "./components/section.js",
     "./range-slider": "./components/range-slider.js",
-    "./pitch-class-colors": "./components/pitch-class-colors.js"
+    "./pitch-class-colors": "./components/pitch-class-colors.js",
+    "./naming": {
+      "types": "./naming.d.ts",
+      "default": "./naming.js"
+    }
   },
   "files": [
     "tokens",
     "theme.js",
     "theme.d.ts",
-    "components"
+    "components",
+    "naming.js",
+    "naming.d.ts"
   ]
 }
