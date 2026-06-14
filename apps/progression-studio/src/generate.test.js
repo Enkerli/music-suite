@@ -125,6 +125,76 @@ describe("voicing", () => {
   });
 });
 
+describe("chord completions", async () => {
+  const { chordCompletions } = await import("./generate.js");
+
+  it("completes a rootless/3rd-less chord to a common chord, root-preserved", () => {
+    // E G D F — G dominant with the 13 but no 3rd; adding B (the 3rd) above
+    // the top completes it to G7add6/E, keeping the played notes and bass.
+    const sugg = chordCompletions([52, 67, 74, 77]);
+    expect(sugg.length).toBeGreaterThan(0);
+    const g13 = sugg.find((s) => s.symbol === "G7add6/E");
+    expect(g13).toBeTruthy();
+    expect(((g13.added % 12) + 12) % 12).toBe(11); // the added tone is B (the missing 3rd)
+    expect(g13.notes).toEqual([52, 67, 74, 77, 83]); // played notes kept, B added on top
+  });
+
+  it("completes a 3rd-less triad both ways and ranks majors/dominants first", () => {
+    const sugg = chordCompletions([60, 67, 70]); // C G B♭ — add a 3rd
+    expect(sugg.map((s) => s.symbol)).toContain("C7"); // E → C7
+    expect(sugg.map((s) => s.symbol)).toContain("C-7"); // E♭ → Cm7
+    expect(sugg[0].symbol).toBe("C7"); // dominant ranks above the minor
+  });
+
+  it("offers nothing meaningful for too few notes", () => {
+    expect(chordCompletions([60])).toEqual([]);
+    expect(chordCompletions([])).toEqual([]);
+  });
+});
+
+describe("next-chord suggestions", async () => {
+  const { nextChordSuggestions } = await import("./generate.js");
+  const key = { tonic: "C", mode: "major" };
+
+  it("proposes continuations from the corpus, ranked by frequency", () => {
+    const sugg = nextChordSuggestions(table.major, key, "IIm7", null, { max: 6 });
+    expect(sugg.length).toBeGreaterThan(0);
+    // every suggestion is a real continuation in the table, none is the last chord
+    for (const s of sugg) {
+      expect(s.fromCorpus).toBe(true);
+      expect(s.label).not.toBe("IIm7");
+      expect(table.major["IIm7"][s.label]).toBeGreaterThan(0);
+    }
+    // ranked descending by corpus weight; top = table's most-used continuation
+    for (let i = 1; i < sugg.length; i++) expect(sugg[i].weight).toBeLessThanOrEqual(sugg[i - 1].weight);
+    const best = Object.entries(table.major["IIm7"]).sort((a, b) => b[1] - a[1])[0][0];
+    expect(sugg[0].label).toBe(best);
+  });
+
+  it("voiceleads each continuation from the given voicing", () => {
+    const from = [62, 65, 69, 72]; // a Dm7 voicing
+    const sugg = nextChordSuggestions(table.major, key, "IIm7", from, { max: 4 });
+    for (const s of sugg) {
+      expect(s.notes.length).toBeGreaterThan(0);
+      expect(s.movement).toBeGreaterThanOrEqual(0);
+    }
+  });
+
+  it("falls back to smooth-flowing chords when the last chord is uncommon", () => {
+    const from = [60, 63, 66, 68]; // some altered/diminished voicing
+    const fallback = ["Imaj7", "IIm7", "V7", "VIm7", "IVmaj7"];
+    const sugg = nextChordSuggestions(table.major, key, "♯Idim13", from, { fallback, max: 5 });
+    expect(sugg.length).toBeGreaterThan(0);
+    for (const s of sugg) expect(s.fromCorpus).toBe(false);
+    // ranked ascending by voice movement (the "flows well" fallback)
+    for (let i = 1; i < sugg.length; i++) expect(sugg[i].movement).toBeGreaterThanOrEqual(sugg[i - 1].movement);
+  });
+
+  it("returns nothing when there is no corpus row and no fallback", () => {
+    expect(nextChordSuggestions(table.major, key, "♯Idim13", null, {})).toEqual([]);
+  });
+});
+
 describe("rule-based engines", async () => {
   const { applyCadence, commonLabelForNumeral, commonPredecessor, generateCircleOfFifths, generateLabels } =
     await import("./generate.js");

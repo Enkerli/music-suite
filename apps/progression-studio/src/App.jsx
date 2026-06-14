@@ -1,9 +1,9 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import table from "./data/transitions.json";
-import { generateLabels, generateSections, labelMass, startLabel, voiceProgression, voicingSuggestions } from "./generate.js";
+import { chordCompletions, generateLabels, generateSections, labelMass, nextChordSuggestions, realizeLabel, startLabel, voiceChord, voiceProgression, voicingSuggestions } from "./generate.js";
 import { exportProgression, voicingsToClip } from "./exportMidi.js";
 import { createBridge } from "./juceBridge.js";
-import { parseLeadsheet, realizeChord } from "@enkerli/theory";
+import { assertDegree, parseLeadsheet, realizeChord } from "@enkerli/theory";
 import { resolvedTheme, toggleTheme } from "@enkerli/ui/theme";
 import { createPianoRoll } from "@enkerli/ui/piano-roll";
 import { createLeadsheetEditor } from "@enkerli/ui/leadsheet-editor";
@@ -37,6 +37,21 @@ const clone = (o) => JSON.parse(JSON.stringify(o));
 const SHARP = ["C", "C♯", "D", "D♯", "E", "F", "F♯", "G", "G♯", "A", "A♯", "B"];
 const midiName = (m) => SHARP[((m % 12) + 12) % 12] + (Math.floor(m / 12) - 1);
 
+/** The transition-table label (numeral + suffix) for a progression chord, in
+ *  a key — degree chords read it off directly; absolute chords derive the
+ *  numeral via assertDegree. Returns null if the root won't resolve. */
+function labelOfChord(c, key) {
+  if (!c) return null;
+  if (c.source === "degree" && c.degree) return c.degree.numeral + c.degree.suffix;
+  const sym = c.symbol;
+  if (!sym?.root) return null;
+  try {
+    return assertDegree(sym.root, key).numeral + (sym.suffix ?? "");
+  } catch {
+    return null;
+  }
+}
+
 /** Generated labels → bar-notation text, CHORDS_PER_BAR per bar (the
  *  generation plays 2 beats/chord, i.e. 2 chords per 4/4 bar — so the
  *  editable/curatable leadsheet matches what's heard and exported). */
@@ -51,15 +66,20 @@ function labelsToBars(labels, perBar = CHORDS_PER_BAR) {
  *  Mounts once; the caller forces a remount (via React key) on external
  *  ops (generate/extend/clear/key change) so internal edits don't reset it.
  *  activeIndex drives the chord-follow highlight without remounting. */
-function LeadsheetEdit({ progression, activeIndex, onEdit }) {
+function LeadsheetEdit({ progression, activeIndex, onEdit, suggest }) {
   const hostRef = useRef(null);
   const edRef = useRef(null);
+  // The editor is built once (remounted via key); read suggestions through a
+  // ref so the "+" picker always sees current state (latched chord, voicings).
+  const suggestRef = useRef(suggest);
+  suggestRef.current = suggest;
   useEffect(() => {
     edRef.current = createLeadsheetEditor(hostRef.current, {
       progression: clone(progression),
       showKey: false, // the main UI owns the key
       activeIndex,
       onChange: (prog) => onEdit(clone(prog)),
+      suggest: (ctx) => suggestRef.current?.(ctx) ?? [],
     });
     return () => edRef.current.destroy();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps -- remount via key
@@ -246,7 +266,8 @@ export default function App() {
   const [opCount, setOpCount] = useState(0); // bumps on extend/clear (forces editor remount)
   const [voiceLead, setVoiceLead] = useState(true); // taxicab smoothing on/off
   const [voicingShape, setVoicingShape] = useState("close"); // close|open|drop2|shell
-  const [midiChord, setMidiChord] = useState({ notes: [], chord: null }); // MIDI chord input
+  const [midiChord, setMidiChord] = useState({ notes: [], chord: null, symbol: null }); // live MIDI chord input
+  const [latched, setLatched] = useState(null); // { symbol, notes } — last chord played, kept after release
   const { play, stop, playing, playhead } = usePlayer();
 
   useEffect(() => { saveCuration(curation); }, [curation]);
@@ -290,6 +311,16 @@ export default function App() {
     const ci = createChordInput(bridge, { onUpdate: setMidiChord });
     return () => ci.stop();
   }, []);
+
+  // Latch: the played chord doesn't sustain past release (both hands may be
+  // on the keys), so keep the last identified chord — with the notes as
+  // played — until the user adds or clears it. The next chord played replaces
+  // it; a quiet release does not.
+  useEffect(() => {
+    if (midiChord.chord && midiChord.symbol) {
+      setLatched({ symbol: midiChord.symbol, notes: midiChord.notes, chord: midiChord.chord });
+    }
+  }, [midiChord]);
 
   const labels = useMemo(
     () => generateSections(table[mode], mode,
@@ -358,14 +389,50 @@ export default function App() {
 
   const playIdx = IN_PLUGIN ? hostPlayhead : playhead;
 
-  // Voiceled suggestions for the chord currently played on MIDI: ranked by
-  // how smoothly each voicing leads from the progression's last chord.
-  const midiSuggestions = useMemo(() => {
-    if (!midiChord.chord) return [];
-    const pcs = midiChord.chord.templatePcs ?? midiChord.chord.observedPcs ?? [];
+  // Common opening chords (for the first slot of an empty progression): the
+  // corpus's most likely start, then the most common chords overall.
+  const openerLabels = useMemo(() => {
+    const start = startLabel(table[mode], mode);
+    return [start, ...startOptions.filter((l) => l !== start)].slice(0, 6);
+  }, [mode, startOptions]);
+
+  // The "+" picker's suggester: where to go next from the chord before the
+  // insertion point. Offers the held MIDI chord first (input by MIDI), then
+  // corpus continuations voiceled from the previous voicing — or, for the
+  // first chord, common openers. Read through a ref by the editor, so it
+  // always sees the current latch and voicings.
+  const suggestNext = useCallback(({ before, atEnd, key }) => {
+    const out = [];
+    if (latched) out.push({ label: latched.symbol, symbol: latched.symbol, notes: latched.notes, kind: "played" });
+    const lastLabel = before ? labelOfChord(before, key) : null;
+    if (lastLabel) {
+      const lastVoicing = atEnd && voicings.length
+        ? voicings[voicings.length - 1].notes
+        : voiceChord(realizeChord(before, key).pcs, realizeChord(before, key).rootPc, "close");
+      for (const s of nextChordSuggestions(table[key.mode], key, lastLabel, lastVoicing, { fallback: openerLabels, max: 7 })) {
+        out.push({ label: s.label, symbol: s.symbol, notes: s.notes, movement: s.movement });
+      }
+    } else {
+      for (const label of openerLabels) {
+        const ch = realizeLabel(label, key);
+        if (ch) out.push({ label, symbol: ch.symbol, notes: voiceChord(ch.pcs, ch.rootPc, "close") });
+      }
+    }
+    return out;
+  }, [latched, voicings, openerLabels]);
+
+  // MIDI panel: alternative voicings of the held chord (smoothest first), and
+  // "completions" — common chords the played notes are one tone shy of.
+  const playedVoicings = useMemo(() => {
+    if (!latched?.chord) return [];
+    const pcs = latched.chord.templatePcs ?? latched.chord.observedPcs ?? [];
     const from = voicings.length ? voicings[voicings.length - 1].notes : null;
-    return voicingSuggestions(pcs, midiChord.chord.root, { from });
-  }, [midiChord, voicings]);
+    return voicingSuggestions(pcs, latched.chord.root, { from, max: 4 });
+  }, [latched, voicings]);
+  const completions = useMemo(
+    () => (latched ? chordCompletions(latched.notes, { max: 3 }) : []),
+    [latched],
+  );
   // The genId an op produces (only opCount changes for extend/clear/reset).
   const genIdFor = (op) => `${tonic}|${mode}|${seed}|${length}|${temperature}|${method}|${startFrom}|${op}`;
 
@@ -399,18 +466,38 @@ export default function App() {
     setOpCount((n) => n + 1);
   }
 
-  /** Insert the chord currently played on MIDI into the leadsheet (ChordID),
-   *  optionally with a chosen (voiceled) voicing locked to it. */
-  function insertMidiChord(voicing = null) {
-    if (!midiChord.chord) return;
-    const ch = parseLeadsheet(midiChord.chord.symbol, { tonic, mode }).sections[0]?.bars[0]?.chords[0];
+  /** Append a chord (already parsed) to the working progression and stamp it
+   *  as the current edit. The shared tail of every add path. */
+  function commitChord(ch) {
     if (!ch) return;
-    if (voicing && voicing.length) ch.voicing = voicing;
     const next = clone(effectiveProg);
     appendChord(next, ch);
     setEdited({ genId: genIdFor(opCount + 1), prog: next });
     setOpCount((n) => n + 1);
     setSurfaceMode("edit");
+  }
+
+  /** Add the latched MIDI chord to the leadsheet (ChordID), locking a voicing
+   *  — the notes as played by default, or `voicing` (a chosen alternative).
+   *  Clears the latch once consumed. */
+  function insertMidiChord(voicing = null) {
+    if (!latched) return;
+    const ch = parseLeadsheet(latched.symbol, { tonic, mode }).sections[0]?.bars[0]?.chords[0];
+    if (!ch) return;
+    const v = voicing && voicing.length ? voicing : latched.notes;
+    if (v?.length) ch.voicing = [...v];
+    commitChord(ch);
+    setLatched(null);
+  }
+
+  /** Add a completion of the played chord (the played notes + the one missing
+   *  tone), locking that voicing. Consumes the latch. */
+  function insertCompletion(s) {
+    const ch = parseLeadsheet(s.symbol, { tonic, mode }).sections[0]?.bars[0]?.chords[0];
+    if (!ch) return;
+    if (s.notes?.length) ch.voicing = [...s.notes];
+    commitChord(ch);
+    setLatched(null);
   }
 
   /** Blank the leadsheet — start from scratch (type a chord, then Extend). */
@@ -563,7 +650,7 @@ export default function App() {
             </span>
           </div>
           {surfaceMode === "edit" ? (
-            <LeadsheetEdit key={genId} progression={effectiveProg} activeIndex={playIdx} onEdit={(p) => setEdited({ genId, prog: p })} />
+            <LeadsheetEdit key={genId} progression={effectiveProg} activeIndex={playIdx} onEdit={(p) => setEdited({ genId, prog: p })} suggest={suggestNext} />
           ) : (
           rows.map((row, ri) => (
             <div key={ri} style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "var(--es-space-2)", marginBottom: ri < rows.length - 1 ? "var(--es-space-3)" : 0 }}>
@@ -654,27 +741,51 @@ export default function App() {
 
         {IN_PLUGIN && (
           <details className="es-section" open style={{ marginTop: "var(--es-space-3)" }}>
-            <summary>MIDI chord input {midiChord.chord && <span style={{ color: "var(--es-accent)", fontWeight: 400 }}>· {midiChord.chord.symbol}</span>}</summary>
+            <summary>MIDI chord input
+              {midiChord.notes.length > 0 && <span style={{ color: "var(--es-accent)", fontWeight: 400 }}> · playing {midiChord.symbol ?? "…"}</span>}
+            </summary>
             <div className="es-section-body">
-              {midiChord.notes.length === 0 ? (
-                <p style={{ color: "var(--es-fg-muted)", margin: 0 }}>Play a chord on a MIDI keyboard routed into this plugin — it's identified here, and you can add it to the leadsheet with a voiceled voicing.</p>
+              {!latched ? (
+                <p style={{ color: "var(--es-fg-muted)", margin: 0 }}>Play a chord on a MIDI keyboard routed into this plugin — it's identified here and held, so you can release both hands and then add it (with the voicing as you played it). It's also offered in the leadsheet's “+” picker.</p>
               ) : (
                 <>
                   <div style={{ display: "flex", alignItems: "center", gap: "var(--es-space-3)", flexWrap: "wrap" }}>
-                    <span style={{ fontSize: "var(--es-text-lg)", fontWeight: 600 }}>{midiChord.chord ? midiChord.chord.symbol : "—"}</span>
+                    <span style={{ fontSize: "var(--es-text-lg)", fontWeight: 600 }}>{latched.symbol}</span>
                     <span className="es-num" style={{ color: "var(--es-fg-muted)", fontSize: "var(--es-text-sm)" }}>
-                      {midiChord.notes.map((n) => midiName(n)).join(" ")}
+                      {latched.notes.map((n) => midiName(n)).join(" ")}
                     </span>
-                    <button className="es-btn" disabled={!midiChord.chord} onClick={() => insertMidiChord()}
-                      title="Add with the progression's auto voice leading">
-                      Add (auto-voice)
+                    {midiChord.notes.length === 0 && <span className="es-badge" title="the chord is held after you release the keys">held</span>}
+                    <button className="es-btn" onClick={() => insertMidiChord()}
+                      title="Add to the leadsheet, locking the voicing as played">
+                      Add chord
+                    </button>
+                    <button className="es-btn es-small" onClick={() => setLatched(null)} title="Forget the held chord">
+                      Clear
                     </button>
                   </div>
-                  {midiChord.chord && midiSuggestions.length > 0 && (
+
+                  {completions.length > 0 && (
                     <div style={{ marginTop: "var(--es-space-3)" }}>
-                      <div className="es-eyebrow">voiceled voicings — least motion from the last chord first</div>
+                      <div className="es-eyebrow">complete to a common chord (add one tone)</div>
                       <div style={{ display: "flex", flexDirection: "column", gap: 4, marginTop: "var(--es-space-1)" }}>
-                        {midiSuggestions.map((s, i) => (
+                        {completions.map((s, i) => (
+                          <div key={i} style={{ display: "flex", alignItems: "center", gap: "var(--es-space-2)" }}>
+                            <span style={{ width: 110, fontWeight: 600 }}>{s.symbol}</span>
+                            <span className="es-num" style={{ flex: 1, color: "var(--es-fg-muted)", fontSize: "var(--es-text-sm)" }}>
+                              + {midiName(s.added)}
+                            </span>
+                            <button className="es-btn es-small" onClick={() => insertCompletion(s)}>Add</button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {playedVoicings.length > 0 && (
+                    <div style={{ marginTop: "var(--es-space-3)" }}>
+                      <div className="es-eyebrow">other voicings — smoothest from the last chord first</div>
+                      <div style={{ display: "flex", flexDirection: "column", gap: 4, marginTop: "var(--es-space-1)" }}>
+                        {playedVoicings.map((s, i) => (
                           <div key={i} style={{ display: "flex", alignItems: "center", gap: "var(--es-space-2)" }}>
                             <span style={{ width: 72, color: "var(--es-fg-2)", fontSize: "var(--es-text-sm)" }}>{s.label}</span>
                             <span className="es-num" style={{ flex: 1, color: "var(--es-fg-muted)", fontSize: "var(--es-text-sm)" }}>

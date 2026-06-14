@@ -290,6 +290,24 @@ select.es-control option { background: var(--es-bg-raised); color: var(--es-fg);
 .es-ls-add:hover { color: var(--es-accent); border-color: var(--es-accent); }
 .es-ls-add.bar { align-self: stretch; }
 
+/* "+" picker: type a chord, or pick a voiceled next-chord suggestion */
+.es-ls-suggest {
+  position: relative; display: inline-flex; flex-direction: column; gap: var(--es-space-1);
+  padding: var(--es-space-2); min-width: 13ch; z-index: 20;
+  border: 1px solid var(--es-border-strong); border-radius: var(--es-radius-sm);
+  background: var(--es-bg-raised, var(--es-bg)); box-shadow: var(--es-shadow-2, 0 4px 16px rgba(0,0,0,.18));
+}
+.es-ls-suggest .es-ls-input { width: 100%; }
+.es-ls-suggest-list { display: flex; flex-direction: column; gap: 2px; max-height: 240px; overflow: auto; }
+.es-ls-suggest-item {
+  display: flex; align-items: center; justify-content: space-between; gap: var(--es-space-2);
+  padding: 3px var(--es-space-2); border: 1px solid transparent; border-radius: var(--es-radius-sm);
+  background: transparent; color: var(--es-fg); cursor: pointer; text-align: left; font-size: var(--es-text-sm);
+}
+.es-ls-suggest-item:hover { background: var(--es-bg-sunken); border-color: var(--es-border); }
+.es-ls-suggest-item.played { border-color: var(--es-accent); }
+.es-ls-suggest-sym { font-weight: 600; }
+
 /* Chord-follow highlight on the leadsheet editor (playhead) */
 .es-ls-chord.active { background: var(--es-accent); color: var(--es-accent-fg); }
 .es-ls-chord.active .es-ls-real { color: var(--es-accent-fg); opacity: .8; }

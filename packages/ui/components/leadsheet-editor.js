@@ -44,6 +44,10 @@ function parseChordToken(text, key) {
  * @param {boolean} [opts.showKey] render the key toolbar (default true)
  * @param {boolean} [opts.editable] (default true)
  * @param {(prog:object)=>void} [opts.onChange]
+ * @param {(ctx:{before:object|null,atEnd:boolean,key:object})=>Array<{label:string,symbol:string,notes?:number[],movement?:number,kind?:string}>} [opts.suggest]
+ *        Optional next-chord suggester. When present, clicking a "+" opens a
+ *        picker (type a token, or choose a voiceled suggestion); a chosen
+ *        suggestion is inserted with its `notes` locked as the voicing.
  */
 export function createLeadsheetEditor(el, opts = {}) {
   const key = opts.key ?? opts.progression?.key ?? { tonic: "C", mode: "major" };
@@ -54,6 +58,7 @@ export function createLeadsheetEditor(el, opts = {}) {
     /** Flattened chord index to highlight (chord-follow); -1 = none. */
     activeIndex: opts.activeIndex ?? -1,
     onChange: opts.onChange ?? null,
+    suggest: opts.suggest ?? null,
   };
   if (!state.prog.sections.length) state.prog.sections = [{ bars: [] }];
 
@@ -78,6 +83,92 @@ export function createLeadsheetEditor(el, opts = {}) {
     }
     render();
     emit();
+  }
+
+  /** The chord immediately before a new slot at the end of bar `bi`, in
+   *  flattened order (skipping repeat bars) — the voice-leading anchor. */
+  function chordBefore(bi) {
+    let last = null;
+    for (let i = 0; i <= bi && i < bars().length; i++) {
+      const b = bars()[i];
+      if (b.repeat || !b.chords.length) continue;
+      last = b.chords[b.chords.length - 1];
+    }
+    return last;
+  }
+
+  /** Insert a fully-formed suggestion (token + locked voicing) at the end of
+   *  bar `bi`. */
+  function insertSuggestion(bi, sugg) {
+    const chord = parseChordToken(sugg.label ?? sugg.symbol ?? "", state.prog.key);
+    if (!chord) return;
+    if (Array.isArray(sugg.notes) && sugg.notes.length) chord.voicing = [...sugg.notes];
+    const bar = bars()[bi];
+    if (!bar) return;
+    bar.chords.push(chord);
+    render();
+    emit();
+  }
+
+  /** The "+" picker: type a chord, or choose a voiceled next-chord
+   *  suggestion. Only used when opts.suggest is provided; otherwise "+"
+   *  opens a bare inline input (openInlineAdd). */
+  function openPicker(addEl, bi) {
+    const before = chordBefore(bi);
+    const atEnd = bi === bars().length - 1;
+    const suggestions = state.suggest({ before, atEnd, key: state.prog.key }) ?? [];
+
+    const pop = document.createElement("div");
+    pop.className = "es-ls-suggest";
+
+    const input = document.createElement("input");
+    input.className = "es-ls-input";
+    input.setAttribute("aria-label", "Type a chord");
+    input.placeholder = "type a chord…";
+
+    let closed = false;
+    const close = () => {
+      if (closed) return;
+      closed = true;
+      document.removeEventListener("mousedown", onDoc, true);
+      render();
+    };
+    const onDoc = (e) => { if (!pop.contains(e.target)) close(); };
+
+    input.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") { e.preventDefault(); const v = input.value; close(); commitToken(bi, bars()[bi].chords.length, v); }
+      else if (e.key === "Escape") { e.preventDefault(); close(); }
+    });
+    pop.append(input);
+
+    if (suggestions.length) {
+      const list = document.createElement("div");
+      list.className = "es-ls-suggest-list";
+      for (const s of suggestions) {
+        const row = document.createElement("button");
+        row.type = "button";
+        row.className = "es-ls-suggest-item" + (s.kind === "played" ? " played" : "");
+        const name = Object.assign(document.createElement("span"), { className: "es-ls-suggest-sym", textContent: s.symbol ?? s.label });
+        row.append(name);
+        if (s.kind === "played") row.append(Object.assign(document.createElement("span"), { className: "es-badge", textContent: "played" }));
+        else if (typeof s.movement === "number") row.append(Object.assign(document.createElement("span"), { className: "es-badge", textContent: `${s.movement} st` }));
+        row.addEventListener("mousedown", (e) => { e.preventDefault(); close(); insertSuggestion(bi, s); });
+        list.append(row);
+      }
+      pop.append(list);
+    }
+
+    addEl.replaceWith(pop);
+    input.focus();
+    setTimeout(() => document.addEventListener("mousedown", onDoc, true));
+  }
+
+  /** Bare inline add (no suggester): "+" becomes an empty chip to type into. */
+  function openInlineAdd(addEl, bi, count) {
+    const placeholder = document.createElement("button");
+    placeholder.className = "es-ls-chord";
+    addEl.replaceWith(placeholder);
+    beginEdit(placeholder, bi, count, "");
   }
 
   function beginEdit(chipEl, bi, ci, initial) {
@@ -163,10 +254,8 @@ export function createLeadsheetEditor(el, opts = {}) {
           add.type = "button"; add.className = "es-ls-add";
           add.textContent = "+"; add.setAttribute("aria-label", "Add chord to bar");
           add.addEventListener("click", () => {
-            const placeholder = document.createElement("button");
-            placeholder.className = "es-ls-chord";
-            add.replaceWith(placeholder);
-            beginEdit(placeholder, bi, b.chords.length, "");
+            if (state.suggest) openPicker(add, bi);
+            else openInlineAdd(add, bi, b.chords.length);
           });
           cell.append(add);
         }
@@ -180,14 +269,19 @@ export function createLeadsheetEditor(el, opts = {}) {
       addBar.addEventListener("click", () => {
         bars().push({ chords: [] });
         render();
-        const placeholders = barsEl.querySelectorAll(".es-ls-bar");
-        // focus a fresh edit chip in the new bar
-        const fresh = document.createElement("button");
-        fresh.className = "es-ls-chord";
-        const lastCell = root.querySelectorAll(".es-ls-bar");
-        const cell = lastCell[lastCell.length - 1];
-        if (cell) { cell.prepend(fresh); beginEdit(fresh, bars().length - 1, 0, ""); }
-        void placeholders;
+        const cells = root.querySelectorAll(".es-ls-bar");
+        const cell = cells[cells.length - 1];
+        if (!cell) return;
+        if (state.suggest) {
+          // open the picker on the new bar (first-chord → opener suggestions)
+          const add = cell.querySelector(".es-ls-add");
+          if (add) openPicker(add, bars().length - 1);
+        } else {
+          const fresh = document.createElement("button");
+          fresh.className = "es-ls-chord";
+          cell.prepend(fresh);
+          beginEdit(fresh, bars().length - 1, 0, "");
+        }
       });
       barsEl.append(addBar);
     }

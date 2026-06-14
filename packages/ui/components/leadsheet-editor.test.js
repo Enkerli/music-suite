@@ -67,6 +67,36 @@ describe("leadsheet editor", () => {
     expect(activeChips()).toEqual([]);
   });
 
+  it("the + picker offers suggestions and inserts the picked chord with its voicing", () => {
+    const el = document.createElement("div");
+    const suggest = vi.fn(({ before, atEnd }) => {
+      expect(before?.inputText ?? before?.degree?.numeral).toBeTruthy(); // gets the prior chord
+      expect(atEnd).toBe(true);
+      return [{ label: "G7", symbol: "G7", notes: [55, 59, 62, 65], movement: 4 }];
+    });
+    const ed = createLeadsheetEditor(el, { text: "Cmaj7", key: C, showKey: false, suggest });
+    el.querySelector(".es-ls-add").dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    expect(suggest).toHaveBeenCalled();
+    const item = el.querySelector(".es-ls-suggest-item");
+    expect(item.textContent).toContain("G7");
+    item.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
+    expect(ed.getText()).toBe("Cmaj7 G7");
+    // the picked suggestion's voicing is locked onto the inserted chord
+    const inserted = ed.value.sections[0].bars[0].chords[1];
+    expect(inserted.voicing).toEqual([55, 59, 62, 65]);
+  });
+
+  it("the + picker still accepts a typed token (Enter)", () => {
+    const el = document.createElement("div");
+    const suggest = vi.fn(() => []);
+    const ed = createLeadsheetEditor(el, { text: "Cmaj7", key: C, showKey: false, suggest });
+    el.querySelector(".es-ls-add").dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    const input = el.querySelector(".es-ls-suggest input.es-ls-input");
+    input.value = "A-7";
+    input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+    expect(ed.getText()).toBe("Cmaj7 A-7");
+  });
+
   it("getText round-trips to bar notation", () => {
     const el = document.createElement("div");
     const ed = createLeadsheetEditor(el, { text: "Dm7 G7 | Cmaj7", key: C });

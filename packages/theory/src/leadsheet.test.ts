@@ -45,6 +45,30 @@ describe("bar-notation parse", () => {
     expect(realizeChord(c[1]!, C).symbol).toBe("Em7");
   });
 
+  it("reads autocapitalized lowercase Romans as minor (iii → 'Iii', iv → 'Iv')", () => {
+    // An autocapitalizing text field turns typed "iii"/"iv" into "Iii"/"Iv";
+    // a first-upper-rest-lower run is therefore minor, while all-caps is major.
+    const p = parseLeadsheet("Iii Iv Vii IV", C);
+    const c = p.sections[0]!.bars[0]!.chords;
+    expect(c[0]).toMatchObject({ source: "degree", degree: { numeral: "III", suffix: "m" } });
+    expect(c[1]!.degree).toEqual({ numeral: "IV", suffix: "m" });
+    expect(c[2]!.degree).toEqual({ numeral: "VII", suffix: "m" });
+    expect(c[3]!.degree).toEqual({ numeral: "IV", suffix: "" }); // all-caps stays major
+    expect(realizeChord(c[0]!, C).symbol).toBe("Em");
+  });
+
+  it("accepts diverse absolute spellings (min/mi, -, ∆/Δ, ascii & unicode accidentals)", () => {
+    // every spelling resolves to a real quality (qualityKey non-null)
+    for (const [token, expectKey] of [
+      ["Dmin6", "m6"], ["Dmi7", "min7"], ["D-7", "min7"], ["D-", "min"],
+      ["CΔ", "maj7"], ["C∆", "maj7"], ["CMaj7", "maj7"],
+      ["Dm7b5", "m7b5"], ["Dm7♭5", "m7b5"], ["Dø", "m7b5"], ["G°7", "dim7"],
+    ] as const) {
+      const c = parseLeadsheet(token, C).sections[0]!.bars[0]!.chords[0]!;
+      expect(realizeChord(c, C).qualityKey, token).toBe(expectKey);
+    }
+  });
+
   it("handles repeat bars (% and -)", () => {
     const p = parseLeadsheet("Cmaj7 | % | -", C);
     const bars = p.sections[0]!.bars;

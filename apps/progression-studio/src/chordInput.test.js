@@ -20,6 +20,16 @@ describe("chord input (held notes → detected chord)", () => {
     bridge.fire([{ note: 64, velocity: 90, on: true }, { note: 67, velocity: 90, on: true }]);
     expect(last.notes).toEqual([60, 64, 67]);
     expect(last.chord.symbol).toBe("C"); // C E G
+    expect(last.symbol).toBe("C"); // displayed symbol is the detector's structural symbol
+  });
+
+  it("reports the detector's structural symbol for a partial chord (no underscores)", () => {
+    const bridge = mockBridge();
+    let last = null;
+    createChordInput(bridge, { onUpdate: (s) => (last = s) });
+    bridge.fire([52, 67, 74, 77].map((note) => ({ note, velocity: 90, on: true }))); // E G D F — G7(13), no 3rd
+    expect(last.symbol).toBe(last.chord.symbol);
+    expect(last.symbol).not.toMatch(/_/); // never the raw "5_7_13" quality key
   });
 
   it("releases notes on note-off and re-detects", () => {

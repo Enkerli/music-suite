@@ -10,7 +10,9 @@
 
 import { effectiveRow, tripleMultiplier } from "./curation.js";
 import {
+  detectChord,
   findQualityByKey,
+  getAllQualities,
   minimalVoiceLeading,
   mod12,
   parseSpelled,
@@ -18,6 +20,16 @@ import {
   resolveDegree,
   spelledToPc,
 } from "@enkerli/theory";
+
+/** Common, nameable qualities a partial chord might be "completing" toward —
+ *  in rough priority order (triads/sevenths before dense extensions). Only
+ *  these are offered as completions, so a one-note addition lands on a chord
+ *  the player recognizes rather than an obscure quality. */
+const COMMON_COMPLETIONS = [
+  "maj", "min", "7", "maj7", "min7", "6", "m6", "dim", "dim7", "m7b5",
+  "9", "min9", "maj9", "minMaj7", "7add6", "m7add13", "7sus4", "sus4", "sus2", "6add9", "13", "min11",
+];
+const COMPLETION_RANK = new Map(COMMON_COMPLETIONS.map((k, i) => [k, i]));
 
 /** Deterministic RNG (mulberry32) so progressions are reproducible by seed. */
 export function mulberry32(seed) {
@@ -251,6 +263,79 @@ export function voicingSuggestions(pcs, rootPc, { from = null, max = 6 } = {}) {
   }
   if (from && from.length) out.sort((a, b) => a.movement - b.movement);
   return out.slice(0, max);
+}
+
+/**
+ * Completion suggestions: a played chord that's a note shy of a common
+ * chord (e.g. E G D F — a G13 missing its 3rd) → propose the completed
+ * chord, keeping the notes as played and adding the one missing tone above
+ * them (so the bass and the player's voicing survive). Each added note is
+ * tried; only completions that land on a COMMON, exact (no missing/extra)
+ * quality are kept, ranked by how standard the quality is. Returns
+ * { symbol, added, notes }.
+ */
+export function chordCompletions(playedNotes, { max = 3 } = {}) {
+  if (!playedNotes || playedNotes.length < 2) return [];
+  const base = detectChord([...playedNotes].sort((a, b) => a - b));
+  if (!base) return [];
+  const root = base.root;
+  const bass = base.bassName && base.bassName !== base.rootName ? "/" + base.bassName : "";
+  const observedRel = new Set(playedNotes.map((n) => mod12(n - root)));
+  const top = Math.max(...playedNotes);
+  const seen = new Set([base.quality.key]); // don't re-offer what's already played
+  const out = [];
+  for (const q of getAllQualities()) {
+    if (!COMPLETION_RANK.has(q.key) || seen.has(q.key)) continue;
+    const template = q.pcs.map(mod12);
+    // every played tone must belong to the candidate, with exactly one tone
+    // missing — the single note that "completes" it.
+    if (![...observedRel].every((pc) => template.includes(pc))) continue;
+    const addedPcs = template.filter((pc) => !observedRel.has(pc));
+    if (addedPcs.length !== 1) continue;
+    seen.add(q.key);
+    const addedAbs = mod12(root + addedPcs[0]); // template tone → absolute pitch class
+    let note = top - mod12(top) + addedAbs; // place the missing tone above the top note
+    while (note <= top) note += 12;
+    out.push({
+      symbol: base.rootName + q.displayName + bass,
+      added: note,
+      notes: [...playedNotes, note].sort((a, b) => a - b),
+      rank: COMPLETION_RANK.get(q.key),
+    });
+  }
+  out.sort((a, b) => a.rank - b.rank);
+  return out.slice(0, max).map(({ rank, ...rest }) => rest);
+}
+
+/**
+ * Suggest NEXT chords from the current chord. The corpus transition row
+ * for `lastLabel` gives the candidates (ranked by how often they follow,
+ * the corpus's wisdom); each is voiceled from `lastVoicing` so the user
+ * sees how smoothly it connects. When the current chord is uncommon (no
+ * transition row — e.g. a hand-played altered chord), fall back to
+ * `fallback` labels ranked by voiceleading smoothness ("chords that flow
+ * well from here"). Returns { label, symbol, notes, movement, weight }.
+ */
+export function nextChordSuggestions(table, key, lastLabel, lastVoicing, { fallback = [], max = 6 } = {}) {
+  const row = table[lastLabel];
+  const fromCorpus = !!(row && Object.keys(row).length > 0);
+  const labels = fromCorpus
+    ? Object.entries(row).sort((a, b) => b[1] - a[1]).slice(0, 16).map(([l]) => l)
+    : fallback;
+  const seen = new Set();
+  const out = [];
+  for (const label of labels) {
+    if (seen.has(label) || label === lastLabel) continue;
+    seen.add(label);
+    const ch = realizeLabel(label, key);
+    if (!ch) continue;
+    const notes = lastVoicing && lastVoicing.length
+      ? voiceLed(lastVoicing, ch.pcs)
+      : voiceChord(ch.pcs, ch.rootPc, "close");
+    out.push({ label, symbol: ch.symbol, notes, movement: voiceMovement(lastVoicing, notes), weight: fromCorpus ? (row[label] ?? 0) : 0 });
+  }
+  out.sort(fromCorpus ? (a, b) => b.weight - a.weight : (a, b) => a.movement - b.movement);
+  return out.slice(0, max).map((s) => ({ ...s, fromCorpus }));
 }
 
 export function voiceProgression(chords, { voiceLead = true, shape = "close" } = {}) {

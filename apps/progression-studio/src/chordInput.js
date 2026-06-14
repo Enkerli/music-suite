@@ -11,6 +11,17 @@
 
 import { detectChord } from "@enkerli/theory";
 
+/**
+ * The detector's structural symbol — root + jazz quality (∆, -, ø, °) +
+ * any (add…) extras + slash bass, e.g. "C∆", "G5(7,13)/E", "D-add4/G". It
+ * renders as-is (the leadsheet shows the same glyphs) and round-trips as
+ * text when added to the sheet, so the played chord is shown and stored
+ * exactly as identified — not flattened to a dictionary key.
+ */
+function cleanSymbol(match) {
+  return match ? match.symbol : null;
+}
+
 export function createChordInput(bridge, { onUpdate, idleMs = 1500 } = {}) {
   const held = new Map(); // note → velocity
   let idleTimer = null;
@@ -28,11 +39,11 @@ export function createChordInput(bridge, { onUpdate, idleMs = 1500 } = {}) {
     if (held.size > 0) armIdle(); else clearTimeout(idleTimer);
     const notes = [...held.keys()].sort((a, b) => a - b);
     const chord = notes.length >= 2 ? detectChord(notes) : null;
-    onUpdate({ notes, chord });
+    onUpdate({ notes, chord, symbol: cleanSymbol(chord) });
   });
 
   return {
     stop() { clearTimeout(idleTimer); off(); },
-    reset() { clearTimeout(idleTimer); held.clear(); onUpdate({ notes: [], chord: null }); },
+    reset() { clearTimeout(idleTimer); held.clear(); onUpdate({ notes: [], chord: null, symbol: null }); },
   };
 }

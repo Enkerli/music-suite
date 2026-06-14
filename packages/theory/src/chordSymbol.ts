@@ -110,11 +110,37 @@ function suffixIndex(): Map<string, string> {
   return index;
 }
 
+/**
+ * Spelling variants of a suffix to try against the alias index, so the same
+ * quality resolves however the user wrote it: Unicode accidentals (m7♭5) or
+ * ASCII (m7b5); Greek delta (Δ) or the increment glyph (∆); and the long
+ * minor prefixes "min"/"mi" folded to "m" (min6 → m6, mi7 → m7).
+ */
+function suffixVariants(suffix: string): string[] {
+  const out = new Set<string>([suffix, suffix.toLowerCase()]);
+  const ascii = suffix
+    .replace(/𝄪/g, "##").replace(/𝄫/g, "bb").replace(/♯/g, "#").replace(/♭/g, "b")
+    .replace(/Δ/g, "∆"); // Greek Δ (U+0394) → increment ∆ (U+2206), the maj7 glyph
+  out.add(ascii);
+  out.add(ascii.toLowerCase());
+  for (const base of [...out]) {
+    // Fold a leading "min"/"mi" to "m" (but never touch "maj"/"m"): the
+    // dictionary keys "m7", "m6", … then match. "min" → "m" is harmless
+    // (resolves to the same minor key either way).
+    const folded = base.replace(/^min(?=$|[^a-z])/, "m").replace(/^mi(?=[0-9#♯b♭MΔ∆])/, "m");
+    if (folded !== base) out.add(folded);
+  }
+  return [...out];
+}
+
 /** Resolve a quality suffix to a dictionary key, or undefined. */
 export function qualityKeyForSuffix(suffix: string): string | undefined {
   const idx = suffixIndex();
-  const key = idx.get(suffix) ?? idx.get(suffix.toLowerCase());
-  return key !== undefined && findQualityByKey(key) ? key : undefined;
+  for (const variant of suffixVariants(suffix)) {
+    const key = idx.get(variant);
+    if (key !== undefined && findQualityByKey(key)) return key;
+  }
+  return undefined;
 }
 
 const ROOT_RE = /^([A-Ga-g])(𝄪|𝄫|##|bb|♯♯|♭♭|[#♯b♭])?/;
