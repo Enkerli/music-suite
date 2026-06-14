@@ -27,6 +27,10 @@ export default defineConfig({
   // bundle shows an old tag).
   define: {
     __BUILD_TAG__: JSON.stringify(new Date().toISOString().replace('T', ' ').slice(0, 16)),
+    // true only for the embedded plugin/standalone bundle (set by the
+    // plugin's WebUI/build.mjs) — lets the app deterministically hide
+    // desktop-webapp-only features instead of guessing the runtime context.
+    __PLUGIN_BUILD__: JSON.stringify(process.env.MC_PLUGIN_BUILD === '1'),
   },
   plugins: [react(), wasmMimePlugin()],
   base: '/MIDIcurator/',

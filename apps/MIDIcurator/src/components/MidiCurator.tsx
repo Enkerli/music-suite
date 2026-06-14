@@ -21,7 +21,7 @@ import { loadLoopDb, lookupLoopMeta, getLoadedDbFileName, keyTypeLabel, rootPcNa
 import { PROGRESSIONS, transposeProgression } from '../lib/progressions';
 import type { VoicingShape } from '../lib/progressions';
 import { generateProgressionClip } from '../lib/generate-clip';
-import { IN_PLUGIN, bridge, b64ToBytes } from '../lib/juce-bridge';
+import { IN_PLUGIN, IS_PLUGIN_BUILD, bridge, b64ToBytes } from '../lib/juce-bridge';
 import { esConfirm, esAlert } from '@enkerli/ui/confirm';
 import { readEmbeddedProgression, leadsheetTextFromProgression } from '../lib/progression-import';
 import { Sidebar } from './Sidebar';
@@ -1049,6 +1049,9 @@ export function MidiCurator() {
   // because __JUCE__.backend was null at module-eval, fooling IN_PLUGIN).
   const [samplesAvailable, setSamplesAvailable] = useState(false);
   useEffect(() => {
+    // Deterministically off in the plugin/standalone bundle (no co-located
+    // server); only probe in a real webapp deploy.
+    if (IS_PLUGIN_BUILD) return;
     let live = true;
     fetch(`${import.meta.env.BASE_URL}samples/manifest.json`, { method: 'GET' })
       .then((r) => { if (live) setSamplesAvailable(r.ok); })

@@ -73,7 +73,20 @@ export interface RealizedChord {
 // ── Text interchange (bar notation) ─────────────────────────────────────
 
 /** Roman-numeral token: optional accidentals + a numeral (degree chord). */
-const NUMERAL_RE = /^([♭♯b#𝄪𝄫]*(?:VII|VI|V|IV|III|II|I))(.*)$/;
+// Roman-numeral token: optional accidentals + numeral (either case) + the
+// rest as suffix. Lowercase numerals are the jazz minor convention (iii =
+// iii minor), so we capture case to apply a minor quality.
+const NUMERAL_RE = /^([♭♯b#𝄪𝄫]*)(VII|VI|V|IV|III|II|I|vii|vi|v|iv|iii|ii|i)(.*)$/;
+
+/** Quality markers a suffix may already start with (then lowercase adds nothing). */
+const QUALITY_PREFIX_RE = /^(m(?!aj)|min|maj|Maj|M|dim|°|aug|\+|sus|ø|h)/;
+
+/** Lowercase numeral = minor: fold a minor quality into the suffix. */
+function applyMinor(suffix: string): string {
+  if (suffix === "") return "m";
+  if (QUALITY_PREFIX_RE.test(suffix)) return suffix; // explicit quality wins
+  return "m" + suffix; // "7" → "m7", "9" → "m9", …
+}
 const REPEAT_TOKENS = new Set(["%", "-"]);
 
 /** Normalize ASCII accidentals to the suite's Unicode display forms. */
@@ -123,9 +136,15 @@ function parseToken(token: string): ProgChord | null {
 
   const num = NUMERAL_RE.exec(head);
   if (num) {
+    const accidentals = num[1] ?? "";
+    const roman = num[2]!;
+    const isLower = roman === roman.toLowerCase();
+    const numeral = accidentals + roman.toUpperCase();
+    let suffix = normalizeAccidentals(num[3] ?? "");
+    if (isLower) suffix = applyMinor(suffix);
     return {
       source: "degree",
-      degree: { numeral: num[1]!, suffix: normalizeAccidentals(num[2] ?? "") },
+      degree: { numeral, suffix },
       ...(bass ? { symbol: { root: "", suffix: "", bass } } : {}),
       inputText,
     };

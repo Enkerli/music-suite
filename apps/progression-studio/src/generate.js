@@ -197,11 +197,25 @@ export function voiceProgression(chords, { voiceLead = true, shape = "close" } =
         prevByPc.get(mod12(n)).push(n);
       }
       notes = [];
+      const seenToPc = new Set();
       for (const [fromPc, toPc] of mapping) {
-        const sources = prevByPc.get(fromPc) ?? [60 + fromPc];
-        const source = sources[0];
+        // One voice per distinct target pc: when a chord has fewer tones
+        // than its predecessor, drop the surplus voice rather than doubling
+        // it an octave away (that octave lift was the occasional big jump).
+        if (seenToPc.has(toPc)) continue;
+        seenToPc.add(toPc);
+        const source = (prevByPc.get(fromPc) ?? [60 + fromPc])[0];
         // nearest realization of toPc to the source note
         let note = source + ((((toPc - mod12(source)) % 12) + 18) % 12) - 6;
+        while (notes.includes(note)) note += 12;
+        notes.push(note);
+      }
+      // Safety: voice any chord tone the mapping didn't cover, near the rest.
+      const center = notes.length ? Math.round(notes.reduce((a, b) => a + b, 0) / notes.length) : 60;
+      for (const pc of new Set(chord.pcs.map(mod12))) {
+        if (seenToPc.has(pc)) continue;
+        seenToPc.add(pc);
+        let note = center + ((((pc - mod12(center)) % 12) + 18) % 12) - 6;
         while (notes.includes(note)) note += 12;
         notes.push(note);
       }

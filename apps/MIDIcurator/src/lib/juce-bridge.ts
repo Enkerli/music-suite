@@ -30,6 +30,17 @@ const backend: JuceBackend | null =
 export const IN_PLUGIN = backend !== null;
 
 /**
+ * True for the embedded plugin/standalone bundle (set at build time by the
+ * plugin's WebUI/build.mjs via __PLUGIN_BUILD__). Unlike IN_PLUGIN, this is
+ * deterministic — it doesn't depend on __JUCE__ being injected before
+ * module-eval (which the standalone delays). Use it to hide desktop-webapp-
+ * only features (sample loader, Apple Loops DB) that fetch co-located
+ * assets the WebView's resource scheme can't serve.
+ */
+export const IS_PLUGIN_BUILD =
+  typeof __PLUGIN_BUILD__ !== "undefined" && __PLUGIN_BUILD__ === true;
+
+/**
  * True only when co-located assets can actually be fetched — a real
  * http(s) origin and not the plugin. Features that `fetch('/samples/…')`
  * (sample progressions, the loop DB) must gate on this: a JUCE WebView

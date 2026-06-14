@@ -33,6 +33,18 @@ describe("bar-notation parse", () => {
     expect(b1!.chords[0]!.degree).toEqual({ numeral: "I", suffix: "" });
   });
 
+  it("reads lowercase Roman numerals as minor (jazz convention)", () => {
+    // the reported bug: "iii7" used to mis-parse to an absolute "Cii7"
+    const p = parseLeadsheet("iii iii7 iiimin7 III7", C);
+    const c = p.sections[0]!.bars[0]!.chords;
+    expect(c[0]).toMatchObject({ source: "degree", degree: { numeral: "III", suffix: "m" } });
+    expect(c[1]!.degree).toEqual({ numeral: "III", suffix: "m7" });   // iii7 → IIIm7
+    expect(c[2]!.degree).toEqual({ numeral: "III", suffix: "min7" }); // explicit quality kept
+    expect(c[3]!.degree).toEqual({ numeral: "III", suffix: "7" });    // uppercase stays dominant
+    // and they realize to real chords, not garbage
+    expect(realizeChord(c[1]!, C).symbol).toBe("Em7");
+  });
+
   it("handles repeat bars (% and -)", () => {
     const p = parseLeadsheet("Cmaj7 | % | -", C);
     const bars = p.sections[0]!.bars;
