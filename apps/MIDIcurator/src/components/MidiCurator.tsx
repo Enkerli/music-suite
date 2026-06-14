@@ -22,6 +22,7 @@ import { PROGRESSIONS, transposeProgression } from '../lib/progressions';
 import type { VoicingShape } from '../lib/progressions';
 import { generateProgressionClip } from '../lib/generate-clip';
 import { IN_PLUGIN, bridge, b64ToBytes } from '../lib/juce-bridge';
+import { esConfirm, esAlert } from '@enkerli/ui/confirm';
 import { readEmbeddedProgression, leadsheetTextFromProgression } from '../lib/progression-import';
 import { Sidebar } from './Sidebar';
 import { ClipDetail } from './ClipDetail';
@@ -185,7 +186,9 @@ export function MidiCurator() {
 
   const deleteClip = useCallback(async () => {
     if (!selectedClip || !db) return;
-    if (confirm(`Delete "${selectedClip.filename}"?`)) {
+    // esConfirm, not window.confirm — native dialogs are no-ops in the
+    // plugin WebView (the action would silently never run).
+    if (await esConfirm(`Delete "${selectedClip.filename}"?`, { confirmLabel: 'Delete', danger: true })) {
       stop();
       await db.deleteClip(selectedClip.id);
       setSelectedClip(null);
@@ -687,7 +690,7 @@ export function MidiCurator() {
 
   const clearAllClips = useCallback(async () => {
     if (!db) return;
-    if (confirm('Clear all clips? This will remove everything from the database.')) {
+    if (await esConfirm('Clear all clips? This removes everything from the library.', { confirmLabel: 'Clear all', danger: true })) {
       stop();
       setSelectedClip(null);
       setTags([]);
@@ -707,7 +710,7 @@ export function MidiCurator() {
     if (variants.length > 0) {
       downloadVariantsAsZip(variants, selectedClip.filename);
     } else {
-      alert('No variants found for this clip');
+      void esAlert('No variants found for this clip.');
     }
   }, [selectedClip, clips]);
 

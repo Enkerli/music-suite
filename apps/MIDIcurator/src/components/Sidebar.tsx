@@ -4,7 +4,7 @@ import type { VoicingShape } from '../lib/progressions';
 import { getEffectiveBarChords } from '../lib/gesture';
 import { parseChordSymbol } from '../lib/chord-parser';
 import { DropZone } from './DropZone';
-import { IN_PLUGIN, bridge } from '../lib/juce-bridge';
+import { IN_PLUGIN, CAN_FETCH_ASSETS, bridge } from '../lib/juce-bridge';
 import { ClipCard } from './ClipCard';
 import { ThemeToggle } from './ThemeToggle';
 import { ProgressionGenerator } from './ProgressionGenerator';
@@ -199,7 +199,7 @@ export function Sidebar({
 
       {/* Apple Loops DB stays browser-only: sql.js (WASM) and <input
           type=file> are both non-starters inside the plugin WebView. */}
-      {onLoadLoopDb && !IN_PLUGIN && (
+      {onLoadLoopDb && CAN_FETCH_ASSETS && (
         <div className="mc-loop-db-row">
           <button
             className={[
@@ -249,7 +249,7 @@ export function Sidebar({
 
       {/* Samples fetch from /samples/ — not served by the plugin's
           resource provider, which only ships the single-page bundle. */}
-      {onLoadSamples && !IN_PLUGIN && clips.length === 0 && (
+      {onLoadSamples && CAN_FETCH_ASSETS && clips.length === 0 && (
         <button
           className="mc-btn--load-samples"
           onClick={onLoadSamples}

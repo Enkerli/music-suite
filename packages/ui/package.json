@@ -20,7 +20,11 @@
       "types": "./naming.d.ts",
       "default": "./naming.js"
     },
-    "./leadsheet-editor": "./components/leadsheet-editor.js"
+    "./leadsheet-editor": "./components/leadsheet-editor.js",
+    "./confirm": {
+      "types": "./confirm.d.ts",
+      "default": "./confirm.js"
+    }
   },
   "files": [
     "tokens",
@@ -28,7 +32,9 @@
     "theme.d.ts",
     "components",
     "naming.js",
-    "naming.d.ts"
+    "naming.d.ts",
+    "confirm.js",
+    "confirm.d.ts"
   ],
   "dependencies": {
     "@enkerli/theory": "*"

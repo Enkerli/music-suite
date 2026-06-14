@@ -29,6 +29,19 @@ const backend: JuceBackend | null =
 /** True when running inside the JUCE plugin WebView. */
 export const IN_PLUGIN = backend !== null;
 
+/**
+ * True only when co-located assets can actually be fetched — a real
+ * http(s) origin and not the plugin. Features that `fetch('/samples/…')`
+ * (sample progressions, the loop DB) must gate on this: a JUCE WebView
+ * serves from a custom scheme with no such server, so those fetches 404
+ * (seen in the iPadOS standalone). Belt-and-suspenders over IN_PLUGIN in
+ * case the bridge hasn't injected `__JUCE__` by module-eval time.
+ */
+export const CAN_FETCH_ASSETS =
+  !IN_PLUGIN &&
+  typeof location !== "undefined" &&
+  /^https?:$/i.test(location.protocol);
+
 export interface HostClipNote {
   startBeat: number;
   lengthBeats: number;
