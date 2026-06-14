@@ -33,6 +33,16 @@ function chordsFromProgression(prog, key) {
 
 const clone = (o) => JSON.parse(JSON.stringify(o));
 
+/** Generated labels → bar-notation text, CHORDS_PER_BAR per bar (the
+ *  generation plays 2 beats/chord, i.e. 2 chords per 4/4 bar — so the
+ *  editable/curatable leadsheet matches what's heard and exported). */
+const CHORDS_PER_BAR = 2;
+function labelsToBars(labels, perBar = CHORDS_PER_BAR) {
+  const bars = [];
+  for (let i = 0; i < labels.length; i += perBar) bars.push(labels.slice(i, i + perBar).join(" "));
+  return bars.join(" | ");
+}
+
 /** Editable leadsheet — the shared @enkerli/ui editor, the primary surface.
  *  Mounts once; the caller forces a remount (via React key) on external
  *  ops (generate/extend/clear/key change) so internal edits don't reset it.
@@ -277,12 +287,18 @@ export default function App() {
   // flows through to the sheet, playback, and export (the embedded
   // Progression). Regeneration or a key change resets the edits.
   const baseProg = useMemo(
-    () => parseLeadsheet(labels.join(" | "), { tonic, mode }),
+    () => parseLeadsheet(labelsToBars(labels), { tonic, mode }),
     [labels, tonic, mode],
   );
-  const [editedProg, setEditedProg] = useState(null);
-  useEffect(() => { setEditedProg(null); }, [labels, tonic, mode]);
-  const effectiveProg = editedProg ?? baseProg;
+  // genId changes on any GENERATION op (every param that produces `labels`,
+  // plus opCount for extend/clear) — but NOT on an edit. An edit is stamped
+  // with the genId it was made under; when that no longer matches, the edit
+  // is stale and effectiveProg falls back to the fresh generation. This is
+  // synchronous (no post-render effect), so a Generate from a blank sheet
+  // shows the new progression immediately, without a Curate/Edit toggle.
+  const genId = `${tonic}|${mode}|${seed}|${length}|${temperature}|${method}|${startFrom}|${opCount}`;
+  const [edited, setEdited] = useState(null); // { genId, prog } | null
+  const effectiveProg = edited && edited.genId === genId ? edited.prog : baseProg;
   const chords = useMemo(
     () => chordsFromProgression(effectiveProg, { tonic, mode }),
     [effectiveProg, tonic, mode],
@@ -326,10 +342,19 @@ export default function App() {
   const curatedEntries = Object.entries(curation.multipliers)
     .sort((a, b) => b[1] - a[1]);
 
-  // Remount key for the editor: changes on external ops (new/extend/clear/
-  // key), not on internal edits — so editing never resets the editor.
-  const genId = `${tonic}|${mode}|${seed}|${opCount}`;
   const playIdx = IN_PLUGIN ? hostPlayhead : playhead;
+  // The genId an op produces (only opCount changes for extend/clear/reset).
+  const genIdFor = (op) => `${tonic}|${mode}|${seed}|${length}|${temperature}|${method}|${startFrom}|${op}`;
+
+  /** Append a chord into the working progression, keeping CHORDS_PER_BAR
+   *  per bar (fill the last bar, then start new ones). */
+  function appendChord(prog, ch) {
+    if (!prog.sections.length) prog.sections = [{ bars: [] }];
+    const bars = prog.sections[0].bars;
+    const last = bars[bars.length - 1];
+    if (last && !last.repeat && last.chords.length < CHORDS_PER_BAR) last.chords.push(ch);
+    else bars.push({ chords: [ch] });
+  }
 
   /** Append a generated continuation from the working progression's last
    *  chord (extend-from-chord; works from a hand-typed chord or blank). */
@@ -343,18 +368,17 @@ export default function App() {
       { length: 5, seed: seed * 31 + opCount + 1, curation, method: "markov", temperature, startFrom: startTok });
     const toks = startTok && cont[0] === startTok ? cont.slice(1) : cont;
     const next = clone(effectiveProg);
-    if (!next.sections.length) next.sections = [{ bars: [] }];
     for (const tok of toks) {
       const ch = parseLeadsheet(tok, { tonic, mode }).sections[0]?.bars[0]?.chords[0];
-      if (ch) next.sections[0].bars.push({ chords: [ch] });
+      if (ch) appendChord(next, ch);
     }
-    setEditedProg(next);
+    setEdited({ genId: genIdFor(opCount + 1), prog: next });
     setOpCount((n) => n + 1);
   }
 
   /** Blank the leadsheet — start from scratch (type a chord, then Extend). */
   function handleClear() {
-    setEditedProg({ key: { tonic, mode }, sections: [{ bars: [] }] });
+    setEdited({ genId: genIdFor(opCount + 1), prog: { key: { tonic, mode }, sections: [{ bars: [] }] } });
     setSurfaceMode("edit");
     setOpCount((n) => n + 1);
   }
@@ -495,14 +519,14 @@ export default function App() {
               <button className={`es-btn es-small ${surfaceMode === "edit" ? "es-primary" : ""}`} aria-pressed={surfaceMode === "edit"} onClick={() => setSurfaceMode("edit")}>Edit</button>
               <button className={`es-btn es-small ${surfaceMode === "curate" ? "es-primary" : ""}`} aria-pressed={surfaceMode === "curate"} onClick={() => setSurfaceMode("curate")}>Curate</button>
             </div>
-            {editedProg && <span style={{ color: "var(--es-accent)", fontSize: "var(--es-text-sm)" }}>· edited</span>}
-            {editedProg && <button className="es-btn es-small" onClick={() => { setEditedProg(null); setOpCount((n) => n + 1); }}>Reset to generated</button>}
+            {edited && edited.genId === genId && <span style={{ color: "var(--es-accent)", fontSize: "var(--es-text-sm)" }}>· edited</span>}
+            {edited && edited.genId === genId && <button className="es-btn es-small" onClick={() => { setEdited(null); setOpCount((n) => n + 1); }}>Reset to generated</button>}
             <span style={{ marginLeft: "auto", color: "var(--es-fg-muted)", fontSize: "var(--es-text-sm)" }}>
               {surfaceMode === "edit" ? "click a chord to retype · Roman (IIm7) or absolute (Dm7)" : "tap a chord for stats · tap 2 apart to rate a gesture"}
             </span>
           </div>
           {surfaceMode === "edit" ? (
-            <LeadsheetEdit key={genId} progression={effectiveProg} activeIndex={playIdx} onEdit={(p) => setEditedProg(p)} />
+            <LeadsheetEdit key={genId} progression={effectiveProg} activeIndex={playIdx} onEdit={(p) => setEdited({ genId, prog: p })} />
           ) : (
           rows.map((row, ri) => (
             <div key={ri} style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "var(--es-space-2)", marginBottom: ri < rows.length - 1 ? "var(--es-space-3)" : 0 }}>
