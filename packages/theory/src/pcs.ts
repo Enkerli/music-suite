@@ -31,6 +31,40 @@ export function pcsToBitmask(pcs: number[]): number {
   return pcsToDecimal(pcs.map(mod12));
 }
 
+/**
+ * Sensory-consonance weight per interval class (0–6), 0 = most dissonant,
+ * 1 = most consonant. Rooted in the classic dyad ordering: the perfect
+ * intervals (ic5) are most consonant, thirds/sixths (ic3/ic4) nearly so,
+ * the tritone (ic6) and whole tone (ic2) tenser, and the semitone/major-
+ * seventh (ic1) the most dissonant.
+ */
+const IC_CONSONANCE = [1, 0.0, 0.25, 0.8, 0.9, 1.0, 0.35] as const;
+
+/**
+ * A pitch-class set's consonance in [0, 1]: the mean consonance weight over
+ * every distinct pair's interval class. A single pitch class (or fewer) is
+ * trivially consonant (1). Octave-equivalent and order-independent — it
+ * scores the harmonic colour of a chord, not a particular voicing.
+ *
+ *   consonance([0, 4, 7]) ≈ 0.9   (major triad — bright)
+ *   consonance([0, 1, 2]) ≈ 0.08  (chromatic cluster — dark)
+ */
+export function consonance(pcs: number[]): number {
+  const uniq = [...new Set(pcs.map(mod12))];
+  if (uniq.length < 2) return 1;
+  let sum = 0;
+  let pairs = 0;
+  for (let i = 0; i < uniq.length; i++) {
+    for (let j = i + 1; j < uniq.length; j++) {
+      const d = mod12(uniq[i]! - uniq[j]!);
+      const ic = d > 6 ? 12 - d : d; // interval class 0–6
+      sum += IC_CONSONANCE[ic]!;
+      pairs++;
+    }
+  }
+  return sum / pairs;
+}
+
 /** Interval patterns for the k = 3–8 Euclidean scale families (PickPCS rotations). */
 export const SCALE_FAMILY_INTERVALS: Readonly<Record<number, readonly number[]>> = {
   3: [0, 4, 8],

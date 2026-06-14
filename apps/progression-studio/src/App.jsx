@@ -265,7 +265,7 @@ export default function App() {
   const [surfaceMode, setSurfaceMode] = useState("edit"); // "edit" | "curate"
   const [opCount, setOpCount] = useState(0); // bumps on extend/clear (forces editor remount)
   const [voiceLead, setVoiceLead] = useState(true); // taxicab smoothing on/off
-  const [voicingShape, setVoicingShape] = useState("close"); // close|open|drop2|shell
+  const [voicingShape, setVoicingShape] = useState("close"); // close|open|drop2|drop3|spread|rootless|shell
   const [midiChord, setMidiChord] = useState({ notes: [], chord: null, symbol: null }); // live MIDI chord input
   const [latched, setLatched] = useState(null); // { symbol, notes } — last chord played, kept after release
   const { play, stop, playing, playhead } = usePlayer();
@@ -581,6 +581,9 @@ export default function App() {
               <option value="close">close</option>
               <option value="open">open</option>
               <option value="drop2">drop-2</option>
+              <option value="drop3">drop-3</option>
+              <option value="spread">spread</option>
+              <option value="rootless">rootless</option>
               <option value="shell">shell (3rd+7th)</option>
             </select>
           </label>

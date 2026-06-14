@@ -268,6 +268,7 @@ select.es-control option { background: var(--es-bg-raised); color: var(--es-fg);
   background: var(--es-bg-raised); min-width: 92px;
 }
 .es-ls-chord {
+  position: relative;
   display: inline-flex; flex-direction: column; justify-content: center;
   min-height: var(--es-ctl-h); min-width: 44px; padding: 2px var(--es-space-2);
   border: 1px solid transparent; border-radius: var(--es-radius-sm);
@@ -277,6 +278,11 @@ select.es-control option { background: var(--es-bg-raised); color: var(--es-fg);
 .es-ls-chord:hover { background: var(--es-bg-sunken); }
 .es-ls-chord:focus-visible { outline: var(--es-focus-ring); outline-offset: 1px; }
 .es-ls-chord .es-ls-real { font-size: var(--es-text-xs); color: var(--es-fg-muted); font-family: var(--es-font-mono); }
+/* Consonance badge: dark (dissonant) → bright (consonant), top-right corner */
+.es-ls-consonance {
+  position: absolute; top: 3px; right: 3px; width: 6px; height: 6px; border-radius: 50%;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, .15);
+}
 .es-ls-input {
   min-height: var(--es-ctl-h); width: 6ch; padding: 2px var(--es-space-2);
   border: 1px solid var(--es-border-strong); border-radius: var(--es-radius-sm);

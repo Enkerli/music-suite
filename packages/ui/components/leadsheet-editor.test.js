@@ -29,6 +29,23 @@ describe("leadsheet editor", () => {
     expect(chip.querySelector(".es-ls-real").textContent).toBe("Dm7"); // realized
   });
 
+  it("leads an absolute chord with its functional degree, named spelling below", () => {
+    const el = document.createElement("div");
+    createLeadsheetEditor(el, { text: "D7", key: C });
+    const chip = el.querySelector(".es-ls-chord");
+    expect(chip.querySelector("span").textContent).toBe("II7");      // functional on top (D7 in C = II7)
+    expect(chip.querySelector(".es-ls-real").textContent).toBe("D7"); // authored name below
+  });
+
+  it("renders a consonance badge whose brightness tracks consonance", () => {
+    const el = document.createElement("div");
+    createLeadsheetEditor(el, { text: "C | Cdim", key: C });
+    const dots = [...el.querySelectorAll(".es-ls-consonance")];
+    expect(dots).toHaveLength(2);
+    const light = (s) => Number(/([\d.]+)%\)/.exec(s.style.background)[1]);
+    expect(light(dots[0])).toBeGreaterThan(light(dots[1])); // C major brighter than C dim
+  });
+
   it("commits an edited chord and fires onChange", () => {
     const el = document.createElement("div");
     const onChange = vi.fn();
@@ -59,10 +76,11 @@ describe("leadsheet editor", () => {
   it("highlights the active chord (chord-follow) and moves it via update()", () => {
     const el = document.createElement("div");
     const ed = createLeadsheetEditor(el, { text: "Dm7 | G7 | Cmaj7", key: C, activeIndex: 0 });
+    // absolute chords lead with their functional degree (Dm7 → IIm7, …)
     const activeChips = () => [...el.querySelectorAll(".es-ls-chord.active")].map((c) => c.querySelector("span")?.textContent);
-    expect(activeChips()).toEqual(["Dm7"]);
+    expect(activeChips()).toEqual(["IIm7"]);
     ed.update({ activeIndex: 2 });
-    expect(activeChips()).toEqual(["Cmaj7"]);
+    expect(activeChips()).toEqual(["Imaj7"]);
     ed.update({ activeIndex: -1 });
     expect(activeChips()).toEqual([]);
   });
@@ -84,6 +102,23 @@ describe("leadsheet editor", () => {
     // the picked suggestion's voicing is locked onto the inserted chord
     const inserted = ed.value.sections[0].bars[0].chords[1];
     expect(inserted.voicing).toEqual([55, 59, 62, 65]);
+  });
+
+  it("the + picker filters suggestions as you type (autocomplete)", () => {
+    const el = document.createElement("div");
+    const suggest = vi.fn(() => [
+      { label: "G7", symbol: "G7", notes: [55] },
+      { label: "IIm7", symbol: "Am7", notes: [57] },
+    ]);
+    createLeadsheetEditor(el, { text: "Cmaj7", key: C, showKey: false, suggest });
+    el.querySelector(".es-ls-add").dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    expect(el.querySelectorAll(".es-ls-suggest-item")).toHaveLength(2);
+    const input = el.querySelector(".es-ls-suggest input.es-ls-input");
+    input.value = "g";
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    const items = [...el.querySelectorAll(".es-ls-suggest-item")];
+    expect(items).toHaveLength(1);
+    expect(items[0].textContent).toContain("G7");
   });
 
   it("the + picker still accepts a typed token (Enter)", () => {

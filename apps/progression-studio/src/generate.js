@@ -156,7 +156,7 @@ export function realizeLabel(label, key) {
  */
 export function voiceChord(pcs, rootPc, shape = "close", base = 60) {
   const r = mod12(rootPc);
-  const ordered = [...new Set(pcs.map(mod12))].sort(
+  let ordered = [...new Set(pcs.map(mod12))].sort(
     (a, b) => ((a - r + 12) % 12) - ((b - r + 12) % 12),
   );
   const stack = (list) => {
@@ -175,6 +175,8 @@ export function voiceChord(pcs, rootPc, shape = "close", base = 60) {
     const sh = [r, find(3, 4), find(10, 11)].filter((x) => x !== undefined);
     if (sh.length >= 2) return stack(sh);
   }
+  // rootless: drop the root and stack the colour tones (3-5-7-9 territory)
+  if (shape === "rootless" && ordered.length >= 3) ordered = ordered.filter((pc) => pc !== r);
   let notes = stack(ordered);
   if (shape === "open" && notes.length >= 3) {
     notes = notes.map((n, i) => (i % 2 === 1 ? n + 12 : n)).sort((a, b) => a - b);
@@ -182,6 +184,12 @@ export function voiceChord(pcs, rootPc, shape = "close", base = 60) {
     notes = notes.slice();
     notes[notes.length - 2] -= 12;
     notes.sort((a, b) => a - b);
+  } else if (shape === "drop3" && notes.length >= 3) {
+    notes = notes.slice();
+    notes[notes.length - 3] -= 12; // third voice from the top down an octave
+    notes.sort((a, b) => a - b);
+  } else if (shape === "spread" && notes.length >= 2) {
+    notes = [notes[0], ...notes.slice(1).map((n) => n + 12)].sort((a, b) => a - b); // gap above the bass
   }
   return notes;
 }

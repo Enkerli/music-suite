@@ -13,7 +13,7 @@
  * Visual style lives in components.css (.es-ls*); this module is behavior.
  */
 
-import { formatLeadsheet, parseLeadsheet, realizeChord } from "@enkerli/theory";
+import { assertDegree, consonance, formatLeadsheet, parseLeadsheet, realizeChord } from "@enkerli/theory";
 
 const ROOTS = ["C", "G", "D", "A", "E", "B", "F♯", "C♯", "F", "B♭", "E♭", "A♭", "D♭", "G♭", "C♭"];
 
@@ -25,6 +25,21 @@ function tokenOf(chord) {
   }
   const s = chord.symbol ?? { root: "", suffix: "" };
   return s.root + s.suffix + (s.bass ? "/" + s.bass : "");
+}
+
+/**
+ * Functional degree label for an absolute chord in the key (D7 in C → "II7");
+ * "" when the root has no reading. Degree chords are already functional, so
+ * this only applies to absolute ones.
+ */
+function functionalOf(chord, key) {
+  const s = chord.symbol;
+  if (!s?.root) return "";
+  try {
+    return assertDegree(s.root, key).numeral + (s.suffix ?? "") + (s.bass ? "/" + s.bass : "");
+  } catch {
+    return ""; // unparseable root — no functional reading
+  }
 }
 
 /** Parse one typed token into a ProgChord (via the leadsheet grammar). */
@@ -144,17 +159,27 @@ export function createLeadsheetEditor(el, opts = {}) {
     if (suggestions.length) {
       const list = document.createElement("div");
       list.className = "es-ls-suggest-list";
-      for (const s of suggestions) {
-        const row = document.createElement("button");
-        row.type = "button";
-        row.className = "es-ls-suggest-item" + (s.kind === "played" ? " played" : "");
-        const name = Object.assign(document.createElement("span"), { className: "es-ls-suggest-sym", textContent: s.symbol ?? s.label });
-        row.append(name);
-        if (s.kind === "played") row.append(Object.assign(document.createElement("span"), { className: "es-badge", textContent: "played" }));
-        else if (typeof s.movement === "number") row.append(Object.assign(document.createElement("span"), { className: "es-badge", textContent: `${s.movement} st` }));
-        row.addEventListener("mousedown", (e) => { e.preventDefault(); close(); insertSuggestion(bi, s); });
-        list.append(row);
-      }
+      const row = (s) => {
+        const r = document.createElement("button");
+        r.type = "button";
+        r.className = "es-ls-suggest-item" + (s.kind === "played" ? " played" : "");
+        r.append(Object.assign(document.createElement("span"), { className: "es-ls-suggest-sym", textContent: s.symbol ?? s.label }));
+        if (s.kind === "played") r.append(Object.assign(document.createElement("span"), { className: "es-badge", textContent: "played" }));
+        else if (typeof s.movement === "number") r.append(Object.assign(document.createElement("span"), { className: "es-badge", textContent: `${s.movement} st` }));
+        r.addEventListener("mousedown", (e) => { e.preventDefault(); close(); insertSuggestion(bi, s); });
+        return r;
+      };
+      // Autocomplete: filter the suggestions by what's typed (accent- and
+      // case-insensitive over both the symbol and the degree label).
+      const norm = (t) => (t ?? "").toLowerCase().replace(/♭/g, "b").replace(/♯/g, "#").replace(/\s+/g, "");
+      const renderList = (filter) => {
+        const f = norm(filter);
+        const shown = f ? suggestions.filter((s) => norm(s.symbol).includes(f) || norm(s.label).includes(f)) : suggestions;
+        list.replaceChildren(...shown.map(row));
+        list.style.display = shown.length ? "" : "none";
+      };
+      renderList("");
+      input.addEventListener("input", () => renderList(input.value));
       pop.append(list);
     }
 
@@ -200,12 +225,33 @@ export function createLeadsheetEditor(el, opts = {}) {
     chip.dataset.bar = String(bi);
     chip.dataset.chord = String(ci);
     const token = tokenOf(chord);
-    const realized = realizeChord(chord, state.prog.key).symbol;
-    chip.append(Object.assign(document.createElement("span"), { textContent: token || "—" }));
-    if (realized && realized !== token) {
-      chip.append(Object.assign(document.createElement("span"), { className: "es-ls-real", textContent: realized }));
+    const realized = realizeChord(chord, state.prog.key);
+    // Functional reading on top, named spelling below. A degree chord is
+    // authored functionally (token = IIm7), so its named spelling (Dm7) sits
+    // below; an absolute chord (D7) leads with its degree (II7) and shows the
+    // name below. Editing always operates on the authored `token`.
+    let primary = token;
+    let secondary = "";
+    if (chord.source === "degree" && chord.degree) {
+      secondary = realized.symbol;
+    } else {
+      const fn = functionalOf(chord, state.prog.key);
+      if (fn) { primary = fn; secondary = token; }
     }
-    chip.title = realized;
+    chip.append(Object.assign(document.createElement("span"), { textContent: primary || "—" }));
+    if (secondary && secondary !== primary) {
+      chip.append(Object.assign(document.createElement("span"), { className: "es-ls-real", textContent: secondary }));
+    }
+    // Consonance badge (top-right): dark = dissonant, bright = consonant.
+    if (realized.pcs.length >= 2) {
+      const c = consonance(realized.pcs);
+      const dot = document.createElement("span");
+      dot.className = "es-ls-consonance";
+      dot.style.background = `hsl(48, 85%, ${Math.round(22 + c * 56)}%)`;
+      dot.title = `consonance ${(c * 100).toFixed(0)}%`;
+      chip.append(dot);
+    }
+    chip.title = realized.symbol;
     if (state.editable) {
       chip.addEventListener("click", () => beginEdit(chip, bi, ci, token));
     }

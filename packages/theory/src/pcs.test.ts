@@ -3,6 +3,7 @@ import vectors from "../vectors/pcs-families.json";
 import {
   chromaticToFifthsIndex,
   classifyDegreeChord,
+  consonance,
   degreeChords,
   fifthsIndexToChromatic,
   pcsToBitmask,
@@ -70,5 +71,29 @@ describe("classifyDegreeChord", () => {
 
   it("returns null quality for fewer than 3 pcs", () => {
     expect(classifyDegreeChord([0, 7]).quality).toBeNull();
+  });
+});
+
+describe("consonance", () => {
+  it("ranks triads from bright to dark", () => {
+    const maj = consonance([0, 4, 7]);
+    const min = consonance([0, 3, 7]);
+    const dim = consonance([0, 3, 6]);
+    const aug = consonance([0, 4, 8]);
+    const cluster = consonance([0, 1, 2]);
+    expect(maj).toBeGreaterThan(dim);
+    expect(min).toBeGreaterThan(dim);
+    expect(dim).toBeGreaterThan(cluster);
+    expect(aug).toBeGreaterThan(cluster);
+    for (const c of [maj, min, dim, aug, cluster]) {
+      expect(c).toBeGreaterThanOrEqual(0);
+      expect(c).toBeLessThanOrEqual(1);
+    }
+  });
+
+  it("is octave- and order-independent, and trivial for < 2 pcs", () => {
+    expect(consonance([0, 4, 7])).toBeCloseTo(consonance([12, 67, 4]), 12);
+    expect(consonance([5])).toBe(1);
+    expect(consonance([])).toBe(1);
   });
 });

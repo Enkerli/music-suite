@@ -86,6 +86,9 @@ describe("voicing", () => {
     expect(close).toEqual([60, 64, 67, 71]);          // tight stack
     expect(drop2).toEqual([55, 60, 64, 71]);          // 2nd-from-top (G) dropped an octave
     expect(shell).toEqual([60, 64, 71]);              // root + 3rd + 7th, no 5th
+    expect(voiceChord(cmaj7, 0, "drop3")).toEqual([52, 60, 67, 71]); // 3rd-from-top (E) dropped
+    expect(voiceChord(cmaj7, 0, "spread")).toEqual([60, 76, 79, 83]); // gap above the bass
+    expect(voiceChord(cmaj7, 0, "rootless")).toEqual([64, 67, 71]);   // root dropped, colour tones
   });
 
   it("voicing suggestions rank by least movement and include shapes", async () => {
