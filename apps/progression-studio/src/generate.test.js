@@ -88,6 +88,30 @@ describe("voicing", () => {
     expect(shell).toEqual([60, 64, 71]);              // root + 3rd + 7th, no 5th
   });
 
+  it("voicing suggestions rank by least movement and include shapes", async () => {
+    const { voicingSuggestions, voiceMovement, voiceChord } = await import("./generate.js");
+    const cmaj7 = [0, 4, 7, 11];
+    const from = [55, 59, 62, 65]; // a G7-ish voicing
+    const sugg = voicingSuggestions(cmaj7, 0, { from });
+    expect(sugg.length).toBeGreaterThanOrEqual(4);
+    // ranked ascending by movement
+    for (let i = 1; i < sugg.length; i++) expect(sugg[i].movement).toBeGreaterThanOrEqual(sugg[i - 1].movement);
+    // the first is the smoothest available (≤ every shape's movement)
+    const shapeMoves = ["close", "open", "drop2", "shell"]
+      .map((s) => voiceMovement(from, voiceChord(cmaj7, 0, s)));
+    expect(sugg[0].movement).toBeLessThanOrEqual(Math.min(...shapeMoves));
+    // no candidate introduces a foreign note (shell may drop the 5th)
+    for (const s of sugg) for (const n of s.notes) expect(cmaj7).toContain(((n % 12) + 12) % 12);
+  });
+
+  it("a locked voicing overrides auto voice-leading", () => {
+    const key = { tonic: "C", mode: "major" };
+    const chords = ["IIm7", "V7"].map((l) => realizeLabel(l, key));
+    chords[1].voicing = [60, 64, 67, 70]; // pin V7 to a specific voicing
+    const v = voiceProgression(chords);
+    expect(v[1].notes).toEqual([60, 64, 67, 70]);
+  });
+
   it("voice-lead off voices every chord in its home position", () => {
     const key = { tonic: "C", mode: "major" };
     const chords = ["IIm7", "V7", "Imaj7"].map((l) => realizeLabel(l, key));

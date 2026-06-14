@@ -36,6 +36,9 @@ export interface ProgChord {
   dur?: number;
   /** Verbatim token, for loss-free round-trip of unrecognized qualities. */
   inputText?: string;
+  /** A locked voicing (MIDI note numbers) chosen by the user; when present,
+   *  realization/playback uses it verbatim instead of auto-voicing. */
+  voicing?: number[];
 }
 
 /** One bar: 1..n chords, or a repeat of the previous bar. */

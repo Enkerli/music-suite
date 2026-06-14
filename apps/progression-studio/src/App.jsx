@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import table from "./data/transitions.json";
-import { generateLabels, generateSections, labelMass, startLabel, voiceProgression } from "./generate.js";
+import { generateLabels, generateSections, labelMass, startLabel, voiceProgression, voicingSuggestions } from "./generate.js";
 import { exportProgression, voicingsToClip } from "./exportMidi.js";
 import { createBridge } from "./juceBridge.js";
 import { parseLeadsheet, realizeChord } from "@enkerli/theory";
@@ -26,7 +26,7 @@ function chordsFromProgression(prog, key) {
       const label = c.source === "degree" && c.degree
         ? c.degree.numeral + c.degree.suffix
         : (c.inputText ?? r.symbol);
-      out.push({ ...r, label });
+      out.push({ ...r, label, voicing: c.voicing });
     }
   }
   return out;
@@ -357,6 +357,15 @@ export default function App() {
     .sort((a, b) => b[1] - a[1]);
 
   const playIdx = IN_PLUGIN ? hostPlayhead : playhead;
+
+  // Voiceled suggestions for the chord currently played on MIDI: ranked by
+  // how smoothly each voicing leads from the progression's last chord.
+  const midiSuggestions = useMemo(() => {
+    if (!midiChord.chord) return [];
+    const pcs = midiChord.chord.templatePcs ?? midiChord.chord.observedPcs ?? [];
+    const from = voicings.length ? voicings[voicings.length - 1].notes : null;
+    return voicingSuggestions(pcs, midiChord.chord.root, { from });
+  }, [midiChord, voicings]);
   // The genId an op produces (only opCount changes for extend/clear/reset).
   const genIdFor = (op) => `${tonic}|${mode}|${seed}|${length}|${temperature}|${method}|${startFrom}|${op}`;
 
@@ -390,12 +399,13 @@ export default function App() {
     setOpCount((n) => n + 1);
   }
 
-  /** Insert the chord currently played on MIDI into the leadsheet (ChordID).
-   *  The played chord is absolute (its actual spelling), appended to the end. */
-  function insertMidiChord() {
+  /** Insert the chord currently played on MIDI into the leadsheet (ChordID),
+   *  optionally with a chosen (voiceled) voicing locked to it. */
+  function insertMidiChord(voicing = null) {
     if (!midiChord.chord) return;
     const ch = parseLeadsheet(midiChord.chord.symbol, { tonic, mode }).sections[0]?.bars[0]?.chords[0];
     if (!ch) return;
+    if (voicing && voicing.length) ch.voicing = voicing;
     const next = clone(effectiveProg);
     appendChord(next, ch);
     setEdited({ genId: genIdFor(opCount + 1), prog: next });
@@ -647,17 +657,37 @@ export default function App() {
             <summary>MIDI chord input {midiChord.chord && <span style={{ color: "var(--es-accent)", fontWeight: 400 }}>· {midiChord.chord.symbol}</span>}</summary>
             <div className="es-section-body">
               {midiChord.notes.length === 0 ? (
-                <p style={{ color: "var(--es-fg-muted)", margin: 0 }}>Play a chord on a MIDI keyboard routed into this plugin — it's identified here and can be added to the leadsheet.</p>
+                <p style={{ color: "var(--es-fg-muted)", margin: 0 }}>Play a chord on a MIDI keyboard routed into this plugin — it's identified here, and you can add it to the leadsheet with a voiceled voicing.</p>
               ) : (
-                <div style={{ display: "flex", alignItems: "center", gap: "var(--es-space-3)", flexWrap: "wrap" }}>
-                  <span style={{ fontSize: "var(--es-text-lg)", fontWeight: 600 }}>{midiChord.chord ? midiChord.chord.symbol : "—"}</span>
-                  <span className="es-num" style={{ color: "var(--es-fg-muted)", fontSize: "var(--es-text-sm)" }}>
-                    {midiChord.notes.map((n) => midiName(n)).join(" ")}
-                  </span>
-                  <button className="es-btn es-primary" disabled={!midiChord.chord} onClick={insertMidiChord}>
-                    Add to leadsheet
-                  </button>
-                </div>
+                <>
+                  <div style={{ display: "flex", alignItems: "center", gap: "var(--es-space-3)", flexWrap: "wrap" }}>
+                    <span style={{ fontSize: "var(--es-text-lg)", fontWeight: 600 }}>{midiChord.chord ? midiChord.chord.symbol : "—"}</span>
+                    <span className="es-num" style={{ color: "var(--es-fg-muted)", fontSize: "var(--es-text-sm)" }}>
+                      {midiChord.notes.map((n) => midiName(n)).join(" ")}
+                    </span>
+                    <button className="es-btn" disabled={!midiChord.chord} onClick={() => insertMidiChord()}
+                      title="Add with the progression's auto voice leading">
+                      Add (auto-voice)
+                    </button>
+                  </div>
+                  {midiChord.chord && midiSuggestions.length > 0 && (
+                    <div style={{ marginTop: "var(--es-space-3)" }}>
+                      <div className="es-eyebrow">voiceled voicings — least motion from the last chord first</div>
+                      <div style={{ display: "flex", flexDirection: "column", gap: 4, marginTop: "var(--es-space-1)" }}>
+                        {midiSuggestions.map((s, i) => (
+                          <div key={i} style={{ display: "flex", alignItems: "center", gap: "var(--es-space-2)" }}>
+                            <span style={{ width: 72, color: "var(--es-fg-2)", fontSize: "var(--es-text-sm)" }}>{s.label}</span>
+                            <span className="es-num" style={{ flex: 1, color: "var(--es-fg-muted)", fontSize: "var(--es-text-sm)" }}>
+                              {s.notes.map((n) => midiName(n)).join(" ")}
+                            </span>
+                            <span className="es-badge" title="total semitones of voice movement from the last chord">{s.movement} st</span>
+                            <button className="es-btn es-small" onClick={() => insertMidiChord(s.notes)}>Add</button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </>
               )}
             </div>
           </details>

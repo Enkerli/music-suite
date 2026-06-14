@@ -182,44 +182,88 @@ export function voiceChord(pcs, rootPc, shape = "close", base = 60) {
  * makes voice leading both visible and controllable. Root doubled in the
  * bass. Returns arrays of MIDI note numbers.
  */
+/**
+ * The minimal (taxicab) voicing of `toPcs` led from `fromNotes`: each
+ * voice moves the least to a target chord tone, one voice per distinct
+ * target pc (surplus voices dropped, uncovered tones placed near the rest).
+ * The smoothness primitive behind voiceProgression and voicingSuggestions.
+ */
+export function voiceLed(fromNotes, toPcs) {
+  const fromPcs = [...new Set(fromNotes.map((n) => mod12(n)))];
+  const toUniq = [...new Set(toPcs.map((pc) => mod12(pc)))];
+  const { mapping } = minimalVoiceLeading(fromPcs, toUniq);
+  const prevByPc = new Map();
+  for (const n of fromNotes) {
+    const pc = mod12(n);
+    if (!prevByPc.has(pc)) prevByPc.set(pc, []);
+    prevByPc.get(pc).push(n);
+  }
+  const notes = [];
+  const seenToPc = new Set();
+  for (const [fromPc, toPc] of mapping) {
+    if (seenToPc.has(toPc)) continue;
+    seenToPc.add(toPc);
+    const source = (prevByPc.get(fromPc) ?? [60 + fromPc])[0];
+    let note = source + ((((toPc - mod12(source)) % 12) + 18) % 12) - 6;
+    while (notes.includes(note)) note += 12;
+    notes.push(note);
+  }
+  const center = notes.length ? Math.round(notes.reduce((a, b) => a + b, 0) / notes.length) : 60;
+  for (const pc of toUniq) {
+    if (seenToPc.has(pc)) continue;
+    seenToPc.add(pc);
+    let note = center + ((((pc - mod12(center)) % 12) + 18) % 12) - 6;
+    while (notes.includes(note)) note += 12;
+    notes.push(note);
+  }
+  notes.sort((a, b) => a - b);
+  return notes;
+}
+
+/** Total voice movement: each target note to its nearest source note. */
+export function voiceMovement(fromNotes, toNotes) {
+  if (!fromNotes || fromNotes.length === 0) return 0;
+  return toNotes.reduce((s, n) => s + Math.min(...fromNotes.map((m) => Math.abs(m - n))), 0);
+}
+
+/**
+ * Candidate voicings of a chord (pcs rooted at rootPc), ranked by how
+ * smoothly each leads from `from` (the previous voicing): the taxicab
+ * smoothest, the shape home positions (close/open/drop-2/shell), and the
+ * inversions — deduped, scored, sorted by least movement. This is the
+ * "set of voiceled suggestions" — play a chord, pick how it sits.
+ */
+export function voicingSuggestions(pcs, rootPc, { from = null, max = 6 } = {}) {
+  const seen = new Set();
+  const out = [];
+  const add = (label, notes) => {
+    if (!notes.length) return;
+    const key = notes.join(",");
+    if (seen.has(key)) return;
+    seen.add(key);
+    out.push({ label, notes, movement: voiceMovement(from, notes) });
+  };
+  if (from && from.length) add("smoothest", voiceLed(from, pcs));
+  for (const shape of ["close", "open", "drop2", "shell"]) add(shape, voiceChord(pcs, rootPc, shape));
+  const close = voiceChord(pcs, rootPc, "close");
+  for (let i = 1; i < close.length; i++) {
+    add(`inv ${i}`, [...close.slice(i), ...close.slice(0, i).map((n) => n + 12)].sort((a, b) => a - b));
+  }
+  if (from && from.length) out.sort((a, b) => a.movement - b.movement);
+  return out.slice(0, max);
+}
+
 export function voiceProgression(chords, { voiceLead = true, shape = "close" } = {}) {
   const voicings = [];
   let previous = null;
   for (const chord of chords) {
     let notes;
-    if (!voiceLead || !previous) {
+    if (chord.voicing && chord.voicing.length) {
+      notes = [...chord.voicing]; // user-chosen voicing (locked)
+    } else if (!voiceLead || !previous) {
       notes = voiceChord(chord.pcs, chord.rootPc, shape);
     } else {
-      const { mapping } = minimalVoiceLeading(previous.pcs, chord.pcs);
-      const prevByPc = new Map();
-      for (const n of previous.notes) {
-        if (!prevByPc.has(mod12(n))) prevByPc.set(mod12(n), []);
-        prevByPc.get(mod12(n)).push(n);
-      }
-      notes = [];
-      const seenToPc = new Set();
-      for (const [fromPc, toPc] of mapping) {
-        // One voice per distinct target pc: when a chord has fewer tones
-        // than its predecessor, drop the surplus voice rather than doubling
-        // it an octave away (that octave lift was the occasional big jump).
-        if (seenToPc.has(toPc)) continue;
-        seenToPc.add(toPc);
-        const source = (prevByPc.get(fromPc) ?? [60 + fromPc])[0];
-        // nearest realization of toPc to the source note
-        let note = source + ((((toPc - mod12(source)) % 12) + 18) % 12) - 6;
-        while (notes.includes(note)) note += 12;
-        notes.push(note);
-      }
-      // Safety: voice any chord tone the mapping didn't cover, near the rest.
-      const center = notes.length ? Math.round(notes.reduce((a, b) => a + b, 0) / notes.length) : 60;
-      for (const pc of new Set(chord.pcs.map(mod12))) {
-        if (seenToPc.has(pc)) continue;
-        seenToPc.add(pc);
-        let note = center + ((((pc - mod12(center)) % 12) + 18) % 12) - 6;
-        while (notes.includes(note)) note += 12;
-        notes.push(note);
-      }
-      notes.sort((a, b) => a - b);
+      notes = voiceLed(previous.notes, chord.pcs);
     }
     const bass = 36 + mod12(chord.rootPc);
     voicings.push({ ...chord, notes, bass });
