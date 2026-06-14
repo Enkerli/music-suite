@@ -22,6 +22,12 @@ function wasmMimePlugin(): Plugin {
 }
 
 export default defineConfig({
+  // Stamp each build so a running plugin/standalone can be identified at a
+  // glance (the "are we on the same version?" question — a stale embedded
+  // bundle shows an old tag).
+  define: {
+    __BUILD_TAG__: JSON.stringify(new Date().toISOString().replace('T', ' ').slice(0, 16)),
+  },
   plugins: [react(), wasmMimePlugin()],
   base: '/MIDIcurator/',
 });

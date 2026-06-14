@@ -136,25 +136,59 @@ export function realizeLabel(label, key) {
 }
 
 /**
- * Voice a realized progression for playback: the first chord sits in a
- * middle window; each next chord follows the minimal taxicab voice
- * leading from its predecessor, mapped to the nearest MIDI notes.
- * Returns arrays of MIDI note numbers (root doubled in the bass).
+ * Voice a single chord's pitch classes into MIDI notes per a shape:
+ *   close  — tones stacked tightly above the root
+ *   open   — every other inner voice lifted an octave (spread)
+ *   drop2  — close, with the 2nd-from-top dropped an octave
+ *   shell  — root + 3rd + 7th (guide tones) when present
  */
-export function voiceProgression(chords) {
+export function voiceChord(pcs, rootPc, shape = "close", base = 60) {
+  const r = mod12(rootPc);
+  const ordered = [...new Set(pcs.map(mod12))].sort(
+    (a, b) => ((a - r + 12) % 12) - ((b - r + 12) % 12),
+  );
+  const stack = (list) => {
+    const notes = [];
+    let cursor = -Infinity;
+    for (const pc of list) {
+      let n = base + pc;
+      while (n <= cursor) n += 12;
+      notes.push(n);
+      cursor = n;
+    }
+    return notes;
+  };
+  if (shape === "shell") {
+    const find = (lo, hi) => ordered.find((pc) => { const d = (pc - r + 12) % 12; return d >= lo && d <= hi; });
+    const sh = [r, find(3, 4), find(10, 11)].filter((x) => x !== undefined);
+    if (sh.length >= 2) return stack(sh);
+  }
+  let notes = stack(ordered);
+  if (shape === "open" && notes.length >= 3) {
+    notes = notes.map((n, i) => (i % 2 === 1 ? n + 12 : n)).sort((a, b) => a - b);
+  } else if (shape === "drop2" && notes.length >= 2) {
+    notes = notes.slice();
+    notes[notes.length - 2] -= 12;
+    notes.sort((a, b) => a - b);
+  }
+  return notes;
+}
+
+/**
+ * Voice a realized progression for playback. With `voiceLead` (default),
+ * each chord follows the minimal taxicab voice leading from its
+ * predecessor (the first seeded from `shape`); with it off, every chord
+ * is voiced in its `shape` home position (no smoothing) — so the toggle
+ * makes voice leading both visible and controllable. Root doubled in the
+ * bass. Returns arrays of MIDI note numbers.
+ */
+export function voiceProgression(chords, { voiceLead = true, shape = "close" } = {}) {
   const voicings = [];
   let previous = null;
   for (const chord of chords) {
     let notes;
-    if (!previous) {
-      // First chord: place each pc in the octave above middle C,
-      // lifting collisions upward.
-      notes = [];
-      for (const pc of chord.pcs) {
-        let note = 60 + mod12(pc);
-        while (notes.includes(note)) note += 12;
-        notes.push(note);
-      }
+    if (!voiceLead || !previous) {
+      notes = voiceChord(chord.pcs, chord.rootPc, shape);
     } else {
       const { mapping } = minimalVoiceLeading(previous.pcs, chord.pcs);
       const prevByPc = new Map();

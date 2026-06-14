@@ -169,7 +169,7 @@ export function Sidebar({
   return (
     <div className="mc-sidebar">
       <div className="mc-sidebar-header">
-        <h2>MIDI Curator</h2>
+        <h2>MIDI Curator <span style={{ fontSize: '0.6em', fontWeight: 400, color: 'var(--es-fg-muted)' }} title="Build tag — confirms which bundle is running">build {__BUILD_TAG__}</span></h2>
         <ThemeToggle />
       </div>
 

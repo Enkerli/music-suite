@@ -230,6 +230,8 @@ export default function App() {
   const [gestureRange, setGestureRange] = useState(null); // [from, to] indices
   const [surfaceMode, setSurfaceMode] = useState("edit"); // "edit" | "curate"
   const [opCount, setOpCount] = useState(0); // bumps on extend/clear (forces editor remount)
+  const [voiceLead, setVoiceLead] = useState(true); // taxicab smoothing on/off
+  const [voicingShape, setVoicingShape] = useState("close"); // close|open|drop2|shell
   const { play, stop, playing, playhead } = usePlayer();
 
   useEffect(() => { saveCuration(curation); }, [curation]);
@@ -257,6 +259,8 @@ export default function App() {
         if (s.channelMode) setChannelMode(s.channelMode);
         if (s.startFrom !== undefined) setStartFrom(s.startFrom);
         if (Array.isArray(s.extensions)) setExtensions(s.extensions);
+        if (typeof s.voiceLead === "boolean") setVoiceLead(s.voiceLead);
+        if (s.voicingShape) setVoicingShape(s.voicingShape);
       } catch { /* malformed saved state — keep defaults */ }
     });
     bridge.ready();
@@ -283,7 +287,10 @@ export default function App() {
     () => chordsFromProgression(effectiveProg, { tonic, mode }),
     [effectiveProg, tonic, mode],
   );
-  const voicings = useMemo(() => voiceProgression(chords), [chords]);
+  const voicings = useMemo(
+    () => voiceProgression(chords, { voiceLead, shape: voicingShape }),
+    [chords, voiceLead, voicingShape],
+  );
 
   // Plugin: every regeneration updates the host clip (strict transport
   // sync — the host's play button is the play button) and persists the
@@ -295,8 +302,8 @@ export default function App() {
     if (!IN_PLUGIN) return;
     const { notes, lengthBeats } = voicingsToClip(voicings, channelMode);
     bridge.setClip(notes, lengthBeats, { loop: true });
-    bridge.send("enkerliState", { tonic, mode, length, seed, method, curation, temperature, channelMode, startFrom, extensions });
-  }, [voicings, tonic, mode, length, seed, method, curation, temperature, channelMode, startFrom, extensions]);
+    bridge.send("enkerliState", { tonic, mode, length, seed, method, curation, temperature, channelMode, startFrom, extensions, voiceLead, voicingShape });
+  }, [voicings, tonic, mode, length, seed, method, curation, temperature, channelMode, startFrom, extensions, voiceLead, voicingShape]);
 
   const startOptions = useMemo(() => {
     const mass = labelMass(table[mode]);
@@ -419,6 +426,20 @@ export default function App() {
               <option value="split">bass 1 · chords 2</option>
               <option value="perVoice">per voice (1…)</option>
             </select>
+          </label>
+          <label style={{ display: "grid", gap: 4, fontSize: "var(--es-text-sm)" }}>Voicing
+            <select className="es-control" value={voicingShape} onChange={(e) => setVoicingShape(e.target.value)}
+              title="Initial chord voicing shape (the seed for voice leading)">
+              <option value="close">close</option>
+              <option value="open">open</option>
+              <option value="drop2">drop-2</option>
+              <option value="shell">shell (3rd+7th)</option>
+            </select>
+          </label>
+          <label style={{ display: "flex", gap: 6, alignItems: "center", fontSize: "var(--es-text-sm)", minHeight: "var(--es-ctl-h)" }}
+            title="Taxicab voice leading: smooth each chord from the previous, or voice each in its home position">
+            <input type="checkbox" checked={voiceLead} onChange={(e) => setVoiceLead(e.target.checked)} />
+            voice-lead
           </label>
           <label style={{ display: "grid", gap: 4, fontSize: "var(--es-text-sm)" }}>Chords
             <select className="es-control" value={length} onChange={(e) => setLength(Number(e.target.value))}>

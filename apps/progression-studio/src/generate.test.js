@@ -76,6 +76,29 @@ describe("voicing", () => {
     const r = mulberry32(1);
     expect(r()).toBeCloseTo(mulberry32(1)(), 12);
   });
+
+  it("voicing shapes change the chord arrangement", async () => {
+    const { voiceChord } = await import("./generate.js");
+    const cmaj7 = [0, 4, 7, 11]; // C E G B
+    const close = voiceChord(cmaj7, 0, "close");
+    const drop2 = voiceChord(cmaj7, 0, "drop2");
+    const shell = voiceChord(cmaj7, 0, "shell");
+    expect(close).toEqual([60, 64, 67, 71]);          // tight stack
+    expect(drop2).toEqual([55, 60, 64, 71]);          // 2nd-from-top (G) dropped an octave
+    expect(shell).toEqual([60, 64, 71]);              // root + 3rd + 7th, no 5th
+  });
+
+  it("voice-lead off voices every chord in its home position", () => {
+    const key = { tonic: "C", mode: "major" };
+    const chords = ["IIm7", "V7", "Imaj7"].map((l) => realizeLabel(l, key));
+    const off = voiceProgression(chords, { voiceLead: false, shape: "close" });
+    const on = voiceProgression(chords, { voiceLead: true, shape: "close" });
+    // home-position voicings start each chord from its own root window;
+    // the smoothed and unsmoothed versions differ from the 2nd chord on.
+    expect(off[1].notes).not.toEqual(on[1].notes);
+    // every chord voiced-lead-off begins on its root pc
+    for (const v of off) expect(v.notes[0] % 12).toBe(v.rootPc % 12);
+  });
 });
 
 describe("rule-based engines", async () => {
