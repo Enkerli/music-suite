@@ -15,5 +15,6 @@ describe("App render smoke", () => {
     expect(html).toContain("Progression Studio");
     expect(html).toContain("New take"); // grouped generator (was "Generate")
     expect(html).toContain("More like this"); // unified leadsheet + curation surface
+    expect(html).toContain("Save to library"); // document strip (library & import, Step 03)
   });
 });

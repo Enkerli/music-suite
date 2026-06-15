@@ -2,6 +2,8 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import table from "./data/transitions.json";
 import { BEATS_PER_BAR, chordCompletions, chordSlots, divideBar, generateLabels, generateSections, labelMass, nextChordSuggestions, realizeLabel, rhythmBeats, rhythmPlan, startLabel, voiceChord, voiceProgression, voicingSuggestions } from "./generate.js";
 import { chordStartBeats, exportProgression, voicingsToClip } from "./exportMidi.js";
+import { loadLibrary, saveLibrary, newId } from "./library.js";
+import { progressionFromSMF } from "@enkerli/midi";
 import { createBridge } from "./juceBridge.js";
 import { assertDegree, parseLeadsheet, realizeChord } from "@enkerli/theory";
 import { resolvedTheme, toggleTheme } from "@enkerli/ui/theme";
@@ -335,7 +337,13 @@ export default function App() {
   const [pendingProfile, setPendingProfile] = useState(null); // a loaded profile awaiting Replace/Merge
   const [profileError, setProfileError] = useState(null);
   const [soundOpen, setSoundOpen] = useState(false); // "Sound · advanced" generator group
-  const fileKindRef = useRef("profile"); // routes a native "fileOpened" to the right loader (profile | patch)
+  const fileKindRef = useRef("profile"); // routes a native "fileOpened" to the right loader (profile | patch | midi)
+  const [library, setLibrary] = useState(loadLibrary); // the musician's saved progressions
+  const [docMeta, setDocMeta] = useState({ title: "", composer: "", source: "generated" }); // current document
+  const [libraryOpen, setLibraryOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
+  const [pasteText, setPasteText] = useState("");
+  const [docError, setDocError] = useState(null);
   const [voiceLeadMode, setVoiceLeadMode] = useState("strict"); // none | loose | strict
   const [variety, setVariety] = useState("fresh"); // faithful | fresh | bold — de-emphasize repeats/returns/ii-V-I
   const [voicingShape, setVoicingShape] = useState("close"); // close|open|drop2|drop3|spread|rootless|shell
@@ -344,6 +352,7 @@ export default function App() {
   const { play, stop, playing, playhead } = usePlayer();
 
   useEffect(() => { saveCuration(curation); }, [curation]);
+  useEffect(() => { saveLibrary(library); }, [library]);
 
   // Plugin integration: host transport display + session-state restore.
   useEffect(() => {
@@ -380,8 +389,10 @@ export default function App() {
     // UTF-8 (labels carry ♭/♯/→) and route to the loader that asked for it.
     const offFile = bridge.on("fileOpened", (d) => {
       try {
-        const bin = atob(d?.b64 ?? "");
-        const text = new TextDecoder().decode(Uint8Array.from(bin, (ch) => ch.charCodeAt(0)));
+        const bytes = Uint8Array.from(atob(d?.b64 ?? ""), (ch) => ch.charCodeAt(0));
+        if (fileKindRef.current === "midi") { receiveMidiBytes(bytes); return; }
+        // Text kinds: decode as UTF-8 (labels carry ♭/♯/→).
+        const text = new TextDecoder().decode(bytes);
         if (fileKindRef.current === "patch") applyPatchText(text);
         else receiveProfileText(text);
       } catch { setProfileError("Couldn't read that file."); }
@@ -532,7 +543,10 @@ export default function App() {
     [latched],
   );
   // The genId an op produces (only opCount changes for extend/clear/reset).
-  const genIdFor = (op) => `${tonic}|${mode}|${seed}|${bars}|${harmonicRhythm}|${temperature}|${method}|${startFrom}|${variety}|${op}`;
+  // `o` overrides key/mode for ops that change them in the same tick (loading a
+  // progression in a new key) — the setters are async, so we can't read them back.
+  const genIdFor = (op, o = {}) =>
+    `${o.tonic ?? tonic}|${o.mode ?? mode}|${seed}|${bars}|${harmonicRhythm}|${temperature}|${method}|${startFrom}|${variety}|${op}`;
 
   /** Append a chord into the working progression, filling the last bar to the
    *  current rhythm's density (chords/bar) before starting a new bar.
@@ -704,6 +718,89 @@ export default function App() {
     input.click();
   }
 
+  // ── Library & import — the progression as a document (Step 03) ───────────
+  // Four front doors: New (Blank) · Generate (New take) · Open (library) ·
+  // Import (paste bar notation / open .mid). The library holds only the
+  // musician's OWN saved progressions; the corpus is never browsable here.
+
+  /** Make `prog` the working document: adopt its key, stamp it as the current
+   *  edit (with the new key baked into the genId so it doesn't read stale),
+   *  and record where it came from for the source badge. */
+  function loadProgression(prog, meta = {}) {
+    const k = prog?.key ?? { tonic, mode };
+    const nextTonic = k.tonic ?? tonic;
+    const nextMode = k.mode ?? mode;
+    if (nextTonic !== tonic) setTonic(nextTonic);
+    if (nextMode !== mode) setMode(nextMode);
+    setEdited({ genId: genIdFor(opCount + 1, { tonic: nextTonic, mode: nextMode }), prog });
+    setOpCount((n) => n + 1);
+    setDocMeta({ title: meta.title ?? "", composer: meta.composer ?? "", source: meta.source ?? "loaded" });
+    setDocError(null);
+    setImportOpen(false);
+    setLibraryOpen(false);
+  }
+
+  /** Bars in the working progression (counts %-held bars). */
+  const docBarCount = effectiveProg.sections.reduce((n, s) => n + s.bars.length, 0);
+
+  /** Save the current document into the library (a snapshot — later edits make
+   *  a new entry unless you overwrite by title). */
+  function saveToLibrary() {
+    const title = (docMeta.title || "").trim() || "Untitled progression";
+    const entry = {
+      id: newId(), title, composer: (docMeta.composer || "").trim(),
+      source: docMeta.source || "edited", savedAt: new Date().toISOString(),
+      key: `${tonic} ${mode}`, bars: docBarCount, prog: clone(effectiveProg),
+    };
+    setLibrary((list) => [entry, ...list]);
+    setDocMeta((m) => ({ ...m, title, source: "saved" }));
+  }
+
+  /** Recall a saved progression as the working document. */
+  function openFromLibrary(entry) {
+    loadProgression(clone(entry.prog), { title: entry.title, composer: entry.composer, source: "library" });
+  }
+  function deleteFromLibrary(id) {
+    setLibrary((list) => list.filter((e) => e.id !== id));
+  }
+
+  /** Import pasted single-line bar notation (e.g. "Dm7 G7 | Cmaj7") as the
+   *  working document, realized in the current key. */
+  function importPaste() {
+    const text = (pasteText || "").trim();
+    if (!text) { setDocError("Paste a line of chords first (e.g. Dm7 G7 | Cmaj7)."); return; }
+    const prog = parseLeadsheet(text, { tonic, mode });
+    const any = prog?.sections?.some((s) => s.bars.some((b) => b.chords?.length));
+    if (!any) { setDocError("Couldn't read any chords from that line."); return; }
+    loadProgression(prog, { source: "imported" });
+    setPasteText("");
+  }
+
+  /** Decode a Standard MIDI File's bytes into a progression (reads the embedded
+   *  canonical Progression when present; otherwise infers from the notes). */
+  function receiveMidiBytes(bytes) {
+    const prog = progressionFromSMF(bytes);
+    if (!prog) { setDocError("That .mid file doesn't carry a readable progression."); return; }
+    loadProgression(prog, { source: "midi" });
+  }
+
+  /** Open a .mid file (native picker in-plugin → on("fileOpened"); <input> in
+   *  the browser). */
+  function importMidi() {
+    setDocError(null);
+    fileKindRef.current = "midi";
+    if (bridge?.openFile?.("*.mid")) return; // arrives via the fileOpened listener
+    const input = document.createElement("input");
+    input.type = "file"; input.accept = ".mid,.midi,audio/midi";
+    input.onchange = () => {
+      const f = input.files?.[0];
+      if (!f) return;
+      f.arrayBuffer().then((buf) => receiveMidiBytes(new Uint8Array(buf)))
+        .catch(() => setDocError("Couldn't read that file."));
+    };
+    input.click();
+  }
+
   return (
     <div className="es-app" style={{ padding: "var(--es-space-4)" }}>
       <div style={{ maxWidth: 900, margin: "0 auto" }}>
@@ -716,6 +813,73 @@ export default function App() {
             {curatedEntries.length > 0 && <> · {curatedEntries.length} curated weight{curatedEntries.length > 1 ? "s" : ""}</>}
           </p>
         </header>
+
+        {/* Document strip — the progression as a document: who it is, where it
+            came from, and the four front doors (New · Generate · Open · Import). */}
+        <div className="es-panel" style={{ marginBottom: "var(--es-space-3)" }}>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: "var(--es-space-2)", alignItems: "flex-end" }}>
+            <label style={LBL}>Title
+              <input className="es-control" style={{ minWidth: 180 }} placeholder="Untitled progression"
+                value={docMeta.title} onChange={(e) => setDocMeta((m) => ({ ...m, title: e.target.value }))} />
+            </label>
+            <label style={LBL}>Composer
+              <input className="es-control" style={{ minWidth: 140 }} placeholder="—"
+                value={docMeta.composer} onChange={(e) => setDocMeta((m) => ({ ...m, composer: e.target.value }))} />
+            </label>
+            <span className="es-badge" title="Where this progression came from"
+              style={{ alignSelf: "center" }}>{docMeta.source} · {tonic} {mode} · {docBarCount} bar{docBarCount === 1 ? "" : "s"}</span>
+            <span style={{ flex: 1 }} />
+            <button className="es-btn es-small" title="Blank the sheet — start a new progression from scratch"
+              onClick={() => { handleClear(); setDocMeta({ title: "", composer: "", source: "new" }); }}>New</button>
+            <button className="es-btn es-small" title="Recall a saved progression" aria-pressed={libraryOpen}
+              onClick={() => { setLibraryOpen((o) => !o); setImportOpen(false); }}>Open…{library.length ? ` (${library.length})` : ""}</button>
+            <button className="es-btn es-small" title="Paste bar notation or open a .mid file" aria-pressed={importOpen}
+              onClick={() => { setImportOpen((o) => !o); setLibraryOpen(false); }}>Import…</button>
+            <button className="es-btn es-small es-primary" title="Save this progression to your library" onClick={saveToLibrary}>Save to library</button>
+          </div>
+          {docError && <p style={{ color: "var(--es-danger, #b3261e)", fontSize: "var(--es-text-sm)", margin: "var(--es-space-2) 0 0" }}>{docError}</p>}
+
+          {importOpen && (
+            <div style={{ marginTop: "var(--es-space-3)", paddingTop: "var(--es-space-3)", borderTop: "1px solid var(--es-border)" }}>
+              <label style={{ ...LBL, width: "100%" }}>Paste a progression (one line; bars split on <code>|</code>, repeat with <code>%</code>)
+                <textarea className="es-control" rows={2} style={{ width: "100%", fontFamily: "var(--es-font-mono, monospace)" }}
+                  placeholder="Dm7 G7 | Cmaj7 | A7 | Dm7"
+                  value={pasteText} onChange={(e) => setPasteText(e.target.value)} />
+              </label>
+              <div style={{ display: "flex", gap: "var(--es-space-2)", marginTop: "var(--es-space-2)" }}>
+                <button className="es-btn es-small es-primary" onClick={importPaste}>Use pasted chords</button>
+                <button className="es-btn es-small" title="Open a Standard MIDI File" onClick={importMidi}>Open .mid…</button>
+                <span style={{ fontSize: "var(--es-text-xs)", color: "var(--es-fg-muted)", alignSelf: "center" }}>
+                  realized in {tonic} {mode}
+                </span>
+              </div>
+            </div>
+          )}
+
+          {libraryOpen && (
+            <div style={{ marginTop: "var(--es-space-3)", paddingTop: "var(--es-space-3)", borderTop: "1px solid var(--es-border)" }}>
+              {library.length === 0
+                ? <p style={{ color: "var(--es-fg-muted)", fontSize: "var(--es-text-sm)", margin: 0 }}>
+                    No saved progressions yet. Save the current one to start your library.
+                  </p>
+                : <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "flex", flexDirection: "column", gap: 4 }}>
+                    {library.map((e) => (
+                      <li key={e.id} style={{ display: "flex", gap: "var(--es-space-2)", alignItems: "center" }}>
+                        <button className="es-btn es-small" style={{ flex: 1, justifyContent: "flex-start", textAlign: "left" }}
+                          title="Open this progression" onClick={() => openFromLibrary(e)}>
+                          <strong>{e.title}</strong>
+                          <span style={{ color: "var(--es-fg-muted)", marginLeft: 8, fontSize: "var(--es-text-xs)" }}>
+                            {e.composer ? `${e.composer} · ` : ""}{e.key} · {e.bars} bar{e.bars === 1 ? "" : "s"} · {e.source}
+                          </span>
+                        </button>
+                        <button className="es-btn es-small" aria-label={`Delete ${e.title}`} title="Remove from library"
+                          onClick={() => deleteFromLibrary(e.id)}>✕</button>
+                      </li>
+                    ))}
+                  </ul>}
+            </div>
+          )}
+        </div>
 
         <div style={{ display: "flex", flexWrap: "wrap", gap: "var(--es-space-3)", alignItems: "stretch", marginBottom: "var(--es-space-3)" }}>
           <GenGroup label="Tune">
