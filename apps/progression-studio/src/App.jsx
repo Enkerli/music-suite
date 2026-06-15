@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import table from "./data/transitions.json";
-import { BEATS_PER_BAR, chordCompletions, chordSlots, generateLabels, generateSections, labelMass, nextChordSuggestions, realizeLabel, rhythmBeats, rhythmPlan, startLabel, voiceChord, voiceProgression, voicingSuggestions } from "./generate.js";
+import { BEATS_PER_BAR, chordCompletions, chordSlots, divideBar, generateLabels, generateSections, labelMass, nextChordSuggestions, realizeLabel, rhythmBeats, rhythmPlan, startLabel, voiceChord, voiceProgression, voicingSuggestions } from "./generate.js";
 import { chordStartBeats, exportProgression, voicingsToClip } from "./exportMidi.js";
 import { createBridge } from "./juceBridge.js";
 import { assertDegree, parseLeadsheet, realizeChord } from "@enkerli/theory";
@@ -21,13 +21,17 @@ function chordsFromProgression(prog, key) {
       if (out.length) out.push(out[out.length - 1]);
       continue;
     }
-    for (const c of bar.chords) {
+    // Durations follow the leadsheet convention: the chords in a bar divide
+    // its beats metrically (3 → half + quarter + quarter). Derived from the
+    // count, so inserting/removing a chord re-divides the bar — no overflow.
+    const durs = divideBar(bar.chords.length);
+    bar.chords.forEach((c, i) => {
       const r = realizeChord(c, key);
       const label = c.source === "degree" && c.degree
         ? c.degree.numeral + c.degree.suffix
         : (c.inputText ?? r.symbol);
-      out.push({ ...r, label, voicing: c.voicing, dur: c.dur ?? 2 });
-    }
+      out.push({ ...r, label, voicing: c.voicing, dur: durs[i] });
+    });
   }
   return out;
 }
@@ -74,20 +78,21 @@ function functionalOfRealized(r, key) {
   }
 }
 
-/** Build a Progression from generated labels and a bar plan (from rhythmPlan).
- *  Chord-bars consume labels and stamp each chord's `dur`; held bars become
- *  repeat bars (`%`), so a multi-bar chord keeps its barlines. */
+/** Build a Progression from generated labels and a bar plan (from rhythmPlan):
+ *  each chord-bar takes that many labels, held bars become repeat bars (`%`).
+ *  Durations aren't stored — they're derived from each bar's chord count at
+ *  realization (chordsFromProgression / divideBar). */
 function buildProgression(labels, plan, key) {
   const bars = [];
   let li = 0;
   for (const p of plan) {
     if (p.repeat) { bars.push({ chords: [], repeat: true }); continue; }
     const chords = [];
-    for (const d of p.durs) {
+    for (let k = 0; k < p.durs.length; k++) {
       const label = labels[li++];
       if (label == null) break;
       const ch = parseLeadsheet(label, key).sections[0]?.bars[0]?.chords[0];
-      if (ch) { ch.dur = d; chords.push(ch); }
+      if (ch) chords.push(ch);
     }
     bars.push({ chords });
   }
@@ -507,16 +512,15 @@ export default function App() {
   // The genId an op produces (only opCount changes for extend/clear/reset).
   const genIdFor = (op) => `${tonic}|${mode}|${seed}|${bars}|${harmonicRhythm}|${temperature}|${method}|${startFrom}|${variety}|${op}`;
 
-  /** Append a chord into the working progression, packing 4/4 bars by
-   *  duration (an added chord defaults to the current harmonic rhythm; fill
-   *  the last bar until it's full, then start a new one). */
+  /** Append a chord into the working progression, filling the last bar to the
+   *  current rhythm's density (chords/bar) before starting a new bar.
+   *  Durations are derived from the bar's count at realization. */
   function appendChord(prog, ch) {
-    if (!ch.dur) ch.dur = rhythmBeats(harmonicRhythm);
     if (!prog.sections.length) prog.sections = [{ bars: [] }];
     const barsArr = prog.sections[0].bars;
     const last = barsArr[barsArr.length - 1];
-    const beats = (b) => b.chords.reduce((s, c) => s + (c.dur ?? 2), 0);
-    if (last && !last.repeat && beats(last) + ch.dur <= BEATS_PER_BAR) last.chords.push(ch);
+    const perBar = Math.max(1, Math.round(BEATS_PER_BAR / rhythmBeats(harmonicRhythm)));
+    if (last && !last.repeat && last.chords.length < perBar) last.chords.push(ch);
     else barsArr.push({ chords: [ch] });
   }
 

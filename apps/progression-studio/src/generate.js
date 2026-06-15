@@ -429,6 +429,22 @@ export function chordSlots(plan) {
   return plan.reduce((n, b) => n + (b.durs ? b.durs.length : 0), 0);
 }
 
+/**
+ * Leadsheet bar division: how `n` chords share a bar's beats. The lead-sheet
+ * convention divides the bar metrically and front-loads the longer note —
+ * 1 → [4], 2 → [2,2], 3 → [2,1,1] (half + quarter + quarter), 4 → [1,1,1,1].
+ * More chords than beats fall to an even split (eighths and finer).
+ */
+export function divideBar(n, beats = BEATS_PER_BAR) {
+  if (n <= 1) return [beats];
+  if (n <= beats) {
+    const base = Math.floor(beats / n);
+    const rem = beats - base * n; // give the extra to the earliest chords
+    return Array.from({ length: n }, (_, i) => base + (i < rem ? 1 : 0));
+  }
+  return Array.from({ length: n }, () => beats / n);
+}
+
 /** Shift a whole voicing by octaves to sit in the register nearest `prev`
  *  (keeps register continuity without revoicing — the "loose" middle). */
 function octaveAlign(notes, prev) {

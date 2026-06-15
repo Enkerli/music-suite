@@ -173,6 +173,20 @@ describe("variety de-emphasis", () => {
   });
 });
 
+describe("bar division (leadsheet convention)", async () => {
+  const { divideBar } = await import("./generate.js");
+  it("divides a 4/4 bar metrically, front-loading the longer note", () => {
+    expect(divideBar(1)).toEqual([4]);
+    expect(divideBar(2)).toEqual([2, 2]);
+    expect(divideBar(3)).toEqual([2, 1, 1]); // half + quarter + quarter
+    expect(divideBar(4)).toEqual([1, 1, 1, 1]);
+    for (const n of [1, 2, 3, 4, 5, 6]) {
+      expect(divideBar(n).reduce((a, b) => a + b, 0)).toBeCloseTo(4); // always fills the bar
+      expect(divideBar(n)).toHaveLength(n);
+    }
+  });
+});
+
 describe("harmonic rhythm", async () => {
   const { rhythmPlan, rhythmBeats, chordSlots, BEATS_PER_BAR } = await import("./generate.js");
   const planBeats = (plan) =>
