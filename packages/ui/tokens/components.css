@@ -375,3 +375,29 @@ select.es-control option { background: var(--es-bg-raised); color: var(--es-fg);
 /* Chord-follow highlight on the leadsheet editor (playhead) */
 .es-ls-chord.active { background: var(--es-accent); color: var(--es-accent-fg); }
 .es-ls-chord.active .es-ls-real { color: var(--es-accent-fg); opacity: .8; }
+
+/* Ghost chip — live MIDI writes into the document at the write cursor.
+   A pending, dashed cell sitting just below the sheet; Add commits it. */
+.es-ls-ghost {
+  margin-top: var(--es-space-3);
+  padding: var(--es-space-2) var(--es-space-3);
+  border: 1px dashed var(--es-accent);
+  border-radius: var(--es-radius-sm);
+  background: var(--es-bg-raised);
+}
+.es-ls-ghost-chip {
+  display: inline-flex; align-items: baseline;
+  padding: var(--es-space-1) var(--es-space-2);
+  border: 1px dashed var(--es-border-strong); border-radius: var(--es-radius-sm);
+  background: var(--es-bg-sunken); font-family: var(--es-font-sans);
+}
+.es-ls-ghost-chip strong { font-size: 1.125rem; }
+
+/* MIDI status line — routing + what's latched; the building happens at the
+   ghost chip, not here. */
+.es-statusline {
+  display: flex; align-items: center; gap: var(--es-space-2); flex-wrap: wrap;
+  padding: var(--es-space-2) var(--es-space-3);
+  border: 1px solid var(--es-border); border-radius: var(--es-radius-md);
+  background: var(--es-bg-raised);
+}

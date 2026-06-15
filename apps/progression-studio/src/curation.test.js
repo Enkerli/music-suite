@@ -9,6 +9,7 @@ import {
   mergeCuration,
   multiplierFor,
   pairKey,
+  profileSummary,
   rateProgression,
   resetTransition,
   TRANSITION_STEP,
@@ -30,6 +31,22 @@ describe("mergeCuration", () => {
       .multipliers["A → B"]).toBe(16); // 64 clamped
     expect(mergeCuration({ multipliers: { "X → Y": 2 } }, { multipliers: { "X → Y": 0.5 } })
       .multipliers["X → Y"]).toBeUndefined(); // 2 × 0.5 = 1 → dropped
+  });
+});
+
+describe("profileSummary (profile-as-shape)", () => {
+  it("surfaces the strongest boosts and suppressions with a total count", () => {
+    const c = { multipliers: { "V7 → I": 4, "IIm7 → V7": 1.5, "I → IV": 0.5, "VI → II": 0.25, "X → Y": 1.1 } };
+    const s = profileSummary(c, { max: 2 });
+    expect(s.count).toBe(5);
+    expect(s.boosts.map(([k]) => k)).toEqual(["V7 → I", "IIm7 → V7"]); // strongest first
+    expect(s.suppressions.map(([k]) => k)).toEqual(["VI → II", "I → IV"]); // most-suppressed first
+  });
+
+  it("is empty and safe on a blank profile", () => {
+    const s = profileSummary({ multipliers: {} });
+    expect(s).toEqual({ boosts: [], suppressions: [], count: 0 });
+    expect(profileSummary(undefined).count).toBe(0);
   });
 });
 

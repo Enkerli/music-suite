@@ -16,5 +16,6 @@ describe("App render smoke", () => {
     expect(html).toContain("New take"); // grouped generator (was "Generate")
     expect(html).toContain("More like this"); // unified leadsheet + curation surface
     expect(html).toContain("Save to library"); // document strip (library & import, Step 03)
+    expect(html).toContain("Your profile"); // curation summarized — profile-as-shape (Step 05)
   });
 });

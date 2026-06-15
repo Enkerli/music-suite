@@ -89,6 +89,19 @@ export function multiplierFor(curation, from, to) {
 }
 
 /**
+ * Profile-as-shape: the strongest few boosts and suppressions plus the total
+ * count — a glanceable summary of taste, instead of the full weight ledger.
+ * Boosts are ordered strongest-first (largest multiplier); suppressions
+ * most-suppressed-first (smallest multiplier).
+ */
+export function profileSummary(curation, { max = 4 } = {}) {
+  const entries = Object.entries(curation?.multipliers ?? {});
+  const boosts = entries.filter(([, v]) => v > 1).sort((a, b) => b[1] - a[1]).slice(0, max);
+  const suppressions = entries.filter(([, v]) => v < 1).sort((a, b) => a[1] - b[1]).slice(0, max);
+  return { boosts, suppressions, count: entries.length };
+}
+
+/**
  * Merge an incoming profile into a base, compounding multipliers on shared
  * transitions (base × incoming, clamped) — two boosts stack, a boost and a
  * cut partly cancel. Transitions present in only one side are kept as-is.

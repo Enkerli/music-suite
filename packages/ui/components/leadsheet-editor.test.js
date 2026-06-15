@@ -98,6 +98,18 @@ describe("leadsheet editor — inspector (tap a chord)", () => {
     expect(cMaj).toBeGreaterThan(cDim);
   });
 
+  it("shows a 'why this chord' rationale (curation lineage) in the inspector", () => {
+    const el = document.createElement("div");
+    createLeadsheetEditor(el, {
+      text: "Dm7 | G7 | Cmaj7", key: C, showKey: false,
+      rationaleOf: (i) => (i === 2 ? "You favor V7→I — boosted ×1.50 in your profile." : null),
+    });
+    click(el.querySelectorAll(".es-ls-chord")[2]); // open Cmaj7
+    expect(el.querySelector(".es-ls-inspector").textContent).toContain("You favor V7→I");
+    click(el.querySelectorAll(".es-ls-chord")[1]); // G7 has no lineage
+    expect(el.querySelector(".es-ls-inspector").textContent).not.toContain("You favor");
+  });
+
   it("deletes a chord from the inspector", () => {
     const el = document.createElement("div");
     const ed = createLeadsheetEditor(el, { text: "Dm7 G7 Cmaj7", key: C, showKey: false });

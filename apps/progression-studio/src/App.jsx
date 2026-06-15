@@ -107,15 +107,16 @@ function buildProgression(labels, plan, key) {
  *  Mounts once; the caller forces a remount (via React key) on external
  *  ops (generate/extend/clear/key change) so internal edits don't reset it.
  *  activeIndex drives the chord-follow highlight without remounting. */
-function LeadsheetEdit({ progression, activeIndex, onEdit, suggest, onRate, ratingOf, ratingSignal, tool }) {
+function LeadsheetEdit({ progression, activeIndex, onEdit, suggest, onRate, ratingOf, rationaleOf, ratingSignal, tool }) {
   const hostRef = useRef(null);
   const edRef = useRef(null);
   // The editor is built once (remounted via key); read callbacks through refs
-  // so the "+" picker and the 👍/👎 controls always see current state (latched
-  // chord, voicings, curation).
+  // so the "+" picker, the 👍/👎 controls, and the inspector's "why" always see
+  // current state (latched chord, voicings, curation).
   const suggestRef = useRef(suggest); suggestRef.current = suggest;
   const onRateRef = useRef(onRate); onRateRef.current = onRate;
   const ratingOfRef = useRef(ratingOf); ratingOfRef.current = ratingOf;
+  const rationaleOfRef = useRef(rationaleOf); rationaleOfRef.current = rationaleOf;
   useEffect(() => {
     edRef.current = createLeadsheetEditor(hostRef.current, {
       progression: clone(progression),
@@ -125,6 +126,7 @@ function LeadsheetEdit({ progression, activeIndex, onEdit, suggest, onRate, rati
       suggest: (ctx) => suggestRef.current?.(ctx) ?? [],
       onRate: (i, dir) => onRateRef.current?.(i, dir),
       ratingOf: (i) => ratingOfRef.current?.(i) ?? 1,
+      rationaleOf: (i) => rationaleOfRef.current?.(i) ?? null,
       tool,
     });
     return () => edRef.current.destroy();
@@ -147,6 +149,7 @@ import {
   mergeCuration,
   multiplierFor,
   pairKey,
+  profileSummary,
   PROGRESSION_STEP,
   rateProgression,
   resetTransition,
@@ -344,6 +347,8 @@ export default function App() {
   const [importOpen, setImportOpen] = useState(false);
   const [pasteText, setPasteText] = useState("");
   const [docError, setDocError] = useState(null);
+  const [ghostOpen, setGhostOpen] = useState(false); // ghost chip's inline completions/voicings disclosure
+  const [showAllWeights, setShowAllWeights] = useState(false); // full curation ledger (one disclosure away)
   const [voiceLeadMode, setVoiceLeadMode] = useState("strict"); // none | loose | strict
   const [variety, setVariety] = useState("fresh"); // faithful | fresh | bold — de-emphasize repeats/returns/ii-V-I
   const [voicingShape, setVoicingShape] = useState("close"); // close|open|drop2|drop3|spread|rootless|shell
@@ -607,6 +612,24 @@ export default function App() {
     const to = functionalOfRealized(chords[i], { tonic, mode });
     return from && to ? multiplierFor(curation, from, to) : 1;
   }
+
+  /** Lineage for the inspector's "why this chord": ties curation to rationale
+   *  (Step 05) — when the move into chord `i` is one you've biased, say so, so
+   *  curation and "why this chord" are the same story. Neutral moves return
+   *  null (no invented rationale). */
+  function chordRationale(i) {
+    if (i <= 0 || i >= chords.length) return null;
+    const from = functionalOfRealized(chords[i - 1], { tonic, mode });
+    const to = functionalOfRealized(chords[i], { tonic, mode });
+    if (!from || !to || from === to) return null;
+    const mult = multiplierFor(curation, from, to);
+    if (mult > 1.001) return `You favor ${from}→${to} — boosted ×${mult.toFixed(2)} in your profile.`;
+    if (mult < 0.999) return `You’ve eased off ${from}→${to} — softened ÷${(1 / mult).toFixed(2)} in your profile.`;
+    return null;
+  }
+
+  // Profile-as-shape (Step 05): the strongest few boosts/suppressions + count.
+  const profileShape = useMemo(() => profileSummary(curation, { max: 4 }), [curation]);
 
   /** Add the latched MIDI chord to the leadsheet (ChordID), locking a voicing
    *  — the notes as played by default, or `voicing` (a chosen alternative).
@@ -1026,7 +1049,64 @@ export default function App() {
           </div>
           <LeadsheetEdit key={genId} progression={effectiveProg} activeIndex={playIdx}
             onEdit={(p) => setEdited({ genId, prog: p })} suggest={suggestNext}
-            onRate={rateIncoming} ratingOf={incomingRating} ratingSignal={curation} tool={tool} />
+            onRate={rateIncoming} ratingOf={incomingRating} rationaleOf={chordRationale}
+            ratingSignal={curation} tool={tool} />
+
+          {/* Ghost chip — live MIDI writes into the document at a write cursor
+              (the end of the sheet). The held chord shows here as a pending
+              cell; Add commits it (locking the voicing as played) and advances
+              the cursor. Completions and alternate voicings hang off it as an
+              inline disclosure, at the point of action (Step 04). */}
+          {IN_PLUGIN && latched && (
+            <div className="es-ls-ghost" role="group" aria-label="Held MIDI chord — ready to write">
+              <div style={{ display: "flex", alignItems: "center", gap: "var(--es-space-2)", flexWrap: "wrap" }}>
+                <span className="es-eyebrow" title="Where the held chord will land">writes here →</span>
+                <span className="es-ls-ghost-chip">
+                  <strong>{latched.symbol}</strong>
+                  <span className="es-num" style={{ color: "var(--es-fg-muted)", fontSize: "var(--es-text-xs)", marginLeft: 6 }}>
+                    {latched.notes.map((n) => midiName(n)).join(" ")}
+                  </span>
+                </span>
+                {midiChord.notes.length === 0 && <span className="es-badge" title="held after you release the keys">held</span>}
+                <button className="es-btn es-small es-primary" onClick={() => { insertMidiChord(); setGhostOpen(false); }}
+                  title="Write into the leadsheet, locking the voicing as played, and advance">Add</button>
+                <button className="es-btn es-small" onClick={() => { setLatched(null); setGhostOpen(false); }} title="Forget the held chord">Clear</button>
+                {(completions.length > 0 || playedVoicings.length > 0) && (
+                  <button className="es-btn es-small" aria-expanded={ghostOpen} onClick={() => setGhostOpen((o) => !o)}
+                    title="Completions and alternate voicings">{ghostOpen ? "options ▾" : "options ▸"}</button>
+                )}
+              </div>
+              {ghostOpen && (
+                <div style={{ marginTop: "var(--es-space-2)", display: "flex", flexDirection: "column", gap: "var(--es-space-2)" }}>
+                  {completions.length > 0 && (
+                    <div>
+                      <div className="es-eyebrow">complete to a common chord (add one tone)</div>
+                      {completions.map((s, i) => (
+                        <div key={i} style={{ display: "flex", alignItems: "center", gap: "var(--es-space-2)", marginTop: 2 }}>
+                          <span style={{ width: 110, fontWeight: 600 }}>{s.symbol}</span>
+                          <span className="es-num" style={{ flex: 1, color: "var(--es-fg-muted)", fontSize: "var(--es-text-sm)" }}>+ {midiName(s.added)}</span>
+                          <button className="es-btn es-small" onClick={() => { insertCompletion(s); setGhostOpen(false); }}>Add</button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {playedVoicings.length > 0 && (
+                    <div>
+                      <div className="es-eyebrow">other voicings — smoothest from the last chord first</div>
+                      {playedVoicings.map((s, i) => (
+                        <div key={i} style={{ display: "flex", alignItems: "center", gap: "var(--es-space-2)", marginTop: 2 }}>
+                          <span style={{ width: 72, color: "var(--es-fg-2)", fontSize: "var(--es-text-sm)" }}>{s.label}</span>
+                          <span className="es-num" style={{ flex: 1, color: "var(--es-fg-muted)", fontSize: "var(--es-text-sm)" }}>{s.notes.map((n) => midiName(n)).join(" ")}</span>
+                          <span className="es-badge" title="total semitones of voice movement from the last chord">{s.movement} st</span>
+                          <button className="es-btn es-small" onClick={() => { insertMidiChord(s.notes); setGhostOpen(false); }}>Add</button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
 
           <div style={{ display: "flex", gap: "var(--es-space-2)", marginTop: "var(--es-space-4)", flexWrap: "wrap" }}>
             <button
@@ -1064,74 +1144,60 @@ export default function App() {
           </div>
         </details>
 
+        {/* MIDI input is now a status line — the building happens at the ghost
+            chip in the document (Step 04). This reports routing and what's
+            latched/listening, not a second place to add chords. */}
         {IN_PLUGIN && (
-          <details className="es-section" open style={{ marginTop: "var(--es-space-3)" }}>
-            <summary>MIDI chord input
-              {midiChord.notes.length > 0 && <span style={{ color: "var(--es-accent)", fontWeight: 400 }}> · playing {midiChord.symbol ?? "…"}</span>}
-            </summary>
-            <div className="es-section-body">
-              {!latched ? (
-                <p style={{ color: "var(--es-fg-muted)", margin: 0 }}>Play a chord on a MIDI keyboard routed into this plugin — it's identified here and held, so you can release both hands and then add it (with the voicing as you played it). It's also offered in the leadsheet's “+” picker.</p>
-              ) : (
-                <>
-                  <div style={{ display: "flex", alignItems: "center", gap: "var(--es-space-3)", flexWrap: "wrap" }}>
-                    <span style={{ fontSize: "var(--es-text-lg)", fontWeight: 600 }}>{latched.symbol}</span>
-                    <span className="es-num" style={{ color: "var(--es-fg-muted)", fontSize: "var(--es-text-sm)" }}>
-                      {latched.notes.map((n) => midiName(n)).join(" ")}
-                    </span>
-                    {midiChord.notes.length === 0 && <span className="es-badge" title="the chord is held after you release the keys">held</span>}
-                    <button className="es-btn" onClick={() => insertMidiChord()}
-                      title="Add to the leadsheet, locking the voicing as played">
-                      Add chord
-                    </button>
-                    <button className="es-btn es-small" onClick={() => setLatched(null)} title="Forget the held chord">
-                      Clear
-                    </button>
-                  </div>
-
-                  {completions.length > 0 && (
-                    <div style={{ marginTop: "var(--es-space-3)" }}>
-                      <div className="es-eyebrow">complete to a common chord (add one tone)</div>
-                      <div style={{ display: "flex", flexDirection: "column", gap: 4, marginTop: "var(--es-space-1)" }}>
-                        {completions.map((s, i) => (
-                          <div key={i} style={{ display: "flex", alignItems: "center", gap: "var(--es-space-2)" }}>
-                            <span style={{ width: 110, fontWeight: 600 }}>{s.symbol}</span>
-                            <span className="es-num" style={{ flex: 1, color: "var(--es-fg-muted)", fontSize: "var(--es-text-sm)" }}>
-                              + {midiName(s.added)}
-                            </span>
-                            <button className="es-btn es-small" onClick={() => insertCompletion(s)}>Add</button>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {playedVoicings.length > 0 && (
-                    <div style={{ marginTop: "var(--es-space-3)" }}>
-                      <div className="es-eyebrow">other voicings — smoothest from the last chord first</div>
-                      <div style={{ display: "flex", flexDirection: "column", gap: 4, marginTop: "var(--es-space-1)" }}>
-                        {playedVoicings.map((s, i) => (
-                          <div key={i} style={{ display: "flex", alignItems: "center", gap: "var(--es-space-2)" }}>
-                            <span style={{ width: 72, color: "var(--es-fg-2)", fontSize: "var(--es-text-sm)" }}>{s.label}</span>
-                            <span className="es-num" style={{ flex: 1, color: "var(--es-fg-muted)", fontSize: "var(--es-text-sm)" }}>
-                              {s.notes.map((n) => midiName(n)).join(" ")}
-                            </span>
-                            <span className="es-badge" title="total semitones of voice movement from the last chord">{s.movement} st</span>
-                            <button className="es-btn es-small" onClick={() => insertMidiChord(s.notes)}>Add</button>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </>
-              )}
-            </div>
-          </details>
+          <div className="es-statusline" style={{ marginTop: "var(--es-space-3)" }}>
+            <span className="es-eyebrow">MIDI in</span>
+            <span className="es-badge" title="MIDI channel routing for export/playback">{channelMode}</span>
+            {latched
+              ? <span style={{ color: "var(--es-fg-muted)", fontSize: "var(--es-text-sm)" }}>
+                  held <strong style={{ color: "var(--es-fg)" }}>{latched.symbol}</strong> — write it at the cursor above
+                </span>
+              : midiChord.notes.length > 0
+                ? <span style={{ color: "var(--es-accent)", fontSize: "var(--es-text-sm)" }}>listening · {midiChord.symbol ?? "…"}</span>
+                : <span style={{ color: "var(--es-fg-muted)", fontSize: "var(--es-text-sm)" }}>play a chord on a routed MIDI keyboard — it's identified, held, and ready to write into the sheet</span>}
+          </div>
         )}
 
 
         {showCuration && (
           <div className="es-panel" style={{ marginTop: "var(--es-space-3)" }}>
+            {/* Profile-as-shape (Step 05): your taste shown as its strongest few
+                boosts and suppressions, not a weight ledger. The full table is
+                one disclosure away. */}
+            <div style={{ display: "flex", alignItems: "baseline", gap: "var(--es-space-2)", flexWrap: "wrap" }}>
+              <h2 style={{ fontSize: "var(--es-text-md)", margin: "0 0 var(--es-space-2)" }}>Your profile</h2>
+              <span style={{ color: "var(--es-fg-muted)", fontSize: "var(--es-text-sm)" }}>
+                {profileShape.count === 0 ? "no taste tweaks yet" : `${profileShape.count} tuned transition${profileShape.count === 1 ? "" : "s"}`}
+              </span>
+            </div>
+            {profileShape.count === 0 ? (
+              <p style={{ color: "var(--es-fg-muted)", fontSize: "var(--es-text-sm)", margin: "0 0 var(--es-space-3)" }}>
+                Rate chords (👍/👎 in the editor) or whole takes to shape what the generator and the MIDI picker favor. Your strongest leanings show up here.
+              </p>
+            ) : (
+              <div style={{ display: "flex", flexWrap: "wrap", gap: "var(--es-space-3)", marginBottom: "var(--es-space-3)" }}>
+                {profileShape.boosts.length > 0 && (
+                  <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                    <span className="es-eyebrow">favors</span>
+                    {profileShape.boosts.map(([key, v]) => (
+                      <span key={key} className="es-badge es-up" title={`boosted ×${v.toFixed(2)}`}>{key} ×{v.toFixed(1)}</span>
+                    ))}
+                  </div>
+                )}
+                {profileShape.suppressions.length > 0 && (
+                  <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                    <span className="es-eyebrow">eases off</span>
+                    {profileShape.suppressions.map(([key, v]) => (
+                      <span key={key} className="es-badge" title={`softened ÷${(1 / v).toFixed(2)}`}>{key} ÷{(1 / v).toFixed(1)}</span>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
             <h2 style={{ fontSize: "var(--es-text-md)", margin: "0 0 var(--es-space-2)" }}>Transitions in this progression</h2>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: "var(--es-space-2)" }}>
               {transitions.map(({ from, to, key }) => {
@@ -1151,19 +1217,22 @@ export default function App() {
 
             {curatedEntries.length > 0 && (
               <>
-                <h2 style={{ fontSize: "var(--es-text-md)", margin: "var(--es-space-4) 0 var(--es-space-2)" }}>
-                  Curated weights ({curatedEntries.length})
-                </h2>
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: "var(--es-space-2)" }}>
-                  {curatedEntries.map(([key, value]) => (
-                    <div key={key} style={{ display: "flex", alignItems: "center", gap: "var(--es-space-2)", fontSize: "var(--es-text-sm)" }}>
-                      <span className="es-num" style={{ flex: 1 }}>{key}</span>
-                      <MultiplierBadge value={value} />
-                      <button className="es-btn es-small" aria-label={`Reset ${key}`} title="Reset to corpus weight"
-                        onClick={() => setCuration((c) => resetTransition(c, key))}>↺</button>
-                    </div>
-                  ))}
-                </div>
+                <button className="es-btn es-small" style={{ marginTop: "var(--es-space-4)" }}
+                  aria-expanded={showAllWeights} onClick={() => setShowAllWeights((s) => !s)}>
+                  {showAllWeights ? "Hide all weights ▾" : `All weights (${curatedEntries.length}) ▸`}
+                </button>
+                {showAllWeights && (
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: "var(--es-space-2)", marginTop: "var(--es-space-2)" }}>
+                    {curatedEntries.map(([key, value]) => (
+                      <div key={key} style={{ display: "flex", alignItems: "center", gap: "var(--es-space-2)", fontSize: "var(--es-text-sm)" }}>
+                        <span className="es-num" style={{ flex: 1 }}>{key}</span>
+                        <MultiplierBadge value={value} />
+                        <button className="es-btn es-small" aria-label={`Reset ${key}`} title="Reset to corpus weight"
+                          onClick={() => setCuration((c) => resetTransition(c, key))}>↺</button>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </>
             )}
 
