@@ -13,7 +13,7 @@ describe("App render smoke", () => {
   it("renders without throwing and mounts the core UI", () => {
     const html = renderToString(React.createElement(App));
     expect(html).toContain("Progression Studio");
-    expect(html).toContain("Generate");
+    expect(html).toContain("New take"); // grouped generator (was "Generate")
     expect(html).toContain("More like this"); // unified leadsheet + curation surface
   });
 });

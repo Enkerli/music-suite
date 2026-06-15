@@ -40,6 +40,7 @@ const clone = (o) => JSON.parse(JSON.stringify(o));
 
 const SHARP = ["C", "C♯", "D", "D♯", "E", "F", "F♯", "G", "G♯", "A", "A♯", "B"];
 const midiName = (m) => SHARP[((m % 12) + 12) % 12] + (Math.floor(m / 12) - 1);
+const LBL = { display: "grid", gap: 4, fontSize: "var(--es-text-sm)" }; // generator control label
 
 /** The transition-table label (numeral + suffix) for a progression chord, in
  *  a key — degree chords read it off directly; absolute chords derive the
@@ -289,6 +290,24 @@ function CorpusStats({ table, mode, statsLabel, setStatsLabel, curation, setCura
   );
 }
 
+/** A labelled group of generator controls (Step 02 — generator, grouped).
+ *  Optionally collapsible (the "Sound · advanced" group defaults closed). */
+function GenGroup({ label, hint, children, advanced, open, onToggle }) {
+  return (
+    <div style={{ border: "1px solid var(--es-border)", borderRadius: "var(--es-radius-sm)", padding: "8px 10px 10px", background: "var(--es-bg-raised)" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: (advanced && !open) ? 0 : 6 }}>
+        <span className="es-eyebrow">{label}</span>
+        {hint && <span style={{ fontSize: "var(--es-text-xs)", color: "var(--es-fg-muted)" }}>{hint}</span>}
+        {advanced && <button className="es-btn es-small" style={{ marginLeft: "auto", padding: "0 7px" }}
+          aria-expanded={open} aria-label={`${open ? "Hide" : "Show"} ${label}`} onClick={onToggle}>{open ? "▾" : "▸"}</button>}
+      </div>
+      {(!advanced || open) && (
+        <div style={{ display: "flex", flexWrap: "wrap", gap: "var(--es-space-2)", alignItems: "end" }}>{children}</div>
+      )}
+    </div>
+  );
+}
+
 export default function App() {
   const [tonic, setTonic] = useState("C");
   const [mode, setMode] = useState("major");
@@ -315,6 +334,8 @@ export default function App() {
   const [resetArmed, setResetArmed] = useState(false); // two-tap confirm (WKWebView has no window.confirm)
   const [pendingProfile, setPendingProfile] = useState(null); // a loaded profile awaiting Replace/Merge
   const [profileError, setProfileError] = useState(null);
+  const [soundOpen, setSoundOpen] = useState(false); // "Sound · advanced" generator group
+  const fileKindRef = useRef("profile"); // routes a native "fileOpened" to the right loader (profile | patch)
   const [voiceLeadMode, setVoiceLeadMode] = useState("strict"); // none | loose | strict
   const [variety, setVariety] = useState("fresh"); // faithful | fresh | bold — de-emphasize repeats/returns/ii-V-I
   const [voicingShape, setVoicingShape] = useState("close"); // close|open|drop2|drop3|spread|rootless|shell
@@ -355,13 +376,14 @@ export default function App() {
         setVariety(s.variety ?? "faithful"); // pre-variety sessions keep their original walk
       } catch { /* malformed saved state — keep defaults */ }
     });
-    // A profile file chosen via the native picker comes back base64-encoded;
-    // decode as UTF-8 (the labels carry ♭/♯/→) and stage it for Replace/Merge.
+    // A file chosen via the native picker comes back base64-encoded; decode as
+    // UTF-8 (labels carry ♭/♯/→) and route to the loader that asked for it.
     const offFile = bridge.on("fileOpened", (d) => {
       try {
         const bin = atob(d?.b64 ?? "");
-        const bytes = Uint8Array.from(bin, (ch) => ch.charCodeAt(0));
-        receiveProfileText(new TextDecoder().decode(bytes));
+        const text = new TextDecoder().decode(Uint8Array.from(bin, (ch) => ch.charCodeAt(0)));
+        if (fileKindRef.current === "patch") applyPatchText(text);
+        else receiveProfileText(text);
       } catch { setProfileError("Couldn't read that file."); }
     });
     bridge.ready();
@@ -630,10 +652,55 @@ export default function App() {
    *  <input type=file> in the browser). */
   function loadProfile() {
     setProfileError(null);
+    fileKindRef.current = "profile";
     if (bridge?.openFile?.("*.json")) return; // arrives via the fileOpened listener
     const input = document.createElement("input");
     input.type = "file"; input.accept = ".json,application/json";
     input.onchange = () => input.files?.[0]?.text().then(receiveProfileText).catch(() => setProfileError("Couldn't read that file."));
+    input.click();
+  }
+
+  // ── Patches — save/recall a whole generator parameter set (Step 02) ──────
+  /** The generator settings (a "patch") — not the document, not the profile. */
+  function currentPatch() {
+    return { tonic, mode, bars, harmonicRhythm, temperature, variety, method, startFrom, voicingShape, voiceLeadMode, channelMode };
+  }
+  /** Apply a loaded patch's settings (each field validated by its setter). */
+  function applyPatchText(text) {
+    try {
+      const p = JSON.parse(text);
+      const s = p && (p.params ?? p); // accept {params:{…}} or a bare settings object
+      if (!s || typeof s !== "object") throw new Error("not a patch");
+      if (s.tonic) setTonic(s.tonic);
+      if (s.mode) setMode(s.mode);
+      if (s.bars) setBars(s.bars);
+      if (s.harmonicRhythm) setHarmonicRhythm(s.harmonicRhythm);
+      if (typeof s.temperature === "number") setTemperature(s.temperature);
+      if (s.variety) setVariety(s.variety);
+      if (s.method) setMethod(s.method);
+      setStartFrom(s.startFrom ?? null);
+      if (s.voicingShape) setVoicingShape(s.voicingShape);
+      if (s.voiceLeadMode) setVoiceLeadMode(s.voiceLeadMode);
+      if (s.channelMode) setChannelMode(s.channelMode);
+      setProfileError(null);
+    } catch { setProfileError("That file isn't a generator patch."); }
+  }
+  function savePatch() {
+    const savedAt = new Date().toISOString();
+    const filename = `proggenie-patch-${savedAt.slice(0, 16).replace(/[:T]/g, "-")}.json`;
+    const bytes = new TextEncoder().encode(JSON.stringify({ format: "proggenie-patch", version: 1, savedAt, params: currentPatch() }, null, 2));
+    if (bridge?.saveFile?.(filename, bytes)) return;
+    const url = URL.createObjectURL(new Blob([bytes], { type: "application/json" }));
+    const a = document.createElement("a"); a.href = url; a.download = filename; a.click();
+    URL.revokeObjectURL(url);
+  }
+  function loadPatch() {
+    setProfileError(null);
+    fileKindRef.current = "patch";
+    if (bridge?.openFile?.("*.json")) return;
+    const input = document.createElement("input");
+    input.type = "file"; input.accept = ".json,application/json";
+    input.onchange = () => input.files?.[0]?.text().then(applyPatchText).catch(() => setProfileError("Couldn't read that file."));
     input.click();
   }
 
@@ -650,133 +717,127 @@ export default function App() {
           </p>
         </header>
 
-        <div style={{ display: "flex", flexWrap: "wrap", gap: "var(--es-space-3)", alignItems: "end", marginBottom: "var(--es-space-4)" }}>
-          <label style={{ display: "grid", gap: 4, fontSize: "var(--es-text-sm)" }}>Key
-            <select className="es-control" value={tonic} onChange={(e) => setTonic(e.target.value)}>
-              {ROOTS.map((r) => <option key={r} value={r}>{r}</option>)}
-            </select>
-          </label>
-          <label style={{ display: "grid", gap: 4, fontSize: "var(--es-text-sm)" }}>Mode
-            <select className="es-control" value={mode} onChange={(e) => setMode(e.target.value)}>
-              <option value="major">major</option>
-              <option value="minor">minor</option>
-            </select>
-          </label>
-          <label style={{ display: "grid", gap: 4, fontSize: "var(--es-text-sm)" }}>Start from
-            <select className="es-control" value={startFrom ?? ""} title="Seed the walk from an arbitrary chord"
-              onChange={(e) => setStartFrom(e.target.value || null)}>
-              <option value="">tonic (auto)</option>
-              {startOptions.map((l) => <option key={l} value={l}>{l}</option>)}
-            </select>
-          </label>
-          <label style={{ display: "grid", gap: 4, fontSize: "var(--es-text-sm)" }}>Engine
-            <select className="es-control" value={method} onChange={(e) => setMethod(e.target.value)}>
-              <option value="markov">corpus walk</option>
-              <option value="markov-cadence">corpus walk + cadence</option>
-              <option value="circle">circle of fifths</option>
-            </select>
-          </label>
-          <label style={{ display: "grid", gap: 4, fontSize: "var(--es-text-sm)" }}>Variety
-            <select className="es-control" value={variety} onChange={(e) => setVariety(e.target.value)}
-              title="De-emphasize static/clichéd moves: repeats (X→X), quick returns (X→Y→X), and ii–V–I">
-              <option value="faithful">faithful</option>
-              <option value="fresh">fresh</option>
-              <option value="bold">bold</option>
-            </select>
-          </label>
-          <label style={{ display: "grid", gap: 4, fontSize: "var(--es-text-sm)" }}>
-            Temperature <span className="es-num">{temperature.toFixed(2)}</span>
-            <input type="range" min="0" max="100" style={{ width: 110, minHeight: "var(--es-ctl-h)" }}
-              aria-label="Transition temperature: higher surfaces more unusual transitions"
-              value={Math.round(50 + 50 * Math.log(temperature) / Math.log(4))}
-              onChange={(e) => setTemperature(Number((4 ** ((Number(e.target.value) - 50) / 50)).toFixed(2)))}
-            />
-          </label>
-          <label style={{ display: "grid", gap: 4, fontSize: "var(--es-text-sm)" }}>Channels
-            <select className="es-control" value={channelMode} onChange={(e) => setChannelMode(e.target.value)}
-              title="Route bass and voices to separate MIDI channels">
-              <option value="single">single (1)</option>
-              <option value="split">bass 1 · chords 2</option>
-              <option value="perVoice">per voice (1…)</option>
-            </select>
-          </label>
-          <label style={{ display: "grid", gap: 4, fontSize: "var(--es-text-sm)" }}>Voicing
-            <select className="es-control" value={voicingShape} onChange={(e) => setVoicingShape(e.target.value)}
-              title="Initial chord voicing shape (the seed for voice leading)">
-              <option value="close">close</option>
-              <option value="open">open</option>
-              <option value="drop2">drop-2</option>
-              <option value="drop3">drop-3</option>
-              <option value="spread">spread</option>
-              <option value="rootless">rootless</option>
-              <option value="shell">shell (3rd+7th)</option>
-            </select>
-          </label>
-          <label style={{ display: "grid", gap: 4, fontSize: "var(--es-text-sm)" }}>Voice leading
-            <select className="es-control" value={voiceLeadMode} onChange={(e) => setVoiceLeadMode(e.target.value)}
-              title="none: home-position shapes · loose: home shapes nudged to the nearest register · strict: minimal taxicab motion (smoothest, may obscure the chord)">
-              <option value="none">none</option>
-              <option value="loose">loose</option>
-              <option value="strict">strict</option>
-            </select>
-          </label>
-          <label style={{ display: "grid", gap: 4, fontSize: "var(--es-text-sm)" }}>Bars
-            <select className="es-control" value={bars} onChange={(e) => setBars(Number(e.target.value))}>
-              {[2, 4, 8, 12, 16, 24, 32].map((n) => <option key={n} value={n}>{n}</option>)}
-            </select>
-          </label>
-          <label style={{ display: "grid", gap: 4, fontSize: "var(--es-text-sm)" }}>Harmonic rhythm
-            <select className="es-control" value={harmonicRhythm} onChange={(e) => setHarmonicRhythm(e.target.value)}
-              title="Default chord length; 'varied' mixes lengths for a breathing harmonic rhythm">
-              <option value="quarter">1 beat</option>
-              <option value="half">½ bar (2 beats)</option>
-              <option value="whole">1 bar</option>
-              <option value="double">2 bars</option>
-              <option value="quad">4 bars</option>
-              <option value="varied">varied</option>
-            </select>
-          </label>
-          {!IN_PLUGIN && <label style={{ display: "grid", gap: 4, fontSize: "var(--es-text-sm)" }}>Tempo
-            <input className="es-control" style={{ width: 72 }} type="number" min="40" max="300" value={bpm} onChange={(e) => setBpm(Number(e.target.value))} />
+        <div style={{ display: "flex", flexWrap: "wrap", gap: "var(--es-space-3)", alignItems: "stretch", marginBottom: "var(--es-space-3)" }}>
+          <GenGroup label="Tune">
+            <label style={LBL}>Key
+              <select className="es-control" value={tonic} onChange={(e) => setTonic(e.target.value)}>
+                {ROOTS.map((r) => <option key={r} value={r}>{r}</option>)}
+              </select>
+            </label>
+            <label style={LBL}>Mode
+              <select className="es-control" value={mode} onChange={(e) => setMode(e.target.value)}>
+                <option value="major">major</option>
+                <option value="minor">minor</option>
+              </select>
+            </label>
+            <label style={LBL}>Bars
+              <select className="es-control" value={bars} onChange={(e) => setBars(Number(e.target.value))}>
+                {[2, 4, 8, 12, 16, 24, 32].map((n) => <option key={n} value={n}>{n}</option>)}
+              </select>
+            </label>
+            <label style={LBL}>Harmonic rhythm
+              <select className="es-control" value={harmonicRhythm} onChange={(e) => setHarmonicRhythm(e.target.value)}
+                title="Default chord length; 'varied' mixes lengths for a breathing harmonic rhythm">
+                <option value="quarter">1 beat</option>
+                <option value="half">½ bar (2 beats)</option>
+                <option value="whole">1 bar</option>
+                <option value="double">2 bars</option>
+                <option value="quad">4 bars</option>
+                <option value="varied">varied</option>
+              </select>
+            </label>
+          </GenGroup>
+
+          <GenGroup label="Adventurousness">
+            <label style={LBL}>
+              Surprise <span className="es-num">{temperature.toFixed(2)}</span>
+              <input type="range" min="0" max="100" style={{ width: 110, minHeight: "var(--es-ctl-h)" }}
+                title="How unusual each move is — how far down a transition's probability list the walk reaches"
+                aria-label="Surprise: higher surfaces more unusual transitions"
+                value={Math.round(50 + 50 * Math.log(temperature) / Math.log(4))}
+                onChange={(e) => setTemperature(Number((4 ** ((Number(e.target.value) - 50) / 50)).toFixed(2)))}
+              />
+            </label>
+            <label style={LBL}>Freshness
+              <select className="es-control" value={variety} onChange={(e) => setVariety(e.target.value)}
+                title="How hard to avoid clichés: repeats (X→X), quick returns (X→Y→X), and V→I cadences">
+                <option value="faithful">faithful</option>
+                <option value="fresh">fresh</option>
+                <option value="bold">bold</option>
+              </select>
+            </label>
+          </GenGroup>
+
+          <GenGroup label="Source">
+            <label style={LBL}>Engine
+              <select className="es-control" value={method} onChange={(e) => setMethod(e.target.value)}>
+                <option value="markov">corpus walk</option>
+                <option value="markov-cadence">corpus walk + cadence</option>
+                <option value="circle">circle of fifths</option>
+              </select>
+            </label>
+            <label style={LBL}>Start from
+              <select className="es-control" value={startFrom ?? ""} title="Seed the walk from an arbitrary chord"
+                onChange={(e) => setStartFrom(e.target.value || null)}>
+                <option value="">tonic (auto)</option>
+                {startOptions.map((l) => <option key={l} value={l}>{l}</option>)}
+              </select>
+            </label>
+          </GenGroup>
+
+          <GenGroup label="Sound" advanced open={soundOpen} onToggle={() => setSoundOpen((o) => !o)}>
+            <label style={LBL}>Voicing
+              <select className="es-control" value={voicingShape} onChange={(e) => setVoicingShape(e.target.value)}
+                title="Initial chord voicing shape (the seed for voice leading)">
+                <option value="close">close</option>
+                <option value="open">open</option>
+                <option value="drop2">drop-2</option>
+                <option value="drop3">drop-3</option>
+                <option value="spread">spread</option>
+                <option value="rootless">rootless</option>
+                <option value="shell">shell (3rd+7th)</option>
+              </select>
+            </label>
+            <label style={LBL}>Voice leading
+              <select className="es-control" value={voiceLeadMode} onChange={(e) => setVoiceLeadMode(e.target.value)}
+                title="none: home shapes · loose: nudged to the nearest register · strict: minimal taxicab motion">
+                <option value="none">none</option>
+                <option value="loose">loose</option>
+                <option value="strict">strict</option>
+              </select>
+            </label>
+            <label style={LBL}>Channels
+              <select className="es-control" value={channelMode} onChange={(e) => setChannelMode(e.target.value)}
+                title="Route bass and voices to separate MIDI channels">
+                <option value="single">single (1)</option>
+                <option value="split">bass 1 · chords 2</option>
+                <option value="perVoice">per voice (1…)</option>
+              </select>
+            </label>
+          </GenGroup>
+        </div>
+
+        <div style={{ display: "flex", flexWrap: "wrap", gap: "var(--es-space-2)", alignItems: "center", marginBottom: "var(--es-space-4)" }}>
+          <button className="es-btn es-primary" title="Re-roll the walk — settings already apply live as you adjust them"
+            onClick={() => { setSeed((s) => s + 1); setExtensions([]); }}>New take</button>
+          <span style={{ fontSize: "var(--es-text-xs)", color: "var(--es-fg-muted)" }}>updates as you adjust</span>
+          <button className="es-btn" title="Append a continuation from the last chord (works from a typed chord, too)" onClick={handleExtend}>+ Extend</button>
+          <button className="es-btn" title="Clear the leadsheet — start from scratch" onClick={handleClear}>Blank</button>
+          <span style={{ alignSelf: "stretch", width: 1, background: "var(--es-border)", margin: "0 4px" }} />
+          <span className="es-eyebrow">patch</span>
+          <button className="es-btn es-small" title="Save these generator settings to a file" onClick={savePatch}>Save…</button>
+          <button className="es-btn es-small" title="Recall generator settings from a file" onClick={loadPatch}>Load…</button>
+          {profileError && <span style={{ color: "var(--es-danger, #b3261e)", fontSize: "var(--es-text-sm)" }}>{profileError}</span>}
+          <span style={{ flex: 1 }} />
+          {!IN_PLUGIN && <label style={{ display: "flex", gap: 6, alignItems: "center", fontSize: "var(--es-text-sm)" }}>Tempo
+            <input className="es-control" style={{ width: 64 }} type="number" min="40" max="300" value={bpm} onChange={(e) => setBpm(Number(e.target.value))} />
           </label>}
-          <button className="es-btn" onClick={() => { setSeed((s) => s + 1); setExtensions([]); }}>
-            Generate
-          </button>
-          <button className="es-btn" title="Append a continuation from the last chord (works from a typed chord, too)"
-            onClick={handleExtend}>
-            + Extend
-          </button>
-          <button className="es-btn" title="Clear the leadsheet — start from scratch"
-            onClick={handleClear}>
-            Blank
-          </button>
-          {!IN_PLUGIN && <button
-            className="es-btn es-primary"
-            onClick={() => (playing ? stop() : play(voicings, bpm))}
-          >
-            {playing ? "Stop" : "Play"}
-          </button>}
-          <button
-            className="es-btn"
-            onClick={() => navigator.clipboard?.writeText(chords.map((c) => c.symbol).join(" | "))}
-          >
-            Copy chords
-          </button>
-          <button
-            className="es-btn"
-            title="Download as a Standard MIDI File (chord symbols as markers)"
-            onClick={() => exportProgression(bridge, voicings, { bpm, tonic, mode, seed, channelMode })}
-          >
-            Export MIDI
-          </button>
-          <button
-            className="es-btn"
-            aria-label="Toggle color theme"
-            title="Light is the house default; dark is one tap away"
-            onClick={() => setThemeState(toggleTheme())}
-          >
-            {theme === "dark" ? "☀︎ Light" : "● Dark"}
-          </button>
+          {!IN_PLUGIN && <button className="es-btn es-primary" onClick={() => (playing ? stop() : play(voicings, bpm))}>{playing ? "Stop" : "Play"}</button>}
+          <button className="es-btn" onClick={() => navigator.clipboard?.writeText(chords.map((c) => c.symbol).join(" | "))}>Copy chords</button>
+          <button className="es-btn" title="Download as a Standard MIDI File (chord symbols as markers)"
+            onClick={() => exportProgression(bridge, voicings, { bpm, tonic, mode, seed, channelMode })}>Export MIDI</button>
+          <button className="es-btn" aria-label="Toggle color theme" title="Light is the house default; dark is one tap away"
+            onClick={() => setThemeState(toggleTheme())}>{theme === "dark" ? "☀︎ Light" : "● Dark"}</button>
         </div>
 
         <div className="es-panel">
