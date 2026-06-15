@@ -266,11 +266,12 @@ select.es-control option { background: var(--es-bg-raised); color: var(--es-fg);
 .es-ls-bars { display: grid; grid-template-columns: repeat(auto-fill, 116px); gap: var(--es-space-2); align-items: stretch; justify-content: start; }
 .es-ls-bar {
   display: flex; align-items: stretch; gap: var(--es-space-2);
-  padding: var(--es-space-2) var(--es-space-2) var(--es-space-2) 0;
-  background: var(--es-bg-raised); border-radius: var(--es-radius-sm); min-width: 0;
+  padding: var(--es-space-2);
+  background: var(--es-bg-raised); min-width: 0;
+  border-left: 2px solid var(--es-border-strong); border-radius: 0; /* the barline = the bar boundary */
 }
 .es-ls-bar > .es-ls-chord { flex: 1 1 0; min-width: 0; }            /* chords share the bar's columns */
-.es-ls-bar > .es-ls-chord + .es-ls-chord { border-left: 1px solid var(--es-border); } /* faint divider within a bar */
+.es-ls-bar > .es-ls-chord + .es-ls-chord { border-left: 1px solid var(--es-border-soft); } /* faint within-bar divider (adjacent chords) */
 .es-ls-repeat { align-items: center; justify-content: center; color: var(--es-fg-muted); font-size: var(--es-text-lg); }
 .es-ls-add { grid-column: span 1; }                                /* "+" and "+ bar" each own one column */
 .es-ls-add:not(.bar) { align-self: center; }
@@ -279,13 +280,12 @@ select.es-control option { background: var(--es-bg-raised); color: var(--es-fg);
   display: flex; flex-direction: column; justify-content: center; gap: 1px;
   min-height: 44px; min-width: 0;
   padding: var(--es-space-1) var(--es-space-2);
-  border: none; border-left: 2px solid var(--es-border-strong);     /* the barline */
+  border: none;                                /* the barline belongs to the bar, not the chord */
   border-radius: 0; background: transparent; color: var(--es-fg); cursor: pointer;
   font-family: var(--es-font-sans); text-align: left;
 }
 .es-ls-chord:hover { background: var(--es-bg-sunken); }
 .es-ls-chord:focus-visible { outline: var(--es-focus-ring); outline-offset: 1px; }
-.es-ls-chord + .es-ls-chord { border-left-color: var(--es-border); } /* inner chords: light rule (set above too) */
 .es-ls-name { font-size: 1.125rem; font-weight: 600; line-height: 1.1; white-space: nowrap; overflow: hidden; }
 .es-ls-sub { display: flex; align-items: center; gap: var(--es-space-1); min-height: 1em; }
 .es-ls-real { font-size: var(--es-text-sm); color: var(--es-fg-muted); font-family: var(--es-font-mono); }
