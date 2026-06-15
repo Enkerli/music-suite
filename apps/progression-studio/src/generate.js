@@ -72,6 +72,38 @@ function weightedPick(row, rng, temperature = 1) {
 /** Identity curation used when none is supplied. */
 const NO_CURATION = { multipliers: {} };
 
+/**
+ * Variety levels — penalties the walk applies to static / clichéd moves so
+ * generation doesn't just echo the corpus's heaviest ruts:
+ *   repeat  — X → X (the same chord again; harmonic rhythm holds chords now)
+ *   return  — X → Y → X (oscillating back two chords)
+ *   cadence — V → I (the rote dominant→tonic resolution — covers I–V–I and
+ *             ii–V–I alike; the full ii–V–I triple takes an extra cut)
+ * "faithful" applies none (pure corpus walk).
+ */
+const VARIETY = {
+  faithful: null,
+  fresh: { repeat: 0.04, return: 0.5, cadence: 0.55 },
+  bold: { repeat: 0.02, return: 0.3, cadence: 0.3 },
+};
+
+/** Down-weight repeats, quick returns, and V→I (rote) cadences in a row. */
+function applyVariety(row, current, prev2, v) {
+  const curNumeral = splitLabel(current)?.numeral;
+  const prevNumeral = prev2 != null ? splitLabel(prev2)?.numeral : null;
+  let adj = null;
+  for (const to of Object.keys(row)) {
+    const toNumeral = splitLabel(to)?.numeral;
+    let f = 1;
+    if (to === current) f *= v.repeat;                                   // X → X
+    if (prev2 != null && to === prev2) f *= v.return;                    // X → Y → X
+    if (curNumeral === "V" && toNumeral === "I") f *= v.cadence;         // V → I (any)
+    if (prevNumeral === "II" && curNumeral === "V" && toNumeral === "I") f *= v.cadence; // ii–V–I, extra
+    if (f !== 1) { adj ??= { ...row }; adj[to] = row[to] * f; }
+  }
+  return adj ?? row;
+}
+
 /** Most common tonic-family label to start from, per mode. */
 export function startLabel(table, mode) {
   const preferred = mode === "minor" ? ["Im7", "Im", "Im6", "ImM7"] : ["Imaj7", "I", "I6"];
@@ -93,7 +125,7 @@ export function startLabel(table, mode) {
  * ear-driven layer (see curation.js); generation stays deterministic
  * for a given (seed, curation) pair.
  */
-export function generateProgression(table, mode, length, seed, curation = NO_CURATION, temperature = 1, startFrom = null) {
+export function generateProgression(table, mode, length, seed, curation = NO_CURATION, temperature = 1, startFrom = null, variety = "faithful") {
   const rng = mulberry32(seed);
   const tonic = startLabel(table, mode);
   const start = startFrom && table[startFrom] ? startFrom : (startFrom ?? tonic);
@@ -116,6 +148,8 @@ export function generateProgression(table, mode, length, seed, curation = NO_CUR
         }
         if (adjusted) row = adjusted;
       }
+      const v = VARIETY[variety];
+      if (v) row = applyVariety(row, current, prev2, v);
       current = weightedPick(row, rng, temperature);
     } else {
       current = tonic; // dead end: come home
@@ -528,9 +562,9 @@ export function generateCircleOfFifths(table, mode, length) {
  * Unified entry point for the UI.
  * method: "markov" | "markov-cadence" | "circle"
  */
-export function generateLabels(table, mode, { length, seed, curation, method = "markov", temperature = 1, startFrom = null }) {
+export function generateLabels(table, mode, { length, seed, curation, method = "markov", temperature = 1, startFrom = null, variety = "faithful" }) {
   if (method === "circle") return generateCircleOfFifths(table, mode, length);
-  const labels = generateProgression(table, mode, length, seed, curation, temperature, startFrom);
+  const labels = generateProgression(table, mode, length, seed, curation, temperature, startFrom, variety);
   return method === "markov-cadence" ? applyCadence(table, mode, labels) : labels;
 }
 

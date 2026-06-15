@@ -145,6 +145,34 @@ describe("voicing", () => {
   });
 });
 
+describe("variety de-emphasis", () => {
+  const walk = (variety, seed) => generateProgression(table.major, "major", 24, seed, undefined, 1, null, variety);
+  const count = (variety, pred) => {
+    let n = 0;
+    for (let seed = 0; seed < 60; seed++) {
+      const l = walk(variety, seed);
+      for (let i = 2; i < l.length; i++) if (pred(l[i - 2], l[i - 1], l[i])) n++;
+    }
+    return n;
+  };
+  const isIIVI = (a, b, c) =>
+    splitLabel(a)?.numeral === "II" && splitLabel(b)?.numeral === "V" && splitLabel(c)?.numeral === "I";
+  const isVI = (_a, b, c) => splitLabel(b)?.numeral === "V" && splitLabel(c)?.numeral === "I"; // any V→I
+  const isStatic = (_a, b, c) => b === c; // immediate repeat
+
+  it("faithful is the unchanged corpus walk", () => {
+    // default param and explicit "faithful" agree, and match the old signature
+    expect(walk("faithful", 7)).toEqual(generateProgression(table.major, "major", 24, 7));
+  });
+
+  it("fresh and bold thin out V→I cadences (incl. I–V–I) and repeats", () => {
+    expect(count("fresh", isVI)).toBeLessThan(count("faithful", isVI)); // any V→I, not just ii–V–I
+    expect(count("fresh", isIIVI)).toBeLessThan(count("faithful", isIIVI));
+    expect(count("bold", isVI)).toBeLessThanOrEqual(count("fresh", isVI));
+    expect(count("fresh", isStatic)).toBeLessThanOrEqual(count("faithful", isStatic));
+  });
+});
+
 describe("harmonic rhythm", async () => {
   const { rhythmPlan, rhythmBeats, chordSlots, BEATS_PER_BAR } = await import("./generate.js");
   const planBeats = (plan) =>
