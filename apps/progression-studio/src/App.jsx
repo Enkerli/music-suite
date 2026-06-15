@@ -783,8 +783,7 @@ export default function App() {
           <div style={{ display: "flex", gap: "var(--es-space-2)", alignItems: "center", marginBottom: "var(--es-space-3)" }}>
             <div role="toolbar" aria-label="Leadsheet tool" style={{ display: "flex", gap: 4 }}>
               {[
-                { id: "edit", label: "✏️ Edit", hint: "Tap a chord to retype it" },
-                { id: "insert", label: "⤵ Insert", hint: "Tap a chord to insert a new one before it" },
+                { id: "edit", label: "✏️ Edit", hint: "Tap a chord to open it · tap a caret to insert · grip to move" },
                 { id: "rate-up", label: "👍", hint: "Tap chords to reinforce the move into them" },
                 { id: "rate-down", label: "👎", hint: "Tap chords to weaken the move into them" },
               ].map((t) => (
@@ -796,8 +795,7 @@ export default function App() {
             {edited && edited.genId === genId && <span style={{ color: "var(--es-accent)", fontSize: "var(--es-text-sm)" }}>· edited</span>}
             {edited && edited.genId === genId && <button className="es-btn es-small" onClick={() => { setEdited(null); setOpCount((n) => n + 1); }}>Reset to generated</button>}
             <span style={{ marginLeft: "auto", color: "var(--es-fg-muted)", fontSize: "var(--es-text-sm)" }}>
-              {tool === "edit" ? "tap a chord to retype · + to add"
-                : tool === "insert" ? "tap a chord to insert a new one before it"
+              {tool === "edit" ? "tap a chord to open it · carets insert · grip moves"
                 : "tap chords to rate the move into each"}
             </span>
           </div>

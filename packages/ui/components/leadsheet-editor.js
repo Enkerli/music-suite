@@ -83,11 +83,18 @@ export function createLeadsheetEditor(el, opts = {}) {
     onChange: opts.onChange ?? null,
     onRate: opts.onRate ?? null,
     ratingOf: opts.ratingOf ?? null,
-    /** Active tool: "edit" (default) | "rate-up" | "rate-down" | "insert".
-     *  A tap applies the tool, so cells stay uncluttered (no per-chip
-     *  buttons). "insert" splices a new chord before the tapped one. */
+    /** Active tool: "edit" (default) | "rate-up" | "rate-down". Structural
+     *  editing (insert/move/delete/duration) is direct manipulation inside
+     *  Edit — carets, a grip, and a chord inspector — so it needs no mode. */
     tool: opts.tool ?? "edit",
     suggest: opts.suggest ?? null,
+    /** Optional "why this chord" text for the inspector (rationale to come). */
+    rationaleOf: opts.rationaleOf ?? null,
+    /** Selected chord (opens the inspector): { bi, ci, flat } | null. */
+    selected: null,
+    /** Chord picked up for a move (grip): { bi, ci } | null — carets become
+     *  drop targets. */
+    moving: null,
   };
   if (!state.prog.sections.length) state.prog.sections = [{ bars: [] }];
 
@@ -253,10 +260,182 @@ export function createLeadsheetEditor(el, opts = {}) {
     });
   }
 
+  // ── small DOM builders (inspector) ────────────────────────────────────
+  const SHARP = ["C", "C♯", "D", "D♯", "E", "F", "F♯", "G", "G♯", "A", "A♯", "B"];
+  const midiName = (m) => SHARP[((m % 12) + 12) % 12] + (Math.floor(m / 12) - 1);
+  const span = (text, cls) => { const s = document.createElement("span"); if (cls) s.className = cls; s.textContent = text; return s; };
+  const label = (text) => span(text, "es-ls-insp-label");
+  const irow = () => { const d = document.createElement("div"); d.className = "es-ls-insp-row"; return d; };
+  function btn(text, onClick, title) {
+    const b = document.createElement("button");
+    b.type = "button"; b.className = "es-btn es-small"; b.textContent = text;
+    if (title) b.title = title;
+    b.addEventListener("click", onClick);
+    return b;
+  }
+
+  // ── structural edits — direct manipulation, no modes ──────────────────
+
+  /** Remove the chord at (bi, ci); drop the bar if it empties; a now-leading
+   *  repeat bar can't repeat nothing, so shed it. */
+  function deleteChord(bi, ci) {
+    const bar = bars()[bi];
+    if (!bar) return;
+    bar.chords.splice(ci, 1);
+    if (bar.chords.length === 0) bars().splice(bi, 1);
+    while (bars()[0]?.repeat) bars().shift();
+    render(); emit();
+  }
+
+  /** A whole-bar chord holds `n` bars: set the trailing `%` repeat bars. */
+  function setHeldBars(bi, n) {
+    const arr = bars();
+    while (arr[bi + 1]?.repeat) arr.splice(bi + 1, 1); // clear existing holds
+    for (let k = 1; k < n; k++) arr.splice(bi + k, 0, { chords: [], repeat: true });
+    render(); emit();
+  }
+
+  /** Pull the chord at (bi, ci) into its own whole bar (its bar-mates split
+   *  off), so its duration becomes a full bar. */
+  function makeWholeBar(bi, ci) {
+    const arr = bars();
+    const bar = arr[bi];
+    if (!bar || bar.chords.length <= 1) return;
+    const before = bar.chords.slice(0, ci);
+    const after = bar.chords.slice(ci + 1);
+    const repl = [];
+    if (before.length) repl.push({ chords: before });
+    repl.push({ chords: [bar.chords[ci]] });
+    if (after.length) repl.push({ chords: after });
+    arr.splice(bi, 1, ...repl);
+    render(); emit();
+  }
+
+  /** Move the chord at `from` to the caret slot (toBi, toCi). */
+  function moveChord(from, toBi, toCi) {
+    const arr = bars();
+    const srcBar = arr[from.bi];
+    const chord = srcBar?.chords[from.ci];
+    if (!chord) return;
+    srcBar.chords.splice(from.ci, 1);
+    let bi = toBi, ci = toCi;
+    if (bi === from.bi && ci > from.ci) ci -= 1;       // target shifted left
+    if (srcBar.chords.length === 0) {                   // source bar emptied
+      const srcIdx = arr.indexOf(srcBar);
+      arr.splice(srcIdx, 1);
+      if (srcIdx < bi) bi -= 1;
+    }
+    const dst = arr[bi];
+    if (dst && !dst.repeat) dst.chords.splice(Math.min(ci, dst.chords.length), 0, chord);
+    else arr.splice(Math.max(0, bi), 0, { chords: [chord] });
+    while (arr[0]?.repeat) arr.shift();
+    render(); emit();
+  }
+
+  /** A caret: the slot between chords that *is* the insertion point. In a
+   *  move it's a drop target; otherwise it opens the picker at (bi, ci). */
+  function caret(bi, ci, atEnd) {
+    const c = document.createElement("button");
+    c.type = "button";
+    c.className = "es-ls-caret" + (state.moving ? " drop" : "");
+    c.textContent = state.moving ? "▾" : "+";
+    c.setAttribute("aria-label", state.moving ? "Move here" : "Insert a chord here");
+    c.addEventListener("click", () => {
+      if (state.moving) { const m = state.moving; state.moving = null; moveChord(m, bi, ci); }
+      else if (state.suggest) openPicker(c, bi, ci, atEnd);
+      else openInlineAdd(c, bi, ci);
+    });
+    return c;
+  }
+
+  /** The chord inspector — everything the cell defers: retype, consonance,
+   *  duration, voicing, rating, why, move, delete. Opens on tap (Edit). */
+  function inspectorPanel(sel) {
+    const { bi, ci, flat } = sel;
+    const bar = bars()[bi];
+    const chord = bar?.chords[ci];
+    if (!chord) return null;
+    const realized = realizeChord(chord, state.prog.key);
+    const panel = document.createElement("div");
+    panel.className = "es-ls-inspector";
+
+    const head = irow(); head.className = "es-ls-insp-head";
+    head.append(span(realized.symbol, "es-ls-insp-title"));
+    const x = btn("✕", () => { state.selected = null; render(); }, "Close"); x.classList.add("es-ls-insp-close");
+    head.append(x);
+    panel.append(head);
+
+    const nameRow = irow();
+    const input = document.createElement("input");
+    input.className = "es-ls-input"; input.value = tokenOf(chord); input.setAttribute("aria-label", "Chord");
+    input.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") { e.preventDefault(); state.selected = null; commitToken(bi, ci, input.value); }
+      else if (e.key === "Escape") { e.preventDefault(); state.selected = null; render(); }
+    });
+    nameRow.append(label("Chord"), input);
+    panel.append(nameRow);
+
+    if (realized.pcs.length >= 2) {
+      const cval = consonance(realized.pcs);
+      const r = irow();
+      const dot = document.createElement("span"); dot.className = "es-ls-consonance";
+      dot.style.background = `hsl(48, 85%, ${Math.round(22 + cval * 56)}%)`;
+      r.append(label("Consonance"), dot, span(`${Math.round(cval * 100)}%`, "es-ls-insp-val"));
+      panel.append(r);
+    }
+
+    const durRow = irow();
+    if (bar.chords.length === 1) {
+      let held = 1; while (bars()[bi + held]?.repeat) held++;
+      const stepper = document.createElement("div"); stepper.className = "es-ls-insp-stepper";
+      for (const n of [1, 2, 3, 4]) {
+        const b = btn(n === 1 ? "1 bar" : `${n} bars`, () => setHeldBars(bi, n));
+        if (n === held) b.classList.add("on");
+        stepper.append(b);
+      }
+      durRow.append(label("Duration"), stepper);
+    } else {
+      durRow.append(label("Duration"), span(`shares the bar (${bar.chords.length})`, "es-ls-insp-val"), btn("Make whole bar", () => makeWholeBar(bi, ci)));
+    }
+    panel.append(durRow);
+
+    const vRow = irow();
+    if (chord.voicing?.length) {
+      vRow.append(label("Voicing"), span(chord.voicing.map(midiName).join(" "), "es-ls-insp-val mono"),
+        btn("Unlock", () => { delete chord.voicing; render(); emit(); }, "Auto-voice this chord"));
+    } else {
+      vRow.append(label("Voicing"), span("auto", "es-ls-insp-val"));
+    }
+    panel.append(vRow);
+
+    if (state.onRate && flat > 0) {
+      const m = state.ratingOf ? state.ratingOf(flat) : 1;
+      const r = irow();
+      const up = btn("👍", () => { state.onRate(flat, 1); render(); }, "Reinforce the move into this chord");
+      const dn = btn("👎", () => { state.onRate(flat, -1); render(); }, "Weaken the move into this chord");
+      if (m > 1.001) up.classList.add("on"); else if (m < 0.999) dn.classList.add("on");
+      r.append(label("This move"), up, dn);
+      panel.append(r);
+    }
+
+    const why = state.rationaleOf?.(flat);
+    if (why) { const r = irow(); r.append(label("Why"), span(why, "es-ls-insp-val")); panel.append(r); }
+
+    const actions = document.createElement("div"); actions.className = "es-ls-insp-actions";
+    actions.append(
+      btn("⠿ Move", () => { state.moving = { bi, ci }; state.selected = null; render(); }, "Pick up to move — then tap a caret"),
+      Object.assign(btn("Delete", () => { state.selected = null; deleteChord(bi, ci); }, "Delete this chord"), { className: "es-btn es-small es-ls-insp-del" }),
+    );
+    panel.append(actions);
+    return panel;
+  }
+
   function chordChip(bi, ci, chord, flatIndex) {
     const chip = document.createElement("button");
     chip.type = "button";
-    chip.className = "es-ls-chord" + (flatIndex === state.activeIndex ? " active" : "");
+    chip.className = "es-ls-chord" + (flatIndex === state.activeIndex ? " active" : "")
+      + (state.selected && state.selected.bi === bi && state.selected.ci === ci ? " selected" : "")
+      + (state.moving && state.moving.bi === bi && state.moving.ci === ci ? " moving" : "");
     chip.dataset.bar = String(bi);
     chip.dataset.chord = String(ci);
     const token = tokenOf(chord);
@@ -274,27 +453,23 @@ export function createLeadsheetEditor(el, opts = {}) {
       if (fn) { primary = fn; secondary = token; }
     }
     chip.append(Object.assign(document.createElement("span"), { className: "es-ls-name", textContent: primary || "—" }));
-    // Second line: the other reading + a small inline consonance dot
-    // (dark = dissonant, bright = consonant). Inline so it never overlaps the
-    // barline or the neighbouring chord the way an absolute badge did.
-    const sub = document.createElement("span");
-    sub.className = "es-ls-sub";
+    // Second line carries only the other reading — consonance, voicing,
+    // duration, rating, and rationale all live in the inspector now, so the
+    // cell stays glanceable (two readings + one state tint).
     if (secondary && secondary !== primary) {
+      const sub = document.createElement("span"); sub.className = "es-ls-sub";
       sub.append(Object.assign(document.createElement("span"), { className: "es-ls-real", textContent: secondary }));
+      chip.append(sub);
     }
-    if (realized.pcs.length >= 2) {
-      const c = consonance(realized.pcs);
-      const dot = document.createElement("span");
-      dot.className = "es-ls-consonance";
-      dot.style.background = `hsl(48, 85%, ${Math.round(22 + c * 56)}%)`;
-      dot.title = `consonance ${(c * 100).toFixed(0)}%`;
-      sub.append(dot);
+    // Grip: in Edit, tap to pick the chord up for a move (carets become drops).
+    if (state.editable && state.tool === "edit") {
+      const grip = document.createElement("span");
+      grip.className = "es-ls-grip"; grip.textContent = "⠿"; grip.title = "Move this chord";
+      grip.addEventListener("click", (e) => { e.stopPropagation(); state.moving = { bi, ci }; state.selected = null; render(); });
+      chip.append(grip);
     }
-    if (sub.childNodes.length) chip.append(sub);
     chip.title = realized.symbol;
-    // Subtle rating tint (no buttons — the toolbar's active tool does the
-    // rating; cells are dense enough): the move into a boosted chord reads
-    // warm, a suppressed one cool.
+    // Subtle rating tint: the move into a boosted chord reads warm, cool if cut.
     if (state.ratingOf && flatIndex > 0) {
       const m = state.ratingOf(flatIndex);
       if (m > 1.001) chip.classList.add("rated-up");
@@ -305,8 +480,8 @@ export function createLeadsheetEditor(el, opts = {}) {
         const tool = state.tool ?? "edit";
         if (tool === "rate-up") state.onRate?.(flatIndex, 1);
         else if (tool === "rate-down") state.onRate?.(flatIndex, -1);
-        else if (tool === "insert" && state.suggest) openPicker(chip, bi, ci, false); // splice before this chord
-        else beginEdit(chip, bi, ci, token);
+        else if (state.moving) { const mv = state.moving; state.moving = null; moveChord(mv, bi, ci); } // tap a chord = drop before it
+        else { state.selected = { bi, ci, flat: flatIndex }; render(); } // open the inspector
       });
     }
     return chip;
@@ -339,42 +514,46 @@ export function createLeadsheetEditor(el, opts = {}) {
       children.push(bar);
     }
 
+    const editing = state.editable && state.tool === "edit";
     const barsEl = document.createElement("div");
-    barsEl.className = "es-ls-bars";
+    barsEl.className = "es-ls-bars" + (state.moving ? " moving" : "");
     let flat = 0;
-    // Index of the last chord-bar — the standalone "+" appends there.
     let lastChordBar = -1;
     bars().forEach((b, i) => { if (!b.repeat) lastChordBar = i; });
     bars().forEach((b, bi) => {
       const cell = document.createElement("div");
       cell.className = "es-ls-bar";
       if (b.repeat) {
-        // A held chord — repeat sign, one bar wide (keeps the barline).
         const rep = Object.assign(document.createElement("span"), { className: "es-ls-chord es-ls-repeat", textContent: "%" });
         rep.title = "held — same chord as the previous bar";
         cell.append(rep);
         flat += 1;
       } else {
-        b.chords.forEach((c, ci) => cell.append(chordChip(bi, ci, c, flat++)));
-        // Each chord wants ~one column; the bar spans that many columns so
-        // cells stay legible and bars align vertically (spreadsheet style).
+        // In Edit, a caret precedes each chord — the slot *is* the insertion
+        // point (no more "before the tapped chord" guesswork).
+        b.chords.forEach((c, ci) => {
+          if (editing) cell.append(caret(bi, ci, false));
+          cell.append(chordChip(bi, ci, c, flat++));
+        });
         cell.style.gridColumn = `span ${Math.max(1, b.chords.length)}`;
       }
       barsEl.append(cell);
     });
-    if (state.editable && state.tool === "edit") {
-      // Standalone append "+": add a chord after the last bar (one append
-      // point, its own grid cell — bars stay clean).
-      const add = document.createElement("button");
-      add.type = "button"; add.className = "es-ls-add";
-      add.textContent = "+"; add.setAttribute("aria-label", "Add a chord");
-      add.addEventListener("click", () => {
+    if (editing) {
+      // Trailing caret = append at the very end (start a bar if empty).
+      const tail = document.createElement("button");
+      tail.type = "button"; tail.className = "es-ls-caret trail" + (state.moving ? " drop" : "");
+      tail.textContent = state.moving ? "▾" : "+";
+      tail.setAttribute("aria-label", state.moving ? "Move to the end" : "Add a chord");
+      tail.addEventListener("click", () => {
         let bi = lastChordBar;
         if (bi < 0) { bars().push({ chords: [] }); bi = bars().length - 1; }
-        if (state.suggest) openPicker(add, bi, bars()[bi].chords.length, true); // append at the end
-        else openInlineAdd(add, bi, bars()[bi].chords.length);
+        const ci = bars()[bi].chords.length;
+        if (state.moving) { const mv = state.moving; state.moving = null; moveChord(mv, bi, ci); }
+        else if (state.suggest) openPicker(tail, bi, ci, true);
+        else openInlineAdd(tail, bi, ci);
       });
-      barsEl.append(add);
+      barsEl.append(tail);
 
       const addBar = document.createElement("button");
       addBar.type = "button"; addBar.className = "es-ls-add bar";
@@ -382,7 +561,7 @@ export function createLeadsheetEditor(el, opts = {}) {
       addBar.addEventListener("click", () => {
         bars().push({ chords: [] });
         render();
-        const fresh = root.querySelector(".es-ls-add:not(.bar)");
+        const fresh = root.querySelector(".es-ls-caret.trail");
         if (!fresh) return;
         if (state.suggest) openPicker(fresh, bars().length - 1, 0, true);
         else openInlineAdd(fresh, bars().length - 1, 0);
@@ -390,6 +569,18 @@ export function createLeadsheetEditor(el, opts = {}) {
       barsEl.append(addBar);
     }
     children.push(barsEl);
+
+    if (state.moving) {
+      const mvBar = document.createElement("div");
+      mvBar.className = "es-ls-movebar";
+      mvBar.append(span("Moving a chord — tap a caret to drop it", "es-ls-move-hint"),
+        btn("Cancel", () => { state.moving = null; render(); }));
+      children.push(mvBar);
+    }
+    if (state.selected) {
+      const insp = inspectorPanel(state.selected);
+      if (insp) children.push(insp); else state.selected = null;
+    }
     root.replaceChildren(...children);
   }
 
@@ -401,12 +592,13 @@ export function createLeadsheetEditor(el, opts = {}) {
     /** Bar-notation text of the current progression. */
     getText() { return formatLeadsheet(state.prog); },
     update(next) {
+      if (next.progression || next.text !== undefined) { state.selected = null; state.moving = null; }
       if (next.progression) state.prog = next.progression;
       else if (next.text !== undefined) state.prog = parseLeadsheet(next.text, next.key ?? state.prog.key);
       if (next.key) state.prog.key = next.key;
       if (next.editable !== undefined) state.editable = next.editable;
       if (next.activeIndex !== undefined) state.activeIndex = next.activeIndex;
-      if (next.tool !== undefined) state.tool = next.tool;
+      if (next.tool !== undefined) { state.tool = next.tool; state.selected = null; state.moving = null; }
       if (!state.prog.sections.length) state.prog.sections = [{ bars: [] }];
       render();
     },

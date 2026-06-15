@@ -275,11 +275,12 @@ select.es-control option { background: var(--es-bg-raised); color: var(--es-fg);
 .es-ls-add { grid-column: span 1; }                                /* "+" and "+ bar" each own one column */
 .es-ls-add:not(.bar) { align-self: center; }
 .es-ls-chord {
+  position: relative;
   display: flex; flex-direction: column; justify-content: center; gap: 1px;
   min-height: 44px; min-width: 0;
   padding: var(--es-space-1) var(--es-space-2);
   border: none; border-left: 2px solid var(--es-border-strong);     /* the barline */
-  border-radius: 0; background: transparent; color: var(--es-fg); cursor: text;
+  border-radius: 0; background: transparent; color: var(--es-fg); cursor: pointer;
   font-family: var(--es-font-sans); text-align: left;
 }
 .es-ls-chord:hover { background: var(--es-bg-sunken); }
@@ -291,15 +292,55 @@ select.es-control option { background: var(--es-bg-raised); color: var(--es-fg);
 /* Consonance: small inline dot, dark (dissonant) → bright (consonant) */
 .es-ls-consonance { width: 6px; height: 6px; border-radius: 50%; flex: 0 0 auto; box-shadow: 0 0 0 1px rgba(0, 0, 0, .12); }
 
-/* Curation folded into the edit surface, tool-mode: a tap applies the active
-   tool (edit / rate-up / rate-down). Cells stay clean — the rating shows as a
-   subtle tint, not buttons. */
-.es-ls.tool-rate-up .es-ls-chord,
-.es-ls.tool-rate-down .es-ls-chord,
-.es-ls.tool-insert .es-ls-chord { cursor: pointer; }
-.es-ls.tool-insert .es-ls-chord { border-left-style: dashed; } /* hint: tap inserts before */
+/* Rating: a tap in rate mode reinforces/weakens the move into a chord; the
+   effect shows as a tint, not buttons. */
 .es-ls-chord.rated-up { box-shadow: inset 0 -2px 0 hsl(140, 55%, 45%); }
 .es-ls-chord.rated-down { box-shadow: inset 0 -2px 0 hsl(8, 60%, 52%); }
+.es-ls-chord.selected { background: var(--es-bg-sunken); box-shadow: inset 0 0 0 1px var(--es-accent); }
+.es-ls-chord.moving { opacity: .45; }
+
+/* Insertion / move caret — the thin slot between chords *is* the insert point */
+.es-ls-caret {
+  flex: 0 0 auto; align-self: stretch; width: 16px; min-height: 44px;
+  margin: 0 -3px; padding: 0; display: grid; place-items: center;
+  border: 1px dashed transparent; border-radius: var(--es-radius-sm);
+  background: transparent; color: var(--es-border-strong); cursor: pointer;
+  font-size: var(--es-text-md); line-height: 1;
+}
+.es-ls-caret:hover, .es-ls-caret:focus-visible {
+  border-color: var(--es-accent); color: var(--es-accent);
+  background: color-mix(in oklch, var(--es-accent) 9%, transparent); outline: none;
+}
+.es-ls-caret.trail { grid-column: span 1; width: auto; min-width: 28px; margin: 0; }
+.es-ls-caret.drop { border-color: var(--es-accent); color: var(--es-accent); background: color-mix(in oklch, var(--es-accent) 12%, transparent); }
+.es-ls-bars.moving .es-ls-caret { border-style: dashed; }
+
+/* Grip — pick a chord up to move (carets become drop targets) */
+.es-ls-grip {
+  position: absolute; top: 2px; right: 4px; line-height: 1;
+  font-size: 11px; letter-spacing: -1px; color: var(--es-fg-muted); cursor: grab;
+}
+.es-ls-grip:hover { color: var(--es-accent); }
+
+.es-ls-movebar { display: flex; align-items: center; gap: var(--es-space-2); font-size: var(--es-text-sm); color: var(--es-accent); }
+
+/* Chord inspector — everything the cell defers, one chord at a time */
+.es-ls-inspector {
+  display: grid; gap: var(--es-space-2);
+  padding: var(--es-space-3); border: 1px solid var(--es-border-strong);
+  border-radius: var(--es-radius-md); background: var(--es-bg-raised);
+}
+.es-ls-insp-head { display: flex; align-items: center; justify-content: space-between; }
+.es-ls-insp-title { font-size: var(--es-text-lg); font-weight: 600; }
+.es-ls-insp-close { min-width: 0; padding: 2px 8px; }
+.es-ls-insp-row { display: flex; align-items: center; gap: var(--es-space-2); flex-wrap: wrap; }
+.es-ls-insp-label { width: 88px; flex: 0 0 auto; font-size: var(--es-text-sm); color: var(--es-fg-muted); }
+.es-ls-insp-val { font-size: var(--es-text-sm); color: var(--es-fg-2); }
+.es-ls-insp-val.mono { font-family: var(--es-font-mono); }
+.es-ls-insp-stepper { display: flex; gap: 4px; }
+.es-ls-insp-stepper .es-btn.on, .es-ls-insp-row .es-btn.on { border-color: var(--es-accent); background: var(--es-bg-sunken); }
+.es-ls-insp-actions { display: flex; gap: var(--es-space-2); margin-top: var(--es-space-1); }
+.es-ls-insp-del { margin-left: auto; color: var(--es-danger, #b3261e); border-color: var(--es-danger, #b3261e); }
 .es-ls-input {
   min-height: var(--es-ctl-h); width: 6ch; padding: 2px var(--es-space-2);
   border: 1px solid var(--es-border-strong); border-radius: var(--es-radius-sm);

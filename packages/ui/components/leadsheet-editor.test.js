@@ -3,15 +3,18 @@ import { describe, expect, it, vi } from "vitest";
 import { createLeadsheetEditor } from "./leadsheet-editor.js";
 
 const C = { tonic: "C", mode: "major" };
+const click = (node) => node.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+const down = (node) => node.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
 
-function editChip(el, selector, value) {
-  el.querySelector(selector).dispatchEvent(new MouseEvent("click", { bubbles: true }));
-  const input = el.querySelector("input.es-ls-input");
+/** Open a chord's inspector and retype it (the name field lives in the inspector). */
+function retype(el, chordIndex, value) {
+  click(el.querySelectorAll(".es-ls-chord")[chordIndex]);
+  const input = el.querySelector(".es-ls-inspector input.es-ls-input");
   input.value = value;
   input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
 }
 
-describe("leadsheet editor", () => {
+describe("leadsheet editor — display", () => {
   it("renders bars and chord chips from bar notation", () => {
     const el = document.createElement("div");
     createLeadsheetEditor(el, { text: "Dm7 G7 | Cmaj7", key: C });
@@ -25,42 +28,37 @@ describe("leadsheet editor", () => {
     const el = document.createElement("div");
     createLeadsheetEditor(el, { text: "IIm7", key: C });
     const chip = el.querySelector(".es-ls-chord");
-    expect(chip.textContent).toContain("IIm7"); // token as authored
-    expect(chip.querySelector(".es-ls-real").textContent).toBe("Dm7"); // realized
+    expect(chip.textContent).toContain("IIm7");
+    expect(chip.querySelector(".es-ls-real").textContent).toBe("Dm7");
   });
 
   it("leads an absolute chord with its functional degree, named spelling below", () => {
     const el = document.createElement("div");
     createLeadsheetEditor(el, { text: "D7", key: C });
     const chip = el.querySelector(".es-ls-chord");
-    expect(chip.querySelector("span").textContent).toBe("II7");      // functional on top (D7 in C = II7)
-    expect(chip.querySelector(".es-ls-real").textContent).toBe("D7"); // authored name below
+    expect(chip.querySelector("span").textContent).toBe("II7");
+    expect(chip.querySelector(".es-ls-real").textContent).toBe("D7");
   });
 
-  it("renders a consonance badge whose brightness tracks consonance", () => {
+  it("keeps the cell glanceable — no consonance dot in the cell", () => {
     const el = document.createElement("div");
-    createLeadsheetEditor(el, { text: "C | Cdim", key: C });
-    const dots = [...el.querySelectorAll(".es-ls-consonance")];
-    expect(dots).toHaveLength(2);
-    const light = (s) => Number(/([\d.]+)%\)/.exec(s.style.background)[1]);
-    expect(light(dots[0])).toBeGreaterThan(light(dots[1])); // C major brighter than C dim
+    createLeadsheetEditor(el, { text: "Cmaj7 | Dm7", key: C });
+    expect(el.querySelectorAll(".es-ls-bars .es-ls-consonance")).toHaveLength(0);
   });
 
-  it("commits an edited chord and fires onChange", () => {
+  it("highlights the active chord and moves it via update()", () => {
     const el = document.createElement("div");
-    const onChange = vi.fn();
-    const ed = createLeadsheetEditor(el, { text: "Dm7 | Cmaj7", key: C, showKey: false, onChange });
-    editChip(el, '.es-ls-chord[data-bar="0"][data-chord="0"]', "Em7");
-    expect(onChange).toHaveBeenCalled();
-    expect(ed.getText()).toBe("Em7 | Cmaj7");
+    const ed = createLeadsheetEditor(el, { text: "Dm7 | G7 | Cmaj7", key: C, activeIndex: 0 });
+    const active = () => [...el.querySelectorAll(".es-ls-chord.active")].map((c) => c.querySelector("span")?.textContent);
+    expect(active()).toEqual(["IIm7"]);
+    ed.update({ activeIndex: 2 });
+    expect(active()).toEqual(["Imaj7"]);
   });
 
-  it("empty edit deletes the chord (and its empty bar)", () => {
+  it("getText round-trips to bar notation", () => {
     const el = document.createElement("div");
-    const ed = createLeadsheetEditor(el, { text: "Dm7 | Cmaj7", key: C, showKey: false });
-    editChip(el, '.es-ls-chord[data-bar="0"][data-chord="0"]', "");
-    expect(ed.getText()).toBe("Cmaj7");
-    expect(el.querySelectorAll(".es-ls-bar")).toHaveLength(1);
+    const ed = createLeadsheetEditor(el, { text: "Dm7 G7 | Cmaj7", key: C });
+    expect(ed.getText()).toBe("Dm7 G7 | Cmaj7");
   });
 
   it("re-realizes degree chords when the key changes", () => {
@@ -69,107 +67,115 @@ describe("leadsheet editor", () => {
     const sel = el.querySelector("select.es-control");
     sel.value = "F♯";
     sel.dispatchEvent(new Event("change", { bubbles: true }));
-    expect(el.querySelector(".es-ls-real").textContent).toBe("C♯7"); // V7 in F♯
+    expect(el.querySelector(".es-ls-real").textContent).toBe("C♯7");
     expect(ed.value.key.tonic).toBe("F♯");
   });
+});
 
-  it("highlights the active chord (chord-follow) and moves it via update()", () => {
+describe("leadsheet editor — inspector (tap a chord)", () => {
+  it("retypes a chord through the inspector and fires onChange", () => {
     const el = document.createElement("div");
-    const ed = createLeadsheetEditor(el, { text: "Dm7 | G7 | Cmaj7", key: C, activeIndex: 0 });
-    // absolute chords lead with their functional degree (Dm7 → IIm7, …)
-    const activeChips = () => [...el.querySelectorAll(".es-ls-chord.active")].map((c) => c.querySelector("span")?.textContent);
-    expect(activeChips()).toEqual(["IIm7"]);
-    ed.update({ activeIndex: 2 });
-    expect(activeChips()).toEqual(["Imaj7"]);
-    ed.update({ activeIndex: -1 });
-    expect(activeChips()).toEqual([]);
+    const onChange = vi.fn();
+    const ed = createLeadsheetEditor(el, { text: "Dm7 | Cmaj7", key: C, showKey: false, onChange });
+    retype(el, 0, "Em7");
+    expect(onChange).toHaveBeenCalled();
+    expect(ed.getText()).toBe("Em7 | Cmaj7");
   });
 
-  it("the + picker offers suggestions and inserts the picked chord with its voicing", () => {
+  it("retyping to empty deletes the chord and its bar", () => {
     const el = document.createElement("div");
-    const suggest = vi.fn(({ before, atEnd }) => {
-      expect(before?.inputText ?? before?.degree?.numeral).toBeTruthy(); // gets the prior chord
-      expect(atEnd).toBe(true);
-      return [{ label: "G7", symbol: "G7", notes: [55, 59, 62, 65], movement: 4 }];
-    });
-    const ed = createLeadsheetEditor(el, { text: "Cmaj7", key: C, showKey: false, suggest });
-    el.querySelector(".es-ls-add").dispatchEvent(new MouseEvent("click", { bubbles: true }));
-    expect(suggest).toHaveBeenCalled();
-    const item = el.querySelector(".es-ls-suggest-item");
-    expect(item.textContent).toContain("G7");
-    item.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
-    expect(ed.getText()).toBe("Cmaj7 G7");
-    // the picked suggestion's voicing is locked onto the inserted chord
-    const inserted = ed.value.sections[0].bars[0].chords[1];
-    expect(inserted.voicing).toEqual([55, 59, 62, 65]);
+    const ed = createLeadsheetEditor(el, { text: "Dm7 | Cmaj7", key: C, showKey: false });
+    retype(el, 0, "");
+    expect(ed.getText()).toBe("Cmaj7");
   });
 
-  it("the + picker filters suggestions as you type (autocomplete)", () => {
+  it("shows a consonance reading (brighter = more consonant)", () => {
     const el = document.createElement("div");
-    const suggest = vi.fn(() => [
-      { label: "G7", symbol: "G7", notes: [55] },
-      { label: "IIm7", symbol: "Am7", notes: [57] },
-    ]);
-    createLeadsheetEditor(el, { text: "Cmaj7", key: C, showKey: false, suggest });
-    el.querySelector(".es-ls-add").dispatchEvent(new MouseEvent("click", { bubbles: true }));
-    expect(el.querySelectorAll(".es-ls-suggest-item")).toHaveLength(2);
-    const input = el.querySelector(".es-ls-suggest input.es-ls-input");
-    input.value = "g";
-    input.dispatchEvent(new Event("input", { bubbles: true }));
-    const items = [...el.querySelectorAll(".es-ls-suggest-item")];
-    expect(items).toHaveLength(1);
-    expect(items[0].textContent).toContain("G7");
+    createLeadsheetEditor(el, { text: "C | Cdim", key: C, showKey: false });
+    const light = () => Number(/([\d.]+)%\)/.exec(el.querySelector(".es-ls-inspector .es-ls-consonance").style.background)[1]);
+    click(el.querySelectorAll(".es-ls-chord")[0]); const cMaj = light();
+    click(el.querySelectorAll(".es-ls-chord")[1]); const cDim = light();
+    expect(cMaj).toBeGreaterThan(cDim);
   });
 
-  it("the insert tool splices a chord before the tapped one", () => {
+  it("deletes a chord from the inspector", () => {
+    const el = document.createElement("div");
+    const ed = createLeadsheetEditor(el, { text: "Dm7 G7 Cmaj7", key: C, showKey: false });
+    click(el.querySelectorAll(".es-ls-chord")[1]); // open G7
+    click(el.querySelector(".es-ls-insp-del"));
+    expect(ed.getText()).toBe("Dm7 Cmaj7");
+  });
+
+  it("sets held bars (whole-bar chord → % repeat) and makes a whole bar", () => {
+    const el = document.createElement("div");
+    const ed = createLeadsheetEditor(el, { text: "Cmaj7 | Dm7 G7", key: C, showKey: false });
+    click(el.querySelectorAll(".es-ls-chord")[0]); // Cmaj7 — sole in its bar
+    const steps = el.querySelectorAll(".es-ls-insp-stepper .es-btn");
+    click(steps[1]); // hold 2 bars
+    expect(ed.getText()).toBe("Cmaj7 | % | Dm7 G7");
+    // Dm7 shares its bar → Make whole bar splits it out
+    click([...el.querySelectorAll(".es-ls-chord")].find((c) => c.textContent.includes("Dm7")));
+    click([...el.querySelectorAll(".es-ls-inspector .es-btn")].find((b) => b.textContent === "Make whole bar"));
+    expect(ed.getText()).toBe("Cmaj7 | % | Dm7 | G7");
+  });
+});
+
+describe("leadsheet editor — carets (insert) & grip (move)", () => {
+  it("a caret inserts at its slot, voiceled from the chord before it", () => {
     const el = document.createElement("div");
     const suggest = vi.fn(({ before }) => {
-      expect(before?.inputText).toBe("Cmaj7"); // voice-leading context is the chord before
+      expect(before?.inputText).toBe("Cmaj7");
       return [{ label: "A-7", symbol: "A-7", notes: [57, 60, 64] }];
     });
-    const ed = createLeadsheetEditor(el, { text: "Cmaj7 G7", key: C, showKey: false, suggest, tool: "insert" });
-    const chips = el.querySelectorAll(".es-ls-chord");
-    chips[1].dispatchEvent(new MouseEvent("click", { bubbles: true })); // tap G7 → insert before it
-    el.querySelector(".es-ls-suggest-item").dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
+    const ed = createLeadsheetEditor(el, { text: "Cmaj7 G7", key: C, showKey: false, suggest });
+    click(el.querySelectorAll(".es-ls-caret")[1]); // the slot between Cmaj7 and G7
+    down(el.querySelector(".es-ls-suggest-item"));
     expect(ed.getText()).toBe("Cmaj7 A-7 G7");
-    expect(ed.value.sections[0].bars[0].chords[1].voicing).toEqual([57, 60, 64]); // voicing locked
+    expect(ed.value.sections[0].bars[0].chords[1].voicing).toEqual([57, 60, 64]);
   });
 
-  it("the + picker still accepts a typed token (Enter)", () => {
+  it("the trailing caret appends, with autocomplete and typed tokens", () => {
     const el = document.createElement("div");
-    const suggest = vi.fn(() => []);
+    const suggest = vi.fn(({ atEnd }) => {
+      expect(atEnd).toBe(true);
+      return [{ label: "G7", symbol: "G7", notes: [55] }, { label: "IIm7", symbol: "Am7", notes: [57] }];
+    });
     const ed = createLeadsheetEditor(el, { text: "Cmaj7", key: C, showKey: false, suggest });
-    el.querySelector(".es-ls-add").dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    click(el.querySelector(".es-ls-caret.trail"));
+    expect(el.querySelectorAll(".es-ls-suggest-item")).toHaveLength(2);
     const input = el.querySelector(".es-ls-suggest input.es-ls-input");
-    input.value = "A-7";
-    input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+    input.value = "g"; input.dispatchEvent(new Event("input", { bubbles: true }));
+    expect(el.querySelectorAll(".es-ls-suggest-item")).toHaveLength(1);
+    input.value = "A-7"; input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
     expect(ed.getText()).toBe("Cmaj7 A-7");
   });
 
+  it("the grip picks a chord up; tapping a caret moves it", () => {
+    const el = document.createElement("div");
+    const ed = createLeadsheetEditor(el, { text: "Dm7 G7 Cmaj7", key: C, showKey: false });
+    click(el.querySelectorAll(".es-ls-grip")[2]); // pick up Cmaj7
+    click(el.querySelectorAll(".es-ls-caret")[0]); // drop before Dm7
+    expect(ed.getText()).toBe("Cmaj7 Dm7 G7");
+  });
+});
+
+describe("leadsheet editor — rating modes", () => {
   it("a rating tool turns chord taps into transition ratings (and tints)", () => {
     const el = document.createElement("div");
     const rated = [];
     const ed = createLeadsheetEditor(el, {
       text: "Dm7 | G7 | Cmaj7", key: C, showKey: false,
       onRate: (i, dir) => rated.push([i, dir]),
-      ratingOf: (i) => (i === 1 ? 2 : 1), // the move into chord 1 is boosted
+      ratingOf: (i) => (i === 1 ? 2 : 1),
       tool: "rate-down",
     });
     const chips = () => [...el.querySelectorAll(".es-ls-chord")];
-    expect(chips()[1].classList.contains("rated-up")).toBe(true); // chord 1 tinted up
-    // with the rate-down tool, a tap rates (no editor opens)
-    chips()[2].dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    expect(chips()[1].classList.contains("rated-up")).toBe(true);
+    click(chips()[2]);
     expect(rated).toContainEqual([2, -1]);
-    expect(el.querySelector("input.es-ls-input")).toBeNull();
-    // switch to the edit tool — a tap now opens the editor instead
+    expect(el.querySelector(".es-ls-inspector")).toBeNull(); // rate mode doesn't open the inspector
     ed.update({ tool: "edit" });
-    chips()[0].dispatchEvent(new MouseEvent("click", { bubbles: true }));
-    expect(el.querySelector("input.es-ls-input")).not.toBeNull();
-  });
-
-  it("getText round-trips to bar notation", () => {
-    const el = document.createElement("div");
-    const ed = createLeadsheetEditor(el, { text: "Dm7 G7 | Cmaj7", key: C });
-    expect(ed.getText()).toBe("Dm7 G7 | Cmaj7");
+    click(chips()[0]);
+    expect(el.querySelector(".es-ls-inspector")).not.toBeNull(); // edit mode does
   });
 });
