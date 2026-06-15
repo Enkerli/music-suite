@@ -84,6 +84,18 @@ export function createBridge() {
       return true;
     },
 
+    /**
+     * Open a file through native UI (enkerli::importFile — FileChooser on
+     * desktop, document picker on iPadOS). The chosen file arrives via
+     * on("fileOpened", ({ name, b64 }) => …); nothing fires on cancel.
+     * Returns false outside the plugin so callers can use <input type=file>.
+     */
+    openFile(patterns = "*") {
+      if (!HAS_JUCE) return false;
+      bridge.send("enkerliOpenFile", { patterns });
+      return true;
+    },
+
     /** Tell C++ the page is alive; C++ answers with initial state. */
     ready() {
       if (HAS_JUCE) bridge.send("uiReady", {});

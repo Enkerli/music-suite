@@ -6,6 +6,7 @@ import {
   emptyCuration,
   exportCuration,
   importCuration,
+  mergeCuration,
   multiplierFor,
   pairKey,
   rateProgression,
@@ -13,6 +14,24 @@ import {
   TRANSITION_STEP,
 } from "./curation.js";
 import { generateProgression } from "./generate.js";
+
+describe("mergeCuration", () => {
+  it("compounds shared transitions and keeps the rest", () => {
+    const a = { multipliers: { "A → B": 1.5, "C → D": 0.5 } };
+    const b = { multipliers: { "A → B": 2, "E → F": 1.5 } };
+    const m = mergeCuration(a, b);
+    expect(m.multipliers["A → B"]).toBeCloseTo(3); // 1.5 × 2
+    expect(m.multipliers["C → D"]).toBe(0.5); // only in base
+    expect(m.multipliers["E → F"]).toBe(1.5); // only in incoming
+  });
+
+  it("clamps to [1/16, 16] and drops weights that compound back to neutral", () => {
+    expect(mergeCuration({ multipliers: { "A → B": 8 } }, { multipliers: { "A → B": 8 } })
+      .multipliers["A → B"]).toBe(16); // 64 clamped
+    expect(mergeCuration({ multipliers: { "X → Y": 2 } }, { multipliers: { "X → Y": 0.5 } })
+      .multipliers["X → Y"]).toBeUndefined(); // 2 × 0.5 = 1 → dropped
+  });
+});
 
 describe("curation multipliers", () => {
   it("adjusts, accumulates, clamps, and drops identity entries", () => {
@@ -48,6 +67,10 @@ describe("curation multipliers", () => {
     const back = importCuration(exportCuration(c));
     expect(back.multipliers[pairKey("Imaj7", "♭II7")]).toBe(4);
     expect(() => importCuration('{"nope": true}')).toThrow();
+    // optional savedAt timestamp is embedded and ignored on import
+    const stamped = exportCuration(c, { savedAt: "2026-06-14T15:30:00.000Z" });
+    expect(JSON.parse(stamped).savedAt).toBe("2026-06-14T15:30:00.000Z");
+    expect(importCuration(stamped).multipliers[pairKey("Imaj7", "♭II7")]).toBe(4);
   });
 });
 

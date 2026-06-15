@@ -88,6 +88,22 @@ export function multiplierFor(curation, from, to) {
   return curation.multipliers[pairKey(from, to)] ?? 1;
 }
 
+/**
+ * Merge an incoming profile into a base, compounding multipliers on shared
+ * transitions (base × incoming, clamped) — two boosts stack, a boost and a
+ * cut partly cancel. Transitions present in only one side are kept as-is.
+ */
+export function mergeCuration(base, incoming) {
+  const multipliers = { ...base.multipliers };
+  for (const [key, v] of Object.entries(incoming?.multipliers ?? {})) {
+    if (typeof v !== "number" || !Number.isFinite(v) || v <= 0) continue;
+    const next = clamp((multipliers[key] ?? 1) * v);
+    if (Math.abs(next - 1) < 1e-9) delete multipliers[key];
+    else multipliers[key] = next;
+  }
+  return { multipliers };
+}
+
 /** Effective sampling row: corpus counts × curation multipliers. */
 export function effectiveRow(baseRow, from, curation) {
   let changed = false;
@@ -118,9 +134,9 @@ export function saveCuration(curation) {
   } catch { /* private mode etc. — curation stays in-memory */ }
 }
 
-export function exportCuration(curation) {
+export function exportCuration(curation, { savedAt } = {}) {
   return JSON.stringify(
-    { format: "progression-studio-curation", version: 1, ...curation },
+    { format: "progression-studio-curation", version: 1, ...(savedAt ? { savedAt } : {}), ...curation },
     null,
     2,
   );

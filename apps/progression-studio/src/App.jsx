@@ -136,6 +136,7 @@ import {
   exportCuration,
   importCuration,
   loadCuration,
+  mergeCuration,
   multiplierFor,
   pairKey,
   PROGRESSION_STEP,
@@ -307,6 +308,8 @@ export default function App() {
   const [opCount, setOpCount] = useState(0); // bumps on extend/clear (forces editor remount)
   const [tool, setTool] = useState("edit"); // leadsheet tool: edit | rate-up | rate-down
   const [resetArmed, setResetArmed] = useState(false); // two-tap confirm (WKWebView has no window.confirm)
+  const [pendingProfile, setPendingProfile] = useState(null); // a loaded profile awaiting Replace/Merge
+  const [profileError, setProfileError] = useState(null);
   const [voiceLeadMode, setVoiceLeadMode] = useState("strict"); // none | loose | strict
   const [voicingShape, setVoicingShape] = useState("close"); // close|open|drop2|drop3|spread|rootless|shell
   const [midiChord, setMidiChord] = useState({ notes: [], chord: null, symbol: null }); // live MIDI chord input
@@ -345,8 +348,17 @@ export default function App() {
         if (s.voicingShape) setVoicingShape(s.voicingShape);
       } catch { /* malformed saved state — keep defaults */ }
     });
+    // A profile file chosen via the native picker comes back base64-encoded;
+    // decode as UTF-8 (the labels carry ♭/♯/→) and stage it for Replace/Merge.
+    const offFile = bridge.on("fileOpened", (d) => {
+      try {
+        const bin = atob(d?.b64 ?? "");
+        const bytes = Uint8Array.from(bin, (ch) => ch.charCodeAt(0));
+        receiveProfileText(new TextDecoder().decode(bytes));
+      } catch { setProfileError("Couldn't read that file."); }
+    });
     bridge.ready();
-    return () => { offTransport(); offRuntime(); offState(); };
+    return () => { offTransport(); offRuntime(); offState(); offFile(); };
   }, []);
 
   // MIDI chord input (ChordID): the processor forwards played notes; we
@@ -583,14 +595,40 @@ export default function App() {
     setOpCount((n) => n + 1);
   }
 
-  function importProfile() {
-    const json = window.prompt("Paste a curation profile (JSON):");
-    if (!json) return;
+  /** Save the curation profile to a file (native picker in-plugin; download in
+   *  the browser — blob/data: anchors crash the WKWebView). */
+  function saveProfile() {
+    const savedAt = new Date().toISOString();
+    const stamp = savedAt.slice(0, 16).replace(/[:T]/g, "-"); // 2026-06-14-15-30
+    const filename = `curation-profile-${stamp}.json`;
+    const bytes = new TextEncoder().encode(exportCuration(curation, { savedAt }));
+    if (bridge?.saveFile?.(filename, bytes)) return;
+    const url = URL.createObjectURL(new Blob([bytes], { type: "application/json" }));
+    const a = document.createElement("a");
+    a.href = url; a.download = filename; a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  /** Parse a profile's text and stage it for Replace/Merge. */
+  function receiveProfileText(text) {
     try {
-      setCuration(importCuration(json));
+      const incoming = importCuration(text);
+      setPendingProfile({ multipliers: incoming.multipliers, count: Object.keys(incoming.multipliers).length });
+      setProfileError(null);
     } catch {
-      window.alert("That doesn't look like a curation profile.");
+      setProfileError("That file isn't a curation profile.");
     }
+  }
+
+  /** Load a profile from a file (native picker in-plugin → on("fileOpened");
+   *  <input type=file> in the browser). */
+  function loadProfile() {
+    setProfileError(null);
+    if (bridge?.openFile?.("*.json")) return; // arrives via the fileOpened listener
+    const input = document.createElement("input");
+    input.type = "file"; input.accept = ".json,application/json";
+    input.onchange = () => input.files?.[0]?.text().then(receiveProfileText).catch(() => setProfileError("Couldn't read that file."));
+    input.click();
   }
 
   return (
@@ -889,11 +927,13 @@ export default function App() {
               </>
             )}
 
-            <div style={{ display: "flex", gap: "var(--es-space-2)", marginTop: "var(--es-space-4)", flexWrap: "wrap" }}>
-              <button className="es-btn es-small" onClick={() => navigator.clipboard?.writeText(exportCuration(curation))}>
+            <div style={{ display: "flex", gap: "var(--es-space-2)", marginTop: "var(--es-space-4)", flexWrap: "wrap", alignItems: "center" }}>
+              <button className="es-btn es-small" title="Copy the profile JSON to the clipboard"
+                onClick={() => navigator.clipboard?.writeText(exportCuration(curation, { savedAt: new Date().toISOString() }))}>
                 Copy profile
               </button>
-              <button className="es-btn es-small" onClick={importProfile}>Import profile…</button>
+              <button className="es-btn es-small" onClick={saveProfile}>Save profile…</button>
+              <button className="es-btn es-small" onClick={loadProfile}>Load profile…</button>
               <button className={`es-btn es-small ${resetArmed ? "es-primary" : ""}`}
                 title="Clear every curated weight"
                 onClick={() => {
@@ -902,7 +942,18 @@ export default function App() {
                 }}>
                 {resetArmed ? "Tap again to reset" : "Reset all"}
               </button>
+              {profileError && <span style={{ color: "var(--es-danger, #b3261e)", fontSize: "var(--es-text-sm)" }}>{profileError}</span>}
             </div>
+            {pendingProfile && (
+              <div style={{ display: "flex", gap: "var(--es-space-2)", marginTop: "var(--es-space-2)", alignItems: "center", flexWrap: "wrap" }}>
+                <span style={{ fontSize: "var(--es-text-sm)" }}>Loaded {pendingProfile.count} weight{pendingProfile.count === 1 ? "" : "s"} —</span>
+                <button className="es-btn es-small" title="Replace the current curation with the loaded profile"
+                  onClick={() => { setCuration({ multipliers: pendingProfile.multipliers }); setPendingProfile(null); }}>Replace</button>
+                <button className="es-btn es-small es-primary" title="Compound the loaded weights into the current curation"
+                  onClick={() => { setCuration((c) => mergeCuration(c, pendingProfile)); setPendingProfile(null); }}>Merge</button>
+                <button className="es-btn es-small" onClick={() => setPendingProfile(null)}>Cancel</button>
+              </div>
+            )}
           </div>
         )}
 
