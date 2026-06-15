@@ -2,9 +2,8 @@
  * Chord detection — the detection core (detectChord, detectChordFromPcs)
  * now comes from @enkerli/theory; this module re-exports it and keeps the
  * MIDIcurator-specific layers (bar segmentation, segment detection, degree
- * description, texture analysis). The previous local implementation is
- * preserved unchanged in ./chord-detect.local.ts until the migration is
- * finalized.
+ * description, texture analysis). Migration finalized 2026-06-14 (the local
+ * port was removed).
  */
 import {
   type ChordMatch,

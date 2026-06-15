@@ -1,37 +1,33 @@
 /**
  * Chord Dictionary Module
- * Defines chord qualities and their pitch class intervals
+ * Chord qualities for the fingering picker, sourced from @enkerli/theory (the
+ * suite's single source of truth) so this app can't drift from the shared
+ * chord definitions. The app keeps its own quality keys ('major', 'dom7', …);
+ * this maps each to a theory dictionary key and pulls its pitch classes.
  */
+
+import { findQualityByKey } from "@enkerli/theory";
+
+/** Picker quality key → @enkerli/theory dictionary key. */
+const THEORY_KEY = {
+  major: "maj", minor: "min", dim: "dim", aug: "aug", sus2: "sus2", sus4: "sus4",
+  maj7: "maj7", min7: "min7", dom7: "7", dim7: "dim7", hdim7: "m7b5",
+  minmaj7: "minMaj7", aug7: "aug7", maj9: "maj9", min9: "min9", dom9: "9",
+  "6": "6", min6: "m6",
+};
 
 /**
- * Chord quality definitions
- * Each quality maps to semitone intervals from the root
+ * Chord quality → pitch-class intervals from the root, derived from
+ * @enkerli/theory. (getChordPitchClasses takes these mod 12, so theory's
+ * mod-12 pitch classes are equivalent to the old extended intervals.)
  */
-export const CHORD_QUALITIES = {
-  // Triads
-  'major': [0, 4, 7],
-  'minor': [0, 3, 7],
-  'dim': [0, 3, 6],
-  'aug': [0, 4, 8],
-  'sus2': [0, 2, 7],
-  'sus4': [0, 5, 7],
-
-  // 7th Chords
-  'maj7': [0, 4, 7, 11],
-  'min7': [0, 3, 7, 10],
-  'dom7': [0, 4, 7, 10],
-  'dim7': [0, 3, 6, 9],
-  'hdim7': [0, 3, 6, 10],  // Half-diminished 7th
-  'minmaj7': [0, 3, 7, 11], // Minor-major 7th
-  'aug7': [0, 4, 8, 10],    // Augmented 7th
-
-  // Extended Chords
-  'maj9': [0, 4, 7, 11, 14],     // 14 = 2 + 12
-  'min9': [0, 3, 7, 10, 14],
-  'dom9': [0, 4, 7, 10, 14],
-  '6': [0, 4, 7, 9],             // Major 6th
-  'min6': [0, 3, 7, 9]           // Minor 6th
-};
+export const CHORD_QUALITIES = Object.fromEntries(
+  Object.entries(THEORY_KEY).map(([key, theoryKey]) => {
+    const quality = findQualityByKey(theoryKey);
+    if (!quality) throw new Error(`exquisite-fingerings: no @enkerli/theory quality "${theoryKey}" for "${key}"`);
+    return [key, quality.pcs];
+  }),
+);
 
 /**
  * Chord quality display names
