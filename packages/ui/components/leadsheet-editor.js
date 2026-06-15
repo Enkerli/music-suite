@@ -83,8 +83,9 @@ export function createLeadsheetEditor(el, opts = {}) {
     onChange: opts.onChange ?? null,
     onRate: opts.onRate ?? null,
     ratingOf: opts.ratingOf ?? null,
-    /** Active tool: "edit" (default) | "rate-up" | "rate-down". A tap applies
-     *  the tool, so cells stay uncluttered (no per-chip buttons). */
+    /** Active tool: "edit" (default) | "rate-up" | "rate-down" | "insert".
+     *  A tap applies the tool, so cells stay uncluttered (no per-chip
+     *  buttons). "insert" splices a new chord before the tapped one. */
     tool: opts.tool ?? "edit",
     suggest: opts.suggest ?? null,
   };
@@ -125,25 +126,46 @@ export function createLeadsheetEditor(el, opts = {}) {
     return last;
   }
 
-  /** Insert a fully-formed suggestion (token + locked voicing) at the end of
-   *  bar `bi`. */
-  function insertSuggestion(bi, sugg) {
+  /** The chord just before insertion position (bi, ci) — for the picker's
+   *  voice-leading context (the chord before ci in the bar, else the last
+   *  chord of an earlier bar). */
+  function chordBeforeAt(bi, ci) {
+    if (ci > 0) return bars()[bi].chords[ci - 1];
+    for (let i = bi - 1; i >= 0; i--) {
+      const b = bars()[i];
+      if (!b.repeat && b.chords.length) return b.chords[b.chords.length - 1];
+    }
+    return null;
+  }
+
+  /** Splice a fully-formed suggestion (token + locked voicing) into bar `bi`
+   *  at index `ci` (ci ≥ length appends). */
+  function insertSuggestion(bi, ci, sugg) {
     const chord = parseChordToken(sugg.label ?? sugg.symbol ?? "", state.prog.key);
     if (!chord) return;
     if (Array.isArray(sugg.notes) && sugg.notes.length) chord.voicing = [...sugg.notes];
     const bar = bars()[bi];
     if (!bar) return;
-    bar.chords.push(chord);
+    bar.chords.splice(Math.min(ci, bar.chords.length), 0, chord);
     render();
     emit();
   }
 
-  /** The "+" picker: type a chord, or choose a voiceled next-chord
-   *  suggestion. Only used when opts.suggest is provided; otherwise "+"
-   *  opens a bare inline input (openInlineAdd). */
-  function openPicker(addEl, bi) {
-    const before = chordBefore(bi);
-    const atEnd = bi === bars().length - 1;
+  /** Splice a typed token into bar `bi` at index `ci` (empty → cancel). */
+  function insertToken(bi, ci, text) {
+    const chord = parseChordToken(text, state.prog.key);
+    const bar = bars()[bi];
+    if (!chord || !bar) return;
+    bar.chords.splice(Math.min(ci, bar.chords.length), 0, chord);
+    render();
+    emit();
+  }
+
+  /** The picker: type a chord, or choose a voiceled suggestion, inserting at
+   *  (bi, ci). Used for the append "+" (ci = end, atEnd true) and for the
+   *  Insert tool (ci = a chord's index, splicing before it). */
+  function openPicker(anchorEl, bi, ci, atEnd) {
+    const before = chordBeforeAt(bi, ci);
     const suggestions = state.suggest({ before, atEnd, key: state.prog.key }) ?? [];
 
     const pop = document.createElement("div");
@@ -164,7 +186,7 @@ export function createLeadsheetEditor(el, opts = {}) {
     const onDoc = (e) => { if (!pop.contains(e.target)) close(); };
 
     input.addEventListener("keydown", (e) => {
-      if (e.key === "Enter") { e.preventDefault(); const v = input.value; close(); commitToken(bi, bars()[bi].chords.length, v); }
+      if (e.key === "Enter") { e.preventDefault(); const v = input.value; close(); insertToken(bi, ci, v); }
       else if (e.key === "Escape") { e.preventDefault(); close(); }
     });
     pop.append(input);
@@ -179,7 +201,7 @@ export function createLeadsheetEditor(el, opts = {}) {
         r.append(Object.assign(document.createElement("span"), { className: "es-ls-suggest-sym", textContent: s.symbol ?? s.label }));
         if (s.kind === "played") r.append(Object.assign(document.createElement("span"), { className: "es-badge", textContent: "played" }));
         else if (typeof s.movement === "number") r.append(Object.assign(document.createElement("span"), { className: "es-badge", textContent: `${s.movement} st` }));
-        r.addEventListener("mousedown", (e) => { e.preventDefault(); close(); insertSuggestion(bi, s); });
+        r.addEventListener("mousedown", (e) => { e.preventDefault(); close(); insertSuggestion(bi, ci, s); });
         return r;
       };
       // Autocomplete: filter the suggestions by what's typed (accent- and
@@ -196,7 +218,7 @@ export function createLeadsheetEditor(el, opts = {}) {
       pop.append(list);
     }
 
-    addEl.replaceWith(pop);
+    anchorEl.replaceWith(pop);
     input.focus();
     setTimeout(() => document.addEventListener("mousedown", onDoc, true));
   }
@@ -283,6 +305,7 @@ export function createLeadsheetEditor(el, opts = {}) {
         const tool = state.tool ?? "edit";
         if (tool === "rate-up") state.onRate?.(flatIndex, 1);
         else if (tool === "rate-down") state.onRate?.(flatIndex, -1);
+        else if (tool === "insert" && state.suggest) openPicker(chip, bi, ci, false); // splice before this chord
         else beginEdit(chip, bi, ci, token);
       });
     }
@@ -348,7 +371,7 @@ export function createLeadsheetEditor(el, opts = {}) {
       add.addEventListener("click", () => {
         let bi = lastChordBar;
         if (bi < 0) { bars().push({ chords: [] }); bi = bars().length - 1; }
-        if (state.suggest) openPicker(add, bi);
+        if (state.suggest) openPicker(add, bi, bars()[bi].chords.length, true); // append at the end
         else openInlineAdd(add, bi, bars()[bi].chords.length);
       });
       barsEl.append(add);
@@ -361,7 +384,7 @@ export function createLeadsheetEditor(el, opts = {}) {
         render();
         const fresh = root.querySelector(".es-ls-add:not(.bar)");
         if (!fresh) return;
-        if (state.suggest) openPicker(fresh, bars().length - 1);
+        if (state.suggest) openPicker(fresh, bars().length - 1, 0, true);
         else openInlineAdd(fresh, bars().length - 1, 0);
       });
       barsEl.append(addBar);

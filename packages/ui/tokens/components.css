@@ -295,7 +295,9 @@ select.es-control option { background: var(--es-bg-raised); color: var(--es-fg);
    tool (edit / rate-up / rate-down). Cells stay clean — the rating shows as a
    subtle tint, not buttons. */
 .es-ls.tool-rate-up .es-ls-chord,
-.es-ls.tool-rate-down .es-ls-chord { cursor: pointer; }
+.es-ls.tool-rate-down .es-ls-chord,
+.es-ls.tool-insert .es-ls-chord { cursor: pointer; }
+.es-ls.tool-insert .es-ls-chord { border-left-style: dashed; } /* hint: tap inserts before */
 .es-ls-chord.rated-up { box-shadow: inset 0 -2px 0 hsl(140, 55%, 45%); }
 .es-ls-chord.rated-down { box-shadow: inset 0 -2px 0 hsl(8, 60%, 52%); }
 .es-ls-input {

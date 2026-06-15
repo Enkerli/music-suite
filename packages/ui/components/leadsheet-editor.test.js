@@ -121,6 +121,20 @@ describe("leadsheet editor", () => {
     expect(items[0].textContent).toContain("G7");
   });
 
+  it("the insert tool splices a chord before the tapped one", () => {
+    const el = document.createElement("div");
+    const suggest = vi.fn(({ before }) => {
+      expect(before?.inputText).toBe("Cmaj7"); // voice-leading context is the chord before
+      return [{ label: "A-7", symbol: "A-7", notes: [57, 60, 64] }];
+    });
+    const ed = createLeadsheetEditor(el, { text: "Cmaj7 G7", key: C, showKey: false, suggest, tool: "insert" });
+    const chips = el.querySelectorAll(".es-ls-chord");
+    chips[1].dispatchEvent(new MouseEvent("click", { bubbles: true })); // tap G7 → insert before it
+    el.querySelector(".es-ls-suggest-item").dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
+    expect(ed.getText()).toBe("Cmaj7 A-7 G7");
+    expect(ed.value.sections[0].bars[0].chords[1].voicing).toEqual([57, 60, 64]); // voicing locked
+  });
+
   it("the + picker still accepts a typed token (Enter)", () => {
     const el = document.createElement("div");
     const suggest = vi.fn(() => []);
