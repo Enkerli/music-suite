@@ -7,10 +7,13 @@ import {
   exportCuration,
   importCuration,
   mergeCuration,
+  filterWeights,
   multiplierFor,
   pairKey,
   profileSummary,
   rateProgression,
+  splitTransitionKey,
+  transitionDegrees,
   resetTransition,
   TRANSITION_STEP,
 } from "./curation.js";
@@ -47,6 +50,32 @@ describe("profileSummary (profile-as-shape)", () => {
     const s = profileSummary({ multipliers: {} });
     expect(s).toEqual({ boosts: [], suppressions: [], count: 0 });
     expect(profileSummary(undefined).count).toBe(0);
+  });
+});
+
+describe("filter-by-degree (profile lens, Q6)", () => {
+  const entries = Object.entries({
+    "IIm7 → V7": 1.5, "♭VImaj7 → V7": 1.35, "IVmaj7 → V7": 0.6, "V7 → Imaj7": 1.74, "Imaj7 → Imaj7": 0.34,
+  });
+
+  it("splits a transition key into its two degrees", () => {
+    expect(splitTransitionKey("IIm7 → V7")).toEqual(["IIm7", "V7"]);
+  });
+
+  it("filters by destination degree (everything into V7)", () => {
+    const into = filterWeights(entries, "any", "V7");
+    expect(into.map(([k]) => k)).toEqual(["IIm7 → V7", "♭VImaj7 → V7", "IVmaj7 → V7"]);
+  });
+
+  it("filters by origin, and 'any/any' is the identity", () => {
+    expect(filterWeights(entries, "V7", "any").map(([k]) => k)).toEqual(["V7 → Imaj7"]);
+    expect(filterWeights(entries, "any", "any")).toHaveLength(entries.length);
+  });
+
+  it("lists the distinct origin and destination degrees", () => {
+    const { origins, dests } = transitionDegrees(entries);
+    expect(origins).toContain("IIm7");
+    expect(dests).toEqual(["Imaj7", "V7"]);
   });
 });
 

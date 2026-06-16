@@ -117,10 +117,9 @@ function pickScale(intervals: number[]): { scale: ScaleName; alts: ScaleName[] }
     return { scale: "mixolydian", alts: [] };
   }
 
-  // Major family (major 3rd, major 7th or a bare triad/6).
-  // TODO (refinement): prefer the avoid-note-free scale when one exists — e.g.
-  // Lydian over maj7 (♯11 replaces Ionian's avoid 4th) as the default, Ionian
-  // as the alternate. Weigh "fewest avoid notes" alongside the quality match.
+  // Major family (major 3rd, major 7th or a bare triad/6). Ionian is the
+  // quality match, but chordScaleFor promotes the avoid-note-free Lydian
+  // alternate (the ♯11 replaces Ionian's avoid 4th) — design decision Q5.
   if (third === "maj") {
     if (augFifth && maj7) return { scale: "lydianAugmented", alts: ["lydian"] };
     if (augFifth) return { scale: "wholeTone", alts: [] };
@@ -141,12 +140,33 @@ export function chordScaleFor(rootPc: number, pcs: number[]): ChordScale | null 
   const r = ((rootPc % 12) + 12) % 12;
   const intervals = intervalsFromRoot(pcs, r);
   const { scale, alts } = pickScale(intervals);
-  const scalePcs = SCALES[scale].map((i) => (r + i) % 12);
   const chordSet = new Set(pcs.map((p) => ((p % 12) + 12) % 12));
-  const chordTones = scalePcs.filter((pc) => chordSet.has(pc));
-  // Avoid: a scale tone (not itself a chord tone) one semitone above a chord tone.
-  const avoid = scalePcs.filter((pc) => !chordSet.has(pc) && chordSet.has((pc - 1 + 12) % 12));
-  const avoidSet = new Set(avoid);
-  const tensions = scalePcs.filter((pc) => !chordSet.has(pc) && !avoidSet.has(pc));
-  return { scale, scaleName: scaleDisplayName(scale), scalePcs, chordTones, tensions, avoid, alts };
+
+  // Score each candidate (the primary plus its alternates) by avoid-note count.
+  // The avoid test is a scale tone a minor 2nd above a chord tone (a ♭9 clash).
+  const score = (name: ScaleName) => {
+    const scalePcs = SCALES[name].map((i) => (r + i) % 12);
+    const avoid = scalePcs.filter((pc) => !chordSet.has(pc) && chordSet.has((pc - 1 + 12) % 12));
+    const hasAllChordTones = [...chordSet].every((pc) => scalePcs.includes(pc));
+    return { name, scalePcs, avoid, hasAllChordTones };
+  };
+  const candidates = [scale, ...alts].map(score);
+
+  // Prefer the candidate with the FEWEST avoid notes that still spans every
+  // chord tone (Lydian over Ionian for maj7 — the ♯11 replaces the avoid 4th);
+  // ties keep the original quality-match priority. A scale missing a chord tone
+  // is never promoted over one that fits, regardless of avoid count.
+  const eligible = candidates.filter((c) => c.hasAllChordTones);
+  const pool = eligible.length ? eligible : candidates;
+  let chosen = pool[0]!;
+  for (const c of pool) if (c.avoid.length < chosen.avoid.length) chosen = c;
+
+  const altNames = [scale, ...alts].filter((n) => n !== chosen.name);
+  const avoidSet = new Set(chosen.avoid);
+  const chordTones = chosen.scalePcs.filter((pc) => chordSet.has(pc));
+  const tensions = chosen.scalePcs.filter((pc) => !chordSet.has(pc) && !avoidSet.has(pc));
+  return {
+    scale: chosen.name, scaleName: scaleDisplayName(chosen.name), scalePcs: chosen.scalePcs,
+    chordTones, tensions, avoid: chosen.avoid, alts: altNames,
+  };
 }

@@ -6,7 +6,7 @@ import { chordStartBeats, exportProgression, voicingsToClip } from "./exportMidi
 import { loadLibrary, saveLibrary, newId } from "./library.js";
 import { progressionFromSMF } from "@enkerli/midi";
 import { createBridge } from "./juceBridge.js";
-import { applySubstitutions, assertDegree, chordScaleFor, modulateLabels, parseLeadsheet, realizeChord, spellRoot } from "@enkerli/theory";
+import { applySubstitutions, assertDegree, chordScaleFor, modulateLabels, parseLeadsheet, realizeChord, scaleDisplayName, spellRoot } from "@enkerli/theory";
 import { resolvedTheme, toggleTheme } from "@enkerli/ui/theme";
 import { createPianoRoll } from "@enkerli/ui/piano-roll";
 import { createLeadsheetEditor } from "@enkerli/ui/leadsheet-editor";
@@ -168,6 +168,7 @@ const IN_PLUGIN = bridge.kind === "juce";
 import {
   adjustTransition,
   exportCuration,
+  filterWeights,
   importCuration,
   loadCuration,
   mergeCuration,
@@ -178,6 +179,7 @@ import {
   rateProgression,
   resetTransition,
   saveCuration,
+  transitionDegrees,
   TRANSITION_STEP,
 } from "./curation.js";
 
@@ -366,7 +368,7 @@ export default function App() {
   const [resetArmed, setResetArmed] = useState(false); // two-tap confirm (WKWebView has no window.confirm)
   const [pendingProfile, setPendingProfile] = useState(null); // a loaded profile awaiting Replace/Merge
   const [profileError, setProfileError] = useState(null);
-  const [soundOpen, setSoundOpen] = useState(false); // "Sound · advanced" generator group
+  const [depthOpen, setDepthOpen] = useState(false); // "Depth · advanced" generator group (Context/Reharm/Modulation)
   const fileKindRef = useRef("profile"); // routes a native "fileOpened" to the right loader (profile | patch | midi)
   const [library, setLibrary] = useState(loadLibrary); // the musician's saved progressions
   const [docMeta, setDocMeta] = useState({ title: "", composer: "", source: "generated" }); // current document
@@ -376,6 +378,8 @@ export default function App() {
   const [docError, setDocError] = useState(null);
   const [ghostOpen, setGhostOpen] = useState(false); // ghost chip's inline completions/voicings disclosure
   const [showAllWeights, setShowAllWeights] = useState(false); // full curation ledger (one disclosure away)
+  const [curFrom, setCurFrom] = useState("any"); // filter-by-degree (Q6): origin
+  const [curTo, setCurTo] = useState("any"); //                          destination
   const [voiceLeadMode, setVoiceLeadMode] = useState("strict"); // none | loose | strict
   const [variety, setVariety] = useState("fresh"); // faithful | fresh | bold — de-emphasize repeats/returns/ii-V-I
   const [voicingShape, setVoicingShape] = useState("close"); // close|open|drop2|drop3|spread|rootless|shell
@@ -676,8 +680,10 @@ export default function App() {
   // Profile-as-shape (Step 05): the strongest few boosts/suppressions + count.
   const profileShape = useMemo(() => profileSummary(curation, { max: 4 }), [curation]);
 
-  /** Chord-scale line for the inspector (Track C): the scale a player draws on
-   *  over chord `i`, and its avoid notes — "Mixolydian · avoid F". */
+  /** Chord-scale line for the inspector (Track C / design Q5): the scale a
+   *  player draws on over chord `i`, its avoid notes, and the alternates —
+   *  "Lydian · or Ionian" / "Mixolydian · avoid F". The headline prefers the
+   *  avoid-note-free scale (chordScaleFor), with alternates demoted. */
   function chordScaleText(i) {
     const ch = chords[i];
     if (!ch || ch.rootPc == null || !ch.pcs?.length) return null;
@@ -685,7 +691,8 @@ export default function App() {
     if (!cs) return null;
     const keyPc = TONIC_PC[tonic] ?? 0;
     const avoid = cs.avoid.length ? ` · avoid ${cs.avoid.map((pc) => spellRoot(pc, keyPc)).join(" ")}` : "";
-    return `${cs.scaleName}${avoid}`;
+    const alts = cs.alts.length ? ` · or ${cs.alts.map(scaleDisplayName).join(", ")}` : "";
+    return `${cs.scaleName}${avoid}${alts}`;
   }
 
   /** Add the latched MIDI chord to the leadsheet (ChordID), locking a voicing
@@ -965,7 +972,9 @@ export default function App() {
         </div>
 
         <div style={{ display: "flex", flexWrap: "wrap", gap: "var(--es-space-3)", alignItems: "stretch", marginBottom: "var(--es-space-3)" }}>
-          <GenGroup label="Tune">
+          {/* Q3 — Key/Mode stay grouped for now; they fold into the section
+              header once sections own their key (Q2). */}
+          <GenGroup label="Key">
             <label style={LBL}>Key
               <select className="es-control" value={tonic} onChange={(e) => setTonic(e.target.value)}>
                 {ROOTS.map((r) => <option key={r} value={r}>{r}</option>)}
@@ -977,6 +986,9 @@ export default function App() {
                 <option value="minor">minor</option>
               </select>
             </label>
+          </GenGroup>
+
+          <GenGroup label="Length & pacing">
             <label style={LBL}>Bars
               <select className="es-control" value={bars} onChange={(e) => setBars(Number(e.target.value))}>
                 {[2, 4, 8, 12, 16, 24, 32].map((n) => <option key={n} value={n}>{n}</option>)}
@@ -1023,14 +1035,6 @@ export default function App() {
                 <option value="circle">circle of fifths</option>
               </select>
             </label>
-            <label style={LBL}>Context
-              <select className="es-control" value={smart} onChange={(e) => setSmart(e.target.value)}
-                title="Variable-order: where the corpus knows what tends to follow a two-chord context, lean on it (longer-range phrasing)">
-                <option value="off">1 chord</option>
-                <option value="on">2 chords</option>
-                <option value="deep">2 chords (deep)</option>
-              </select>
-            </label>
             <label style={LBL}>Start from
               <select className="es-control" value={startFrom ?? ""} title="Seed the walk from an arbitrary chord"
                 onChange={(e) => setStartFrom(e.target.value || null)}>
@@ -1038,25 +1042,11 @@ export default function App() {
                 {startOptions.map((l) => <option key={l} value={l}>{l}</option>)}
               </select>
             </label>
-            <label style={LBL}>Reharm
-              <select className="es-control" value={reharm} onChange={(e) => setReharm(e.target.value)}
-                title="Probabilistic substitutions: tritone (♭II7 for V7) and backdoor (♭VII7) dominants">
-                <option value="off">off</option>
-                <option value="subtle">subtle</option>
-                <option value="bold">bold</option>
-              </select>
-            </label>
-            <label style={LBL}>Modulation
-              <select className="es-control" value={modulate} onChange={(e) => setModulate(e.target.value)}
-                title="Change key every N bars to a corpus-common related key (dominant / subdominant / relative / up-a-step)">
-                <option value="off">none</option>
-                <option value="4">every 4 bars</option>
-                <option value="8">every 8 bars</option>
-              </select>
-            </label>
           </GenGroup>
 
-          <GenGroup label="Sound" advanced open={soundOpen} onToggle={() => setSoundOpen((o) => !o)}>
+          {/* Q3 — "Sound" → "Voice" (it's about voices, not timbre); Channels
+              moved to the output row. */}
+          <GenGroup label="Voice">
             <label style={LBL}>Voicing
               <select className="es-control" value={voicingShape} onChange={(e) => setVoicingShape(e.target.value)}
                 title="Initial chord voicing shape (the seed for voice leading)">
@@ -1077,12 +1067,32 @@ export default function App() {
                 <option value="strict">strict</option>
               </select>
             </label>
-            <label style={LBL}>Channels
-              <select className="es-control" value={channelMode} onChange={(e) => setChannelMode(e.target.value)}
-                title="Route bass and voices to separate MIDI channels">
-                <option value="single">single (1)</option>
-                <option value="split">bass 1 · chords 2</option>
-                <option value="perVoice">per voice (1…)</option>
+          </GenGroup>
+
+          {/* Q3 — the three occasionally-set depth knobs live behind advanced. */}
+          <GenGroup label="Depth" advanced open={depthOpen} onToggle={() => setDepthOpen((o) => !o)}>
+            <label style={LBL}>Context
+              <select className="es-control" value={smart} onChange={(e) => setSmart(e.target.value)}
+                title="Variable-order: where the corpus knows what tends to follow a two-chord context, lean on it (longer-range phrasing)">
+                <option value="off">1 chord</option>
+                <option value="on">2 chords</option>
+                <option value="deep">2 chords (deep)</option>
+              </select>
+            </label>
+            <label style={LBL}>Reharm
+              <select className="es-control" value={reharm} onChange={(e) => setReharm(e.target.value)}
+                title="Probabilistic substitutions: tritone (♭II7 for V7) and backdoor (♭VII7) dominants">
+                <option value="off">off</option>
+                <option value="subtle">subtle</option>
+                <option value="bold">bold</option>
+              </select>
+            </label>
+            <label style={LBL}>Modulation
+              <select className="es-control" value={modulate} onChange={(e) => setModulate(e.target.value)}
+                title="Change key every N bars to a corpus-common related key (dominant / subdominant / relative / up-a-step)">
+                <option value="off">none</option>
+                <option value="4">every 4 bars</option>
+                <option value="8">every 8 bars</option>
               </select>
             </label>
           </GenGroup>
@@ -1104,6 +1114,15 @@ export default function App() {
             <input className="es-control" style={{ width: 64 }} type="number" min="40" max="300" value={bpm} onChange={(e) => setBpm(Number(e.target.value))} />
           </label>}
           {!IN_PLUGIN && <button className="es-btn es-primary" onClick={() => (playing ? stop() : play(voicings, bpm))}>{playing ? "Stop" : "Play"}</button>}
+          {/* Q3 — Channels is an output/routing choice, not a generation
+              parameter, so it sits with the export/transport chrome. */}
+          <label style={{ display: "flex", gap: 6, alignItems: "center", fontSize: "var(--es-text-sm)" }} title="Route bass and voices to separate MIDI channels">Channels
+            <select className="es-control" style={{ width: "auto" }} value={channelMode} onChange={(e) => setChannelMode(e.target.value)}>
+              <option value="single">single (1)</option>
+              <option value="split">bass 1 · chords 2</option>
+              <option value="perVoice">per voice (1…)</option>
+            </select>
+          </label>
           <button className="es-btn" onClick={() => navigator.clipboard?.writeText(chords.map((c) => c.symbol).join(" | "))}>Copy chords</button>
           {/* Where the document travels — name the destination, not the file
               format (Step 06). Both routes write the same SMF (it embeds the
@@ -1319,18 +1338,46 @@ export default function App() {
                   aria-expanded={showAllWeights} onClick={() => setShowAllWeights((s) => !s)}>
                   {showAllWeights ? "Hide all weights ▾" : `All weights (${curatedEntries.length}) ▸`}
                 </button>
-                {showAllWeights && (
-                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: "var(--es-space-2)", marginTop: "var(--es-space-2)" }}>
-                    {curatedEntries.map(([key, value]) => (
-                      <div key={key} style={{ display: "flex", alignItems: "center", gap: "var(--es-space-2)", fontSize: "var(--es-text-sm)" }}>
-                        <span className="es-num" style={{ flex: 1 }}>{key}</span>
-                        <MultiplierBadge value={value} />
-                        <button className="es-btn es-small" aria-label={`Reset ${key}`} title="Reset to corpus weight"
-                          onClick={() => setCuration((c) => resetTransition(c, key))}>↺</button>
+                {showAllWeights && (() => {
+                  const { origins, dests } = transitionDegrees(curatedEntries);
+                  const filtered = filterWeights(curatedEntries, curFrom, curTo);
+                  return (
+                    <div style={{ marginTop: "var(--es-space-2)" }}>
+                      {/* Q6 — filter the one functional ledger by degree; because
+                          weights are key-independent, it holds in every section. */}
+                      <div style={{ display: "flex", alignItems: "center", gap: "var(--es-space-2)", flexWrap: "wrap", marginBottom: "var(--es-space-2)" }}>
+                        <label style={{ display: "flex", gap: 4, alignItems: "center", fontSize: "var(--es-text-sm)" }}>from
+                          <select className="es-control" style={{ width: "auto" }} value={curFrom} onChange={(e) => setCurFrom(e.target.value)}>
+                            <option value="any">any</option>
+                            {origins.map((d) => <option key={d} value={d}>{d}</option>)}
+                          </select>
+                        </label>
+                        <span className="es-num" style={{ color: "var(--es-fg-muted)" }}>→</span>
+                        <label style={{ display: "flex", gap: 4, alignItems: "center", fontSize: "var(--es-text-sm)" }}>into
+                          <select className="es-control" style={{ width: "auto" }} value={curTo} onChange={(e) => setCurTo(e.target.value)}>
+                            <option value="any">any</option>
+                            {dests.map((d) => <option key={d} value={d}>{d}</option>)}
+                          </select>
+                        </label>
+                        <span style={{ fontSize: "var(--es-text-xs)", color: "var(--es-fg-muted)" }}>
+                          {filtered.length} of {curatedEntries.length} weight{curatedEntries.length === 1 ? "" : "s"} · applies in every section's key
+                        </span>
+                        {(curFrom !== "any" || curTo !== "any") &&
+                          <button className="es-btn es-small" onClick={() => { setCurFrom("any"); setCurTo("any"); }}>clear</button>}
                       </div>
-                    ))}
-                  </div>
-                )}
+                      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: "var(--es-space-2)" }}>
+                        {filtered.map(([key, value]) => (
+                          <div key={key} style={{ display: "flex", alignItems: "center", gap: "var(--es-space-2)", fontSize: "var(--es-text-sm)" }}>
+                            <span className="es-num" style={{ flex: 1 }}>{key}</span>
+                            <MultiplierBadge value={value} />
+                            <button className="es-btn es-small" aria-label={`Reset ${key}`} title="Reset to corpus weight"
+                              onClick={() => setCuration((c) => resetTransition(c, key))}>↺</button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })()}
               </>
             )}
 

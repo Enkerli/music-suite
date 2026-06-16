@@ -21,6 +21,36 @@ export function pairKey(from, to) {
   return `${from} → ${to}`;
 }
 
+/** Split a transition key "FROM → TO" back into its two degree labels. */
+export function splitTransitionKey(key) {
+  const i = key.indexOf(" → ");
+  return i < 0 ? [key, ""] : [key.slice(0, i), key.slice(i + 3)];
+}
+
+/**
+ * Filter curated [key, value] entries by origin and/or destination degree
+ * ("any" matches all) — the filter-by-degree lens (design Q6). Because weights
+ * are functional (degree→degree, key-independent), the result holds across
+ * every section's key.
+ */
+export function filterWeights(entries, from = "any", to = "any") {
+  return entries.filter(([key]) => {
+    const [f, t] = splitTransitionKey(key);
+    return (from === "any" || f === from) && (to === "any" || t === to);
+  });
+}
+
+/** Distinct origin and destination degrees present in curated entries (sorted). */
+export function transitionDegrees(entries) {
+  const origins = new Set();
+  const dests = new Set();
+  for (const [key] of entries) {
+    const [f, t] = splitTransitionKey(key);
+    origins.add(f); if (t) dests.add(t);
+  }
+  return { origins: [...origins].sort(), dests: [...dests].sort() };
+}
+
 /** n-gram key: "A → B → C" — same map as pairs, longer context. */
 export function sequenceKey(labels) {
   return labels.join(" → ");

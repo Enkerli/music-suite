@@ -18,8 +18,11 @@ describe("App render smoke", () => {
     expect(html).toContain("Save to library"); // document strip (library & import, Step 03)
     expect(html).toContain("Your profile"); // curation summarized — profile-as-shape (Step 05)
     expect(html).toContain("Send to MIDIcurator"); // named destination (Step 06)
-    expect(html).toContain("Reharm"); // substitution reharm control (Track C)
-    expect(html).toContain("Modulation"); // key-changes control (Track C)
-    expect(html).toContain("Context"); // variable-order Markov control (Track C)
+    // Q3 generator taxonomy — group headers (Context/Reharm/Modulation now live
+    // behind the collapsed "Depth · advanced" group, so assert the labels).
+    expect(html).toContain("Length &amp; pacing");
+    expect(html).toContain("Voice"); // was "Sound"
+    expect(html).toContain("Depth"); // advanced depth knobs
+    expect(html).toContain("Channels"); // moved to the output row
   });
 });

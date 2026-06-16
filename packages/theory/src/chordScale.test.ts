@@ -7,10 +7,11 @@ const C = 0;
 describe("chordScaleFor — scale choice (textbook chord-scales)", () => {
   const scaleOf = (root: number, pcs: number[]) => chordScaleFor(root, pcs)!.scale;
 
-  it("maj7 → Ionian (Lydian as an alternate)", () => {
+  it("maj7 → Lydian, not Ionian (avoid-note-free preference, Q5)", () => {
     const cs = chordScaleFor(C, [0, 4, 7, 11])!; // Cmaj7
-    expect(cs.scale).toBe("ionian");
-    expect(cs.alts).toContain("lydian");
+    expect(cs.scale).toBe("lydian"); // ♯11 replaces Ionian's avoid 4th
+    expect(cs.avoid).toEqual([]); // nothing to dodge
+    expect(cs.alts).toContain("ionian"); // Ionian demoted to the alternates row
   });
 
   it("dominant 7 → Mixolydian", () => {
@@ -47,10 +48,11 @@ describe("chordScaleFor — scale choice (textbook chord-scales)", () => {
 });
 
 describe("chordScaleFor — avoid notes (a ♭9 above a chord tone)", () => {
-  it("Cmaj7/Ionian: F is the avoid note (♭9 above the 3rd, E)", () => {
+  it("Cmaj7 resolves to avoid-free Lydian (the 4th becomes ♯11, a tension)", () => {
     const cs = chordScaleFor(C, [0, 4, 7, 11])!;
-    expect(cs.avoid).toEqual([5]); // F
-    expect(cs.tensions.sort((a, b) => a - b)).toEqual([2, 9]); // D (9), A (13)
+    expect(cs.scale).toBe("lydian");
+    expect(cs.avoid).toEqual([]); // F♯ (♯11) is a whole step above E — no clash
+    expect(cs.tensions.sort((a, b) => a - b)).toEqual([2, 6, 9]); // D (9), F♯ (♯11), A (13)
     expect(cs.chordTones.sort((a, b) => a - b)).toEqual([0, 4, 7, 11]);
   });
 
