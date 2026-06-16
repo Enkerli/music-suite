@@ -200,6 +200,21 @@ describe("leadsheet editor — multi-section, per-section keys (Q2)", () => {
     expect(el.querySelector(".es-ls-kchange-pill").textContent).toBe("→ G major");
   });
 
+  it("renders an unnamed (auto-generated) modulation quietly — divider, no badge header", () => {
+    const el = document.createElement("div");
+    const unnamed = {
+      key: { tonic: "C", mode: "major" },
+      sections: [
+        { bars: [{ chords: [deg("I", "maj7")] }] },
+        { key: { tonic: "G", mode: "major" }, bars: [{ chords: [deg("I", "maj7")] }] },
+      ],
+    };
+    createLeadsheetEditor(el, { progression: unnamed, showKey: false });
+    expect(el.querySelectorAll(".es-ls-sectbadge")).toHaveLength(0); // no heavy headers
+    expect(el.querySelector(".es-ls-kchange-pill").textContent).toBe("→ G major"); // just the quiet seam
+    expect([...el.querySelectorAll(".es-ls-real")].map((r) => r.textContent)).toEqual(["Cmaj7", "Gmaj7"]); // still re-anchored
+  });
+
   it("re-anchors each section's degrees to its own key (Imaj7 → Cmaj7, then Gmaj7)", () => {
     const el = document.createElement("div");
     createLeadsheetEditor(el, { progression: prog(), showKey: false });

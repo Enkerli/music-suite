@@ -648,7 +648,11 @@ export function createLeadsheetEditor(el, opts = {}) {
       }
       const sectEl = document.createElement("div");
       sectEl.className = "es-ls-section";
-      if (multi) sectEl.append(sectionHeader(si));
+      // The formal badge header is for named form (verse / bridge) or an
+      // explicit key editor (showKey). An auto-generated modulation has no
+      // name, so it reads quietly: just the "→ G major" seam divider and its
+      // re-spelled labels — the lighter treatment for an implied key change.
+      if (multi && (section.label != null || state.showKey)) sectEl.append(sectionHeader(si));
       const { barsEl, flatEnd } = sectionBars(si, flat);
       flat = flatEnd;
       sectEl.append(barsEl);
