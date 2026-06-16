@@ -1021,8 +1021,22 @@ export default function App() {
           </label>}
           {!IN_PLUGIN && <button className="es-btn es-primary" onClick={() => (playing ? stop() : play(voicings, bpm))}>{playing ? "Stop" : "Play"}</button>}
           <button className="es-btn" onClick={() => navigator.clipboard?.writeText(chords.map((c) => c.symbol).join(" | "))}>Copy chords</button>
-          <button className="es-btn" title="Download as a Standard MIDI File (chord symbols as markers)"
-            onClick={() => exportProgression(bridge, voicings, { bpm, tonic, mode, seed, channelMode })}>Export MIDI</button>
+          {/* Where the document travels — name the destination, not the file
+              format (Step 06). Both routes write the same SMF (it embeds the
+              canonical Progression), through the one native save/share path. */}
+          <span style={{ display: "inline-flex", flexDirection: "column", gap: 2 }}>
+            <span style={{ display: "flex", gap: "var(--es-space-2)", alignItems: "center" }}>
+              <button className="es-btn es-primary" title="Save a leadsheet-bearing MIDI file to hand to MIDIcurator (open it there — the suite reads the progression back)"
+                onClick={() => exportProgression(bridge, voicings, { bpm, tonic, mode, seed, channelMode, title: docMeta.title, destination: "midicurator" })}>
+                Send to MIDIcurator
+              </button>
+              <button className="es-btn es-small" title="Save as a plain Standard MIDI File (chord symbols as markers)"
+                onClick={() => exportProgression(bridge, voicings, { bpm, tonic, mode, seed, channelMode, title: docMeta.title })}>
+                Export MIDI file
+              </button>
+            </span>
+            <span style={{ fontSize: "var(--es-text-xs)", color: "var(--es-fg-muted)" }}>carries the shared leadsheet — the suite can read it back</span>
+          </span>
           <button className="es-btn" aria-label="Toggle color theme" title="Light is the house default; dark is one tap away"
             onClick={() => setThemeState(toggleTheme())}>{theme === "dark" ? "☀︎ Light" : "● Dark"}</button>
         </div>

@@ -92,22 +92,36 @@ export function progressionToSMF(voicings, { bpm = 120, name = "Progression", ch
   });
 }
 
-function exportFileName({ tonic, mode, seed }) {
-  // Timestamped so repeated exports never collide ("…_1 2.mid"): the seed
-  // identifies the progression, the timestamp keeps the file unique.
+/** A filename-safe slug from a free-text title (keeps it readable). */
+function slug(s) {
+  return s.replace(/♯/g, "#").replace(/♭/g, "b").replace(/[^\w #-]+/g, " ").trim().replace(/\s+/g, " ");
+}
+
+function exportFileName({ tonic, mode, seed, title, destination }) {
+  // Timestamped so repeated exports never collide ("…_1 2.mid"): the title (or
+  // seed) identifies the progression, the timestamp keeps the file unique. A
+  // "midicurator" destination prefixes the name so the handoff is legible.
   const t = tonic.replace(/♯/g, "#").replace(/♭/g, "b");
-  return timestampedName(`progression_${t}_${mode}_${seed}`, "mid");
+  const base = title?.trim() ? slug(title) : `progression_${t}_${mode}_${seed}`;
+  const prefix = destination === "midicurator" ? "to-midicurator " : "";
+  return timestampedName(`${prefix}${base}`, "mid");
 }
 
 /**
  * Export entry point. In the plugin the bytes go over the bridge and C++
  * saves them natively (blob:/data: downloads kill the page in WKWebView —
  * "Frame load interrupted"); in a browser, ordinary download.
+ *
+ * The SMF embeds the canonical Progression as an `MCURATOR` meta-event, so
+ * the suite (MIDIcurator) reads the leadsheet back — `destination` only
+ * names the handoff and the filename, it doesn't change the bytes. The live
+ * link is future; today both "Send to MIDIcurator" and "Export MIDI file"
+ * route through the one native save/share path.
  */
-export function exportProgression(bridge, voicings, { bpm, tonic, mode, seed, channelMode }) {
-  const name = `progression ${tonic} ${mode} #${seed}`;
+export function exportProgression(bridge, voicings, { bpm, tonic, mode, seed, channelMode, title, destination }) {
+  const name = title?.trim() || `progression ${tonic} ${mode} #${seed}`;
   const bytes = progressionToSMF(voicings, { bpm, name, channelMode, key: { tonic, mode } });
-  const filename = exportFileName({ tonic, mode, seed });
+  const filename = exportFileName({ tonic, mode, seed, title, destination });
   if (bridge?.saveFile?.(filename, bytes)) return;
   const blob = new Blob([bytes], { type: "audio/midi" });
   const url = URL.createObjectURL(blob);

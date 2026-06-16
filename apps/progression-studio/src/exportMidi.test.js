@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { progressionFromSMF } from "@enkerli/midi";
-import { progressionToSMF, progressionFromVoicings, voicingsToClip, TICKS_PER_BEAT, BEATS_PER_CHORD } from "./exportMidi.js";
+import { exportProgression, progressionToSMF, progressionFromVoicings, voicingsToClip, TICKS_PER_BEAT, BEATS_PER_CHORD } from "./exportMidi.js";
 import { realizeLabel, voiceProgression } from "./generate.js";
 
 describe("voicingsToClip honors per-chord duration (harmonic rhythm)", () => {
@@ -84,6 +84,34 @@ describe("embedded canonical progression (the suite interchange)", () => {
   it("omits the payload when no key is given (back-compat)", () => {
     const smf = progressionToSMF(voicings, { bpm: 120, name: "X" });
     expect(progressionFromSMF(smf)).toBeNull();
+  });
+});
+
+describe("Send to MIDIcurator vs Export MIDI file (Step 06 — name the destination)", () => {
+  const key = { tonic: "C", mode: "major" };
+  const voicings = voiceProgression(["IIm7", "V7", "Imaj7"].map((l) => realizeLabel(l, key)));
+  const run = (opts) => {
+    let captured = null;
+    const bridge = { saveFile: (name, bytes) => { captured = { name, bytes }; return true; } };
+    exportProgression(bridge, voicings, { bpm: 120, tonic: "C", mode: "major", seed: 7, channelMode: "single", ...opts });
+    return captured;
+  };
+
+  it("routes both through the native bridge save path", () => {
+    expect(run({}).name).toMatch(/\.mid$/);
+  });
+
+  it("names the MIDIcurator destination and uses the document title", () => {
+    const a = run({ title: "Blue Bossa", destination: "midicurator" });
+    expect(a.name).toContain("to-midicurator");
+    expect(a.name).toContain("Blue Bossa");
+  });
+
+  it("writes the same leadsheet-bearing bytes regardless of destination", () => {
+    const send = run({ title: "Tune", destination: "midicurator" });
+    const file = run({ title: "Tune" });
+    expect([...send.bytes]).toEqual([...file.bytes]); // destination only names the handoff
+    expect(progressionFromSMF(send.bytes)).not.toBeNull(); // and it carries the Progression
   });
 });
 
