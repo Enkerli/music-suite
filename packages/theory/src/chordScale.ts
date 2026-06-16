@@ -68,6 +68,10 @@ export interface ChordScale {
   avoid: number[];
   /** Alternative scales a player might also use (machine names). */
   alts: ScaleName[];
+  /** Alternatives with each one's own avoid notes — so the UI can privilege the
+   *  avoid-free option yet still call out the avoid note of the others (Q5:
+   *  Cmaj7 → Lydian, "or Ionian (avoid F)"). Ordered as `alts`. */
+  alternates: { scale: ScaleName; scaleName: string; avoid: number[] }[];
 }
 
 /** Reduce a chord's absolute pcs to unique intervals (0–11) above the root. */
@@ -161,12 +165,17 @@ export function chordScaleFor(rootPc: number, pcs: number[]): ChordScale | null 
   let chosen = pool[0]!;
   for (const c of pool) if (c.avoid.length < chosen.avoid.length) chosen = c;
 
-  const altNames = [scale, ...alts].filter((n) => n !== chosen.name);
+  // Alternatives in offered order, each carrying its OWN avoid notes (so the UI
+  // can show "Lydian · or Ionian (avoid F)").
+  const alternates = candidates
+    .filter((c) => c.name !== chosen.name)
+    .map((c) => ({ scale: c.name, scaleName: scaleDisplayName(c.name), avoid: c.avoid }));
   const avoidSet = new Set(chosen.avoid);
   const chordTones = chosen.scalePcs.filter((pc) => chordSet.has(pc));
   const tensions = chosen.scalePcs.filter((pc) => !chordSet.has(pc) && !avoidSet.has(pc));
   return {
     scale: chosen.name, scaleName: scaleDisplayName(chosen.name), scalePcs: chosen.scalePcs,
-    chordTones, tensions, avoid: chosen.avoid, alts: altNames,
+    chordTones, tensions, avoid: chosen.avoid,
+    alts: alternates.map((a) => a.scale), alternates,
   };
 }

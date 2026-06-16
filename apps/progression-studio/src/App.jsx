@@ -6,7 +6,7 @@ import { chordStartBeats, exportProgression, voicingsToClip } from "./exportMidi
 import { loadLibrary, saveLibrary, newId } from "./library.js";
 import { progressionFromSMF } from "@enkerli/midi";
 import { createBridge } from "./juceBridge.js";
-import { applySubstitutions, assertDegree, chordScaleFor, parseLeadsheet, planModulation, realizeChord, resolveDegree, scaleDisplayName, spellRoot } from "@enkerli/theory";
+import { applySubstitutions, assertDegree, chordScaleFor, parseLeadsheet, planModulation, realizeChord, resolveDegree, spellRoot } from "@enkerli/theory";
 import { resolvedTheme, toggleTheme } from "@enkerli/ui/theme";
 import { createPianoRoll } from "@enkerli/ui/piano-roll";
 import { createLeadsheetEditor } from "@enkerli/ui/leadsheet-editor";
@@ -713,18 +713,21 @@ export default function App() {
   const profileShape = useMemo(() => profileSummary(curation, { max: 4 }), [curation]);
 
   /** Chord-scale line for the inspector (Track C / design Q5): the scale a
-   *  player draws on over chord `i`, its avoid notes, and the alternates —
-   *  "Lydian · or Ionian" / "Mixolydian · avoid F". The headline prefers the
-   *  avoid-note-free scale (chordScaleFor), with alternates demoted. */
+   *  player draws on over chord `i`, with each option's avoid notes spelled
+   *  out — "Lydian · or Ionian (avoid F)" / "Mixolydian (avoid F)". The
+   *  headline prefers the avoid-note-free scale; alternates are demoted but
+   *  still call out their own avoid notes. */
   function chordScaleText(i) {
     const ch = chords[i];
     if (!ch || ch.rootPc == null || !ch.pcs?.length) return null;
     const cs = chordScaleFor(ch.rootPc, ch.pcs);
     if (!cs) return null;
     const keyPc = TONIC_PC[ch.secKey?.tonic ?? tonic] ?? 0;
-    const avoid = cs.avoid.length ? ` · avoid ${cs.avoid.map((pc) => spellRoot(pc, keyPc)).join(" ")}` : "";
-    const alts = cs.alts.length ? ` · or ${cs.alts.map(scaleDisplayName).join(", ")}` : "";
-    return `${cs.scaleName}${avoid}${alts}`;
+    const avoidOf = (avoid) => (avoid.length ? ` (avoid ${avoid.map((pc) => spellRoot(pc, keyPc)).join(" ")})` : "");
+    const head = `${cs.scaleName}${avoidOf(cs.avoid)}`;
+    const alts = cs.alternates.length
+      ? ` · or ${cs.alternates.map((a) => `${a.scaleName}${avoidOf(a.avoid)}`).join(", ")}` : "";
+    return `${head}${alts}`;
   }
 
   /** Add the latched MIDI chord to the leadsheet (ChordID), locking a voicing
@@ -1076,8 +1079,8 @@ export default function App() {
             </label>
           </GenGroup>
 
-          {/* Q3 — "Sound" → "Voice" (it's about voices, not timbre); Channels
-              moved to the output row. */}
+          {/* Q3 — "Sound" → "Voice" (it's about voices, not timbre). Channels
+              stays here too: it divides the output BY VOICE (Alex). */}
           <GenGroup label="Voice">
             <label style={LBL}>Voicing
               <select className="es-control" value={voicingShape} onChange={(e) => setVoicingShape(e.target.value)}
@@ -1097,6 +1100,14 @@ export default function App() {
                 <option value="none">none</option>
                 <option value="loose">loose</option>
                 <option value="strict">strict</option>
+              </select>
+            </label>
+            <label style={LBL}>Channels
+              <select className="es-control" value={channelMode} onChange={(e) => setChannelMode(e.target.value)}
+                title="Route the voices to MIDI channels — divides the output by voice">
+                <option value="single">single (1)</option>
+                <option value="split">bass 1 · chords 2</option>
+                <option value="perVoice">per voice (1…)</option>
               </select>
             </label>
           </GenGroup>
@@ -1146,15 +1157,6 @@ export default function App() {
             <input className="es-control" style={{ width: 64 }} type="number" min="40" max="300" value={bpm} onChange={(e) => setBpm(Number(e.target.value))} />
           </label>}
           {!IN_PLUGIN && <button className="es-btn es-primary" onClick={() => (playing ? stop() : play(voicings, bpm))}>{playing ? "Stop" : "Play"}</button>}
-          {/* Q3 — Channels is an output/routing choice, not a generation
-              parameter, so it sits with the export/transport chrome. */}
-          <label style={{ display: "flex", gap: 6, alignItems: "center", fontSize: "var(--es-text-sm)" }} title="Route bass and voices to separate MIDI channels">Channels
-            <select className="es-control" style={{ width: "auto" }} value={channelMode} onChange={(e) => setChannelMode(e.target.value)}>
-              <option value="single">single (1)</option>
-              <option value="split">bass 1 · chords 2</option>
-              <option value="perVoice">per voice (1…)</option>
-            </select>
-          </label>
           <button className="es-btn" onClick={() => navigator.clipboard?.writeText(chords.map((c) => c.symbol).join(" | "))}>Copy chords</button>
           {/* Where the document travels — name the destination, not the file
               format (Step 06). Both routes write the same SMF (it embeds the

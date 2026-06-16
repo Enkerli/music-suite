@@ -14,6 +14,13 @@ describe("chordScaleFor — scale choice (textbook chord-scales)", () => {
     expect(cs.alts).toContain("ionian"); // Ionian demoted to the alternates row
   });
 
+  it("each alternate carries its OWN avoid notes (Q5: Ionian's avoid F is surfaced)", () => {
+    const cs = chordScaleFor(C, [0, 4, 7, 11])!; // Cmaj7 → Lydian, or Ionian (avoid F)
+    const ionian = cs.alternates.find((a) => a.scale === "ionian")!;
+    expect(ionian.avoid).toEqual([5]); // F — the natural 4th, called out even though demoted
+    expect(cs.alternates.map((a) => a.scale)).toEqual(cs.alts); // alternates mirror alts
+  });
+
   it("dominant 7 → Mixolydian", () => {
     expect(scaleOf(C, [0, 4, 7, 10])).toBe("mixolydian"); // C7
   });
