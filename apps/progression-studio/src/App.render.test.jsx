@@ -18,5 +18,6 @@ describe("App render smoke", () => {
     expect(html).toContain("Save to library"); // document strip (library & import, Step 03)
     expect(html).toContain("Your profile"); // curation summarized — profile-as-shape (Step 05)
     expect(html).toContain("Send to MIDIcurator"); // named destination (Step 06)
+    expect(html).toContain("Reharm"); // substitution reharm control (Track C)
   });
 });

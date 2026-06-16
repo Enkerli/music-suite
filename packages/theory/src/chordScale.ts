@@ -118,6 +118,9 @@ function pickScale(intervals: number[]): { scale: ScaleName; alts: ScaleName[] }
   }
 
   // Major family (major 3rd, major 7th or a bare triad/6).
+  // TODO (refinement): prefer the avoid-note-free scale when one exists — e.g.
+  // Lydian over maj7 (♯11 replaces Ionian's avoid 4th) as the default, Ionian
+  // as the alternate. Weigh "fewest avoid notes" alongside the quality match.
   if (third === "maj") {
     if (augFifth && maj7) return { scale: "lydianAugmented", alts: ["lydian"] };
     if (augFifth) return { scale: "wholeTone", alts: [] };
