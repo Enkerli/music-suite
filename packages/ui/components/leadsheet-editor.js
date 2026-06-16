@@ -90,6 +90,8 @@ export function createLeadsheetEditor(el, opts = {}) {
     suggest: opts.suggest ?? null,
     /** Optional "why this chord" text for the inspector (rationale to come). */
     rationaleOf: opts.rationaleOf ?? null,
+    /** Optional "chord-scale" text for the inspector (scale + avoid notes). */
+    scaleOf: opts.scaleOf ?? null,
     /** Selected chord (opens the inspector): { bi, ci, flat } | null. */
     selected: null,
     /** Chord picked up for a move (grip): { bi, ci } | null — carets become
@@ -417,6 +419,9 @@ export function createLeadsheetEditor(el, opts = {}) {
       r.append(label("This move"), up, dn);
       panel.append(r);
     }
+
+    const scaleText = state.scaleOf?.(flat);
+    if (scaleText) { const r = irow(); r.append(label("Scale"), span(scaleText, "es-ls-insp-val")); panel.append(r); }
 
     const why = state.rationaleOf?.(flat);
     if (why) { const r = irow(); r.append(label("Why"), span(why, "es-ls-insp-val")); panel.append(r); }

@@ -7,4 +7,5 @@ export * from "./rhythm.js";
 export * from "./spelling.js";
 export * from "./chordSymbol.js";
 export * from "./analysis.js";
+export * from "./chordScale.js";
 export * from "./leadsheet.js";

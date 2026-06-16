@@ -110,6 +110,18 @@ describe("leadsheet editor — inspector (tap a chord)", () => {
     expect(el.querySelector(".es-ls-inspector").textContent).not.toContain("You favor");
   });
 
+  it("shows a 'scale' row (chord-scale + avoid notes) in the inspector", () => {
+    const el = document.createElement("div");
+    createLeadsheetEditor(el, {
+      text: "Dm7 | G7 | Cmaj7", key: C, showKey: false,
+      scaleOf: (i) => (i === 1 ? "Mixolydian · avoid C" : null),
+    });
+    click(el.querySelectorAll(".es-ls-chord")[1]); // open G7
+    expect(el.querySelector(".es-ls-inspector").textContent).toContain("Mixolydian · avoid C");
+    click(el.querySelectorAll(".es-ls-chord")[0]); // Dm7 has none here
+    expect(el.querySelector(".es-ls-inspector").textContent).not.toContain("Mixolydian");
+  });
+
   it("deletes a chord from the inspector", () => {
     const el = document.createElement("div");
     const ed = createLeadsheetEditor(el, { text: "Dm7 G7 Cmaj7", key: C, showKey: false });

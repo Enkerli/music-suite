@@ -5,7 +5,7 @@ import { chordStartBeats, exportProgression, voicingsToClip } from "./exportMidi
 import { loadLibrary, saveLibrary, newId } from "./library.js";
 import { progressionFromSMF } from "@enkerli/midi";
 import { createBridge } from "./juceBridge.js";
-import { assertDegree, parseLeadsheet, realizeChord } from "@enkerli/theory";
+import { assertDegree, chordScaleFor, parseLeadsheet, realizeChord, spellRoot } from "@enkerli/theory";
 import { resolvedTheme, toggleTheme } from "@enkerli/ui/theme";
 import { createPianoRoll } from "@enkerli/ui/piano-roll";
 import { createLeadsheetEditor } from "@enkerli/ui/leadsheet-editor";
@@ -40,6 +40,7 @@ function chordsFromProgression(prog, key) {
 
 const clone = (o) => JSON.parse(JSON.stringify(o));
 
+const TONIC_PC = { C: 0, "C♯": 1, "D♭": 1, D: 2, "D♯": 3, "E♭": 3, E: 4, F: 5, "F♯": 6, "G♭": 6, G: 7, "G♯": 8, "A♭": 8, A: 9, "A♯": 10, "B♭": 10, B: 11 };
 const SHARP = ["C", "C♯", "D", "D♯", "E", "F", "F♯", "G", "G♯", "A", "A♯", "B"];
 const midiName = (m) => SHARP[((m % 12) + 12) % 12] + (Math.floor(m / 12) - 1);
 const LBL = { display: "grid", gap: 4, fontSize: "var(--es-text-sm)" }; // generator control label
@@ -107,7 +108,7 @@ function buildProgression(labels, plan, key) {
  *  Mounts once; the caller forces a remount (via React key) on external
  *  ops (generate/extend/clear/key change) so internal edits don't reset it.
  *  activeIndex drives the chord-follow highlight without remounting. */
-function LeadsheetEdit({ progression, activeIndex, onEdit, suggest, onRate, ratingOf, rationaleOf, ratingSignal, tool }) {
+function LeadsheetEdit({ progression, activeIndex, onEdit, suggest, onRate, ratingOf, rationaleOf, scaleOf, ratingSignal, tool }) {
   const hostRef = useRef(null);
   const edRef = useRef(null);
   // The editor is built once (remounted via key); read callbacks through refs
@@ -117,6 +118,7 @@ function LeadsheetEdit({ progression, activeIndex, onEdit, suggest, onRate, rati
   const onRateRef = useRef(onRate); onRateRef.current = onRate;
   const ratingOfRef = useRef(ratingOf); ratingOfRef.current = ratingOf;
   const rationaleOfRef = useRef(rationaleOf); rationaleOfRef.current = rationaleOf;
+  const scaleOfRef = useRef(scaleOf); scaleOfRef.current = scaleOf;
   useEffect(() => {
     edRef.current = createLeadsheetEditor(hostRef.current, {
       progression: clone(progression),
@@ -127,6 +129,7 @@ function LeadsheetEdit({ progression, activeIndex, onEdit, suggest, onRate, rati
       onRate: (i, dir) => onRateRef.current?.(i, dir),
       ratingOf: (i) => ratingOfRef.current?.(i) ?? 1,
       rationaleOf: (i) => rationaleOfRef.current?.(i) ?? null,
+      scaleOf: (i) => scaleOfRef.current?.(i) ?? null,
       tool,
     });
     return () => edRef.current.destroy();
@@ -631,6 +634,18 @@ export default function App() {
   // Profile-as-shape (Step 05): the strongest few boosts/suppressions + count.
   const profileShape = useMemo(() => profileSummary(curation, { max: 4 }), [curation]);
 
+  /** Chord-scale line for the inspector (Track C): the scale a player draws on
+   *  over chord `i`, and its avoid notes — "Mixolydian · avoid F". */
+  function chordScaleText(i) {
+    const ch = chords[i];
+    if (!ch || ch.rootPc == null || !ch.pcs?.length) return null;
+    const cs = chordScaleFor(ch.rootPc, ch.pcs);
+    if (!cs) return null;
+    const keyPc = TONIC_PC[tonic] ?? 0;
+    const avoid = cs.avoid.length ? ` · avoid ${cs.avoid.map((pc) => spellRoot(pc, keyPc)).join(" ")}` : "";
+    return `${cs.scaleName}${avoid}`;
+  }
+
   /** Add the latched MIDI chord to the leadsheet (ChordID), locking a voicing
    *  — the notes as played by default, or `voicing` (a chosen alternative).
    *  Clears the latch once consumed. */
@@ -1064,7 +1079,7 @@ export default function App() {
           <LeadsheetEdit key={genId} progression={effectiveProg} activeIndex={playIdx}
             onEdit={(p) => setEdited({ genId, prog: p })} suggest={suggestNext}
             onRate={rateIncoming} ratingOf={incomingRating} rationaleOf={chordRationale}
-            ratingSignal={curation} tool={tool} />
+            scaleOf={chordScaleText} ratingSignal={curation} tool={tool} />
 
           {/* Ghost chip — live MIDI writes into the document at a write cursor
               (the end of the sheet). The held chord shows here as a pending
