@@ -4,7 +4,8 @@
  *
  *   regenerate-transitions <corpusDir> <outPrefix> [--respell]
  *
- * Writes <outPrefix>.json (the tables) and <outPrefix>.audit.json.
+ * Writes <outPrefix>.json (the pair tables), <outPrefix>.trigrams.json (the
+ * second-order tables, pruned), and <outPrefix>.audit.json.
  * The corpus itself never leaves the machine — only derived statistics.
  */
 
@@ -40,9 +41,10 @@ for (const name of readdirSync(corpusDir).sort()) {
   }
 }
 
-const { major, minor, audit } = extractTransitions(sheets, { respell });
+const { major, minor, majorTrigrams, minorTrigrams, audit } = extractTransitions(sheets, { respell });
 
 writeFileSync(`${outPrefix}.json`, JSON.stringify({ major, minor }, null, 2) + "\n");
+writeFileSync(`${outPrefix}.trigrams.json`, JSON.stringify({ major: majorTrigrams, minor: minorTrigrams }) + "\n");
 writeFileSync(`${outPrefix}.audit.json`, JSON.stringify({ nonSheetTxtFiles: nonSheets, respell, ...audit }, null, 2) + "\n");
 
 console.log(`sheets: ${audit.sheetsUsed}/${audit.sheetsTotal} used (${nonSheets} non-sheet .txt skipped)`);

@@ -20,5 +20,6 @@ describe("App render smoke", () => {
     expect(html).toContain("Send to MIDIcurator"); // named destination (Step 06)
     expect(html).toContain("Reharm"); // substitution reharm control (Track C)
     expect(html).toContain("Modulation"); // key-changes control (Track C)
+    expect(html).toContain("Context"); // variable-order Markov control (Track C)
   });
 });

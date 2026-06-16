@@ -23,10 +23,19 @@ import { inferKey } from "./key.js";
 import type { LeadSheet } from "./leadsheet.js";
 
 export type TransitionCounts = Record<string, Record<string, number>>;
+/** Second-order counts: context "prev2 → prev1" → { next: count }. */
+export type TrigramCounts = Record<string, Record<string, number>>;
+
+/** Context key for a trigram (the two preceding labels). */
+export function trigramContext(prev2: string, prev1: string): string {
+  return `${prev2} → ${prev1}`;
+}
 
 export interface ExtractionOptions {
   /** Enharmonically respell exotic roots (reported in the audit). */
   respell?: boolean;
+  /** Drop trigram next-counts below this (keeps the table sparse). Default 3. */
+  minTrigramCount?: number;
 }
 
 export interface ExtractionAudit {
@@ -48,6 +57,9 @@ export interface ExtractionAudit {
 export interface ExtractionResult {
   major: TransitionCounts;
   minor: TransitionCounts;
+  /** Second-order (trigram) tables — the variable-order Markov context. */
+  majorTrigrams: TrigramCounts;
+  minorTrigrams: TrigramCounts;
   audit: ExtractionAudit;
 }
 
@@ -60,6 +72,7 @@ export function extractTransitions(
   options: ExtractionOptions = {},
 ): ExtractionResult {
   const tables: { major: TransitionCounts; minor: TransitionCounts } = { major: {}, minor: {} };
+  const trigrams: { major: TrigramCounts; minor: TrigramCounts } = { major: {}, minor: {} };
   const audit: ExtractionAudit = {
     sheetsTotal: sheets.length,
     sheetsUsed: 0,
@@ -98,19 +111,21 @@ export function extractTransitions(
     bump(audit.keyInference, inference.evidence);
     audit.modes[inference.key.mode] += 1;
     const table = tables[inference.key.mode];
+    const trigramTable = trigrams[inference.key.mode];
 
     let previous: string | null = null;
+    let prev2: string | null = null;
     for (const symbol of symbols) {
       audit.chordTokens += 1;
       if (isNoChord(symbol)) {
         audit.noChordMarkers += 1;
-        previous = null; // silence breaks the chain
+        previous = null; prev2 = null; // silence breaks the chain
         continue;
       }
       const chord = parseChordSymbol(symbol);
       if (!chord) {
         bump(audit.parseFailures, symbol);
-        previous = null;
+        previous = null; prev2 = null;
         continue;
       }
       if (chord.qualityKey === undefined) {
@@ -143,6 +158,11 @@ export function extractTransitions(
         bump(row, label);
         audit.transitions += 1;
       }
+      // Trigram: the two preceding DISTINCT labels predict this one.
+      if (prev2 !== null && previous !== null) {
+        bump((trigramTable[trigramContext(prev2, previous)] ??= {}), label);
+      }
+      prev2 = previous;
       previous = label;
     }
   }
@@ -158,5 +178,26 @@ export function extractTransitions(
     return sorted;
   };
 
-  return { major: sortTable(tables.major), minor: sortTable(tables.minor), audit };
+  // Trigrams are far sparser than pairs; prune low-count next-labels (noise,
+  // and most of the file size) and any context left with only one option
+  // (which adds nothing over the pair table). Then sort like the pair table.
+  const minCount = options.minTrigramCount ?? 3;
+  const sortTrigrams = (t: TrigramCounts): TrigramCounts => {
+    const sorted: TrigramCounts = {};
+    for (const ctx of Object.keys(t).sort()) {
+      const kept = Object.entries(t[ctx]!).filter(([, n]) => n >= minCount);
+      if (kept.length < 2) continue; // one-option contexts back off to the pair table anyway
+      kept.sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+      sorted[ctx] = Object.fromEntries(kept);
+    }
+    return sorted;
+  };
+
+  return {
+    major: sortTable(tables.major),
+    minor: sortTable(tables.minor),
+    majorTrigrams: sortTrigrams(trigrams.major),
+    minorTrigrams: sortTrigrams(trigrams.minor),
+    audit,
+  };
 }

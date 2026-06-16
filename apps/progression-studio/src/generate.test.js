@@ -30,6 +30,26 @@ describe("generation over the canonical table", () => {
     expect(a).toHaveLength(16);
   });
 
+  it("variable-order (smart) context steers the walk toward the trigram, off when 0", () => {
+    // Order-1 from B prefers C; but the context A→B prefers A in the corpus.
+    const t = { A: { B: 10 }, B: { C: 10, A: 1 }, C: { A: 10 } };
+    const trig = { "A → B": { A: 50 } };
+    const third = (smart) => {
+      let A = 0, C = 0;
+      for (let s = 0; s < 200; s++) {
+        const p = generateProgression(t, "major", 3, s, undefined, 1, "A", "faithful", smart ? trig : null, smart);
+        if (p[2] === "A") A++; else if (p[2] === "C") C++;
+      }
+      return { A, C };
+    };
+    const off = third(0), on = third(1);
+    expect(off.C).toBeGreaterThan(off.A); // first-order: C dominates after B
+    expect(on.A).toBeGreaterThan(on.C);   // smart: the A→B context flips it to A
+    // smart=0 is exactly the first-order walk
+    expect(generateProgression(t, "major", 6, 5, undefined, 1, "A", "faithful", trig, 0))
+      .toEqual(generateProgression(t, "major", 6, 5, undefined, 1, "A", "faithful"));
+  });
+
   it("minor table starts on a minor tonic", () => {
     const labels = generateProgression(table.minor, "minor", 8, 7);
     expect(labels[0].startsWith("Im")).toBe(true);

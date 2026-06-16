@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import table from "./data/transitions.json";
+import trigrams from "./data/trigrams.json";
 import { BEATS_PER_BAR, chordCompletions, chordSlots, divideBar, generateLabels, generateSections, labelMass, nextChordSuggestions, realizeLabel, rhythmBeats, rhythmPlan, startLabel, voiceChord, voiceProgression, voicingSuggestions } from "./generate.js";
 import { chordStartBeats, exportProgression, voicingsToClip } from "./exportMidi.js";
 import { loadLibrary, saveLibrary, newId } from "./library.js";
@@ -44,6 +45,9 @@ const TONIC_PC = { C: 0, "C♯": 1, "D♭": 1, D: 2, "D♯": 3, "E♭": 3, E: 4,
 // Reharm intensity → substitution probabilities (count-preserving subs only;
 // passing-dim insertions would change the slot count, so they stay off here).
 const REHARM_LEVELS = { subtle: { tritone: 0.25, backdoor: 0.15 }, bold: { tritone: 0.5, backdoor: 0.35 } };
+// Smart (variable-order) context strength: how much to trust the corpus
+// trigram distribution over the first-order row when a context exists.
+const SMART_LEVELS = { on: 0.6, deep: 1 };
 const SHARP = ["C", "C♯", "D", "D♯", "E", "F", "F♯", "G", "G♯", "A", "A♯", "B"];
 const midiName = (m) => SHARP[((m % 12) + 12) % 12] + (Math.floor(m / 12) - 1);
 const LBL = { display: "grid", gap: 4, fontSize: "var(--es-text-sm)" }; // generator control label
@@ -350,6 +354,7 @@ export default function App() {
   const [temperature, setTemperature] = useState(1);
   const [reharm, setReharm] = useState("off"); // substitution reharm: off | subtle | bold
   const [modulate, setModulate] = useState("off"); // key changes every N bars: off | 4 | 8
+  const [smart, setSmart] = useState("off"); // variable-order (trigram) context: off | on | deep
   const [channelMode, setChannelMode] = useState("single");
   const [hostPlayhead, setHostPlayhead] = useState(-1);
   const [hostBeat, setHostBeat] = useState(-1);
@@ -450,10 +455,11 @@ export default function App() {
   // Harmonic rhythm: a bar plan (chord durations + held bars) for `bars` bars;
   // the number of chord slots is how many chords to generate.
   const rhythm = useMemo(() => rhythmPlan(bars, harmonicRhythm, seed), [bars, harmonicRhythm, seed]);
+  const smartStrength = SMART_LEVELS[smart] ?? 0;
   const labels = useMemo(
     () => generateSections(table[mode], mode,
-      { length: chordSlots(rhythm), seed, curation, method, temperature, startFrom, variety }, extensions),
-    [mode, rhythm, seed, curation, method, temperature, startFrom, variety, extensions],
+      { length: chordSlots(rhythm), seed, curation, method, temperature, startFrom, variety, trigrams: trigrams[mode], smart: smartStrength }, extensions),
+    [mode, rhythm, seed, curation, method, temperature, startFrom, variety, smartStrength, extensions],
   );
   // Key changes (Track C): every N bars, transpose the section to a corpus-
   // common related key (dominant / subdominant / relative / up-a-step), spelled
@@ -486,7 +492,7 @@ export default function App() {
   // is stale and effectiveProg falls back to the fresh generation. This is
   // synchronous (no post-render effect), so a Generate from a blank sheet
   // shows the new progression immediately, without a Curate/Edit toggle.
-  const genId = `${tonic}|${mode}|${seed}|${bars}|${harmonicRhythm}|${temperature}|${method}|${startFrom}|${variety}|${reharm}|${modulate}|${opCount}`;
+  const genId = `${tonic}|${mode}|${seed}|${bars}|${harmonicRhythm}|${temperature}|${method}|${startFrom}|${variety}|${reharm}|${modulate}|${smart}|${opCount}`;
   const [edited, setEdited] = useState(null); // { genId, prog } | null
   const effectiveProg = edited && edited.genId === genId ? edited.prog : baseProg;
   const chords = useMemo(
@@ -590,7 +596,7 @@ export default function App() {
   // `o` overrides key/mode for ops that change them in the same tick (loading a
   // progression in a new key) — the setters are async, so we can't read them back.
   const genIdFor = (op, o = {}) =>
-    `${o.tonic ?? tonic}|${o.mode ?? mode}|${seed}|${bars}|${harmonicRhythm}|${temperature}|${method}|${startFrom}|${variety}|${reharm}|${modulate}|${op}`;
+    `${o.tonic ?? tonic}|${o.mode ?? mode}|${seed}|${bars}|${harmonicRhythm}|${temperature}|${method}|${startFrom}|${variety}|${reharm}|${modulate}|${smart}|${op}`;
 
   /** Append a chord into the working progression, filling the last bar to the
    *  current rhythm's density (chords/bar) before starting a new bar.
@@ -751,7 +757,7 @@ export default function App() {
   // ── Patches — save/recall a whole generator parameter set (Step 02) ──────
   /** The generator settings (a "patch") — not the document, not the profile. */
   function currentPatch() {
-    return { tonic, mode, bars, harmonicRhythm, temperature, variety, reharm, modulate, method, startFrom, voicingShape, voiceLeadMode, channelMode };
+    return { tonic, mode, bars, harmonicRhythm, temperature, variety, reharm, modulate, smart, method, startFrom, voicingShape, voiceLeadMode, channelMode };
   }
   /** Apply a loaded patch's settings (each field validated by its setter). */
   function applyPatchText(text) {
@@ -767,6 +773,7 @@ export default function App() {
       if (s.variety) setVariety(s.variety);
       if (s.reharm) setReharm(s.reharm);
       if (s.modulate) setModulate(s.modulate);
+      if (s.smart) setSmart(s.smart);
       if (s.method) setMethod(s.method);
       setStartFrom(s.startFrom ?? null);
       if (s.voicingShape) setVoicingShape(s.voicingShape);
@@ -1014,6 +1021,14 @@ export default function App() {
                 <option value="markov">corpus walk</option>
                 <option value="markov-cadence">corpus walk + cadence</option>
                 <option value="circle">circle of fifths</option>
+              </select>
+            </label>
+            <label style={LBL}>Context
+              <select className="es-control" value={smart} onChange={(e) => setSmart(e.target.value)}
+                title="Variable-order: where the corpus knows what tends to follow a two-chord context, lean on it (longer-range phrasing)">
+                <option value="off">1 chord</option>
+                <option value="on">2 chords</option>
+                <option value="deep">2 chords (deep)</option>
               </select>
             </label>
             <label style={LBL}>Start from

@@ -14,6 +14,14 @@ Bars = 12
  Gm7 | C7 | F7 | C7 |
 `;
 
+// I7→IV7 is followed by both I7 and V7 → a two-option second-order context.
+const TRIGRAM = `Title = Test Trigram
+DBKeySig = F
+TimeSig = 4 4
+Bars = 2
+ F7 Bb7 F7 | F7 Bb7 C7 |
+`;
+
 const MINOR_TUNE = `Title = Test Minor
 DBKeySig = Eb
 TimeSig = 4 4
@@ -95,6 +103,14 @@ describe("transition extraction", () => {
     expect(audit.noChordMarkers).toBe(1);
     // chain broken after NC: no IImin7→Imaj7 transition recorded
     expect(major["IIm7"]?.["Imaj7"]).toBeUndefined();
+  });
+
+  it("counts second-order (trigram) contexts, keeping multi-option ones", () => {
+    const { majorTrigrams } = extractTransitions([parseLeadSheet(TRIGRAM)], { minTrigramCount: 1 });
+    // Distinct-collapsed walk F7 Bb7 F7 Bb7 C7 → context I7→IV7 sees I7 and V7.
+    expect(majorTrigrams["I7 → IV7"]).toEqual({ I7: 1, V7: 1 });
+    // A single-option context (IV7→I7 → only Bb7) adds nothing over pairs → dropped.
+    expect(majorTrigrams["IV7 → I7"]).toBeUndefined();
   });
 
   it("respell mode normalizes and reports", () => {

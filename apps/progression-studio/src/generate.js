@@ -73,6 +73,25 @@ function weightedPick(row, rng, temperature = 1) {
 const NO_CURATION = { multipliers: {} };
 
 /**
+ * Variable-order blend: interpolate a second-order (trigram) distribution into
+ * a first-order count row, in count space so temperature/variety still apply.
+ *   weight[to] = (1−λ)·bigram[to] + λ·total1·(trigram[to]/total2)
+ * λ = strength · total2/(total2+K) — sparse contexts back off toward order-1.
+ * Returns a new row; the input is untouched.
+ */
+function blendTrigram(bigramRow, trigramRow, strength) {
+  const total1 = Object.values(bigramRow).reduce((a, b) => a + b, 0);
+  const total2 = Object.values(trigramRow).reduce((a, b) => a + b, 0);
+  if (!total1 || !total2) return bigramRow;
+  const K = 8; // confidence smoothing — ~8 observations to half-trust the trigram
+  const lambda = strength * (total2 / (total2 + K));
+  const out = {};
+  for (const [to, c] of Object.entries(bigramRow)) out[to] = (1 - lambda) * c;
+  for (const [to, c] of Object.entries(trigramRow)) out[to] = (out[to] ?? 0) + lambda * total1 * (c / total2);
+  return out;
+}
+
+/**
  * Variety levels — penalties the walk applies to static / clichéd moves so
  * generation doesn't just echo the corpus's heaviest ruts:
  *   repeat  — X → X (the same chord again; harmonic rhythm holds chords now)
@@ -125,7 +144,7 @@ export function startLabel(table, mode) {
  * ear-driven layer (see curation.js); generation stays deterministic
  * for a given (seed, curation) pair.
  */
-export function generateProgression(table, mode, length, seed, curation = NO_CURATION, temperature = 1, startFrom = null, variety = "faithful") {
+export function generateProgression(table, mode, length, seed, curation = NO_CURATION, temperature = 1, startFrom = null, variety = "faithful", trigrams = null, smart = 0) {
   const rng = mulberry32(seed);
   const tonic = startLabel(table, mode);
   const start = startFrom && table[startFrom] ? startFrom : (startFrom ?? tonic);
@@ -135,8 +154,16 @@ export function generateProgression(table, mode, length, seed, curation = NO_CUR
     let row = table[current];
     if (row) {
       row = effectiveRow(row, current, curation);
-      // Longer-context (triple) gesture weights on top of pair weights.
       const prev2 = labels.length >= 2 ? labels[labels.length - 2] : null;
+      // Variable-order Markov: where the corpus has a second-order context
+      // (prev2 → current), blend its distribution into the first-order row,
+      // trusting it more the more observations back it (the rest backs off to
+      // order-1). This is the "smart" generator over the trigram table.
+      if (smart > 0 && trigrams && prev2 !== null) {
+        const ctx = trigrams[`${prev2} → ${current}`];
+        if (ctx) row = blendTrigram(row, ctx, smart);
+      }
+      // Longer-context (triple) gesture weights on top of pair weights.
       if (prev2 !== null) {
         let adjusted = null;
         for (const to of Object.keys(row)) {
@@ -578,9 +605,9 @@ export function generateCircleOfFifths(table, mode, length) {
  * Unified entry point for the UI.
  * method: "markov" | "markov-cadence" | "circle"
  */
-export function generateLabels(table, mode, { length, seed, curation, method = "markov", temperature = 1, startFrom = null, variety = "faithful" }) {
+export function generateLabels(table, mode, { length, seed, curation, method = "markov", temperature = 1, startFrom = null, variety = "faithful", trigrams = null, smart = 0 }) {
   if (method === "circle") return generateCircleOfFifths(table, mode, length);
-  const labels = generateProgression(table, mode, length, seed, curation, temperature, startFrom, variety);
+  const labels = generateProgression(table, mode, length, seed, curation, temperature, startFrom, variety, trigrams, smart);
   return method === "markov-cadence" ? applyCadence(table, mode, labels) : labels;
 }
 
