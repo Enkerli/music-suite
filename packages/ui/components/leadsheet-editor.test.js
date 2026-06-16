@@ -183,6 +183,43 @@ describe("leadsheet editor — carets (insert) & grip (move)", () => {
   });
 });
 
+describe("leadsheet editor — multi-section, per-section keys (Q2)", () => {
+  const deg = (numeral, suffix) => ({ source: "degree", degree: { numeral, suffix }, inputText: numeral + suffix });
+  const prog = () => ({
+    key: { tonic: "C", mode: "major" },
+    sections: [
+      { label: "verse", bars: [{ chords: [deg("I", "maj7")] }] },
+      { label: "bridge", key: { tonic: "G", mode: "major" }, bars: [{ chords: [deg("I", "maj7")] }] },
+    ],
+  });
+
+  it("renders a badge per section and a quiet key-change divider on the seam", () => {
+    const el = document.createElement("div");
+    createLeadsheetEditor(el, { progression: prog(), showKey: false });
+    expect([...el.querySelectorAll(".es-ls-sectbadge")].map((b) => b.textContent)).toEqual(["A", "B"]);
+    expect(el.querySelector(".es-ls-kchange-pill").textContent).toBe("→ G major");
+  });
+
+  it("re-anchors each section's degrees to its own key (Imaj7 → Cmaj7, then Gmaj7)", () => {
+    const el = document.createElement("div");
+    createLeadsheetEditor(el, { progression: prog(), showKey: false });
+    expect([...el.querySelectorAll(".es-ls-real")].map((r) => r.textContent)).toEqual(["Cmaj7", "Gmaj7"]);
+  });
+
+  it("typing into a section parses against that section's key", () => {
+    const el = document.createElement("div");
+    const ed = createLeadsheetEditor(el, { progression: prog(), showKey: false });
+    // Retype the bridge chord (flat index 1) through the inspector.
+    click(el.querySelectorAll(".es-ls-chord")[1]);
+    const input = el.querySelector(".es-ls-inspector input.es-ls-input");
+    input.value = "V7";
+    input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+    // V7 in G realizes as D7.
+    expect(el.querySelectorAll(".es-ls-real")[1].textContent).toBe("D7");
+    expect(ed.value.sections[1].key.tonic).toBe("G");
+  });
+});
+
 describe("leadsheet editor — rating modes", () => {
   it("a rating tool turns chord taps into transition ratings (and tints)", () => {
     const el = document.createElement("div");

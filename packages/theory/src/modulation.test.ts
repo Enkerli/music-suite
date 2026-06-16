@@ -26,7 +26,7 @@ describe("relatedKeys / planModulation", () => {
   it("keeps section 0 at home and is deterministic per seed", () => {
     const a = planModulation(4, "major", 7);
     const b = planModulation(4, "major", 7);
-    expect(a[0]).toEqual({ interval: 0, name: "home" });
+    expect(a[0]).toEqual({ interval: 0, mode: "major", name: "home" });
     expect(a).toEqual(b);
     expect(a).toHaveLength(4);
   });

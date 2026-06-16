@@ -22,6 +22,8 @@ type Mode = "major" | "minor";
 export interface KeyMove {
   /** Semitones above the home tonic (0 = home). */
   interval: number;
+  /** The target key's mode (the relative move flips it). */
+  mode: Mode;
   /** Human name of the relationship ("dominant", "relative minor", …). */
   name: string;
 }
@@ -38,11 +40,12 @@ function mulberry32(seed: number): () => number {
 
 /** The common modulation targets from a home key, with relative weights. */
 export function relatedKeys(mode: Mode): { move: KeyMove; weight: number }[] {
+  const flip: Mode = mode === "major" ? "minor" : "major";
   return [
-    { move: { interval: 7, name: "dominant" }, weight: 4 },
-    { move: { interval: mode === "major" ? 9 : 3, name: mode === "major" ? "relative minor" : "relative major" }, weight: 3 },
-    { move: { interval: 5, name: "subdominant" }, weight: 2 },
-    { move: { interval: 2, name: "up a step" }, weight: 1 },
+    { move: { interval: 7, mode, name: "dominant" }, weight: 4 },
+    { move: { interval: mode === "major" ? 9 : 3, mode: flip, name: mode === "major" ? "relative minor" : "relative major" }, weight: 3 },
+    { move: { interval: 5, mode, name: "subdominant" }, weight: 2 },
+    { move: { interval: 2, mode, name: "up a step" }, weight: 1 },
   ];
 }
 
@@ -74,7 +77,7 @@ export function transposeLabels(labels: string[], interval: number, mode: Mode =
  */
 export function planModulation(sectionCount: number, mode: Mode = "major", seed = 1): KeyMove[] {
   const rng = mulberry32(seed);
-  const plan: KeyMove[] = [{ interval: 0, name: "home" }];
+  const plan: KeyMove[] = [{ interval: 0, mode, name: "home" }];
   for (let i = 1; i < sectionCount; i++) plan.push(pickKeyMove(mode, rng));
   return plan;
 }

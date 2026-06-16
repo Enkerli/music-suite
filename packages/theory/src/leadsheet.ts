@@ -48,9 +48,12 @@ export interface Bar {
   repeat?: boolean;
 }
 
-/** A named span of bars ("A", "intro", …); MVP parse yields one unnamed. */
+/** A named span of bars ("A", "intro", …); MVP parse yields one unnamed.
+ *  An optional `key` re-anchors the section (modulation) — its chords realize
+ *  and spell against that key; absent, the progression's key applies. */
 export interface Section {
   label?: string;
+  key?: KeyContext;
   bars: Bar[];
 }
 
@@ -253,18 +256,22 @@ export function realizeChord(chord: ProgChord, key: KeyContext): RealizedChord {
   };
 }
 
-/** Realize every chord in a progression (repeats expanded from prior bar). */
+/** Realize every chord in a progression (repeats expanded from prior bar).
+ *  Each section realizes against its own `key` when set (modulation), else the
+ *  passed/`prog` key. */
 export function realizeLeadsheet(prog: Progression, key = prog.key): RealizedChord[][] {
   const out: RealizedChord[][] = [];
-  const bars = prog.sections.flatMap((s) => s.bars);
   let prev: RealizedChord[] = [];
-  for (const bar of bars) {
-    if (bar.repeat) {
+  for (const section of prog.sections) {
+    const sectionKey = section.key ?? key;
+    for (const bar of section.bars) {
+      if (bar.repeat) {
+        out.push(prev);
+        continue;
+      }
+      prev = bar.chords.map((c) => realizeChord(c, sectionKey));
       out.push(prev);
-      continue;
     }
-    prev = bar.chords.map((c) => realizeChord(c, key));
-    out.push(prev);
   }
   return out;
 }

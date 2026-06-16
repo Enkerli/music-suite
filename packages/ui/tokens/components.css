@@ -401,3 +401,27 @@ select.es-control option { background: var(--es-bg-raised); color: var(--es-fg);
   border: 1px solid var(--es-border); border-radius: var(--es-radius-md);
   background: var(--es-bg-raised);
 }
+
+/* Multi-section editor (Q2) — section headers + a quiet key-change divider. */
+.es-ls-section + .es-ls-section { margin-top: var(--es-space-2); }
+.es-ls-secthead { display: flex; align-items: center; gap: var(--es-space-2); margin-bottom: var(--es-space-2); flex-wrap: wrap; }
+.es-ls-sectbadge {
+  font-family: var(--es-font-mono); font-weight: 700; font-size: var(--es-text-sm);
+  width: 26px; height: 26px; border-radius: 7px; flex: none;
+  display: grid; place-items: center;
+  background: var(--es-fg); color: var(--es-bg-raised);
+}
+.es-ls-sectname { font-size: var(--es-text-sm); color: var(--es-fg-muted); }
+.es-ls-sectkey { width: auto; }
+.es-ls-sectkey-label {
+  font-family: var(--es-font-mono); font-size: var(--es-text-sm); color: var(--es-fg-2);
+  padding: 2px 8px; border: 1px solid var(--es-border-strong); border-radius: var(--es-radius-sm);
+}
+/* The key-change seam — one quiet pill, never re-stated on every chord. */
+.es-ls-kchange { display: flex; align-items: center; gap: var(--es-space-2); margin: var(--es-space-2) 0; }
+.es-ls-kchange-ln { height: 1px; flex: 1; background: var(--es-border-strong); }
+.es-ls-kchange-pill {
+  font-family: var(--es-font-mono); font-size: var(--es-text-sm); font-weight: 600;
+  padding: 3px 10px; border-radius: 999px; white-space: nowrap;
+  border: 1px dashed var(--es-border-strong); color: var(--es-fg-2); background: var(--es-bg-raised);
+}

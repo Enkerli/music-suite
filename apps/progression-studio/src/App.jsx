@@ -6,7 +6,7 @@ import { chordStartBeats, exportProgression, voicingsToClip } from "./exportMidi
 import { loadLibrary, saveLibrary, newId } from "./library.js";
 import { progressionFromSMF } from "@enkerli/midi";
 import { createBridge } from "./juceBridge.js";
-import { applySubstitutions, assertDegree, chordScaleFor, modulateLabels, parseLeadsheet, realizeChord, scaleDisplayName, spellRoot } from "@enkerli/theory";
+import { applySubstitutions, assertDegree, chordScaleFor, parseLeadsheet, planModulation, realizeChord, resolveDegree, scaleDisplayName, spellRoot } from "@enkerli/theory";
 import { resolvedTheme, toggleTheme } from "@enkerli/ui/theme";
 import { createPianoRoll } from "@enkerli/ui/piano-roll";
 import { createLeadsheetEditor } from "@enkerli/ui/leadsheet-editor";
@@ -19,24 +19,39 @@ import { createChordInput } from "./chordInput.js";
  */
 function chordsFromProgression(prog, key) {
   const out = [];
-  for (const bar of prog.sections[0]?.bars ?? []) {
-    if (bar.repeat) {
-      if (out.length) out.push(out[out.length - 1]);
-      continue;
+  // Each section realizes against its own key (modulation, Q2), else the
+  // progression/fallback key. `secKey` rides on each realized chord so the
+  // functional analysis (rating, rationale) reads it in the right key.
+  for (const section of prog.sections ?? []) {
+    const k = section.key ?? key;
+    for (const bar of section.bars ?? []) {
+      if (bar.repeat) {
+        if (out.length) out.push(out[out.length - 1]);
+        continue;
+      }
+      // Durations follow the leadsheet convention: the chords in a bar divide
+      // its beats metrically (3 → half + quarter + quarter). Derived from the
+      // count, so inserting/removing a chord re-divides the bar — no overflow.
+      const durs = divideBar(bar.chords.length);
+      bar.chords.forEach((c, i) => {
+        const r = realizeChord(c, k);
+        const label = c.source === "degree" && c.degree
+          ? c.degree.numeral + c.degree.suffix
+          : (c.inputText ?? r.symbol);
+        out.push({ ...r, label, voicing: c.voicing, dur: durs[i], secKey: k });
+      });
     }
-    // Durations follow the leadsheet convention: the chords in a bar divide
-    // its beats metrically (3 → half + quarter + quarter). Derived from the
-    // count, so inserting/removing a chord re-divides the bar — no overflow.
-    const durs = divideBar(bar.chords.length);
-    bar.chords.forEach((c, i) => {
-      const r = realizeChord(c, key);
-      const label = c.source === "degree" && c.degree
-        ? c.degree.numeral + c.degree.suffix
-        : (c.inputText ?? r.symbol);
-      out.push({ ...r, label, voicing: c.voicing, dur: durs[i] });
-    });
   }
   return out;
+}
+
+/** Spell the tonic `interval` semitones above `homeTonic` via its major-frame
+ *  degree (V=dominant, IV=subdominant, VI=relative, II=up-a-step …) so a
+ *  modulated section's key gets a conventional name (C+7 → G, E♭+9 → C). */
+const INTERVAL_NUMERAL = { 0: "I", 2: "II", 3: "♭III", 5: "IV", 7: "V", 8: "♭VI", 9: "VI", 10: "♭VII" };
+function tonicAtInterval(homeTonic, interval) {
+  const num = INTERVAL_NUMERAL[((interval % 12) + 12) % 12] ?? "I";
+  return resolveDegree(num, { tonic: homeTonic, mode: "major" });
 }
 
 const clone = (o) => JSON.parse(JSON.stringify(o));
@@ -93,20 +108,6 @@ function functionalOfRealized(r, key) {
  *  each chord-bar takes that many labels, held bars become repeat bars (`%`).
  *  Durations aren't stored — they're derived from each bar's chord count at
  *  realization (chordsFromProgression / divideBar). */
-/** Map each label index to its section index, sectioning the bar plan every
- *  `barsPerSection` bars (repeat bars hold no labels). Aligned to the same
- *  label order buildProgression consumes — so it indexes a flat label list. */
-function labelSections(plan, barsPerSection) {
-  const sec = [];
-  let bar = 0;
-  for (const p of plan) {
-    const s = Math.floor(bar / barsPerSection);
-    if (!p.repeat) for (let k = 0; k < p.durs.length; k++) sec.push(s);
-    bar++;
-  }
-  return sec;
-}
-
 function buildProgression(labels, plan, key) {
   const bars = [];
   let li = 0;
@@ -123,6 +124,36 @@ function buildProgression(labels, plan, key) {
   }
   if (!bars.length) bars.push({ chords: [] });
   return { key, sections: [{ bars }] };
+}
+
+/** Build a multi-section Progression for modulation (Q2): the bar plan is cut
+ *  into `barsPerSection`-bar sections, each tagged with its own key. The labels
+ *  are the *same* home-key walk — a section just realizes them against its key,
+ *  so "IIm7 V7 Imaj7" in the G section sounds and reads as Am7 D7 Gmaj7. Section
+ *  0 carries no `key` (it uses the progression's home key). Sounding/export are
+ *  identical to the prior home-frame transpose — only the labels read true. */
+function buildSectionedProgression(labels, plan, homeKey, barsPerSection, sectionKeys) {
+  const prog = { key: homeKey, sections: [] };
+  let li = 0, barInSection = 0, si = -1, cur = null;
+  const startSection = () => { si += 1; cur = { bars: [] }; if (si > 0 && sectionKeys[si]) cur.key = sectionKeys[si]; prog.sections.push(cur); };
+  startSection();
+  for (const p of plan) {
+    if (barInSection === barsPerSection) { startSection(); barInSection = 0; }
+    const k = cur.key ?? homeKey;
+    if (p.repeat) { cur.bars.push({ chords: [], repeat: true }); barInSection += 1; continue; }
+    const chords = [];
+    for (let kk = 0; kk < p.durs.length; kk++) {
+      const label = labels[li++];
+      if (label == null) break;
+      const ch = parseLeadsheet(label, k).sections[0]?.bars[0]?.chords[0];
+      if (ch) chords.push(ch);
+    }
+    cur.bars.push({ chords });
+    barInSection += 1;
+  }
+  prog.sections = prog.sections.filter((s) => s.bars.length);
+  if (!prog.sections.length) prog.sections.push({ bars: [] });
+  return prog;
 }
 
 /** Editable leadsheet — the shared @enkerli/ui editor, the primary surface.
@@ -465,31 +496,28 @@ export default function App() {
       { length: chordSlots(rhythm), seed, curation, method, temperature, startFrom, variety, trigrams: trigrams[mode], smart: smartStrength }, extensions),
     [mode, rhythm, seed, curation, method, temperature, startFrom, variety, smartStrength, extensions],
   );
-  // Key changes (Track C): every N bars, transpose the section to a corpus-
-  // common related key (dominant / subdominant / relative / up-a-step), spelled
-  // home — genuine modulation in the chords, single-key storage. Seeded → part
-  // of the genId. Runs before reharm so substitutions see the modulated roots.
-  const modulatedLabels = useMemo(() => {
-    if (modulate === "off") return labels;
-    return modulateLabels(labels, labelSections(rhythm, Number(modulate)), mode, seed).labels;
-  }, [labels, modulate, rhythm, mode, seed]);
   // Reharm (Track C): probabilistic tritone / backdoor substitutions over the
-  // (modulated) labels. Count-preserving (so the rhythm slots still line up) and
+  // generated labels. Count-preserving (so the rhythm slots still line up) and
   // seeded, so it's deterministic and part of the genId. The curation walk
   // stays on the pre-reharm labels; this is an output transform, like editing.
   const reharmedLabels = useMemo(
-    () => (reharm === "off" ? modulatedLabels
-      : applySubstitutions(modulatedLabels, { mode, seed, allowInsertions: false, ...REHARM_LEVELS[reharm] }).labels),
-    [modulatedLabels, reharm, mode, seed],
+    () => (reharm === "off" ? labels
+      : applySubstitutions(labels, { mode, seed, allowInsertions: false, ...REHARM_LEVELS[reharm] }).labels),
+    [labels, reharm, mode, seed],
   );
-  // The progression as an editable theory object: generated by default,
-  // overridden when the user hand-edits in the leadsheet editor. Editing
-  // flows through to the sheet, playback, and export (the embedded
-  // Progression). Regeneration or a key change resets the edits.
-  const baseProg = useMemo(
-    () => buildProgression(reharmedLabels, rhythm, { tonic, mode }),
-    [reharmedLabels, rhythm, tonic, mode],
-  );
+  // Key changes (Q2): every N bars the progression becomes a new SECTION with
+  // its own corpus-common related key (dominant / subdominant / relative /
+  // up-a-step). The labels are unchanged — each section realizes them against
+  // its key, so the modulation reads in the new key's degrees (and the editor
+  // shows a "→ G major" divider). Sounding/export are identical to the prior
+  // home-frame transpose. Seeded → part of the genId.
+  const baseProg = useMemo(() => {
+    if (modulate === "off") return buildProgression(reharmedLabels, rhythm, { tonic, mode });
+    const n = Number(modulate);
+    const plan = planModulation(Math.ceil(rhythm.length / n), mode, seed);
+    const sectionKeys = plan.map((m) => ({ tonic: tonicAtInterval(tonic, m.interval), mode: m.mode }));
+    return buildSectionedProgression(reharmedLabels, rhythm, { tonic, mode }, n, sectionKeys);
+  }, [reharmedLabels, rhythm, tonic, mode, modulate, seed]);
   // genId changes on any GENERATION op (every param that produces `labels`,
   // plus opCount for extend/clear) — but NOT on an edit. An edit is stamped
   // with the genId it was made under; when that no longer matches, the edit
@@ -647,18 +675,22 @@ export default function App() {
   /** Rate the transition INTO chord `i` (👍 dir +1 / 👎 dir −1): nudges the
    *  corpus weight for the move prev→this. The first chord has no incoming
    *  transition. */
+  // Functional degrees read in each chord's OWN section key (Q2/Q6) — so a V→I
+  // in the G bridge writes to the same key-independent "V7→Imaj7" weight as in
+  // the C verse (the one functional ledger).
+  function keyAt(i) { return chords[i]?.secKey ?? { tonic, mode }; }
   function rateIncoming(i, dir) {
     if (i <= 0 || i >= chords.length) return;
-    const from = functionalOfRealized(chords[i - 1], { tonic, mode });
-    const to = functionalOfRealized(chords[i], { tonic, mode });
+    const from = functionalOfRealized(chords[i - 1], keyAt(i - 1));
+    const to = functionalOfRealized(chords[i], keyAt(i));
     if (!from || !to || from === to) return;
     setCuration((c) => adjustTransition(c, from, to, dir > 0 ? TRANSITION_STEP : 1 / TRANSITION_STEP));
   }
   /** Current multiplier on the transition into chord `i` (drives 👍/👎 state). */
   function incomingRating(i) {
     if (i <= 0 || i >= chords.length) return 1;
-    const from = functionalOfRealized(chords[i - 1], { tonic, mode });
-    const to = functionalOfRealized(chords[i], { tonic, mode });
+    const from = functionalOfRealized(chords[i - 1], keyAt(i - 1));
+    const to = functionalOfRealized(chords[i], keyAt(i));
     return from && to ? multiplierFor(curation, from, to) : 1;
   }
 
@@ -668,8 +700,8 @@ export default function App() {
    *  null (no invented rationale). */
   function chordRationale(i) {
     if (i <= 0 || i >= chords.length) return null;
-    const from = functionalOfRealized(chords[i - 1], { tonic, mode });
-    const to = functionalOfRealized(chords[i], { tonic, mode });
+    const from = functionalOfRealized(chords[i - 1], keyAt(i - 1));
+    const to = functionalOfRealized(chords[i], keyAt(i));
     if (!from || !to || from === to) return null;
     const mult = multiplierFor(curation, from, to);
     if (mult > 1.001) return `You favor ${from}→${to} — boosted ×${mult.toFixed(2)} in your profile.`;
@@ -689,7 +721,7 @@ export default function App() {
     if (!ch || ch.rootPc == null || !ch.pcs?.length) return null;
     const cs = chordScaleFor(ch.rootPc, ch.pcs);
     if (!cs) return null;
-    const keyPc = TONIC_PC[tonic] ?? 0;
+    const keyPc = TONIC_PC[ch.secKey?.tonic ?? tonic] ?? 0;
     const avoid = cs.avoid.length ? ` · avoid ${cs.avoid.map((pc) => spellRoot(pc, keyPc)).join(" ")}` : "";
     const alts = cs.alts.length ? ` · or ${cs.alts.map(scaleDisplayName).join(", ")}` : "";
     return `${cs.scaleName}${avoid}${alts}`;
