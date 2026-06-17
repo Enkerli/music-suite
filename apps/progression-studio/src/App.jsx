@@ -6,7 +6,7 @@ import { chordStartBeats, exportProgression, voicingsToClip } from "./exportMidi
 import { loadLibrary, saveLibrary, newId } from "./library.js";
 import { progressionFromSMF } from "@enkerli/midi";
 import { createBridge } from "./juceBridge.js";
-import { applySubstitutions, assertDegree, chordScaleFor, parseLeadsheet, planModulation, realizeChord, resolveDegree, spellRoot } from "@enkerli/theory";
+import { analyzeKeyAreas, applySubstitutions, assertDegree, chordScaleFor, parseLeadsheet, planModulation, realizeChord, resolveDegree, spellRoot } from "@enkerli/theory";
 import { resolvedTheme, toggleTheme } from "@enkerli/ui/theme";
 import { createPianoRoll } from "@enkerli/ui/piano-roll";
 import { createLeadsheetEditor } from "@enkerli/ui/leadsheet-editor";
@@ -126,21 +126,26 @@ function buildProgression(labels, plan, key) {
   return { key, sections: [{ bars }] };
 }
 
-/** Build a multi-section Progression for modulation (Q2): the bar plan is cut
- *  into `barsPerSection`-bar sections, each tagged with its own key. The labels
- *  are the *same* home-key walk — a section just realizes them against its key,
- *  so "IIm7 V7 Imaj7" in the G section sounds and reads as Am7 D7 Gmaj7. Section
- *  0 carries no `key` (it uses the progression's home key). Sounding/export are
- *  identical to the prior home-frame transpose — only the labels read true. */
-function buildSectionedProgression(labels, plan, homeKey, barsPerSection, sectionKeys) {
+/** Build a multi-section Progression by per-bar key (Q2 / implied modulation):
+ *  `keyForBar(barIndex)` gives each bar's key; consecutive same-key bars group
+ *  into a section. The labels are the *same* home-key walk — a section realizes
+ *  them against its key, so "IIm7 V7 Imaj7" in a G section sounds and reads as
+ *  Am7 D7 Gmaj7. Home sections carry no `key` (they fall back to the home key).
+ *  Sounding/export are identical to a single key — only the labels read true. */
+function buildProgressionSectioned(labels, plan, homeKey, keyForBar) {
+  const homeLabel = `${homeKey.tonic} ${homeKey.mode}`;
   const prog = { key: homeKey, sections: [] };
-  let li = 0, barInSection = 0, si = -1, cur = null;
-  const startSection = () => { si += 1; cur = { bars: [] }; if (si > 0 && sectionKeys[si]) cur.key = sectionKeys[si]; prog.sections.push(cur); };
-  startSection();
-  for (const p of plan) {
-    if (barInSection === barsPerSection) { startSection(); barInSection = 0; }
-    const k = cur.key ?? homeKey;
-    if (p.repeat) { cur.bars.push({ chords: [], repeat: true }); barInSection += 1; continue; }
+  let li = 0, cur = null, curLabel = null;
+  plan.forEach((p, b) => {
+    const k = keyForBar(b) ?? homeKey;
+    const kLabel = `${k.tonic} ${k.mode}`;
+    if (kLabel !== curLabel) {
+      cur = { bars: [] };
+      if (kLabel !== homeLabel) cur.key = k; // home sections stay key-less (use prog.key)
+      prog.sections.push(cur);
+      curLabel = kLabel;
+    }
+    if (p.repeat) { cur.bars.push({ chords: [], repeat: true }); return; }
     const chords = [];
     for (let kk = 0; kk < p.durs.length; kk++) {
       const label = labels[li++];
@@ -149,11 +154,38 @@ function buildSectionedProgression(labels, plan, homeKey, barsPerSection, sectio
       if (ch) chords.push(ch);
     }
     cur.bars.push({ chords });
-    barInSection += 1;
-  }
+  });
   prog.sections = prog.sections.filter((s) => s.bars.length);
   if (!prog.sections.length) prog.sections.push({ bars: [] });
   return prog;
+}
+
+/** The [start, end) label-index range each bar consumes (repeat bars: empty). */
+function barLabelRanges(plan) {
+  const ranges = [];
+  let li = 0;
+  for (const p of plan) {
+    if (p.repeat) { ranges.push([li, li]); continue; }
+    const start = li; li += p.durs.length;
+    ranges.push([start, li]);
+  }
+  return ranges;
+}
+
+/** Per-bar keys from detected key areas (implied modulation): a bar adopts the
+ *  area covering its first label; repeat bars inherit the previous bar's key. */
+function barKeysFromAreas(plan, areas, homeKey, intervalToKey) {
+  const ranges = barLabelRanges(plan);
+  const keys = [];
+  let last = homeKey;
+  plan.forEach((p, b) => {
+    if (p.repeat) { keys.push(last); return; }
+    const start = ranges[b][0];
+    const area = areas.find((ar) => start >= ar.start && start <= ar.end);
+    const k = area ? intervalToKey(area.interval, area.mode) : homeKey;
+    keys.push(k); last = k;
+  });
+  return keys;
 }
 
 /** Editable leadsheet — the shared @enkerli/ui editor, the primary surface.
@@ -505,18 +537,33 @@ export default function App() {
       : applySubstitutions(labels, { mode, seed, allowInsertions: false, ...REHARM_LEVELS[reharm] }).labels),
     [labels, reharm, mode, seed],
   );
-  // Key changes (Q2): every N bars the progression becomes a new SECTION with
-  // its own corpus-common related key (dominant / subdominant / relative /
-  // up-a-step). The labels are unchanged — each section realizes them against
-  // its key, so the modulation reads in the new key's degrees (and the editor
-  // shows a "→ G major" divider). Sounding/export are identical to the prior
-  // home-frame transpose. Seeded → part of the genId.
+  // Key changes (Q2): the progression splits into SECTIONS with their own keys;
+  // each section realizes the (unchanged) labels against its key, so the
+  // modulation reads in the new key's degrees and the editor shows a quiet
+  // "→ G major" divider. Sounding/export are identical to a single key.
+  //   · "4"/"8" — mechanical: a new corpus-common related key every N bars.
+  //   · "implied" — read the harmony: re-spell ii–V–I tonicizations in their
+  //     own key (analyzeKeyAreas), so only genuine local keys get re-anchored.
+  const intervalToKey = (interval, m) => ({ tonic: tonicAtInterval(tonic, interval), mode: m });
   const baseProg = useMemo(() => {
     if (modulate === "off") return buildProgression(reharmedLabels, rhythm, { tonic, mode });
+    if (modulate === "implied") {
+      // Implied modulation RE-SPELLS the same chords in their local key (it
+      // doesn't transpose). So freeze the chords to their absolute symbols
+      // (realized in home key) — key-invariant — and let the section key drive
+      // only the displayed degree (a G area shows Am7 D7 Gmaj7 as IIm7 V7 Imaj7).
+      const absLabels = reharmedLabels.map((l) => {
+        const ch = parseLeadsheet(l, { tonic, mode }).sections[0]?.bars[0]?.chords[0];
+        return ch ? realizeChord(ch, { tonic, mode }).symbol : l;
+      });
+      const areas = analyzeKeyAreas(reharmedLabels, mode);
+      const barKeys = barKeysFromAreas(rhythm, areas, { tonic, mode }, intervalToKey);
+      return buildProgressionSectioned(absLabels, rhythm, { tonic, mode }, (b) => barKeys[b]);
+    }
     const n = Number(modulate);
     const plan = planModulation(Math.ceil(rhythm.length / n), mode, seed);
-    const sectionKeys = plan.map((m) => ({ tonic: tonicAtInterval(tonic, m.interval), mode: m.mode }));
-    return buildSectionedProgression(reharmedLabels, rhythm, { tonic, mode }, n, sectionKeys);
+    const sectionKeys = plan.map((m) => intervalToKey(m.interval, m.mode));
+    return buildProgressionSectioned(reharmedLabels, rhythm, { tonic, mode }, (b) => sectionKeys[Math.floor(b / n)]);
   }, [reharmedLabels, rhythm, tonic, mode, modulate, seed]);
   // genId changes on any GENERATION op (every param that produces `labels`,
   // plus opCount for extend/clear) — but NOT on an edit. An edit is stamped
@@ -1132,8 +1179,9 @@ export default function App() {
             </label>
             <label style={LBL}>Modulation
               <select className="es-control" value={modulate} onChange={(e) => setModulate(e.target.value)}
-                title="Change key every N bars to a corpus-common related key (dominant / subdominant / relative / up-a-step)">
+                title="implied: re-spell ii–V–I tonicizations in their own key (read from the harmony). every N bars: mechanical key changes to a related key.">
                 <option value="off">none</option>
+                <option value="implied">implied (harmony)</option>
                 <option value="4">every 4 bars</option>
                 <option value="8">every 8 bars</option>
               </select>
