@@ -285,6 +285,11 @@ select.es-control option { background: var(--es-bg-raised); color: var(--es-fg);
   font-family: var(--es-font-sans); text-align: left;
 }
 .es-ls-chord:hover { background: var(--es-bg-sunken); }
+/* A cell is a tap/press target, never selectable text — press-and-hold must
+   not trigger native text selection or the iOS callout menu. */
+.es-ls-chord, .es-ls-caret, .es-ls-repeat, .es-ls-grip, .es-ls-ghost-cell {
+  -webkit-user-select: none; user-select: none; -webkit-touch-callout: none;
+}
 /* The whole cell lifts (press-and-hold on touch; grip on desktop) — show grab. */
 .es-ls.editing .es-ls-chord { cursor: grab; touch-action: pan-y; }
 .es-ls.editing .es-ls-chord:active { cursor: grabbing; }
@@ -379,6 +384,29 @@ select.es-control option { background: var(--es-bg-raised); color: var(--es-fg);
 /* Chord-follow highlight on the leadsheet editor (playhead) */
 .es-ls-chord.active { background: var(--es-accent); color: var(--es-accent-fg); }
 .es-ls-chord.active .es-ls-real { color: var(--es-accent-fg); opacity: .8; }
+
+/* The write cursor (Q1) — a blinking caret marking where the next played /
+   inserted chord lands. Tap any caret to re-aim it. */
+.es-ls-caret.cursor {
+  border-color: var(--es-accent); color: var(--es-accent);
+  background: color-mix(in oklch, var(--es-accent) 16%, transparent);
+  animation: es-ls-cursor-blink 1.1s steps(2, start) infinite;
+}
+@keyframes es-ls-cursor-blink { 50% { opacity: 0.4; } }
+@media (prefers-reduced-motion: reduce) { .es-ls-caret.cursor { animation: none; } }
+
+/* The inline ghost cell — the held live-MIDI chord at the cursor (compact:
+   chord + ✓ add + ▸ options + ✕). Options expand in .es-ls-ghost-opts below. */
+.es-ls-ghost-cell {
+  display: inline-flex; align-items: center; gap: 4px; align-self: center;
+  padding: 2px 5px; border: 1px dashed var(--es-accent); border-radius: var(--es-radius-sm);
+  background: color-mix(in oklch, var(--es-accent) 8%, transparent);
+}
+.es-ls-ghost-label { font-family: var(--es-font-sans); font-weight: 600; color: var(--es-accent); white-space: nowrap; }
+.es-ls-ghost-cell .es-btn { padding: 0 5px; min-height: 24px; }
+.es-ls-ghost-opts { display: flex; flex-direction: column; gap: 4px; margin-top: var(--es-space-2); }
+.es-ls-ghost-opts .es-btn { justify-content: flex-start; text-align: left; }
+.es-ls-ghost-detail { color: var(--es-fg-muted); font-family: var(--es-font-mono); font-size: var(--es-text-xs); }
 
 /* Ghost chip — live MIDI writes into the document at the write cursor.
    A pending, dashed cell sitting just below the sheet; Add commits it. */

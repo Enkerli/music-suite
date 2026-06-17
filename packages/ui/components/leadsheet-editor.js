@@ -101,6 +101,16 @@ export function createLeadsheetEditor(el, opts = {}) {
      *  re-spell in a local key — { start, end, key } inclusive. Lighter than a
      *  section: a quiet per-chord key tag, can start mid-bar, no divider. */
     keyAreas: opts.keyAreas ?? [],
+    /** The write cursor (Q1): where the next inserted/played chord lands —
+     *  { si, bi, ci } | null (null = the trailing append point). A blinking
+     *  caret marks it; tapping any caret re-aims it. */
+    cursor: null,
+    /** A pending chord to write at the cursor (live MIDI): { label, detail,
+     *  confirm:{token,voicing}, options:[{label,detail,insert}], onConsumed }
+     *  | null. Renders as a ghost cell at the cursor. */
+    ghost: opts.ghost ?? null,
+    /** Ghost options disclosure open? */
+    ghostOpen: false,
     suggest: opts.suggest ?? null,
     /** Optional "why this chord" text for the inspector (rationale to come). */
     rationaleOf: opts.rationaleOf ?? null,
@@ -349,20 +359,80 @@ export function createLeadsheetEditor(el, opts = {}) {
     render(); emit();
   }
 
-  /** A caret: the slot between chords that *is* the insertion point. In a
-   *  move it's a drop target; otherwise it opens the picker at (si, bi, ci). */
+  /** Is the write cursor at this slot? (null cursor lives at the trailing +.) */
+  function cursorAt(si, bi, ci, atEnd) {
+    return state.cursor ? (state.cursor.si === si && state.cursor.bi === bi && state.cursor.ci === ci) : !!atEnd;
+  }
+
+  /** Write a chord descriptor { token, voicing } at the write cursor and
+   *  advance it (sequential MIDI at the end keeps following the end). */
+  function writeAtCursor(descriptor) {
+    if (!descriptor?.token) return;
+    const wasEnd = !state.cursor;
+    let si, bi, ci;
+    if (state.cursor) { ({ si, bi, ci } = state.cursor); }
+    else {
+      si = sections().length - 1;
+      const bars = barsOf(si);
+      bi = -1; bars.forEach((b, i) => { if (!b.repeat) bi = i; });
+      if (bi < 0) { bars.push({ chords: [] }); bi = bars.length - 1; }
+      ci = barsOf(si)[bi].chords.length;
+    }
+    const chord = parseChordToken(descriptor.token, keyOf(si));
+    const bar = barsOf(si)[bi];
+    if (!chord || !bar) return;
+    if (Array.isArray(descriptor.voicing) && descriptor.voicing.length) chord.voicing = [...descriptor.voicing];
+    const at = Math.min(ci, bar.chords.length);
+    bar.chords.splice(at, 0, chord);
+    state.cursor = wasEnd ? null : { si, bi, ci: at + 1 };
+    state.ghostOpen = false;
+    render(); emit();
+  }
+
+  /** A caret: the slot between chords that *is* the insertion point — and the
+   *  write cursor. In a move it's a drop target; otherwise tapping it re-aims
+   *  the cursor here and opens the picker. */
   function caret(si, bi, ci, atEnd) {
     const c = document.createElement("button");
     c.type = "button";
-    c.className = "es-ls-caret" + (state.moving ? " drop" : "");
+    c.className = "es-ls-caret" + (state.moving ? " drop" : "") + (cursorAt(si, bi, ci, atEnd) ? " cursor" : "");
     c.textContent = state.moving ? "▾" : "+";
     c.setAttribute("aria-label", state.moving ? "Move here" : "Insert a chord here");
     c.addEventListener("click", () => {
-      if (state.moving) { const m = state.moving; state.moving = null; moveChord(m, { si, bi, ci }); }
-      else if (state.suggest) openPicker(c, si, bi, ci, atEnd);
+      if (state.moving) { const m = state.moving; state.moving = null; moveChord(m, { si, bi, ci }); return; }
+      state.cursor = atEnd ? null : { si, bi, ci }; // re-aim the write cursor
+      if (state.suggest) openPicker(c, si, bi, ci, atEnd);
       else openInlineAdd(c, si, bi, ci);
     });
     return c;
+  }
+
+  /** The compact ghost cell — a pending live-MIDI chord at the write cursor:
+   *  a dashed chip showing the chord, with ✓ (write + advance), ▸ (completions
+   *  / alternate voicings, expanded below the sheet), and ✕ (dismiss). */
+  function ghostCell() {
+    const g = state.ghost;
+    const wrap = document.createElement("span");
+    wrap.className = "es-ls-ghost-cell";
+    wrap.append(span(g.label, "es-ls-ghost-label"));
+    const add = btn("✓", () => { writeAtCursor(g.confirm); g.onConsumed?.(); }, "Add at the cursor (lock the voicing as played)");
+    add.classList.add("es-primary", "es-ls-ghost-add");
+    wrap.append(add);
+    if (g.options?.length) wrap.append(btn(state.ghostOpen ? "▾" : "▸", () => { state.ghostOpen = !state.ghostOpen; render(); }, "Completions & alternate voicings"));
+    wrap.append(btn("✕", () => { state.ghostOpen = false; g.onConsumed?.(); }, "Dismiss the held chord"));
+    return wrap;
+  }
+
+  /** The ghost's completions / alternate voicings, expanded below the sheet. */
+  function ghostOptions() {
+    const g = state.ghost;
+    const list = document.createElement("div"); list.className = "es-ls-ghost-opts";
+    for (const o of g.options) {
+      const r = btn(o.label, () => { writeAtCursor(o.insert); g.onConsumed?.(); });
+      if (o.detail) r.append(span(" " + o.detail, "es-ls-ghost-detail"));
+      list.append(r);
+    }
+    return list;
   }
 
   /** The chord inspector — everything the cell defers: retype, consonance,
@@ -583,9 +653,11 @@ export function createLeadsheetEditor(el, opts = {}) {
   }
 
   /** The bars of one section as a grid; carets in Edit. Returns the grid el
-   *  and advances the shared flat counter via `next`. */
-  function sectionBars(si, flatStart) {
+   *  and advances the shared flat counter via `next`. `isLast` marks the final
+   *  section, whose trailing + is where a null (end) write cursor lives. */
+  function sectionBars(si, flatStart, isLast) {
     const editing = state.editable && state.tool === "edit";
+    const ghostHere = (atEnd) => editing && state.ghost; // place the one ghost at the cursor
     const bars = barsOf(si);
     const barsEl = document.createElement("div");
     barsEl.className = "es-ls-bars" + (state.moving ? " moving" : "");
@@ -603,6 +675,7 @@ export function createLeadsheetEditor(el, opts = {}) {
       } else {
         b.chords.forEach((c, ci) => {
           if (editing) cell.append(caret(si, bi, ci, false));
+          if (ghostHere() && state.cursor && cursorAt(si, bi, ci, false)) cell.append(ghostCell());
           cell.append(chordChip(si, bi, ci, c, flat++));
         });
         cell.style.gridColumn = `span ${Math.max(1, b.chords.length)}`;
@@ -610,20 +683,25 @@ export function createLeadsheetEditor(el, opts = {}) {
       barsEl.append(cell);
     });
     if (editing) {
-      // Trailing caret = append at the end of this section (start a bar if empty).
+      // Trailing caret = append at the end of this section (start a bar if empty);
+      // for the last section it's also where a null (end) write cursor sits.
       const tail = document.createElement("button");
-      tail.type = "button"; tail.className = "es-ls-caret trail" + (state.moving ? " drop" : "");
+      tail.type = "button";
+      tail.className = "es-ls-caret trail" + (state.moving ? " drop" : "") + (!state.cursor && isLast ? " cursor" : "");
       tail.textContent = state.moving ? "▾" : "+";
       tail.setAttribute("aria-label", state.moving ? "Move to the end" : "Add a chord");
       tail.addEventListener("click", () => {
         let bi = lastChordBar;
         if (bi < 0) { bars.push({ chords: [] }); bi = bars.length - 1; }
         const ci = bars[bi].chords.length;
-        if (state.moving) { const m = state.moving; state.moving = null; moveChord(m, { si, bi, ci }); }
-        else if (state.suggest) openPicker(tail, si, bi, ci, true);
+        if (state.moving) { const m = state.moving; state.moving = null; moveChord(m, { si, bi, ci }); return; }
+        state.cursor = null; // re-aim the write cursor to the end
+        if (state.suggest) openPicker(tail, si, bi, ci, true);
         else openInlineAdd(tail, si, bi, ci);
       });
       barsEl.append(tail);
+      // The one ghost at a null (end) cursor sits on the last section's tail.
+      if (ghostHere() && !state.cursor && isLast) barsEl.append(ghostCell());
 
       const addBar = document.createElement("button");
       addBar.type = "button"; addBar.className = "es-ls-add bar";
@@ -695,12 +773,17 @@ export function createLeadsheetEditor(el, opts = {}) {
       // name, so it reads quietly: just the "→ G major" seam divider and its
       // re-spelled labels — the lighter treatment for an implied key change.
       if (multi && (section.label != null || state.showKey)) sectEl.append(sectionHeader(si));
-      const { barsEl, flatEnd } = sectionBars(si, flat);
+      const { barsEl, flatEnd } = sectionBars(si, flat, si === sections().length - 1);
       flat = flatEnd;
       sectEl.append(barsEl);
       children.push(sectEl);
       prevKey = k;
     });
+
+    // The ghost's completions / alternate voicings expand below the sheet.
+    if (state.editable && state.tool === "edit" && state.ghost && state.ghostOpen && state.ghost.options?.length) {
+      children.push(ghostOptions());
+    }
 
     if (state.moving) {
       const mvBar = document.createElement("div");
@@ -724,7 +807,7 @@ export function createLeadsheetEditor(el, opts = {}) {
     /** Bar-notation text of the current progression. */
     getText() { return formatLeadsheet(state.prog); },
     update(next) {
-      if (next.progression || next.text !== undefined) { state.selected = null; state.moving = null; }
+      if (next.progression || next.text !== undefined) { state.selected = null; state.moving = null; state.cursor = null; }
       if (next.progression) state.prog = next.progression;
       else if (next.text !== undefined) state.prog = parseLeadsheet(next.text, next.key ?? state.prog.key);
       if (next.key) state.prog.key = next.key;
@@ -733,6 +816,8 @@ export function createLeadsheetEditor(el, opts = {}) {
       if (next.tool !== undefined) { state.tool = next.tool; state.selected = null; state.moving = null; }
       if (next.display !== undefined) state.display = next.display;
       if (next.keyAreas !== undefined) state.keyAreas = next.keyAreas;
+      if (next.ghost !== undefined) { state.ghost = next.ghost; if (!next.ghost) state.ghostOpen = false; }
+      if (next.cursor !== undefined) state.cursor = next.cursor;
       if (!state.prog.sections.length) state.prog.sections = [{ bars: [] }];
       render();
     },

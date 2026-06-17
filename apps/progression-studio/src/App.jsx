@@ -164,7 +164,7 @@ function buildProgressionSectioned(labels, plan, homeKey, keyForBar) {
  *  Mounts once; the caller forces a remount (via React key) on external
  *  ops (generate/extend/clear/key change) so internal edits don't reset it.
  *  activeIndex drives the chord-follow highlight without remounting. */
-function LeadsheetEdit({ progression, activeIndex, onEdit, suggest, onRate, ratingOf, rationaleOf, scaleOf, ratingSignal, tool, display, keyAreas }) {
+function LeadsheetEdit({ progression, activeIndex, onEdit, suggest, onRate, ratingOf, rationaleOf, scaleOf, ratingSignal, tool, display, keyAreas, ghost }) {
   const hostRef = useRef(null);
   const edRef = useRef(null);
   // The editor is built once (remounted via key); read callbacks through refs
@@ -189,6 +189,7 @@ function LeadsheetEdit({ progression, activeIndex, onEdit, suggest, onRate, rati
       tool,
       display,
       keyAreas,
+      ghost,
     });
     return () => edRef.current.destroy();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps -- remount via key
@@ -196,6 +197,7 @@ function LeadsheetEdit({ progression, activeIndex, onEdit, suggest, onRate, rati
   useEffect(() => { edRef.current?.update({ tool }); }, [tool]);
   useEffect(() => { edRef.current?.update({ display }); }, [display]);
   useEffect(() => { edRef.current?.update({ keyAreas }); }, [keyAreas]);
+  useEffect(() => { edRef.current?.update({ ghost }); }, [ghost]);
   // Ratings changed (curation) — re-render chips to re-reflect the 👍/👎 state.
   useEffect(() => { edRef.current?.refresh(); }, [ratingSignal]);
   return <div ref={hostRef} />;
@@ -417,7 +419,6 @@ export default function App() {
   const [importOpen, setImportOpen] = useState(false);
   const [pasteText, setPasteText] = useState("");
   const [docError, setDocError] = useState(null);
-  const [ghostOpen, setGhostOpen] = useState(false); // ghost chip's inline completions/voicings disclosure
   const [showAllWeights, setShowAllWeights] = useState(false); // full curation ledger (one disclosure away)
   const [curFrom, setCurFrom] = useState("any"); // filter-by-degree (Q6): origin
   const [curTo, setCurTo] = useState("any"); //                          destination
@@ -650,6 +651,23 @@ export default function App() {
     () => (latched ? chordCompletions(latched.notes, { max: 3 }) : []),
     [latched],
   );
+  // The inline ghost (Q1): the held live-MIDI chord, rendered at the write
+  // cursor inside the editor. ✓ writes it (locking the played voicing) and
+  // advances; the options disclosure carries completions + alternate voicings.
+  // The editor does the insertion at its cursor; `onConsumed` clears the latch.
+  const ghost = useMemo(() => {
+    if (!IN_PLUGIN || !latched) return null;
+    return {
+      label: latched.symbol,
+      detail: latched.notes.map((n) => midiName(n)).join(" "),
+      confirm: { token: latched.symbol, voicing: latched.notes },
+      options: [
+        ...completions.map((s) => ({ label: s.symbol, detail: "+ " + midiName(s.added), insert: { token: s.symbol, voicing: s.notes } })),
+        ...playedVoicings.map((s) => ({ label: s.label, detail: `${s.notes.map((n) => midiName(n)).join(" ")} · ${s.movement} st`, insert: { token: latched.symbol, voicing: s.notes } })),
+      ],
+      onConsumed: () => setLatched(null),
+    };
+  }, [latched, completions, playedVoicings]);
   // The genId an op produces (only opCount changes for extend/clear/reset).
   // `o` overrides key/mode for ops that change them in the same tick (loading a
   // progression in a new key) — the setters are async, so we can't read them back.
@@ -684,16 +702,6 @@ export default function App() {
       const ch = parseLeadsheet(tok, { tonic, mode }).sections[0]?.bars[0]?.chords[0];
       if (ch) appendChord(next, ch);
     }
-    setEdited({ genId: genIdFor(opCount + 1), prog: next });
-    setOpCount((n) => n + 1);
-  }
-
-  /** Append a chord (already parsed) to the working progression and stamp it
-   *  as the current edit. The shared tail of every add path. */
-  function commitChord(ch) {
-    if (!ch) return;
-    const next = clone(effectiveProg);
-    appendChord(next, ch);
     setEdited({ genId: genIdFor(opCount + 1), prog: next });
     setOpCount((n) => n + 1);
   }
@@ -757,29 +765,6 @@ export default function App() {
     const alts = cs.alternates.length
       ? ` · or ${cs.alternates.map((a) => `${a.scaleName}${avoidOf(a.avoid)}`).join(", ")}` : "";
     return `${head}${alts}`;
-  }
-
-  /** Add the latched MIDI chord to the leadsheet (ChordID), locking a voicing
-   *  — the notes as played by default, or `voicing` (a chosen alternative).
-   *  Clears the latch once consumed. */
-  function insertMidiChord(voicing = null) {
-    if (!latched) return;
-    const ch = parseLeadsheet(latched.symbol, { tonic, mode }).sections[0]?.bars[0]?.chords[0];
-    if (!ch) return;
-    const v = voicing && voicing.length ? voicing : latched.notes;
-    if (v?.length) ch.voicing = [...v];
-    commitChord(ch);
-    setLatched(null);
-  }
-
-  /** Add a completion of the played chord (the played notes + the one missing
-   *  tone), locking that voicing. Consumes the latch. */
-  function insertCompletion(s) {
-    const ch = parseLeadsheet(s.symbol, { tonic, mode }).sections[0]?.bars[0]?.chords[0];
-    if (!ch) return;
-    if (s.notes?.length) ch.voicing = [...s.notes];
-    commitChord(ch);
-    setLatched(null);
   }
 
   /** Blank the leadsheet — start from scratch (type a chord, then Extend). */
@@ -1262,63 +1247,8 @@ export default function App() {
           <LeadsheetEdit key={genId} progression={effectiveProg} activeIndex={playIdx}
             onEdit={(p) => setEdited({ genId, prog: p })} suggest={suggestNext}
             onRate={rateIncoming} ratingOf={incomingRating} rationaleOf={chordRationale}
-            scaleOf={chordScaleText} ratingSignal={curation} tool={tool} display={display} keyAreas={impliedAreas} />
+            scaleOf={chordScaleText} ratingSignal={curation} tool={tool} display={display} keyAreas={impliedAreas} ghost={ghost} />
 
-          {/* Ghost chip — live MIDI writes into the document at a write cursor
-              (the end of the sheet). The held chord shows here as a pending
-              cell; Add commits it (locking the voicing as played) and advances
-              the cursor. Completions and alternate voicings hang off it as an
-              inline disclosure, at the point of action (Step 04). */}
-          {IN_PLUGIN && latched && (
-            <div className="es-ls-ghost" role="group" aria-label="Held MIDI chord — ready to write">
-              <div style={{ display: "flex", alignItems: "center", gap: "var(--es-space-2)", flexWrap: "wrap" }}>
-                <span className="es-eyebrow" title="Where the held chord will land">writes here →</span>
-                <span className="es-ls-ghost-chip">
-                  <strong>{latched.symbol}</strong>
-                  <span className="es-num" style={{ color: "var(--es-fg-muted)", fontSize: "var(--es-text-xs)", marginLeft: 6 }}>
-                    {latched.notes.map((n) => midiName(n)).join(" ")}
-                  </span>
-                </span>
-                {midiChord.notes.length === 0 && <span className="es-badge" title="held after you release the keys">held</span>}
-                <button className="es-btn es-small es-primary" onClick={() => { insertMidiChord(); setGhostOpen(false); }}
-                  title="Write into the leadsheet, locking the voicing as played, and advance">Add</button>
-                <button className="es-btn es-small" onClick={() => { setLatched(null); setGhostOpen(false); }} title="Forget the held chord">Clear</button>
-                {(completions.length > 0 || playedVoicings.length > 0) && (
-                  <button className="es-btn es-small" aria-expanded={ghostOpen} onClick={() => setGhostOpen((o) => !o)}
-                    title="Completions and alternate voicings">{ghostOpen ? "options ▾" : "options ▸"}</button>
-                )}
-              </div>
-              {ghostOpen && (
-                <div style={{ marginTop: "var(--es-space-2)", display: "flex", flexDirection: "column", gap: "var(--es-space-2)" }}>
-                  {completions.length > 0 && (
-                    <div>
-                      <div className="es-eyebrow">complete to a common chord (add one tone)</div>
-                      {completions.map((s, i) => (
-                        <div key={i} style={{ display: "flex", alignItems: "center", gap: "var(--es-space-2)", marginTop: 2 }}>
-                          <span style={{ width: 110, fontWeight: 600 }}>{s.symbol}</span>
-                          <span className="es-num" style={{ flex: 1, color: "var(--es-fg-muted)", fontSize: "var(--es-text-sm)" }}>+ {midiName(s.added)}</span>
-                          <button className="es-btn es-small" onClick={() => { insertCompletion(s); setGhostOpen(false); }}>Add</button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                  {playedVoicings.length > 0 && (
-                    <div>
-                      <div className="es-eyebrow">other voicings — smoothest from the last chord first</div>
-                      {playedVoicings.map((s, i) => (
-                        <div key={i} style={{ display: "flex", alignItems: "center", gap: "var(--es-space-2)", marginTop: 2 }}>
-                          <span style={{ width: 72, color: "var(--es-fg-2)", fontSize: "var(--es-text-sm)" }}>{s.label}</span>
-                          <span className="es-num" style={{ flex: 1, color: "var(--es-fg-muted)", fontSize: "var(--es-text-sm)" }}>{s.notes.map((n) => midiName(n)).join(" ")}</span>
-                          <span className="es-badge" title="total semitones of voice movement from the last chord">{s.movement} st</span>
-                          <button className="es-btn es-small" onClick={() => { insertMidiChord(s.notes); setGhostOpen(false); }}>Add</button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          )}
 
           <div style={{ display: "flex", gap: "var(--es-space-2)", marginTop: "var(--es-space-4)", flexWrap: "wrap" }}>
             <button

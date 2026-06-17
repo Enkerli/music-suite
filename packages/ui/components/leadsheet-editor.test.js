@@ -313,6 +313,54 @@ describe("leadsheet editor — implied modulation (subtle key areas, design B)",
   });
 });
 
+describe("leadsheet editor — write cursor & inline ghost (Q1)", () => {
+  it("marks the trailing + as the write cursor by default", () => {
+    const el = document.createElement("div");
+    createLeadsheetEditor(el, { text: "Dm7 G7", key: C, showKey: false });
+    expect(el.querySelector(".es-ls-caret.trail.cursor")).not.toBeNull();
+  });
+
+  it("renders the inline ghost at the cursor; ✓ writes it (locking the voicing) and clears", () => {
+    const el = document.createElement("div");
+    let consumed = false;
+    const ed = createLeadsheetEditor(el, {
+      text: "Dm7 G7", key: C, showKey: false,
+      ghost: { label: "Am7", confirm: { token: "Am7", voicing: [57, 60, 64] }, options: [], onConsumed: () => { consumed = true; } },
+    });
+    expect(el.querySelector(".es-ls-ghost-cell")).not.toBeNull();
+    click(el.querySelector(".es-ls-ghost-add"));
+    expect(ed.getText()).toBe("Dm7 G7 Am7");
+    expect(consumed).toBe(true);
+    expect(ed.value.sections[0].bars[0].chords[2].voicing).toEqual([57, 60, 64]);
+  });
+
+  it("the ghost's options disclosure writes a chosen completion / voicing", () => {
+    const el = document.createElement("div");
+    const ed = createLeadsheetEditor(el, {
+      text: "Cmaj7", key: C, showKey: false,
+      ghost: {
+        label: "Am", confirm: { token: "Am", voicing: [57] },
+        options: [{ label: "Am7", detail: "+ G", insert: { token: "Am7", voicing: [57, 60, 64, 67] } }],
+        onConsumed: () => {},
+      },
+    });
+    click([...el.querySelectorAll(".es-ls-ghost-cell .es-btn")].find((b) => b.textContent === "▸")); // open options
+    click([...el.querySelectorAll(".es-ls-ghost-opts .es-btn")][0]); // pick Am7
+    expect(ed.getText()).toBe("Cmaj7 Am7");
+  });
+
+  it("hides the ghost when update clears it", () => {
+    const el = document.createElement("div");
+    const ed = createLeadsheetEditor(el, {
+      text: "Dm7", key: C, showKey: false,
+      ghost: { label: "G7", confirm: { token: "G7" }, options: [], onConsumed: () => {} },
+    });
+    expect(el.querySelector(".es-ls-ghost-cell")).not.toBeNull();
+    ed.update({ ghost: null });
+    expect(el.querySelector(".es-ls-ghost-cell")).toBeNull();
+  });
+});
+
 describe("leadsheet editor — rating modes", () => {
   it("a rating tool turns chord taps into transition ratings (and tints)", () => {
     const el = document.createElement("div");
