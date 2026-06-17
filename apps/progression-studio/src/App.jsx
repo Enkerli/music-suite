@@ -160,39 +160,25 @@ function buildProgressionSectioned(labels, plan, homeKey, keyForBar) {
   return prog;
 }
 
-/** The [start, end) label-index range each bar consumes (repeat bars: empty). */
-function barLabelRanges(plan) {
-  const ranges = [];
-  let li = 0;
+/** Map each label index to its flat chord index in the realized stream — the
+ *  same counter the editor and chordsFromProgression use (a repeat bar counts
+ *  as one flat slot but consumes no label). Lets analyzer areas (label space)
+ *  address the editor's chips for implied modulation. */
+function labelToFlatMap(plan) {
+  const map = [];
+  let flat = 0;
   for (const p of plan) {
-    if (p.repeat) { ranges.push([li, li]); continue; }
-    const start = li; li += p.durs.length;
-    ranges.push([start, li]);
+    if (p.repeat) { flat++; continue; }
+    for (let k = 0; k < p.durs.length; k++) { map.push(flat); flat++; }
   }
-  return ranges;
-}
-
-/** Per-bar keys from detected key areas (implied modulation): a bar adopts the
- *  area covering its first label; repeat bars inherit the previous bar's key. */
-function barKeysFromAreas(plan, areas, homeKey, intervalToKey) {
-  const ranges = barLabelRanges(plan);
-  const keys = [];
-  let last = homeKey;
-  plan.forEach((p, b) => {
-    if (p.repeat) { keys.push(last); return; }
-    const start = ranges[b][0];
-    const area = areas.find((ar) => start >= ar.start && start <= ar.end);
-    const k = area ? intervalToKey(area.interval, area.mode) : homeKey;
-    keys.push(k); last = k;
-  });
-  return keys;
+  return map;
 }
 
 /** Editable leadsheet — the shared @enkerli/ui editor, the primary surface.
  *  Mounts once; the caller forces a remount (via React key) on external
  *  ops (generate/extend/clear/key change) so internal edits don't reset it.
  *  activeIndex drives the chord-follow highlight without remounting. */
-function LeadsheetEdit({ progression, activeIndex, onEdit, suggest, onRate, ratingOf, rationaleOf, scaleOf, ratingSignal, tool, display }) {
+function LeadsheetEdit({ progression, activeIndex, onEdit, suggest, onRate, ratingOf, rationaleOf, scaleOf, ratingSignal, tool, display, keyAreas }) {
   const hostRef = useRef(null);
   const edRef = useRef(null);
   // The editor is built once (remounted via key); read callbacks through refs
@@ -216,12 +202,14 @@ function LeadsheetEdit({ progression, activeIndex, onEdit, suggest, onRate, rati
       scaleOf: (i) => scaleOfRef.current?.(i) ?? null,
       tool,
       display,
+      keyAreas,
     });
     return () => edRef.current.destroy();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps -- remount via key
   useEffect(() => { edRef.current?.update({ activeIndex }); }, [activeIndex]);
   useEffect(() => { edRef.current?.update({ tool }); }, [tool]);
   useEffect(() => { edRef.current?.update({ display }); }, [display]);
+  useEffect(() => { edRef.current?.update({ keyAreas }); }, [keyAreas]);
   // Ratings changed (curation) — re-render chips to re-reflect the 👍/👎 state.
   useEffect(() => { edRef.current?.refresh(); }, [ratingSignal]);
   return <div ref={hostRef} />;
@@ -549,25 +537,37 @@ export default function App() {
   //     own key (analyzeKeyAreas), so only genuine local keys get re-anchored.
   const intervalToKey = (interval, m) => ({ tonic: tonicAtInterval(tonic, interval), mode: m });
   const baseProg = useMemo(() => {
-    if (modulate === "off") return buildProgression(reharmedLabels, rhythm, { tonic, mode });
     if (modulate === "implied") {
-      // Implied modulation RE-SPELLS the same chords in their local key (it
-      // doesn't transpose). So freeze the chords to their absolute symbols
-      // (realized in home key) — key-invariant — and let the section key drive
-      // only the displayed degree (a G area shows Am7 D7 Gmaj7 as IIm7 V7 Imaj7).
+      // Implied modulation is a re-reading, not a transpose: freeze the chords
+      // to their absolute symbols (realized in home key) in ONE section. The
+      // re-spelling is a subtle per-chord annotation (impliedAreas → the
+      // editor), so a local key can start mid-bar — no sections, no divider.
       const absLabels = reharmedLabels.map((l) => {
         const ch = parseLeadsheet(l, { tonic, mode }).sections[0]?.bars[0]?.chords[0];
         return ch ? realizeChord(ch, { tonic, mode }).symbol : l;
       });
-      const areas = analyzeKeyAreas(reharmedLabels, mode);
-      const barKeys = barKeysFromAreas(rhythm, areas, { tonic, mode }, intervalToKey);
-      return buildProgressionSectioned(absLabels, rhythm, { tonic, mode }, (b) => barKeys[b]);
+      return buildProgression(absLabels, rhythm, { tonic, mode });
     }
+    if (modulate === "off") return buildProgression(reharmedLabels, rhythm, { tonic, mode });
+    // Mechanical "every N bars" — real SECTIONS with their own keys (the bold
+    // distinction; these are meant as sections).
     const n = Number(modulate);
     const plan = planModulation(Math.ceil(rhythm.length / n), mode, seed);
     const sectionKeys = plan.map((m) => intervalToKey(m.interval, m.mode));
     return buildProgressionSectioned(reharmedLabels, rhythm, { tonic, mode }, (b) => sectionKeys[Math.floor(b / n)]);
   }, [reharmedLabels, rhythm, tonic, mode, modulate, seed]);
+  // Implied-modulation key areas in FLAT chord-index space — the subtle, quiet
+  // re-spelling annotation for the editor (and per-chord functional key for
+  // curation). Empty unless modulate === "implied".
+  const impliedAreas = useMemo(() => {
+    if (modulate !== "implied") return [];
+    const areas = analyzeKeyAreas(reharmedLabels, mode);
+    const map = labelToFlatMap(rhythm);
+    const lastFlat = map.length ? map[map.length - 1] : 0;
+    return areas.map((a) => ({
+      start: map[a.start] ?? 0, end: map[a.end] ?? lastFlat, key: intervalToKey(a.interval, a.mode),
+    }));
+  }, [modulate, reharmedLabels, rhythm, tonic, mode]);
   // genId changes on any GENERATION op (every param that produces `labels`,
   // plus opCount for extend/clear) — but NOT on an edit. An edit is stamped
   // with the genId it was made under; when that no longer matches, the edit
@@ -728,7 +728,10 @@ export default function App() {
   // Functional degrees read in each chord's OWN section key (Q2/Q6) — so a V→I
   // in the G bridge writes to the same key-independent "V7→Imaj7" weight as in
   // the C verse (the one functional ledger).
-  function keyAt(i) { return chords[i]?.secKey ?? { tonic, mode }; }
+  function keyAt(i) {
+    const area = impliedAreas.find((a) => i >= a.start && i <= a.end);
+    return area?.key ?? chords[i]?.secKey ?? { tonic, mode };
+  }
   function rateIncoming(i, dir) {
     if (i <= 0 || i >= chords.length) return;
     const from = functionalOfRealized(chords[i - 1], keyAt(i - 1));
@@ -772,7 +775,7 @@ export default function App() {
     if (!ch || ch.rootPc == null || !ch.pcs?.length) return null;
     const cs = chordScaleFor(ch.rootPc, ch.pcs);
     if (!cs) return null;
-    const keyPc = TONIC_PC[ch.secKey?.tonic ?? tonic] ?? 0;
+    const keyPc = TONIC_PC[keyAt(i).tonic] ?? 0;
     const avoidOf = (avoid) => (avoid.length ? ` (avoid ${avoid.map((pc) => spellRoot(pc, keyPc)).join(" ")})` : "");
     const head = `${cs.scaleName}${avoidOf(cs.avoid)}`;
     const alts = cs.alternates.length
@@ -1276,7 +1279,7 @@ export default function App() {
           <LeadsheetEdit key={genId} progression={effectiveProg} activeIndex={playIdx}
             onEdit={(p) => setEdited({ genId, prog: p })} suggest={suggestNext}
             onRate={rateIncoming} ratingOf={incomingRating} rationaleOf={chordRationale}
-            scaleOf={chordScaleText} ratingSignal={curation} tool={tool} display={display} />
+            scaleOf={chordScaleText} ratingSignal={curation} tool={tool} display={display} keyAreas={impliedAreas} />
 
           {/* Ghost chip — live MIDI writes into the document at a write cursor
               (the end of the sheet). The held chord shows here as a pending

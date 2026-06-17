@@ -101,6 +101,10 @@ export function createLeadsheetEditor(el, opts = {}) {
     /** Which reading leads in each chip: "functional" (degrees) | "absolute"
      *  (chord names). A global toggle, per the critique's functional/absolute call. */
     display: opts.display ?? "functional",
+    /** Implied modulations (design B, subtle): flat-index chord spans that
+     *  re-spell in a local key — { start, end, key } inclusive. Lighter than a
+     *  section: a quiet per-chord key tag, can start mid-bar, no divider. */
+    keyAreas: opts.keyAreas ?? [],
     suggest: opts.suggest ?? null,
     /** Optional "why this chord" text for the inspector (rationale to come). */
     rationaleOf: opts.rationaleOf ?? null,
@@ -123,6 +127,8 @@ export function createLeadsheetEditor(el, opts = {}) {
   const barsOf = (si) => sections()[si].bars;
   /** The key a section realizes against — its own, else the progression's. */
   const keyOf = (si) => sections()[si]?.key ?? state.prog.key;
+  /** The implied-modulation key covering a flat chord index, if any. */
+  const areaAt = (flat) => state.keyAreas.find((a) => flat >= a.start && flat <= a.end) ?? null;
   const emit = () => state.onChange?.(state.prog);
 
   function commitToken(si, bi, ci, text) {
@@ -449,14 +455,25 @@ export function createLeadsheetEditor(el, opts = {}) {
   }
 
   function chordChip(si, bi, ci, chord, flatIndex) {
-    const k = keyOf(si);
+    // An implied-modulation area re-spells this chord in its local key (subtle,
+    // can start mid-bar); otherwise the section key applies.
+    const area = areaAt(flatIndex);
+    const k = area?.key ?? keyOf(si);
     const sel = state.selected;
     const mv = state.moving;
     const chip = document.createElement("button");
     chip.type = "button";
     chip.className = "es-ls-chord" + (flatIndex === state.activeIndex ? " active" : "")
       + (sel && sel.si === si && sel.bi === bi && sel.ci === ci ? " selected" : "")
-      + (mv && mv.si === si && mv.bi === bi && mv.ci === ci ? " moving" : "");
+      + (mv && mv.si === si && mv.bi === bi && mv.ci === ci ? " moving" : "")
+      + (area ? " in-keyarea" : "");
+    // A quiet key tag at the start of an implied-modulation span (design B,
+    // subtle) — no divider, no line split; it just names the local key.
+    if (area && area.start === flatIndex) {
+      const tag = span((area.key.tonic + (area.key.mode === "minor" ? "m" : "")), "es-ls-keymark");
+      tag.title = `implied key: ${area.key.tonic} ${area.key.mode}`;
+      chip.append(tag);
+    }
     chip.dataset.section = String(si);
     chip.dataset.bar = String(bi);
     chip.dataset.chord = String(ci);
@@ -698,6 +715,7 @@ export function createLeadsheetEditor(el, opts = {}) {
       if (next.activeIndex !== undefined) state.activeIndex = next.activeIndex;
       if (next.tool !== undefined) { state.tool = next.tool; state.selected = null; state.moving = null; }
       if (next.display !== undefined) state.display = next.display;
+      if (next.keyAreas !== undefined) state.keyAreas = next.keyAreas;
       if (!state.prog.sections.length) state.prog.sections = [{ bars: [] }];
       render();
     },

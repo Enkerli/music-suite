@@ -251,6 +251,36 @@ describe("leadsheet editor — multi-section, per-section keys (Q2)", () => {
   });
 });
 
+describe("leadsheet editor — implied modulation (subtle key areas, design B)", () => {
+  const abs = (root, suffix) => ({ symbol: { root, suffix }, inputText: root + suffix });
+
+  it("re-spells a chord span in its local key with a quiet tag, no divider", () => {
+    const el = document.createElement("div");
+    createLeadsheetEditor(el, {
+      progression: { key: C, sections: [{ bars: [{ chords: [abs("A", "m7"), abs("D", "7"), abs("G", "maj7")] }] }] },
+      showKey: false,
+      keyAreas: [{ start: 0, end: 2, key: { tonic: "G", mode: "major" } }],
+    });
+    // Am7 D7 Gmaj7 read in G = IIm7 V7 Imaj7 (functional default).
+    expect([...el.querySelectorAll(".es-ls-name")].map((n) => n.textContent)).toEqual(["IIm7", "V7", "Imaj7"]);
+    expect(el.querySelectorAll(".es-ls-kchange")).toHaveLength(0); // no heavy divider
+    expect(el.querySelector(".es-ls-keymark").textContent).toBe("G"); // one quiet tag at the start
+    expect(el.querySelectorAll(".es-ls-chord.in-keyarea")).toHaveLength(3); // span tinted
+  });
+
+  it("a key area can start mid-bar (home chord then a re-spelled span)", () => {
+    const el = document.createElement("div");
+    createLeadsheetEditor(el, {
+      progression: { key: C, sections: [{ bars: [{ chords: [abs("C", "maj7"), abs("A", "m7")] }, { chords: [abs("D", "7"), abs("G", "maj7")] }] }] },
+      showKey: false,
+      keyAreas: [{ start: 1, end: 3, key: { tonic: "G", mode: "major" } }], // from Am7 (mid-bar)
+    });
+    // Cmaj7 stays home (Imaj7); Am7 D7 Gmaj7 read in G.
+    expect([...el.querySelectorAll(".es-ls-name")].map((n) => n.textContent)).toEqual(["Imaj7", "IIm7", "V7", "Imaj7"]);
+    expect(el.querySelector(".es-ls-keymark").textContent).toBe("G");
+  });
+});
+
 describe("leadsheet editor — rating modes", () => {
   it("a rating tool turns chord taps into transition ratings (and tints)", () => {
     const el = document.createElement("div");

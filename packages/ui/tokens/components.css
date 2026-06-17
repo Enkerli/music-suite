@@ -417,6 +417,16 @@ select.es-control option { background: var(--es-bg-raised); color: var(--es-fg);
   font-family: var(--es-font-mono); font-size: var(--es-text-sm); color: var(--es-fg-2);
   padding: 2px 8px; border: 1px solid var(--es-border-strong); border-radius: var(--es-radius-sm);
 }
+/* Implied modulation (design B, subtle) — a quiet per-chord key tag + a faint
+   tint under the span; no divider, no line split, can start mid-bar. */
+.es-ls-chord.in-keyarea { box-shadow: inset 0 -2px 0 color-mix(in oklch, var(--es-accent) 35%, transparent); }
+.es-ls-keymark {
+  position: absolute; top: -7px; left: 4px;
+  font-family: var(--es-font-mono); font-size: 9px; font-weight: 600; line-height: 1;
+  padding: 1px 4px; border-radius: 999px;
+  background: var(--es-accent); color: var(--es-accent-fg); letter-spacing: 0.02em;
+}
+
 /* The key-change seam — one quiet pill, never re-stated on every chord. */
 .es-ls-kchange { display: flex; align-items: center; gap: var(--es-space-2); margin: var(--es-space-2) 0; }
 .es-ls-kchange-ln { height: 1px; flex: 1; background: var(--es-border-strong); }
