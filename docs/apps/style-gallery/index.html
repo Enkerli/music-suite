@@ -1,0 +1,271 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<link rel="icon" type="image/svg+xml" href="./vendor/ui/icons/style-gallery.svg" />
+<title>Enkerli suite — style gallery</title>
+<!-- Dependency-free on purpose: this page is the design system's mirror.
+     If it looks wrong, the tokens are wrong. Serve from the repo
+     (npx vite apps/style-gallery) or open the file directly. -->
+<link rel="stylesheet" href="./vendor/ui/tokens/tokens.css" />
+<link rel="stylesheet" href="./vendor/ui/tokens/components.css" />
+<!-- The leadsheet editor imports @enkerli/theory (bare specifier); this
+     bundler-less gallery resolves it to the built dist via an import map. -->
+<script type="importmap">
+{ "imports": { "@enkerli/theory": "./vendor/theory/dist/index.js" } }
+</script>
+<style>
+  body { margin: 0; padding: var(--es-space-6); display: grid; gap: var(--es-space-6);
+         max-width: 1080px; margin-inline: auto; }
+  h1 { font-size: var(--es-text-xl); margin: 0; font-family: var(--es-font-serif); }
+  h2 { font-size: var(--es-text-lg); margin: 0 0 var(--es-space-3); }
+  .row { display: flex; flex-wrap: wrap; gap: var(--es-gap); align-items: center; }
+  .sw { width: 86px; border-radius: var(--es-radius-sm); overflow: hidden;
+        border: 1px solid var(--es-border); font-size: var(--es-text-xs); }
+  .sw > div:first-child { height: 44px; }
+  .sw > div:last-child { padding: 4px 6px; background: var(--es-bg-raised); }
+  .sw code { display: block; color: var(--es-fg-muted); }
+  .type-sample { display: grid; gap: var(--es-space-1); }
+  .pc-chip { display: inline-flex; align-items: center; gap: 6px;
+             border: 1px solid var(--es-border); border-radius: 999px;
+             padding: 3px 10px 3px 5px; font-size: var(--es-text-sm);
+             background: var(--es-bg-raised); }
+  .pc-chip i { width: 16px; height: 16px; border-radius: 50%; display: inline-block; }
+  header { display: flex; justify-content: space-between; align-items: center; }
+</style>
+</head>
+<body class="es-app">
+
+<header>
+  <div>
+    <div class="es-eyebrow">@enkerli/ui · paper &amp; ink</div>
+    <h1>Style gallery</h1>
+  </div>
+  <button class="es-btn" id="theme-toggle" aria-label="Toggle color theme">◐ theme</button>
+</header>
+
+<section class="es-panel">
+  <h2>Surfaces &amp; ink</h2>
+  <div class="row" id="surfaces"></div>
+</section>
+
+<section class="es-panel">
+  <h2>Type</h2>
+  <div class="type-sample">
+    <div style="font-size:var(--es-text-xl)">Voice leading is a path through chord space — xl</div>
+    <div style="font-size:var(--es-text-lg)">Voice leading is a path through chord space — lg</div>
+    <div style="font-size:var(--es-text-md)">Voice leading is a path through chord space — md (body)</div>
+    <div style="font-size:var(--es-text-sm); color:var(--es-fg-2)">Secondary ink at sm — fg-2</div>
+    <div style="font-size:var(--es-text-xs); color:var(--es-fg-muted)">MUTED LABEL AT XS — FG-MUTED (≥4.5:1)</div>
+    <div style="font-family:var(--es-font-mono)">mono · 2773 = 101011010101 (C ionian, MSB-first)</div>
+    <div style="font-family:var(--es-font-serif)">Domine serif — DrawnQurve's display voice</div>
+    <div style="font-family:var(--es-font-hand); font-size:var(--es-text-lg)">Caveat hand — annotations only</div>
+  </div>
+</section>
+
+<section class="es-panel">
+  <h2>Actions &amp; controls</h2>
+  <div class="row">
+    <button class="es-btn">Button</button>
+    <button class="es-btn es-primary">Primary</button>
+    <button class="es-btn" disabled>Disabled</button>
+    <input class="es-control" placeholder="es-control input" />
+    <select class="es-control" aria-label="Key">
+      <option>C major</option><option>G major</option><option>D major</option><option>A minor</option>
+    </select>
+    <span class="es-badge">badge</span>
+    <span class="es-badge es-up">badge up</span>
+  </div>
+  <p style="color:var(--es-fg-muted); font-size:var(--es-text-sm)">
+    Controls use <code>--es-border-strong</code> (≥3:1); panels keep the decorative border.
+    The select wears an ink chevron (theme-aware) instead of OS chrome.
+    Tab through to see the focus ring.
+  </p>
+</section>
+
+<section class="es-panel">
+  <h2>Output range <span style="color:var(--es-fg-muted);font-size:var(--es-text-sm)">(dual-thumb, elastic edge, draggable band — the DrawnQurve/PitchFold control)</span></h2>
+  <div id="range" style="max-width:520px"></div>
+  <p class="readout" id="range-readout" style="font-family:var(--es-font-mono); color:var(--es-fg-2)"></p>
+  <p style="color:var(--es-fg-muted); font-size:var(--es-text-sm)">
+    Drag a thumb (rubber-bands past either end), drag the band to slide the whole range,
+    or shove it into a wall to compress. 44px touch targets, larger on coarse pointers.
+    Keyboard: ←/→, Shift for an octave, Home/End.
+  </p>
+</section>
+
+<section class="es-panel">
+  <h2>Transport &amp; arming <span style="color:var(--es-fg-muted);font-size:var(--es-text-sm)">(state word never colour-only; motion doubles the cue)</span></h2>
+  <div class="es-transport" id="transport">
+    <button class="es-tbtn arm" type="button" aria-label="Arm" aria-pressed="false">●</button>
+    <button class="es-tbtn play" type="button" aria-label="Play" aria-pressed="false">▶</button>
+    <span class="es-transport-state" id="transport-state" role="status" aria-live="polite">idle</span>
+  </div>
+  <p style="color:var(--es-fg-muted); font-size:var(--es-text-sm)">
+    Armed pulses danger-red; playing pulses the accent. Both spell out the state
+    (idle / armed / playing / recording). Pulsing is suppressed under
+    <code>prefers-reduced-motion</code>.
+  </p>
+</section>
+
+<section class="es-panel">
+  <h2>Expressive dimensions <span style="color:var(--es-fg-muted);font-size:var(--es-text-sm)">(never color alone — always with the label)</span></h2>
+  <div class="row" id="dims"></div>
+</section>
+
+<section class="es-panel">
+  <h2>Pitch-class palette <span style="color:var(--es-fg-muted);font-size:var(--es-text-sm)">(canonical Exquis "Chromeful" identity — hardware-validated)</span></h2>
+  <div class="es-eyebrow">chips (tone-mapped to ≥3:1 on this theme)</div>
+  <div class="row" id="pcs"></div>
+  <div class="es-eyebrow" style="margin-top:var(--es-space-3)">pads (exact Exquis LED colours, per-pad ink)</div>
+  <div class="row" id="pcs-pad"></div>
+  <p style="color:var(--es-fg-muted); font-size:var(--es-text-sm)">
+    One hue per pitch class — C yellow, C♯ purple, D green … — from Alex's Exquis
+    layout. The pads are the exact device colours; the chips keep the same hue,
+    darkened only where the paper surface needs it for contrast.
+  </p>
+</section>
+
+<section class="es-panel">
+  <h2>Shared components</h2>
+  <div class="row" style="align-items:flex-start">
+    <div>
+      <div class="es-eyebrow">pcs ring (tap to toggle)</div>
+      <div id="ring"></div>
+    </div>
+    <div>
+      <div class="es-eyebrow">pitch grid (hex, Exquis layout)</div>
+      <div id="grid"></div>
+    </div>
+    <div>
+      <div class="es-eyebrow">pitch grid · pad colours (the Exquis look)</div>
+      <div id="grid-pad"></div>
+    </div>
+  </div>
+  <div style="margin-top:var(--es-space-4)">
+    <div class="es-eyebrow">piano roll (ii–V–I shape, animated playhead)</div>
+    <div id="roll" style="max-width:560px"></div>
+  </div>
+  <div style="margin-top:var(--es-space-4); max-width:560px">
+    <div class="es-eyebrow">collapsible sections — <label><input type="checkbox" id="dense"> dense (stage)</label></div>
+    <div id="sections"></div>
+  </div>
+  <div style="margin-top:var(--es-space-4)">
+    <div class="es-eyebrow">leadsheet editor (click a chord to edit; the shared ProgGenie/MIDIcurator editor)</div>
+    <div id="leadsheet"></div>
+    <p class="readout" id="leadsheet-text" style="font-family:var(--es-font-mono); color:var(--es-fg-2)"></p>
+  </div>
+</section>
+
+<script type="module">
+  import { initTheme, toggleTheme } from "./vendor/ui/theme.js";
+  import { createPcsRing } from "./vendor/ui/components/pcs-ring.js";
+  import { createPitchGrid } from "./vendor/ui/components/pitch-grid.js";
+  import { createPianoRoll } from "./vendor/ui/components/piano-roll.js";
+  import { createSection } from "./vendor/ui/components/section.js";
+  import { createRangeSlider, midiName } from "./vendor/ui/components/range-slider.js";
+  import { PITCH_CLASS_COLORS } from "./vendor/ui/components/pitch-class-colors.js";
+  import { createLeadsheetEditor } from "./vendor/ui/components/leadsheet-editor.js";
+
+  const lsText = document.getElementById("leadsheet-text");
+  const leadsheet = createLeadsheetEditor(document.getElementById("leadsheet"), {
+    text: "IIm7 V7 | Imaj7 | ♭II7 | Imaj7",
+    key: { tonic: "C", mode: "major" },
+    onChange: () => { lsText.textContent = "bar notation: " + leadsheet.getText(); },
+  });
+  lsText.textContent = "bar notation: " + leadsheet.getText();
+
+  // Pad chips — exact Exquis colours with per-pad ink (the device look).
+  const padHost = document.getElementById("pcs-pad");
+  padHost.replaceChildren(...PITCH_CLASS_COLORS.map((c, pc) => {
+    const chip = document.createElement("span");
+    chip.className = "pc-chip";
+    chip.style.cssText = `background:${c.pad};color:${c.ink};border-color:transparent`;
+    chip.innerHTML = `<i style="background:${c.ink};opacity:.35"></i>${pc} · ${c.name}`;
+    return chip;
+  }));
+
+  const grid = createPitchGrid(document.getElementById("grid"), {
+    layout: "hex", rows: 5, cols: 5, cellSize: 38,
+  });
+  createPitchGrid(document.getElementById("grid-pad"), {
+    layout: "hex", rows: 5, cols: 5, cellSize: 38, colorByPc: true,
+  });
+
+  const ring = createPcsRing(document.getElementById("ring"), {
+    pcs: 2773, root: 0, colorByPc: true,
+    onToggle: (pc, on) => { const pcs = ring.pcs; on ? pcs.add(pc) : pcs.delete(pc); ring.update({ pcs }); grid.update({ highlight: pcs }); },
+  });
+  grid.update({ highlight: ring.pcs });
+  const roll = createPianoRoll(document.getElementById("roll"), {
+    notes: [
+      { startBeat: 0, lengthBeats: 2, pitch: 50 }, { startBeat: 0, lengthBeats: 2, pitch: 60 }, { startBeat: 0, lengthBeats: 2, pitch: 65 }, { startBeat: 0, lengthBeats: 2, pitch: 69 },
+      { startBeat: 2, lengthBeats: 2, pitch: 55 }, { startBeat: 2, lengthBeats: 2, pitch: 59 }, { startBeat: 2, lengthBeats: 2, pitch: 65 }, { startBeat: 2, lengthBeats: 2, pitch: 69 },
+      { startBeat: 4, lengthBeats: 4, pitch: 48 }, { startBeat: 4, lengthBeats: 4, pitch: 59 }, { startBeat: 4, lengthBeats: 4, pitch: 64 }, { startBeat: 4, lengthBeats: 4, pitch: 67 },
+    ],
+    lengthBeats: 8, height: 140,
+  });
+  let beat = 0;
+  setInterval(() => { beat = (beat + 0.1) % 8; roll.setPlayhead(beat); }, 100);
+
+  const sections = document.getElementById("sections");
+  for (const [title, text] of [["Scale", "PCS controls live here."], ["Quantizer", "Strength, direction, range."], ["Pads", "Chord pad bank."]]) {
+    const { body } = createSection(sections, { title, open: title === "Scale" });
+    body.textContent = text;
+  }
+  document.getElementById("dense").addEventListener("change", (e) =>
+    sections.classList.toggle("es-dense", e.target.checked));
+
+  // Output-range slider — MIDI note range, live readout.
+  const readout = document.getElementById("range-readout");
+  createRangeSlider(document.getElementById("range"), {
+    min: 12, max: 108, step: 1, values: [36, 84], format: midiName,
+    onChange: (lo, hi) =>
+      (readout.textContent = `${midiName(lo)} – ${midiName(hi)} · ${hi - lo} st`),
+  });
+
+  // Transport: arm + play, state word + pulse (never colour alone).
+  const tp = document.getElementById("transport");
+  const tpState = document.getElementById("transport-state");
+  let armed = false, playing = false;
+  const armBtn = tp.querySelector(".arm");
+  const playBtn = tp.querySelector(".play");
+  const syncTransport = () => {
+    armBtn.classList.toggle("armed", armed);
+    armBtn.setAttribute("aria-pressed", String(armed));
+    playBtn.classList.toggle("playing", playing);
+    playBtn.setAttribute("aria-pressed", String(playing));
+    playBtn.textContent = playing ? "❚❚" : "▶";
+    tpState.textContent = playing ? (armed ? "recording" : "playing") : armed ? "armed" : "idle";
+  };
+  armBtn.addEventListener("click", () => { armed = !armed; syncTransport(); });
+  playBtn.addEventListener("click", () => { playing = !playing; syncTransport(); });
+  initTheme();
+  document.getElementById("theme-toggle").addEventListener("click", toggleTheme);
+
+  const css = (name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+  const el = (html) => { const t = document.createElement("template"); t.innerHTML = html.trim(); return t.content.firstChild; };
+
+  const render = () => {
+    const surfaces = [
+      ["--es-bg", "bg"], ["--es-bg-raised", "raised"], ["--es-bg-sunken", "sunken"],
+      ["--es-fg", "fg"], ["--es-fg-2", "fg-2"], ["--es-fg-muted", "muted"],
+      ["--es-border", "border"], ["--es-border-strong", "strong"], ["--es-accent", "accent"],
+    ];
+    document.getElementById("surfaces").replaceChildren(...surfaces.map(([v, label]) =>
+      el(`<div class="sw"><div style="background:var(${v})"></div><div>${label}<code>${css(v)}</code></div></div>`)));
+
+    const dims = ["breath", "expr", "pressure", "slide", "bend", "vel"];
+    document.getElementById("dims").replaceChildren(...dims.map((d) =>
+      el(`<span class="pc-chip"><i style="background:var(--es-dim-${d})"></i>${d}</span>`)));
+
+    const names = ["C", "C♯/D♭", "D", "D♯/E♭", "E", "F", "F♯/G♭", "G", "G♯/A♭", "A", "A♯/B♭", "B"];
+    document.getElementById("pcs").replaceChildren(...names.map((n, i) =>
+      el(`<span class="pc-chip"><i style="background:var(--es-pc-${i})"></i>${i} · ${n}</span>`)));
+  };
+  render();
+  new MutationObserver(render).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+</script>
+</body>
+</html>

@@ -7,9 +7,10 @@
 <meta name="description" content="A family of music-making tools: generate and shape chord progressions, curate MIDI, explore chords and pitch — at a desk, on an iPad, or inside your studio software.">
 <link rel="stylesheet" href="style.css">
 <!--
-  EDITORS: set the live web-app URLs below (the `href` on each "Open app ↗"
-  chip — search for data-app). Drop screenshots into assets/screenshots/
-  (e.g. proggenie.png, 16:10) and they appear automatically.
+  EDITORS: the apps are built into docs/apps/<slug>/ and served from this
+  same Pages site (the "Open app ↗" chips point there). To rebuild an app:
+  npm run build -w <workspace> -- --base=./ --outDir docs/apps/<slug> --emptyOutDir
+  Screenshots live in assets/screenshots/ (e.g. proggenie.png, 16:10).
 -->
 </head>
 <body>
@@ -48,7 +49,7 @@
         <div class="card-head"><img src="assets/icons/proggenie.svg" alt=""><h3>Progression Studio</h3></div>
         <p>Generate jazz chord progressions from a corpus of 2,611 lead sheets, edit them on a leadsheet, hear them, and understand their harmony.</p>
         <div class="card-links">
-          <a class="chip open" data-app="proggenie" href="#" title="Set this URL in index.html">Open app ↗</a>
+          <a class="chip open" data-app="proggenie" href="apps/proggenie/">Open app ↗</a>
           <a class="chip" href="doc.html?p=the-story">Docs</a>
         </div>
       </div>
@@ -59,7 +60,7 @@
       <div class="card-body">
         <div class="card-head"><img src="assets/icons/midicurator.svg" alt=""><h3>MIDIcurator</h3></div>
         <p>Collect, audition, and curate MIDI clips — host-synced, with a file-backed library. The next stop after a progression.</p>
-        <div class="card-links"><a class="chip open" data-app="midicurator" href="#" title="Set this URL in index.html">Open app ↗</a></div>
+        <div class="card-links"><a class="chip open" data-app="midicurator" href="apps/midicurator/">Open app ↗</a></div>
       </div>
     </article>
 
@@ -68,7 +69,7 @@
       <div class="card-body">
         <div class="card-head"><img src="assets/icons/exquisite-fingerings.svg" alt=""><h3>Exquisite Fingerings</h3></div>
         <p>See chords and scales laid out on isomorphic pad grids — square (Launchpad) and hex (Exquis) — the way you actually play them.</p>
-        <div class="card-links"><a class="chip open" data-app="exquisite" href="#" title="Set this URL in index.html">Open app ↗</a></div>
+        <div class="card-links"><a class="chip open" data-app="exquisite" href="apps/exquisite/">Open app ↗</a></div>
       </div>
     </article>
 
@@ -77,7 +78,7 @@
       <div class="card-body">
         <div class="card-head"><img src="assets/icons/pickpcs.svg" alt=""><h3>PickPCS</h3></div>
         <p>Explore sets of notes on an interactive ring — build, name, and hear pitch-class sets and the chords they form.</p>
-        <div class="card-links"><a class="chip open" data-app="pickpcs" href="#" title="Set this URL in index.html">Open app ↗</a></div>
+        <div class="card-links"><a class="chip open" data-app="pickpcs" href="apps/pickpcs/">Open app ↗</a></div>
       </div>
     </article>
 
@@ -86,7 +87,7 @@
       <div class="card-body">
         <div class="card-head"><img src="assets/icons/chord-dictionary.svg" alt=""><h3>Chord Dictionary</h3></div>
         <p>Look up chords — their qualities, spellings, and voicings — the shared reference the rest of the suite draws on.</p>
-        <div class="card-links"><a class="chip open" data-app="chord-dictionary" href="#" title="Set this URL in index.html">Open app ↗</a></div>
+        <div class="card-links"><a class="chip open" data-app="chord-dictionary" href="apps/chord-dictionary/">Open app ↗</a></div>
       </div>
     </article>
 
@@ -95,7 +96,7 @@
       <div class="card-body">
         <div class="card-head"><img src="assets/icons/style-gallery.svg" alt=""><h3>Style Gallery</h3></div>
         <p>The suite's "paper &amp; ink" design system, live — the colours, type, and components every app is built from.</p>
-        <div class="card-links"><a class="chip open" data-app="style-gallery" href="#" title="Set this URL in index.html">Open app ↗</a></div>
+        <div class="card-links"><a class="chip open" data-app="style-gallery" href="apps/style-gallery/">Open app ↗</a></div>
       </div>
     </article>
 
@@ -104,7 +105,7 @@
       <div class="card-body">
         <div class="card-head"><img src="assets/icons/pitchfold.svg" alt=""><h3>PitchFold</h3></div>
         <p>A pitch and tuning explorer — part of the family, sharing the same note-spelling and pad-grid foundations.</p>
-        <div class="card-links"><a class="chip soon" data-app="pitchfold" href="#" title="Set this URL in index.html">Open app ↗</a></div>
+        <div class="card-links"><span class="chip soon" data-app="pitchfold">Coming soon</span></div>
       </div>
     </article>
 
@@ -123,7 +124,7 @@
 </div></section>
 
 <section><div class="wrap">
-  <p class="note"><b>Hosting note.</b> The “Open app ↗” buttons are placeholders — set each one's URL in <code>index.html</code> (search for <code>data-app</code>) once the web apps are deployed. Drop screenshots into <code>assets/screenshots/</code> (e.g. <code>proggenie.png</code>, 16:10) and they appear automatically.</p>
+  <p class="note"><b>Hosting note.</b> The apps are built into <code>docs/apps/&lt;slug&gt;/</code> and served from this same GitHub&nbsp;Pages site — “Open app ↗” opens the live build. To rebuild one: <code>npm run build -w &lt;workspace&gt; -- --base=./ --outDir docs/apps/&lt;slug&gt; --emptyOutDir</code>. PitchFold isn't in the monorepo yet, so its card is marked <em>Coming soon</em>.</p>
 </div></section>
 
 </main>
