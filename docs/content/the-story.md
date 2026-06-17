@@ -1,64 +1,85 @@
-# Progression Studio — the story
+# The Music Suite — the story
 
-*A plain-language tour, for anyone — no music theory or coding required.*
+*A plain-language tour of the whole family, for anyone — no music theory or
+coding required.*
 
-## What it is
+## One idea, several tools
 
-Songs are built on **chords** — small bunches of notes played together — and on
-the order you move between them. That order is a **chord progression**: the
-harmonic backbone a song sits on. Progression Studio (nickname: *ProgGenie*) is
-a tool for making, shaping, and understanding those progressions. Think of it as
-a sketchpad with a knowledgeable studio partner built in.
+Most music software does one of two things: it makes **sound**, or it helps you
+**arrange notes**. This suite has a third goal running through all of it — to
+help you *understand* the music you're working on, not just produce it. Name a
+chord, see which notes sing over it, watch a progression tip into a new key,
+lay a shape out the way your hands actually play it.
 
-## Where its ideas come from
+It isn't one big program. It's a small **family of tools**, each doing one job
+well, that look and feel the same and hand their work to one another.
 
-It learned from **2,611 real jazz lead sheets** — the simple chords-and-melody
-charts musicians read from. It didn't memorize the songs; it noticed their
-**habits** — which chords tend to follow which — the way you might learn that in
-English "thank" is usually followed by "you." Only those habits are kept and
-shared; the original songs never leave the machine. So its suggestions draw on
-the collective instinct of thousands of tunes without copying any single one.
+## The shared foundation
 
-## What you can do with it
+Underneath every app sits a single **music-theory core** — one carefully
+tested library that knows notes, chords, scales, and how they relate. Every
+app draws on the same brain, so a chord named in one place means exactly the
+same thing everywhere. (That core is also the *reference*: its answers are
+pinned down by test cases other versions — in other programming languages —
+must match, so the suite can grow without drifting.)
 
-- **Ask for an idea.** One button writes a fresh progression, any key, any
-  length. Simple dials make it safer or more adventurous.
-- **Make it yours.** Tap a chord to change it, move chords around, type a
-  progression in by hand, or play chords on a music keyboard and have them
-  written down for you.
-- **Teach it your taste.** Give the moves you like a thumbs-up (and the ones you
-  don't a thumbs-down); it remembers and leans your way next time. Your taste
-  becomes a little profile you can save and reuse.
-- **Hear it.** Play it back — a *now-playing* card follows along, showing the
-  current chord and what's coming next.
-- **Pass it on.** Hand the result to the other tools in the family, or save it
-  as a standard music file.
+They also share a look: a calm **"paper & ink"** style, the same colours and
+type throughout, so moving between tools feels like staying in one room.
 
-## It reads the music back to you
+## The apps
 
-Beyond *making* chords, it gently **explains** them. It names each chord, shows
-which notes will sound sweet over it and which to handle with care, points out
-the strong, satisfying "coming-home" moments, and notices when a passage briefly
-tips into a new key — quietly re-labelling it so it reads true. One tap flips
-between musician's shorthand and plain chord names.
+- **Progression Studio** *(nickname: ProgGenie)* — the most developed member,
+  and the suite's front door to harmony. It writes jazz chord progressions
+  drawn from the habits of 2,611 lead sheets, lets you edit them on a song
+  sheet, plays them back, and quietly explains what's going on. It runs in a
+  browser, as its own app, and as a plug-in inside studio software.
+- **MIDIcurator** — the next stop. Drop in MIDI clips, see them on a piano
+  roll, hear them, and have their chords named for you; tag, rate, and search a
+  growing library, and spin off denser or sparser variants of any pattern. It's
+  where a progression becomes a collection of usable parts.
+- **PickPCS** — a playground for **sets of notes**. Build a chord or scale on
+  concentric rings laid out by the circle of fifths, and see how the bigger
+  scale families and the smaller chords nested inside them relate.
+- **Chord Dictionary** — the shared reference the others lean on: look up any
+  chord by name or by its notes, with its spelling, its fingerprint, and its
+  aliases. Plain, fast, and authoritative.
+- **Exquisite Fingerings** — chords and scales laid out on **isomorphic pad
+  grids** (square, like a Launchpad; hex, like the Exquis controller) — the way
+  you actually reach for them. Highlight a scale, work out a fingering, save the
+  shape.
+- **Style Gallery** — the "paper & ink" design system itself, on a page: the
+  colours, type, and building blocks every app is made of. If something looks
+  wrong across the suite, this is where you'd see it first.
 
-## The story so far
+## How they fit together
 
-It began as a small experiment that could spit out plausible chord sequences. It
-grew into a real instrument — and into one member of a **family of music tools**
-that pass work between them. Along the way it was redesigned around a single
-clear idea:
+The throughline is a workflow you can walk end to end, with each tool taking
+the hand-off from the last over plain **MIDI**:
 
-> **The song sheet is always the centre of the screen, and everything else is
-> there to help it** — the generator proposes into it, your playing writes into
-> it, your taste colours it, the library remembers it.
+> **harmony → curation → rhythm → expression → sound**
 
-From there it kept getting smarter about how harmony actually works, and learned
-to play along live. That one idea — *one document, everything else assists it* —
-is still what holds the whole thing together.
+Today the first two links are real: write a progression in **Progression
+Studio**, send it to **MIDIcurator** to audition and collect. The later links —
+tools for rhythm, for shaping expression, for sound — are on the way, and the
+note-spelling and pad-grid foundations already point toward a pitch-and-tuning
+explorer joining the family too.
 
-## Where it runs
+## A standing promise
 
-The same program runs three ways: as a **web page**, as its **own app**, and as
-a **plug-in inside music software** — so you can use it at a desk, on an iPad, or
-right inside a studio setup you already work in.
+Progression Studio learned from **2,611 real jazz lead sheets**, but it only
+ever keeps their *habits* — which chords tend to follow which — never the songs
+themselves. The original charts never leave the machine and are **never
+published**. The suggestions carry the collective instinct of thousands of
+tunes without copying any single one.
+
+## Where they run
+
+In a web browser, on an iPad, and — for Progression Studio — right inside the
+studio software you already work in. Same tools, wherever you are.
+
+---
+
+Want to go deeper on the flagship? Read **[Progression Studio's own
+story](doc.html?p=proggenie-story)**, its **[user guide](doc.html?p=user-guide)**,
+the **[architecture](doc.html?p=architecture)**, or the
+**[history & roadmap](doc.html?p=history)**.

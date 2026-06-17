@@ -22,10 +22,11 @@
 <main><div class="wrap">
   <nav class="doc-nav">
     <a href="index.html">← Home</a>
-    <a href="doc.html?p=the-story">The Story</a>
-    <a href="doc.html?p=user-guide">User Guide</a>
+    <a href="doc.html?p=the-story">The Suite</a>
+    <a href="doc.html?p=proggenie-story">ProgGenie: Story</a>
+    <a href="doc.html?p=user-guide">Guide</a>
     <a href="doc.html?p=architecture">Architecture</a>
-    <a href="doc.html?p=history">History &amp; Roadmap</a>
+    <a href="doc.html?p=history">History</a>
   </nav>
   <article id="prose" class="prose">Loading…</article>
 </div></main>
@@ -39,10 +40,11 @@
 <script>
   // Whitelist of doc pages -> content/<slug>.md. Keeps ?p= from fetching anything else.
   var PAGES = {
-    "the-story":   "The Story",
-    "user-guide":  "User Guide",
-    "architecture":"Architecture",
-    "history":     "History & Roadmap"
+    "the-story":       "The Suite",
+    "proggenie-story": "Progression Studio — the story",
+    "user-guide":      "User Guide",
+    "architecture":    "Architecture",
+    "history":         "History & Roadmap"
   };
   var prose = document.getElementById("prose");
   var p = new URLSearchParams(location.search).get("p") || "the-story";
