@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Music Suite — docs</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="index.html">Music&nbsp;Suite</a>
+  <nav class="topnav">
+    <a href="index.html#apps">Apps</a>
+    <a href="doc.html?p=the-story">The story</a>
+    <a href="doc.html?p=user-guide">Guide</a>
+    <a href="doc.html?p=architecture">Architecture</a>
+    <a href="https://github.com/Enkerli/music-suite">GitHub</a>
+  </nav>
+</div></div>
+
+<main><div class="wrap">
+  <nav class="doc-nav">
+    <a href="index.html">← Home</a>
+    <a href="doc.html?p=the-story">The Story</a>
+    <a href="doc.html?p=user-guide">User Guide</a>
+    <a href="doc.html?p=architecture">Architecture</a>
+    <a href="doc.html?p=history">History &amp; Roadmap</a>
+  </nav>
+  <article id="prose" class="prose">Loading…</article>
+</div></main>
+
+<footer><div class="wrap">
+  Music Suite · transition statistics derived from the Impro-Visor imaginary-book corpus (GPL) — counts only; the lead sheets are never published. ·
+  <a href="https://github.com/Enkerli/music-suite">github.com/Enkerli/music-suite</a>
+</div></footer>
+
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<script>
+  // Whitelist of doc pages -> content/<slug>.md. Keeps ?p= from fetching anything else.
+  var PAGES = {
+    "the-story":   "The Story",
+    "user-guide":  "User Guide",
+    "architecture":"Architecture",
+    "history":     "History & Roadmap"
+  };
+  var prose = document.getElementById("prose");
+  var p = new URLSearchParams(location.search).get("p") || "the-story";
+  if (!PAGES.hasOwnProperty(p)) p = "the-story";
+
+  fetch("content/" + p + ".md")
+    .then(function (r) { if (!r.ok) throw new Error(r.status); return r.text(); })
+    .then(function (md) {
+      prose.innerHTML = marked.parse(md);
+      var h1 = prose.querySelector("h1");
+      document.title = (h1 ? h1.textContent : PAGES[p]) + " — Music Suite";
+    })
+    .catch(function (e) {
+      prose.innerHTML = "<h1>Couldn't load this page</h1><p>The document <code>" +
+        p + "</code> failed to load (" + e.message + "). " +
+        "<a href='index.html'>Back to home</a>.</p>";
+    });
+</script>
+
+</body>
+</html>
