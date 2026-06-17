@@ -187,3 +187,20 @@ interim shipped; the design call is how to make it land well.
   desktop habit on a touch surface. Q1's recommendation (press-and-hold to lift,
   tap-pickup/tap-drop fallback) is not yet built — bundle with the Q1 cursor/
   ghost work.
+
+---
+
+## Q5 geometry spec (from Alex, for when we build the pad grid)
+
+The square/hex layouts are **not arbitrary** — they mirror Exquisite Fingerings
+and the original Chord Dictionary, so the pad grid should match those specs:
+
+- **Square (Launchpad-style):** chromatic rows ascending in **fourths**. Needs a
+  width of **at least 5 pads**; **5×5 works particularly well**, covering **two
+  octaves**.
+- **Hex (Exquis):** **minor thirds going Northwest, major thirds going
+  Northeast** (the Exquis isomorphic layout).
+
+Reuse the geometry from exquisite-fingerings / chord-dictionary rather than
+inventing one; the chord-scale roles (chord tone / scale / tension / avoid) +
+playback lighting overlay onto that fixed grid.
