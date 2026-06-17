@@ -936,14 +936,15 @@ export default function App() {
     setLibrary((list) => list.filter((e) => e.id !== id));
   }
 
-  /** Import pasted single-line bar notation (e.g. "Dm7 G7 | Cmaj7") as the
-   *  working document, realized in the current key. */
+  /** Import typed/pasted bar notation (e.g. "Dm7 G7 | Cmaj7") as the working
+   *  document, realized in the current key. A line break reads as a bar
+   *  boundary too, so multi-line lead sheets paste in naturally. */
   function importPaste() {
     const text = (pasteText || "").trim();
-    if (!text) { setDocError("Paste a line of chords first (e.g. Dm7 G7 | Cmaj7)."); return; }
-    const prog = parseLeadsheet(text, { tonic, mode });
+    if (!text) { setDocError("Type or paste some chords first (e.g. Dm7 G7 | Cmaj7)."); return; }
+    const prog = parseLeadsheet(text.replace(/\n+/g, " | "), { tonic, mode });
     const any = prog?.sections?.some((s) => s.bars.some((b) => b.chords?.length));
-    if (!any) { setDocError("Couldn't read any chords from that line."); return; }
+    if (!any) { setDocError("Couldn't read any chords from that — use bar notation like Dm7 G7 | Cmaj7."); return; }
     loadProgression(prog, { source: "imported" });
     setPasteText("");
   }
@@ -1005,17 +1006,17 @@ export default function App() {
               onClick={() => { handleClear(); setDocMeta({ title: "", composer: "", source: "new" }); }}>New</button>
             <button className="es-btn es-small" title="Recall a saved progression" aria-pressed={libraryOpen}
               onClick={() => { setLibraryOpen((o) => !o); setImportOpen(false); }}>Open…{library.length ? ` (${library.length})` : ""}</button>
-            <button className="es-btn es-small" title="Paste bar notation or open a .mid file" aria-pressed={importOpen}
-              onClick={() => { setImportOpen((o) => !o); setLibraryOpen(false); }}>Import…</button>
+            <button className="es-btn es-small" title="Type or paste a leadsheet in bar notation, or open a .mid file" aria-pressed={importOpen}
+              onClick={() => { setImportOpen((o) => !o); setLibraryOpen(false); }}>Type / Import…</button>
             <button className="es-btn es-small es-primary" title="Save this progression to your library" onClick={saveToLibrary}>Save to library</button>
           </div>
           {docError && <p style={{ color: "var(--es-danger, #b3261e)", fontSize: "var(--es-text-sm)", margin: "var(--es-space-2) 0 0" }}>{docError}</p>}
 
           {importOpen && (
             <div style={{ marginTop: "var(--es-space-3)", paddingTop: "var(--es-space-3)", borderTop: "1px solid var(--es-border)" }}>
-              <label style={{ ...LBL, width: "100%" }}>Paste a progression (one line; bars split on <code>|</code>, repeat with <code>%</code>)
-                <textarea className="es-control" rows={2} style={{ width: "100%", fontFamily: "var(--es-font-mono, monospace)" }}
-                  placeholder="Dm7 G7 | Cmaj7 | A7 | Dm7"
+              <label style={{ ...LBL, width: "100%" }}>Type or paste a leadsheet — bar notation (bars split on <code>|</code>, repeat a bar with <code>%</code>; several lines are fine)
+                <textarea className="es-control" rows={4} style={{ width: "100%", fontFamily: "var(--es-font-mono, monospace)" }}
+                  placeholder={"Dm7 G7 | Cmaj7 | A7 | Dm7\nCmaj7 | Am7 | Dm7 G7 | Cmaj7 | %"}
                   value={pasteText} onChange={(e) => setPasteText(e.target.value)} />
               </label>
               <div style={{ display: "flex", gap: "var(--es-space-2)", marginTop: "var(--es-space-2)" }}>

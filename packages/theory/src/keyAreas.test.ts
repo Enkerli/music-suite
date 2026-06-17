@@ -23,9 +23,14 @@ describe("analyzeKeyAreas — implied modulation (ii–V–I to a non-home key)"
     expect(areas).toEqual([{ start: 0, end: 5, interval: 7, mode: "major" }]);
   });
 
-  it("ignores a lone secondary dominant (V/x → x, no ii) as too brief", () => {
-    // II7 → V (A7→G style) without a preceding ii is not a full ii–V–I.
-    expect(analyzeKeyAreas(["Imaj7", "VI7", "IIm7"], "major")).toEqual([]);
+  it("fires on a bare secondary dominant resolving to its target (V/ii → ii, no ii)", () => {
+    // VI7 → IIm7 (A7 → Dm7) tonicizes D minor even without a preceding ii.
+    expect(analyzeKeyAreas(["Imaj7", "VI7", "IIm7"], "major")).toEqual([{ start: 1, end: 2, interval: 2, mode: "minor" }]);
+  });
+
+  it("fires on V7/IV → IV (the common blues/tonicization motion)", () => {
+    // I7 → IVmaj7 (C7 → Fmaj7) tonicizes F.
+    expect(analyzeKeyAreas(["Imaj7", "I7", "IVmaj7"], "major")).toEqual([{ start: 1, end: 2, interval: 5, mode: "major" }]);
   });
 
   it("finds a tonicization embedded in a longer progression", () => {

@@ -4,17 +4,18 @@
  * re-anchored labels from the multi-section editor, Q2).
  *
  * Unlike the mechanical "modulate every N bars" control, this reads the actual
- * harmony: a **ii–V–I cadence to a non-home key** is the reliable, unambiguous
- * signal of a tonicization (Am7 D7 Gmaj7 in C → a G key area). Working in
- * home-relative semitone space, the cadence is three roots each up a fourth
- * (ii→V→I) with qualities minor · dominant · tonic; when the I lands somewhere
- * other than the home tonic, that span is a local key area. Adjacent/over-
- * lapping cadences to the same key merge.
+ * harmony. The signal is a **secondary dominant resolving to its target**:
+ * a dominant chord whose root falls a fifth (up a fourth) to a tonic-quality
+ * chord OFF the home tonic — V7/x → x (C7 → Fmaj7, A7 → Dm7). That target is a
+ * local tonic, so the span is a key area. When a matching **ii** precedes the
+ * dominant (a minor chord another fourth back), the area extends to cover the
+ * full ii–V–I. Adjacent/overlapping cadences to the same key merge.
  *
- * Conservative by design (don't over-segment): a lone secondary dominant
- * (V/x → x, two chords) is left in the home frame; only a full ii–V–I earns a
- * key area. Broader key-finding (sustained diatonic runs, V–I without the ii)
- * is a later refinement. Vectors in `keyAreas.test.ts`.
+ * Working in home-relative semitone space; a home-resolving dominant (V7 → I,
+ * target = home tonic) is not a modulation. This fires on the bare secondary
+ * dominant on purpose — requiring a full ii–V–I almost never matches a
+ * home-key Markov walk. Broader key-finding (sustained diatonic runs) is a
+ * later refinement. Vectors in `keyAreas.test.ts`.
  */
 
 import { parseDegreeLabel } from "./substitutions.js";
@@ -51,21 +52,26 @@ export function analyzeKeyAreas(labels: string[], homeMode: Mode = "major"): Key
     return p ? { sem: p.semitone, q: quality(p.suffix) } : null;
   });
   const areas: KeyArea[] = [];
-  for (let i = 0; i + 2 < chords.length; i++) {
-    const a = chords[i], b = chords[i + 1], c = chords[i + 2];
-    if (!a || !b || !c) continue;
-    // ii–V–I: minor · dominant · tonic, roots each up a fourth (+5 semitones).
-    const cadence = a.q === "min" && b.q === "dom" && (c.q === "maj" || c.q === "min")
-      && b.sem === (a.sem + 5) % 12 && c.sem === (b.sem + 5) % 12;
-    if (!cadence) continue;
+  for (let i = 0; i + 1 < chords.length; i++) {
+    const b = chords[i], c = chords[i + 1];
+    if (!b || !c) continue;
+    // V7/x → x: a dominant falling a fifth (root up a fourth) to a tonic-quality
+    // chord off the home tonic. (A home-resolving dominant has c.sem === 0.)
+    if (b.q !== "dom" || (c.q !== "maj" && c.q !== "min")) continue;
+    if (c.sem !== (b.sem + 5) % 12) continue;
     const interval = c.sem; // local tonic relative to home
     if (interval === 0) continue; // resolves home — not a modulation
     const mode: Mode = c.q === "min" ? "minor" : "major";
+    // Pull in a preceding ii (a minor chord another fourth back) for the full
+    // ii–V–I when it's there.
+    const a = i > 0 ? chords[i - 1] : null;
+    const start = a && a.q === "min" && b.sem === (a.sem + 5) % 12 ? i - 1 : i;
+    const end = i + 1;
     const last = areas[areas.length - 1];
-    if (last && last.interval === interval && last.mode === mode && i <= last.end + 1) {
-      last.end = i + 2; // merge an adjacent/overlapping cadence to the same key
+    if (last && last.interval === interval && last.mode === mode && start <= last.end + 1) {
+      last.end = Math.max(last.end, end); // merge an adjacent cadence to the same key
     } else {
-      areas.push({ start: i, end: i + 2, interval, mode });
+      areas.push({ start, end, interval, mode });
     }
   }
   return areas;
