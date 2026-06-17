@@ -192,7 +192,7 @@ function barKeysFromAreas(plan, areas, homeKey, intervalToKey) {
  *  Mounts once; the caller forces a remount (via React key) on external
  *  ops (generate/extend/clear/key change) so internal edits don't reset it.
  *  activeIndex drives the chord-follow highlight without remounting. */
-function LeadsheetEdit({ progression, activeIndex, onEdit, suggest, onRate, ratingOf, rationaleOf, scaleOf, ratingSignal, tool }) {
+function LeadsheetEdit({ progression, activeIndex, onEdit, suggest, onRate, ratingOf, rationaleOf, scaleOf, ratingSignal, tool, display }) {
   const hostRef = useRef(null);
   const edRef = useRef(null);
   // The editor is built once (remounted via key); read callbacks through refs
@@ -215,11 +215,13 @@ function LeadsheetEdit({ progression, activeIndex, onEdit, suggest, onRate, rati
       rationaleOf: (i) => rationaleOfRef.current?.(i) ?? null,
       scaleOf: (i) => scaleOfRef.current?.(i) ?? null,
       tool,
+      display,
     });
     return () => edRef.current.destroy();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps -- remount via key
   useEffect(() => { edRef.current?.update({ activeIndex }); }, [activeIndex]);
   useEffect(() => { edRef.current?.update({ tool }); }, [tool]);
+  useEffect(() => { edRef.current?.update({ display }); }, [display]);
   // Ratings changed (curation) — re-render chips to re-reflect the 👍/👎 state.
   useEffect(() => { edRef.current?.refresh(); }, [ratingSignal]);
   return <div ref={hostRef} />;
@@ -428,6 +430,7 @@ export default function App() {
   const [extensions, setExtensions] = useState([]);
   const [opCount, setOpCount] = useState(0); // bumps on extend/clear (forces editor remount)
   const [tool, setTool] = useState("edit"); // leadsheet tool: edit | rate-up | rate-down
+  const [display, setDisplay] = useState("functional"); // chip reading: functional (degrees) | absolute (chord names)
   const [resetArmed, setResetArmed] = useState(false); // two-tap confirm (WKWebView has no window.confirm)
   const [pendingProfile, setPendingProfile] = useState(null); // a loaded profile awaiting Replace/Merge
   const [profileError, setProfileError] = useState(null);
@@ -946,6 +949,8 @@ export default function App() {
     const any = prog?.sections?.some((s) => s.bars.some((b) => b.chords?.length));
     if (!any) { setDocError("Couldn't read any chords from that — use bar notation like Dm7 G7 | Cmaj7."); return; }
     loadProgression(prog, { source: "imported" });
+    // You typed chord names, so show chord names (you can still flip to degrees).
+    if (/[A-G]/.test(text)) setDisplay("absolute");
     setPasteText("");
   }
 
@@ -1240,6 +1245,15 @@ export default function App() {
                   onClick={() => setTool(t.id)}>{t.label}</button>
               ))}
             </div>
+            {/* Global functional/absolute toggle (the critique's cross-cutting
+                call): show the leadsheet as degrees (Imaj7) or chord names
+                (Cmaj7). Composing thinks in degrees; reading/entering a known
+                tune thinks in names. */}
+            <button className="es-btn es-small" aria-pressed={display === "absolute"}
+              title="Show chords as Roman degrees or as chord names"
+              onClick={() => setDisplay((d) => (d === "absolute" ? "functional" : "absolute"))}>
+              {display === "absolute" ? "Cmaj7 ⇄ I" : "I ⇄ Cmaj7"}
+            </button>
             {edited && edited.genId === genId && <span style={{ color: "var(--es-accent)", fontSize: "var(--es-text-sm)" }}>· edited</span>}
             {edited && edited.genId === genId && <button className="es-btn es-small" onClick={() => { setEdited(null); setOpCount((n) => n + 1); }}>Reset to generated</button>}
             <span style={{ marginLeft: "auto", color: "var(--es-fg-muted)", fontSize: "var(--es-text-sm)" }}>
@@ -1247,10 +1261,22 @@ export default function App() {
                 : "tap chords to rate the move into each"}
             </span>
           </div>
+          {/* Empty-state prompt — makes the text-entry path discoverable: a
+              blank sheet invites typing/pasting a leadsheet (not only the
+              Import disclosure) or generating. */}
+          {chords.length === 0 && (
+            <div style={{ display: "flex", gap: "var(--es-space-2)", alignItems: "center", flexWrap: "wrap", padding: "var(--es-space-3)", marginBottom: "var(--es-space-2)", border: "1px dashed var(--es-border)", borderRadius: "var(--es-radius-sm)", color: "var(--es-fg-muted)", fontSize: "var(--es-text-sm)" }}>
+              <span>Empty sheet —</span>
+              <button className="es-btn es-small es-primary" onClick={() => { setSeed((s) => s + 1); setExtensions([]); }}>New take</button>
+              <span>or</span>
+              <button className="es-btn es-small" onClick={() => { setImportOpen(true); setLibraryOpen(false); }}>Type / paste a leadsheet…</button>
+              <span style={{ fontSize: "var(--es-text-xs)" }}>(bar notation: <code>Dm7 G7 | Cmaj7</code>), or play MIDI.</span>
+            </div>
+          )}
           <LeadsheetEdit key={genId} progression={effectiveProg} activeIndex={playIdx}
             onEdit={(p) => setEdited({ genId, prog: p })} suggest={suggestNext}
             onRate={rateIncoming} ratingOf={incomingRating} rationaleOf={chordRationale}
-            scaleOf={chordScaleText} ratingSignal={curation} tool={tool} />
+            scaleOf={chordScaleText} ratingSignal={curation} tool={tool} display={display} />
 
           {/* Ghost chip — live MIDI writes into the document at a write cursor
               (the end of the sheet). The held chord shows here as a pending

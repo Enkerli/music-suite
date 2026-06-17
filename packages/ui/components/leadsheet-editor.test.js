@@ -40,6 +40,22 @@ describe("leadsheet editor — display", () => {
     expect(chip.querySelector(".es-ls-real").textContent).toBe("D7");
   });
 
+  it("absolute display leads with the chord name, degree below (functional/absolute toggle)", () => {
+    const el = document.createElement("div");
+    createLeadsheetEditor(el, { text: "D7", key: C, display: "absolute" });
+    const chip = el.querySelector(".es-ls-chord");
+    expect(chip.querySelector("span").textContent).toBe("D7"); // chord name leads
+    expect(chip.querySelector(".es-ls-real").textContent).toBe("II7"); // degree below
+  });
+
+  it("toggling display via update() swaps the readings for a degree chord", () => {
+    const el = document.createElement("div");
+    const ed = createLeadsheetEditor(el, { text: "IIm7", key: C, showKey: false });
+    expect(el.querySelector(".es-ls-name").textContent).toBe("IIm7"); // functional default
+    ed.update({ display: "absolute" });
+    expect(el.querySelector(".es-ls-name").textContent).toBe("Dm7"); // chord name leads
+  });
+
   it("keeps the cell glanceable — no consonance dot in the cell", () => {
     const el = document.createElement("div");
     createLeadsheetEditor(el, { text: "Cmaj7 | Dm7", key: C });

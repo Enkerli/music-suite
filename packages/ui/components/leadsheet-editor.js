@@ -98,6 +98,9 @@ export function createLeadsheetEditor(el, opts = {}) {
      *  editing (insert/move/delete/duration) is direct manipulation inside
      *  Edit — carets, a grip, and a chord inspector — so it needs no mode. */
     tool: opts.tool ?? "edit",
+    /** Which reading leads in each chip: "functional" (degrees) | "absolute"
+     *  (chord names). A global toggle, per the critique's functional/absolute call. */
+    display: opts.display ?? "functional",
     suggest: opts.suggest ?? null,
     /** Optional "why this chord" text for the inspector (rationale to come). */
     rationaleOf: opts.rationaleOf ?? null,
@@ -459,17 +462,22 @@ export function createLeadsheetEditor(el, opts = {}) {
     chip.dataset.chord = String(ci);
     const token = tokenOf(chord);
     const realized = realizeChord(chord, k);
-    // Functional reading on top, named spelling below. A degree chord is
-    // authored functionally (token = IIm7), so its named spelling (Dm7, in
-    // this section's key) sits below; an absolute chord (D7) leads with its
-    // degree (II7) and shows the name below. Editing operates on `token`.
-    let primary = token;
-    let secondary = "";
-    if (chord.source === "degree" && chord.degree) {
-      secondary = realized.symbol;
+    // Two readings per chord: the functional degree (II7) and the named chord
+    // (D7). Which leads is a global choice (`display`): "functional" for the
+    // composer thinking in degrees, "absolute" for someone reading/entering
+    // chord names. A degree chord authors the Roman (token); an absolute chord
+    // authors the name (token) and derives the degree. Editing operates on the
+    // authored `token` either way.
+    const authoredDegree = chord.source === "degree" && chord.degree;
+    const degreeText = authoredDegree ? token : functionalOf(chord, k);
+    const nameText = authoredDegree ? realized.symbol : token;
+    let primary, secondary;
+    if (state.display === "absolute") {
+      primary = nameText || degreeText;
+      secondary = nameText ? degreeText : "";
     } else {
-      const fn = functionalOf(chord, k);
-      if (fn) { primary = fn; secondary = token; }
+      primary = degreeText || nameText;
+      secondary = degreeText ? nameText : "";
     }
     chip.append(Object.assign(document.createElement("span"), { className: "es-ls-name", textContent: primary || "—" }));
     // Second line carries only the other reading — consonance, voicing,
@@ -689,6 +697,7 @@ export function createLeadsheetEditor(el, opts = {}) {
       if (next.editable !== undefined) state.editable = next.editable;
       if (next.activeIndex !== undefined) state.activeIndex = next.activeIndex;
       if (next.tool !== undefined) { state.tool = next.tool; state.selected = null; state.moving = null; }
+      if (next.display !== undefined) state.display = next.display;
       if (!state.prog.sections.length) state.prog.sections = [{ bars: [] }];
       render();
     },
