@@ -12,6 +12,7 @@ and an **AUv3 MIDI processor** plugin — one web codebase across all three.
 
 | Doc | What it covers |
 | --- | --- |
+| [**The Story**](docs/THE_STORY.md) | Plain-language tour — what it is and what it does, for anyone (no music or code needed). |
 | [**User Guide**](docs/USER_GUIDE.md) | How to use ProgGenie — generating, editing, MIDI, modulation, curation, export, playback. |
 | [**Architecture**](docs/ARCHITECTURE.md) | The code — the data contract, theory modules, generation pipeline, the shared editor, the three runtimes, testing. |
 | [**History & Roadmap**](docs/HISTORY.md) | How it got here, as a narrative — and where it's going. |
