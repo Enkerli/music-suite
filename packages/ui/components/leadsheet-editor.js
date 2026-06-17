@@ -116,6 +116,9 @@ export function createLeadsheetEditor(el, opts = {}) {
     rationaleOf: opts.rationaleOf ?? null,
     /** Optional "chord-scale" text for the inspector (scale + avoid notes). */
     scaleOf: opts.scaleOf ?? null,
+    /** Optional motion-overlay (Q4): (flatIndex) => "step" | "fifth" | null —
+     *  the root-motion character INTO this chord, marked in the gap before it. */
+    motionOf: opts.motionOf ?? null,
     /** Selected chord (opens the inspector): { si, bi, ci, flat } | null. */
     selected: null,
     /** Chord picked up for a move (grip): { si, bi, ci } | null — carets
@@ -582,6 +585,17 @@ export function createLeadsheetEditor(el, opts = {}) {
       chip.append(grip);
     }
     chip.title = realized.symbol;
+    // Motion overlay (Q4): the root-motion character INTO this chord, in the gap
+    // before it. Texture-first — a ↝ arrow for a fifth, an underline for a step
+    // — so it reads in greyscale; colour (slide / expr) only reinforces.
+    const motion = flatIndex > 0 ? state.motionOf?.(flatIndex) : null;
+    if (motion === "fifth") {
+      const a = span("↝", "es-ls-motion fifth"); a.title = "root motion by a fifth (cadence)";
+      chip.append(a);
+    } else if (motion === "step") {
+      const u = document.createElement("span"); u.className = "es-ls-motion step"; u.title = "stepwise root motion";
+      chip.append(u);
+    }
     // Subtle rating tint: the move into a boosted chord reads warm, cool if cut.
     if (state.ratingOf && flatIndex > 0) {
       const m = state.ratingOf(flatIndex);
@@ -818,6 +832,7 @@ export function createLeadsheetEditor(el, opts = {}) {
       if (next.keyAreas !== undefined) state.keyAreas = next.keyAreas;
       if (next.ghost !== undefined) { state.ghost = next.ghost; if (!next.ghost) state.ghostOpen = false; }
       if (next.cursor !== undefined) state.cursor = next.cursor;
+      if (next.motionOf !== undefined) state.motionOf = next.motionOf;
       if (!state.prog.sections.length) state.prog.sections = [{ bars: [] }];
       render();
     },

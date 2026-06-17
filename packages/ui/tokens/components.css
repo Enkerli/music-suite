@@ -385,6 +385,19 @@ select.es-control option { background: var(--es-bg-raised); color: var(--es-fg);
 .es-ls-chord.active { background: var(--es-accent); color: var(--es-accent-fg); }
 .es-ls-chord.active .es-ls-real { color: var(--es-accent-fg); opacity: .8; }
 
+/* Motion overlay (Q4) — texture-first markers in the gap before a chord.
+   ↝ arrow = a fifth (cadence), underline = a step. Greyscale-legible; colour
+   (slide / expr, ≥3:1 on paper and warm-dark) only reinforces. */
+.es-ls-motion { position: absolute; pointer-events: none; }
+.es-ls-motion.fifth {
+  left: -10px; top: 50%; transform: translateY(-50%);
+  font-size: 13px; font-weight: 600; line-height: 1; color: var(--es-dim-slide);
+}
+.es-ls-motion.step {
+  left: 3px; right: 3px; bottom: 1px; height: 0;
+  border-bottom: 2px solid var(--es-dim-expr);
+}
+
 /* The write cursor (Q1) — a blinking caret marking where the next played /
    inserted chord lands. Tap any caret to re-aim it. */
 .es-ls-caret.cursor {

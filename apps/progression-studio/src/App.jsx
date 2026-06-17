@@ -6,7 +6,7 @@ import { chordStartBeats, exportProgression, voicingsToClip } from "./exportMidi
 import { loadLibrary, saveLibrary, newId } from "./library.js";
 import { progressionFromSMF } from "@enkerli/midi";
 import { createBridge } from "./juceBridge.js";
-import { analyzeKeyAreas, applySubstitutions, assertDegree, chordScaleFor, parseLeadsheet, planModulation, realizeChord, resolveDegree, spellRoot } from "@enkerli/theory";
+import { analyzeKeyAreas, applySubstitutions, assertDegree, chordScaleFor, parseLeadsheet, planModulation, realizeChord, resolveDegree, spellRoot, transitionMotion } from "@enkerli/theory";
 import { resolvedTheme, toggleTheme } from "@enkerli/ui/theme";
 import { createPianoRoll } from "@enkerli/ui/piano-roll";
 import { createLeadsheetEditor } from "@enkerli/ui/leadsheet-editor";
@@ -164,7 +164,7 @@ function buildProgressionSectioned(labels, plan, homeKey, keyForBar) {
  *  Mounts once; the caller forces a remount (via React key) on external
  *  ops (generate/extend/clear/key change) so internal edits don't reset it.
  *  activeIndex drives the chord-follow highlight without remounting. */
-function LeadsheetEdit({ progression, activeIndex, onEdit, suggest, onRate, ratingOf, rationaleOf, scaleOf, ratingSignal, tool, display, keyAreas, ghost }) {
+function LeadsheetEdit({ progression, activeIndex, onEdit, suggest, onRate, ratingOf, rationaleOf, scaleOf, ratingSignal, tool, display, keyAreas, ghost, motionOf, motionSignal }) {
   const hostRef = useRef(null);
   const edRef = useRef(null);
   // The editor is built once (remounted via key); read callbacks through refs
@@ -175,6 +175,7 @@ function LeadsheetEdit({ progression, activeIndex, onEdit, suggest, onRate, rati
   const ratingOfRef = useRef(ratingOf); ratingOfRef.current = ratingOf;
   const rationaleOfRef = useRef(rationaleOf); rationaleOfRef.current = rationaleOf;
   const scaleOfRef = useRef(scaleOf); scaleOfRef.current = scaleOf;
+  const motionOfRef = useRef(motionOf); motionOfRef.current = motionOf;
   useEffect(() => {
     edRef.current = createLeadsheetEditor(hostRef.current, {
       progression: clone(progression),
@@ -186,6 +187,7 @@ function LeadsheetEdit({ progression, activeIndex, onEdit, suggest, onRate, rati
       ratingOf: (i) => ratingOfRef.current?.(i) ?? 1,
       rationaleOf: (i) => rationaleOfRef.current?.(i) ?? null,
       scaleOf: (i) => scaleOfRef.current?.(i) ?? null,
+      motionOf: (i) => motionOfRef.current?.(i) ?? null,
       tool,
       display,
       keyAreas,
@@ -199,7 +201,7 @@ function LeadsheetEdit({ progression, activeIndex, onEdit, suggest, onRate, rati
   useEffect(() => { edRef.current?.update({ keyAreas }); }, [keyAreas]);
   useEffect(() => { edRef.current?.update({ ghost }); }, [ghost]);
   // Ratings changed (curation) — re-render chips to re-reflect the 👍/👎 state.
-  useEffect(() => { edRef.current?.refresh(); }, [ratingSignal]);
+  useEffect(() => { edRef.current?.refresh(); }, [ratingSignal, motionSignal]);
   return <div ref={hostRef} />;
 }
 
@@ -408,6 +410,7 @@ export default function App() {
   const [tool, setTool] = useState("edit"); // leadsheet tool: edit | rate-up | rate-down
   const [display, setDisplay] = useState("functional"); // chip reading: functional (degrees) | absolute (chord names)
   const [showImplied, setShowImplied] = useState(false); // recognize implied key areas (display analysis, any progression)
+  const [showMotion, setShowMotion] = useState("off"); // transition-character overlay (Q4): off | notable | all
   const [resetArmed, setResetArmed] = useState(false); // two-tap confirm (WKWebView has no window.confirm)
   const [pendingProfile, setPendingProfile] = useState(null); // a loaded profile awaiting Replace/Merge
   const [profileError, setProfileError] = useState(null);
@@ -765,6 +768,20 @@ export default function App() {
     const alts = cs.alternates.length
       ? ` · or ${cs.alternates.map((a) => `${a.scaleName}${avoidOf(a.avoid)}`).join(", ")}` : "";
     return `${head}${alts}`;
+  }
+
+  /** Motion overlay (Q4): the root-motion character INTO chord `i` — "fifth"
+   *  (cadence) / "step" — or null. Honors the density ("notable" hides ordinary
+   *  diatonic steps; "all" shows every step/fifth). */
+  function motionOf(i) {
+    if (showMotion === "off" || i <= 0 || i >= chords.length) return null;
+    const a = chords[i - 1], b = chords[i];
+    if (a?.rootPc == null || b?.rootPc == null) return null;
+    const k = keyAt(i);
+    const { motion, notable } = transitionMotion(a.rootPc, b.rootPc, TONIC_PC[k.tonic] ?? 0, k.mode);
+    if (motion !== "fifth" && motion !== "step") return null;
+    if (showMotion === "notable" && !notable) return null;
+    return motion;
   }
 
   /** Blank the leadsheet — start from scratch (type a chord, then Extend). */
@@ -1225,6 +1242,15 @@ export default function App() {
               onClick={() => setShowImplied((s) => !s)}>
               {showImplied ? "◆ implied keys" : "◇ implied keys"}
             </button>
+            {/* Q4 — opt-in motion overlay: ↝ for a fifth (cadence), underline for
+                a step. "notable" hides ordinary diatonic steps. */}
+            <label style={{ display: "flex", gap: 4, alignItems: "center", fontSize: "var(--es-text-sm)" }} title="Mark root-motion character: ↝ a fifth (cadence), underline a step">Motion
+              <select className="es-control" style={{ width: "auto" }} value={showMotion} onChange={(e) => setShowMotion(e.target.value)}>
+                <option value="off">off</option>
+                <option value="notable">notable</option>
+                <option value="all">all</option>
+              </select>
+            </label>
             {edited && edited.genId === genId && <span style={{ color: "var(--es-accent)", fontSize: "var(--es-text-sm)" }}>· edited</span>}
             {edited && edited.genId === genId && <button className="es-btn es-small" onClick={() => { setEdited(null); setOpCount((n) => n + 1); }}>Reset to generated</button>}
             <span style={{ marginLeft: "auto", color: "var(--es-fg-muted)", fontSize: "var(--es-text-sm)" }}>
@@ -1247,7 +1273,8 @@ export default function App() {
           <LeadsheetEdit key={genId} progression={effectiveProg} activeIndex={playIdx}
             onEdit={(p) => setEdited({ genId, prog: p })} suggest={suggestNext}
             onRate={rateIncoming} ratingOf={incomingRating} rationaleOf={chordRationale}
-            scaleOf={chordScaleText} ratingSignal={curation} tool={tool} display={display} keyAreas={impliedAreas} ghost={ghost} />
+            scaleOf={chordScaleText} ratingSignal={curation} tool={tool} display={display} keyAreas={impliedAreas} ghost={ghost}
+            motionOf={motionOf} motionSignal={`${showMotion}|${showImplied}`} />
 
 
           <div style={{ display: "flex", gap: "var(--es-space-2)", marginTop: "var(--es-space-4)", flexWrap: "wrap" }}>

@@ -313,6 +313,20 @@ describe("leadsheet editor — implied modulation (subtle key areas, design B)",
   });
 });
 
+describe("leadsheet editor — motion overlay (Q4)", () => {
+  it("marks fifths (↝) and steps (underline) from motionOf, never the first chord", () => {
+    const el = document.createElement("div");
+    createLeadsheetEditor(el, {
+      text: "Dm7 G7 Cmaj7", key: C, showKey: false,
+      motionOf: (i) => (i === 1 ? "fifth" : i === 2 ? "step" : null),
+    });
+    expect(el.querySelectorAll(".es-ls-motion.fifth")).toHaveLength(1);
+    expect(el.querySelectorAll(".es-ls-motion.step")).toHaveLength(1);
+    // The first chord has no incoming motion.
+    expect(el.querySelectorAll(".es-ls-chord")[0].querySelector(".es-ls-motion")).toBeNull();
+  });
+});
+
 describe("leadsheet editor — write cursor & inline ghost (Q1)", () => {
   it("marks the trailing + as the write cursor by default", () => {
     const el = document.createElement("div");

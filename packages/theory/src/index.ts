@@ -11,4 +11,5 @@ export * from "./chordScale.js";
 export * from "./substitutions.js";
 export * from "./modulation.js";
 export * from "./keyAreas.js";
+export * from "./motion.js";
 export * from "./leadsheet.js";
