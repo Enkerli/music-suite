@@ -385,6 +385,15 @@ select.es-control option { background: var(--es-bg-raised); color: var(--es-fg);
 .es-ls-chord.active { background: var(--es-accent); color: var(--es-accent-fg); }
 .es-ls-chord.active .es-ls-real { color: var(--es-accent-fg); opacity: .8; }
 
+/* Pad-grid sounding pad (Q5) — a pulsing accent ring during playback. */
+.es-pg-now { stroke: var(--es-accent) !important; stroke-width: 3 !important; animation: es-pg-pulse 1.2s ease-out infinite; }
+@keyframes es-pg-pulse { 0% { stroke-opacity: 1; } 100% { stroke-opacity: 0.25; } }
+@media (prefers-reduced-motion: reduce) { .es-pg-now { animation: none; } }
+/* The chord-scale grid in the inspector + its layout toggle and legend. */
+.es-ls-insp-grid { display: flex; flex-direction: column; align-items: flex-start; gap: var(--es-space-2); width: 100%; }
+.es-ls-grid-legend { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: var(--es-text-xs); color: var(--es-fg-2); }
+.es-ls-grid-legend span { display: inline-flex; align-items: center; gap: 4px; }
+
 /* Motion overlay (Q4) — texture-first markers in the gap before a chord.
    ↝ arrow = a fifth (cadence), underline = a step. Greyscale-legible; colour
    (slide / expr, ≥3:1 on paper and warm-dark) only reinforces. */

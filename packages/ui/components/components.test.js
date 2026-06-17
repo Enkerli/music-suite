@@ -69,6 +69,37 @@ describe("pitch grid", () => {
     expect(el.querySelector('rect[data-midi="48"]').getAttribute("fill")).toBe("var(--es-bg-raised)");
   });
 
+  it("hex Exquis geometry: NE = +4 (major 3rd), NW = +3 (minor 3rd), E = +1 (Q5)", () => {
+    const cells = layoutCells({ layout: "hex", rows: 5, cols: 5, baseMidi: 48, rowStep: 4, colStep: 1 });
+    const at = (r, c) => cells.find((x) => x.row === r && x.col === c);
+    const base = at(2, 2);
+    expect(at(1, 2).midi - base.midi).toBe(4); // NE major third
+    expect(at(1, 1).midi - base.midi).toBe(3); // NW minor third
+    expect(at(2, 3).midi - base.midi).toBe(1); // East semitone
+  });
+
+  it("square Q5 geometry: chromatic rows in fourths, 5×5 spans two octaves", () => {
+    const cells = layoutCells({ layout: "square", rows: 5, cols: 5, baseMidi: 48, rowStep: 5, colStep: 1 });
+    const at = (r, c) => cells.find((x) => x.row === r && x.col === c);
+    expect(at(2, 0).midi - at(3, 0).midi).toBe(5); // a row up = a fourth
+    expect(at(2, 1).midi - at(2, 0).midi).toBe(1); // a column right = a semitone
+    const span = Math.max(...cells.map((c) => c.midi)) - Math.min(...cells.map((c) => c.midi));
+    expect(span).toBe(24); // two octaves
+  });
+
+  it("chord-scale role overlay styles cells by role + glyph, not colour alone (Q5)", () => {
+    const el = document.createElement("div");
+    const roles = new Map([[0, "chord"], [2, "scale"], [4, "tension"], [5, "avoid"]]);
+    createPitchGrid(el, { layout: "square", rows: 1, cols: 6, baseMidi: 48, colStep: 1, roles, now: [0] });
+    const cell = (m) => el.querySelector(`rect[data-midi="${m}"]`);
+    expect(cell(48).getAttribute("fill")).toBe("var(--es-accent)"); // chord solid
+    expect(cell(50).getAttribute("stroke-dasharray")).toBeNull(); // scale solid outline
+    expect(cell(52).getAttribute("stroke-dasharray")).toBe("2 2"); // tension dotted
+    expect(cell(53).getAttribute("stroke-dasharray")).toBe("3 2"); // avoid dashed
+    expect([...el.querySelectorAll("text")].some((t) => t.textContent === "⊘")).toBe(true); // avoid glyph
+    expect(cell(48).classList.contains("es-pg-now")).toBe(true); // sounding pulse
+  });
+
   it("colorByPc paints each cell by its pitch class (Exquis pad tokens)", () => {
     const el = document.createElement("div");
     createPitchGrid(el, { layout: "square", rows: 1, cols: 3, baseMidi: 48, colStep: 2, colorByPc: true });

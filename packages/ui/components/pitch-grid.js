@@ -11,6 +11,15 @@
 const SVG_NS = "http://www.w3.org/2000/svg";
 const NOTE_NAMES = ["C", "C♯", "D", "E♭", "E", "F", "F♯", "G", "A♭", "A", "B♭", "B"];
 
+/** Chord-scale role styling (Q5) — texture + glyph, not colour alone. */
+const ROLE_STYLE = {
+  chord: { fill: "var(--es-accent)", stroke: "var(--es-accent)", width: 1.5, text: "var(--es-accent-fg)", glyph: "" },
+  scale: { fill: "var(--es-bg-raised)", stroke: "var(--es-border-strong)", width: 1.5, text: "var(--es-fg-2)", glyph: "" },
+  tension: { fill: "var(--es-bg-raised)", stroke: "var(--es-border-strong)", width: 1.5, dash: "2 2", text: "var(--es-fg-2)", glyph: "•" },
+  avoid: { fill: "var(--es-bg-sunken)", stroke: "var(--es-danger)", width: 1.5, dash: "3 2", text: "var(--es-fg-muted)", glyph: "⊘" },
+  off: { fill: "var(--es-bg)", stroke: "var(--es-border)", width: 1, text: "var(--es-fg-muted)", glyph: "" },
+};
+
 /** Cell centers + pitches for a layout (pure — unit cell size). */
 export function layoutCells({ layout, rows, cols, baseMidi, rowStep, colStep }) {
   const cells = [];
@@ -68,10 +77,18 @@ export function createPitchGrid(el, opts = {}) {
     // Exquis pad colours (the Exquis grid look); labels use the per-pad
     // ink. highlight/highlight2 still draw a ring on top.
     colorByPc: false,
+    // roles: a chord-scale overlay (design Q5) — Map<pc, "chord"|"scale"|
+    // "tension"|"avoid">. Role is read by fill + edge texture + glyph, never
+    // colour alone: chord = solid, scale = solid outline, tension = dotted edge
+    // + dot, avoid = dashed edge + ⊘. PCs with no role read faint (off-scale).
+    roles: null,
+    // now: sounding pitch classes (playback) — a pulsing accent ring.
+    now: new Set(),
     ...opts,
   };
   state.highlight = new Set(state.highlight);
   state.highlight2 = new Set(state.highlight2);
+  state.now = new Set(state.now);
 
   const svg = document.createElementNS(SVG_NS, "svg");
   svg.setAttribute("role", "group");
@@ -105,7 +122,15 @@ export function createPitchGrid(el, opts = {}) {
         shape.setAttribute("height", unit * 0.92);
         shape.setAttribute("rx", unit * 0.18);
       }
-      if (state.colorByPc) {
+      const role = state.roles?.get(cell.pc) ?? null;
+      if (state.roles) {
+        // Chord-scale role overlay — texture + glyph carry the meaning.
+        const r = ROLE_STYLE[role] ?? ROLE_STYLE.off;
+        shape.setAttribute("fill", r.fill);
+        shape.setAttribute("stroke", r.stroke);
+        shape.setAttribute("stroke-width", String(r.width));
+        if (r.dash) shape.setAttribute("stroke-dasharray", r.dash);
+      } else if (state.colorByPc) {
         shape.setAttribute("fill", `var(--es-pc-pad-${cell.pc})`);
         shape.setAttribute("stroke", on || on2 ? "var(--es-fg)" : "var(--es-border-strong)");
         shape.setAttribute("stroke-width", on || on2 ? "3" : "1");
@@ -114,6 +139,7 @@ export function createPitchGrid(el, opts = {}) {
         shape.setAttribute("stroke", on || on2 ? "var(--es-border-strong)" : "var(--es-border)");
         shape.setAttribute("stroke-width", "1");
       }
+      if (state.now.has(cell.pc)) shape.classList.add("es-pg-now"); // sounding (pulse)
       shape.dataset.midi = String(cell.midi);
       if (state.onTap) {
         shape.setAttribute("role", "button");
@@ -137,12 +163,28 @@ export function createPitchGrid(el, opts = {}) {
         text.setAttribute("dominant-baseline", "central");
         text.setAttribute("font-size", String(unit * 0.32));
         text.setAttribute("font-family", "var(--es-font-sans)");
-        text.setAttribute("fill", state.colorByPc
-          ? `var(--es-pc-pad-ink-${cell.pc})`
-          : on || on2 ? "var(--es-accent-fg)" : "var(--es-fg-2)");
+        text.setAttribute("fill", state.roles
+          ? (ROLE_STYLE[role] ?? ROLE_STYLE.off).text
+          : state.colorByPc ? `var(--es-pc-pad-ink-${cell.pc})`
+            : on || on2 ? "var(--es-accent-fg)" : "var(--es-fg-2)");
         text.setAttribute("pointer-events", "none");
         text.textContent = labelFor(cell);
         children.push(text);
+      }
+
+      // Role glyph (tension •, avoid ⊘) — a non-colour cue in the corner.
+      const glyph = state.roles ? (ROLE_STYLE[role] ?? ROLE_STYLE.off).glyph : "";
+      if (glyph) {
+        const g = document.createElementNS(SVG_NS, "text");
+        g.setAttribute("x", cx + unit * 0.28);
+        g.setAttribute("y", cy - unit * 0.24);
+        g.setAttribute("text-anchor", "middle");
+        g.setAttribute("dominant-baseline", "central");
+        g.setAttribute("font-size", String(unit * 0.26));
+        g.setAttribute("fill", glyph === "⊘" ? "var(--es-danger)" : "var(--es-fg-muted)");
+        g.setAttribute("pointer-events", "none");
+        g.textContent = glyph;
+        children.push(g);
       }
     }
     svg.replaceChildren(...children);
@@ -161,6 +203,7 @@ export function createPitchGrid(el, opts = {}) {
       Object.assign(state, next);
       if (next.highlight !== undefined) state.highlight = new Set(next.highlight);
       if (next.highlight2 !== undefined) state.highlight2 = new Set(next.highlight2);
+      if (next.now !== undefined) state.now = new Set(next.now);
       render();
     },
     destroy() {

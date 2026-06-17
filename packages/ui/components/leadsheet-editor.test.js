@@ -138,6 +138,17 @@ describe("leadsheet editor — inspector (tap a chord)", () => {
     expect(el.querySelector(".es-ls-inspector").textContent).not.toContain("Mixolydian");
   });
 
+  it("shows the chord-scale pad grid (hero) with a square/hex toggle in the inspector (Q5)", () => {
+    const el = document.createElement("div");
+    createLeadsheetEditor(el, {
+      text: "Cmaj7", key: C, showKey: false,
+      scaleGridOf: () => ({ rootPc: 0, roles: new Map([[0, "chord"], [4, "chord"], [7, "chord"]]) }),
+    });
+    click(el.querySelector(".es-ls-chord")); // open the inspector
+    expect(el.querySelector(".es-ls-insp-grid svg")).not.toBeNull();
+    expect([...el.querySelectorAll(".es-ls-insp-grid .es-btn")].some((b) => b.textContent.includes("hex"))).toBe(true);
+  });
+
   it("deletes a chord from the inspector", () => {
     const el = document.createElement("div");
     const ed = createLeadsheetEditor(el, { text: "Dm7 G7 Cmaj7", key: C, showKey: false });

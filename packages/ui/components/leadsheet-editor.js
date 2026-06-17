@@ -22,6 +22,7 @@
  */
 
 import { assertDegree, consonance, formatLeadsheet, parseLeadsheet, realizeChord } from "@enkerli/theory";
+import { createPitchGrid } from "./pitch-grid.js";
 
 const ROOTS = ["C", "G", "D", "A", "E", "B", "F♯", "C♯", "F", "B♭", "E♭", "A♭", "D♭", "G♭", "C♭"];
 const SECTION_BADGES = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
@@ -119,6 +120,11 @@ export function createLeadsheetEditor(el, opts = {}) {
     /** Optional motion-overlay (Q4): (flatIndex) => "step" | "fifth" | null —
      *  the root-motion character INTO this chord, marked in the gap before it. */
     motionOf: opts.motionOf ?? null,
+    /** Optional chord-scale grid data (Q5): (flatIndex) => { rootPc, roles:
+     *  Map<pc,role>, now?:Set } | null — the inspector's pad-grid hero. */
+    scaleGridOf: opts.scaleGridOf ?? null,
+    /** Pad-grid geometry preference: "square" (rows in fourths) | "hex" (Exquis). */
+    gridLayout: opts.gridLayout ?? "square",
     /** Selected chord (opens the inspector): { si, bi, ci, flat } | null. */
     selected: null,
     /** Chord picked up for a move (grip): { si, bi, ci } | null — carets
@@ -508,8 +514,37 @@ export function createLeadsheetEditor(el, opts = {}) {
       panel.append(r);
     }
 
+    // Chord-scale hero (Q5): the role-coloured isomorphic pad grid (square /
+    // hex), the scale name + avoid notes (text) beneath, and a role legend.
+    const gridData = state.scaleGridOf?.(flat);
     const scaleText = state.scaleOf?.(flat);
-    if (scaleText) { const r = irow(); r.append(label("Scale"), span(scaleText, "es-ls-insp-val")); panel.append(r); }
+    if (gridData) {
+      const wrap = document.createElement("div"); wrap.className = "es-ls-insp-grid";
+      const tog = document.createElement("div"); tog.className = "es-ls-insp-stepper";
+      for (const lay of [["square", "▦ square"], ["hex", "⬡ hex"]]) {
+        const b = btn(lay[1], () => { state.gridLayout = lay[0]; render(); }, lay[0] === "hex" ? "Exquis geometry" : "rows in fourths");
+        if (state.gridLayout === lay[0]) b.classList.add("on");
+        tog.append(b);
+      }
+      const mount = document.createElement("div");
+      createPitchGrid(mount, {
+        layout: state.gridLayout, rows: 5, cols: 5,
+        baseMidi: 48 + gridData.rootPc, // root near the bottom; roles repeat by pc
+        rowStep: state.gridLayout === "hex" ? 4 : 5, // hex: maj-3rd NE / min-3rd NW; square: fourths
+        colStep: 1,
+        roles: gridData.roles, now: gridData.now ?? new Set(),
+        labels: "note", cellSize: 32,
+      });
+      const legend = document.createElement("div"); legend.className = "es-ls-grid-legend";
+      for (const [txt] of [["■ chord"], ["□ scale"], ["⋯ tension •"], ["⊘ avoid"]]) legend.append(span(txt));
+      wrap.append(tog, mount, legend);
+      if (scaleText) wrap.append(span(scaleText, "es-ls-insp-val"));
+      const r = irow(); r.style.flexDirection = "column"; r.style.alignItems = "flex-start";
+      r.append(label("Scale"), wrap);
+      panel.append(r);
+    } else if (scaleText) {
+      const r = irow(); r.append(label("Scale"), span(scaleText, "es-ls-insp-val")); panel.append(r);
+    }
 
     const why = state.rationaleOf?.(flat);
     if (why) { const r = irow(); r.append(label("Why"), span(why, "es-ls-insp-val")); panel.append(r); }
@@ -833,6 +868,8 @@ export function createLeadsheetEditor(el, opts = {}) {
       if (next.ghost !== undefined) { state.ghost = next.ghost; if (!next.ghost) state.ghostOpen = false; }
       if (next.cursor !== undefined) state.cursor = next.cursor;
       if (next.motionOf !== undefined) state.motionOf = next.motionOf;
+      if (next.scaleGridOf !== undefined) state.scaleGridOf = next.scaleGridOf;
+      if (next.gridLayout !== undefined) state.gridLayout = next.gridLayout;
       if (!state.prog.sections.length) state.prog.sections = [{ bars: [] }];
       render();
     },

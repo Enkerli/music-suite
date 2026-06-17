@@ -164,7 +164,7 @@ function buildProgressionSectioned(labels, plan, homeKey, keyForBar) {
  *  Mounts once; the caller forces a remount (via React key) on external
  *  ops (generate/extend/clear/key change) so internal edits don't reset it.
  *  activeIndex drives the chord-follow highlight without remounting. */
-function LeadsheetEdit({ progression, activeIndex, onEdit, suggest, onRate, ratingOf, rationaleOf, scaleOf, ratingSignal, tool, display, keyAreas, ghost, motionOf, motionSignal }) {
+function LeadsheetEdit({ progression, activeIndex, onEdit, suggest, onRate, ratingOf, rationaleOf, scaleOf, scaleGridOf, ratingSignal, tool, display, keyAreas, ghost, motionOf, motionSignal }) {
   const hostRef = useRef(null);
   const edRef = useRef(null);
   // The editor is built once (remounted via key); read callbacks through refs
@@ -176,6 +176,7 @@ function LeadsheetEdit({ progression, activeIndex, onEdit, suggest, onRate, rati
   const rationaleOfRef = useRef(rationaleOf); rationaleOfRef.current = rationaleOf;
   const scaleOfRef = useRef(scaleOf); scaleOfRef.current = scaleOf;
   const motionOfRef = useRef(motionOf); motionOfRef.current = motionOf;
+  const scaleGridOfRef = useRef(scaleGridOf); scaleGridOfRef.current = scaleGridOf;
   useEffect(() => {
     edRef.current = createLeadsheetEditor(hostRef.current, {
       progression: clone(progression),
@@ -187,6 +188,7 @@ function LeadsheetEdit({ progression, activeIndex, onEdit, suggest, onRate, rati
       ratingOf: (i) => ratingOfRef.current?.(i) ?? 1,
       rationaleOf: (i) => rationaleOfRef.current?.(i) ?? null,
       scaleOf: (i) => scaleOfRef.current?.(i) ?? null,
+      scaleGridOf: (i) => scaleGridOfRef.current?.(i) ?? null,
       motionOf: (i) => motionOfRef.current?.(i) ?? null,
       tool,
       display,
@@ -770,6 +772,21 @@ export default function App() {
     return `${head}${alts}`;
   }
 
+  /** Chord-scale grid data for the inspector hero (Q5): the chord's root + a
+   *  per-pc role map (chord / scale / tension / avoid) for the pad grid. */
+  function scaleGridOf(i) {
+    const ch = chords[i];
+    if (!ch || ch.rootPc == null || !ch.pcs?.length) return null;
+    const cs = chordScaleFor(ch.rootPc, ch.pcs);
+    if (!cs) return null;
+    const roles = new Map();
+    for (const pc of cs.scalePcs) roles.set(pc, "scale");
+    for (const pc of cs.tensions) roles.set(pc, "tension");
+    for (const pc of cs.avoid) roles.set(pc, "avoid");
+    for (const pc of ch.pcs) roles.set(pc, "chord"); // chord tones win
+    return { rootPc: ch.rootPc, roles };
+  }
+
   /** Motion overlay (Q4): the root-motion character INTO chord `i` — "fifth"
    *  (cadence) / "step" — or null. Honors the density ("notable" hides ordinary
    *  diatonic steps; "all" shows every step/fifth). */
@@ -1273,7 +1290,7 @@ export default function App() {
           <LeadsheetEdit key={genId} progression={effectiveProg} activeIndex={playIdx}
             onEdit={(p) => setEdited({ genId, prog: p })} suggest={suggestNext}
             onRate={rateIncoming} ratingOf={incomingRating} rationaleOf={chordRationale}
-            scaleOf={chordScaleText} ratingSignal={curation} tool={tool} display={display} keyAreas={impliedAreas} ghost={ghost}
+            scaleOf={chordScaleText} scaleGridOf={scaleGridOf} ratingSignal={curation} tool={tool} display={display} keyAreas={impliedAreas} ghost={ghost}
             motionOf={motionOf} motionSignal={`${showMotion}|${showImplied}`} />
 
 
