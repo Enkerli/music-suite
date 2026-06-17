@@ -36,22 +36,18 @@ function tokenOf(chord) {
   return s.root + s.suffix + (s.bass ? "/" + s.bass : "");
 }
 
-/**
- * Functional degree label for an absolute chord in the key (D7 in C → "II7");
- * "" when the root has no reading. Degree chords are already functional, so
- * this only applies to absolute ones.
- */
-function functionalOf(chord, key) {
-  const s = chord.symbol;
-  if (!s?.root) return "";
+const keyLabel = (k) => `${k.tonic} ${k.mode}`;
+
+/** The functional degree of a *realized* chord in a key — works for both
+ *  authored degree chords and absolute chords (reads the realized root), and
+ *  lets a chord be re-spelled in an implied key without transposing it. */
+function degreeIn(realized, key) {
   try {
-    return assertDegree(s.root, key).numeral + (s.suffix ?? "") + (s.bass ? "/" + s.bass : "");
+    return assertDegree(realized.rootName, key).numeral + (realized.suffix ?? "") + (realized.bass ? "/" + realized.bass : "");
   } catch {
-    return ""; // unparseable root — no functional reading
+    return "";
   }
 }
-
-const keyLabel = (k) => `${k.tonic} ${k.mode}`;
 
 /** Parse one typed token into a ProgChord (via the leadsheet grammar). */
 function parseChordToken(text, key) {
@@ -455,10 +451,12 @@ export function createLeadsheetEditor(el, opts = {}) {
   }
 
   function chordChip(si, bi, ci, chord, flatIndex) {
-    // An implied-modulation area re-spells this chord in its local key (subtle,
-    // can start mid-bar); otherwise the section key applies.
+    // The chord is realized in its REAL key (the section's), so its identity
+    // never changes; an implied-modulation area only changes the DISPLAYED
+    // degree (re-spell, don't transpose — subtle, can start mid-bar).
     const area = areaAt(flatIndex);
-    const k = area?.key ?? keyOf(si);
+    const actualKey = keyOf(si);
+    const displayKey = area?.key ?? actualKey;
     const sel = state.selected;
     const mv = state.moving;
     const chip = document.createElement("button");
@@ -478,16 +476,15 @@ export function createLeadsheetEditor(el, opts = {}) {
     chip.dataset.bar = String(bi);
     chip.dataset.chord = String(ci);
     const token = tokenOf(chord);
-    const realized = realizeChord(chord, k);
+    const realized = realizeChord(chord, actualKey);
     // Two readings per chord: the functional degree (II7) and the named chord
     // (D7). Which leads is a global choice (`display`): "functional" for the
-    // composer thinking in degrees, "absolute" for someone reading/entering
-    // chord names. A degree chord authors the Roman (token); an absolute chord
-    // authors the name (token) and derives the degree. Editing operates on the
-    // authored `token` either way.
+    // composer thinking in degrees, "absolute" for reading/entering chord
+    // names. The degree is read in the DISPLAY key, so an implied area re-spells
+    // it (a degree chord keeps its authored spelling only when no area applies).
     const authoredDegree = chord.source === "degree" && chord.degree;
-    const degreeText = authoredDegree ? token : functionalOf(chord, k);
-    const nameText = authoredDegree ? realized.symbol : token;
+    const degreeText = (authoredDegree && !area) ? token : degreeIn(realized, displayKey);
+    const nameText = realized.symbol;
     let primary, secondary;
     if (state.display === "absolute") {
       primary = nameText || degreeText;

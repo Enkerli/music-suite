@@ -268,6 +268,16 @@ describe("leadsheet editor — implied modulation (subtle key areas, design B)",
     expect(el.querySelectorAll(".es-ls-chord.in-keyarea")).toHaveLength(3); // span tinted
   });
 
+  it("the quiet key tag keeps the tonic's accidental (C♯m, not Cm)", () => {
+    const el = document.createElement("div");
+    createLeadsheetEditor(el, {
+      progression: { key: C, sections: [{ bars: [{ chords: [abs("G♯", "7"), abs("C♯", "m7")] }] }] },
+      showKey: false,
+      keyAreas: [{ start: 0, end: 1, key: { tonic: "C♯", mode: "minor" } }],
+    });
+    expect(el.querySelector(".es-ls-keymark").textContent).toBe("C♯m");
+  });
+
   it("a key area can start mid-bar (home chord then a re-spelled span)", () => {
     const el = document.createElement("div");
     createLeadsheetEditor(el, {

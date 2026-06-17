@@ -48,7 +48,7 @@ function chordsFromProgression(prog, key) {
 /** Spell the tonic `interval` semitones above `homeTonic` via its major-frame
  *  degree (V=dominant, IV=subdominant, VI=relative, II=up-a-step …) so a
  *  modulated section's key gets a conventional name (C+7 → G, E♭+9 → C). */
-const INTERVAL_NUMERAL = { 0: "I", 2: "II", 3: "♭III", 5: "IV", 7: "V", 8: "♭VI", 9: "VI", 10: "♭VII" };
+const INTERVAL_NUMERAL = { 0: "I", 1: "♭II", 2: "II", 3: "♭III", 4: "III", 5: "IV", 6: "♯IV", 7: "V", 8: "♭VI", 9: "VI", 10: "♭VII", 11: "VII" };
 function tonicAtInterval(homeTonic, interval) {
   const num = INTERVAL_NUMERAL[((interval % 12) + 12) % 12] ?? "I";
   return resolveDegree(num, { tonic: homeTonic, mode: "major" });
@@ -158,20 +158,6 @@ function buildProgressionSectioned(labels, plan, homeKey, keyForBar) {
   prog.sections = prog.sections.filter((s) => s.bars.length);
   if (!prog.sections.length) prog.sections.push({ bars: [] });
   return prog;
-}
-
-/** Map each label index to its flat chord index in the realized stream — the
- *  same counter the editor and chordsFromProgression use (a repeat bar counts
- *  as one flat slot but consumes no label). Lets analyzer areas (label space)
- *  address the editor's chips for implied modulation. */
-function labelToFlatMap(plan) {
-  const map = [];
-  let flat = 0;
-  for (const p of plan) {
-    if (p.repeat) { flat++; continue; }
-    for (let k = 0; k < p.durs.length; k++) { map.push(flat); flat++; }
-  }
-  return map;
 }
 
 /** Editable leadsheet — the shared @enkerli/ui editor, the primary surface.
@@ -419,6 +405,7 @@ export default function App() {
   const [opCount, setOpCount] = useState(0); // bumps on extend/clear (forces editor remount)
   const [tool, setTool] = useState("edit"); // leadsheet tool: edit | rate-up | rate-down
   const [display, setDisplay] = useState("functional"); // chip reading: functional (degrees) | absolute (chord names)
+  const [showImplied, setShowImplied] = useState(false); // recognize implied key areas (display analysis, any progression)
   const [resetArmed, setResetArmed] = useState(false); // two-tap confirm (WKWebView has no window.confirm)
   const [pendingProfile, setPendingProfile] = useState(null); // a loaded profile awaiting Replace/Merge
   const [profileError, setProfileError] = useState(null);
@@ -532,42 +519,17 @@ export default function App() {
   // each section realizes the (unchanged) labels against its key, so the
   // modulation reads in the new key's degrees and the editor shows a quiet
   // "→ G major" divider. Sounding/export are identical to a single key.
-  //   · "4"/"8" — mechanical: a new corpus-common related key every N bars.
-  //   · "implied" — read the harmony: re-spell ii–V–I tonicizations in their
-  //     own key (analyzeKeyAreas), so only genuine local keys get re-anchored.
+  //   · "4"/"8" — mechanical: a new corpus-common related key every N bars
+  //     (real SECTIONS, the bold distinction). Implied modulation is NOT here —
+  //     it's a display toggle (`showImplied`) that annotates any progression.
   const intervalToKey = (interval, m) => ({ tonic: tonicAtInterval(tonic, interval), mode: m });
   const baseProg = useMemo(() => {
-    if (modulate === "implied") {
-      // Implied modulation is a re-reading, not a transpose: freeze the chords
-      // to their absolute symbols (realized in home key) in ONE section. The
-      // re-spelling is a subtle per-chord annotation (impliedAreas → the
-      // editor), so a local key can start mid-bar — no sections, no divider.
-      const absLabels = reharmedLabels.map((l) => {
-        const ch = parseLeadsheet(l, { tonic, mode }).sections[0]?.bars[0]?.chords[0];
-        return ch ? realizeChord(ch, { tonic, mode }).symbol : l;
-      });
-      return buildProgression(absLabels, rhythm, { tonic, mode });
-    }
     if (modulate === "off") return buildProgression(reharmedLabels, rhythm, { tonic, mode });
-    // Mechanical "every N bars" — real SECTIONS with their own keys (the bold
-    // distinction; these are meant as sections).
     const n = Number(modulate);
     const plan = planModulation(Math.ceil(rhythm.length / n), mode, seed);
     const sectionKeys = plan.map((m) => intervalToKey(m.interval, m.mode));
     return buildProgressionSectioned(reharmedLabels, rhythm, { tonic, mode }, (b) => sectionKeys[Math.floor(b / n)]);
   }, [reharmedLabels, rhythm, tonic, mode, modulate, seed]);
-  // Implied-modulation key areas in FLAT chord-index space — the subtle, quiet
-  // re-spelling annotation for the editor (and per-chord functional key for
-  // curation). Empty unless modulate === "implied".
-  const impliedAreas = useMemo(() => {
-    if (modulate !== "implied") return [];
-    const areas = analyzeKeyAreas(reharmedLabels, mode);
-    const map = labelToFlatMap(rhythm);
-    const lastFlat = map.length ? map[map.length - 1] : 0;
-    return areas.map((a) => ({
-      start: map[a.start] ?? 0, end: map[a.end] ?? lastFlat, key: intervalToKey(a.interval, a.mode),
-    }));
-  }, [modulate, reharmedLabels, rhythm, tonic, mode]);
   // genId changes on any GENERATION op (every param that produces `labels`,
   // plus opCount for extend/clear) — but NOT on an edit. An edit is stamped
   // with the genId it was made under; when that no longer matches, the edit
@@ -581,6 +543,20 @@ export default function App() {
     () => chordsFromProgression(effectiveProg, { tonic, mode }),
     [effectiveProg, tonic, mode],
   );
+  // Implied-modulation key areas (flat chord-index space) — the subtle, quiet
+  // re-spelling annotation for the editor + per-chord functional key. Computed
+  // from the DISPLAYED chords' home-key functional degrees, so it works on any
+  // progression — generated, hand-edited, or imported/pasted. The local tonic
+  // takes its spelling from the actual target chord's root (so a C♯ minor area
+  // reads "C♯m", not a frame-guessed "D♭m"). Empty unless `showImplied`.
+  const impliedAreas = useMemo(() => {
+    if (!showImplied) return [];
+    const degLabels = chords.map((c) => functionalOfRealized(c, { tonic, mode }) ?? c.label);
+    return analyzeKeyAreas(degLabels, mode).map((a) => ({
+      start: a.start, end: a.end,
+      key: { tonic: chords[a.end]?.rootName ?? tonicAtInterval(tonic, a.interval), mode: a.mode },
+    }));
+  }, [showImplied, chords, tonic, mode]);
   const voicings = useMemo(
     () => voiceProgression(chords, { mode: voiceLeadMode, shape: voicingShape }),
     [chords, voiceLeadMode, voicingShape],
@@ -1188,9 +1164,8 @@ export default function App() {
             </label>
             <label style={LBL}>Modulation
               <select className="es-control" value={modulate} onChange={(e) => setModulate(e.target.value)}
-                title="implied: re-spell ii–V–I tonicizations in their own key (read from the harmony). every N bars: mechanical key changes to a related key.">
+                title="Mechanical key changes to a related key every N bars (real sections). For reading the harmony's own key areas, use 'implied keys' by the leadsheet.">
                 <option value="off">none</option>
-                <option value="implied">implied (harmony)</option>
                 <option value="4">every 4 bars</option>
                 <option value="8">every 8 bars</option>
               </select>
@@ -1256,6 +1231,14 @@ export default function App() {
               title="Show chords as Roman degrees or as chord names"
               onClick={() => setDisplay((d) => (d === "absolute" ? "functional" : "absolute"))}>
               {display === "absolute" ? "Cmaj7 ⇄ I" : "I ⇄ Cmaj7"}
+            </button>
+            {/* Read the harmony's own key areas (secondary dominants / ii–V–Is)
+                and re-spell them in their local key — works on any progression,
+                generated or pasted/imported. A display toggle, not generation. */}
+            <button className="es-btn es-small" aria-pressed={showImplied}
+              title="Recognize implied key areas (secondary dominants / tonicizations) and re-spell them"
+              onClick={() => setShowImplied((s) => !s)}>
+              {showImplied ? "◆ implied keys" : "◇ implied keys"}
             </button>
             {edited && edited.genId === genId && <span style={{ color: "var(--es-accent)", fontSize: "var(--es-text-sm)" }}>· edited</span>}
             {edited && edited.genId === genId && <button className="es-btn es-small" onClick={() => { setEdited(null); setOpCount((n) => n + 1); }}>Reset to generated</button>}
