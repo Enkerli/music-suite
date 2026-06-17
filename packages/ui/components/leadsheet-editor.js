@@ -125,6 +125,8 @@ export function createLeadsheetEditor(el, opts = {}) {
     scaleGridOf: opts.scaleGridOf ?? null,
     /** Pad-grid geometry preference: "square" (rows in fourths) | "hex" (Exquis). */
     gridLayout: opts.gridLayout ?? "square",
+    /** Notify when the inspector's grid-layout toggle changes (shared pref). */
+    onGridLayout: opts.onGridLayout ?? null,
     /** Selected chord (opens the inspector): { si, bi, ci, flat } | null. */
     selected: null,
     /** Chord picked up for a move (grip): { si, bi, ci } | null — carets
@@ -522,7 +524,7 @@ export function createLeadsheetEditor(el, opts = {}) {
       const wrap = document.createElement("div"); wrap.className = "es-ls-insp-grid";
       const tog = document.createElement("div"); tog.className = "es-ls-insp-stepper";
       for (const lay of [["square", "▦ square"], ["hex", "⬡ hex"]]) {
-        const b = btn(lay[1], () => { state.gridLayout = lay[0]; render(); }, lay[0] === "hex" ? "Exquis geometry" : "rows in fourths");
+        const b = btn(lay[1], () => { state.gridLayout = lay[0]; state.onGridLayout?.(lay[0]); render(); }, lay[0] === "hex" ? "Exquis geometry" : "rows in fourths");
         if (state.gridLayout === lay[0]) b.classList.add("on");
         tog.append(b);
       }
@@ -870,6 +872,7 @@ export function createLeadsheetEditor(el, opts = {}) {
       if (next.motionOf !== undefined) state.motionOf = next.motionOf;
       if (next.scaleGridOf !== undefined) state.scaleGridOf = next.scaleGridOf;
       if (next.gridLayout !== undefined) state.gridLayout = next.gridLayout;
+      if (next.onGridLayout !== undefined) state.onGridLayout = next.onGridLayout;
       if (!state.prog.sections.length) state.prog.sections = [{ bars: [] }];
       render();
     },

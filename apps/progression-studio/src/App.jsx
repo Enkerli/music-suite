@@ -9,6 +9,7 @@ import { createBridge } from "./juceBridge.js";
 import { analyzeKeyAreas, applySubstitutions, assertDegree, chordScaleFor, parseLeadsheet, planModulation, realizeChord, resolveDegree, spellRoot, transitionMotion } from "@enkerli/theory";
 import { resolvedTheme, toggleTheme } from "@enkerli/ui/theme";
 import { createPianoRoll } from "@enkerli/ui/piano-roll";
+import { createPitchGrid } from "@enkerli/ui/pitch-grid";
 import { createLeadsheetEditor } from "@enkerli/ui/leadsheet-editor";
 import { createChordInput } from "./chordInput.js";
 
@@ -164,7 +165,7 @@ function buildProgressionSectioned(labels, plan, homeKey, keyForBar) {
  *  Mounts once; the caller forces a remount (via React key) on external
  *  ops (generate/extend/clear/key change) so internal edits don't reset it.
  *  activeIndex drives the chord-follow highlight without remounting. */
-function LeadsheetEdit({ progression, activeIndex, onEdit, suggest, onRate, ratingOf, rationaleOf, scaleOf, scaleGridOf, ratingSignal, tool, display, keyAreas, ghost, motionOf, motionSignal }) {
+function LeadsheetEdit({ progression, activeIndex, onEdit, suggest, onRate, ratingOf, rationaleOf, scaleOf, scaleGridOf, ratingSignal, tool, display, keyAreas, ghost, motionOf, motionSignal, gridLayout, onGridLayout }) {
   const hostRef = useRef(null);
   const edRef = useRef(null);
   // The editor is built once (remounted via key); read callbacks through refs
@@ -194,6 +195,8 @@ function LeadsheetEdit({ progression, activeIndex, onEdit, suggest, onRate, rati
       display,
       keyAreas,
       ghost,
+      gridLayout,
+      onGridLayout,
     });
     return () => edRef.current.destroy();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps -- remount via key
@@ -202,6 +205,7 @@ function LeadsheetEdit({ progression, activeIndex, onEdit, suggest, onRate, rati
   useEffect(() => { edRef.current?.update({ display }); }, [display]);
   useEffect(() => { edRef.current?.update({ keyAreas }); }, [keyAreas]);
   useEffect(() => { edRef.current?.update({ ghost }); }, [ghost]);
+  useEffect(() => { edRef.current?.update({ gridLayout }); }, [gridLayout]);
   // Ratings changed (curation) — re-render chips to re-reflect the 👍/👎 state.
   useEffect(() => { edRef.current?.refresh(); }, [ratingSignal, motionSignal]);
   return <div ref={hostRef} />;
@@ -302,6 +306,63 @@ function ProgressionShape({ voicings, channelMode, beat }) {
   useEffect(() => { rollRef.current.update({ notes, lengthBeats }); }, [notes, lengthBeats]);
   useEffect(() => { rollRef.current.setPlayhead(beat); }, [beat]);
   return <div ref={hostRef} />;
+}
+
+/** A chord-scale pad grid (shared @enkerli/ui pitch-grid) as a React island.
+ *  `sig` gates the (otherwise per-frame) update to per-chord, so playback at
+ *  10 Hz doesn't re-render the SVG every tick. */
+function PadGrid({ rootPc, roles, now, layout, sig, cellSize = 30 }) {
+  const hostRef = useRef(null);
+  const gridRef = useRef(null);
+  useEffect(() => {
+    gridRef.current = createPitchGrid(hostRef.current, {
+      layout, rows: 5, cols: 5, baseMidi: 48 + rootPc,
+      rowStep: layout === "hex" ? 4 : 5, colStep: 1, // hex = Exquis; square = fourths
+      roles, now: now ?? new Set(), labels: "note", cellSize,
+    });
+    return () => gridRef.current.destroy();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    gridRef.current?.update({ layout, baseMidi: 48 + rootPc, rowStep: layout === "hex" ? 4 : 5, roles, now: now ?? new Set() });
+  }, [sig, layout]); // eslint-disable-line react-hooks/exhaustive-deps -- sig captures rootPc/roles/now
+  return <div ref={hostRef} />;
+}
+
+/** Stable per-chord signature for a grid data object (root + roles + sounding). */
+function gridSig(grid) {
+  if (!grid) return "none";
+  const roles = [...grid.roles].map(([k, v]) => `${k}${v[0]}`).join("");
+  return `${grid.rootPc}:${roles}:${[...(grid.now ?? [])].join(",")}`;
+}
+
+/** Now-playing chord card — follows the playhead (Q5 live): the sounding chord
+ *  big, its lit scale grid, and what's next up. */
+function NowPlaying({ current, next, grid, layout, onLayout }) {
+  return (
+    <div className="es-panel" style={{ marginTop: "var(--es-space-3)", display: "flex", gap: "var(--es-space-4)", alignItems: "center", flexWrap: "wrap" }}>
+      <div style={{ minWidth: 110 }}>
+        <div className="es-eyebrow">now playing</div>
+        <div style={{ fontSize: "var(--es-text-xl)", fontWeight: 700, lineHeight: 1.1 }}>{current.primary}</div>
+        <div style={{ color: "var(--es-fg-muted)", fontFamily: "var(--es-font-mono)" }}>{current.secondary}</div>
+      </div>
+      {grid && <PadGrid rootPc={grid.rootPc} roles={grid.roles} now={grid.now} layout={layout} sig={gridSig(grid)} />}
+      <div style={{ display: "flex", flexDirection: "column", gap: 6, maxWidth: 200 }}>
+        {current.scale && <span style={{ fontSize: "var(--es-text-sm)", color: "var(--es-fg-2)" }}>{current.scale}</span>}
+        <div style={{ display: "flex", gap: 4 }}>
+          {[["square", "▦ square"], ["hex", "⬡ hex"]].map(([l, g]) => (
+            <button key={l} className={`es-btn es-small ${layout === l ? "es-primary" : ""}`} onClick={() => onLayout(l)}>{g}</button>
+          ))}
+        </div>
+      </div>
+      {next && (
+        <div style={{ marginLeft: "auto", textAlign: "right" }}>
+          <div className="es-eyebrow">next up</div>
+          <div style={{ fontSize: "var(--es-text-lg)", fontWeight: 600, color: "var(--es-fg-2)" }}>{next.primary}</div>
+          <div style={{ color: "var(--es-fg-muted)", fontFamily: "var(--es-font-mono)", fontSize: "var(--es-text-sm)" }}>{next.secondary}</div>
+        </div>
+      )}
+    </div>
+  );
 }
 
 function MultiplierBadge({ value }) {
@@ -413,6 +474,7 @@ export default function App() {
   const [display, setDisplay] = useState("functional"); // chip reading: functional (degrees) | absolute (chord names)
   const [showImplied, setShowImplied] = useState(false); // recognize implied key areas (display analysis, any progression)
   const [showMotion, setShowMotion] = useState("off"); // transition-character overlay (Q4): off | notable | all
+  const [gridLayout, setGridLayout] = useState("square"); // pad-grid geometry (Q5): square | hex (shared: inspector + now-playing)
   const [resetArmed, setResetArmed] = useState(false); // two-tap confirm (WKWebView has no window.confirm)
   const [pendingProfile, setPendingProfile] = useState(null); // a loaded profile awaiting Replace/Merge
   const [profileError, setProfileError] = useState(null);
@@ -795,6 +857,19 @@ export default function App() {
     // re-renders on the playhead, so the grid lights as playback reaches it).
     const now = i === playIdx && playIdx >= 0 ? new Set(ch.pcs) : undefined;
     return { rootPc: ch.rootPc, roles, now };
+  }
+
+  /** Card data for a chord (now-playing / next-up): the two readings + scale. */
+  function chordCard(i) {
+    const ch = chords[i];
+    if (!ch) return null;
+    const degree = functionalOfRealized(ch, keyAt(i)) || ch.label;
+    const name = ch.symbol;
+    return {
+      primary: display === "absolute" ? name : degree,
+      secondary: display === "absolute" ? degree : name,
+      scale: chordScaleText(i),
+    };
   }
 
   /** Motion overlay (Q4): the root-motion character INTO chord `i` — "fifth"
@@ -1239,6 +1314,18 @@ export default function App() {
             onClick={() => setThemeState(toggleTheme())}>{theme === "dark" ? "☀︎ Light" : "● Dark"}</button>
         </div>
 
+        {/* Now-playing chord card — follows the playhead during playback (Q5
+            live): the sounding chord, its lit scale grid, and what's next. */}
+        {playIdx >= 0 && playIdx < chords.length && (
+          <NowPlaying
+            current={chordCard(playIdx)}
+            next={playIdx + 1 < chords.length ? chordCard(playIdx + 1) : null}
+            grid={scaleGridOf(playIdx)}
+            layout={gridLayout}
+            onLayout={setGridLayout}
+          />
+        )}
+
         <div className="es-panel">
           <div style={{ display: "flex", gap: "var(--es-space-2)", alignItems: "center", marginBottom: "var(--es-space-3)" }}>
             <div role="toolbar" aria-label="Leadsheet tool" style={{ display: "flex", gap: 4 }}>
@@ -1301,7 +1388,8 @@ export default function App() {
             onEdit={(p) => setEdited({ genId, prog: p })} suggest={suggestNext}
             onRate={rateIncoming} ratingOf={incomingRating} rationaleOf={chordRationale}
             scaleOf={chordScaleText} scaleGridOf={scaleGridOf} ratingSignal={curation} tool={tool} display={display} keyAreas={impliedAreas} ghost={ghost}
-            motionOf={motionOf} motionSignal={`${showMotion}|${showImplied}`} />
+            motionOf={motionOf} motionSignal={`${showMotion}|${showImplied}`}
+            gridLayout={gridLayout} onGridLayout={setGridLayout} />
 
 
           <div style={{ display: "flex", gap: "var(--es-space-2)", marginTop: "var(--es-space-4)", flexWrap: "wrap" }}>
