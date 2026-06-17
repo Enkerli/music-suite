@@ -502,11 +502,13 @@ export function createLeadsheetEditor(el, opts = {}) {
       sub.append(Object.assign(document.createElement("span"), { className: "es-ls-real", textContent: secondary }));
       chip.append(sub);
     }
-    // Grip: in Edit, tap to pick the chord up for a move (carets become drops).
+    const pickUp = () => { state.moving = { si, bi, ci }; state.selected = null; render(); };
+    // Grip: a *hint* that the whole cell lifts. Touch picks up with press-and-
+    // hold (below); the grip stays as the desktop affordance.
     if (state.editable && state.tool === "edit") {
       const grip = document.createElement("span");
-      grip.className = "es-ls-grip"; grip.textContent = "⠿"; grip.title = "Move this chord";
-      grip.addEventListener("click", (e) => { e.stopPropagation(); state.moving = { si, bi, ci }; state.selected = null; render(); });
+      grip.className = "es-ls-grip"; grip.textContent = "⠿"; grip.title = "Hold to move — or tap the grip";
+      grip.addEventListener("click", (e) => { e.stopPropagation(); pickUp(); });
       chip.append(grip);
     }
     chip.title = realized.symbol;
@@ -517,7 +519,24 @@ export function createLeadsheetEditor(el, opts = {}) {
       else if (m < 0.999) chip.classList.add("rated-down");
     }
     if (state.editable) {
+      // Press-and-hold to lift the whole cell (touch-first; the grip is just a
+      // hint). A short hold with no drag picks the chord up; a move or quick
+      // release cancels, so a tap still opens the inspector. Drop = tap a caret.
+      let holdTimer = null, held = false, sx = 0, sy = 0;
+      const cancelHold = () => { if (holdTimer) { clearTimeout(holdTimer); holdTimer = null; } };
+      const canMove = () => state.editable && state.tool === "edit" && !state.moving;
+      chip.addEventListener("pointerdown", (e) => {
+        if (!canMove() || (e.button != null && e.button > 0)) return;
+        held = false; sx = e.clientX ?? 0; sy = e.clientY ?? 0;
+        holdTimer = setTimeout(() => { holdTimer = null; held = true; pickUp(); }, 450);
+      });
+      chip.addEventListener("pointermove", (e) => {
+        if (holdTimer && (Math.abs((e.clientX ?? 0) - sx) > 8 || Math.abs((e.clientY ?? 0) - sy) > 8)) cancelHold();
+      });
+      chip.addEventListener("pointerup", cancelHold);
+      chip.addEventListener("pointercancel", cancelHold);
       chip.addEventListener("click", () => {
+        if (held) { held = false; return; } // the hold already lifted it — don't also open
         const tool = state.tool ?? "edit";
         if (tool === "rate-up") state.onRate?.(flatIndex, 1);
         else if (tool === "rate-down") state.onRate?.(flatIndex, -1);
@@ -623,7 +642,8 @@ export function createLeadsheetEditor(el, opts = {}) {
   }
 
   function render() {
-    root.className = "es-ls" + (state.tool && state.tool !== "edit" ? ` tool-${state.tool}` : "");
+    root.className = "es-ls" + (state.tool && state.tool !== "edit" ? ` tool-${state.tool}` : "")
+      + (state.editable && state.tool === "edit" ? " editing" : "");
     const children = [];
     const multi = sections().length > 1;
 

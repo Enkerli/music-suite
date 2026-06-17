@@ -190,6 +190,28 @@ describe("leadsheet editor — carets (insert) & grip (move)", () => {
     expect(ed.getText()).toBe("Cmaj7 A-7");
   });
 
+  it("press-and-hold lifts a chord; a quick tap still opens the inspector", () => {
+    vi.useFakeTimers();
+    try {
+      const el = document.createElement("div");
+      createLeadsheetEditor(el, { text: "Dm7 G7 Cmaj7", key: C, showKey: false });
+      const chips = () => el.querySelectorAll(".es-ls-chord");
+      // Quick tap (release before the hold fires) → inspector opens.
+      chips()[0].dispatchEvent(new MouseEvent("pointerdown", { bubbles: true }));
+      vi.advanceTimersByTime(120);
+      chips()[0].dispatchEvent(new MouseEvent("pointerup", { bubbles: true }));
+      click(chips()[0]);
+      expect(el.querySelector(".es-ls-inspector")).not.toBeNull();
+      click(el.querySelector(".es-ls-insp-close"));
+      // Press-and-hold (no release) → the chord lifts for a move.
+      chips()[2].dispatchEvent(new MouseEvent("pointerdown", { bubbles: true }));
+      vi.advanceTimersByTime(500);
+      expect(el.querySelector(".es-ls-chord.moving")).not.toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("the grip picks a chord up; tapping a caret moves it", () => {
     const el = document.createElement("div");
     const ed = createLeadsheetEditor(el, { text: "Dm7 G7 Cmaj7", key: C, showKey: false });

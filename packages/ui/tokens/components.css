@@ -285,6 +285,10 @@ select.es-control option { background: var(--es-bg-raised); color: var(--es-fg);
   font-family: var(--es-font-sans); text-align: left;
 }
 .es-ls-chord:hover { background: var(--es-bg-sunken); }
+/* The whole cell lifts (press-and-hold on touch; grip on desktop) — show grab. */
+.es-ls.editing .es-ls-chord { cursor: grab; touch-action: pan-y; }
+.es-ls.editing .es-ls-chord:active { cursor: grabbing; }
+.es-ls-chord.moving { cursor: grabbing; }
 .es-ls-chord:focus-visible { outline: var(--es-focus-ring); outline-offset: 1px; }
 .es-ls-name { font-size: 1.125rem; font-weight: 600; line-height: 1.1; white-space: nowrap; overflow: hidden; }
 .es-ls-sub { display: flex; align-items: center; gap: var(--es-space-1); min-height: 1em; }
