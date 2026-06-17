@@ -610,7 +610,14 @@ export default function App() {
   const curatedEntries = Object.entries(curation.multipliers)
     .sort((a, b) => b[1] - a[1]);
 
-  const playIdx = IN_PLUGIN ? hostPlayhead : playhead;
+  // The standalone is "in plugin" (juce bridge) but has no external host
+  // transport, so it needs the local WebAudio Play button — same as the
+  // browser. The AUv3 in a DAW is host-driven (no local Play).
+  const isStandalone = IN_PLUGIN && /standalone/i.test(runtime?.wrapper ?? "");
+  const showLocalPlay = !IN_PLUGIN || isStandalone;
+  // Chord-follow source: the local player when it's running (browser/standalone),
+  // else the host transport (AUv3 in a DAW).
+  const playIdx = IN_PLUGIN && !playing ? hostPlayhead : playhead;
 
   // Common opening chords (for the first slot of an empty progression): the
   // corpus's most likely start, then the most common chords overall.
@@ -784,7 +791,10 @@ export default function App() {
     for (const pc of cs.tensions) roles.set(pc, "tension");
     for (const pc of cs.avoid) roles.set(pc, "avoid");
     for (const pc of ch.pcs) roles.set(pc, "chord"); // chord tones win
-    return { rootPc: ch.rootPc, roles };
+    // Live: when this chord is the one sounding now, pulse its tones (the editor
+    // re-renders on the playhead, so the grid lights as playback reaches it).
+    const now = i === playIdx && playIdx >= 0 ? new Set(ch.pcs) : undefined;
+    return { rootPc: ch.rootPc, roles, now };
   }
 
   /** Motion overlay (Q4): the root-motion character INTO chord `i` — "fifth"
@@ -1204,10 +1214,10 @@ export default function App() {
           <button className="es-btn es-small" title="Recall generator settings from a file" onClick={loadPatch}>Load…</button>
           {profileError && <span style={{ color: "var(--es-danger, #b3261e)", fontSize: "var(--es-text-sm)" }}>{profileError}</span>}
           <span style={{ flex: 1 }} />
-          {!IN_PLUGIN && <label style={{ display: "flex", gap: 6, alignItems: "center", fontSize: "var(--es-text-sm)" }}>Tempo
+          {showLocalPlay && <label style={{ display: "flex", gap: 6, alignItems: "center", fontSize: "var(--es-text-sm)" }}>Tempo
             <input className="es-control" style={{ width: 64 }} type="number" min="40" max="300" value={bpm} onChange={(e) => setBpm(Number(e.target.value))} />
           </label>}
-          {!IN_PLUGIN && <button className="es-btn es-primary" onClick={() => (playing ? stop() : play(voicings, bpm))}>{playing ? "Stop" : "Play"}</button>}
+          {showLocalPlay && <button className="es-btn es-primary" onClick={() => (playing ? stop() : play(voicings, bpm))}>{playing ? "Stop" : "Play"}</button>}
           <button className="es-btn" onClick={() => navigator.clipboard?.writeText(chords.map((c) => c.symbol).join(" | "))}>Copy chords</button>
           {/* Where the document travels — name the destination, not the file
               format (Step 06). Both routes write the same SMF (it embeds the
@@ -1325,7 +1335,7 @@ export default function App() {
             <ProgressionShape
               voicings={voicings}
               channelMode={channelMode}
-              beat={IN_PLUGIN ? hostBeat : playhead >= 0 ? (chordSpans.starts[playhead] ?? 0) : -1}
+              beat={IN_PLUGIN && !playing ? hostBeat : playhead >= 0 ? (chordSpans.starts[playhead] ?? 0) : -1}
             />
           </div>
         </details>
