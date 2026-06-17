@@ -153,3 +153,37 @@ Tracked here so they're not lost; these are engineering, not design:
   + shared inbox + ingest. Gated on the Apple developer account.
 - **iOS signed build** keeps lapsing at provisioning (re-add the Apple dev
   account in Xcode → Accounts). Not a code issue.
+
+---
+
+## Round 2 · UX bits from on-device review (for the next design run)
+
+Flagged by Alex while testing the Q1–Q6 + modulation builds. Each has a working
+interim shipped; the design call is how to make it land well.
+
+- **Text / bar-notation entry discoverability.** Typing or pasting a leadsheet
+  lives under the document strip's **Type / Import…** front door, plus a new
+  empty-sheet prompt ("New take · or Type / paste a leadsheet…"). Alex still
+  found it late ("wish it were more discoverable"). *Design Q:* should
+  bar-notation entry be a first-class, always-visible affordance (its own front
+  door, or an inline "type chords" field) rather than behind Import? It's a
+  primary way people start ("I have a tune, get it in").
+
+- **Functional ⇄ absolute display.** Pasting `Cmaj7 Am7 D7 Gmaj7 Cmaj7` showed
+  `Imaj7 VIm7 II7 Vmaj7 Imaj7` (functional-on-top). Shipped the critique's
+  global toggle (a "I ⇄ Cmaj7" button; paste auto-selects absolute). *Design Q:*
+  placement, label, and default — is a single global toggle right, where does it
+  live, and should default follow content (degrees for generated, names for
+  pasted) or be sticky? Also how it reads in multi-section (per-section keys).
+
+- **Implied modulation — surfacing & reach.** The "Modulation → implied
+  (harmony)" mode re-spells detected ii–V–I / secondary-dominant tonicizations
+  in their own key (quiet divider, no badge). Runs on the **generated** path
+  only for now. *Design Q:* how to surface it (it's one option in a Modulation
+  select — easy to miss), and the on-ramp to running it on a **pasted/imported
+  tune** ("find the keys in this progression"), where it pays off most.
+
+- **Move gesture (still open from Q1).** The ⠿ grip → tap-caret move is a
+  desktop habit on a touch surface. Q1's recommendation (press-and-hold to lift,
+  tap-pickup/tap-drop fallback) is not yet built — bundle with the Q1 cursor/
+  ghost work.
