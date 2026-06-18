@@ -3,3 +3,9 @@ dist/
 *.tsbuildinfo
 .DS_Store
 coverage/
+
+# Local tooling (machine-specific dev-server/launch config)
+.claude/
+
+# Design-export bundles / archives (the source HTML is committed where it's used)
+*.zip
