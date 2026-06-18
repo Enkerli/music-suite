@@ -1,0 +1,499 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Exquisite Fingerings — Design Decisions</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="tokens.css">
+<link rel="stylesheet" href="components.css">
+<style>
+  /* ── Document shell: paper page on a paper desk (matches the suite docs) ─ */
+  html { background: var(--es-bg); }
+  body {
+    margin: 0;
+    background: var(--es-bg);
+    color: var(--es-fg);
+    font-family: var(--es-font-sans);
+    font-size: 15px;
+    line-height: 1.62;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+  .doc { padding: 40px 16px 80px; }
+  .page {
+    width: 816px;
+    max-width: 100%;
+    margin: 0 auto 28px;
+    background: var(--es-bg-raised);
+    border: 1px solid var(--es-border-soft);
+    border-radius: 4px;
+    box-shadow: 0 2px 14px rgba(40, 34, 24, 0.07);
+    padding: 76px 88px;
+    box-sizing: border-box;
+  }
+
+  /* ── Type scale ───────────────────────────────────────────────────── */
+  .eyebrow {
+    font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase;
+    font-weight: 600; color: var(--es-fg-muted); margin: 0 0 10px;
+  }
+  h1 {
+    font-family: var(--es-font-sans);
+    font-weight: 700; font-size: 38px; line-height: 1.08;
+    letter-spacing: -0.02em; margin: 0 0 14px; color: var(--es-fg);
+  }
+  h2 { font-weight: 700; font-size: 22px; letter-spacing: -0.01em; margin: 44px 0 4px; color: var(--es-fg); }
+  h2:first-of-type { margin-top: 8px; }
+  h3 { font-weight: 600; font-size: 15.5px; margin: 26px 0 6px; color: var(--es-fg); }
+  p { margin: 0 0 14px; text-wrap: pretty; }
+  .lede { font-size: 17px; line-height: 1.55; color: var(--es-fg-2); }
+  strong { font-weight: 600; color: var(--es-fg); }
+  em { font-style: italic; }
+  a { color: var(--es-accent); text-decoration: none; }
+  .muted { color: var(--es-fg-muted); }
+  .mono { font-family: var(--es-font-mono); font-variant-numeric: tabular-nums; }
+  code, .tok {
+    font-family: var(--es-font-mono); font-size: 0.88em;
+    background: var(--es-bg-sunken); border: 1px solid var(--es-border-soft);
+    border-radius: 5px; padding: 1px 6px; color: var(--es-fg-2); white-space: nowrap;
+  }
+  ul, ol { margin: 0 0 14px; padding-left: 22px; }
+  li { margin: 0 0 7px; text-wrap: pretty; }
+  li::marker { color: var(--es-fg-muted); }
+  hr { border: 0; border-top: 1px solid var(--es-border-soft); margin: 34px 0; }
+
+  /* ── Title block ──────────────────────────────────────────────────── */
+  .titleblock { border-bottom: 2px solid var(--es-fg); padding-bottom: 22px; margin-bottom: 30px; }
+  .meta-row { display: flex; flex-wrap: wrap; gap: 8px 22px; margin-top: 16px; font-size: 12.5px; color: var(--es-fg-muted); }
+  .meta-row b { color: var(--es-fg-2); font-weight: 600; }
+
+  /* ── Gap headers with numerals ────────────────────────────────────── */
+  .flow-head { display: flex; align-items: baseline; gap: 14px; margin: 48px 0 4px; }
+  .flow-head:first-child { margin-top: 0; }
+  .flow-num {
+    font-family: var(--es-font-mono); font-weight: 600; font-size: 13px;
+    color: var(--es-accent-fg); background: var(--es-accent);
+    min-width: 38px; height: 30px; padding: 0 7px; border-radius: 8px; flex: none;
+    display: grid; place-items: center; align-self: center; letter-spacing: 0.02em;
+  }
+  .flow-head h2 { margin: 0; }
+  .verdict {
+    font-family: var(--es-font-mono); font-size: 10.5px; letter-spacing: 0.04em;
+    text-transform: uppercase; font-weight: 600; padding: 3px 9px; border-radius: 999px;
+    border: 1px solid var(--es-border-strong); color: var(--es-fg-muted); align-self: center;
+  }
+  .verdict.commit { background: var(--es-accent); color: var(--es-accent-fg); border-color: var(--es-accent); }
+
+  /* ── Recommendation / pain blocks ─────────────────────────────────── */
+  .rec { background: var(--es-bg-sunken); border: 1px solid var(--es-border-soft); border-radius: var(--es-radius-md); padding: 18px 22px; margin: 18px 0; }
+  .rec .eyebrow { color: var(--es-accent); margin-bottom: 8px; }
+  .rec p:last-child, .rec ul:last-child, .rec li:last-child { margin-bottom: 0; }
+
+  /* ── Figures ──────────────────────────────────────────────────────── */
+  figure { margin: 22px 0; padding: 22px; background: var(--es-bg-sunken); border: 1px solid var(--es-border-soft); border-radius: var(--es-radius-md); }
+  figcaption { font-size: 12.5px; color: var(--es-fg-muted); margin-top: 14px; text-align: center; line-height: 1.45; }
+  figcaption b { color: var(--es-fg-2); font-weight: 600; }
+
+  /* ── Segmented control (the parity switch) ────────────────────────── */
+  .seg { display: inline-flex; border: 1px solid var(--es-border-strong); border-radius: var(--es-radius-sm); overflow: hidden; background: var(--es-bg-raised); }
+  .seg button { font-family: var(--es-font-sans); font-size: 13px; font-weight: 500; padding: 7px 16px; border: 0; background: transparent; color: var(--es-fg-2); cursor: pointer; display: inline-flex; align-items: center; gap: 7px; min-height: 38px; }
+  .seg button + button { border-left: 1px solid var(--es-border); }
+  .seg button.on { background: var(--es-accent); color: var(--es-accent-fg); }
+  .seg button .gl { font-size: 15px; line-height: 1; }
+
+  /* ── Pad grids (square + hex), pitch-class colored ────────────────── */
+  .gridwrap { display: grid; grid-template-columns: 1fr 1fr; gap: 30px; align-items: start; }
+  .gridcol { display: flex; flex-direction: column; align-items: center; }
+  .gridcol h4 { margin: 0 0 3px; font-size: 13px; font-weight: 700; align-self: stretch; text-align: center; }
+  .gridcol .sub { font-size: 11px; color: var(--es-fg-muted); margin: 0 0 14px; align-self: stretch; text-align: center; }
+
+  .padgrid { display: grid; grid-template-columns: repeat(5, 50px); gap: 6px; }
+  .pad, .hex { position: relative; display: grid; place-items: center; font-family: var(--es-font-sans); font-weight: 600; color: #fff; }
+  .pad { width: 50px; height: 50px; border-radius: 11px; font-size: 14px; box-shadow: inset 0 0 0 1px rgba(255,255,255,.14); }
+  .pad .nx { font-size: 13px; }
+  .pad.dim, .hex.dim { opacity: 0.4; }
+  /* chord-tone ring */
+  .pad.tone, .hex.tone { box-shadow: 0 0 0 3px var(--es-bg-sunken), 0 0 0 5px var(--es-fg); }
+
+  /* hex offset rows (Exquis geometry) */
+  .hexgrid { display: flex; flex-direction: column; }
+  .hexrow { display: flex; gap: 6px; }
+  .hexrow + .hexrow { margin-top: -14px; }
+  .hexrow.off { margin-left: 30px; }
+  .hex { width: 56px; height: 62px; clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%); font-size: 13px; }
+
+  /* finger badge */
+  .fb { position: absolute; top: -7px; right: -7px; width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; font-family: var(--es-font-mono); font-weight: 700; font-size: 11px; z-index: 2; border: 2px solid var(--es-bg-sunken); }
+  .hex .fb { top: 4px; right: 6px; }
+  .fb.R { background: var(--es-fg); color: var(--es-bg-raised); }
+  .fb.L { background: var(--es-bg-raised); color: var(--es-fg); box-shadow: inset 0 0 0 2px var(--es-fg); border-color: var(--es-bg-sunken); }
+
+  .padlegend { display: flex; flex-wrap: wrap; gap: 8px 18px; justify-content: center; margin-top: 18px; font-size: 11.5px; color: var(--es-fg-2); }
+  .padlegend span { display: inline-flex; align-items: center; gap: 6px; }
+  .lg { width: 18px; height: 18px; border-radius: 5px; flex: none; display: inline-grid; place-items: center; position: relative; font-size: 9px; font-weight: 700; font-family: var(--es-font-mono); }
+  .lg.tone { background: var(--es-pc-0); color: #fff; box-shadow: 0 0 0 2px var(--es-fg); }
+  .lg.R { background: var(--es-fg); color: var(--es-bg-raised); border-radius: 50%; }
+  .lg.L { background: var(--es-bg-raised); color: var(--es-fg); border-radius: 50%; box-shadow: inset 0 0 0 2px var(--es-fg); }
+
+  /* ── Before/after IA columns ──────────────────────────────────────── */
+  .ba { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; align-items: start; }
+  .bacol h4 { margin: 0 0 10px; font-size: 13px; font-weight: 700; display: flex; align-items: center; gap: 8px; }
+  .bacol.now h4 { color: var(--es-fg-muted); }
+  .bacol.next h4 { color: var(--es-accent); }
+  .tag { font-family: var(--es-font-mono); font-size: 9.5px; letter-spacing: 0.04em; text-transform: uppercase; font-weight: 600; padding: 2px 7px; border-radius: 999px; }
+  .tag.t-now { border: 1px solid var(--es-border-strong); color: var(--es-fg-muted); }
+  .tag.t-next { background: var(--es-accent); color: var(--es-accent-fg); }
+
+  /* faux collapsible row (the "today" sidebar) */
+  .fsec { border: 1px solid var(--es-border); border-radius: var(--es-radius-sm); background: var(--es-bg-raised); padding: 9px 12px; font-size: 12.5px; color: var(--es-fg-2); display: flex; align-items: center; gap: 8px; }
+  .fsec + .fsec { margin-top: 7px; }
+  .fsec::before { content: "▸"; color: var(--es-fg-muted); font-size: 10px; }
+  .fsec.adv { border-style: dashed; }
+  .fsec .ad { font-family: var(--es-font-mono); font-size: 9px; letter-spacing: .05em; text-transform: uppercase; color: var(--es-danger); margin-left: auto; }
+  .fsec.dupe { box-shadow: inset 3px 0 0 var(--es-danger); }
+
+  /* labelled card (the "next" grouping) */
+  .lcard { border: 1px solid var(--es-border); border-radius: var(--es-radius-sm); background: var(--es-bg-raised); padding: 11px 13px 13px; }
+  .lcard + .lcard { margin-top: 9px; }
+  .lcard .eyebrow { margin-bottom: 7px; color: var(--es-fg-muted); }
+  .lcard.hero { border-color: var(--es-accent); box-shadow: inset 0 0 0 1px var(--es-accent); }
+  .lcard.hero .eyebrow { color: var(--es-accent); }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chip2 { font-family: var(--es-font-mono); font-size: 11.5px; background: var(--es-bg-sunken); border: 1px solid var(--es-border); border-radius: 7px; padding: 4px 9px; color: var(--es-fg-2); }
+  .chip2.acc { border-color: var(--es-accent); color: var(--es-accent); }
+
+  /* ── Component-mapping table look ─────────────────────────────────── */
+  table { width: 100%; border-collapse: collapse; margin: 16px 0 6px; font-size: 13px; }
+  th, td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--es-border-soft); vertical-align: top; }
+  th { font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--es-fg-muted); font-weight: 600; border-bottom-color: var(--es-border); }
+  td b { font-weight: 600; }
+  .gid { font-family: var(--es-font-mono); font-weight: 600; color: var(--es-accent); }
+  .tag-commit { font-family: var(--es-font-mono); font-size: 10px; letter-spacing: 0.03em; text-transform: uppercase; font-weight: 600; padding: 2px 7px; border-radius: 999px; background: var(--es-accent); color: var(--es-accent-fg); }
+  td .arr { color: var(--es-fg-muted); }
+  td .was { color: var(--es-fg-muted); text-decoration: line-through; text-decoration-color: var(--es-danger); }
+  td .is { color: var(--es-accent); font-family: var(--es-font-mono); }
+
+  /* ── Theme swatch row ─────────────────────────────────────────────── */
+  .themes { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+  .tcard { border-radius: var(--es-radius-md); border: 1px solid var(--es-border); overflow: hidden; }
+  .tcard .bar { display: flex; align-items: center; justify-content: space-between; padding: 9px 13px; font-size: 12px; font-weight: 600; }
+  .tcard .body { padding: 14px; display: flex; flex-direction: column; gap: 9px; }
+  .tlight { background: #f5f2eb; color: #2d2b27; }
+  .tlight .bar { background: #fcfbf7; border-bottom: 1px solid #ddd6ca; }
+  .tdark { background: #1a1814; color: #e8e1d2; }
+  .tdark .bar { background: #221f1a; border-bottom: 1px solid #38332b; }
+  .ttog { font-family: var(--es-font-mono); font-size: 11px; padding: 3px 9px; border-radius: 999px; display: inline-flex; align-items: center; gap: 6px; }
+  .tlight .ttog { background: #efebe2; color: #4b463e; border: 1px solid #9d8967; }
+  .tdark .ttog { background: #14130f; color: #cfc7b5; border: 1px solid #736958; }
+  .infobox { font-size: 11.5px; padding: 8px 11px; border-radius: 8px; display: flex; align-items: center; gap: 8px; }
+  .infobox .dt { width: 8px; height: 8px; border-radius: 50%; flex: none; }
+  .tlight .infobox { background: #efebe2; border: 1px solid #ddd6ca; }
+  .tdark .infobox { background: #14130f; border: 1px solid #38332b; }
+  .fbtn { display: inline-flex; gap: 5px; }
+  .fbtn b { width: 24px; height: 24px; border-radius: 6px; display: grid; place-items: center; font-family: var(--es-font-mono); font-size: 11px; font-weight: 600; }
+  .tlight .fbtn b { background: #fcfbf7; border: 1px solid #9d8967; color: #2d2b27; }
+  .tlight .fbtn b.off { color: #b8b0a0; border-color: #ddd6ca; }
+  .tdark .fbtn b { background: #221f1a; border: 1px solid #736958; color: #e8e1d2; }
+  .tdark .fbtn b.off { color: #5a5446; border-color: #38332b; }
+
+  /* ── Naming clarification (G5) ────────────────────────────────────── */
+  .setrow { display: grid; grid-template-columns: 150px 1fr; gap: 12px 16px; align-items: center; font-size: 13px; }
+  .setrow .lab { color: var(--es-fg-2); font-weight: 500; }
+  .setrow .lab .mut { display: block; font-size: 11px; color: var(--es-fg-muted); font-weight: 400; }
+
+  .footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid var(--es-border-soft); font-size: 11.5px; color: var(--es-fg-muted); display: flex; justify-content: space-between; }
+
+  /* ── Print ────────────────────────────────────────────────────────── */
+  @media print {
+    @page { margin: 0.7in; }
+    html, body { background: #fff; }
+    .doc { padding: 0; }
+    .page { width: auto; margin: 0; padding: 0; border: 0; border-radius: 0; box-shadow: none; background: #fff; break-after: page; }
+    .page:last-child { break-after: auto; }
+    h2, h3, figure, table, .rec, .flow-head, li, .ba, .themes { break-inside: avoid; }
+    .flow-head { break-after: avoid; }
+    figure, .rec, .pad, .hex, .seg, .flow-num, .verdict, .tag, .lcard.hero, .tcard, .chip2, .fb, .tag-commit {
+      -webkit-print-color-adjust: exact; print-color-adjust: exact;
+    }
+  }
+  @media (max-width: 880px) {
+    .page { padding: 44px 26px; }
+    .gridwrap, .ba, .themes { grid-template-columns: 1fr; }
+    h1 { font-size: 30px; }
+  }
+</style>
+</head>
+<body>
+<div class="doc">
+
+<!-- ════════════════════ PAGE 1 — framing ════════════════════ -->
+<section class="page" data-screen-label="00 Bringing it home">
+  <div class="titleblock">
+    <p class="eyebrow">Design Decisions · Exquisite Fingerings <span class="muted">· bringing the outlier into the family</span></p>
+    <h1>Five moves to make it suite-native</h1>
+    <p class="lede">It works, and it already pulls the suite's colour tokens — but it's the app that drifted furthest: a bespoke hex renderer, ~490 lines of its own component CSS, a sidebar unlike any sibling, no theme toggle, and <strong>no square-grid view</strong>. The trigger was a user reaching for the <span class="mono">▦ / ⬡</span> switch every other grid has, and finding nothing. This commits the redesign — five gaps, each closed by adopting something the suite already shipped.</p>
+    <div class="meta-row">
+      <span><b>Source</b> <span class="mono">DESIGN_HANDOFF.md</span></span>
+      <span><b>Parity targets</b> ProgGenie inspector · Chord Dictionary</span>
+      <span><b>Primary device</b> iPad Pro · also desktop &amp; web</span>
+      <span><b>System</b> paper &amp; ink · <span class="mono">@enkerli/ui</span></span>
+    </div>
+  </div>
+
+  <h2>One principle: adopt, don't reinvent</h2>
+  <p>Every gap here is the same shape — this app hand-rolled something the suite later standardized. The fix is never new design; it's <strong>deleting the bespoke version and adopting the shared one</strong>: <span class="mono">createPitchGrid</span> for the grid, <span class="mono">components.css</span> for the chrome, ProgGenie's labelled-card IA for the controls, <span class="mono">theme.js</span> for the toggle. <strong>What must survive untouched: the Exquis pad geometry &amp; chromatic colours, fingering capture &amp; scoring, pattern save/load, and the MIDI/SysEx path to hardware.</strong> Those are the reason the app exists.</p>
+
+  <table>
+    <thead><tr><th style="width:7%">Gap</th><th style="width:30%">Drift</th><th style="width:15%">Verdict</th><th>The move</th></tr></thead>
+    <tbody>
+      <tr><td class="gid">G1</td><td><b>No square-grid view</b></td><td><span class="tag-commit">Commit</span></td><td>Add the <span class="mono">▦ square ⇄ ⬡ hex</span> switch by moving onto shared <span class="mono">createPitchGrid</span> — exact parity with ProgGenie &amp; Chord Dictionary.</td></tr>
+      <tr><td class="gid">G2</td><td><b>~490 lines bespoke CSS</b></td><td><span class="tag-commit">Commit</span></td><td>Replace sidebar/box/score/list styles with <span class="mono">components.css</span> primitives; keep only the grid + fingering overlay.</td></tr>
+      <tr><td class="gid">G3</td><td><b>Divergent control IA</b></td><td><span class="tag-commit">Commit</span></td><td>Collapse the overlapping capture / manual / geometric flows; retire the two "Advanced:" panels into one labelled-card column.</td></tr>
+      <tr><td class="gid">G4</td><td><b>No theme toggle</b></td><td><span class="tag-commit">Commit</span></td><td>Add the standard <span class="mono">● Dark / ☀︎ Light</span> control; finish dark mode intentionally (info boxes, disabled buttons, empty states).</td></tr>
+      <tr><td class="gid">G5</td><td><b>Orientation vs layout naming</b></td><td><span class="tag-commit">Commit</span></td><td>"Layout" = square/hex. Demote hex rotation to a hex-only "Orientation" sub-option so the two stop colliding.</td></tr>
+    </tbody>
+  </table>
+
+  <div class="footer"><span>Exquisite Fingerings · Design Decisions</span><span>0 · Bringing it home</span></div>
+</section>
+
+<!-- ════════════════════ PAGE 2 — G1 (hero) ════════════════════ -->
+<section class="page" data-screen-label="G1 Square and hex parity">
+  <div class="flow-head"><span class="flow-num">G1</span><h2>The square ⇄ hex switch</h2><span class="verdict commit">Commit · the headline</span></div>
+  <p class="muted" style="margin-top:6px">The bespoke <span class="mono">svg-grid.js</span> renders hex only. The rest of the suite moved to <span class="mono">createPitchGrid</span>, which already does both layouts from one isomorphic spec. Adopt it — the square view isn't new work, it's a parameter we're not yet passing.</p>
+
+  <figure>
+    <div style="display:flex;justify-content:center;margin-bottom:20px"><div class="seg"><button><span class="gl">▦</span> Square</button><button class="on"><span class="gl">⬡</span> Hex</button></div></div>
+    <div class="gridwrap">
+      <div class="gridcol">
+        <h4>▦ Square — fourths layout, 5×5</h4>
+        <p class="sub">rows a fourth apart, columns in tones</p>
+        <div class="padgrid">
+          <!-- top row0: A♭ B♭ C D E -->
+          <span class="pad dim" style="background:var(--es-pc-8)">A♭</span>
+          <span class="pad dim" style="background:var(--es-pc-10)">B♭</span>
+          <span class="pad tone" style="background:var(--es-pc-0)">C</span>
+          <span class="pad dim" style="background:var(--es-pc-2)">D</span>
+          <span class="pad tone" style="background:var(--es-pc-4)">E</span>
+          <!-- row1: E♭ F G A B -->
+          <span class="pad dim" style="background:var(--es-pc-3)">E♭</span>
+          <span class="pad dim" style="background:var(--es-pc-5)">F</span>
+          <span class="pad tone" style="background:var(--es-pc-7)">G</span>
+          <span class="pad dim" style="background:var(--es-pc-9)">A</span>
+          <span class="pad dim" style="background:var(--es-pc-11)">B</span>
+          <!-- row2: B♭ C D E F♯ -->
+          <span class="pad dim" style="background:var(--es-pc-10)">B♭</span>
+          <span class="pad tone" style="background:var(--es-pc-0)">C<span class="fb R">3</span></span>
+          <span class="pad dim" style="background:var(--es-pc-2)">D</span>
+          <span class="pad tone" style="background:var(--es-pc-4)">E</span>
+          <span class="pad dim" style="background:var(--es-pc-6)">F♯</span>
+          <!-- row3: F G A B C♯ -->
+          <span class="pad dim" style="background:var(--es-pc-5)">F</span>
+          <span class="pad tone" style="background:var(--es-pc-7)">G<span class="fb R">2</span></span>
+          <span class="pad dim" style="background:var(--es-pc-9)">A</span>
+          <span class="pad dim" style="background:var(--es-pc-11)">B</span>
+          <span class="pad dim" style="background:var(--es-pc-1)">C♯</span>
+          <!-- row4: C D E F♯ A♭ -->
+          <span class="pad tone" style="background:var(--es-pc-0)">C<span class="fb R">1</span></span>
+          <span class="pad dim" style="background:var(--es-pc-2)">D</span>
+          <span class="pad tone" style="background:var(--es-pc-4)">E</span>
+          <span class="pad dim" style="background:var(--es-pc-6)">F♯</span>
+          <span class="pad dim" style="background:var(--es-pc-8)">A♭</span>
+        </div>
+      </div>
+      <div class="gridcol">
+        <h4>⬡ Hex — Exquis thirds <span class="muted">(today)</span></h4>
+        <p class="sub">the real controller geometry, offset rows</p>
+        <div class="hexgrid">
+          <div class="hexrow">
+            <span class="hex dim" style="background:var(--es-pc-10)">B♭</span>
+            <span class="hex tone" style="background:var(--es-pc-0)">C</span>
+            <span class="hex dim" style="background:var(--es-pc-2)">D</span>
+            <span class="hex tone" style="background:var(--es-pc-4)">E</span>
+          </div>
+          <div class="hexrow off">
+            <span class="hex dim" style="background:var(--es-pc-5)">F</span>
+            <span class="hex tone" style="background:var(--es-pc-7)">G<span class="fb R">3</span></span>
+            <span class="hex dim" style="background:var(--es-pc-9)">A</span>
+          </div>
+          <div class="hexrow">
+            <span class="hex tone" style="background:var(--es-pc-0)">C<span class="fb R">1</span></span>
+            <span class="hex dim" style="background:var(--es-pc-2)">D</span>
+            <span class="hex tone" style="background:var(--es-pc-4)">E<span class="fb R">2</span></span>
+            <span class="hex dim" style="background:var(--es-pc-6)">F♯</span>
+          </div>
+          <div class="hexrow off">
+            <span class="hex dim" style="background:var(--es-pc-3)">E♭</span>
+            <span class="hex dim" style="background:var(--es-pc-5)">F</span>
+            <span class="hex dim" style="background:var(--es-pc-7)">G</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="padlegend">
+      <span><i class="lg tone">C</i> chord tone (ring)</span>
+      <span><i class="lg R">1</i> right-hand finger</span>
+      <span><i class="lg L">2</i> left-hand finger</span>
+      <span style="color:var(--es-fg-muted)">pad fill = chromatic pitch-class colour</span>
+    </div>
+    <figcaption><b>Same chord, same fingering, two geometries.</b> C major (C–E–G) with a right-hand 1–2–3, shown on the square <span class="mono">fourths</span> grid and the hex <span class="mono">Exquis</span> grid. The pads keep their canonical <span class="mono">pitch-class-colors</span>; the fingering overlay and chord-tone ring ride on top unchanged. Both come straight out of <span class="mono">createPitchGrid({ layout })</span> — one renderer, one switch.</figcaption>
+  </figure>
+
+  <div class="rec">
+    <p class="eyebrow">Commit — retire svg-grid.js, render through createPitchGrid</p>
+    <p style="margin-bottom:0">The shared component already exposes <span class="mono">layout: "square" | "hex"</span>, <span class="mono">highlight</span> / <span class="mono">highlight2</span> for chord-vs-scale, <span class="mono">labels: note/pc/midi</span>, and an <span class="mono">onTap</span> hook. The fingering overlay (finger badges, ergonomic scoring, hand) is the genuinely unique layer and stays — it renders <em>over</em> the shared grid keyed by MIDI note. Result: a square view appears, hex stays pixel-identical to the hardware, and three apps share one battle-tested renderer instead of one app maintaining a fork.</p>
+  </div>
+
+  <div class="footer"><span>Exquisite Fingerings · Design Decisions</span><span>G1 · Square ⇄ hex parity</span></div>
+</section>
+
+<!-- ════════════════════ PAGE 3 — G2 ════════════════════ -->
+<section class="page" data-screen-label="G2 Adopt the component system">
+  <div class="flow-head"><span class="flow-num">G2</span><h2>Delete the bespoke CSS</h2><span class="verdict commit">Commit</span></div>
+  <p class="muted" style="margin-top:6px">~490 lines of hand-rolled component styles — sidebar, collapsibles, info/warning/success/error boxes, score display, pattern &amp; issue lists. Almost all of it has a shared equivalent. Map each onto <span class="mono">components.css</span> and the file mostly disappears.</p>
+
+  <figure>
+    <table style="margin:0">
+      <thead><tr><th style="width:38%">Bespoke today</th><th style="width:6%"></th><th>Shared primitive</th></tr></thead>
+      <tbody>
+        <tr><td><span class="was">.sidebar-section</span></td><td><span class="arr">→</span></td><td><span class="is">.es-section</span> <span class="muted">— native &lt;details&gt;, keyboard + SR correct</span></td></tr>
+        <tr><td><span class="was">.btn / .btn-primary</span></td><td><span class="arr">→</span></td><td><span class="is">.es-btn / .es-primary / .es-small</span></td></tr>
+        <tr><td><span class="was">.form-row / select / input</span></td><td><span class="arr">→</span></td><td><span class="is">.es-control</span> <span class="muted">— 44px touch target built in</span></td></tr>
+        <tr><td><span class="was">.section-label</span></td><td><span class="arr">→</span></td><td><span class="is">.es-eyebrow</span></td></tr>
+        <tr><td><span class="was">.score / .score-value</span></td><td><span class="arr">→</span></td><td><span class="is">.es-num</span> + <span class="is">.es-bar</span> <span class="muted">— tabular figures, proportion meter</span></td></tr>
+        <tr><td><span class="was">.info / .warning / .success / .error</span></td><td><span class="arr">→</span></td><td><span class="is">.es-panel</span> + <span class="is">.es-dot</span> <span class="muted">— see note below</span></td></tr>
+        <tr><td><span class="was">.pattern-list / .issue-list</span></td><td><span class="arr">→</span></td><td><span class="is">.es-panel</span> rows + <span class="is">.es-badge</span></td></tr>
+      </tbody>
+    </table>
+    <figcaption><b>Seven bespoke families, one shared vocabulary.</b> The only true gap is the four status boxes — the suite has no <span class="mono">.es-alert</span> yet. Rather than re-hand-roll four colour variants here, express status as an <span class="mono">.es-panel</span> carrying a labelled <span class="mono">.es-dot</span> (the suite's "colour is never the only channel" rule), and propose <span class="mono">.es-alert</span> as a small upstream addition to <span class="mono">components.css</span> so every app benefits.</figcaption>
+  </figure>
+
+  <div class="rec">
+    <p class="eyebrow">Commit — keep only what's genuinely this app's</p>
+    <p style="margin-bottom:0">After the swap, the app-specific stylesheet shrinks to two things that exist nowhere else: <strong>the Exquis grid</strong> (now mostly <span class="mono">createPitchGrid</span> + a thin skin) and <strong>the fingering overlay</strong> (finger badges, hand colours, ergonomic-score visualization). Everything structural — panels, buttons, controls, sections, eyebrows, numbers, bars, badges — comes from the shared layer. Less to maintain, and visual drift from the family stops at the source.</p>
+  </div>
+
+  <div class="footer"><span>Exquisite Fingerings · Design Decisions</span><span>G2 · Adopt components.css</span></div>
+</section>
+
+<!-- ════════════════════ PAGE 4 — G3 ════════════════════ -->
+<section class="page" data-screen-label="G3 Rework the control IA">
+  <div class="flow-head"><span class="flow-num">G3</span><h2>One flow, not two "Advanced:"</h2><span class="verdict commit">Commit</span></div>
+  <p class="muted" style="margin-top:6px">A tall sidebar of stacked collapsibles with <em>two</em> separate "Advanced:" panels, and chord/scale settable in two places (capture vs manual). No sibling looks like this. Regroup around ProgGenie's labelled-card pattern: cards named by intent, advanced depth folded in — not bolted on.</p>
+
+  <div class="ba">
+    <div class="bacol now">
+      <h4><span class="tag t-now">Today</span> 6 stacked sections</h4>
+      <div class="fsec">Chord Fingering Capture</div>
+      <div class="fsec adv">Advanced: Geometric Analysis <span class="ad">advanced</span></div>
+      <div class="fsec">Fingering Patterns</div>
+      <div class="fsec adv dupe">Advanced: Manual Fingering &amp; Scales <span class="ad">dupes chord/scale</span></div>
+      <div class="fsec">Display Options</div>
+      <div class="fsec">MIDI I/O</div>
+      <p class="muted" style="font-size:11.5px;margin:11px 0 0">Two "Advanced:" panels; chord/scale set in both Capture <em>and</em> Manual; pad geometry split across Display + Manual.</p>
+    </div>
+    <div class="bacol next">
+      <h4><span class="tag t-next">Proposed</span> 4 intent cards</h4>
+      <div class="lcard hero">
+        <p class="eyebrow">Chord &amp; scale <span class="muted">· one source of truth</span></p>
+        <div class="chips"><span class="chip2 acc">Root</span><span class="chip2 acc">Quality</span><span class="chip2">Scale</span><span class="chip2">Custom PCs</span></div>
+      </div>
+      <div class="lcard">
+        <p class="eyebrow">Fingering</p>
+        <div class="chips"><span class="chip2">Hand</span><span class="chip2">Fingers 1–5</span><span class="chip2">Capture ▸</span><span class="chip2">Suggest ▸</span></div>
+      </div>
+      <div class="lcard">
+        <p class="eyebrow">Patterns</p>
+        <div class="chips"><span class="chip2">Save</span><span class="chip2">Load</span><span class="chip2">Hand size</span></div>
+      </div>
+      <div class="lcard">
+        <p class="eyebrow">Grid &amp; output</p>
+        <div class="chips"><span class="chip2">Layout ▦⬡</span><span class="chip2">Labels</span><span class="chip2">MIDI I/O</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="rec">
+    <p class="eyebrow">Commit — group by what the user is doing, fold depth inline</p>
+    <ul style="margin-bottom:0">
+      <li><strong>One chord/scale source.</strong> Capture and Manual both set the harmony today; merge them into a single <em>Chord &amp; scale</em> card. "Custom pitch classes" is just its advanced expander — same card, disclosed on demand.</li>
+      <li><strong>Kill the "Advanced:" prefix.</strong> Depth belongs <em>inside</em> the card it deepens (a <span class="mono">▸ advanced</span> expander), not as standalone sections. Geometric suggestion lives under <em>Fingering</em>; it's how you <em>get</em> a fingering, not a separate mode.</li>
+      <li><strong>Layout joins output.</strong> The new ▦/⬡ switch, labels, and MIDI I/O are all "how it's shown / where it's sent" — one <em>Grid &amp; output</em> card. Six sections become four, each answering one question.</li>
+    </ul>
+  </div>
+  <p class="muted" style="font-size:12.5px;margin-bottom:0">Cards use the shared <span class="mono">.es-section</span> / <span class="mono">.es-eyebrow</span> from G2, so this reads identically to ProgGenie's control column — the IA and the styling land together.</p>
+
+  <div class="footer"><span>Exquisite Fingerings · Design Decisions</span><span>G3 · Control IA</span></div>
+</section>
+
+<!-- ════════════════════ PAGE 5 — G4 ════════════════════ -->
+<section class="page" data-screen-label="G4 Theme toggle and dark mode">
+  <div class="flow-head"><span class="flow-num">G4</span><h2>Finish dark mode, on purpose</h2><span class="verdict commit">Commit</span></div>
+  <p class="muted" style="margin-top:6px">Every sibling has a <span class="mono">● Dark / ☀︎ Light</span> control; this app relies on OS preference only, and the <span class="mono">/* Dark mode (future) */</span> comment is stale. Dark already <em>mostly</em> works because the tokens carry a dark palette — but the pieces that were hand-rolled (G2) were never QA'd in dark.</p>
+
+  <figure>
+    <div class="themes">
+      <div class="tcard tlight">
+        <div class="bar"><span>☀︎ Light</span><span class="ttog">● Dark / ☀︎ Light</span></div>
+        <div class="body">
+          <div class="infobox"><span class="dt" style="background:#3b79be"></span> Captured 3 notes · ready to score</div>
+          <div class="fbtn"><b>1</b><b>2</b><b class="off">3</b><b class="off">4</b><b class="off">5</b></div>
+          <div class="infobox" style="color:#736e62">No saved fingerings yet — capture one to begin.</div>
+        </div>
+      </div>
+      <div class="tcard tdark">
+        <div class="bar"><span>● Dark</span><span class="ttog">● Dark / ☀︎ Light</span></div>
+        <div class="body">
+          <div class="infobox"><span class="dt" style="background:#6da3df"></span> Captured 3 notes · ready to score</div>
+          <div class="fbtn"><b>1</b><b>2</b><b class="off">3</b><b class="off">4</b><b class="off">5</b></div>
+          <div class="infobox" style="color:#908672">No saved fingerings yet — capture one to begin.</div>
+        </div>
+      </div>
+    </div>
+    <figcaption><b>The three surfaces that were never tested in dark.</b> Info boxes (now <span class="mono">.es-panel</span> + dot, contrast-correct on both), <em>disabled</em> finger buttons (the off-state needs ≥3:1 against the dark panel, not the light-mode grey), and the "Saved Fingerings" empty state. The toggle is the shared <span class="mono">theme.js</span> control — <span class="mono">[data-theme]</span> wins over OS, and the choice persists.</figcaption>
+  </figure>
+
+  <div class="rec">
+    <p class="eyebrow">Commit — adopt theme.js, audit the hand-rolled remnants</p>
+    <p style="margin-bottom:0">Drop in the standard toggle (it sets <span class="mono">data-theme</span> and persists to <span class="mono">localStorage</span>; tokens do the rest). Then run the dark audit on exactly the bits G2 replaces — once those use <span class="mono">--es-*</span> tokens they inherit the QA'd dark palette automatically. The pads keep their fixed chromatic colours by design (the dark token block already swaps in the brighter <span class="mono">--es-pc-*</span> originals that hold ≥3:1 on dark surfaces), so the Exquis grid needs no special-casing.</p>
+  </div>
+
+  <div class="footer"><span>Exquisite Fingerings · Design Decisions</span><span>G4 · Theme &amp; dark mode</span></div>
+</section>
+
+<!-- ════════════════════ PAGE 6 — G5 ════════════════════ -->
+<section class="page" data-screen-label="G5 Naming: layout vs orientation">
+  <div class="flow-head"><span class="flow-num">G5</span><h2>Layout ≠ orientation</h2><span class="verdict commit">Commit</span></div>
+  <p class="muted" style="margin-top:6px">Today "Portrait / Landscape" (a hex rotation) sits in Display Options. The moment G1 adds a real <span class="mono">▦ / ⬡</span> <em>layout</em> switch, "Portrait/Landscape" reads as a second layout choice and the two collide. Separate the concepts by naming and by scope.</p>
+
+  <figure>
+    <div class="setrow">
+      <span class="lab">Layout <span class="mut">structure of the grid</span></span>
+      <span><span class="seg"><button><span class="gl">▦</span> Square</button><button class="on"><span class="gl">⬡</span> Hex</button></span></span>
+
+      <span class="lab">Orientation <span class="mut">hex rotation — only when Hex</span></span>
+      <span><span class="seg"><button class="on">▭ Wide</button><button>▯ Tall</button></span> <span class="muted" style="font-size:11.5px;margin-left:8px">hidden in Square</span></span>
+
+      <span class="lab">Labels <span class="mut">what each pad shows</span></span>
+      <span class="chips"><span class="chip2 acc">Note</span><span class="chip2">Pitch-class</span><span class="chip2">MIDI</span></span>
+    </div>
+    <figcaption><b>Two switches that can't be confused.</b> <em>Layout</em> is the primary square/hex choice users came looking for. <em>Orientation</em> is demoted to a hex-only sub-setting (the old Portrait/Landscape rotation), and it simply doesn't appear when Square is active — so there's never a moment with two competing "shape" controls. "Wide / Tall" also reads more plainly than "Landscape / Portrait" for a pad grid.</figcaption>
+  </figure>
+
+  <div class="rec">
+    <p class="eyebrow">Commit — one primary layout switch, orientation as a dependent option</p>
+    <p style="margin-bottom:0">Reserve the word <strong>Layout</strong> for square/hex (matching Chord Dictionary's <span class="mono">◯ ▦ ⬡</span> language). Rename the rotation to <strong>Orientation: ▭ Wide / ▯ Tall</strong> and gate it behind hex. Net effect: the control the user went hunting for is now the prominent one, and the setting that used to look like a layout choice is clearly subordinate to it.</p>
+  </div>
+
+  <hr>
+  <p class="muted" style="font-size:12.5px;margin-bottom:0"><strong>Sequencing.</strong> G1 (shared grid) unlocks G5's naming and feeds G3's "Grid &amp; output" card; G2 (shared components) is the precondition for G4's dark audit. A clean order: <span class="mono">G2 → G1 → G3 → G5 → G4</span>. None of it touches capture, scoring, pattern save/load, or the SysEx path — those ride through unchanged.</p>
+
+  <div class="footer"><span>Exquisite Fingerings · Design Decisions</span><span>G5 · Naming</span></div>
+</section>
+
+</div>
+</body>
+</html>

@@ -8,7 +8,8 @@ import { GridRenderer } from './ui/svg-grid.js';
 import { midiManager } from './core/midi.js';
 import { FingeringPattern, ergoAnalyzer } from './core/fingering.js';
 import { getPitchClasses, getSpelledNoteNames, parseCustomPitchClasses, PITCH_CLASS_SETS } from './core/music.js';
-import { getRowCol, getPadIndex, setGridMode } from './core/grid.js';
+import { getRowCol, getPadIndex, setGridMode, ROW_COUNT, getRowLength } from './core/grid.js';
+import { createPitchGrid, layoutCells } from '@enkerli/ui/pitch-grid';
 import { savePattern, loadPattern, deletePattern, getPatternNames, saveSettings, loadSettings } from './utils/storage.js';
 import { debugLog } from './utils/debug.js';
 import { findChordFingerings } from './analysis/chord-matcher.js';
@@ -66,6 +67,14 @@ class ExquisFingerings {
     this.gridRenderer = new GridRenderer(this.gridElement);
     debugLog('app', '[APP] GridRenderer created');
 
+    // Square layout (shared @enkerli/ui pitch-grid) — a second, fourths-based
+    // view of the same chord/scale + fingerings. Hex stays on the bespoke
+    // Exquis renderer (the real 66-pad hardware geometry the scoring/SysEx
+    // depend on); see DESIGN_DECISIONS G1. Created lazily on first square render.
+    this.gridSquareElement = document.getElementById('gridSquare');
+    this.squareGrid = null;
+    if (!this.settings.layout) this.settings.layout = 'hex';
+
     // Initialize
     this.initUI();
     this.loadStoredSettings();
@@ -82,7 +91,18 @@ class ExquisFingerings {
    * Initialize UI event handlers
    */
   initUI() {
-    // Orientation
+    // Layout: square (shared fourths grid) vs hex (Exquis hardware). G1/G5 —
+    // "Layout" names the grid structure; "Orientation" is a hex-only rotation.
+    document.querySelectorAll('input[name="layout"]').forEach(el => {
+      el.addEventListener('change', () => {
+        this.settings.layout = el.value;
+        this.updateOrientationVisibility();
+        this.render();
+        saveSettings(this.settings);
+      });
+    });
+
+    // Orientation (hex rotation only — gated by layout)
     document.querySelectorAll('input[name="ori"]').forEach(el => {
       el.addEventListener('change', () => {
         this.settings.orientation = el.value;
@@ -372,6 +392,11 @@ class ExquisFingerings {
    * Load stored settings
    */
   loadStoredSettings() {
+    // Layout
+    const layoutRadio = document.querySelector(`input[name="layout"][value="${this.settings.layout}"]`);
+    if (layoutRadio) layoutRadio.checked = true;
+    this.updateOrientationVisibility();
+
     // Orientation
     const oriRadio = document.querySelector(`input[name="ori"][value="${this.settings.orientation}"]`);
     if (oriRadio) oriRadio.checked = true;
@@ -414,8 +439,22 @@ class ExquisFingerings {
   /**
    * Render the grid
    */
+  /** Hide the Orientation control in square layout (it's a hex-only rotation). */
+  updateOrientationVisibility() {
+    const group = document.getElementById('orientationGroup');
+    if (group) group.style.display = this.settings.layout === 'square' ? 'none' : '';
+  }
+
   render() {
     debugLog('app', '[APP] render() called');
+
+    // Layout switch: square uses the shared pitch-grid; hex uses the Exquis
+    // hardware renderer below. Toggle which canvas is visible.
+    const square = this.settings.layout === 'square';
+    if (this.gridElement) this.gridElement.style.display = square ? 'none' : '';
+    if (this.gridSquareElement) this.gridSquareElement.style.display = square ? '' : 'none';
+    if (square) { this.renderSquare(); debugLog('app', '[APP] square render done'); return; }
+
     this.gridRenderer.setOrientation(this.settings.orientation);
     this.gridRenderer.setLabelMode(this.settings.labelMode);
     this.gridRenderer.setBaseMidi(this.settings.baseMidi);
@@ -448,6 +487,73 @@ class ExquisFingerings {
     this.gridRenderer.setFingeringMode(this.fingeringMode || this.handprintMode);
     this.gridRenderer.render();
     debugLog('app', '[APP] render() completed');
+  }
+
+  // ── Square layout (shared @enkerli/ui pitch-grid) ────────────────────────
+  // Geometry constants for the 5×5 fourths grid (chromatic rows in fourths).
+  static get SQUARE() { return { layout: 'square', rows: 5, cols: 5, rowStep: 5, colStep: 1, cellSize: 50 }; }
+
+  /** Render the square fourths view: same chord/scale highlight + the current
+   *  fingering, drawn on the shared pitch-grid and keyed by pitch class. */
+  renderSquare() {
+    const base = this.settings.baseMidi;
+    const highlight = this.handprintMode ? new Set() : this.getHighlightedPCs();
+    const names = this.handprintMode ? null : this.getSpelledNames();
+    const opts = {
+      ...ExquisFingerings.SQUARE,
+      baseMidi: base,
+      colorByPc: true,                 // canonical Exquis pad colours
+      highlight: [...highlight],       // chord/scale tones get the ring
+      labels: this.settings.labelMode, // pc | note | midi
+      // names override the label text in createPitchGrid regardless of mode,
+      // so only supply them when actually showing note names.
+      names: this.settings.labelMode === 'note' ? (names || undefined) : undefined,
+    };
+    if (!this.squareGrid) this.squareGrid = createPitchGrid(this.gridSquareElement, opts);
+    else this.squareGrid.update(opts);
+    this.decorateSquareFingerings(base);
+  }
+
+  /** Overlay finger badges on the square grid. Fingerings live on physical hex
+   *  pads (row,col); map them to pitch classes so they show on the fourths
+   *  grid too — same chord, same fingering, the other geometry (G1 figure). */
+  decorateSquareFingerings(base) {
+    const svg = this.gridSquareElement.querySelector('svg');
+    if (!svg) return;
+    const pattern = this.handprintMode ? null : this.currentPattern;
+    const fingerByPc = new Map();
+    if (pattern) {
+      for (const [key, val] of pattern.fingerings) {
+        const [row, col] = key.split(',').map(Number);
+        const pc = ((base + getPadIndex(row, col)) % 12 + 12) % 12;
+        if (!fingerByPc.has(pc)) fingerByPc.set(pc, val);
+      }
+    }
+    if (fingerByPc.size === 0) return;
+    const { cellSize: unit } = ExquisFingerings.SQUARE;
+    const NS = 'http://www.w3.org/2000/svg';
+    for (const cell of layoutCells({ ...ExquisFingerings.SQUARE, baseMidi: base })) {
+      const f = fingerByPc.get(cell.pc);
+      if (!f) continue;
+      const cx = cell.x * unit + unit / 2 + unit * 0.3;
+      const cy = cell.y * unit + unit / 2 - unit * 0.3;
+      const right = f.hand === 'right';
+      const g = document.createElementNS(NS, 'g');
+      const c = document.createElementNS(NS, 'circle');
+      c.setAttribute('cx', cx); c.setAttribute('cy', cy); c.setAttribute('r', unit * 0.2);
+      c.setAttribute('fill', right ? 'var(--es-fg)' : 'var(--es-bg-raised)');
+      c.setAttribute('stroke', 'var(--es-fg)'); c.setAttribute('stroke-width', '2');
+      const t = document.createElementNS(NS, 'text');
+      t.setAttribute('x', cx); t.setAttribute('y', cy);
+      t.setAttribute('text-anchor', 'middle'); t.setAttribute('dominant-baseline', 'central');
+      t.setAttribute('font-size', String(unit * 0.26));
+      t.setAttribute('font-family', 'var(--es-font-mono)'); t.setAttribute('font-weight', '700');
+      t.setAttribute('fill', right ? 'var(--es-bg-raised)' : 'var(--es-fg)');
+      t.setAttribute('pointer-events', 'none');
+      t.textContent = String(f.finger);
+      g.append(c, t);
+      svg.appendChild(g);
+    }
   }
 
   /**

@@ -404,9 +404,15 @@
         <input id="baseMidi" type="number" value="48" min="0" max="120" />
       </label>
 
-      <h4 style="margin-top:12px;">Orientation</h4>
-      <label><input type="radio" name="ori" value="portrait" checked> Portrait (peaks up)</label>
-      <label><input type="radio" name="ori" value="landscape"> Landscape (flats up)</label>
+      <h4 style="margin-top:12px;">Layout</h4>
+      <label><input type="radio" name="layout" value="hex" checked> ⬡ Hex (Exquis)</label>
+      <label><input type="radio" name="layout" value="square"> ▦ Square (fourths)</label>
+
+      <div id="orientationGroup">
+        <h4>Orientation <span class="muted" style="font-size:11px;">— hex only</span></h4>
+        <label><input type="radio" name="ori" value="portrait" checked> ▯ Tall (peaks up)</label>
+        <label><input type="radio" name="ori" value="landscape"> ▭ Wide (flats up)</label>
+      </div>
 
       <h4>Labels</h4>
       <label><input type="radio" name="lab" value="pc" checked> Pitch class (0–11)</label>
@@ -461,6 +467,7 @@
 
   <main>
     <svg id="grid" aria-label="Exquis hex grid"></svg>
+    <div id="gridSquare" aria-label="Square fourths grid" style="display:none;"></div>
   </main>
 
   <script type="module" src="./app.js"></script>
