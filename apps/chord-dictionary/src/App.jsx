@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { resolvedTheme, toggleTheme } from "@enkerli/ui/theme";
-import { createPcsRing } from "@enkerli/ui/pcs-ring";
 import { createPitchGrid } from "@enkerli/ui/pitch-grid";
+import { chordCircleSVG } from "./chordCircle.js";
 import {
   dictionarySize,
   getAllQualities,
@@ -32,31 +32,56 @@ function exportJson(qualities) {
   URL.revokeObjectURL(url);
 }
 
-/** The selected chord, drawn one of three ways (MIDIsplainer display options).
- *  Mounts the shared @enkerli/ui vanilla component as a React island; remounts
- *  when the view or chord changes (pcs/names are memoized upstream so the deps
- *  are stable between renders of the same chord). */
-function ChordView({ mode, rootPc, pcs, names }) {
+/** The selected chord, drawn one of three ways (MIDIsplainer display options):
+ *  circle = chromatic rim + interval spiral (app-local SVG); square / hex =
+ *  the shared @enkerli/ui pitch-grid, mounted as a React island. */
+function ChordView({ mode, root, rootPc, intervals, notes, pcs, names }) {
   const hostRef = useRef(null);
   useEffect(() => {
+    if (mode === "circle") return; // circle is plain markup, below
     const el = hostRef.current;
-    let handle;
-    if (mode === "circle") {
-      handle = createPcsRing(el, {
-        pcs, root: rootPc, labels: "note", names, colorByPc: true, size: 248,
-      });
-    } else {
-      // chord tones get the solid "chord" role; the rest of the grid is context
-      const roles = new Map([...pcs].map((pc) => [pc, "chord"]));
-      handle = createPitchGrid(el, {
-        layout: mode, rows: 5, cols: 5, baseMidi: 48 + rootPc,
-        rowStep: mode === "hex" ? 4 : 5, colStep: 1, // hex = Exquis; square = fourths
-        roles, labels: "note", names, cellSize: 34,
-      });
-    }
+    // chord tones get the solid "chord" role; the rest of the grid is context
+    const roles = new Map([...pcs].map((pc) => [pc, "chord"]));
+    const handle = createPitchGrid(el, {
+      layout: mode, rows: 5, cols: 5, baseMidi: 48 + rootPc,
+      rowStep: mode === "hex" ? 4 : 5, colStep: 1, // hex = Exquis; square = fourths
+      roles, labels: "note", names, cellSize: 34,
+    });
     return () => handle.destroy();
   }, [mode, rootPc, pcs, names]);
+
+  if (mode === "circle") {
+    return (
+      <div
+        style={{ width: 252 }}
+        dangerouslySetInnerHTML={{ __html: chordCircleSVG({ root, intervals, notes }) }}
+      />
+    );
+  }
   return <div ref={hostRef} style={{ display: "inline-block" }} />;
+}
+
+/** MIDIsplainer-style chord-symbol resolution: "Bb7", "F#m7", or a bare
+ *  alias/suffix ("min7", "-7", "maj7") → { root, qualityKey }. Returns null if
+ *  the quality can't be matched. Root accidentals normalize b/#→♭/♯; quality
+ *  suffixes are matched raw (the dictionary's keys/aliases are ASCII). */
+function resolveChordSymbol(input, qualities, roots) {
+  const s = input.trim();
+  if (!s) return null;
+  const m = s.match(/^([A-Ga-g])([b#♭♯]?)(.*)$/);
+  let root = "C", suffix = s;
+  if (m) {
+    root = m[1].toUpperCase() + m[2].replace("b", "♭").replace("#", "♯");
+    suffix = m[3];
+  }
+  if (m && !roots.includes(root)) return null; // looked like a root but isn't one
+  const want = suffix.trim();
+  const norm = (x) => x.toLowerCase().replace(/♭/g, "b").replace(/♯/g, "#");
+  const match = (c) =>
+    c.key === want || c.displayName === want || c.aliases.includes(want) ||
+    norm(c.key) === norm(want) || c.aliases.some((a) => norm(a) === norm(want));
+  const q = qualities.find(match);
+  return q ? { root, qualityKey: q.key } : null;
 }
 
 export default function App() {
@@ -130,10 +155,15 @@ export default function App() {
           </label>
           <input
             type="search"
-            placeholder="Search name, symbol, alias…"
+            placeholder="Type a chord (Bb7, F#m7) or filter…"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            aria-label="Search chord qualities"
+            onKeyDown={(e) => {
+              if (e.key !== "Enter") return;
+              const hit = resolveChordSymbol(query, qualities, ROOTS);
+              if (hit) { setRoot(hit.root); setSelectedKey(hit.qualityKey); }
+            }}
+            aria-label="Type a chord symbol, or filter the table by name, symbol, or alias"
             className="es-control"
             style={{ flex: "1 1 220px" }}
           />
@@ -168,7 +198,7 @@ export default function App() {
                   <button key={m} className={`es-btn es-small ${mode === m ? "es-primary" : ""}`} onClick={() => setMode(m)}>{label}</button>
                 ))}
               </div>
-              <ChordView mode={mode} rootPc={rootPc} pcs={selPcs} names={selNames} />
+              <ChordView mode={mode} root={root} rootPc={rootPc} intervals={selected.intervals} notes={selTones} pcs={selPcs} names={selNames} />
             </div>
           </div>
         )}
