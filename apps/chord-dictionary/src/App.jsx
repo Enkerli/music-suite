@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { resolvedTheme, toggleTheme } from "@enkerli/ui/theme";
 import { createPitchGrid } from "@enkerli/ui/pitch-grid";
 import { chordCircleSVG } from "./chordCircle.js";
+import { FORTE_BY_DECIMAL } from "./forte.js";
 import {
   dictionarySize,
   getAllQualities,
@@ -17,6 +18,7 @@ const ROOTS = [
   "C", "C♯", "D♭", "D", "D♯", "E♭", "E", "F",
   "F♯", "G♭", "G", "G♯", "A♭", "A", "A♯", "B♭", "B",
 ];
+const ROOT_PC = Object.fromEntries(ROOTS.map((r) => [r, spelledToPc(parseSpelled(r))]));
 
 const cell = { padding: "var(--es-space-2) var(--es-space-3)", borderBottom: "1px solid var(--es-border)", textAlign: "left", verticalAlign: "top" };
 const th = { ...cell, position: "sticky", top: 0, background: "var(--es-bg-raised)", fontSize: "var(--es-text-sm)", color: "var(--es-fg-muted)" };
@@ -32,29 +34,56 @@ function exportJson(qualities) {
   URL.revokeObjectURL(url);
 }
 
+function setsEqual(a, b) {
+  if (a.size !== b.size) return false;
+  for (const x of a) if (!b.has(x)) return false;
+  return true;
+}
+
+/** Other (root, quality) pairs that sound the exact same pitch-class set as the
+ *  selected chord (MIDIsplainer's findSpecificInversions). interval 0 = an
+ *  enharmonic re-spelling (e.g. C♯ vs D♭); interval ≠ 0 = a named inversion. */
+function findEquivalents(root, quality, qualities) {
+  const rootPc = ROOT_PC[root];
+  const target = new Set(quality.pcs.map((pc) => (pc + rootPc) % 12));
+  const alt = [], inv = [];
+  for (const oroot of ROOTS) {
+    const opc = ROOT_PC[oroot];
+    for (const q of qualities) {
+      if (oroot === root && q.key === quality.key) continue;
+      const set = new Set(q.pcs.map((pc) => (pc + opc) % 12));
+      if (!setsEqual(target, set)) continue;
+      const interval = (opc - rootPc + 12) % 12;
+      const entry = { interval, root: oroot, quality: q, notes: spellChordTones(oroot, q.intervals, q.pcs) ?? [] };
+      (interval === 0 ? alt : inv).push(entry);
+    }
+  }
+  inv.sort((a, b) => a.interval - b.interval);
+  return { alt, inv };
+}
+
 /** The selected chord, drawn one of three ways (MIDIsplainer display options):
  *  circle = chromatic rim + interval spiral (app-local SVG); square / hex =
  *  the shared @enkerli/ui pitch-grid, mounted as a React island. */
-function ChordView({ mode, root, rootPc, intervals, notes, pcs, names }) {
+function ChordView({ mode, root, rootPc, intervals, notes, pcs, names, posOffset, showOnlyChordTones }) {
   const hostRef = useRef(null);
   useEffect(() => {
     if (mode === "circle") return; // circle is plain markup, below
     const el = hostRef.current;
-    // chord tones get the solid "chord" role; the rest of the grid is context
     const roles = new Map([...pcs].map((pc) => [pc, "chord"]));
     const handle = createPitchGrid(el, {
-      layout: mode, rows: 5, cols: 5, baseMidi: 48 + rootPc,
+      layout: mode, rows: 5, cols: 5, baseMidi: 48 + rootPc + posOffset,
       rowStep: mode === "hex" ? 4 : 5, colStep: 1, // hex = Exquis; square = fourths
       roles, labels: "note", names, cellSize: 34,
     });
     return () => handle.destroy();
-  }, [mode, rootPc, pcs, names]);
+  }, [mode, rootPc, pcs, names, posOffset]);
 
   if (mode === "circle") {
     return (
       <div
         style={{ width: 252 }}
-        dangerouslySetInnerHTML={{ __html: chordCircleSVG({ root, intervals, notes }) }}
+        dangerouslySetInnerHTML={{ __html: chordCircleSVG({ root, intervals, notes, showOnlyChordTones }) }}
       />
     );
   }
@@ -62,26 +91,35 @@ function ChordView({ mode, root, rootPc, intervals, notes, pcs, names }) {
 }
 
 /** MIDIsplainer-style chord-symbol resolution: "Bb7", "F#m7", or a bare
- *  alias/suffix ("min7", "-7", "maj7") → { root, qualityKey }. Returns null if
- *  the quality can't be matched. Root accidentals normalize b/#→♭/♯; quality
- *  suffixes are matched raw (the dictionary's keys/aliases are ASCII). */
-function resolveChordSymbol(input, qualities, roots) {
+ *  alias/suffix ("min7", "-7", "maj7") → { root, qualityKey, hadRoot }. Root
+ *  accidentals normalize b/#→♭/♯; quality suffixes match raw (dictionary keys
+ *  and aliases are ASCII), with a case- and accidental-insensitive fallback. */
+function resolveChordSymbol(input, qualities) {
   const s = input.trim();
   if (!s) return null;
-  const m = s.match(/^([A-Ga-g])([b#♭♯]?)(.*)$/);
-  let root = "C", suffix = s;
-  if (m) {
-    root = m[1].toUpperCase() + m[2].replace("b", "♭").replace("#", "♯");
-    suffix = m[3];
-  }
-  if (m && !roots.includes(root)) return null; // looked like a root but isn't one
-  const want = suffix.trim();
-  const norm = (x) => x.toLowerCase().replace(/♭/g, "b").replace(/♯/g, "#");
-  const match = (c) =>
-    c.key === want || c.displayName === want || c.aliases.includes(want) ||
-    norm(c.key) === norm(want) || c.aliases.some((a) => norm(a) === norm(want));
-  const q = qualities.find(match);
-  return q ? { root, qualityKey: q.key } : null;
+  // Exact (case-sensitive) first — "m7" is minor, "M7" is major, never conflate.
+  // Then an accidentals-only fallback so "m7b5" matches "m7♭5"; case is kept.
+  const acc = (x) => x.replace(/♭/g, "b").replace(/♯/g, "#");
+  const matchQ = (want) => {
+    const exact = qualities.find((c) =>
+      c.key === want || c.displayName === want || c.aliases.includes(want));
+    if (exact) return exact;
+    const w = acc(want);
+    return qualities.find((c) =>
+      acc(c.key) === w || acc(c.displayName) === w || c.aliases.some((a) => acc(a) === w));
+  };
+  // 1) Whole input as a quality/alias first, so suffixes that begin with a note
+  //    letter ("dim7", "aug", "min7") aren't mis-read as a root.
+  const whole = matchQ(s);
+  if (whole) return { root: null, qualityKey: whole.key, hadRoot: false };
+  // 2) Otherwise parse <root><suffix>: "Bb7", "F#m7". Require a non-empty
+  //    suffix so a lone note letter (mid-typing "dim7") can't hijack the root.
+  const m = s.match(/^([A-Ga-g])([b#♭♯]?)(.+)$/);
+  if (!m) return null;
+  const root = m[1].toUpperCase() + m[2].replace("b", "♭").replace("#", "♯");
+  if (!ROOTS.includes(root)) return null;
+  const q = matchQ(m[3].trim());
+  return q ? { root, qualityKey: q.key, hadRoot: true } : null;
 }
 
 export default function App() {
@@ -89,9 +127,11 @@ export default function App() {
   const [query, setQuery] = useState("");
   const [theme, setThemeState] = useState(resolvedTheme);
   const [mode, setMode] = useState("circle"); // circle | square | hex
+  const [secondPosition, setSecondPosition] = useState(false);
+  const [showAllNotes, setShowAllNotes] = useState(false);
 
   const qualities = useMemo(() => getAllQualities(), []);
-  const rootPc = spelledToPc(parseSpelled(root));
+  const rootPc = ROOT_PC[root];
 
   const defaultKey = useMemo(
     () => (qualities.find((q) => q.fullName === "major triad") ?? qualities[0])?.key,
@@ -99,6 +139,17 @@ export default function App() {
   );
   const [selectedKey, setSelectedKey] = useState(null);
   const activeKey = selectedKey ?? defaultKey;
+
+  // Live chord-symbol / alias resolution: typing an alias selects the right row
+  // (and its root, if the input named one). Substring filtering still applies.
+  function onQuery(value) {
+    setQuery(value);
+    const hit = resolveChordSymbol(value, qualities);
+    if (hit) {
+      setSelectedKey(hit.qualityKey);
+      if (hit.hadRoot) setRoot(hit.root);
+    }
+  }
 
   const rows = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -135,6 +186,28 @@ export default function App() {
     (selected?.pcs ?? []).forEach((pc, i) => m.set((pc + rootPc) % 12, selTones[i] ?? ""));
     return m;
   }, [selected, rootPc, selTones]);
+  const equivalents = useMemo(
+    () => (selected ? findEquivalents(root, selected, qualities) : { alt: [], inv: [] }),
+    [selected, root, qualities],
+  );
+  const forte = (selected && FORTE_BY_DECIMAL[selected.decimal]) || "—";
+
+  // Bring the selected row into view (e.g. when an alias search jumps to it).
+  const activeRowRef = useRef(null);
+  useEffect(() => { activeRowRef.current?.scrollIntoView({ block: "nearest" }); }, [activeKey]);
+
+  const jumpTo = (e) => { setRoot(e.root); setSelectedKey(e.quality.key); };
+  const eqLink = (e, withInterval) => (
+    <button
+      key={`${e.root}-${e.quality.key}`}
+      onClick={() => jumpTo(e)}
+      className="es-link"
+      style={{ background: "none", border: 0, padding: 0, cursor: "pointer", color: "var(--es-accent)", font: "inherit" }}
+      title={e.notes.join(" ")}
+    >
+      {withInterval ? `(${e.interval}) ` : ""}{e.root}{e.quality.displayName}
+    </button>
+  );
 
   return (
     <div className="es-app" style={{ padding: "var(--es-space-4)" }}>
@@ -142,7 +215,7 @@ export default function App() {
         <header style={{ display: "flex", flexWrap: "wrap", gap: "var(--es-space-3)", alignItems: "baseline", marginBottom: "var(--es-space-4)" }}>
           <h1 style={{ fontSize: "var(--es-text-xl)", margin: 0 }}>Chord Dictionary</h1>
           <span style={{ color: "var(--es-fg-muted)", fontSize: "var(--es-text-sm)" }}>
-            {rows.length} of {dictionarySize()} qualities · pick a row to inspect it · fingerprints are MSB-first numerals (pc 0 = leftmost bit)
+            {rows.length} of {dictionarySize()} qualities · type a chord or alias to jump · pick a row to inspect
           </span>
         </header>
 
@@ -155,15 +228,10 @@ export default function App() {
           </label>
           <input
             type="search"
-            placeholder="Type a chord (Bb7, F#m7) or filter…"
+            placeholder="Type a chord or alias (Bb7, F#m7, min7)…"
             value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key !== "Enter") return;
-              const hit = resolveChordSymbol(query, qualities, ROOTS);
-              if (hit) { setRoot(hit.root); setSelectedKey(hit.qualityKey); }
-            }}
-            aria-label="Type a chord symbol, or filter the table by name, symbol, or alias"
+            onChange={(e) => onQuery(e.target.value)}
+            aria-label="Type a chord symbol or alias to jump, or filter the table"
             className="es-control"
             style={{ flex: "1 1 220px" }}
           />
@@ -177,18 +245,31 @@ export default function App() {
             square / hex / circle display options. */}
         {selected && (
           <div className="es-panel" style={{ display: "flex", flexWrap: "wrap", gap: "var(--es-space-4)", marginBottom: "var(--es-space-4)", alignItems: "flex-start" }}>
-            <div style={{ minWidth: 200, flex: "1 1 240px" }}>
+            <div style={{ minWidth: 200, flex: "1 1 280px" }}>
               <div style={{ fontSize: "var(--es-text-2xl, 2rem)", fontWeight: 700, lineHeight: 1.05 }}>{root}{selected.displayName}</div>
               <div style={{ color: "var(--es-fg-2)", marginBottom: "var(--es-space-2)" }}>{selected.fullName}</div>
               <dl style={{ display: "grid", gridTemplateColumns: "auto 1fr", gap: "2px var(--es-space-3)", margin: 0, fontSize: "var(--es-text-sm)" }}>
                 <dt style={{ color: "var(--es-fg-muted)" }}>Notes</dt><dd style={{ margin: 0, fontWeight: 600 }}>{selTones.join(" ")}</dd>
                 <dt style={{ color: "var(--es-fg-muted)" }}>Intervals</dt><dd style={{ margin: 0, ...mono }}>{selected.intervals.join(" ")}</dd>
                 <dt style={{ color: "var(--es-fg-muted)" }}>Pitch classes</dt><dd style={{ margin: 0, ...mono }}>{[...selPcs].sort((a, b) => a - b).join(",")}</dd>
+                <dt style={{ color: "var(--es-fg-muted)" }}>Forte</dt><dd style={{ margin: 0, ...mono }}>{forte}</dd>
                 <dt style={{ color: "var(--es-fg-muted)" }}>Binary</dt><dd style={{ margin: 0, ...mono }}>{selected.binary}</dd>
                 <dt style={{ color: "var(--es-fg-muted)" }}>Decimal</dt><dd style={{ margin: 0, ...mono }}>{selected.decimal}</dd>
                 {selected.aliases.length > 0 && (<>
                   <dt style={{ color: "var(--es-fg-muted)" }}>Aliases</dt>
                   <dd style={{ margin: 0, color: "var(--es-fg-muted)" }}>{selected.aliases.join(", ")}</dd>
+                </>)}
+                {equivalents.alt.length > 0 && (<>
+                  <dt style={{ color: "var(--es-fg-muted)" }}>Alt. spellings</dt>
+                  <dd style={{ margin: 0, display: "flex", flexWrap: "wrap", gap: "0 var(--es-space-2)" }}>
+                    {equivalents.alt.map((e) => eqLink(e, false))}
+                  </dd>
+                </>)}
+                {equivalents.inv.length > 0 && (<>
+                  <dt style={{ color: "var(--es-fg-muted)" }}>Inversions</dt>
+                  <dd style={{ margin: 0, display: "flex", flexWrap: "wrap", gap: "0 var(--es-space-2)" }}>
+                    {equivalents.inv.map((e) => eqLink(e, true))}
+                  </dd>
                 </>)}
               </dl>
             </div>
@@ -198,7 +279,23 @@ export default function App() {
                   <button key={m} className={`es-btn es-small ${mode === m ? "es-primary" : ""}`} onClick={() => setMode(m)}>{label}</button>
                 ))}
               </div>
-              <ChordView mode={mode} root={root} rootPc={rootPc} intervals={selected.intervals} notes={selTones} pcs={selPcs} names={selNames} />
+              {/* Contextual toggle: circle → note visibility; grids → position */}
+              <div style={{ minHeight: 28 }}>
+                {mode === "circle" ? (
+                  <button className={`es-btn es-small ${showAllNotes ? "es-primary" : ""}`} onClick={() => setShowAllNotes((v) => !v)}>
+                    {showAllNotes ? "all notes" : "chord tones"}
+                  </button>
+                ) : (
+                  <button className={`es-btn es-small ${secondPosition ? "es-primary" : ""}`} onClick={() => setSecondPosition((v) => !v)}>
+                    {secondPosition ? "2nd position" : "1st position"}
+                  </button>
+                )}
+              </div>
+              <ChordView
+                mode={mode} root={root} rootPc={rootPc}
+                intervals={selected.intervals} notes={selTones} pcs={selPcs} names={selNames}
+                posOffset={secondPosition ? 2 : 0} showOnlyChordTones={!showAllNotes}
+              />
             </div>
           </div>
         )}
@@ -224,6 +321,7 @@ export default function App() {
                 return (
                   <tr
                     key={c.key}
+                    ref={active ? activeRowRef : undefined}
                     onClick={() => setSelectedKey(c.key)}
                     style={{ cursor: "pointer", background: active ? "var(--es-bg-sunken)" : undefined }}
                   >
