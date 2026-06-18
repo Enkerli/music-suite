@@ -4,6 +4,8 @@
  */
 
 import '@enkerli/ui/tokens.css';
+import '@enkerli/ui/components.css';
+import { resolvedTheme, toggleTheme } from '@enkerli/ui/theme';
 import { GridRenderer } from './ui/svg-grid.js';
 import { midiManager } from './core/midi.js';
 import { FingeringPattern, ergoAnalyzer } from './core/fingering.js';
@@ -91,6 +93,15 @@ class ExquisFingerings {
    * Initialize UI event handlers
    */
   initUI() {
+    // Theme toggle (G4) — the standard suite control; theme.js sets data-theme
+    // and persists, the tokens carry the dark palette.
+    const themeBtn = document.getElementById('themeToggle');
+    if (themeBtn) {
+      const label = () => { themeBtn.textContent = resolvedTheme() === 'dark' ? '☀︎ Light' : '● Dark'; };
+      label();
+      themeBtn.addEventListener('click', () => { toggleTheme(); label(); });
+    }
+
     // Layout: square (shared fourths grid) vs hex (Exquis hardware). G1/G5 —
     // "Layout" names the grid structure; "Orientation" is a hex-only rotation.
     document.querySelectorAll('input[name="layout"]').forEach(el => {
