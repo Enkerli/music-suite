@@ -59,11 +59,12 @@ the hand-off from the last over plain **MIDI**:
 > **harmony → curation → rhythm → expression → sound**
 
 Write a progression in **Progression Studio**, send it to **MIDIcurator** to
-audition and collect — then shape its **expression** with **DrawnQurve** (draw a
-curve, it loops as MIDI) and give it a **sound** with **Vane** (an expressive
+audition and collect, set its **rhythm** with **Serpe** (Euclidean and
+balance-based patterns), shape its **expression** with **DrawnQurve** (draw a
+curve, it loops as MIDI), and give it a **sound** with **Vane** (an expressive
 wavetable synth). **PitchFold**, the pitch-and-tuning explorer, rounds out the
-family. Those last three are really studio plug-ins; what you can open here are
-their browser versions. Only the **rhythm** link is still on the way.
+family. Those four are really studio plug-ins; what you can open here are their
+browser versions — so the whole chain is now walkable, end to end.
 
 ## A standing promise
 
