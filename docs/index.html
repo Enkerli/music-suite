@@ -104,8 +104,26 @@
       <div class="shot"><img src="assets/screenshots/pitchfold.png" alt="PitchFold" onload="this.classList.add('ok')"><span class="ph">screenshot → assets/screenshots/pitchfold.png</span></div>
       <div class="card-body">
         <div class="card-head"><img src="assets/icons/pitchfold.svg" alt=""><h3>PitchFold</h3></div>
-        <p>A pitch and tuning explorer — part of the family, sharing the same note-spelling and pad-grid foundations.</p>
-        <div class="card-links"><span class="chip soon" data-app="pitchfold">Coming soon</span></div>
+        <p>A pitch &amp; tuning explorer and scale quantizer — build pitch-class sets on the ring, snap incoming notes to them. A JUCE plugin; this is its web UI.</p>
+        <div class="card-links"><a class="chip open" data-app="pitchfold" href="apps/pitchfold/">Open app ↗</a></div>
+      </div>
+    </article>
+
+    <article class="card">
+      <div class="shot"><img src="assets/screenshots/drawnqurve.png" alt="DrawnQurve" onload="this.classList.add('ok')"><span class="ph">screenshot → assets/screenshots/drawnqurve.png</span></div>
+      <div class="card-body">
+        <div class="card-head"><img src="assets/icons/drawnqurve.svg" alt=""><h3>DrawnQurve</h3></div>
+        <p>Draw a curve and it loops as MIDI — the suite's expression stage. Shape CC, aftertouch, or pitch-bend lanes by hand. A JUCE plugin; this is its web UI.</p>
+        <div class="card-links"><a class="chip open" data-app="drawnqurve" href="apps/drawnqurve/">Open app ↗</a></div>
+      </div>
+    </article>
+
+    <article class="card">
+      <div class="shot"><img src="assets/screenshots/vane.png" alt="Vane" onload="this.classList.add('ok')"><span class="ph">screenshot → assets/screenshots/vane.png</span></div>
+      <div class="card-body">
+        <div class="card-head"><img src="assets/icons/vane.svg" alt=""><h3>Vane</h3></div>
+        <p>The suite's sound: an expressive wavetable synth voiced for breath, pressure, and slide. The end of the chain. A JUCE plugin; this is its web UI.</p>
+        <div class="card-links"><a class="chip open" data-app="vane" href="apps/vane/">Open app ↗</a></div>
       </div>
     </article>
 
@@ -125,7 +143,7 @@
 </div></section>
 
 <section><div class="wrap">
-  <p class="note"><b>Hosting note.</b> The apps are built into <code>docs/apps/&lt;slug&gt;/</code> and served from this same GitHub&nbsp;Pages site — “Open app ↗” opens the live build. To rebuild one: <code>npm run build -w &lt;workspace&gt; -- --base=./ --outDir docs/apps/&lt;slug&gt; --emptyOutDir</code>. PitchFold isn't in the monorepo yet, so its card is marked <em>Coming soon</em>.</p>
+  <p class="note"><b>Hosting note.</b> Every card opens a live build served from this same GitHub&nbsp;Pages site (<code>docs/apps/&lt;slug&gt;/</code>). The six monorepo apps build with <code>npm run build -w &lt;workspace&gt; -- --base=./ --outDir docs/apps/&lt;slug&gt; --emptyOutDir</code>. <b>PitchFold, DrawnQurve, and Vane are JUCE plugins in separate repos</b> — what's deployed here is each plugin's WebView UI, built from its own repo and copied in, so it runs standalone in the browser (without the plugin's audio/host).</p>
 </div></section>
 
 </main>
