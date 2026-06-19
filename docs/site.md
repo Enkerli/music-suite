@@ -1,0 +1,807 @@
+<!-- =====================================================================
+     THE SITE, IN ONE FILE.
+
+     This is the single source of all text on the Music Suite site. Edit the
+     prose freely. Then run:  npm run build-site
+     …which repopulates docs/index.html and docs/content/*.md from this file.
+
+     The only rule: keep the `<!-- kind ... -->` marker lines intact — they
+     tell the generator where each block starts. Everything between markers is
+     plain Markdown you can rewrite however you like. (Re-ordering app cards is
+     fine; just move a whole `card` block.)
+     ===================================================================== -->
+
+<!-- meta -->
+title: Music Suite — a family of tools for making music
+description: A family of music-making tools: generate and shape chord progressions, curate MIDI, explore chords and pitch — at a desk, on an iPad, or inside your studio software.
+
+<!-- nav -->
+brand: Music Suite
+link: Apps -> #apps
+link: The story -> doc.html?p=the-story
+link: Guide -> doc.html?p=user-guide
+link: Architecture -> doc.html?p=architecture
+link: GitHub -> https://github.com/Enkerli/music-suite
+
+<!-- hero -->
+eyebrow: A family of music-making tools
+heading: Make, shape, and *understand* the harmony of a song.
+cta: [Read the story →](doc.html?p=the-story) primary
+cta: [Browse the apps](#apps)
+
+Songs are built on chords and the order you move between them. This suite helps you write that backbone, hear it, read it back, and pass it between tools — at a desk, on an iPad, or right inside your studio software.
+
+<!-- apps -->
+The apps
+Each does one thing well, and they pass work between them. Open one in your browser, or read its docs.
+
+<!-- card proggenie link=apps/proggenie/ docs=proggenie-story -->
+Progression Studio
+Generate jazz chord progressions from a corpus of 2,611 lead sheets, edit them on a leadsheet, hear them, and understand their harmony.
+
+<!-- card midicurator link=apps/midicurator/ -->
+MIDIcurator
+Collect, audition, and curate MIDI clips — host-synced, with a file-backed library. The next stop after a progression.
+
+<!-- card exquisite-fingerings link=apps/exquisite/ app=exquisite -->
+Exquisite Fingerings
+See chords and scales laid out on isomorphic pad grids — square (Launchpad) and hex (Exquis) — the way you actually play them.
+
+<!-- card pickpcs link=apps/pickpcs/ -->
+PickPCS
+Explore sets of notes on an interactive ring — build, name, and hear pitch-class sets and the chords they form.
+
+<!-- card chord-dictionary link=apps/chord-dictionary/ -->
+Chord Dictionary
+Look up chords — their qualities, spellings, and voicings — the shared reference the rest of the suite draws on.
+
+<!-- card style-gallery link=apps/style-gallery/ -->
+Style Gallery
+The suite's "paper & ink" design system, live — the colours, type, and components every app is built from.
+
+<!-- card pitchfold link=apps/pitchfold/ -->
+PitchFold
+A pitch & tuning explorer and scale quantizer — build pitch-class sets on the ring, snap incoming notes to them. A JUCE plugin; this is its web UI.
+
+<!-- card drawnqurve link=apps/drawnqurve/ -->
+DrawnQurve
+Draw a curve and it loops as MIDI — the suite's expression stage. Shape CC, aftertouch, or pitch-bend lanes by hand. A JUCE plugin; this is its web UI.
+
+<!-- card vane link=apps/vane/ -->
+Vane
+The suite's sound: an expressive wavetable synth voiced for breath, pressure, and slide. The end of the chain. A JUCE plugin; this is its web UI.
+
+<!-- card serpe link=apps/serpe/ -->
+Serpe
+The rhythm stage — generate and explore patterns (Euclidean, Barlow, polygon) with perfect-balance analysis. A JUCE plugin; this is its web explorer.
+
+<!-- docs -->
+Documentation
+Start with the suite story; the deeper docs cover Progression Studio, the flagship.
+
+<!-- doclink the-story page=the-story -->
+The Suite
+A plain-language tour of the whole family — what it is and how the apps fit together.
+
+<!-- doclink proggenie-story page=proggenie-story -->
+Progression Studio — Story
+The flagship up close, still in plain language.
+
+<!-- doclink user-guide page=user-guide -->
+User Guide
+How to use Progression Studio, step by step.
+
+<!-- doclink architecture page=architecture -->
+Architecture
+The code: data model, theory modules, the three runtimes.
+
+<!-- doclink history page=history -->
+History & Roadmap
+How it got here, and where it's going.
+
+<!-- note -->
+**Hosting note.** Every card opens a live build served from this same GitHub Pages site (`docs/apps/<slug>/`). The six monorepo apps build with `npm run build -w <workspace> -- --base=./ --outDir docs/apps/<slug> --emptyOutDir`. **PitchFold, DrawnQurve, and Vane are JUCE plugins in separate repos** — what's deployed here is each plugin's WebView UI, built from its own repo and copied in, so it runs standalone in the browser (without the plugin's audio/host).
+
+<!-- footer -->
+Music Suite · transition statistics derived from the Impro-Visor imaginary-book corpus (GPL) — counts only; the lead sheets are never published. · [github.com/Enkerli/music-suite](https://github.com/Enkerli/music-suite)
+
+<!-- page the-story -->
+
+# The Music Suite — the story
+
+*A plain-language tour of the whole family, for anyone — no music theory or
+coding required.*
+
+## One idea, several tools
+
+Most music software does one of two things: it makes **sound**, or it helps you
+**arrange notes**. This suite has a third goal running through all of it — to
+help you *understand* the music you're working on, not just produce it. Name a
+chord, see which notes sing over it, watch a progression tip into a new key,
+lay a shape out the way your hands actually play it.
+
+It isn't one big program. It's a small **family of tools**, each doing one job
+well, that look and feel the same and hand their work to one another.
+
+## The shared foundation
+
+Underneath every app sits a single **music-theory core** — one carefully
+tested library that knows notes, chords, scales, and how they relate. Every
+app draws on the same brain, so a chord named in one place means exactly the
+same thing everywhere. (That core is also the *reference*: its answers are
+pinned down by test cases other versions — in other programming languages —
+must match, so the suite can grow without drifting.)
+
+They also share a look: a calm **"paper & ink"** style, the same colours and
+type throughout, so moving between tools feels like staying in one room.
+
+## The apps
+
+- **Progression Studio** *(nickname: ProgGenie)* — the most developed member,
+  and the suite's front door to harmony. It writes jazz chord progressions
+  drawn from the habits of 2,611 lead sheets, lets you edit them on a song
+  sheet, plays them back, and quietly explains what's going on. It runs in a
+  browser, as its own app, and as a plug-in inside studio software.
+- **MIDIcurator** — the next stop. Drop in MIDI clips, see them on a piano
+  roll, hear them, and have their chords named for you; tag, rate, and search a
+  growing library, and spin off denser or sparser variants of any pattern. It's
+  where a progression becomes a collection of usable parts.
+- **PickPCS** — a playground for **sets of notes**. Build a chord or scale on
+  concentric rings laid out by the circle of fifths, and see how the bigger
+  scale families and the smaller chords nested inside them relate.
+- **Chord Dictionary** — the shared reference the others lean on: look up any
+  chord by name or by its notes, with its spelling, its fingerprint, and its
+  aliases. Plain, fast, and authoritative.
+- **Exquisite Fingerings** — chords and scales laid out on **isomorphic pad
+  grids** (square, like a Launchpad; hex, like the Exquis controller) — the way
+  you actually reach for them. Highlight a scale, work out a fingering, save the
+  shape.
+- **Style Gallery** — the "paper & ink" design system itself, on a page: the
+  colours, type, and building blocks every app is made of. If something looks
+  wrong across the suite, this is where you'd see it first.
+
+## How they fit together
+
+The throughline is a workflow you can walk end to end, with each tool taking
+the hand-off from the last over plain **MIDI**:
+
+> **harmony → curation → rhythm → expression → sound**
+
+Write a progression in **Progression Studio**, send it to **MIDIcurator** to
+audition and collect, set its **rhythm** with **Serpe** (Euclidean and
+balance-based patterns), shape its **expression** with **DrawnQurve** (draw a
+curve, it loops as MIDI), and give it a **sound** with **Vane** (an expressive
+wavetable synth). **PitchFold**, the pitch-and-tuning explorer, rounds out the
+family. Those four are really studio plug-ins; what you can open here are their
+browser versions — so the whole chain is now walkable, end to end.
+
+## A standing promise
+
+Progression Studio learned from **2,611 real jazz lead sheets**, but it only
+ever keeps their *habits* — which chords tend to follow which — never the songs
+themselves. The original charts never leave the machine and are **never
+published**. The suggestions carry the collective instinct of thousands of
+tunes without copying any single one.
+
+## Where they run
+
+In a web browser, on an iPad, and — for Progression Studio — right inside the
+studio software you already work in. Same tools, wherever you are.
+
+---
+
+Want to go deeper on the flagship? Read **[Progression Studio's own
+story](doc.html?p=proggenie-story)**, its **[user guide](doc.html?p=user-guide)**,
+the **[architecture](doc.html?p=architecture)**, or the
+**[history & roadmap](doc.html?p=history)**.
+
+<!-- page proggenie-story -->
+
+# Progression Studio — the story
+
+*A plain-language tour, for anyone — no music theory or coding required.*
+
+## What it is
+
+Songs are built on **chords** — small bunches of notes played together — and on
+the order you move between them. That order is a **chord progression**: the
+harmonic backbone a song sits on. Progression Studio (nickname: *ProgGenie*) is
+a tool for making, shaping, and understanding those progressions. Think of it as
+a sketchpad with a knowledgeable studio partner built in.
+
+## Where its ideas come from
+
+It learned from **2,611 real jazz lead sheets** — the simple chords-and-melody
+charts musicians read from. It didn't memorize the songs; it noticed their
+**habits** — which chords tend to follow which — the way you might learn that in
+English "thank" is usually followed by "you." Only those habits are kept and
+shared; the original songs never leave the machine. So its suggestions draw on
+the collective instinct of thousands of tunes without copying any single one.
+
+## What you can do with it
+
+- **Ask for an idea.** One button writes a fresh progression, any key, any
+  length. Simple dials make it safer or more adventurous.
+- **Make it yours.** Tap a chord to change it, move chords around, type a
+  progression in by hand, or play chords on a music keyboard and have them
+  written down for you.
+- **Teach it your taste.** Give the moves you like a thumbs-up (and the ones you
+  don't a thumbs-down); it remembers and leans your way next time. Your taste
+  becomes a little profile you can save and reuse.
+- **Hear it.** Play it back — a *now-playing* card follows along, showing the
+  current chord and what's coming next.
+- **Pass it on.** Hand the result to the other tools in the family, or save it
+  as a standard music file.
+
+## It reads the music back to you
+
+Beyond *making* chords, it gently **explains** them. It names each chord, shows
+which notes will sound sweet over it and which to handle with care, points out
+the strong, satisfying "coming-home" moments, and notices when a passage briefly
+tips into a new key — quietly re-labelling it so it reads true. One tap flips
+between musician's shorthand and plain chord names.
+
+## The story so far
+
+It began as a small experiment that could spit out plausible chord sequences. It
+grew into a real instrument — and into one member of a **family of music tools**
+that pass work between them. Along the way it was redesigned around a single
+clear idea:
+
+> **The song sheet is always the centre of the screen, and everything else is
+> there to help it** — the generator proposes into it, your playing writes into
+> it, your taste colours it, the library remembers it.
+
+From there it kept getting smarter about how harmony actually works, and learned
+to play along live. That one idea — *one document, everything else assists it* —
+is still what holds the whole thing together.
+
+## Where it runs
+
+The same program runs three ways: as a **web page**, as its **own app**, and as
+a **plug-in inside music software** — so you can use it at a desk, on an iPad, or
+right inside a studio setup you already work in.
+
+<!-- page user-guide -->
+
+# Progression Studio — User Guide
+
+ProgGenie is built around one idea: **the leadsheet is the document; everything
+else assists it.** You generate into it, type or paste into it, play MIDI into
+it, rate it, re-read it in different ways, hear it, and send it on. This guide
+walks each of those.
+
+---
+
+## 1. Starting a progression — the four front doors
+
+The **document strip** at the top names the current progression (title,
+composer, a source badge) and offers four ways to begin:
+
+- **New** — blank the sheet and start from scratch.
+- **Generate** — *New take* re-rolls the generator (see §2). The sheet also
+  updates live as you change generator settings.
+- **Open…** — recall a progression from your **library** (the ones you've
+  saved; the corpus itself is never browsable).
+- **Type / paste a leadsheet…** (under *Import…*) — paste **bar notation** on
+  one or more lines: bars split on `|`, a held bar repeats with `%`, chords
+  within a bar are space-separated. Example: `Dm7 G7 | Cmaj7 | A7 | Dm7`. You
+  can also **open a `.mid` file** (it reads the embedded progression).
+
+A **blank sheet** shows a prompt with these options, so the text-entry path is
+visible exactly when you'd reach for it.
+
+> **Tip — chord names vs degrees.** When you paste chord names (`Cmaj7 Am7 …`)
+> the editor switches to showing **chord names**. Flip any time with the
+> **`I ⇄ Cmaj7`** button by the sheet (see §4).
+
+---
+
+## 2. Generating
+
+The generator settings sit in labelled groups; the sheet regenerates live, and
+**New take** re-rolls the random walk.
+
+| Group | Control | What it does |
+| --- | --- | --- |
+| **Key** | Key, Mode | The home key (major/minor). |
+| **Length & pacing** | Bars, Harmonic rhythm | How many bars, and the default chord length (1 beat … 4 bars, or *varied*). |
+| **Source** | Engine, Start from | Corpus walk / corpus walk + cadence / circle of fifths; and an optional seed chord. |
+| **Adventurousness** | Surprise, Freshness | *Surprise* reaches further down each transition's probability list; *Freshness* (faithful / fresh / bold) avoids clichés (repeats, quick returns, rote V→I). |
+| **Voice** | Voicing, Voice-leading, Channels | Chord voicing shape; voice-leading mode (none / loose / strict); MIDI channel split (channels divide the output *by voice*). |
+| **Depth** *(advanced ▸)* | Context, Reharm, Modulation | Generation depth — see below. |
+
+**Depth** controls (occasionally set):
+
+- **Context** — *variable-order Markov*. "2 chords" leans on what the corpus
+  knows tends to follow a **two-chord** context (longer-range phrasing);
+  "1 chord" is the plain first-order walk.
+- **Reharm** — probabilistic **substitutions**: tritone (♭II7 for V7) and
+  backdoor (♭VII7) dominants, *subtle* or *bold*.
+- **Modulation** — **mechanical** key changes: a new corpus-common related key
+  (dominant / subdominant / relative / up-a-step) every N bars, shown as real
+  **sections** with a bold seam divider. (For *harmony-driven* key reading, use
+  **implied keys** in §4.)
+
+Everything is **seeded and deterministic**: the same settings give the same
+progression. Save a whole settings set as a **Patch** (the *patch · Save…/Load…*
+buttons) to recall a generator configuration later.
+
+---
+
+## 3. Editing the leadsheet
+
+The leadsheet is a grid of bars; tap a tool, then work directly.
+
+- **✏️ Edit** (default):
+  - **Insert** — tap a **caret** (the `+` between cells, or the trailing `+`)
+    to type a chord or pick a voice-led suggestion.
+  - **Open a chord** — tap the cell to open the **inspector** (retype,
+    consonance, duration, voicing lock/unlock, rate, why, the chord-scale grid,
+    move, delete).
+  - **Move a chord** — **press and hold** the cell to lift it (on desktop the
+    cell shows a grab cursor; the `⠿` grip is the hint), then **tap a caret**
+    to drop it. (Tap-the-grip → tap-a-caret also works, and is the
+    keyboard-/precision-friendly path.)
+  - **Duration** — in the inspector, a sole-in-bar chord can be held 1–4 bars
+    (`%` repeat bars); a chord sharing a bar can be split to its own whole bar.
+- **👍 / 👎** — *rating tools*: tap chords to reinforce or weaken the move
+  *into* each one. This is **curation** (see §6); the cell tints to show it.
+
+The **write cursor** is the blinking caret marking where the next inserted or
+**played** chord lands; tap any caret to re-aim it (see §5).
+
+---
+
+## 4. Reading the harmony — display toggles (by the sheet)
+
+These change how the sheet *reads*; none of them change the chords, the sound,
+or the export.
+
+- **`I ⇄ Cmaj7`** — show every chord as a **Roman degree** (composer view) or a
+  **chord name** (reading/entering a known tune). Pasting chord names selects
+  the name view automatically.
+- **◇ implied keys** — **read the harmony** for local key areas: secondary
+  dominants and ii–V–Is that tonicize a non-home chord (e.g. `A7 Dm7` → a brief
+  D-minor area) are **re-spelled in their own key** with a **quiet tag** on the
+  span (no divider, can start mid-bar). Works on generated, edited, **and
+  pasted/imported** progressions — it's a re-reading, the chords don't move.
+- **Motion** (off / notable / all) — the **transition-character overlay**: a
+  **↝ arrow** marks root motion by a fifth (cadences: V→I, ii→V, secondary
+  dominants), a **quiet underline** marks a step. *notable* hides ordinary
+  diatonic steps so a busy tune isn't painted solid.
+
+### The chord-scale (the inspector's hero)
+
+Tap a chord to open its inspector and see its **chord-scale** on an
+**isomorphic pad grid**:
+
+- Geometry toggle — **▦ square** (chromatic rows in fourths; 5×5 ≈ two octaves)
+  or **⬡ hex** (Exquis: major-3rd NE, minor-3rd NW).
+- Roles read by **shape + glyph, never colour alone**: chord tone = solid pad,
+  scale tone = outline, **tension** = dotted edge + `•`, **avoid** = dashed
+  edge + `⊘`.
+- A line names the scale and calls out avoid notes — **preferring the
+  avoid-note-free scale** when one exists (e.g. Cmaj7 → *Lydian · or Ionian
+  (avoid F)*).
+
+---
+
+## 5. Playing chords in by MIDI (plugin / standalone)
+
+Route a MIDI keyboard into the plugin and play a chord. It's **identified and
+held** (so you can release both hands), then shown as a **ghost cell at the
+write cursor** inside the sheet:
+
+- **✓** writes it, locking the **voicing as played**, and advances the cursor.
+- **▸** opens *completions* ("one tone shy of a common chord") and *alternate
+  voicings* (smoothest from the last chord), each one-tap.
+- **✕** dismisses the held chord.
+- Tap a caret to **re-aim** the cursor and write mid-progression.
+
+The status line below the sheet shows MIDI routing and what's currently held.
+
+---
+
+## 6. Curation — shaping the generator's taste
+
+Rating transitions builds a **profile** that biases what the generator
+proposes (and what the MIDI picker suggests). Rate from three places — they all
+feed **one functional, key-independent ledger**:
+
+- per-chord **👍 / 👎** in the sheet (the move *into* a chord),
+- **More like this / Bit meh** on a whole progression,
+- the corpus stats view.
+
+The curation panel shows **Your profile** as a *shape* — the strongest few
+boosts and suppressions, with a count. The full ledger is one disclosure away
+(**All weights**), with a **filter** (`from … into …` degree) — handy as the
+list grows: "everything into V7". Because weights are functional, a V→I you
+favoured in a C verse applies in a G bridge too. The inspector's **"why this
+chord"** line closes the loop ("you favour V7→I").
+
+Profiles **save/load** as JSON (Replace or Merge an incoming one).
+
+---
+
+## 7. Hearing it & the now-playing card
+
+In the **web app and the JUCE standalone**, a **Play** button (with Tempo)
+auditions the progression through WebAudio. In the **AUv3 plugin**, the **host
+transport** drives playback (use your DAW's play button).
+
+During playback a **now-playing card** follows the playhead: the **sounding
+chord** big, its **chord-scale pad grid lit** (the tones pulse), and a **next
+up** preview. The leadsheet's chord-follow highlight tracks the same playhead.
+
+---
+
+## 8. Sending it on — export & MIDIcurator
+
+The progression travels as a **Standard MIDI File** that **embeds the canonical
+progression** (so the suite can read it back):
+
+- **Send to MIDIcurator** — the named destination; saves a leadsheet-bearing
+  `.mid` you open in MIDIcurator.
+- **Export MIDI file** — the same SMF as a plain file.
+- **Copy chords** — the chord symbols to the clipboard.
+
+Both routes write the same bytes through the native save/share path (no blob
+downloads in the plugin's WebView). The filename uses the document title.
+
+---
+
+## 9. Library
+
+**Save to library** snapshots the current progression (title · composer · key ·
+bars · source) into local storage — the canonical Progression object, so locked
+voicings and durations survive. **Open…** recalls one. The library holds **only
+your own** progressions; the corpus is never browsable or exported.
+
+---
+
+## Keyboard & accessibility notes
+
+- The leadsheet is operable by tap/click and keyboard; the move gesture has a
+  no-drag fallback (tap to pick up → tap a caret to drop).
+- Motion / role cues use **shape + glyph**, legible in greyscale and for
+  colour-blind readers; colour only reinforces.
+- Animations (cursor blink, the now-playing pulse) respect
+  `prefers-reduced-motion`.
+- Light "paper" theme is the default; **● Dark** is one tap away.
+
+<!-- page architecture -->
+
+# Progression Studio — Architecture
+
+How the code is organized and why. ProgGenie is one React app
+(`apps/progression-studio`) that leans on shared, framework-agnostic suite
+packages (`@enkerli/theory`, `@enkerli/ui`, `@enkerli/midi`) and runs unchanged
+in three environments (web, JUCE standalone, AUv3 plugin).
+
+```
+music-suite/                      (monorepo; npm workspaces)
+├── apps/progression-studio/      ← this app (React + Vite)
+│   └── src/
+│       ├── App.jsx               the whole UI + the generation/analysis pipeline
+│       ├── generate.js           Markov walk, voicing, rhythm, variable-order blend
+│       ├── curation.js           the taste layer (transition multipliers, profiles)
+│       ├── exportMidi.js         SMF export (embeds the canonical Progression)
+│       ├── chordInput.js         held-note tracker → detected chord (MIDI in)
+│       ├── library.js            localStorage progression library
+│       ├── juceBridge.js         browser ⇄ JUCE bridge shim (copied from foundation)
+│       └── data/
+│           ├── transitions.json  first-order corpus table (derived stats)
+│           └── trigrams.json     second-order corpus table (derived stats)
+├── packages/theory/              ← @enkerli/theory (pure, TypeScript, vectored)
+├── packages/ui/                  ← @enkerli/ui (framework-agnostic create*(el,opts))
+└── packages/midi/                ← @enkerli/midi (SMF core + leadsheet round-trip)
+```
+
+The JUCE plugin is a **separate repo** (`progression-studio-plugin`) that
+embeds this app's built bundle in a WebView — see [The three runtimes](#the-three-runtimes).
+
+---
+
+## The data contract: `Leadsheet` / `Progression`
+
+The keystone type lives in `@enkerli/theory` (`leadsheet.ts`). Everything — the
+generator, the editor, MIDI import/export — is an instance of it.
+
+```ts
+interface Progression { key: KeyContext; meta?: {…}; sections: Section[]; }
+interface Section     { label?: string; key?: KeyContext; bars: Bar[]; }   // key → modulation
+interface Bar         { chords: ProgChord[]; repeat?: boolean; }           // repeat = "%" held bar
+interface ProgChord   { source: "degree"|"absolute"; degree?: RomanDegree;
+                        symbol?: {root,suffix,bass}; voicing?: number[]; inputText?: string; }
+```
+
+Key points:
+
+- A chord holds a **degree** (key-relative Roman) and/or an **absolute** symbol;
+  `realizeChord(chord, key)` fills the other from the key. Degree chords
+  re-realize per key; absolute chords are key-invariant.
+- A **Section** carries an optional `key` — that's how **modulation** works:
+  `realizeLeadsheet` realizes each section against `section.key ?? prog.key`.
+- **Durations aren't stored.** A bar's chords divide its beats by the leadsheet
+  convention (`divideBar`: 3 → ½+¼+¼); a chord held past a bar becomes a
+  whole-bar chord + `%` repeat bars. Inserting/removing re-divides — no
+  overflow.
+
+`parseLeadsheet(text, key)` and `formatLeadsheet(prog)` round-trip bar notation.
+
+---
+
+## The corpus and its statistics
+
+The source is Carey Bunks's Jazz-Chord-Progressions corpus, derived from
+Impro-Visor's imaginary-book lead sheets (GPL). **The lead sheets are never
+published** — only **derived statistics** ship:
+
+- `data/transitions.json` — first-order **pair** counts per degree transition
+  (`"IIm7": {"V7": …}`), per mode.
+- `data/trigrams.json` — second-order **context** counts (`"prev2 → prev1":
+  {next: …}`), pruned to count ≥ 3 and ≥2-option contexts.
+
+Both are regenerated by `@enkerli/corpus-tools` (`regenerate-transitions
+<corpusDir> <outPrefix> --respell`) over the local corpus; the CLI never copies
+the corpus, only the counts. `--respell` matches the canonical published table.
+
+---
+
+## The generation → display pipeline (App.jsx)
+
+A single `useMemo` chain turns settings into the displayed progression. Each
+stage is pure and seeded:
+
+```
+rhythm   = rhythmPlan(bars, harmonicRhythm, seed)           // a per-bar plan
+labels   = generateSections(table[mode], mode, { …, trigrams, smart })
+           → a seeded Markov walk of degree labels (IIm7 V7 Imaj7 …)
+           · variable-order: blendTrigram folds the second-order distribution in
+           · curation multipliers + gesture triples + variety re-weight the walk
+reharmed = applySubstitutions(labels, { tritone, backdoor })   // count-preserving
+baseProg = modulate==="off" ? buildProgression(reharmed, rhythm, key)
+                            : buildProgressionSectioned(…, keyForBar)  // mechanical
+effectiveProg = (edited && edited.genId === genId) ? edited.prog : baseProg
+chords   = chordsFromProgression(effectiveProg, key)   // realized per section key
+voicings = voiceProgression(chords, { voiceLeadMode, voicingShape })
+```
+
+### `genId` — generated vs edited
+
+`genId` is a string of every **generation** parameter (key, seed, bars, rhythm,
+surprise, freshness, engine, start, reharm, modulate, context, opCount). An
+**edit** is stamped with the `genId` it was made under; while that matches,
+`effectiveProg` is the edit, otherwise it falls back to the fresh generation.
+This makes "generate vs hand-edit" a synchronous, single-source decision — no
+post-render reconciliation. The React editor is **remounted** (via `key={genId}`)
+on a generation op so internal edits aren't clobbered.
+
+### Display analyses (don't touch the chords)
+
+- **Implied modulation** (`showImplied`) — `analyzeKeyAreas` over the displayed
+  chords' home-key functional degrees → flat-index `keyAreas` spans, passed to
+  the editor, which **re-spells per chord** (via the real root, so a degree
+  chord re-spells without transposing) and shows a quiet tag. Curation reads the
+  area key too (functional ledger stays correct).
+- **Motion overlay** (`showMotion`) — `transitionMotion(fromPc, toPc, key)` →
+  `motionOf(i)` → the editor draws ↝ / underline in the gap before each chord.
+- **Chord-scale grid** — `scaleGridOf(i)` builds a per-pc role map from
+  `chordScaleFor`; the editor (inspector) and the now-playing card render it via
+  the shared `pitch-grid`.
+
+---
+
+## `@enkerli/theory` modules (pure, vectored)
+
+| Module | Responsibility |
+| --- | --- |
+| `leadsheet.ts` | The `Progression` type, `parseLeadsheet`/`formatLeadsheet`, `realizeChord`/`realizeLeadsheet`. |
+| `analysis.ts` | `assertDegree` (note → Roman degree in a key), `resolveDegree` (Roman → spelled note), degree frames. |
+| `chords.ts` · `chordSymbol.ts` · `chordDetect.ts` | Chord quality dictionary, symbol parsing, pcs-based detection. |
+| `spelling.ts` · `pitch.ts` · `pcs.ts` | Structural note spelling, pitch helpers, PCS codecs (MSB-first). |
+| `voiceLeading.ts` | Taxicab (L1) voice leading — the suite's reference implementation. |
+| `chordScale.ts` | Chord → scale (structural classifier) + tensions + **avoid notes**, **preferring the avoid-note-free scale**; returns alternates with their own avoid notes. |
+| `substitutions.ts` | Reharmonization over a label stream: tritone / backdoor / passing-dim, mode-aware, seeded. |
+| `modulation.ts` | Corpus-common related keys + `planModulation` (mechanical, every-N-bars). |
+| `keyAreas.ts` | **Implied modulation** detection — ii–V–I / secondary-dominant tonicizations → local key areas. |
+| `motion.ts` | **Transition character** — root-interval classification (fifth / step / …) + `notable`. |
+| `rhythm.ts` | Bar-plan / harmonic-rhythm primitives. |
+
+All ship with pinned **vectors** (`*.test.ts`); the Lua/C++ ports of the codecs
+must match the same vectors.
+
+---
+
+## The shared editor (`@enkerli/ui/leadsheet-editor.js`)
+
+`createLeadsheetEditor(el, opts) → handle`. Framework-agnostic (plain DOM),
+driven by the `Progression` type. The same editor serves ProgGenie
+(degree-authored) and MIDIcurator (absolute).
+
+It owns its `Progression` after mount and emits `onChange(prog)`; the React
+wrapper (`LeadsheetEdit` in App.jsx) reads callbacks through refs so the picker,
+ratings, and analyses always see current app state. Key opts/callbacks:
+
+- structure: `suggest(ctx)`, `onChange`, `tool` (edit / rate-up / rate-down).
+- analyses: `ratingOf` / `onRate`, `rationaleOf` (why), `scaleOf` (text),
+  `scaleGridOf` (the pad-grid roles), `motionOf` (motion overlay), `keyAreas`
+  (implied modulation spans, flat-indexed).
+- input: `ghost` (the held live-MIDI chord → an inline cell at the **cursor**;
+  the editor does the insertion via `writeAtCursor`).
+- display: `display` (functional/absolute), `gridLayout` (square/hex, shared).
+
+Addressing is `(si, bi, ci)` — section, bar, chord — with a flat chord index for
+chord-follow and ratings. Structural editing is **direct manipulation** (carets,
+press-and-hold move, the inspector) — no modes except the two rating tools.
+
+Other `@enkerli/ui` pieces used here: `pitch-grid` (isomorphic pad grid with the
+chord-scale role overlay + `now` playback pulse), `piano-roll` (the Progression
+shape), the design tokens (`tokens.css` / `components.css`, "paper & ink").
+
+---
+
+## The three runtimes
+
+`juceBridge.js` exposes `bridge.kind` (`"juce"` in plugin/standalone, else
+browser) → `IN_PLUGIN`. The same bundle adapts:
+
+| | Web | JUCE standalone | AUv3 plugin (in a DAW) |
+| --- | --- | --- | --- |
+| Playback | WebAudio **Play** button | WebAudio **Play** button | **host transport** drives it |
+| Detection | `!IN_PLUGIN` | `IN_PLUGIN` + `runtime.wrapper ~ "Standalone"` | `IN_PLUGIN`, host-driven |
+| MIDI in | — | bridge `midiNotes` | bridge `midiNotes` |
+| File I/O | `<input>`/anchor | native picker via bridge | native picker via bridge |
+| Chord-follow | local playhead | local playhead | host beat → chord |
+
+WebView constraints shape the I/O: **no** `window.confirm/prompt/alert`, **no**
+blob/data downloads (they kill the page), files go through
+`bridge.saveFile(name, bytes)` / `bridge.openFile(patterns)` → `fileOpened`.
+
+The plugin embeds the app as a **single-file bundle** (`WebUI/index.html`,
+regenerated by `node WebUI/build.mjs` after app changes).
+
+---
+
+## Building, testing, and the validation ladder
+
+Web: `vite build`. Tests: `vitest` (838 specs across the suite — theory vectors,
+generation, curation, the editor, the components).
+
+The plugin runs a **validation ladder** on every change (from the plugin repo):
+
+1. `node WebUI/build.mjs` — rebuild + embed the bundle; WKWebView smoke.
+2. `cmake --build build` — macOS AU/VST3/Standalone.
+3. `auval -v aumi Prst Enke` — expect "AU VALIDATION SUCCEEDED".
+4. `pluginval --strictness-level 8 --validate "…/Progression Studio.component"`.
+5. signed iOS (`xcodebuild … -allowProvisioningUpdates`).
+
+> The iOS rung periodically fails at **provisioning** ("No Accounts…") when the
+> Xcode signing account lapses — not a code regression. Fix it by re-adding the
+> Apple developer account in Xcode → Accounts.
+
+<!-- page history -->
+
+# Progression Studio — History & Roadmap
+
+The story of how ProgGenie became what it is, and where it's headed. The
+suite-wide plan of record is `SUITE_AUDIT_AND_PLAN.md` (a local-only repo); this
+is the narrative.
+
+---
+
+## 1. A generator looking for a home
+
+ProgGenie began as a **seeded Markov generator**: walk the transition statistics
+of 2,611 imaginary-book jazz lead sheets, realize the resulting degree labels in
+any of 17 keys with proper structural spelling, voice them with taxicab voice
+leading, and play them back. Early additions made it musical rather than
+mechanical — a **temperature** knob (how far down each transition's probability
+list to reach), **channel-split** voices, **chord-follow** highlighting, and
+**SMF export**. The hard rule from day one: the corpus lead sheets are never
+published — only the derived statistics.
+
+Then came **ear-driven curation**: per-transition weight multipliers over the
+immutable corpus counts. You could say "this change sounds good" or "this whole
+progression's a bit meh," and the generator would lean accordingly —
+deterministic per (seed, profile), exportable as a JSON profile. Curation
+quickly became the strongest, and messiest, use case.
+
+## 2. Joining the suite
+
+ProgGenie stopped being a standalone toy and became one app in a **monorepo**
+("music-suite") with a shared **"paper & ink"** design system and shared,
+framework-agnostic packages. The keystone was a single **`Leadsheet` /
+`Progression` type** in `@enkerli/theory` — suddenly the generator's output,
+MIDIcurator's clips, and MIDI files were all the same object. A **shared
+leadsheet editor** followed, plus a **ChordID** MIDI-input path (play a chord,
+it's identified and added) and **voice-led voicing suggestions**. The app also
+became a real **AUv3 MIDI processor** and **standalone**, the same web bundle in
+a JUCE WebView, validated through auval / pluginval / signed iOS.
+
+## 3. The leadsheet-first redesign (UX critique, steps 01–06)
+
+A Claude Design critique reframed everything around one diagnosis: ProgGenie
+flattened **three different objects** — the progression (the artifact), the
+generator (a patch), and the profile (curated taste) — into one toolbar, so the
+most important thing had no home. The fix, built as a six-step sequence:
+
+1. **Editing coherence** — between-chord insertion carets, a chord inspector,
+   direct-manipulation move/delete; tool-modes survive only for rating.
+2. **Generator grouped** — the flat row became labelled groups; "Generate" →
+   *New take*; **Patches** save/recall a settings set.
+3. **Library & import** — the progression became a **document** with four front
+   doors (New · Generate · Open · Import), backed by a localStorage library.
+4. **MIDI input unified** — live MIDI writes into the document; the two-place
+   flow collapsed to one.
+5. **Curation summarized** — the profile shown as a *shape*, not a ledger, tied
+   into the inspector's "why this chord."
+6. **Send to MIDIcurator** — name the destination, not the file format.
+
+## 4. Track C — generation depth
+
+In parallel, the generator grew **theory-led depth**, each piece a pure,
+vectored module:
+
+- **Chord-scale relationships & avoid notes** — a structural classifier mapping
+  each chord to its scale (maj7→Lydian, 7→Mixolydian, m7♭5→Locrian, …), with
+  **avoid notes** computed structurally, **preferring the avoid-note-free
+  scale**.
+- **Substitution engine** — probabilistic tritone, backdoor, and passing-dim
+  reharmonization over the label stream.
+- **Key changes** — modulate to corpus-common related keys.
+- **"Smart" generation** — a real **second-order (variable-order) Markov** model
+  built from corpus **trigrams**, with back-off to the first-order table.
+
+## 5. The design decisions (Q1–Q6) and beyond
+
+A second design pass answered six open questions, and the build that followed
+went well past them through tight iteration:
+
+- **Q2 — multi-section keys.** Modulation became *real sections*, each
+  re-anchoring `resolveDegree` to its own key, with a quiet seam divider.
+- **Q3 — generator taxonomy.** Five groups by intent; "Sound" → **Voice**;
+  depth knobs behind *advanced*.
+- **Q5 — chord-scale pad grid.** The inspector's hero: an isomorphic pad grid
+  (square = fourths, hex = Exquis) with roles by **shape + glyph, not colour**.
+- **Q6 — filter-by-degree curation**, surfacing one functional ledger.
+- **Q4 — transition-character overlay** (↝ fifths / underline steps, *notable*).
+- **Q1 — the write cursor + inline MIDI ghost + press-and-hold move gesture.**
+
+Then the most interesting thread: **implied modulation**. Rather than chopping
+mechanically every N bars, *read the harmony* — detect ii–V–I / secondary-
+dominant tonicizations and **re-spell** those spans in their own key, quietly,
+inline, **mid-bar capable**, on generated **and pasted/imported** tunes alike.
+Finally, **live playback**: a **now-playing card** follows the playhead, the
+current chord's scale grid lighting in real time, with a "next up" preview — and
+the standalone got its **Play button** back (it has no host transport).
+
+The through-line never changed: **one document, everything else assists it.**
+
+---
+
+## Roadmap
+
+Near-term, mostly captured in `SUITE_AUDIT_AND_PLAN.md` and
+`DESIGN_QUESTIONS.md`:
+
+- **MIDIcurator App Group inbox** — the *live* ProgGenie → MIDIcurator handoff
+  (today it's a leadsheet-bearing `.mid` you open there). Needs a shared App
+  Group container, entitlement wiring, an inbox dir, and a MIDIcurator ingest
+  path. Gated on the Apple developer account; also fixes the standalone↔AUv3
+  library split.
+- **Implied modulation on imported tunes, surfaced.** Detection now runs on any
+  displayed progression; the natural next step is a clearer entry point ("find
+  the keys in this tune") and tuning the density on busy charts.
+- **Passing-dim substitution in ProgGenie.** The engine supports it; inserting a
+  chord changes the slot count, so the rhythm plan must re-derive.
+- **Design round-2 UX bits** (`DESIGN_QUESTIONS.md`): first-class text entry,
+  the functional/absolute toggle's placement/default, the now-playing card's
+  always-on vs playback-gated behaviour and its position.
+
+Longer-term, the suite's signature workflow — Progression Studio (harmony) →
+MIDIcurator (curation) → Serpe (rhythm) → DrawnQurve (expression) → Vane (sound),
+connected by MIDI in a host — plus the chord-scale grid paying forward into
+PitchFold and exquisite-fingerings, and variable-order generation maturing off
+the accumulating gesture-curation data.

@@ -1,5 +1,31 @@
 # Suite scripts
 
+There are two halves to the showcase site. **`sync-apps`** rebuilds the *apps*
+(the code under `docs/apps/<slug>/`). **`build-site`** rebuilds the *words* (the
+frontpage and doc pages) from a single editable file. They're independent: edit
+copy without touching builds, or vice versa.
+
+## `docs/build-site.mjs` — all the site's words live in `docs/site.md`
+
+Every piece of text on the site — hero, app-card blurbs, section headings, the
+hosting note, the footer, and the full body of each documentation page — lives
+in **`docs/site.md`**. Edit prose there, then:
+
+```bash
+npm run build-site        # = node docs/build-site.mjs
+```
+
+…which regenerates `docs/index.html` and `docs/content/<slug>.md`. The HTML
+*structure* stays in the generator template; only the *words* come from
+`site.md`. So `index.html` and `content/*.md` are **generated artifacts** — don't
+hand-edit them; edit `site.md` and rebuild.
+
+`site.md` is plain Markdown split by `<!-- kind … -->` marker lines (one per
+block: hero, card, doclink, page, …). Rewrite any block's text freely; just
+keep the marker lines. Re-ordering app cards = moving a whole `card` block.
+Adding a brand-new doc page also needs a `doclink` block and an entry in
+`doc.html`'s page whitelist.
+
 ## `sync-apps.mjs` — publish every app's web build into the showcase
 
 The GitHub Pages site (`docs/`) shows all ten suite apps, each opening a live
