@@ -8,7 +8,8 @@
   ],
   "scripts": {
     "test": "vitest run",
-    "typecheck": "tsc -b packages/theory packages/codegen packages/corpus-tools packages/midi"
+    "typecheck": "tsc -b packages/theory packages/codegen packages/corpus-tools packages/midi",
+    "sync-apps": "node scripts/sync-apps.mjs"
   },
   "devDependencies": {
     "happy-dom": "^20.10.2",

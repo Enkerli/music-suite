@@ -3,18 +3,14 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<link rel="icon" type="image/svg+xml" href="./vendor/ui/icons/style-gallery.svg" />
+<link rel="icon" type="image/svg+xml" href="./assets/style-gallery-CD4cLDfm.svg" />
 <title>Enkerli suite — style gallery</title>
 <!-- Dependency-free on purpose: this page is the design system's mirror.
      If it looks wrong, the tokens are wrong. Serve from the repo
      (npx vite apps/style-gallery) or open the file directly. -->
-<link rel="stylesheet" href="./vendor/ui/tokens/tokens.css" />
-<link rel="stylesheet" href="./vendor/ui/tokens/components.css" />
 <!-- The leadsheet editor imports @enkerli/theory (bare specifier); this
      bundler-less gallery resolves it to the built dist via an import map. -->
-<script type="importmap">
-{ "imports": { "@enkerli/theory": "./vendor/theory/dist/index.js" } }
-</script>
+
 <style>
   body { margin: 0; padding: var(--es-space-6); display: grid; gap: var(--es-space-6);
          max-width: 1080px; margin-inline: auto; }
@@ -34,6 +30,11 @@
   .pc-chip i { width: 16px; height: 16px; border-radius: 50%; display: inline-block; }
   header { display: flex; justify-content: space-between; align-items: center; }
 </style>
+<script type="importmap">
+{ "imports": { "@enkerli/theory": "../../packages/theory/dist/index.js" } }
+</script>
+  <script type="module" crossorigin src="./assets/index-CUIa6ThL.js"></script>
+  <link rel="stylesheet" crossorigin href="./assets/index-CjCKqXAt.css">
 </head>
 <body class="es-app">
 
@@ -158,114 +159,5 @@
   </div>
 </section>
 
-<script type="module">
-  import { initTheme, toggleTheme } from "./vendor/ui/theme.js";
-  import { createPcsRing } from "./vendor/ui/components/pcs-ring.js";
-  import { createPitchGrid } from "./vendor/ui/components/pitch-grid.js";
-  import { createPianoRoll } from "./vendor/ui/components/piano-roll.js";
-  import { createSection } from "./vendor/ui/components/section.js";
-  import { createRangeSlider, midiName } from "./vendor/ui/components/range-slider.js";
-  import { PITCH_CLASS_COLORS } from "./vendor/ui/components/pitch-class-colors.js";
-  import { createLeadsheetEditor } from "./vendor/ui/components/leadsheet-editor.js";
-
-  const lsText = document.getElementById("leadsheet-text");
-  const leadsheet = createLeadsheetEditor(document.getElementById("leadsheet"), {
-    text: "IIm7 V7 | Imaj7 | ♭II7 | Imaj7",
-    key: { tonic: "C", mode: "major" },
-    onChange: () => { lsText.textContent = "bar notation: " + leadsheet.getText(); },
-  });
-  lsText.textContent = "bar notation: " + leadsheet.getText();
-
-  // Pad chips — exact Exquis colours with per-pad ink (the device look).
-  const padHost = document.getElementById("pcs-pad");
-  padHost.replaceChildren(...PITCH_CLASS_COLORS.map((c, pc) => {
-    const chip = document.createElement("span");
-    chip.className = "pc-chip";
-    chip.style.cssText = `background:${c.pad};color:${c.ink};border-color:transparent`;
-    chip.innerHTML = `<i style="background:${c.ink};opacity:.35"></i>${pc} · ${c.name}`;
-    return chip;
-  }));
-
-  const grid = createPitchGrid(document.getElementById("grid"), {
-    layout: "hex", rows: 5, cols: 5, cellSize: 38,
-  });
-  createPitchGrid(document.getElementById("grid-pad"), {
-    layout: "hex", rows: 5, cols: 5, cellSize: 38, colorByPc: true,
-  });
-
-  const ring = createPcsRing(document.getElementById("ring"), {
-    pcs: 2773, root: 0, colorByPc: true,
-    onToggle: (pc, on) => { const pcs = ring.pcs; on ? pcs.add(pc) : pcs.delete(pc); ring.update({ pcs }); grid.update({ highlight: pcs }); },
-  });
-  grid.update({ highlight: ring.pcs });
-  const roll = createPianoRoll(document.getElementById("roll"), {
-    notes: [
-      { startBeat: 0, lengthBeats: 2, pitch: 50 }, { startBeat: 0, lengthBeats: 2, pitch: 60 }, { startBeat: 0, lengthBeats: 2, pitch: 65 }, { startBeat: 0, lengthBeats: 2, pitch: 69 },
-      { startBeat: 2, lengthBeats: 2, pitch: 55 }, { startBeat: 2, lengthBeats: 2, pitch: 59 }, { startBeat: 2, lengthBeats: 2, pitch: 65 }, { startBeat: 2, lengthBeats: 2, pitch: 69 },
-      { startBeat: 4, lengthBeats: 4, pitch: 48 }, { startBeat: 4, lengthBeats: 4, pitch: 59 }, { startBeat: 4, lengthBeats: 4, pitch: 64 }, { startBeat: 4, lengthBeats: 4, pitch: 67 },
-    ],
-    lengthBeats: 8, height: 140,
-  });
-  let beat = 0;
-  setInterval(() => { beat = (beat + 0.1) % 8; roll.setPlayhead(beat); }, 100);
-
-  const sections = document.getElementById("sections");
-  for (const [title, text] of [["Scale", "PCS controls live here."], ["Quantizer", "Strength, direction, range."], ["Pads", "Chord pad bank."]]) {
-    const { body } = createSection(sections, { title, open: title === "Scale" });
-    body.textContent = text;
-  }
-  document.getElementById("dense").addEventListener("change", (e) =>
-    sections.classList.toggle("es-dense", e.target.checked));
-
-  // Output-range slider — MIDI note range, live readout.
-  const readout = document.getElementById("range-readout");
-  createRangeSlider(document.getElementById("range"), {
-    min: 12, max: 108, step: 1, values: [36, 84], format: midiName,
-    onChange: (lo, hi) =>
-      (readout.textContent = `${midiName(lo)} – ${midiName(hi)} · ${hi - lo} st`),
-  });
-
-  // Transport: arm + play, state word + pulse (never colour alone).
-  const tp = document.getElementById("transport");
-  const tpState = document.getElementById("transport-state");
-  let armed = false, playing = false;
-  const armBtn = tp.querySelector(".arm");
-  const playBtn = tp.querySelector(".play");
-  const syncTransport = () => {
-    armBtn.classList.toggle("armed", armed);
-    armBtn.setAttribute("aria-pressed", String(armed));
-    playBtn.classList.toggle("playing", playing);
-    playBtn.setAttribute("aria-pressed", String(playing));
-    playBtn.textContent = playing ? "❚❚" : "▶";
-    tpState.textContent = playing ? (armed ? "recording" : "playing") : armed ? "armed" : "idle";
-  };
-  armBtn.addEventListener("click", () => { armed = !armed; syncTransport(); });
-  playBtn.addEventListener("click", () => { playing = !playing; syncTransport(); });
-  initTheme();
-  document.getElementById("theme-toggle").addEventListener("click", toggleTheme);
-
-  const css = (name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
-  const el = (html) => { const t = document.createElement("template"); t.innerHTML = html.trim(); return t.content.firstChild; };
-
-  const render = () => {
-    const surfaces = [
-      ["--es-bg", "bg"], ["--es-bg-raised", "raised"], ["--es-bg-sunken", "sunken"],
-      ["--es-fg", "fg"], ["--es-fg-2", "fg-2"], ["--es-fg-muted", "muted"],
-      ["--es-border", "border"], ["--es-border-strong", "strong"], ["--es-accent", "accent"],
-    ];
-    document.getElementById("surfaces").replaceChildren(...surfaces.map(([v, label]) =>
-      el(`<div class="sw"><div style="background:var(${v})"></div><div>${label}<code>${css(v)}</code></div></div>`)));
-
-    const dims = ["breath", "expr", "pressure", "slide", "bend", "vel"];
-    document.getElementById("dims").replaceChildren(...dims.map((d) =>
-      el(`<span class="pc-chip"><i style="background:var(--es-dim-${d})"></i>${d}</span>`)));
-
-    const names = ["C", "C♯/D♭", "D", "D♯/E♭", "E", "F", "F♯/G♭", "G", "G♯/A♭", "A", "A♯/B♭", "B"];
-    document.getElementById("pcs").replaceChildren(...names.map((n, i) =>
-      el(`<span class="pc-chip"><i style="background:var(--es-pc-${i})"></i>${i} · ${n}</span>`)));
-  };
-  render();
-  new MutationObserver(render).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
-</script>
 </body>
 </html>

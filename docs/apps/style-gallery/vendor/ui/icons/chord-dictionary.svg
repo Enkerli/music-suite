@@ -1,9 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
-  <rect x="16" y="16" width="992" height="992" rx="208" fill="#f5f2eb"/>
-  <rect x="16" y="16" width="992" height="992" rx="208" fill="none" stroke="#ddd6ca" stroke-width="12"/>
-
-  <rect x="232" y="200" width="560" height="624" rx="40" fill="#fcfbf7" stroke="#2d2b27" stroke-width="16"/>
-  <line x1="312" y1="640" x2="712" y2="640" stroke="#ddd6ca" stroke-width="14"/>
-  <line x1="312" y1="720" x2="600" y2="720" stroke="#ddd6ca" stroke-width="14"/>
-  <text x="512" y="500" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-size="300" fill="#2d2b27">C<tspan fill="#7a4cff">∆</tspan></text>
-</svg>

@@ -9,3 +9,6 @@ coverage/
 
 # Design-export bundles / archives (the source HTML is committed where it's used)
 *.zip
+
+# Per-machine external-app source paths for scripts/sync-apps.mjs
+scripts/apps.local.json

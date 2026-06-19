@@ -1,0 +1,7 @@
+{
+  "_comment": "Per-machine source paths for the separate-repo plugin apps. Copy this file to scripts/apps.local.json (gitignored) and edit. Keys are app slugs; values are the web-UI source directory (or the index.html file, for vane). '~' expands to your home dir. Only override the apps you actually have checked out — missing ones are skipped.",
+  "pitchfold": "~/Desktop/PitchFold/Source/WebUI",
+  "drawnqurve": "~/DrawnQurve/webapp",
+  "vane": "~/Vane/Source/WebUI/index.html",
+  "serpe": "~/Desktop/rhythm_pattern_explorer/WebApp/app"
+}
