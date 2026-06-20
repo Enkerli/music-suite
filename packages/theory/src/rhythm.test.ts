@@ -10,9 +10,11 @@ import {
   patternFromBinaryString,
   patternFromDecimal,
   patternFromHex,
+  patternFromOctal,
   patternToBinaryString,
   patternToDecimal,
   patternToHex,
+  patternToOctal,
   type BarlowTransformOptions,
 } from "./rhythm.js";
 
@@ -83,19 +85,44 @@ describe("Barlow transformer (vectors)", () => {
   });
 });
 
-describe("pattern codecs (MSB-first, vectors)", () => {
-  for (const c of vectors.codecs) {
-    it(c.name, () => {
-      const pattern = dec(c.pattern);
-      expect(patternToDecimal(pattern)).toBe(c.decimal);
-      expect(patternToHex(pattern)).toBe(c.hex);
-      expect(patternFromDecimal(c.decimal, c.pattern.length)).toEqual(pattern);
-      expect(patternFromHex(c.hex, c.pattern.length)).toEqual(pattern);
-      expect(patternFromHex("0x" + c.hex, c.pattern.length)).toEqual(pattern);
-      expect(patternToBinaryString(pattern)).toBe(c.pattern);
-      expect(patternFromBinaryString(c.pattern)).toEqual(pattern);
-    });
+// One round-trip check shared by the named cases and the seeded batch — the
+// reference must reproduce every committed encoding (binary/decimal/hex/octal/
+// onsets) in both directions. The same vectors are read by the Serpe webapp and
+// plugin conformance suites, so this is the cross-language contract.
+const checkCodec = (c: {
+  pattern: string;
+  decimal: number;
+  hex: string;
+  octal?: string;
+  onsets?: number[];
+}) => {
+  const pattern = dec(c.pattern);
+  expect(patternToDecimal(pattern)).toBe(c.decimal);
+  expect(patternToHex(pattern)).toBe(c.hex);
+  if (c.octal !== undefined) expect(patternToOctal(pattern)).toBe(c.octal);
+  if (c.onsets !== undefined)
+    expect(pattern.flatMap((on, i) => (on ? [i] : []))).toEqual(c.onsets);
+  expect(patternFromDecimal(c.decimal, c.pattern.length)).toEqual(pattern);
+  expect(patternFromHex(c.hex, c.pattern.length)).toEqual(pattern);
+  expect(patternFromHex("0x" + c.hex, c.pattern.length)).toEqual(pattern);
+  if (c.octal !== undefined) {
+    expect(patternFromOctal(c.octal, c.pattern.length)).toEqual(pattern);
+    expect(patternFromOctal("0o" + c.octal, c.pattern.length)).toEqual(pattern);
   }
+  expect(patternToBinaryString(pattern)).toBe(c.pattern);
+  expect(patternFromBinaryString(c.pattern)).toEqual(pattern);
+};
+
+describe("pattern codecs (MSB-first, vectors)", () => {
+  for (const c of vectors.codecs) it(c.name, () => checkCodec(c));
+
+  it(`reproduces all ${vectors.codecBatch.length} seeded batch vectors`, () => {
+    for (const c of vectors.codecBatch) checkCodec(c);
+  });
+
+  it("rejects malformed octal", () => {
+    expect(() => patternFromOctal("0o89", 8)).toThrow();
+  });
 
   it("rejects values that do not fit the step count", () => {
     expect(() => patternFromDecimal(16, 4)).toThrow();

@@ -412,3 +412,15 @@ export function patternFromHex(hex: string, steps: number): boolean[] {
   if (!/^[0-9a-fA-F]+$/.test(cleaned)) throw new Error(`Invalid hex pattern: ${hex}`);
   return patternFromDecimal(parseInt(cleaned, 16), steps);
 }
+
+/** Pattern → octal of its binary numeral (no 0o prefix). */
+export function patternToOctal(pattern: boolean[]): string {
+  return patternToDecimal(pattern).toString(8);
+}
+
+/** Octal (with or without 0o) + step count → pattern. */
+export function patternFromOctal(octal: string, steps: number): boolean[] {
+  const cleaned = octal.replace(/^0o/i, "");
+  if (!/^[0-7]+$/.test(cleaned)) throw new Error(`Invalid octal pattern: ${octal}`);
+  return patternFromDecimal(parseInt(cleaned, 8), steps);
+}
