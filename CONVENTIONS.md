@@ -54,30 +54,26 @@ The suffix is the dictionary key's canonical shorthand
 machine-round-trippable, never just decoration. Unknown corpus suffixes
 pass through as written (and are audited).
 
-## Bit ordering (binary / decimal / hex) — strict, by domain
+## Bit ordering (binary / decimal / hex) — leftmost = LSB, everywhere
 
-Bit-encoded sequences are read **left to right**, but the numeral convention
-differs by domain (they were briefly unified MSB-first on 2026-06-10; rhythm
-reverted to leftmost-LSB on 2026-06-22 — see History):
+**The first element of any bit-encoded sequence is bit 0 (the LEAST significant
+bit).** Sequences read strictly left to right: element i has value 2^i. This
+applies identically to pitch-class sets and rhythm patterns, in every language
+(TS, Lua, C++) and every representation (binary, octal, decimal, hexadecimal).
 
-- **Rhythm patterns: leftmost = LSB.** The first step is bit 0, so step k has
-  value 2^k. Read strictly left to right (`0x1:4` = `1000`).
-- **Pitch-class sets: leftmost = MSB.** Bit i from the left (0-based) = pitch
-  class i, read as an ordinary binary numeral.
+### Pitch-class sets
+Pitch class i = bit i, so pc 0 (C) is the low bit. A 12-bit mask:
 
-Each rule applies in every language (TS, Lua, C++) and representation
-(binary, octal, decimal, hexadecimal).
+| Set | Binary (pc0…pc11) | Decimal | Hex |
+|---|---|---|---|
+| C major triad `{0,4,7}` | `100010010000` | 145 | 0x91 |
+| C ionian `{0,2,4,5,7,9,11}` | `101011010101` | 2741 | 0xAB5 |
 
-### Pitch-class sets (leftmost = MSB)
-Bit i (from the left, 0-based) = pitch class i. A 12-bit mask:
+(The binary string lists pc0…pc11 left to right; the decimal reads its first
+char as the low bit — so `0x1` = `{C}`, `0x2` = `{C♯}`.)
 
-| Set | Binary | Decimal |
-|---|---|---|
-| C ionian | `101011010101` | 2773 |
-| C major triad | `100010010000` | 2192 |
-
-### Rhythm patterns (leftmost = LSB)
-Step k (from the left, 0-based) has value 2^k. Examples:
+### Rhythm patterns
+Step k = bit k. Examples:
 
 | Pattern | Meaning | Hex | Decimal |
 |---|---|---|---|
@@ -86,11 +82,11 @@ Step k (from the left, 0-based) has value 2^k. Examples:
 | `10010010` | E(3,8) tresillo | 0x49 | 73 |
 
 ### Step counts are explicit
-Trailing rests (the high steps) vanish in a bare numeral, so rhythm
-decimal/hex forms always travel with a step count — Serpe's `:N` suffix
-(`0x49:8`), or an explicit `steps` parameter in APIs. Patterns whose length
-is not a multiple of 4 are still plain numerals, parsed back by padding to
-the declared step count. (PCS masks are always 12 wide, so no suffix.)
+Trailing high bits (the later steps / higher pcs) vanish in a bare numeral, so
+rhythm decimal/hex forms always travel with a step count — Serpe's `:N` suffix
+(`0x49:8`), or an explicit `steps` parameter in APIs. Patterns whose length is
+not a multiple of 4 are still plain numerals, parsed back by padding to the
+declared step count. (PCS masks are always 12 wide, so no suffix.)
 
 ### Exemption: external file formats
 Parsers for formats defined elsewhere (Standard MIDI File variable-length
@@ -101,20 +97,17 @@ file formats. MIDIcurator's `apple-loops-parser.ts` is the current example.
 ### Compliance status (2026-06-22)
 | Codebase | Status |
 |---|---|
-| `@enkerli/theory` | ✅ reference — PCS codecs MSB, rhythm codecs leftmost-LSB |
+| `@enkerli/theory` | ✅ reference — PCS + rhythm codecs both leftmost-LSB |
+| `@enkerli/ui` `pcs-ring` | ✅ leftmost-LSB |
 | MIDIcurator (via theory) | ✅ |
-| PickPCS code | ✅ PCS MSB |
-| PitchFold `PCSEngine.h` | ✅ PCS MSB (`bit (11 − interval)`) |
-| exquisite-fingerings | ✅ PCS MSB |
-| Serpe webapp + plugin | ✅ rhythm leftmost-LSB (reverted 2026-06-22; **breaking** for saved hex/octal/decimal patterns — see Serpe CHANGELOG) |
+| PickPCS / chord-dictionary / progression-studio / exquisite-fingerings | ✅ via theory (rebuild deployed bundles) |
+| PitchFold `PCSEngine.h` | ⚠️ separate repo — flip `bit (11 − interval)` → `bit (interval)` |
+| Serpe webapp + plugin | ✅ rhythm leftmost-LSB (**breaking** for saved hex/octal/decimal — see Serpe CHANGELOG) |
 
 ### History
-Rhythm patterns originally read leftmost = LSB (`1000` = 0x1, tresillo =
-`0x49`). On 2026-06-10 the suite unified *everything* MSB-first (`BREAKING`),
-making tresillo `0x92`. On 2026-06-22 the rhythm convention was reverted to
-leftmost-LSB — patterns should read strictly left to right, the low bit on the
-first step — while pitch-class sets stay MSB-first (PCS_SCHEMA, PitchFold,
-exquisite-fingerings unchanged). `@enkerli/theory`'s rhythm codecs
-(`patternToDecimal`, `patternFromHex`, …) and `packages/theory/vectors/rhythm.json`
-are the reference for rhythm; its PCS codecs (`pcsToDecimal`, …) remain the
-reference for pitch-class sets.
+Both domains originally read leftmost = LSB. On 2026-06-10 the suite was unified
+**MSB-first** (`BREAKING`: tresillo `0x49`→`0x92`, `{0,4,7}` `145`→`2192`). On
+2026-06-22 that was reverted: everything is leftmost-LSB again — sequences read
+strictly left to right, the low bit first (`0x1` = step 0 / pitch class 0).
+`@enkerli/theory`'s codecs (`patternToDecimal`, `patternFromHex`, `pcsToDecimal`,
+…) and `packages/theory/vectors/*.json` are the reference.

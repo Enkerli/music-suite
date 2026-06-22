@@ -51,7 +51,7 @@ describe("degree chords (vectors)", () => {
   it("C major triads carry the expected roots and bitmasks", () => {
     const chords = degreeChords(scaleFamily(7, 0), "triads");
     expect(chords[0]!.pcs).toEqual([0, 4, 7]);
-    expect(chords[0]!.bitmask).toBe(2192);
+    expect(chords[0]!.bitmask).toBe(145); // leftmost = LSB: {0,4,7} = 1+16+128
     expect(chords[4]!.rootPc).toBe(7); // V rooted on G
   });
 });

@@ -7,7 +7,7 @@
  *   k=3 augmented · k=4 dim7 · k=5 major pentatonic · k=6 whole tone ·
  *   k=7 major scale · k=8 octatonic (half-whole)
  *
- * Bitmask convention matches the chord dictionary: MSB = pitch class 0
+ * Bitmask convention (suite-wide): leftmost = LSB, pitch class i contributes 2^i
  * (pc 0 contributes 2^11), so C major scale = 2773 — see PCS_SCHEMA.md
  * in PickPCS.
  */
@@ -26,7 +26,7 @@ export function chromaticToFifthsIndex(pc: number): number {
   return mod12(pc * 7);
 }
 
-/** PickPCS bitmask: MSB = pc 0. Identical to the chord dictionary's pcsToDecimal. */
+/** PickPCS bitmask: leftmost = LSB (pc i = bit i). Identical to pcsToDecimal. */
 export function pcsToBitmask(pcs: number[]): number {
   return pcsToDecimal(pcs.map(mod12));
 }

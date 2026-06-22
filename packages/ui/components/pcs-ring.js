@@ -3,8 +3,8 @@
  * promoted). Framework-agnostic SVG: createPcsRing(el, opts) → handle.
  *
  * Pitch-class sets follow the suite bit convention (CONVENTIONS.md):
- * MSB-first — bit for pc i is (mask >> (11 - i)) & 1, so C ionian
- * 0b101011010101 = 2773. `pcs` also accepts a Set/array of pcs directly.
+ * leftmost = LSB — pitch class i is bit i, (mask >> i) & 1, so {0,4,7} =
+ * 1+16+128 = 145. `pcs` also accepts a Set/array of pcs directly.
  *
  * Colors come from the paper & ink tokens; per-pc hues (--es-pc-N) are
  * opt-in (colorByPc) and always paired with the label (a11y ground rule).
@@ -12,17 +12,17 @@
 
 const TAU = Math.PI * 2;
 
-/** Decode an MSB-first 12-bit mask into a Set of pitch classes. */
+/** Decode a 12-bit mask (leftmost = LSB; pc i = bit i) into a Set of pcs. */
 export function maskToPcs(mask) {
   const pcs = new Set();
-  for (let pc = 0; pc < 12; pc++) if ((mask >> (11 - pc)) & 1) pcs.add(pc);
+  for (let pc = 0; pc < 12; pc++) if ((mask >> pc) & 1) pcs.add(pc);
   return pcs;
 }
 
-/** Encode a Set/array of pitch classes as an MSB-first 12-bit mask. */
+/** Encode a Set/array of pitch classes as a 12-bit mask (pc i = bit i). */
 export function pcsToMask(pcs) {
   let mask = 0;
-  for (const pc of pcs) mask |= 1 << (11 - pc);
+  for (const pc of pcs) mask |= 1 << pc;
   return mask;
 }
 

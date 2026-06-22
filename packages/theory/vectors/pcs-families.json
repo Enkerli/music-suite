@@ -1,5 +1,5 @@
 {
-  "description": "Cross-language vectors for Euclidean scale families and degree chords, ported from PickPCS. Bitmask convention: MSB = pitch class 0 (pc 0 contributes 2^11), matching the chord dictionary and PickPCS App.jsx. Note: PCS_SCHEMA.md's subset example (bitmask 145 for [0,4,7]) uses the opposite LSB-first convention and disagrees with the app code; the code's MSB convention is canonical here.",
+  "description": "Cross-language vectors for Euclidean scale families and degree chords, ported from PickPCS. Bitmask convention: leftmost = LSB, pitch class i contributes 2^i ([0,4,7] = 145).jsx.",
   "families": [
     {
       "k": 3,
@@ -9,7 +9,7 @@
         4,
         8
       ],
-      "bitmask": 2184,
+      "bitmask": 273,
       "name": "augmented"
     },
     {
@@ -21,7 +21,7 @@
         6,
         9
       ],
-      "bitmask": 2340,
+      "bitmask": 585,
       "name": "diminished seventh"
     },
     {
@@ -34,7 +34,7 @@
         7,
         9
       ],
-      "bitmask": 2708,
+      "bitmask": 661,
       "name": "major pentatonic"
     },
     {
@@ -48,7 +48,7 @@
         8,
         10
       ],
-      "bitmask": 2730,
+      "bitmask": 1365,
       "name": "whole tone"
     },
     {
@@ -63,7 +63,7 @@
         9,
         11
       ],
-      "bitmask": 2773,
+      "bitmask": 2741,
       "name": "major scale"
     },
     {
@@ -94,7 +94,7 @@
         4,
         6
       ],
-      "bitmask": 2741,
+      "bitmask": 2773,
       "name": "G major scale"
     }
   ],

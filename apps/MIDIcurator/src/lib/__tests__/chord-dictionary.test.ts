@@ -42,17 +42,17 @@ describe('binaryToDecimal', () => {
   });
 });
 
-describe('pcsToDecimal', () => {
-  it('C major triad → 2192', () => {
-    expect(pcsToDecimal([0, 4, 7])).toBe(2192);
+describe('pcsToDecimal (leftmost = LSB: pc i contributes 2^i)', () => {
+  it('C major triad {0,4,7} → 145', () => {
+    expect(pcsToDecimal([0, 4, 7])).toBe(145);
   });
 
-  it('C minor triad → 2320', () => {
-    expect(pcsToDecimal([0, 3, 7])).toBe(2320);
+  it('C minor triad {0,3,7} → 137', () => {
+    expect(pcsToDecimal([0, 3, 7])).toBe(137);
   });
 
-  it('C dominant seventh → 2194', () => {
-    expect(pcsToDecimal([0, 4, 7, 10])).toBe(2194);
+  it('C dominant seventh {0,4,7,10} → 1169', () => {
+    expect(pcsToDecimal([0, 4, 7, 10])).toBe(1169);
   });
 });
 
@@ -101,20 +101,20 @@ describe('rootNameSharp / rootNameFlat', () => {
 
 describe('lookupByDecimal', () => {
   it('finds major triad', () => {
-    const q = lookupByDecimal(2192);
+    const q = lookupByDecimal(145);
     expect(q).toBeDefined();
     expect(q!.key).toBe('maj');
     expect(q!.fullName).toBe('major triad');
   });
 
   it('finds minor seventh', () => {
-    const q = lookupByDecimal(2322);
+    const q = lookupByDecimal(1161);
     expect(q).toBeDefined();
     expect(q!.key).toBe('min7');
   });
 
   it('finds dominant seventh', () => {
-    const q = lookupByDecimal(2194);
+    const q = lookupByDecimal(1169);
     expect(q).toBeDefined();
     expect(q!.key).toBe('7');
   });
@@ -149,10 +149,10 @@ describe('dictionarySize', () => {
 });
 
 describe('decimal consistency', () => {
-  it('all qualities have consistent binary ↔ decimal', () => {
+  it('all qualities have consistent pcs ↔ decimal', () => {
     for (const q of getAllQualities()) {
-      const computedDecimal = binaryToDecimal(q.binary);
-      expect(computedDecimal).toBe(q.decimal);
+      // Fingerprint is leftmost = LSB (pc i = bit i), derived from the pcs set.
+      expect(pcsToDecimal(q.pcs)).toBe(q.decimal);
     }
   });
 

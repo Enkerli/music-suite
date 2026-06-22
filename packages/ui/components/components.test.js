@@ -7,14 +7,14 @@ import { createSection } from "./section.js";
 import { createRangeSlider, midiName } from "./range-slider.js";
 import { PITCH_CLASS_COLORS, padColor, padInk } from "./pitch-class-colors.js";
 
-describe("pcs mask codec (MSB-first, CONVENTIONS.md)", () => {
-  it("C ionian 2773 decodes leftmost-bit-first", () => {
-    expect([...maskToPcs(2773)].sort((a, b) => a - b)).toEqual([0, 2, 4, 5, 7, 9, 11]);
+describe("pcs mask codec (leftmost = LSB, CONVENTIONS.md)", () => {
+  it("C ionian 2741 decodes pc i = bit i", () => {
+    expect([...maskToPcs(2741)].sort((a, b) => a - b)).toEqual([0, 2, 4, 5, 7, 9, 11]);
   });
   it("round-trips", () => {
     expect(pcsToMask(maskToPcs(0x92 << 4))).toBe(0x92 << 4);
-    expect(pcsToMask([0])).toBe(0b100000000000);
-    expect(pcsToMask([11])).toBe(1);
+    expect(pcsToMask([0])).toBe(0b000000000001);
+    expect(pcsToMask([11])).toBe(0b100000000000);
   });
 });
 
