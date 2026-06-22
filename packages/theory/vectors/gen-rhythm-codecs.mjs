@@ -3,8 +3,8 @@
  * gen-rhythm-codecs — extend vectors/rhythm.json's codec section in place.
  *
  * The codec vectors are the cross-language contract for numeric pattern
- * notation (binary / decimal / hex / octal / onset-array), strict MSB-first
- * (first step = leftmost bit = most significant bit). They are consumed by:
+ * notation (binary / decimal / hex / octal / onset-array), leftmost = LSB
+ * (first step = least significant bit; step k has value 2^k). They are consumed by:
  *   - this package's rhythm.test.ts (locks the reference impl),
  *   - the Serpe webapp's PatternConverter (Node conformance test),
  *   - the Serpe plugin's UPIParser/PatternUtils (C++ conformance test).

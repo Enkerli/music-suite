@@ -113,7 +113,7 @@ const checkCodec = (c: {
   expect(patternFromBinaryString(c.pattern)).toEqual(pattern);
 };
 
-describe("pattern codecs (MSB-first, vectors)", () => {
+describe("pattern codecs (leftmost = LSB, vectors)", () => {
   for (const c of vectors.codecs) it(c.name, () => checkCodec(c));
 
   it(`reproduces all ${vectors.codecBatch.length} seeded batch vectors`, () => {

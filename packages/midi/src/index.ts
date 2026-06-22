@@ -8,7 +8,7 @@
  * absolute ticks, plus optional tempo, track name, and markers.
  *
  * Note: SMF VLQ byte order is defined by the MIDI spec — the
- * suite's MSB-first convention governs our own notation, not external
+ * suite's bit-order conventions govern our own notation, not external
  * file formats (CONVENTIONS.md).
  */
 

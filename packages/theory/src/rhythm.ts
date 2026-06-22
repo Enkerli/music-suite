@@ -362,14 +362,15 @@ function concentrate(
 
 // ─── Pattern codecs (binary / decimal / hex) ────────────────────────────
 //
-// Suite-wide convention (strict): the FIRST element of a pattern is the
-// LEFTMOST bit — i.e. the most significant bit of the numeral. A pattern
-// string is read as an ordinary binary number:
-//   "1011"     = 0xB  = 11  → hit, rest, hit, hit
-//   "10111010" = 0xBA = 186 → hit, rest, hit, hit, hit, rest, hit, rest
-//   E(3,8) "10010010" = 0x92 = 146 (tresillo)
-// Because leading rests vanish in a bare number, decimal/hex forms carry an
-// explicit step count (the ":N" suffix in Serpe's UPI notation).
+// Suite-wide convention (strict): the FIRST step of a pattern is the LEAST
+// significant bit (bit 0). Patterns are read strictly left-to-right, so a
+// single onset on step k has value 2^k — decimal = Σ pattern[i]·2^i.
+//   "1000"     = 0x1  = 1   → hit, rest, rest, rest
+//   "1011"     = 0xD  = 13  → hit, rest, hit, hit
+//   "10111010" = 0x5D = 93  → hit, rest, hit, hit, hit, rest, hit, rest
+//   E(3,8) "10010010" = 0x49 = 73 (tresillo: onsets 0,3,6)
+// Because trailing high bits vanish in a bare number, decimal/hex forms carry
+// an explicit step count (the ":N" suffix in Serpe's UPI notation).
 
 /** Pattern → binary string, first step leftmost. */
 export function patternToBinaryString(pattern: boolean[]): string {
@@ -382,22 +383,19 @@ export function patternFromBinaryString(binary: string): boolean[] {
   return [...binary].map((c) => c === "1");
 }
 
-/** Pattern → decimal value of its binary numeral (first step = MSB). */
+/** Pattern → decimal value (first step = LSB, so step k contributes 2^k). */
 export function patternToDecimal(pattern: boolean[]): number {
   let value = 0;
-  for (const step of pattern) value = value * 2 + (step ? 1 : 0);
+  for (let i = 0; i < pattern.length; i++) if (pattern[i]) value += 2 ** i;
   return value;
 }
 
-/** Decimal + step count → pattern (left-padded with rests to `steps`). */
+/** Decimal + step count → pattern (first step = LSB; high bits = later steps). */
 export function patternFromDecimal(value: number, steps: number): boolean[] {
   if (!Number.isInteger(value) || value < 0) throw new Error(`Invalid pattern value: ${value}`);
   if (value >= 2 ** steps) throw new Error(`Value ${value} does not fit in ${steps} steps`);
   const pattern = new Array<boolean>(steps).fill(false);
-  for (let i = steps - 1; i >= 0 && value > 0; i--) {
-    pattern[i] = (value & 1) === 1;
-    value = Math.floor(value / 2);
-  }
+  for (let i = 0; i < steps; i++) pattern[i] = Math.floor(value / 2 ** i) % 2 === 1;
   return pattern;
 }
 
