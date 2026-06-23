@@ -362,14 +362,20 @@ function concentrate(
 
 // ─── Pattern codecs (binary / decimal / hex) ────────────────────────────
 //
-// Suite-wide convention (strict): the FIRST step of a pattern is the LEAST
-// significant bit (bit 0). Patterns are read strictly left-to-right, so a
-// single onset on step k has value 2^k — decimal = Σ pattern[i]·2^i.
-//   "1000"     = 0x1  = 1   → hit, rest, rest, rest
-//   "1011"     = 0xD  = 13  → hit, rest, hit, hit
-//   "10111010" = 0x5D = 93  → hit, rest, hit, hit, hit, rest, hit, rest
-//   E(3,8) "10010010" = 0x49 = 73 (tresillo: onsets 0,3,6)
-// Because trailing high bits vanish in a bare number, decimal/hex forms carry
+// Suite-wide convention (strict): everything reads left to right, low-order
+// first. The FIRST step is bit 0, so a single onset on step k has value 2^k.
+//   - decimal = Σ pattern[i]·2^i  (an ordinary integer)
+//   - hex/octal group the steps left to right (steps 0-3 = the leftmost hex
+//     digit) and emit those digit values left to right — i.e. the digit string
+//     is little-endian, the reverse of the integer's ordinary numeral.
+//   pattern      hex    octal  decimal
+//   "1000"       1      1      1
+//   "1011"       D      51     13
+//   "10111010"   D5     531    93
+//   "10010010"   94     111    73   (E(3,8) tresillo, onsets 0,3,6)
+// So hex 0x94 and decimal 73 are the SAME pattern in different transcriptions
+// (0x94 read low-digit-first = 9 + 4·16 = 73), not equal as raw numbers.
+// Trailing high bits vanish in a bare numeral, so decimal/hex/octal forms carry
 // an explicit step count (the ":N" suffix in Serpe's UPI notation).
 
 /** Pattern → binary string, first step leftmost. */
@@ -399,26 +405,32 @@ export function patternFromDecimal(value: number, steps: number): boolean[] {
   return pattern;
 }
 
-/** Pattern → uppercase hex of its binary numeral (no 0x prefix). */
+// Hex/octal are written strictly left to right too: the FIRST step's nibble
+// (steps 0-3) is the LEFTMOST hex digit, so the digit string is little-endian.
+// tresillo 10010010 → nibbles 1001=9, 0010=4 → "94" (not the value's "49").
+// The value is unchanged (0x94 read low-digit-first = 9 + 4·16 = 73 = decimal);
+// we just reverse the ordinary numeral's digits.
+
+/** Pattern → uppercase hex, first step's nibble leftmost (little-endian digits). */
 export function patternToHex(pattern: boolean[]): string {
-  return patternToDecimal(pattern).toString(16).toUpperCase();
+  return [...patternToDecimal(pattern).toString(16).toUpperCase()].reverse().join("");
 }
 
-/** Hex (with or without 0x) + step count → pattern. */
+/** Hex (with or without 0x) + step count → pattern. Digits are little-endian. */
 export function patternFromHex(hex: string, steps: number): boolean[] {
   const cleaned = hex.replace(/^0x/i, "");
   if (!/^[0-9a-fA-F]+$/.test(cleaned)) throw new Error(`Invalid hex pattern: ${hex}`);
-  return patternFromDecimal(parseInt(cleaned, 16), steps);
+  return patternFromDecimal(parseInt([...cleaned].reverse().join(""), 16), steps);
 }
 
-/** Pattern → octal of its binary numeral (no 0o prefix). */
+/** Pattern → octal, first step's triplet leftmost (little-endian digits). */
 export function patternToOctal(pattern: boolean[]): string {
-  return patternToDecimal(pattern).toString(8);
+  return [...patternToDecimal(pattern).toString(8)].reverse().join("");
 }
 
-/** Octal (with or without 0o) + step count → pattern. */
+/** Octal (with or without 0o) + step count → pattern. Digits are little-endian. */
 export function patternFromOctal(octal: string, steps: number): boolean[] {
   const cleaned = octal.replace(/^0o/i, "");
   if (!/^[0-7]+$/.test(cleaned)) throw new Error(`Invalid octal pattern: ${octal}`);
-  return patternFromDecimal(parseInt(cleaned, 8), steps);
+  return patternFromDecimal(parseInt([...cleaned].reverse().join(""), 8), steps);
 }

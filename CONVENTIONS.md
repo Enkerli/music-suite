@@ -62,29 +62,36 @@ applies identically to pitch-class sets and rhythm patterns, in every language
 (TS, Lua, C++) and every representation (binary, octal, decimal, hexadecimal).
 
 ### Pitch-class sets
-Pitch class i = bit i, so pc 0 (C) is the low bit. A 12-bit mask:
+Pitch class i = bit i, so pc 0 (C) is the low bit. The canonical form is the
+12-bit **decimal** mask (used as the chord-dictionary key):
 
-| Set | Binary (pc0…pc11) | Decimal | Hex |
-|---|---|---|---|
-| C major triad `{0,4,7}` | `100010010000` | 145 | 0x91 |
-| C ionian `{0,2,4,5,7,9,11}` | `101011010101` | 2741 | 0xAB5 |
+| Set | Binary (pc0…pc11) | Decimal |
+|---|---|---|
+| C major triad `{0,4,7}` | `100010010000` | 145 |
+| C ionian `{0,2,4,5,7,9,11}` | `101011010101` | 2741 |
 
 (The binary string lists pc0…pc11 left to right; the decimal reads its first
-char as the low bit — so `0x1` = `{C}`, `0x2` = `{C♯}`.)
+char as the low bit — so decimal `1` = `{C}`, `2` = `{C♯}`.)
 
 ### Rhythm patterns
-Step k = bit k. Examples:
+Step k = bit k. **Hex/octal digits are written little-endian too** — the first
+step's nibble (steps 0-3) is the LEFTMOST hex digit — so the hex string is the
+reverse of the integer's ordinary numeral:
 
-| Pattern | Meaning | Hex | Decimal |
-|---|---|---|---|
-| `1000` | hit · rest · rest · rest | 0x1 | 1 |
-| `1011` | hit · rest · hit · hit | 0xD | 13 |
-| `10010010` | E(3,8) tresillo | 0x49 | 73 |
+| Pattern | Meaning | Hex | Octal | Decimal |
+|---|---|---|---|---|
+| `1000` | hit · rest · rest · rest | 0x1 | 1 | 1 |
+| `1011` | hit · rest · hit · hit | 0xD | 51 | 13 |
+| `10010010` | E(3,8) tresillo | 0x94 | 111 | 73 |
+
+So hex `0x94` and decimal `73` are the SAME tresillo in different transcriptions
+(`0x94` read low-digit-first = 9 + 4·16 = 73), not equal as raw numbers. Decimal
+is the plain integer Σ 2^step; only hex/octal reverse the digit order.
 
 ### Step counts are explicit
 Trailing high bits (the later steps / higher pcs) vanish in a bare numeral, so
 rhythm decimal/hex forms always travel with a step count — Serpe's `:N` suffix
-(`0x49:8`), or an explicit `steps` parameter in APIs. Patterns whose length is
+(`0x94:8`), or an explicit `steps` parameter in APIs. Patterns whose length is
 not a multiple of 4 are still plain numerals, parsed back by padding to the
 declared step count. (PCS masks are always 12 wide, so no suffix.)
 
