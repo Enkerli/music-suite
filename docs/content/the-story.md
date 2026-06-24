@@ -1,42 +1,29 @@
 # The Music Suite — the story
 
-*A plain-language tour of the whole family, for anyone — no music theory or
-coding required.*
+*A plain-language tour of the whole set of tools, no music theory or coding required.*
 
-## One idea, several tools
+## Several tools to play **with** music
 
-Most music software does one of two things: it makes **sound**, or it helps you
-**arrange notes**. This suite has a third goal running through all of it — to
-help you *understand* the music you're working on, not just produce it. Name a
-chord, see which notes sing over it, watch a progression tip into a new key,
-lay a shape out the way your hands actually play it.
+This suite lets you explore different dimensions of music. You can use these tools to **play with** musical ideas. There are aspects you can see or read. Mostly, though, you should be able to listen to things in a different way.
 
-It isn't one big program. It's a small **family of tools**, each doing one job
-well, that look and feel the same and hand their work to one another.
+You can learn about harmony by exploring chords and chord progressions. You can learn about rhythm by exploring patterns. You can also draw music and change it in unusual ways.
 
+Each of these tools is the result of a separate [vibecoding](https://en.wikipedia.org/wiki/Vibe_coding) process. Each time, I started with an idea and interacted with Generative AI tools like Claude Code to make that idea into a usable tool. In other words, designing and developing these tools, like using them, is a form of open exploration.
+
+At the same time, I’m making these tools look and feel similar to one another. Plus there’s some interaction between them. For instance, a chord progression from ProgGenie can be used in MIDIcurator and you can create an expressive “qurve” in DrawnQurve and play with it in the Vane synth.
+ 
 ## The shared foundation
 
-Underneath every app sits a single **music-theory core** — one carefully
-tested library that knows notes, chords, scales, and how they relate. Every
-app draws on the same brain, so a chord named in one place means exactly the
-same thing everywhere. (That core is also the *reference*: its answers are
-pinned down by test cases other versions — in other programming languages —
-must match, so the suite can grow without drifting.)
+Underneath every app sits a single **music-theory core** — a  library for knowledge about notes, chords, scales, rhythms, and how they relate. Every app draws on the same brain, so a chord named in one place means exactly the same thing everywhere. (That core is also the *reference*: its answers match regardless of version. In this way, the suite can grow without drifting.)
 
-They also share a look: a calm **"paper & ink"** style, the same colours and
-type throughout, so moving between tools feels like staying in one room.
+Most of these apps also share a look and feel: a calm **"paper & ink"** style, using the same colours and typography throughout. At some point, moving between tools should feel like staying in the same room.
 
 ## The apps
 
-- **Progression Studio** *(nickname: ProgGenie)* — the most developed member,
-  and the suite's front door to harmony. It writes jazz chord progressions
-  drawn from the habits of 2,611 lead sheets, lets you edit them on a song
-  sheet, plays them back, and quietly explains what's going on. It runs in a
+- **ProgGenie** *(aka Progression Studio)* — a front door to harmony. It writes jazz chord progressions
+  drawn from the habits of 2,611 Jazz standards, lets you edit them on a leadsheet, plays them back, and quietly explains what's going on. It runs in a
   browser, as its own app, and as a plug-in inside studio software.
-- **MIDIcurator** — the next stop. Drop in MIDI clips, see them on a piano
-  roll, hear them, and have their chords named for you; tag, rate, and search a
-  growing library, and spin off denser or sparser variants of any pattern. It's
-  where a progression becomes a collection of usable parts.
+- **MIDIcurator** — a tool for musical pattern. Drop in MIDI clips, display them, play (with) them, and have their chords named for you. You can tag, rate, and search patterns in your library. You can also create variants of any pattern.
 - **PickPCS** — a playground for **sets of notes**. Build a chord or scale on
   concentric rings laid out by the circle of fifths, and see how the bigger
   scale families and the smaller chords nested inside them relate.
@@ -53,35 +40,29 @@ type throughout, so moving between tools feels like staying in one room.
 
 ## How they fit together
 
-The throughline is a workflow you can walk end to end, with each tool taking
-the hand-off from the last over plain **MIDI**:
+I’m working a playflow for several of these tools. At this point, you can bring material from one tool to the other and play with it. In most cases, the transfer is about MIDI, an old protocol to get musical instruments and tools to communicate with one another. What’s brought over is musical information, not sound. Except in the case of the Vane expressive synth which produces sound.
+
+Here’s a possible playflow:
 
 > **harmony → curation → rhythm → expression → sound**
 
-Write a progression in **Progression Studio**, send it to **MIDIcurator** to
-audition and collect, set its **rhythm** with **Serpe** (Euclidean and
-balance-based patterns), shape its **expression** with **DrawnQurve** (draw a
-curve, it loops as MIDI), and give it a **sound** with **Vane** (an expressive
-wavetable synth). **PitchFold**, the pitch-and-tuning explorer, rounds out the
-family. Those four are really studio plug-ins; what you can open here are their
-browser versions — so the whole chain is now walkable, end to end.
+Write a progression in **ProgGenie**, send it to **MIDIcurator** to play with it and generate some variants, explore **rhythm** with **Serpe**, shape its **expression** with **DrawnQurve**, and give it a **sound** with **Vane**. 
+
+There are plugin versions for most of these tools, for use in a plugin host or Digital Audio Workstation (DAW). These work on both Mac and iPad. Some even work on the Raspberry Pi.
 
 ## A standing promise
 
-Progression Studio learned from **2,611 real jazz lead sheets**, but it only
-ever keeps their *habits* — which chords tend to follow which — never the songs
-themselves. The original charts never leave the machine and are **never
-published**. The suggestions carry the collective instinct of thousands of
-tunes without copying any single one.
+ProgGenie uses information derived from the leadsheets of 2,611 Jazz standards. It only
+ever keeps the “habits” from these chord progressions: which chords tend to follow which. It doesn’t keep the songs
+themselves. The original charts never left the machine and will never get published. The suggestions carry the collective data from thousands of tunes without copying any single one.
 
 ## Where they run
 
-In a web browser, on an iPad, and — for Progression Studio — right inside the
-studio software you already work in. Same tools, wherever you are.
+In a web browser, on a Mac, on an iPad, or inside studio software. They’re the same tools in different environments.
 
 ---
 
-Want to go deeper on the flagship? Read **[Progression Studio's own
+Want to go deeper on chord progressions? Read **[ProgGenie's own
 story](doc.html?p=proggenie-story)**, its **[user guide](doc.html?p=user-guide)**,
 the **[architecture](doc.html?p=architecture)**, or the
 **[history & roadmap](doc.html?p=history)**.

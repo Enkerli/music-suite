@@ -1,9 +1,8 @@
-# Progression Studio — User Guide
+# ProgGenie — User Guide
 
-ProgGenie is built around one idea: **the leadsheet is the document; everything
-else assists it.** You generate into it, type or paste into it, play MIDI into
-it, rate it, re-read it in different ways, hear it, and send it on. This guide
-walks each of those.
+ProgGenie is built around a “leadsheet” as a series of chord names split across bars. By default, the tool generates a leadsheet. You can also type or paste a text version. Or add chords by playing them through MIDI. You can also rate a whole leadsheet or some parts of it. You can play it back using an electronic instrument. You can also send this leadsheet to another tool.
+
+This guide walks through each of these possibilities.
 
 ---
 

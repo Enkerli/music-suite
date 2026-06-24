@@ -126,7 +126,7 @@ on a generation op so internal edits aren't clobbered.
 | `leadsheet.ts` | The `Progression` type, `parseLeadsheet`/`formatLeadsheet`, `realizeChord`/`realizeLeadsheet`. |
 | `analysis.ts` | `assertDegree` (note → Roman degree in a key), `resolveDegree` (Roman → spelled note), degree frames. |
 | `chords.ts` · `chordSymbol.ts` · `chordDetect.ts` | Chord quality dictionary, symbol parsing, pcs-based detection. |
-| `spelling.ts` · `pitch.ts` · `pcs.ts` | Structural note spelling, pitch helpers, PCS codecs (leftmost = LSB). |
+| `spelling.ts` · `pitch.ts` · `pcs.ts` | Structural note spelling, pitch helpers, PCS codecs (LSB-first). |
 | `voiceLeading.ts` | Taxicab (L1) voice leading — the suite's reference implementation. |
 | `chordScale.ts` | Chord → scale (structural classifier) + tensions + **avoid notes**, **preferring the avoid-note-free scale**; returns alternates with their own avoid notes. |
 | `substitutions.ts` | Reharmonization over a label stream: tritone / backdoor / passing-dim, mode-aware, seeded. |
