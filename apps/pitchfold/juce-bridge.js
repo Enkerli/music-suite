@@ -6,6 +6,12 @@
 //
 // When running outside JUCE (browser / webapp), all juceEmit() calls are no-ops.
 
+// True inside the plugin's WebView; false in the standalone browser webapp.
+export function juceAvailable() {
+  return typeof window !== 'undefined' &&
+         typeof window.__JUCE__ !== 'undefined' && !!window.__JUCE__.backend;
+}
+
 function juceEmit(eventId, data) {
   if (typeof window.__JUCE__ !== 'undefined' && window.__JUCE__.backend)
     window.__JUCE__.backend.emitEvent(eventId, data);
