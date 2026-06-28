@@ -47,6 +47,11 @@ jobs:
           cache: npm
       - name: Install workspace dependencies
         run: npm ci
+      # The apps build against the shared packages' compiled output, so emit it
+      # first (tsc -b). On a fresh checkout there's no dist/.tsbuildinfo, so this
+      # actually emits (unlike an incremental local tree).
+      - name: Build shared packages (tsc -b)
+        run: npm run typecheck
       - name: Rebuild in-repo apps into docs/apps
         run: npm run sync-apps -- --monorepo
       - name: Build site from docs/site.md
