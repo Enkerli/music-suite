@@ -42,7 +42,7 @@ const MANIFEST = [
   { slug: "pitchfold",  title: "PitchFold",  kind: "esbuild", dir: "~/Desktop/PitchFold/Source/WebUI", dist: "dist", external: true },
   { slug: "drawnqurve", title: "DrawnQurve", kind: "vite",    dir: "~/DrawnQurve/webapp", external: true },
   { slug: "vane",       title: "Vane",       kind: "static-file", file: "~/Vane/Source/WebUI/index.html", external: true },
-  { slug: "serpe",      title: "Serpe",      kind: "static-dir",  dir: "~/Desktop/rhythm_pattern_explorer/WebApp/app", external: true },
+  { slug: "serpe",      title: "Serpe",      kind: "esbuild", dir: "~/Desktop/rhythm_pattern_explorer/Source/WebUI", dist: "dist", external: true },
 ];
 
 // Per-machine source overrides for the external apps.
