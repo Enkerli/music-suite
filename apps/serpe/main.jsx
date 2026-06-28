@@ -178,13 +178,27 @@ function SerpeApp() {
   // live mirror for the audio loop (avoids stale closures)
   const live = useRef({});
   live.current = { steps, accents, accentPattern, accText, editAccent, tempo, group, swing, waOn, waVol,
-                   midiNote, accVel, unaccVel, accPitch, midiChan, midiOutId };
+                   midiNote, accVel, unaccVel, accPitch, midiChan, midiInId, midiOutId };
+
+  // Notes we've sent out recently, so we can drop their echo when the same port
+  // is routed back into our input (e.g. IAC In == Out) — otherwise each output
+  // note re-triggers an advance and the pattern "swirls".
+  const sentEcho = useRef([]);
 
   // MIDI-in handler, refreshed each render so the once-registered listener never
   // sees stale state. Parity with the plugin: an incoming note sets the output
   // pitch and advances (next scene if any are filled, else the progressive).
   const onMidiNoteRef = useRef(() => {});
   onMidiNoteRef.current = (e) => {
+    const L = live.current;
+    // Echo guard: only a concern when In and Out are the same port. Drop an
+    // incoming note that matches one we just sent on the same channel.
+    if (L.midiInId && L.midiInId === L.midiOutId) {
+      const now = performance.now();
+      sentEcho.current = sentEcho.current.filter(s => now - s.t < 200);
+      const i = sentEcho.current.findIndex(s => s.n === e.note && s.c === e.channel);
+      if (i >= 0) { sentEcho.current.splice(i, 1); return; }
+    }
     setMidiNote(Math.max(0, Math.min(127, e.note)));
     const filled = scenes.map((s, i) => (s ? i : -1)).filter(i => i >= 0);
     if (filled.length) { const c = filled.indexOf(activeScene); sceneClick(filled[(c + 1 + filled.length) % filled.length]); }
@@ -397,6 +411,7 @@ function SerpeApp() {
     if (!L.midiOutId) return;
     const note = Math.max(0, Math.min(127, L.midiNote + (accent ? L.accPitch : 0)));
     sendMidiNoteOn(note, accent ? L.accVel : L.unaccVel, L.midiChan);
+    if (L.midiInId && L.midiInId === L.midiOutId) sentEcho.current.push({ n: note, c: L.midiChan, t: performance.now() });
     setTimeout(() => sendMidiNoteOff(note, L.midiChan), Math.max(30, stepDur(idx) * 0.9));
   }
   function stepDur(idx) {
