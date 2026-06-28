@@ -489,3 +489,119 @@ select.es-control option { background: var(--es-bg-raised); color: var(--es-fg);
   padding: 3px 10px; border-radius: 999px; white-space: nowrap;
   border: 1px dashed var(--es-border-strong); color: var(--es-fg-2); background: var(--es-bg-raised);
 }
+
+/* ── Runtime provenance & gating ─────────────────────────────────────
+   The suite ships one UI into three deployments: a standalone webapp, a
+   desktop plugin, and an iPad AUv3. Some controls only make sense in one
+   context. Three orthogonal gates mark them, and runtime code toggles
+   [hidden] on the gate:
+
+     [data-feat="web"]         web-only FEATURES   (pattern DB, Web Audio)
+     [data-feat="host"]        plugin-only panels  (host sync, automation)
+     [data-chrome="standalone"] webapp-only CHROME (this block)
+
+   "Standalone chrome" is the surface for controls a plugin host normally
+   owns — MIDI/audio device routing, the app's own transport — that a
+   webapp with no host must supply itself. It is the complement of
+   [data-feat="host"]: where there is no host, this appears. Instance #1
+   is the MIDI device selectors below; pin .es-device-bar inside an
+   .es-section at the top of the control rail. */
+[data-chrome][hidden],
+[data-feat][hidden] { display: none !important; }
+
+/* Provenance badge: rides a section summary to label where a control
+   comes from. Colour pairs with the word — never identifies alone. */
+.feat-badge {
+  font-family: var(--es-font-mono);
+  font-size: 9px;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  font-weight: 600;
+  padding: 1px 6px;
+  border-radius: 999px;
+  margin-left: auto;
+}
+.feat-badge.web { background: var(--es-dim-breath-tint); color: var(--es-dim-breath); }
+.feat-badge.host { background: var(--es-dim-pressure-tint); color: var(--es-dim-pressure); }
+.feat-badge.standalone { background: var(--es-dim-slide-tint); color: var(--es-dim-slide); }
+[data-theme="dark"] .feat-badge.web { background: color-mix(in oklab, var(--es-dim-breath) 24%, transparent); }
+[data-theme="dark"] .feat-badge.host { background: color-mix(in oklab, var(--es-dim-pressure) 26%, transparent); }
+[data-theme="dark"] .feat-badge.standalone { background: color-mix(in oklab, var(--es-dim-slide) 26%, transparent); }
+
+/* ── Standalone chrome: device selectors ─────────────────────────────
+   .es-device-bar  — a stack of device endpoints (the surface)
+   .es-device-select — one labelled endpoint: head (icon · name · status)
+                       over a <select>, with a connection state.
+   States carried on [data-state]:  connected | empty
+   The status LED always rides with a word (no colour-only signalling),
+   and the empty state replaces the <select> with a clear message. */
+.es-device-bar {
+  display: flex;
+  flex-direction: column;
+  gap: var(--es-space-3);
+}
+
+.es-device-select {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.es-device-select-head {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  font-weight: 600;
+  color: var(--es-fg-muted);
+}
+.es-device-icon {
+  width: 15px;
+  height: 15px;
+  flex: none;
+  color: var(--es-fg-2);
+  display: inline-flex;
+}
+.es-device-icon svg { width: 100%; height: 100%; display: block; }
+.es-device-name { white-space: nowrap; }
+
+/* connection status — LED + word, right-aligned, never colour alone */
+.es-device-status {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--es-text-xs);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: none;
+  color: var(--es-fg-muted);
+}
+.es-device-led {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex: none;
+  background: var(--es-border-strong);
+}
+.es-device-select[data-state="connected"] .es-device-status { color: var(--es-dim-expr); }
+.es-device-select[data-state="connected"] .es-device-led { background: var(--es-dim-expr); }
+
+.es-device-select select.es-control { width: 100%; }
+
+/* empty state — replaces the <select> when no devices are present */
+.es-device-empty {
+  min-height: var(--es-ctl-h);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 var(--es-space-3);
+  border: 1px dashed var(--es-border-strong);
+  border-radius: var(--es-radius-sm);
+  background: var(--es-bg-sunken);
+  color: var(--es-fg-muted);
+  font-size: var(--es-text-sm);
+}
+.es-device-select[data-state="empty"] select.es-control { display: none; }
+.es-device-select:not([data-state="empty"]) .es-device-empty { display: none; }
