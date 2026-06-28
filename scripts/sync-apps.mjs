@@ -38,12 +38,12 @@ const MANIFEST = [
   { slug: "chord-dictionary", title: "Chord Dictionary",     kind: "workspace", workspace: "chord-dictionary" },
   { slug: "exquisite",        title: "Exquisite Fingerings", kind: "workspace", workspace: "exquisite-fingerings" },
   { slug: "style-gallery",    title: "Style Gallery",        kind: "vite",      dir: join(ROOT, "apps", "style-gallery") },
-  // Serpe's WebUI source was consolidated into this monorepo (apps/serpe); the
-  // JUCE plugin (separate repo) reads the same source via a configurable CMake
-  // path. esbuild emits stable bundle.js/index.html the plugin embeds by name.
+  // Consolidated plugin WebUIs: source lives here; each JUCE plugin (separate
+  // repo) reads the same source via a configurable CMake path. esbuild emits
+  // stable bundle.js/index.html the plugin embeds by name.
   { slug: "serpe",            title: "Serpe",                kind: "esbuild",   dir: join(ROOT, "apps", "serpe"), dist: "dist" },
+  { slug: "pitchfold",        title: "PitchFold",            kind: "esbuild",   dir: join(ROOT, "apps", "pitchfold"), dist: "dist" },
   // ── Separate repos (JUCE plugins; we deploy their WebView UIs) ──
-  { slug: "pitchfold",  title: "PitchFold",  kind: "esbuild", dir: "~/Desktop/PitchFold/Source/WebUI", dist: "dist", external: true },
   { slug: "drawnqurve", title: "DrawnQurve", kind: "vite",    dir: "~/DrawnQurve/webapp", external: true },
   { slug: "vane",       title: "Vane",       kind: "static-file", file: "~/Vane/Source/WebUI/index.html", external: true },
 ];
