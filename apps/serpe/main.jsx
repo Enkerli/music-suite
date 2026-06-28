@@ -1,13 +1,15 @@
 // main.jsx — Serpe React app. Recreates the suite redesign; reuses the
-// framework-agnostic engine (engine/*.js) and the suite CSS (styles/*.css).
+// framework-agnostic engine (engine/*.js) and the shared suite design language.
 // Runs standalone in the browser and inside the JUCE WebView (bridge no-ops
 // when JUCE is absent).
 
 // CSS is imported as text (esbuild --loader:.css=text) and injected at runtime,
 // so the build produces a single bundle.js (no separate bundle.css). This keeps
 // the JUCE binary-data step to two artifacts and avoids an Xcode build cycle.
-import tokensCss from './styles/tokens.css';
-import componentsCss from './styles/components.css';
+// Tokens + components come from @enkerli/ui (the single source of the design
+// language — no longer vendored here); only serpe.css is app-specific.
+import tokensCss from '@enkerli/ui/tokens.css';
+import componentsCss from '@enkerli/ui/components.css';
 import serpeCss from './styles/serpe.css';
 {
   const el = document.createElement('style');
@@ -23,6 +25,7 @@ import { funkyEuclidean, bellCurveRandomSteps } from './engine/rhythm.js';
 import { mutatePattern } from './engine/mutate.js';
 import { createCircleView, createStepView } from './engine/render.js';
 import { initJuceBridge, sendParamActual, sendUPI, sendPlaying, sendBPM, sendToggleAccent, juceAvailable } from './juce-bridge.js';
+import { startWebMidi, selectMidiInput, selectMidiOutput, sendMidiNoteOn, sendMidiNoteOff, allMidiNotesOff, midiSupported } from './webmidi-bridge.js';
 
 // Inline SVG mark — a data-URL <img> with unescaped '#' hex colours renders in
 // Chrome but breaks in macOS WKWebView, so inject the markup directly.
@@ -137,6 +140,11 @@ function SerpeApp() {
   const [accPitch, setAccPitch] = useState(0);
   const [midiNote, setMidiNote] = useState(38);
   const [midiChan, setMidiChan] = useState(1);
+  // ── Standalone MIDI I/O (webapp runtime only; the plugin uses C++ MIDI) ──
+  const [midiPorts, setMidiPorts] = useState({ inputs: [], outputs: [] });
+  const [midiInId, setMidiInId]   = useState(() => LS.get('midiIn', ''));
+  const [midiOutId, setMidiOutId] = useState(() => LS.get('midiOut', ''));
+  const [midiErr, setMidiErr]     = useState('');
 
   const [progOff, setProgOff] = useState(1);
   const [progLeng, setProgLeng] = useState(false);
@@ -169,7 +177,19 @@ function SerpeApp() {
 
   // live mirror for the audio loop (avoids stale closures)
   const live = useRef({});
-  live.current = { steps, accents, accentPattern, accText, editAccent, tempo, group, swing, waOn, waVol };
+  live.current = { steps, accents, accentPattern, accText, editAccent, tempo, group, swing, waOn, waVol,
+                   midiNote, accVel, unaccVel, accPitch, midiChan, midiOutId };
+
+  // MIDI-in handler, refreshed each render so the once-registered listener never
+  // sees stale state. Parity with the plugin: an incoming note sets the output
+  // pitch and advances (next scene if any are filled, else the progressive).
+  const onMidiNoteRef = useRef(() => {});
+  onMidiNoteRef.current = (e) => {
+    setMidiNote(Math.max(0, Math.min(127, e.note)));
+    const filled = scenes.map((s, i) => (s ? i : -1)).filter(i => i >= 0);
+    if (filled.length) { const c = filled.indexOf(activeScene); sceneClick(filled[(c + 1 + filled.length) % filled.length]); }
+    else progAdvance();
+  };
 
   // The {bits} prefix to carry the accent layer (field overrides inline).
   const accLayerPrefix = (L) => L.accText.trim() ? ''
@@ -370,6 +390,15 @@ function SerpeApp() {
     g.gain.exponentialRampToValueAtTime(0.0001, t + 0.09);
     o.start(t); o.stop(t + 0.1);
   }
+  // MIDI out (standalone): play the onset on the selected output. Accents take
+  // the accent velocity and pitch offset, matching the plugin's engine.
+  function midiHit(accent, idx) {
+    const L = live.current;
+    if (!L.midiOutId) return;
+    const note = Math.max(0, Math.min(127, L.midiNote + (accent ? L.accPitch : 0)));
+    sendMidiNoteOn(note, accent ? L.accVel : L.unaccVel, L.midiChan);
+    setTimeout(() => sendMidiNoteOff(note, L.midiChan), Math.max(30, stepDur(idx) * 0.9));
+  }
   function stepDur(idx) {
     const L = live.current; const grp = L.group || 4;
     const base = (60 / L.tempo) / grp; const s = L.swing / 100 * 0.5;
@@ -386,7 +415,7 @@ function SerpeApp() {
         const k = L.steps.reduce((acc, s) => acc + (s ? 1 : 0), 0);
         setAccentOffset(o => (o + k) % L.accentPattern.length);
       }
-      if (L.steps[next]) click(!!L.accents[next]);
+      if (L.steps[next]) { const acc = !!L.accents[next]; click(acc); midiHit(acc, next); }
       timer.current = setTimeout(tick, stepDur(next));
       return next;
     });
@@ -401,7 +430,7 @@ function SerpeApp() {
     if (audioCtx.current && audioCtx.current.state === 'suspended') audioCtx.current.resume();
     setPlaying(true); timer.current = setTimeout(tick, stepDur(0));
   }
-  function pause() { setPlaying(false); clearTimeout(timer.current); }
+  function pause() { setPlaying(false); clearTimeout(timer.current); if (live.current.midiOutId) allMidiNotesOff(live.current.midiChan); }
   function stop() {
     if (cfg.host) { setPlaying(false); sendPlaying(false); return; }  // plugin
     pause(); setPlayhead(-1);
@@ -440,6 +469,26 @@ function SerpeApp() {
       }
     });
   }, []);
+
+  // ── Web MIDI (standalone only): enable once, then keep the selected
+  //    in/out in sync. The plugin runtime leaves this untouched (C++ MIDI). ──
+  useEffect(() => {
+    if (runtime !== 'webapp' || !midiSupported()) return undefined;
+    let cancelled = false;
+    startWebMidi({
+      onDevices: p => { if (!cancelled) setMidiPorts(p); },
+      onNoteIn: e => onMidiNoteRef.current(e),
+    }).then(res => {
+      if (cancelled) return;
+      if (res.ok) { setMidiPorts(res.ports); setMidiErr(''); }
+      else setMidiErr(res.error || 'MIDI unavailable');
+    });
+    return () => { cancelled = true; };
+  }, [runtime]);
+  // Apply the chosen ports (re-run when the device list changes so a remembered
+  // device binds as soon as it appears).
+  useEffect(() => { selectMidiInput(midiInId); }, [midiInId, midiPorts]);
+  useEffect(() => { selectMidiOutput(midiOutId); }, [midiOutId, midiPorts]);
 
   // ── derived UI bits ──
   const weights = useMemo(() => indispensabilityWeights(steps.length || 1), [steps.length]);
@@ -541,6 +590,15 @@ function SerpeApp() {
 
       // control rail
       h('div', { className: 'serpe-rail' },
+        // MIDI device routing — standalone-only chrome (a plugin host owns this).
+        runtime === 'webapp' && h(Section, { title: 'MIDI', open: true, badge: 'standalone' },
+          midiErr
+            ? h('p', { className: 'note', style: { margin: 0 } }, midiErr)
+            : h('div', { className: 'es-device-bar' },
+                h(DeviceSelect, { label: 'MIDI In', ports: midiPorts.inputs, value: midiInId,
+                  onChange: v => { setMidiInId(v); LS.set('midiIn', v); } }),
+                h(DeviceSelect, { label: 'MIDI Out', ports: midiPorts.outputs, value: midiOutId,
+                  onChange: v => { setMidiOutId(v); LS.set('midiOut', v); } }))),
         // Generators
         h(Section, { title: 'Generators', open: true },
           h(Field, { label: 'Type' },
@@ -720,10 +778,28 @@ function SerpeApp() {
 }
 
 // ── small presentational helpers ──
+const BADGE_LABEL = { web: 'web', host: 'plugin', standalone: 'standalone' };
 function Section({ title, badge, open, children }) {
   return h('details', { className: 'es-section', open: !!open },
-    h('summary', null, title, badge && h('span', { className: 'feat-badge ' + badge }, badge === 'web' ? 'web' : 'plugin')),
+    h('summary', null, title, badge && h('span', { className: 'feat-badge ' + badge }, BADGE_LABEL[badge] || badge)),
     h('div', { className: 'es-section-body' }, children));
+}
+
+// A single MIDI endpoint selector (the design's .es-device-select). The CSS uses
+// [data-state] to swap the <select> for an empty message and to colour the LED.
+const MIDI_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="7" r="1.1" fill="currentColor" stroke="none"/><circle cx="7.6" cy="9.6" r="1.1" fill="currentColor" stroke="none"/><circle cx="16.4" cy="9.6" r="1.1" fill="currentColor" stroke="none"/><circle cx="9" cy="15" r="1.1" fill="currentColor" stroke="none"/><circle cx="15" cy="15" r="1.1" fill="currentColor" stroke="none"/></svg>';
+function DeviceSelect({ label, ports, value, onChange }) {
+  const connected = !!value && ports.some(p => p.id === value);
+  const state = ports.length === 0 ? 'empty' : (connected ? 'connected' : 'available');
+  return h('div', { className: 'es-device-select', 'data-state': state },
+    h('div', { className: 'es-device-select-head' },
+      h('span', { className: 'es-device-icon', 'aria-hidden': true, dangerouslySetInnerHTML: { __html: MIDI_ICON } }),
+      h('span', { className: 'es-device-name' }, label),
+      h('span', { className: 'es-device-status' }, h('span', { className: 'es-device-led' }),
+        connected ? 'connected' : (ports.length ? 'select…' : 'none'))),
+    h('select', { className: 'es-control', value: value || '', onChange: e => onChange(e.target.value), 'aria-label': label },
+      [h('option', { key: '', value: '' }, 'None'), ...ports.map(p => h('option', { key: p.id, value: p.id }, p.name))]),
+    h('div', { className: 'es-device-empty' }, 'No MIDI devices found'));
 }
 function Field({ label, children }) {
   return h('div', { className: 'field' }, label && h('label', null, label), children);
