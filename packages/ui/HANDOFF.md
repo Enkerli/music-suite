@@ -43,9 +43,10 @@ stated preference); warm dark is a first-class one-tap variant.
    plugin UIs are stacks of `.es-section` collapsibles (AUv3 windows are
    small and fixed) with `.es-dense` for stage use.
 5. **One accent per app** in icons; the family must read as a set.
-6. Music-notation conventions (MSB-first bit strings, structural note
-   spelling) live in `~/Desktop/music-suite/CONVENTIONS.md` — design
-   artifacts that show masks or note names must follow them.
+6. Music-notation conventions (leftmost-LSB bit strings — first step / pc 0 is
+   bit 0 = 2^0, read left-to-right — structural note spelling) live in
+   `~/Desktop/music-suite/CONVENTIONS.md` — design artifacts that show masks or
+   note names must follow them.
 
 ## Claude Code hooks
 

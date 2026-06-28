@@ -1,5 +1,5 @@
 {
-  "description": "Cross-language vectors for rhythm algorithms ported from Serpe (rhythm_pattern_explorer). Patterns encoded as strings, '1' = onset. Verified by differential testing against the original WebApp JS (all E(k,n) for n<=24 with offsets, Barlow tables, transforms). Codec convention (strict, suite-wide): first step = leftmost bit = MSB; pattern string read as an ordinary binary numeral. See CONVENTIONS.md. Octal added 2026-06-20; codecBatch is a seeded, reproducible set read identically by the webapp and plugin conformance suites.",
+  "description": "Cross-language vectors for rhythm algorithms ported from Serpe (rhythm_pattern_explorer). Patterns encoded as strings, '1' = onset. Verified by differential testing against the original WebApp JS (all E(k,n) for n<=24 with offsets, Barlow tables, transforms). Codec convention (strict, suite-wide): first step = leftmost bit = LSB (step i = bit i = 2^i), read left-to-right; hex/octal digit strings are little-endian (first step's nibble leftmost), so the hex reads in the same order as the steps — e.g. tresillo 10010010 = 0x94. See CONVENTIONS.md. Octal added 2026-06-20; codecBatch is a seeded, reproducible set read identically by the webapp and plugin conformance suites.",
   "euclidean": [
     {
       "name": "tresillo",

@@ -78,13 +78,13 @@ describe('Music Theory', () => {
     it('should convert C major triad to binary', () => {
       const pcs = new Set([0, 4, 7]); // C, E, G
       const binary = pcsToBinary(pcs);
-      // MSB-first: pc 0 = leftmost bit
-      // Binary: 0b100010010000 = 2192
-      expect(binary).toBe(2192);
+      // leftmost-LSB: pc i contributes 2^i (pc 0 = bit 0 = 2^0)
+      // 2^0 + 2^4 + 2^7 = 145
+      expect(binary).toBe(145);
     });
 
     it('should convert binary back to PCS', () => {
-      const binary = 2192; // C major triad
+      const binary = 145; // C major triad
       const pcs = binaryToPcs(binary);
       expect(pcs).toEqual(new Set([0, 4, 7]));
     });

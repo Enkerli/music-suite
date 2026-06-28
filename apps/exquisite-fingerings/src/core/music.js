@@ -188,16 +188,16 @@ export function midiToPitchClass(midiNote) {
 
 /**
  * Convert pitch class set to binary representation
- * Binary representation (strict MSB-first, suite-wide convention — see
- * music-suite CONVENTIONS.md): pitch class 0 (C) is the LEFTMOST / most
- * significant bit of the 12-bit numeral.
- * Example: C major triad (C, E, G) = 0b100010010000 = 2192
+ * Binary representation (strict leftmost-LSB, suite-wide convention — see
+ * music-suite CONVENTIONS.md): pitch class i contributes 2^i, so pitch class 0
+ * (C) is bit 0 (2^0), the LEAST significant bit.
+ * Example: C major triad (C, E, G) = 2^0 + 2^4 + 2^7 = 145
  *
  * @param {Set<number>|Array<number>} pcs - Pitch class set
  * @returns {number} Binary representation (0-4095)
  */
 export function pcsToBinary(pcs) {
-  // Single source of truth: @enkerli/theory's MSB-first mask (pc 0 = 2^11).
+  // Single source of truth: @enkerli/theory's leftmost-LSB mask (pc i = 2^i).
   return pcsToDecimal(Array.isArray(pcs) ? pcs : Array.from(pcs));
 }
 
@@ -208,8 +208,9 @@ export function pcsToBinary(pcs) {
  */
 export function binaryToPcs(binary) {
   const pcs = new Set();
+  // leftmost-LSB: pc i is bit i (2^i) — the inverse of pcsToBinary / theory.
   for (let pc = 0; pc < 12; pc++) {
-    if (binary & (1 << (11 - pc))) {
+    if (binary & (1 << pc)) {
       pcs.add(pc);
     }
   }
