@@ -39,7 +39,7 @@ function useDrawnQurveEngine(initial = {}) {
       rangeMax: 0.95,
       scaleId: 'major',
       scaleRoot: 0,
-      scaleMask: 0b101011010101,
+      scaleMask: 0b101010110101,
       velocity: 100,
       // Per-lane quantization — mirrors C++ APVTS xQuantize/yQuantize/xDivisions/yDivisions
       quantizeX: false,
@@ -71,7 +71,7 @@ function useDrawnQurveEngine(initial = {}) {
       rangeMax: 0.85,
       scaleId: 'pentMin',
       scaleRoot: 9, // A
-      scaleMask: 0b100101010010,
+      scaleMask: 0b010010101001,
       velocity: 96,
       quantizeX: false,
       quantizeY: false,
@@ -272,7 +272,7 @@ function snapSemitone(semi, mask, root) {
   return semi;
 }
 
-function pcActive(mask, pc) { return (mask >> (11 - pc)) & 1; }
+function pcActive(mask, pc) { return (mask >> (pc)) & 1; }
 
 // generators
 function makeSineCurve(n, center, amp, cycles, phase = 0) {

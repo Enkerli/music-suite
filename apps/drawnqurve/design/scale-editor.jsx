@@ -18,7 +18,7 @@ function formatMaskBits(mask) {
   const m = mask & 0xFFF;
   let out = '';
   for (let i = 0; i < 12; i++) {
-    out += ((m >> (11 - i)) & 1) ? '1' : '0';
+    out += ((m >> (i)) & 1) ? '1' : '0';
     if (i === 3 || i === 7) out += ' ';
   }
   return out;
