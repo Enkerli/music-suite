@@ -43,8 +43,11 @@ const MANIFEST = [
   // stable bundle.js/index.html the plugin embeds by name.
   { slug: "serpe",            title: "Serpe",                kind: "esbuild",   dir: join(ROOT, "apps", "serpe"), dist: "dist" },
   { slug: "pitchfold",        title: "PitchFold",            kind: "esbuild",   dir: join(ROOT, "apps", "pitchfold"), dist: "dist" },
+  // DrawnQurve: consolidated the plugin's maintained Source/WebUI (esbuild). The
+  // older top-level webapp/ (a vite port) was parked upstream, so the site now
+  // tracks the real app instead.
+  { slug: "drawnqurve",       title: "DrawnQurve",           kind: "esbuild",   dir: join(ROOT, "apps", "drawnqurve"), dist: "dist" },
   // ── Separate repos (JUCE plugins; we deploy their WebView UIs) ──
-  { slug: "drawnqurve", title: "DrawnQurve", kind: "vite",    dir: "~/DrawnQurve/webapp", external: true },
   { slug: "vane",       title: "Vane",       kind: "static-file", file: "~/Vane/Source/WebUI/index.html", external: true },
 ];
 
