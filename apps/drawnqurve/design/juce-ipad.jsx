@@ -586,6 +586,7 @@ function JuceTopBar({ eng, paper, h, helpOpen, setHelpOpen, useDark, setUseDark,
       </div>
 
       {recorder && <MidiInputSelector recorder={recorder} paper={paper} />}
+      {recorder && <MidiOutputSelector recorder={recorder} paper={paper} />}
 
       <div style={{ flex: 1 }} />
 
@@ -1887,6 +1888,61 @@ function eventsToQurve(events, lane, loopSec) {
   return { curve: arr, notes: null };
 }
 
+// ── MIDI OUTPUT (standalone) ─────────────────────────────────────────────────
+// The plugin's C++ engine emits MIDI from the curves; the standalone webapp must
+// do it itself. These pure builders turn a lane's sampled value into Web MIDI
+// byte messages, mirroring the C++ per-target emission. `prev` carries the last
+// sent value per lane so we only emit on change (no flooding); for Note lanes it
+// tracks the sounding note so it can be released. Pure → unit-testable.
+function laneMidiMessages(lane, value, semitone, prev) {
+  const ch = Math.max(0, Math.min(15, (lane.channel || 1) - 1));
+  const c127 = (v) => Math.max(0, Math.min(127, Math.round(v)));
+  const msgs = [];
+  const state = { ...(prev || {}) };
+  switch (lane.target) {
+    case 'CC': {
+      const v = c127(value * 127);            // value is the ranged 0..1 output
+      if (v !== prev?.cc) { msgs.push([0xB0 | ch, (lane.targetDetail || 0) & 0x7F, v]); state.cc = v; }
+      break;
+    }
+    case 'Aftertouch': {
+      const v = c127(value * 127);
+      if (v !== prev?.at) { msgs.push([0xD0 | ch, v]); state.at = v; }
+      break;
+    }
+    case 'PitchBend': {
+      const pb = Math.max(0, Math.min(16383, Math.round(value * 16383)));  // 14-bit
+      if (pb !== prev?.pb) { msgs.push([0xE0 | ch, pb & 0x7F, (pb >> 7) & 0x7F]); state.pb = pb; }
+      break;
+    }
+    case 'Note': {
+      const note = c127(semitone);
+      if (note !== prev?.note) {
+        const vel = c127(lane.velocity || 100);
+        if (lane.legato) {                      // legato: new note before releasing the old
+          msgs.push([0x90 | ch, note, vel]);
+          if (prev?.note != null) msgs.push([0x80 | ch, prev.note, 0]);
+        } else {
+          if (prev?.note != null) msgs.push([0x80 | ch, prev.note, 0]);
+          msgs.push([0x90 | ch, note, vel]);
+        }
+        state.note = note;
+      }
+      break;
+    }
+    default: break;
+  }
+  return { msgs, state };
+}
+// Note-off(s) to release a lane's sounding note (on stop / mute / output change).
+function laneReleaseMessages(lane, prev) {
+  if (lane?.target === 'Note' && prev?.note != null) {
+    const ch = Math.max(0, Math.min(15, (lane.channel || 1) - 1));
+    return [[0x80 | ch, prev.note, 0]];
+  }
+  return [];
+}
+
 // useMidiRecorder — manages MIDI recording with an ARM / REC workflow.
 //
 // Workflow:
@@ -1910,6 +1966,10 @@ function useMidiRecorder(eng) {
   const [access, setAccess]   = React.useState(null);
   const [inputs, setInputs]   = React.useState([]);
   const [inputId, setInputId] = React.useState(null);
+  // MIDI OUTPUT (standalone only — the plugin emits from C++).
+  const [outputs, setOutputs]   = React.useState([]);
+  const [outputId, setOutputId] = React.useState(null);
+  const outStateRef = React.useRef({});  // laneId → last-sent { cc|at|pb|note }
 
   // ── ARM / REC state ────────────────────────────────────────────────────────
   // armedLane: which lane will record when REC is pressed (null = none).
@@ -1960,6 +2020,9 @@ function useMidiRecorder(eng) {
         const ins = [...acc.inputs.values()];
         setInputs(ins);
         if (ins.length === 1) setInputId(ins[0].id);
+        const outs = [...acc.outputs.values()];
+        setOutputs(outs);
+        if (outs.length === 1) setOutputId(outs[0].id);
       };
       setAccess(acc);
       refresh();
@@ -2057,6 +2120,43 @@ function useMidiRecorder(eng) {
     return () => { port.onmidimessage = null; };
   }, [isJuceMode, access, inputId, processMidiBytes]);
 
+  // ── Web MIDI OUTPUT: emit the curves while playing ─────────────────────────
+  // The standalone equivalent of the plugin's C++ emission. A rAF loop samples
+  // each non-muted lane at its phase and sends MIDI on change; cleanup releases
+  // any sounding notes (stop / output change / unmount).
+  React.useEffect(() => {
+    if (isJuceMode || !access || !outputId || !eng.playing) return undefined;
+    const out = access.outputs.get(outputId);
+    if (!out) return undefined;
+    let raf;
+    const tick = () => {
+      const e = engRef.current;
+      for (const lane of e.lanes) {
+        const prev = outStateRef.current[lane.id];
+        if (lane.muted) {
+          for (const m of laneReleaseMessages(lane, prev)) out.send(m);
+          outStateRef.current[lane.id] = {};
+          continue;
+        }
+        const ph = e.lanePhases?.[lane.id] ?? e.phase;
+        const raw = sampleLaneQuantized(lane, ph);
+        const { value, semitone } = applyLane(lane, raw);
+        const { msgs, state } = laneMidiMessages(lane, value, semitone, prev);
+        for (const m of msgs) out.send(m);
+        outStateRef.current[lane.id] = state;
+      }
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => {
+      cancelAnimationFrame(raf);
+      for (const lane of engRef.current.lanes) {
+        for (const m of laneReleaseMessages(lane, outStateRef.current[lane.id])) out.send(m);
+      }
+      outStateRef.current = {};
+    };
+  }, [isJuceMode, access, outputId, eng.playing]);
+
   // ── JUCE bridge: register midiIn handler ──────────────────────────────────
   React.useEffect(() => {
     if (!isJuceMode || !eng.setMidiInHandler) return;
@@ -2130,6 +2230,9 @@ function useMidiRecorder(eng) {
     inputs,
     inputId,
     setInputId,
+    outputs,
+    outputId,
+    setOutputId,
     armedLane,
     setArmedLane,
     isRecording,
@@ -2277,6 +2380,50 @@ function MidiInputSelector({ recorder, paper }) {
         <option value="">— MIDI IN —</option>
         {inputs.map(inp => (
           <option key={inp.id} value={inp.id}>{inp.name}</option>
+        ))}
+      </select>
+    </div>
+  );
+}
+
+// ── MIDI output selector ─────────────────────────────────────
+// Standalone only: picks the Web MIDI destination the curves are sent to.
+// Hidden in JUCE mode (the plugin routes output through the host).
+function MidiOutputSelector({ recorder, paper }) {
+  const { outputs, outputId, setOutputId } = recorder;
+  if (typeof window.__JUCE__ !== 'undefined') return null;
+  if (typeof navigator === 'undefined' || !navigator.requestMIDIAccess) return null;
+
+  const baseStyle = {
+    height: 30, padding: '0 8px',
+    background: paper.card, border: `1px solid ${paper.rule}`,
+    borderRadius: 2, flexShrink: 0,
+    fontFamily: 'Inter Tight', fontSize: 10, letterSpacing: 0.8,
+    color: paper.ink30, display: 'flex', alignItems: 'center', gap: 5,
+    textTransform: 'uppercase',
+  };
+  if (!outputs || outputs.length === 0) return (
+    <div style={baseStyle}><span style={{ fontSize: 8 }}>▸</span> No MIDI out</div>
+  );
+
+  const activeColor = 'oklch(55% 0.15 145)';
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
+      <span style={{ fontSize: 8, color: outputId ? activeColor : paper.ink30 }}>▸</span>
+      <select
+        value={outputId || ''}
+        onChange={e => setOutputId(e.target.value || null)}
+        style={{
+          height: 30, padding: '0 6px',
+          background: paper.card, border: `1px solid ${paper.rule}`,
+          borderRadius: 2, cursor: 'pointer',
+          fontFamily: 'Inter Tight', fontSize: 10,
+          color: paper.ink70, maxWidth: 130,
+        }}
+      >
+        <option value="">— MIDI OUT —</option>
+        {outputs.map(out => (
+          <option key={out.id} value={out.id}>{out.name}</option>
         ))}
       </select>
     </div>
