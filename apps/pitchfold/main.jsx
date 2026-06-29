@@ -18,7 +18,7 @@ import { TimePanel }      from './design/time-panel.jsx';
 
 const DEFAULT_STATE = {
   pcsRoot:       0,
-  pcsMask:       0x0AD5,   // Ionian
+  pcsMask:       0x0AB5,   // Ionian
   quantDir:      0,
   quantStrength: 1.0,
   outputLo:      0,
@@ -34,7 +34,7 @@ const DEFAULT_STATE = {
   monoSelect:    0,
   splitVoices:   2,
   splitChannel:  1,
-  pads:          Array.from({ length: 16 }, (_, i) => ({ index: i, mask: 0x0AD5, root: 0, label: '', selected: false })),
+  pads:          Array.from({ length: 16 }, (_, i) => ({ index: i, mask: 0x0AB5, root: 0, label: '', selected: false })),
 };
 
 // ── App ───────────────────────────────────────────────────────────────────────

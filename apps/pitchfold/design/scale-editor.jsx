@@ -13,12 +13,12 @@ function recognizeScaleId(mask) {
 
 function pcActive(mask, interval) {
   interval = ((interval % 12) + 12) % 12;
-  return !!((mask >> (11 - interval)) & 1);
+  return !!((mask >> interval) & 1);
 }
 
 function togglePc(mask, interval) {
   interval = ((interval % 12) + 12) % 12;
-  return mask ^ (1 << (11 - interval));
+  return mask ^ (1 << interval);
 }
 
 // ── Chromatic Wheel ───────────────────────────────────────────────────────────
@@ -214,7 +214,7 @@ function MaskControls({ mask, onMaskChange, paper = window.PAPER }) {
   return (
     <div style={{ display: 'flex', gap: 4, paddingTop: 4 }}>
       {btn('All',    () => onMaskChange(0x0FFF))}
-      {btn('None',   () => onMaskChange(0x0800))}
+      {btn('None',   () => onMaskChange(0x001))}
       {btn('Invert', () => onMaskChange((~mask) & 0x0FFF))}
     </div>
   );
@@ -402,7 +402,7 @@ function ScaleMaskInput({ mask, onMaskChange, paper = window.PAPER }) {
 // ── Composed scale editor ─────────────────────────────────────────────────────
 
 export function ScaleEditor({ state, sendParam, paper = window.PAPER }) {
-  const { pcsMask: mask = 0x0AD5, pcsRoot: root = 0, useFlats = false } = state;
+  const { pcsMask: mask = 0x0AB5, pcsRoot: root = 0, useFlats = false } = state;
 
   const setMask = m => sendParam('pcsMask', m & 0x0FFF);
   const setRoot = r => sendParam('pcsRoot', r);

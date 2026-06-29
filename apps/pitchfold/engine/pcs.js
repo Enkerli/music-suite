@@ -2,14 +2,14 @@
  * PitchFold PCS quantizer — a faithful JS port of Source/PCS/PCSEngine.h, so the
  * standalone webapp snaps notes exactly like the plugin.
  *
- * BIT ORDER: these masks are MSB-first (pitch class 0 = bit 11), matching the
- * PitchFold C++ engine and its webapp UI. This is NOT the suite's leftmost-LSB
- * convention — converging PitchFold onto it is a later "harmonize" step. Keep the
- * `>> (11 - interval)` form to stay byte-for-byte compatible with the plugin.
+ * BIT ORDER: leftmost-LSB, the suite-wide convention — pitch class i is bit i
+ * (2^i), so C = bit 0. The PitchFold C++ engine + webapp UI were flipped to match
+ * (harmonized 2026-06-28), so masks read the same here, in @enkerli/theory, and
+ * in the plugin.
  */
 
 export function pcActive(mask, interval) {
-  return (mask >> (11 - interval)) & 1;
+  return (mask >> interval) & 1;
 }
 
 export function pitchInScale(pitch, mask, root) {
@@ -66,7 +66,7 @@ export function harmonize(midiNote, intervalsMask, maxVoices, loNote, hiNote) {
   const out = [];
   if (maxVoices <= 0) return out;
   for (let i = 0; i < 12 && out.length < maxVoices; i++) {
-    if (!((intervalsMask >> (11 - i)) & 1)) continue;
+    if (!((intervalsMask >> i) & 1)) continue;
     const note = midiNote + i;
     if (note >= loNote && note <= hiNote) out.push(note);
   }

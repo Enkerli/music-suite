@@ -24,7 +24,7 @@ function recognizeName(mask) {
 // ── Single pad ────────────────────────────────────────────────────────────────
 
 function Pad({ pad, selected, onSelect, onEdit, paper = window.PAPER }) {
-  const { index, mask = 0xAD5, root = 0, label = '' } = pad;
+  const { index, mask = 0xAB5, root = 0, label = '' } = pad;
   const isActive = selected === index;
 
   const [pressTimer, setPressTimer] = React.useState(null);
@@ -96,7 +96,7 @@ function Pad({ pad, selected, onSelect, onEdit, paper = window.PAPER }) {
 // ── 4×4 grid ──────────────────────────────────────────────────────────────────
 
 export function ChordPads({ state, sendSelectPad, sendPadData, paper = window.PAPER }) {
-  const { pads = [], pcsMask: mainMask = 0xAD5, pcsRoot: mainRoot = 0 } = state;
+  const { pads = [], pcsMask: mainMask = 0xAB5, pcsRoot: mainRoot = 0 } = state;
   const selected = (pads.find(p => p.selected) || {}).index ?? -1;
 
   const [editing, setEditing] = React.useState(null);  // pad index being edited
@@ -192,7 +192,7 @@ function PadEditor({ pad, mainMask, mainRoot, paper, onSave, onClose }) {
       <div style={{ display: 'flex', gap: 6, marginBottom: 10 }}>
         <button onClick={() => setMask(mainMask)} style={smallBtn(paper)}>Copy main</button>
         <button onClick={() => setMask(0x0FFF)} style={smallBtn(paper)}>All</button>
-        <button onClick={() => setMask(0x0800)} style={smallBtn(paper)}>None</button>
+        <button onClick={() => setMask(0x001)} style={smallBtn(paper)}>None</button>
       </div>
 
       <div style={{ display: 'flex', gap: 6 }}>

@@ -43,9 +43,9 @@ function kIntervals(k) {
   return [];
 }
 
-// PitchFold interval bitmask: bit(11 − interval) = 1.
+// PitchFold interval bitmask: leftmost-LSB — bit(interval) = 1 (pc i = 2^i).
 function toPFMask(intervals) {
-  return intervals.reduce((m, iv) => m | (1 << (11 - ((iv % 12 + 12) % 12))), 0) & 0xFFF;
+  return intervals.reduce((m, iv) => m | (1 << ((iv % 12 + 12) % 12)), 0) & 0xFFF;
 }
 
 // Absolute pitch-class array + root → PitchFold interval mask.
