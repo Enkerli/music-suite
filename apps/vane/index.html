@@ -2419,5 +2419,15 @@ setInterval(()=>{
   tickMeters();
 },40);
 </script>
+<!-- Standalone-only: with no JUCE host, load the Web Audio synth (WASM voice +
+     AudioWorklet, driven by Web MIDI). In the plugin (__JUCE__ present) this is
+     skipped — the C++ engine makes the sound and synth.js is never requested. -->
+<script>
+  if (typeof window.__JUCE__ === 'undefined') {
+    var s = document.createElement('script');
+    s.type = 'module'; s.src = 'synth.js';
+    document.head.appendChild(s);
+  }
+</script>
 </body>
 </html>

@@ -116,6 +116,23 @@ export function normalizeCCEvent(e: unknown): CCEvent {
   };
 }
 
+interface RawValue {
+  value?: number;
+  message?: { channel?: number };
+}
+/** A per-channel continuous value (MPE expression): pitch-bend (-1..1) or
+ *  channel pressure (0..1), with the source channel for member-channel routing. */
+export interface ExpressionEvent {
+  value: number;
+  channel: number;
+}
+/** Pure: normalize a WEBMIDI.js pitch-bend (e.value −1..1) / channel-pressure
+ *  (e.value 0..1) event to the suite shape. */
+export function normalizeExpressionEvent(e: unknown): ExpressionEvent {
+  const r = (e ?? {}) as RawValue;
+  return { value: r.value ?? 0, channel: r.message?.channel ?? 1 };
+}
+
 type Binding = [event: string, fn: (e: unknown) => void];
 
 /**
@@ -170,6 +187,14 @@ export class SuiteMidi {
   }
   onControlChange(cb: (e: CCEvent) => void): Unsubscribe {
     return this.bind(["controlchange", (e) => cb(normalizeCCEvent(e))]);
+  }
+  /** MPE X — per-channel pitch bend, value −1..1. */
+  onPitchBend(cb: (e: ExpressionEvent) => void): Unsubscribe {
+    return this.bind(["pitchbend", (e) => cb(normalizeExpressionEvent(e))]);
+  }
+  /** MPE Z — per-channel pressure (channel aftertouch), value 0..1. */
+  onChannelPressure(cb: (e: ExpressionEvent) => void): Unsubscribe {
+    return this.bind(["channelaftertouch", (e) => cb(normalizeExpressionEvent(e))]);
   }
   onClock(cb: () => void): Unsubscribe {
     return this.bind(["clock", () => cb()]);

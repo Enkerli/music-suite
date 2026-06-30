@@ -1,0 +1,15 @@
+{
+  "name": "vane-webui",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "mkdir -p dist && npx esbuild synth-main.js --bundle --conditions=source --format=esm --minify --outfile=dist/synth.js && npx esbuild synth/worklet.js --bundle --format=iife --minify --outfile=dist/worklet.js && cp index.html dist/index.html && cp synth/vane-dsp.wasm dist/vane-dsp.wasm"
+  },
+  "dependencies": {
+    "@enkerli/webmidi": "*"
+  },
+  "devDependencies": {
+    "esbuild": "^0.24.0"
+  }
+}
