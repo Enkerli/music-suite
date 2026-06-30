@@ -12,12 +12,26 @@ import { connect } from '@enkerli/webmidi';
 
 const BASE = new URL('.', import.meta.url).href; // dir of synth.js → worklet/wasm URLs
 let ctx = null, node = null, midi = null, audioStarted = false;
+let activeNotes = 0;
 const expr = {}; // channel → { bend, slide, pressure }
 
 function post(m) { if (node) node.port.postMessage(m); }
+
+// Feed the UI's REAL-data meters (Breath/Expression/Pressure/Slide/Pitchbend/
+// Velocity) from the live performance, via the hook index.html exposes when
+// standalone (see the `if (!HAS_JUCE)` block near state.sim). No-ops until that
+// hook exists (e.g. build skew) or once the plugin is hosting (HAS_JUCE true).
+function pushMeters(partial) {
+  const api = window.__vaneStandalone;
+  if (api) api.setMeters(partial);
+}
+
 function sendExpr(ch) {
   const e = expr[ch] || {};
   post({ type: 'expr', channel: ch, bend: e.bend || 0, slide: e.slide || 0, pressure: e.pressure || 0 });
+  // Pitchbend meter is bipolar (-1..1) drawn on a 0..1 fill, centred at 0.5 —
+  // matches the page's own init value (Pitchbend:0.5) for the same reason.
+  pushMeters({ Pressure: e.pressure || 0, Slide: e.slide || 0, Pitchbend: 0.5 + (e.bend || 0) / 2 });
 }
 
 async function startAudio() {
@@ -46,6 +60,13 @@ async function startMidi() {
   midi.onNoteIn((e) => {
     startAudio();                       // first note also satisfies the gesture
     post({ type: e.on ? 'noteOn' : 'noteOff', note: e.note, vel: e.velocity, channel: e.channel });
+    if (e.on) {
+      activeNotes++;
+      pushMeters({ Velocity: e.velocity / 127, Breath: e.velocity / 127 });
+    } else if (--activeNotes <= 0) {
+      activeNotes = 0;
+      pushMeters({ Velocity: 0, Breath: 0, Pressure: 0, Slide: 0, Pitchbend: 0.5 });
+    }
   });
   midi.onControlChange((e) => {
     if (e.controller === 74) { (expr[e.channel] = expr[e.channel] || {}).slide = e.value / 127; sendExpr(e.channel); }
@@ -55,7 +76,9 @@ async function startMidi() {
   midi.onPortsChanged(refreshDevices);
 }
 
-// ── Minimal injected standalone chrome (index.html has no slot for it) ────────
+// ── MIDI-in selector, injected into the existing header so it flows with the
+//    other controls (no overlap) and inherits the page's .chip styling. Falls
+//    back to a non-overlapping fixed pill only if the header isn't found. ───────
 let statusEl, selectEl;
 function setStatus(t) { if (statusEl) statusEl.textContent = t; }
 function refreshDevices() {
@@ -64,21 +87,32 @@ function refreshDevices() {
   selectEl.innerHTML = '<option value="">— MIDI in —</option>' +
     midi.inputs.map((p) => `<option value="${p.id}">${p.name}</option>`).join('');
   if (midi.inputs.some((p) => p.id === cur)) selectEl.value = cur;
-  else if (midi.inputs.length) { selectEl.value = midi.inputs[0].id; }
+  else if (midi.inputs.length) selectEl.value = midi.inputs[0].id;
 }
 function buildChrome() {
-  const bar = document.createElement('div');
-  bar.style.cssText = 'position:fixed;top:8px;right:8px;z-index:9999;display:flex;gap:8px;align-items:center;' +
-    'font:11px/1.4 "Inter Tight",system-ui;background:rgba(20,18,16,.82);color:#e8e2d6;' +
-    'padding:6px 10px;border-radius:8px;backdrop-filter:blur(8px)';
-  bar.innerHTML = '<span style="opacity:.7;text-transform:uppercase;letter-spacing:.08em">Standalone</span>';
+  const chip = document.createElement('span');
+  chip.title = 'Standalone Web Audio synth — MIDI input';
+  const label = document.createElement('span');
+  label.textContent = 'MIDI';
+  label.style.cssText = 'opacity:.5;font-size:10px;text-transform:uppercase;letter-spacing:.06em;margin-right:5px';
   selectEl = document.createElement('select');
-  selectEl.style.cssText = 'background:transparent;color:inherit;border:1px solid rgba(255,255,255,.25);border-radius:4px;padding:2px 4px;font:inherit';
+  selectEl.style.cssText = 'background:transparent;color:inherit;border:none;font:inherit;cursor:pointer;max-width:130px';
   selectEl.onchange = () => { startAudio(); midi && midi.selectInput(selectEl.value || null); };
   statusEl = document.createElement('span');
-  statusEl.style.cssText = 'opacity:.7'; statusEl.textContent = 'click to enable audio';
-  bar.append(selectEl, statusEl);
-  document.body.appendChild(bar);
+  statusEl.style.cssText = 'opacity:.6;font-size:10px;margin-left:6px';
+  statusEl.textContent = 'click to enable';
+  chip.append(label, selectEl, statusEl);
+
+  const header = document.querySelector('.header');
+  if (header) {
+    chip.className = 'chip';                 // reuse the page's chip styling
+    chip.style.cursor = 'default';
+    header.appendChild(chip);
+  } else {                                   // defensive fallback — bottom corner, out of the way
+    chip.style.cssText = 'position:fixed;bottom:8px;right:8px;z-index:9999;display:flex;align-items:center;' +
+      'font:11px/1.4 system-ui;background:rgba(20,18,16,.85);color:#e8e2d6;padding:6px 10px;border-radius:8px';
+    document.body.appendChild(chip);
+  }
 }
 
 function boot() {

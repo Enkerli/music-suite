@@ -2366,6 +2366,16 @@ Bridge.on('presetList',({presets,selected,current})=>{ if(!Array.isArray(presets
 
 // ── Boot + mock animation loop ───────────────────────────────────────────
 state.sim = !HAS_JUCE;                 // live data from the plugin when embedded
+// Standalone (no JUCE host): the Web Audio synth (synth.js) drives the engine, so
+// turn off the demo animation — which otherwise fills the meters with arbitrary
+// values — and expose a hook for synth.js to push REAL expression from the
+// performance. With sim off the meters sit idle until a note/expression arrives.
+if (!HAS_JUCE) {
+  state.sim = false;
+  window.__vaneStandalone = {
+    setMeters(m){ Object.assign(state.meters, m); tickMeters(); },
+  };
+}
 state.aux = AUX.map((a,i)=>({label:a,cc:0}));   // default until controllerState arrives
 // Single-tap typed entry on touch (Claude Design, area 6). The value fields open
 // number editors via ondblclick, which is unreliable on touch; bridge tap→edit
