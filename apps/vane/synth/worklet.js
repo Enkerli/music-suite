@@ -26,6 +26,8 @@ class VaneProcessor extends AudioWorkletProcessor {
         case 'noteOff': this.ex && this.ex.vane_note_off(m.note, m.channel); break;
         case 'expr':    this.ex && this.ex.vane_set_expr(m.channel, m.bend, m.slide, m.pressure); break;
         case 'param':   this.ex && this.ex.vane_set_param(m.id, m.value); break;
+        case 'cc':      this.ex && this.ex.vane_set_cc(m.cc, m.value); break;
+        case 'mono':    this.ex && this.ex.vane_set_mono(m.value ? 1 : 0); break;
         default: break;
       }
     };

@@ -2375,6 +2375,7 @@ if (!HAS_JUCE) {
   window.__vaneStandalone = {
     setMeters(m){ Object.assign(state.meters, m); tickMeters(); },
     getPatch(){ return state.patch; },   // current values, so synth-main.js can sync at boot
+    getMono(){ return mono; },           // Mono/Poly toggle (declared above, defaults true)
     onParam: null,   // synth-main.js sets this: (id, value) => …
   };
   // Every Patch-tab control funnels through this one call (setV/commit/setChoice
