@@ -5,15 +5,22 @@
 // @enkerli/webmidi, including MPE expression: pitch-bend = X, CC74 = Y/slide,
 // channel pressure = Z. Audio starts on the first user gesture (autoplay policy).
 //
-// v1 plays with the engine's default patch + live MPE expression. Wiring the
-// UI's setParam knobs to the synth (with per-param unit mapping) is the next
-// increment; the morph wavetable is after that.
+// v1 plays with live MPE expression and a growing subset of the Patch tab's
+// real knobs (Cutoff/Reso/Output so far — see PARAM_MAP). Most of Vane's sound
+// design (envelope, morph wavetable, mod matrix) isn't wired yet; those are
+// staged increments (see the project plan).
 import { connect } from '@enkerli/webmidi';
 
 const BASE = new URL('.', import.meta.url).href; // dir of synth.js → worklet/wasm URLs
 let ctx = null, node = null, midi = null, audioStarted = false;
 let activeNotes = 0;
 const expr = {}; // channel → { bend, slide, pressure }
+
+// Vane param id (index.html RANGE keys) → this voice's wasm param id. Values
+// arrive already in real units (Hz, 0..1, …) — same units the page itself
+// uses — so no conversion needed for these three; a param with different units
+// than the wasm expects would need a mapping function here.
+const PARAM_MAP = { Cutoff: 1, Reso: 2, Output: 8 };
 
 function post(m) { if (node) node.port.postMessage(m); }
 
@@ -34,6 +41,17 @@ function sendExpr(ch) {
   pushMeters({ Pressure: e.pressure || 0, Slide: e.slide || 0, Pitchbend: 0.5 + (e.bend || 0) / 2 });
 }
 
+function sendParam(id, value) {
+  const wasmId = PARAM_MAP[id];
+  if (wasmId != null) post({ type: 'param', id: wasmId, value });
+}
+
+// Register as soon as the script loads (index.html's hook exists synchronously),
+// so knob moves before audio even starts aren't lost — sendParam itself no-ops
+// via post() until the worklet is ready, but the *latest* value per id is what
+// matters and React-less state.patch already holds it for the boot-time sync.
+if (window.__vaneStandalone) window.__vaneStandalone.onParam = sendParam;
+
 async function startAudio() {
   if (audioStarted) return;
   audioStarted = true;
@@ -45,6 +63,11 @@ async function startAudio() {
     const bytes = await (await fetch(BASE + 'vane-dsp.wasm')).arrayBuffer();
     node.port.postMessage({ type: 'wasm', bytes });
     await ctx.resume();
+    // Sync the synth to whatever the patch already shows (default or loaded
+    // preset), so turning audio on doesn't silently revert to the voice's
+    // built-in defaults.
+    const patch = window.__vaneStandalone && window.__vaneStandalone.getPatch();
+    if (patch) for (const id in PARAM_MAP) if (patch[id] != null) sendParam(id, patch[id]);
     setStatus('audio ready · play your controller');
   } catch (e) {
     setStatus('audio error: ' + (e && e.message || e));

@@ -2374,6 +2374,17 @@ if (!HAS_JUCE) {
   state.sim = false;
   window.__vaneStandalone = {
     setMeters(m){ Object.assign(state.meters, m); tickMeters(); },
+    getPatch(){ return state.patch; },   // current values, so synth-main.js can sync at boot
+    onParam: null,   // synth-main.js sets this: (id, value) => …
+  };
+  // Every Patch-tab control funnels through this one call (setV/commit/setChoice
+  // all do Bridge.send('setParam',{id,value})) — intercept it here so synth-main.js
+  // sees every knob move, in the same real units the page itself uses (RANGE),
+  // without needing its own copy of the param table.
+  const _send = Bridge.send.bind(Bridge);
+  Bridge.send = (id, p) => {
+    if (id === 'setParam' && p && window.__vaneStandalone.onParam) window.__vaneStandalone.onParam(p.id, p.value);
+    _send(id, p);
   };
 }
 state.aux = AUX.map((a,i)=>({label:a,cc:0}));   // default until controllerState arrives
