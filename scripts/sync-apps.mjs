@@ -47,8 +47,10 @@ const MANIFEST = [
   // older top-level webapp/ (a vite port) was parked upstream, so the site now
   // tracks the real app instead.
   { slug: "drawnqurve",       title: "DrawnQurve",           kind: "esbuild",   dir: join(ROOT, "apps", "drawnqurve"), dist: "dist" },
-  // ── Separate repos (JUCE plugins; we deploy their WebView UIs) ──
-  { slug: "vane",       title: "Vane",       kind: "static-file", file: "~/Vane/Source/WebUI/index.html", external: true },
+  // Vane: UI consolidated in-repo (apps/vane). Static for now — the standalone
+  // Web Audio synth (WASM voice + worklet) is being built incrementally; the
+  // plugin (separate repo) reads index.html via a configurable CMake path.
+  { slug: "vane",             title: "Vane",                 kind: "static-file", file: join(ROOT, "apps", "vane", "index.html") },
 ];
 
 // Per-machine source overrides for the external apps.

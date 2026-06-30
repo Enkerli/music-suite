@@ -1,0 +1,2423 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Vane — App Prototype v2</title>
+<!-- Fonts: to be bundled via juce_add_binary_data (no network in the AUv3
+     sandbox).  Until @font-face from BinaryData is wired the CSS stacks fall
+     back to system Inter-likes / ui-monospace.  TODO: serve the .ttf assets. -->
+<!--
+  Vane whole-app UI prototype — v2 (implements design_handoff README recommendations A–F).
+  Self-contained validation harness: a MockBridge simulates JUCE param/meter/preset
+  streams so the UI is live with NO plugin build (spec §9).
+
+  To wire to the real plugin, replace MockBridge with the JUCE WebBrowserComponent
+  native-integration bridge (emit / withEventListener), keeping the SAME event names:
+    C→JS : paramChanged, meters, presetList, presetChanged, tuningStatus, controllerLabel
+    JS→C : uiReady, setParam, slotEdit, presetSave, presetLoad, presetDelete, panic, reconnectMts
+
+  What changed from v1 (see README "Recommendations implemented"):
+    A1 real pointer-drag (no click-jump)   A2 fine-drag (Shift/Alt or vertical)
+    A3 ± steppers + arrow-key nudge         B1 44pt touch density scale
+    B2 iPad bottom tab bar + safe areas      B3 no hover-only affordances
+    C1 full MMStack row (atk/rel + enable + live meter + CC)   C2 CC binding field
+    D1 tokens verbatim (20px radii, soft shadow)   D2 visualiser view switch + readout
+    E1 preset browser (filters/fav/rename/delete/import-export)   E2 states (MTS, unsaved, empty)
+    F1 dot+label always, focus rings, keyboard   F2 preset name is the primary title
+-->
+<style>
+/* ── Design tokens — verbatim from wireframe-styles.css (spec §3) ─────────── */
+:root{
+  --vn-bg:#f5f2eb; --vn-panel:#fcfbf7; --vn-panel2:#f3eee3; --vn-field:#efebe2;
+  --vn-line:#ddd6ca; --vn-line-soft:#eae3d4; --vn-text:#2d2b27; --vn-text-2:#4b463e;
+  --vn-muted:#8b8678; --vn-muted-2:#b6b0a1;
+  --vn-breath:#4b86c7; --vn-breath-tint:#dde8f4;
+  --vn-expr:#2d9d8a;   --vn-expr-tint:#d6ebe6;
+  --vn-pressure:#d28330;--vn-pressure-tint:#f4e3cf;
+  --vn-slide:#a35bbf;  --vn-slide-tint:#ecdcf2;
+  --vn-bend:#c39529;   --vn-bend-tint:#f1e6c3;
+  --vn-vel:#7a4cff;
+  --vn-ui:"Inter",-apple-system,BlinkMacSystemFont,"SF Pro Text",system-ui,sans-serif;
+  --vn-mono:"JetBrains Mono",ui-monospace,SF Mono,monospace;
+  --r:20px; --r-md:14px; --r-sm:10px;
+  --shadow:0 6px 22px rgba(28,25,20,.05);
+  /* Density scale (B1) — bumped to ≥44pt at touch/narrow */
+  --ctl-h:32px; --track-h:8px; --thumb:15px; --tap:32px; --seg-pad:7px 12px; --gap:10px;
+}
+[data-theme="dark"]{
+  --vn-bg:#1a1814; --vn-panel:#221f1a; --vn-panel2:#1d1b16; --vn-field:#14130f;
+  --vn-line:#38332b; --vn-line-soft:#2b2620; --vn-text:#e8e1d2; --vn-text-2:#cfc7b5;
+  --vn-muted:#897f6c; --vn-muted-2:#5e564a;
+  --shadow:0 6px 22px rgba(0,0,0,.28);
+}
+@media (max-width:860px),(pointer:coarse){
+  :root{ --ctl-h:44px; --track-h:14px; --thumb:22px; --tap:44px; --seg-pad:11px 14px; --gap:12px; }
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%}
+body{
+  font-family:var(--vn-ui); background:var(--vn-bg); color:var(--vn-text);
+  font-size:13px; line-height:1.4; letter-spacing:-.005em;
+  -webkit-font-smoothing:antialiased; overflow:hidden;
+  /* A performance drag must never select a label (touch + mouse). Inputs opt back in. */
+  -webkit-user-select:none; user-select:none; -webkit-touch-callout:none;
+}
+input,textarea,[contenteditable]{ -webkit-user-select:text; user-select:text; -webkit-touch-callout:default; }
+.num{font-family:var(--vn-mono);font-variant-numeric:tabular-nums}
+.eyebrow{font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--vn-muted);font-weight:600}
+:focus-visible{outline:2px solid var(--vn-breath);outline-offset:2px;border-radius:6px}
+
+/* source dots (F1: always paired with a label) */
+.dot{width:9px;height:9px;border-radius:50%;display:inline-block;flex:none}
+.dot.breath{background:var(--vn-breath)} .dot.expr{background:var(--vn-expr)}
+.dot.pressure{background:var(--vn-pressure)} .dot.slide{background:var(--vn-slide)}
+.dot.bend{background:var(--vn-bend)} .dot.vel{background:var(--vn-vel)}
+
+/* ── App shell ──────────────────────────────────────────────── */
+#app{display:flex;flex-direction:column;height:100%;padding:12px;gap:12px;
+  padding-bottom:max(12px,env(safe-area-inset-bottom));padding-top:max(12px,env(safe-area-inset-top))}
+.header{display:flex;align-items:center;gap:10px;flex:none;flex-wrap:wrap}
+.brand{display:flex;align-items:center;gap:8px}
+.brand .mark{font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--vn-muted)}
+/* preset nav — the PRIMARY title (F2) */
+.preset-nav{display:flex;align-items:center;gap:2px;background:var(--vn-panel);border:1px solid var(--vn-line);
+  border-radius:999px;padding:3px 5px}
+.preset-nav button{border:none;background:transparent;color:var(--vn-muted);cursor:pointer;font-size:16px;
+  width:var(--tap);height:var(--tap);max-width:34px;max-height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center}
+.preset-nav button:hover{background:var(--vn-panel2);color:var(--vn-text)}
+.preset-nav .name{font-weight:700;font-size:15px;letter-spacing:-.01em;min-width:150px;text-align:center;padding:0 8px;display:flex;align-items:center;justify-content:center;gap:7px}
+.unsaved{width:7px;height:7px;border-radius:50%;background:var(--vn-pressure);flex:none;display:none}
+.unsaved.on{display:inline-block}
+.spacer{flex:1}
+.chip{display:inline-flex;align-items:center;gap:6px;padding:0 12px;height:var(--tap);max-height:34px;border:1px solid var(--vn-line);
+  border-radius:999px;background:var(--vn-panel);font-size:12px;font-weight:600;color:var(--vn-text-2);white-space:nowrap;cursor:pointer}
+.chip.ghost{background:transparent;color:var(--vn-muted)}
+.chip.warn-state{color:var(--vn-pressure);border-color:var(--vn-pressure);background:var(--vn-pressure-tint)}
+.chip .dot{width:7px;height:7px}
+.icon-btn{width:var(--tap);height:var(--tap);max-width:34px;max-height:34px;border-radius:9px;border:1px solid var(--vn-line);background:var(--vn-panel);
+  color:var(--vn-text-2);font-size:14px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;font-weight:600}
+.icon-btn:hover{border-color:var(--vn-muted-2)}
+.icon-btn.warn{color:var(--vn-pressure)}
+
+/* ── Main grid ──────────────────────────────────────────────── */
+.main{display:grid;grid-template-columns:1.5fr 1fr;gap:12px;flex:1;min-height:0}
+.panel{background:var(--vn-panel);border:1px solid var(--vn-line-soft);border-radius:var(--r);box-shadow:var(--shadow);min-height:0}
+.panel.pad{padding:14px}
+.sub{background:var(--vn-panel2);border:1px solid var(--vn-line-soft);border-radius:var(--r-md)}
+
+/* ── Stage ──────────────────────────────────────────────────── */
+.stage{display:flex;flex-direction:column;gap:12px;min-height:0}
+.stage-head{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.viewseg{display:inline-flex;background:var(--vn-field);border-radius:var(--r-md);padding:4px;gap:3px}
+.viewseg button{border:none;background:transparent;color:var(--vn-muted);font-size:12px;font-weight:600;padding:6px 12px;border-radius:10px;cursor:pointer}
+.viewseg button.active{background:var(--vn-panel);color:var(--vn-text);box-shadow:0 1px 4px rgba(0,0,0,.06)}
+.vis{position:relative;flex:1;min-height:140px;background:var(--vn-field);border-radius:var(--r-md);overflow:hidden}
+.vis svg{position:absolute;inset:0;width:100%;height:100%}
+.vis-read{position:absolute;top:10px;right:12px;display:flex;gap:6px}
+.vis-read .chip{height:26px;font-size:11px;background:color-mix(in srgb,var(--vn-panel) 82%,transparent);backdrop-filter:blur(4px)}
+.vis-legend{position:absolute;top:10px;left:12px;display:flex;gap:12px;flex-wrap:wrap}
+.vis-legend span{display:inline-flex;align-items:center;gap:5px;font-size:10px;font-weight:600;color:var(--vn-muted)}
+.vis-t{position:absolute;bottom:8px;left:12px;font-family:var(--vn-mono);font-size:10px;color:var(--vn-muted);
+  background:color-mix(in srgb,var(--vn-field) 78%,transparent);padding:2px 7px;border-radius:6px;backdrop-filter:blur(3px);pointer-events:none;z-index:2}
+.meters{display:grid;grid-template-columns:1fr 1fr;gap:10px 18px}
+.meter-row{display:grid;grid-template-columns:104px 1fr auto;gap:10px;align-items:center}
+.meter-label{display:flex;align-items:center;gap:7px;font-weight:600;font-size:12px}
+.meter{height:8px;border-radius:999px;background:var(--vn-field);overflow:hidden}
+.meter .fill{height:100%;border-radius:999px;transition:width .04s linear}
+.meter-cc{font-size:10px;color:var(--vn-muted)}
+
+/* ── Inspector tabs ─────────────────────────────────────────── */
+.inspector{display:flex;flex-direction:column;gap:12px;min-height:0}
+.tabs{display:flex;gap:4px;background:var(--vn-panel2);border:1px solid var(--vn-line);border-radius:999px;padding:4px;flex:none}
+.tabs button{flex:1;border:none;background:transparent;color:var(--vn-muted);font-weight:600;font-size:13px;
+  padding:9px 10px;border-radius:999px;cursor:pointer;min-height:var(--tap);max-height:40px}
+.tabs button.active{background:var(--vn-panel);color:var(--vn-text);box-shadow:0 1px 3px rgba(0,0,0,.07)}
+.tabbody{flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;container-type:inline-size}
+
+/* ── Continuous control (shared: patch sliders + amount) ────── */
+.pslider{margin-bottom:13px}
+.pslider .top{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;gap:8px}
+.pslider .lbl{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--vn-text-2)}
+.valwrap{display:flex;align-items:center;gap:2px}
+/* Steppers are always visible (W2) — hover-gating hid them on touch/trackpad. */
+.stepper{width:22px;height:22px;border:1px solid var(--vn-line);background:var(--vn-panel);border-radius:6px;color:var(--vn-muted);
+  font-size:13px;line-height:1;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;flex:none}
+.stepper:hover{color:var(--vn-text);border-color:var(--vn-muted-2)}
+.stepper.always{display:inline-flex}
+.val{font-size:13px;color:var(--vn-text);cursor:text;padding:2px 6px;border-radius:6px;border-bottom:1px dashed var(--vn-muted-2);min-width:54px;text-align:right}
+.val:hover{background:var(--vn-panel2)}
+.track{height:var(--track-h);border-radius:999px;background:var(--vn-field);position:relative;cursor:ew-resize;touch-action:none}
+.track .fill{position:absolute;top:0;bottom:0;left:0;border-radius:999px}
+.track .thumb{position:absolute;top:50%;width:var(--thumb);height:var(--thumb);border-radius:50%;background:var(--vn-panel);
+  border:2px solid var(--vn-breath);transform:translate(-50%,-50%);box-shadow:0 1px 3px rgba(0,0,0,.22)}
+.track.dragging .thumb{transform:translate(-50%,-50%) scale(1.12)}
+.track.fine .thumb{border-style:double;border-width:4px}
+/* make the active/targeted slider obvious: keyboard focus ring + hover cue so it's
+   clear which control the scroll-wheel will move */
+.track:focus-visible,.bipolar:focus-visible{outline:2px solid var(--vn-breath);outline-offset:3px}
+.track:hover,.bipolar:hover{box-shadow:0 0 0 2px color-mix(in srgb,var(--vn-breath) 28%,transparent)}
+.track:hover .thumb,.bipolar:hover .thumb{transform:translate(-50%,-50%) scale(1.1)}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.seg{display:inline-flex;background:var(--vn-field);border-radius:var(--r-md);padding:4px;gap:3px;flex-wrap:wrap}
+.seg button{border:none;background:transparent;color:var(--vn-muted);font-size:12px;font-weight:600;padding:var(--seg-pad);border-radius:10px;cursor:pointer;min-height:var(--tap);max-height:38px}
+.seg button.active{background:var(--vn-panel);color:var(--vn-text);box-shadow:0 1px 4px rgba(0,0,0,.06)}
+.group{margin-bottom:18px}
+.group .eyebrow{margin-bottom:10px;display:block}
+/* collapsible patch sections (#14) */
+.grp-head{display:flex;align-items:center;justify-content:space-between;cursor:pointer;user-select:none;margin-bottom:10px}
+.grp-head .eyebrow{margin-bottom:0}
+.grp-head .chev{color:var(--vn-muted);font-size:15px;line-height:1;width:18px;text-align:center}
+.grp-head:hover .chev{color:var(--vn-text-2)}
+.group.collapsed > :not(.grp-head){display:none}
+.field-num{font-family:var(--vn-mono);font-size:13px;width:78px;border:1px solid var(--vn-breath);border-radius:6px;
+  padding:3px 6px;background:var(--vn-panel);color:var(--vn-text)}
+.fine-hint{font-size:10.5px;color:var(--vn-muted);margin-top:10px;line-height:1.5}
+.fine-hint kbd{font-family:var(--vn-mono);background:var(--vn-field);border:1px solid var(--vn-line);border-radius:4px;padding:0 4px;font-size:10px}
+
+/* ── Mod matrix (full MMStack row, C1) ──────────────────────── */
+.mm-toolbar{display:flex;gap:8px;align-items:center;margin-bottom:10px;flex-wrap:wrap}
+.mm-filters{display:inline-flex;gap:4px;background:var(--vn-field);border-radius:999px;padding:3px}
+.mm-filters button{border:none;background:transparent;color:var(--vn-muted);font-size:11.5px;font-weight:600;padding:6px 11px;border-radius:999px;cursor:pointer;min-height:32px}
+.mm-filters button.active{background:var(--vn-panel);color:var(--vn-text);box-shadow:0 1px 3px rgba(0,0,0,.06)}
+.btn{border:1px solid var(--vn-line);background:var(--vn-panel);color:var(--vn-text-2);font-weight:600;font-size:12px;
+  padding:0 14px;height:var(--tap);max-height:36px;border-radius:999px;cursor:pointer}
+.btn.primary{background:var(--vn-text);color:var(--vn-bg);border-color:var(--vn-text)}
+.btn:hover{border-color:var(--vn-muted-2)}
+.slots{display:flex;flex-direction:column;gap:7px}
+.slot{display:grid;grid-template-columns:1fr auto auto auto;gap:10px;align-items:center;
+  background:var(--vn-panel2);border:1px solid var(--vn-line-soft);border-radius:12px;padding:11px 13px}
+.slot.off{opacity:.5}
+.slot.flash{animation:slotflash .9s ease-out}
+@keyframes slotflash{0%{box-shadow:0 0 0 2px var(--vn-slide);border-color:var(--vn-slide)}100%{box-shadow:none}}
+/* default = compact stacked card (fits the docked ~360px inspector) */
+.slot .srccell{grid-column:1/2;grid-row:1}
+.slot .arrow{display:none}
+.slot .destcell{grid-column:2/-1;grid-row:1;align-self:start;min-width:120px}
+.slot .scalecell{display:flex;align-items:center;gap:6px;margin-top:5px}
+.slot .scalecell .xlbl{font-size:10px;color:var(--vn-muted);white-space:nowrap}
+.slot .scalecell select{flex:1;min-width:0;font-size:11px;height:calc(var(--ctl-h) - 6px)}
+.slot .amt{grid-column:1/-1;grid-row:2}
+.slot .miniseg{grid-column:1/2;grid-row:3;justify-self:start}
+/* Row 3 controls flow in a wrapping flex row so they never overflow the narrow
+   docked inspector (curve thumb left; atk/rel + enable + ops right, wrapping). */
+.slot .slotctl{grid-column:1/-1;grid-row:3;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px}
+.slot .slotctl-r{display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+.slot .ar{flex-direction:row !important;gap:10px;align-items:center}
+.slot .rowops{display:flex;gap:3px;align-items:center}
+.slot .rowops button{width:24px;height:24px;border-radius:7px;border:1px solid var(--vn-line);background:var(--vn-panel);color:var(--vn-muted);font-size:13px;line-height:1;cursor:pointer;display:inline-flex;align-items:center;justify-content:center}
+.slot .rowops button:hover:not(:disabled){color:var(--vn-text);border-color:var(--vn-muted-2)}
+.slot .rowops button.del:hover{color:var(--vn-pressure)}
+.slot .rowops button:disabled{opacity:.3;cursor:default}
+/* ── Bézier mod-curve editor ── */
+.slot .curve-thumb{grid-column:1/2;grid-row:3;justify-self:start;display:inline-flex;align-items:center;justify-content:center;
+  border:1px solid var(--vn-line);background:var(--vn-field);border-radius:8px;padding:3px 5px;cursor:pointer}
+.slot .curve-thumb.open{border-color:currentColor;background:var(--vn-panel)}
+.slot .curve-thumb svg{width:46px;height:22px;display:block}
+.slot .curve-thumb .tline{fill:none;stroke:var(--vn-muted-2);stroke-width:1;opacity:.5}
+.curve-ed{grid-column:1/-1;grid-row:4;margin-top:6px;border-top:1px solid var(--vn-line-soft);padding-top:8px}
+.curve-ed .ce-head{display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap}
+.curve-ed .ce-head .lbl{font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--vn-muted)}
+.curve-ed .ce-head .biCh{font-family:var(--vn-mono);font-size:9.5px;font-weight:700;color:var(--vn-bend)}
+.curve-ed .ce-head .sp{flex:1}
+.curve-ed .pbtn{border:1px solid var(--vn-line);background:var(--vn-panel);color:var(--vn-muted);border-radius:6px;font-size:11px;padding:3px 9px;cursor:pointer}
+.curve-ed .pbtn:disabled{opacity:.38;cursor:default}
+.curve-svg{width:100%;display:block;touch-action:none;border-radius:8px;background:var(--vn-panel);border:1px solid var(--vn-line-soft)}
+.curve-svg .grid{stroke:var(--vn-line-soft);stroke-width:1}
+.curve-svg .axis{stroke:var(--vn-muted-2);stroke-width:1;stroke-dasharray:2 4;opacity:.6}
+.curve-svg .crv{fill:none;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round}
+.curve-svg .crvfill{opacity:.10}
+.curve-svg .anchor{fill:var(--vn-panel);stroke-width:2.5;cursor:grab}
+.curve-svg .anchor.sel{stroke-width:3.5}
+.curve-svg .hit{fill:transparent;cursor:grab}
+.curve-svg .live{fill:currentColor;stroke:var(--vn-panel);stroke-width:1.5}
+.curve-ed .ce-foot{display:flex;align-items:center;gap:8px;margin-top:7px}
+.curve-ed .ce-foot .hint{font-size:10px;color:var(--vn-muted);flex:1;line-height:1.45}
+.chordrow{display:flex;align-items:center;gap:10px;margin:5px 0}
+.chordrow .cv{font-size:11px;color:var(--vn-muted);min-width:54px;font-weight:600}
+.chordrow input{flex:1;min-width:0;border:1px solid var(--vn-line);background:var(--vn-field);color:var(--vn-text);
+  font-family:var(--vn-mono);font-size:12px;border-radius:7px;padding:0 9px;height:var(--ctl-h)}
+/* Rotating-chord cell editor (R4/R5): visible rotation + ratio steps */
+.chord-bar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:2px}
+.chord-bar .sp{flex:1}
+.chord-bar .crot{font-family:var(--vn-mono);font-size:10.5px;color:var(--vn-muted)}
+.chord-bar .crot b{color:var(--vn-text);font-weight:700}
+.cdisp{display:inline-flex;background:var(--vn-field);border-radius:8px;padding:3px;gap:2px}
+.cdisp button{border:none;background:transparent;color:var(--vn-muted);font-size:10.5px;font-weight:600;padding:4px 9px;border-radius:6px;cursor:pointer;font-family:var(--vn-ui)}
+.cdisp button.on{background:var(--vn-panel);color:var(--vn-text);box-shadow:0 1px 2px rgba(0,0,0,.06)}
+.vrow{display:grid;grid-template-columns:72px 1fr auto;gap:9px;align-items:center;margin:5px 0}
+.vrow .vname{display:flex;align-items:center;gap:6px;font-size:11px;font-weight:700;min-width:0;line-height:1.15}
+.vrow .vname .vd{width:9px;height:9px;border-radius:50%;flex:none}
+.vrow .vname .vlen{font-family:var(--vn-mono);font-size:9px;color:var(--vn-muted);font-weight:500}
+.ctrack{display:flex;gap:5px;overflow-x:auto;padding:3px 2px;min-width:0}
+.ccell{flex:none;min-width:50px;height:40px;border:1px solid var(--vn-line);background:var(--vn-field);border-radius:8px;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;cursor:pointer;position:relative;color:var(--vn-slide)}
+.ccell:hover{border-color:var(--vn-muted-2)}
+.ccell .rt{font-family:var(--vn-mono);font-size:12px;font-weight:700;color:var(--vn-text);line-height:1}
+.ccell .ct{font-family:var(--vn-mono);font-size:8px;color:var(--vn-muted);line-height:1}
+.ccell.cur{border-color:currentColor;border-width:2px;box-shadow:0 3px 9px rgba(0,0,0,.07)}
+.ccell.cur::after{content:"";position:absolute;top:-6px;left:50%;transform:translateX(-50%);width:0;height:0;
+  border-left:4px solid transparent;border-right:4px solid transparent;border-top:5px solid currentColor}
+.ccell.below .rt{color:var(--vn-pressure)}
+.ccell.below{background:color-mix(in srgb,var(--vn-pressure-tint) 35%,var(--vn-field))}
+[data-theme="dark"] .ccell.below{background:color-mix(in srgb,var(--vn-pressure) 14%,var(--vn-field))}
+.crowbtns{display:flex;gap:3px}
+.crowbtns button{width:24px;height:24px;border-radius:7px;border:1px solid var(--vn-line);background:var(--vn-panel);color:var(--vn-muted);font-size:13px;cursor:pointer;line-height:1}
+.crowbtns button:hover:not(:disabled){color:var(--vn-text);border-color:var(--vn-muted-2)}
+.crowbtns button:disabled{opacity:.35;cursor:default}
+.caddvoice{display:flex;align-items:center;justify-content:center;gap:6px;border:1.5px dashed var(--vn-muted-2);border-radius:8px;
+  padding:7px;color:var(--vn-muted);background:transparent;cursor:pointer;font-weight:600;font-size:11.5px;font-family:var(--vn-ui);width:100%}
+.caddvoice:hover{color:var(--vn-text-2)}
+/* just-interval picker popover */
+.cscrim{position:fixed;inset:0;background:rgba(20,18,14,.28);z-index:70;display:none}
+.cscrim.open{display:block}
+.cpick{position:fixed;z-index:80;width:min(430px,94vw);max-height:84vh;overflow:auto;background:var(--vn-panel);border:1px solid var(--vn-line);
+  border-radius:12px;box-shadow:0 18px 50px rgba(0,0,0,.22);padding:13px;display:none}
+.cpick.open{display:block}
+.cpick .ph{display:flex;align-items:center;gap:8px;margin-bottom:9px}
+.cpick .ph .t{font-size:11px;font-weight:700}
+.cpick .ph .x{margin-left:auto;border:none;background:transparent;color:var(--vn-muted);font-size:18px;cursor:pointer;line-height:1}
+.cpick .lim{display:flex;gap:5px;margin-bottom:9px;flex-wrap:wrap}
+.cpick .lim button{border:1px solid var(--vn-line);background:var(--vn-field);color:var(--vn-muted);font-size:10px;font-weight:700;padding:4px 9px;border-radius:999px;cursor:pointer;font-family:var(--vn-ui)}
+.cpick .lim button.on{background:var(--vn-slide-tint);border-color:var(--vn-slide);color:var(--vn-slide)}
+.cpcols{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.cpcol .clbl{font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:var(--vn-muted);font-weight:700;margin-bottom:6px;display:block}
+.cpgrid{display:flex;flex-direction:column;gap:3px;max-height:210px;overflow-y:auto}
+.popt{display:grid;grid-template-columns:42px 1fr auto;gap:7px;align-items:center;border:1px solid var(--vn-line-soft);background:var(--vn-field);
+  border-radius:7px;padding:5px 8px;cursor:pointer;text-align:left}
+.popt:hover{border-color:var(--vn-slide);background:var(--vn-slide-tint)}
+[data-theme="dark"] .popt:hover{background:color-mix(in srgb,var(--vn-slide) 16%,var(--vn-field))}
+.popt .r{font-family:var(--vn-mono);font-size:12px;font-weight:700;color:var(--vn-text)}
+.popt.dn .r{color:var(--vn-pressure)}
+.popt .nm{font-size:10px;color:var(--vn-text-2);font-weight:600}
+.popt .c{font-family:var(--vn-mono);font-size:8.5px;color:var(--vn-muted)}
+.cpick .typ{display:flex;gap:6px;align-items:center;margin-top:10px;border-top:1px solid var(--vn-line-soft);padding-top:9px}
+.cpick .typ input{flex:1;border:1px solid var(--vn-line);background:var(--vn-field);color:var(--vn-text);font-family:var(--vn-mono);font-size:12px;border-radius:7px;padding:5px 8px}
+.cpick .typ button{border:1px solid var(--vn-slide);background:var(--vn-slide);color:#fff;font-size:11px;font-weight:700;padding:6px 11px;border-radius:7px;cursor:pointer}
+/* chord-shape library shelf (browsable cards with glyph previews) */
+.clib{margin-bottom:9px}
+.clib-head{display:flex;align-items:center;gap:6px;margin-bottom:7px;flex-wrap:wrap}
+.clib-head .t{font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--vn-muted);font-weight:700;margin-right:auto}
+.clib-head input{border:1px solid var(--vn-line);background:var(--vn-field);color:var(--vn-text);font-family:var(--vn-mono);font-size:11.5px;border-radius:7px;padding:4px 8px;width:108px}
+.cshelf{display:flex;gap:8px;overflow-x:auto;padding:2px 1px 5px}
+.cshape{flex:none;width:108px;border:1px solid var(--vn-line);background:var(--vn-panel);border-radius:10px;padding:8px;cursor:pointer;transition:border-color .12s,transform .12s}
+.cshape:hover{border-color:var(--vn-muted-2);transform:translateY(-1px)}
+.cshape.sel{border-color:var(--vn-slide);box-shadow:0 0 0 1px var(--vn-slide)}
+.cshape .cgl{width:100%;height:40px;background:var(--vn-field);border-radius:7px;margin-bottom:6px;display:block}
+.cshape .cnm{font-size:11px;font-weight:700;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cshape .cmeta{font-size:9px;color:var(--vn-muted);font-family:var(--vn-mono)}
+/* thin, subtle scrollbars on the chord editor's scroll areas (the OS default
+   chunky bars looked out of place against the app's responsive feel) */
+.ctrack,.cshelf,.cpgrid,.cpick{scrollbar-width:thin;scrollbar-color:var(--vn-muted-2) transparent}
+.ctrack::-webkit-scrollbar,.cshelf::-webkit-scrollbar,.cpgrid::-webkit-scrollbar,.cpick::-webkit-scrollbar{width:6px;height:6px}
+.ctrack::-webkit-scrollbar-thumb,.cshelf::-webkit-scrollbar-thumb,.cpgrid::-webkit-scrollbar-thumb,.cpick::-webkit-scrollbar-thumb{background:var(--vn-muted-2);border-radius:999px}
+.ctrack::-webkit-scrollbar-track,.cshelf::-webkit-scrollbar-track,.cpgrid::-webkit-scrollbar-track,.cpick::-webkit-scrollbar-track{background:transparent}
+.ctrack::-webkit-scrollbar-thumb:hover,.cshelf::-webkit-scrollbar-thumb:hover{background:var(--vn-muted)}
+/* single-line semicolon entry */
+.craw{display:flex;align-items:center;gap:7px;margin-top:8px}
+.craw .lbl2{font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--vn-muted);font-weight:700;white-space:nowrap}
+.craw input{flex:1;min-width:0;border:1px solid var(--vn-line);background:var(--vn-field);color:var(--vn-text);font-family:var(--vn-mono);font-size:11.5px;border-radius:7px;padding:5px 8px}
+.slot .srccell{display:flex;flex-direction:column;gap:5px;min-width:0}
+.slot .srctop{display:flex;align-items:center;gap:7px;min-width:0}
+.slot select{appearance:none;border:1px solid var(--vn-line);background:var(--vn-field);color:var(--vn-text);
+  font-family:var(--vn-ui);font-size:12px;font-weight:600;border-radius:7px;padding:0 8px;height:var(--ctl-h);cursor:pointer;max-width:100%}
+.slot .cc{font-family:var(--vn-mono);font-size:10.5px;color:var(--vn-muted);border-bottom:1px dashed transparent;cursor:text;padding:0 2px}
+.slot .cc.bindable{border-bottom-color:var(--vn-muted-2)}
+.slot .rowmeter{height:5px;border-radius:999px;background:var(--vn-field);overflow:hidden}
+.slot .rowmeter .f{height:100%;border-radius:999px;transition:width .05s linear}
+.slot .arrow{color:var(--vn-muted);text-align:center;font-size:15px}
+.slot .destcell{min-width:0}
+.slot .destcell .hint{font-size:10px;color:var(--vn-muted);margin-top:3px}
+.slot .amt .head{display:flex;justify-content:space-between;font-size:10px;color:var(--vn-muted);margin-bottom:4px}
+.slot .amt .head .v{color:var(--vn-text);font-weight:700;cursor:text;padding:0 3px;border-radius:4px;border-bottom:1px dashed var(--vn-muted-2)}
+.bipolar{height:var(--track-h);border-radius:999px;background:var(--vn-field);position:relative;cursor:ew-resize;touch-action:none}
+/* default tick at the bipolar centre (0) so reset has a visible home (W2) */
+.bipolar::after{content:"";position:absolute;left:50%;top:-3px;bottom:-3px;width:2px;transform:translateX(-50%);background:var(--vn-muted-2);opacity:.5;border-radius:1px;pointer-events:none}
+/* shared right-click param menu (W3) */
+.pmenu{position:fixed;z-index:90;min-width:184px;background:var(--vn-panel);border:1px solid var(--vn-line);border-radius:var(--r-sm);
+  box-shadow:0 16px 44px rgba(0,0,0,.22);padding:5px;display:none}
+.pmenu.open{display:block}
+.pmenu button{display:flex;width:100%;align-items:center;gap:10px;border:none;background:transparent;color:var(--vn-text);
+  font-family:var(--vn-ui);font-size:13px;text-align:left;padding:8px 11px;border-radius:7px;cursor:pointer}
+.pmenu button:hover{background:var(--vn-panel2)}
+.pmenu button:disabled{opacity:.4;cursor:default}
+.pmenu button .k{margin-left:auto;font-family:var(--vn-mono);font-size:10.5px;color:var(--vn-muted-2)}
+.pmenu .sep{height:1px;background:var(--vn-line-soft);margin:4px 6px}
+/* transient toast — delete-undo / undo confirmations (W5) */
+.vntoast{position:fixed;left:50%;bottom:22px;transform:translate(-50%,14px);z-index:95;display:flex;align-items:center;gap:12px;
+  background:var(--vn-text);color:var(--vn-bg);font-size:13px;font-weight:500;padding:10px 14px;border-radius:10px;
+  box-shadow:0 10px 34px rgba(0,0,0,.28);opacity:0;pointer-events:none;transition:opacity .16s,transform .16s;max-width:min(440px,92vw)}
+.vntoast.show{opacity:1;transform:translate(-50%,0);pointer-events:auto}
+.vntoast button{border:none;background:color-mix(in srgb,var(--vn-bg) 22%,transparent);color:var(--vn-bg);font-family:var(--vn-ui);
+  font-size:12.5px;font-weight:700;padding:5px 12px;border-radius:7px;cursor:pointer}
+.vntoast button:hover{background:color-mix(in srgb,var(--vn-bg) 34%,transparent)}
+.bipolar .center{position:absolute;left:50%;top:-2px;bottom:-2px;width:1px;background:var(--vn-muted-2)}
+.bipolar .fill{position:absolute;top:0;bottom:0;border-radius:999px}
+.bipolar .thumb{position:absolute;top:50%;width:var(--thumb);height:var(--thumb);border-radius:50%;background:var(--vn-panel);border:2px solid currentColor;transform:translate(-50%,-50%);box-shadow:0 1px 3px rgba(0,0,0,.22)}
+.miniseg{display:inline-flex;background:var(--vn-field);border-radius:9px;padding:3px;gap:2px}
+.miniseg button{border:none;background:transparent;color:var(--vn-muted);font-size:11px;font-weight:600;padding:5px 8px;border-radius:6px;cursor:pointer;min-height:30px}
+.miniseg button.active{background:var(--vn-panel);color:var(--vn-text)}
+.ar{display:flex;flex-direction:column;gap:3px;font-family:var(--vn-mono);font-size:10.5px;color:var(--vn-muted)}
+.ar .arf{display:flex;align-items:center;gap:4px}
+.ar .arv{color:var(--vn-text);cursor:text;border-bottom:1px dashed var(--vn-muted-2);padding:0 2px}
+.tog{width:36px;height:20px;border-radius:999px;background:var(--vn-muted-2);position:relative;cursor:pointer;flex:none;border:none;padding:0}
+.tog.on{background:var(--vn-breath)}
+.tog::after{content:"";position:absolute;top:2px;left:2px;width:16px;height:16px;border-radius:50%;background:#fff;transition:left .12s}
+.tog.on::after{left:18px}
+.del{border:none;background:transparent;color:var(--vn-muted-2);cursor:pointer;font-size:16px;width:var(--tap);height:var(--tap);max-width:34px;max-height:34px;border-radius:8px}
+.del:hover{color:var(--vn-pressure);background:var(--vn-field)}
+.empty-add{display:flex;align-items:center;justify-content:center;gap:8px;border:1.5px dashed var(--vn-muted-2);
+  border-radius:12px;padding:18px;color:var(--vn-muted);background:transparent;cursor:pointer;font-weight:600;min-height:var(--tap)}
+.empty-state{text-align:center;color:var(--vn-muted);padding:40px 20px}
+.empty-state .big{font-size:15px;font-weight:600;color:var(--vn-text-2);margin-bottom:6px}
+
+/* ── Presets (E1) ───────────────────────────────────────────── */
+.preset-grid{display:grid;grid-template-columns:180px 1fr;gap:14px;height:100%;min-height:0}
+.preset-side{display:flex;flex-direction:column;gap:16px;overflow:auto;padding-right:2px;min-width:0}
+.search{border:1px solid var(--vn-line);border-radius:999px;background:var(--vn-panel);color:var(--vn-text);
+  padding:0 14px;height:var(--tap);max-height:38px;font-size:13px;width:100%;font-family:var(--vn-ui)}
+.filter-group .eyebrow{margin-bottom:7px;display:block}
+.filter{display:flex;justify-content:space-between;align-items:center;padding:8px 10px;border-radius:8px;cursor:pointer;font-size:12.5px;min-height:var(--tap);max-height:40px}
+.filter:hover{background:var(--vn-panel2)}
+.filter.on{background:var(--vn-field);font-weight:700}
+.filter .c{color:var(--vn-muted);font-size:11px}
+.preset-list{overflow-y:auto;overflow-x:hidden;display:flex;flex-direction:column;gap:8px;min-width:0}
+.preset-item{display:grid;grid-template-columns:auto minmax(0,1fr) auto auto;gap:11px;align-items:center;padding:12px 14px;
+  border:1px solid var(--vn-line-soft);border-radius:12px;background:var(--vn-panel2);cursor:pointer}
+.preset-item>div{min-width:0}
+.preset-item:hover{border-color:var(--vn-muted-2)}
+.preset-item.sel{border-color:var(--vn-breath);background:var(--vn-panel);box-shadow:var(--shadow)}
+.preset-item .glyph{width:46px;height:30px;border-radius:7px;background:var(--vn-field);flex:none}
+.preset-item .nm{font-weight:600;font-size:13.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.preset-item .tags{display:flex;gap:5px;margin-top:5px;flex-wrap:wrap}
+.tag{font-size:9.5px;font-weight:700;padding:2px 8px;border-radius:999px;color:#fff;opacity:.92}
+.fav{font-size:17px;color:var(--vn-bend);cursor:pointer;width:var(--tap);max-width:34px;height:var(--tap);max-height:34px;display:flex;align-items:center;justify-content:center;border-radius:8px}
+.fav:hover{background:var(--vn-field)}
+.kebab{font-size:17px;color:var(--vn-muted);cursor:pointer;width:var(--tap);max-width:34px;height:var(--tap);max-height:34px;display:flex;align-items:center;justify-content:center;border-radius:8px;position:relative}
+.kebab:hover{background:var(--vn-field)}
+.menu{position:absolute;top:100%;right:0;margin-top:4px;background:var(--vn-panel);border:1px solid var(--vn-line);border-radius:10px;box-shadow:var(--shadow);z-index:20;min-width:130px;overflow:hidden;display:none}
+.menu.open{display:block}
+.menu button{display:block;width:100%;max-width:none;height:auto;min-height:0;max-height:none;border-radius:0;
+  text-align:left;border:none;background:transparent;padding:9px 14px;font-size:12.5px;color:var(--vn-text);cursor:pointer;white-space:normal;line-height:1.25}
+.menu button:hover{background:var(--vn-panel2)}
+.menu button.danger{color:var(--vn-pressure)}
+
+/* Narrow inspector: stack the preset browser (sidebar above list) */
+@container (max-width:520px){
+  .preset-grid{grid-template-columns:1fr;grid-template-rows:auto 1fr}
+  .preset-side{max-height:200px}
+}
+
+/* modal (import/export, rename) */
+.scrim{position:fixed;inset:0;background:rgba(20,18,14,.4);display:none;align-items:center;justify-content:center;z-index:50;padding:20px}
+.scrim.open{display:flex}
+.modal{background:var(--vn-panel);border:1px solid var(--vn-line);border-radius:var(--r);box-shadow:0 20px 60px rgba(0,0,0,.3);padding:22px;width:min(560px,100%);max-height:calc(100vh - 32px);overflow-y:auto}
+.scrim{align-items:flex-start}  /* tall modals scroll from the top instead of clipping */
+.modal h3{margin:0 0 4px;font-size:17px;font-weight:700}
+.modal p{margin:0 0 14px;color:var(--vn-muted);font-size:12.5px}
+.modal textarea{width:100%;height:160px;border:1px solid var(--vn-line);border-radius:var(--r-sm);background:var(--vn-field);color:var(--vn-text);font-family:var(--vn-mono);font-size:12px;padding:10px;resize:vertical}
+.modal input.rn{width:100%;border:1px solid var(--vn-line);border-radius:var(--r-sm);background:var(--vn-field);color:var(--vn-text);font-size:14px;padding:10px 12px}
+.modal .actions{display:flex;justify-content:flex-end;gap:8px;margin-top:16px}
+.ctrl-sec{margin-top:16px}
+.ctrl-sec .eyebrow{display:block;margin-bottom:8px}
+.ctrl-row{display:grid;grid-template-columns:1fr auto auto;gap:10px;align-items:center;padding:7px 0;border-bottom:1px solid var(--vn-line-soft)}
+.ctrl-lbl{border:1px solid var(--vn-line);border-radius:6px;background:var(--vn-field);color:var(--vn-text);font-family:var(--vn-ui);font-size:13px;font-weight:600;padding:5px 8px;width:150px}
+.ctrl-cc{width:50px;border:1px solid var(--vn-line);border-radius:5px;background:var(--vn-panel);color:var(--vn-text);font-family:var(--vn-mono);padding:2px 4px;margin-left:4px}
+.profile-banner{display:none;align-items:center;gap:10px;flex:none;flex-wrap:wrap;
+  background:var(--vn-pressure-tint);border:1px solid var(--vn-pressure);color:var(--vn-text-2);
+  border-radius:var(--r-md);padding:9px 14px;font-size:12.5px}
+.profile-banner.on{display:flex}
+.profile-banner b{color:var(--vn-pressure)}
+.profile-banner .btn{margin-left:auto}
+.profile-banner .btn+.btn{margin-left:0}
+
+/* ── Responsive: single column + bottom tab bar (B2, §7) ────── */
+@media (max-width:860px){
+  body{overflow:auto}
+  #app{height:auto;min-height:100%;padding-bottom:calc(72px + max(12px,env(safe-area-inset-bottom)))}
+  .main{grid-template-columns:1fr}
+  .meters{grid-template-columns:1fr}
+  .preset-grid{grid-template-columns:1fr}
+  .tabs{position:fixed;left:0;right:0;bottom:0;z-index:40;border-radius:0;border-left:none;border-right:none;border-bottom:none;
+    padding:8px 12px calc(8px + env(safe-area-inset-bottom));background:var(--vn-panel)}
+}
+/* ── AUv3 / iPad reflow — Focus: one pane at a time (design handoff Area 6·B) ── */
+.focusbar{display:none}
+@media (max-width:860px){
+  #app[data-reflow="focus"]{overflow:hidden;height:100%}
+  body.focus-active{overflow:hidden}
+  body.focus-active #app{height:100%;min-height:0;padding-bottom:0}
+  #app[data-reflow="focus"] .focusbar{display:flex;gap:4px;background:var(--vn-panel2);border:1px solid var(--vn-line);
+    border-radius:999px;padding:4px;flex:none;overflow-x:auto}
+  #app[data-reflow="focus"] .focusbar button{flex:1 0 auto;border:none;background:transparent;color:var(--vn-muted);
+    font-weight:600;font-size:12.5px;padding:9px 13px;border-radius:999px;cursor:pointer;min-height:var(--tap);white-space:nowrap}
+  #app[data-reflow="focus"] .focusbar button.active{background:var(--vn-panel);color:var(--vn-text);box-shadow:0 1px 3px rgba(0,0,0,.07)}
+  /* one full-height pane swaps in/out; the bottom tab bar is replaced by the focusbar */
+  #app[data-reflow="focus"] .main{display:block;flex:1;min-height:0}
+  #app[data-reflow="focus"] .stage,
+  #app[data-reflow="focus"] .inspector{height:100%}
+  #app[data-reflow="focus"] .inspector .tabs{display:none}
+  #app[data-reflow="focus"] .main[data-pane="stage"] .inspector{display:none}
+  #app[data-reflow="focus"] .main[data-pane="inspector"] .stage{display:none}
+}
+/* ── Wavetable library browser ── */
+.lib-list{display:flex;flex-direction:column;gap:6px;margin-top:12px}
+.lib-row{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center;padding:10px 12px;border:1px solid var(--vn-line-soft);border-radius:10px;background:var(--vn-panel2);cursor:pointer;min-height:var(--tap,44px)}
+.lib-row:hover{border-color:var(--vn-muted-2)}
+.lib-row.active{border-color:var(--vn-slide);background:var(--vn-panel);box-shadow:var(--shadow)}
+.lib-row .lr-title{font-weight:600;font-size:13px}
+.lib-row .lr-meta{font-family:var(--vn-mono);font-size:10px;color:var(--vn-muted);margin-top:2px}
+.lib-row .lr-badge{font-family:var(--vn-mono);font-size:9px;color:var(--vn-expr);border:1px solid var(--vn-expr);border-radius:999px;padding:2px 7px;white-space:nowrap}
+/* ── Tuning surface (4th Stage view) — lifted from Claude Design handoff ── */
+.tune-prec{border:1px solid var(--vn-line-soft);border-radius:14px;background:var(--vn-panel2);padding:13px 14px}
+.tune-prec .pr-top{display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+.tune-prec .src-pill{display:inline-flex;align-items:center;gap:7px;font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;padding:4px 10px;border-radius:999px}
+.tune-prec .src-pill.mts{color:var(--vn-expr);background:var(--vn-expr-tint)}
+.tune-prec .src-pill.int{color:var(--vn-slide);background:var(--vn-slide-tint)}
+.tune-prec .src-pill.off{color:var(--vn-pressure);background:var(--vn-pressure-tint)}
+.tune-prec .tname{font-size:15px;font-weight:700;letter-spacing:-.01em}
+.tune-prec .tsys{font-family:var(--vn-mono);font-size:10px;color:var(--vn-muted)}
+.tune-prec .pr-sub{font-size:11px;color:var(--vn-muted);margin-top:5px;line-height:1.5}
+.tune-prec .pr-sub b{color:var(--vn-text-2)}
+.tune-sec{margin-top:12px}
+.tune-sec .eyebrow{display:block;margin-bottom:8px}
+.tune-list{display:flex;flex-direction:column;gap:5px}
+.tune-row{display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:center;padding:8px 10px;border:1px solid var(--vn-line-soft);border-radius:10px;background:var(--vn-panel2);cursor:pointer;min-height:var(--tap,44px)}
+.tune-row:hover{border-color:var(--vn-muted-2)}
+.tune-row.sel{border-color:var(--vn-slide);background:var(--vn-panel);box-shadow:var(--shadow)}
+.tune-row.locked{opacity:.5;cursor:default}
+.tune-row .tr-name{font-weight:600;font-size:12.5px}
+.tune-row .tr-sys{font-family:var(--vn-mono);font-size:10px;color:var(--vn-muted);margin-top:2px}
+.tune-row .tr-mark{width:16px;text-align:center;color:var(--vn-slide);font-weight:700}
+.tune-row .tr-holes{font-family:var(--vn-mono);font-size:10px;color:var(--vn-pressure);white-space:nowrap}
+.tune-map{border:1px solid var(--vn-line-soft);border-radius:12px;background:var(--vn-field);padding:10px 12px 8px;margin-top:10px}
+.tune-map .tm-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
+.tune-map .tm-head .eyebrow{margin:0}
+.tune-map .tm-head .ref{font-family:var(--vn-mono);font-size:10px;color:var(--vn-muted)}
+.tm-svg{width:100%;display:block}
+.tm-svg .et{stroke:var(--vn-muted-2);stroke-width:1;opacity:.35}
+.tm-svg .lane{stroke:var(--vn-line-soft);stroke-width:1}
+.tm-svg .pc{font-family:var(--vn-mono);font-size:9px}
+.tm-svg .cents{font-family:var(--vn-mono);font-size:8px;fill:var(--vn-muted)}
+.tm-svg .holex{stroke:var(--vn-pressure);stroke-width:1.6}
+.tm-svg .livelbl{font-family:var(--vn-mono);font-size:9px;fill:var(--vn-text);font-weight:700}
+.tm-legend{display:flex;gap:12px;flex-wrap:wrap;margin-top:8px}
+.tm-legend span{display:inline-flex;align-items:center;gap:5px;font-size:10px;color:var(--vn-muted)}
+.tm-legend i{width:8px;height:8px;border-radius:2px;display:inline-block}
+/* Stage-view variant: hide the normal vis, show the tuning panel */
+.vis.tuning-on>#visSvg,.vis.tuning-on>.vis-legend,.vis.tuning-on>.vis-read,.vis.tuning-on>.vis-t{visibility:hidden}
+/* Modulation Outputs view — HTML overlay (crisp labels, no SVG text stretching) */
+.vis.outputs-on>#visSvg,.vis.outputs-on>.vis-legend,.vis.outputs-on>.vis-read,.vis.outputs-on>.vis-t{visibility:hidden}
+#outStage{position:absolute;inset:0;display:none;flex-direction:column;gap:2px;padding:10px 14px;overflow:auto}
+.vis.outputs-on #outStage{display:flex}
+#outStage .out-head{margin-bottom:6px}
+.out-row{display:grid;grid-template-columns:74px 1fr 46px;gap:9px;align-items:center;font-size:11px;padding:1px 0}
+.out-row .ol{color:var(--vn-text-2);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.out-row .ot{height:8px;background:var(--vn-line-soft);border-radius:999px;overflow:hidden}
+.out-row .of{height:100%;background:var(--vn-slide);border-radius:999px;transition:width .05s linear}
+.out-row .ov{font-family:var(--vn-mono);font-size:10px;color:var(--vn-muted);text-align:right}
+#tuneStage{position:absolute;inset:0;display:none;flex-direction:column;gap:8px;padding:10px 12px;overflow:auto}
+.vis.tuning-on #tuneStage{display:flex}
+#tuneStage svg{position:static !important;inset:auto !important;width:100% !important}
+.tune-stagebar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:2px;flex:none}
+/* Sounding-notes panel (#5): played notes + chord-generated voices, with tuning */
+.notes-panel{border:1px solid var(--vn-line-soft);border-radius:12px;background:var(--vn-field);padding:8px 10px;flex:none}
+.notes-panel .np-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:5px}
+.notes-panel .np-mode{font-family:var(--vn-mono);font-size:10px;color:var(--vn-slide);font-weight:700}
+.notes-row{display:grid;grid-template-columns:1fr auto auto auto auto;gap:8px;align-items:center;font-size:12px;padding:3px 0;border-top:1px solid var(--vn-line-soft)}
+.notes-row:first-of-type{border-top:none}
+.notes-row.empty{display:block;color:var(--vn-muted);text-align:center;font-size:11px;border:none}
+.notes-row .nl{display:flex;align-items:center;gap:6px;font-weight:600;min-width:0}
+.notes-row .nl i{width:8px;height:8px;border-radius:50%;flex:none}
+.notes-row .nn{font-family:var(--vn-mono);font-weight:700;color:var(--vn-text)}
+.notes-row .nd{font-family:var(--vn-mono);font-size:10.5px;color:var(--vn-muted)}
+.notes-row .nh{color:var(--vn-muted);font-size:11px;text-align:right}
+.notes-row .nx{font-family:var(--vn-mono);font-size:10px;color:var(--vn-slide);text-align:right;min-width:30px}
+.tune-stagebar select{appearance:none;border:1px solid var(--vn-line);background:var(--vn-field);color:var(--vn-text);font-family:var(--vn-ui);font-size:12px;font-weight:600;border-radius:8px;padding:0 10px;height:var(--ctl-h,34px);max-height:34px;cursor:pointer}
+.pbtn{border:1px solid var(--vn-line);background:var(--vn-panel);color:var(--vn-text-2);font-size:11px;font-weight:600;border-radius:8px;height:var(--ctl-h,34px);max-height:32px;min-width:40px;padding:0 10px;cursor:pointer;font-family:var(--vn-ui)}
+.pbtn.on{background:var(--vn-slide);color:#fff;border-color:var(--vn-slide)}
+.pbtn:disabled{opacity:.38;cursor:default}
+</style>
+</head>
+<body>
+<div id="app">
+  <!-- Header — preset name is the primary title (F2) -->
+  <div class="header">
+    <div class="brand"><span class="mark">Vane</span></div>
+    <div class="preset-nav" style="position:relative">
+      <button onclick="Preset.step(-1)" aria-label="Previous preset">‹</button>
+      <span class="name" onclick="openPresetMenu(event)" style="cursor:pointer" title="Browse presets"><span class="unsaved" id="unsaved" title="Unsaved changes"></span><span id="presetName">Reedlike · Lyrical</span><span style="opacity:.45;font-size:11px;margin-left:3px">▾</span></span>
+      <button onclick="Preset.step(1)" aria-label="Next preset">›</button>
+      <div class="menu" id="presetMenu" style="left:50%;transform:translateX(-50%);max-height:300px;overflow:auto;min-width:210px"></div>
+    </div>
+    <div class="spacer"></div>
+    <span class="chip" id="ctrlChip" onclick="openCtrlMenu(event)" style="position:relative;cursor:pointer" title="Select controller"><span class="dot expr"></span><span id="ctrlName">Sylphyo</span><span style="opacity:.45;margin-left:3px">▾</span>
+      <div class="menu" id="ctrlMenu" style="left:0;right:auto"></div></span>
+    <span class="chip ghost" id="tuningChip" onclick="toggleMts()" title="MTS-ESP — click to (re)connect">MTS-ESP</span>
+    <button class="icon-btn" id="monoBtn" onclick="toggleMono()" style="width:auto;max-width:none;min-width:62px;padding:0 16px">Mono</button>
+    <button class="icon-btn warn" title="Panic" onclick="Bridge.send('panic')">!</button>
+    <button class="icon-btn" title="Toggle theme" onclick="toggleTheme()">◐</button>
+  </div>
+
+  <!-- Preset↔profile association notice -->
+  <div id="profileBanner" class="profile-banner">
+    <span>This patch was built for controller profile <b class="pb-name"></b>.</span>
+    <button class="btn primary" onclick="applySuggestedProfile()">Apply profile</button>
+    <button class="btn" onclick="dismissProfileBanner()">Keep current</button>
+  </div>
+
+  <!-- Main -->
+  <div class="main">
+    <!-- Stage -->
+    <div class="stage">
+      <div class="panel pad" style="display:flex;flex-direction:column;gap:12px;flex:1;min-height:0">
+        <div class="stage-head">
+          <span class="eyebrow">Stage · live</span>
+          <div class="viewseg" id="viewseg">
+            <button class="active" data-view="breath" onclick="setView('breath')">Sources</button>
+            <button data-view="spectrum" onclick="setView('spectrum')">Spectrum</button>
+            <button data-view="outputs" onclick="setView('outputs')">Outputs</button>
+            <button data-view="tuning" onclick="setView('tuning')">Notes</button>
+          </div>
+        </div>
+        <div class="vis">
+          <div class="vis-legend" id="visLegend"></div>
+          <svg id="visSvg" preserveAspectRatio="none" viewBox="0 0 600 200"></svg>
+          <div id="tuneStage"></div>
+          <div id="outStage"></div>
+          <div class="vis-read">
+            <span class="chip num" id="noteRead">♪ —</span>
+            <span class="chip num" id="voiceRead">Saw · LP 1.1k</span>
+            <span class="chip num" id="harshRead" title="Timbral complexity — spectral brightness of the output">⚡ —</span>
+          </div>
+          <div class="vis-t num" id="visT">t = 0.000s · ch 1</div>
+        </div>
+        <div class="sub" style="padding:12px">
+          <div class="meters" id="meters"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Inspector -->
+    <div class="inspector">
+      <div class="panel pad tabbody" id="tabbody"></div>
+      <div class="tabs">
+        <button class="active" data-tab="patch" onclick="setTab('patch')">Patch</button>
+        <button data-tab="matrix" onclick="setTab('matrix')">Matrix</button>
+        <button data-tab="presets" onclick="setTab('presets')">Presets</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal scrim (import/export + rename) -->
+<div class="scrim" id="scrim" onclick="if(event.target===this)closeModal()">
+  <div class="modal" id="modal"></div>
+</div>
+
+<script>
+// ════════════════════════════════════════════════════════════════════════
+//  Model — mirrors the 24-slot ModSlots backend (spec §2/§5)
+// ════════════════════════════════════════════════════════════════════════
+// Keep in sync with ModSlots::kSourceNames (indices must match the slot src param).
+// 0-6 = fixed per-note MPE set + breath/expr; 7-14 = configurable global aux
+// sources (controller profiles — encoders, accelerometers, second breath…).
+const AUX = ["Aux 1","Aux 2","Aux 3","Aux 4","Aux 5","Aux 6","Aux 7","Aux 8"];
+const SOURCES = ["Off","Breath","Expression","Pressure","Slide","Pitchbend","Velocity",...AUX,"Keytrack"];
+const SRC_DOT = {Breath:"breath",Expression:"expr",Pressure:"pressure",Slide:"slide",Pitchbend:"bend",Velocity:"vel"};
+const SRC_CC  = {Breath:"CC2",Expression:"CC11",Pressure:"MPE Z",Slide:"CC74",Pitchbend:"PB",Velocity:"vel"};
+const SRC_COLOR={Breath:"--vn-breath",Expression:"--vn-expr",Pressure:"--vn-pressure",Slide:"--vn-slide",Pitchbend:"--vn-bend",Velocity:"--vn-vel"};
+AUX.forEach(a=>{ SRC_COLOR[a]="--vn-muted"; SRC_CC[a]="CC?"; });   // bound via the Controllers profile (next phase)
+SRC_COLOR["Keytrack"]="--vn-pressure"; SRC_CC["Keytrack"]="note";   // per-note pitch source (bipolar)
+const BINDABLE = {Breath:true,Expression:true};   // these sources expose a CC# binding
+const DESTS   = ["VCA","Cutoff","Reso","Pitch","Morph","PW","Fold","Noise","Inharm","Sync","Transient","Uni Detune","Vowel"];
+const CURVES  = ["Lin","Exp","S"];
+const NUM_SLOTS = 24;
+const METER_SRC = ["Breath","Expression","Pressure","Slide","Pitchbend","Velocity"];
+
+// Bridge — JUCE 8 WebBrowserComponent native integration when running inside the
+// plugin; falls back to the mock/demo loop in a plain browser (spec §9 harness).
+//   JS → C++ : window.__JUCE__.backend.emitEvent(id, data)
+//   C++ → JS : window.__JUCE__.backend.addEventListener(id, cb)
+const HAS_JUCE = (typeof window.__JUCE__ !== 'undefined' && !!window.__JUCE__.backend);
+const Bridge = {
+  send(id,p){ if(HAS_JUCE) window.__JUCE__.backend.emitEvent(id, p ?? {}); },
+  on(id,fn){ (this._h[id] ||= []).push(fn);
+             if(HAS_JUCE) window.__JUCE__.backend.addEventListener(id, d=>this._emit(id,d)); },
+  _h:{}, _emit(id,p){ (this._h[id]||[]).forEach(f=>f(p)); }
+};
+// Mirror JS console to C++ stdout (the only way to see logs inside WKWebView).
+if(HAS_JUCE && !window.__juceLog){ window.__juceLog=true;
+  for(const lv of ['log','warn','error']){ const o=console[lv].bind(console);
+    console[lv]=(...a)=>{ o(...a); try{ window.__JUCE__.backend.emitEvent('log',
+      {level:lv,msg:a.map(x=>typeof x==='object'?JSON.stringify(x):String(x)).join(' ')}); }catch(e){} }; } }
+
+const state = {
+  meters:{Breath:0,Expression:0,Pressure:0,Slide:0,Pitchbend:0.5,Velocity:0},
+  cc:{Breath:2,Expression:11},
+  patch:{ Morph:0.0,PW:0.5,Fold:0.0,Inharm:0.0,Sync:1.0,Noise:0.0,NoiseType:0,Detune:0,
+          TrGain:0.0,TrDecay:200,TrChoice:0,TrTrigger:1,TrVar:0.3,TrFilt:1,TrDyn:0.75,TrReso:0.3,TrDamp:0.5,TrMorph:12,
+          Cutoff:1128,Reso:0.1,Mode:0,Output:0.8,VelVCA:0.0,
+          Glide:0,GlideMode:0,GlideCurve:0,MasterTune:0,UniVox:0,UniDet:14,UniWid:0.7,UniMode:0,
+          VowelEn:0,VowelMode:0,Vowel:0.5,VowFront:0.5,VowRound:0,VowelAmt:1,VowelBite:0.5,VowelMove:0 },
+  slots: Array.from({length:NUM_SLOTS},()=>({src:0,dst:0,amt:0,curve:0,scale:0,atk:5,rel:80,on:true,anchors:[]})),
+  voices:[],   // live per-note MPE expression: [{note,hz,level,pressure,slide,bend,vel}]
+  aux:[],      // controller-profile aux sources: [{label, cc}] (from controllerState)
+  auxVals:new Array(8).fill(0),   // live aux CC values (from auxMeters telemetry)
+  modOut:new Array(13).fill(0),   // live modulation outputs (from modOut telemetry)
+  profiles:[], profileName:'',   // saved controller profiles
+  controller:'Sylphyo',    // primary controller (= rig.instances[0].ctrl)
+  wt:{name:'Harmonic Stack (built-in)', frames:16, phaseAlign:false, strip:null, stripCols:0},   // active morph wavetable
+  library:[],   // factory table catalogue
+  transients:['None'],   // transient sample names (index 0 = None)
+  glideAnchors:[],       // Bézier glide trajectory anchors (time→progress)
+  chordSeqs:'3,4;7,5;10,9;12,7;5,3',   // rotating-chord interval sequences per harmony voice
+  chordConfigs:[],                     // global rotating-chord palette (from disk via bridge)
+  chordRot:0,                          // live rotation index (pushed from the engine)
+
+  // Rig = the composition: ordered controller instances, each with a role mask
+  // (notes/mod) and a channel/zone match. Bindings stay in the flat pool below
+  // (instances seed it); roles + match are stored for the 2b router. (Stage 2a)
+  rig:{instances:[{ctrl:'Sylphyo',mode:'',notes:true,mod:true,ch:'any'}]},
+  probe:{events:0,channels:[],sources:[],vports:[],prevEvents:0,prevT:0,rate:0},  // MIDI probe
+  spec:[],   // real output spectrum bins
+
+  mts:true, dirty:false, sim:true,
+};
+// seed factory-ish routing
+[["Breath","VCA",1.0,0,5,80],["Expression","VCA",1.0,0,5,80],["Pressure","VCA",0.5,1,3,50],
+ ["Slide","Cutoff",0.9,0,2,20],["Breath","Cutoff",0.25,1,5,80],["Pressure","Cutoff",0.2,1,5,80],
+ ["Slide","Fold",1.0,0,2,30],["Breath","Inharm",0.30,0,5,90]
+].forEach((r,i)=>{ state.slots[i]={src:SOURCES.indexOf(r[0]),dst:DESTS.indexOf(r[1]),amt:r[2],curve:r[3],atk:r[4],rel:r[5],on:true}; });
+
+const cssv = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
+const $ = (s,r=document)=>r.querySelector(s);
+
+function markDirty(){ state.dirty=true; $('#unsaved').classList.add('on'); }
+
+// ════════════════════════════════════════════════════════════════════════
+//  Reusable drag (A1 real drag · A2 fine-drag · A3 keyboard) — no click-jump
+// ════════════════════════════════════════════════════════════════════════
+function attachDrag(track, cfg){
+  // cfg: {get,set,min,max,step,fineStep,onMove} plus optional {reset,type,getRaw,setRaw}
+  // for the right-click menu (reset/type/copy/paste).
+  let active=false, startX=0, startY=0, startV=0, fineLatch=false, lastFine=false, lastDownT=0;
+  track.tabIndex = 0;
+  // W2: make the gestures discoverable — every track carries a tooltip (existing
+  // explicit titles win).
+  if(!track.getAttribute('title'))
+    track.setAttribute('title','Drag · scroll · double-click resets · right-click for menu');
+  const fineNow = e => e.shiftKey || e.altKey;
+  // W1: scroll-wheel adjusts the hovered control (the one input every synth player
+  // tries first; the only comfortable fine-adjust on a trackpad).
+  track.addEventListener('wheel', e=>{ e.preventDefault();
+    const st = (e.shiftKey||e.altKey) ? (cfg.fineStep||cfg.step) : cfg.step;
+    // The value FOLLOWS the gesture: swipe right or up to increase. With macOS
+    // natural scrolling a rightward swipe reports deltaX<0 and an upward swipe
+    // reports deltaY>0, so increase on deltaX<0 (horizontal) / deltaY>0 (vertical).
+    const useX = Math.abs(e.deltaX) > Math.abs(e.deltaY);
+    const d = useX ? e.deltaX : e.deltaY;
+    if(d===0) return;
+    const dir = useX ? (e.deltaX<0 ? 1 : -1) : (e.deltaY>0 ? 1 : -1);
+    cfg.set(clamp(cfg.get()+dir*st, cfg.min, cfg.max)); cfg.onMove && cfg.onMove(cfg.get());
+  }, {passive:false});
+  // W3: right-click opens the shared param menu acting on this control.
+  track.addEventListener('contextmenu', e=>{ e.preventDefault(); openParamMenu(e.clientX,e.clientY,cfg); });
+  track.addEventListener('pointerdown', e=>{
+    if(e.button!==0) return;   // ignore right/middle click — right-click is the menu
+    // Reliable double-click/tap → reset (the DOM dblclick event is dropped after a
+    // pointerdown preventDefault on WebKit, and never fired on touch at all).
+    const now=performance.now();
+    if(now-lastDownT<320 && cfg.reset){ lastDownT=0; active=false; track.classList.remove('dragging','fine'); cfg.reset(); e.preventDefault(); return; }
+    lastDownT=now;
+    active=true; track.setPointerCapture(e.pointerId);
+    startX=e.clientX; startY=e.clientY; startV=cfg.get();
+    fineLatch=false; lastFine=false;
+    track.classList.add('dragging'); e.preventDefault();
+  });
+  track.addEventListener('pointermove', e=>{
+    if(!active) return;
+    const w=track.getBoundingClientRect().width;
+    const ddx=e.clientX-startX, ddy=Math.abs(e.clientY-startY);
+    // A deliberate vertical pull LATCHES fine for the rest of the gesture — so a
+    // diagonal drag (vertical + horizontal at once) doesn't flip back to coarse
+    // and jump. Modifiers toggle fine live; either way we rebase on a transition.
+    if(ddy>26 && ddy>Math.abs(ddx)) fineLatch=true;
+    const fine = fineNow(e) || fineLatch;
+    if(fine!==lastFine){ startX=e.clientX; startV=cfg.get(); lastFine=fine; }  // rebase → no jump
+    track.classList.toggle('fine', fine);
+    const range=cfg.max-cfg.min, f=fine?0.16:1, dx=e.clientX-startX;
+    cfg.set(clamp(startV + (dx/w)*range*f, cfg.min, cfg.max));
+    cfg.onMove && cfg.onMove(cfg.get());
+  });
+  const end=()=>{ if(active){ active=false; track.classList.remove('dragging','fine');
+    // W5: a completed drag is one undoable step back to where it started.
+    if(cfg.get()!==startV){ const sv=startV; recordUndo('drag', ()=>{ cfg.set(sv); cfg.onMove&&cfg.onMove(cfg.get()); }); } } };
+  track.addEventListener('pointerup',end);
+  track.addEventListener('pointercancel',end);
+  track.addEventListener('keydown', e=>{
+    const st = (e.shiftKey ? (cfg.fineStep||cfg.step) : cfg.step);
+    if(e.key==='ArrowRight'||e.key==='ArrowUp'){ cfg.set(clamp(cfg.get()+st,cfg.min,cfg.max)); cfg.onMove&&cfg.onMove(cfg.get()); e.preventDefault(); }
+    if(e.key==='ArrowLeft'||e.key==='ArrowDown'){ cfg.set(clamp(cfg.get()-st,cfg.min,cfg.max)); cfg.onMove&&cfg.onMove(cfg.get()); e.preventDefault(); }
+  });
+}
+
+// ── Shared right-click param menu (W3): Reset · Type · Copy · Paste ──────────
+let _paramClip=null, _pmCfg=null, _pmEl=null;
+function ensureParamMenu(){
+  if(_pmEl) return _pmEl;
+  _pmEl=document.createElement('div'); _pmEl.className='pmenu';
+  _pmEl.innerHTML=`<button data-a="reset">Reset to default<span class="k">dbl-click</span></button>
+    <button data-a="type">Type value…<span class="k">↵</span></button>
+    <div class="sep"></div>
+    <button data-a="copy">Copy value<span class="k">⌘C</span></button>
+    <button data-a="paste">Paste value<span class="k">⌘V</span></button>`;
+  document.body.appendChild(_pmEl);
+  _pmEl.addEventListener('click',e=>{ const b=e.target.closest('button'); if(!b||!_pmCfg)return; const a=b.dataset.a;
+    if(a==='reset') _pmCfg.reset && _pmCfg.reset();
+    else if(a==='type'){ closeParamMenu(); _pmCfg.type && _pmCfg.type(); return; }
+    else if(a==='copy'){ if(_pmCfg.getRaw) _paramClip=_pmCfg.getRaw(); }
+    else if(a==='paste'){ if(_paramClip!=null && _pmCfg.setRaw) _pmCfg.setRaw(_paramClip); }
+    closeParamMenu(); });
+  // Close on an outside LEFT click; ignore the right-click that opens it (its own
+  // pointerdown would otherwise dismiss the menu before it can be used).
+  document.addEventListener('pointerdown',e=>{ if(e.button===2) return; if(_pmEl && !_pmEl.contains(e.target)) closeParamMenu(); });
+  window.addEventListener('blur',closeParamMenu);
+  return _pmEl;
+}
+function openParamMenu(x,y,cfg){ const m=ensureParamMenu(); _pmCfg=cfg;
+  m.querySelector('[data-a="reset"]').disabled=!cfg.reset;
+  m.querySelector('[data-a="type"]').disabled =!cfg.type;
+  m.querySelector('[data-a="copy"]').disabled =!cfg.getRaw;
+  m.querySelector('[data-a="paste"]').disabled=!(cfg.setRaw && _paramClip!=null);
+  m.classList.add('open');
+  const w=m.offsetWidth,h=m.offsetHeight;
+  m.style.left=Math.min(x,innerWidth-w-8)+'px'; m.style.top=Math.min(y,innerHeight-h-8)+'px';
+}
+function closeParamMenu(){ if(_pmEl) _pmEl.classList.remove('open'); }
+
+// ── Safety net (W5): single-step undo + a transient toast ───────────────────
+let _undo=null;
+function recordUndo(label, fn){ _undo={label,fn}; }
+function doUndo(){ if(!_undo) return false; const u=_undo; _undo=null; u.fn(); showToast('Undone — '+u.label); return true; }
+let _toastTimer=null;
+function showToast(msg, actionLabel, actionFn, ms=5000){
+  let t=document.getElementById('vnToast');
+  if(!t){ t=document.createElement('div'); t.id='vnToast'; t.className='vntoast'; document.body.appendChild(t); }
+  t.innerHTML=`<span class="m"></span>`; t.querySelector('.m').textContent=msg;
+  if(actionLabel){ const b=document.createElement('button'); b.textContent=actionLabel;
+    b.onclick=()=>{ if(actionFn)actionFn(); hideToast(); }; t.appendChild(b); }
+  t.classList.add('show'); clearTimeout(_toastTimer); _toastTimer=setTimeout(hideToast, ms);
+}
+function hideToast(){ const t=document.getElementById('vnToast'); if(t)t.classList.remove('show'); }
+
+// ── Global keyboard shortcuts (W4) ──────────────────────────────────────────
+// Hands-on-controller players shouldn't reach for the mouse to step a preset.
+document.addEventListener('keydown', e=>{
+  const t=e.target||{}, tag=(t.tagName||'').toLowerCase();
+  const typing = tag==='input'||tag==='textarea'||tag==='select'||t.isContentEditable;
+  const mod = e.metaKey||e.ctrlKey;
+  if(mod && (e.key==='s'||e.key==='S')){ e.preventDefault(); savePreset(); return; }   // save (always)
+  if(typing) return;                                                                     // leave fields alone
+  if(mod && (e.key==='z'||e.key==='Z') && !e.shiftKey){ e.preventDefault(); if(!doUndo()) showToast('Nothing to undo'); return; }
+  if(e.key==='['){ e.preventDefault(); Preset.step(-1); }
+  else if(e.key===']'){ e.preventDefault(); Preset.step(1); }
+  else if(e.key==='/'){ e.preventDefault(); setTab('presets');
+    setTimeout(()=>{ const s=document.querySelector('.search'); if(s){ s.focus(); s.select&&s.select(); } },30); }
+});
+
+// ════════════════════════════════════════════════════════════════════════
+//  Meters + visualiser (D2)
+// ════════════════════════════════════════════════════════════════════════
+// ── Active-modulation detection ───────────────────────────────────────────────
+// The display shows the modulations that are actually in use. Per-note MPE dims
+// (Pressure/Slide/Pitchbend) are read from the live voices, not the aggregate —
+// so MPE pitchbend (per-member-channel) registers correctly. A short hold keeps
+// the set from flickering. Falls back to the controller's catalog list when idle.
+const srcActiveUntil={}; const ACT_HOLD=1500;
+// Velocity is only worth showing when it's EXPRESSIVE — i.e. it varies note to
+// note. A controller that sends a fixed velocity (e.g. the Sylphyo) is bypassed
+// automatically rather than cluttering the Stage. Tracked across note-on edges.
+let velMin=1, velMax=0, velPrev=0;
+// Aux sources show only when MOVING (like pitchbend), not merely bound.
+const auxActiveUntil=new Array(8).fill(0); const auxPrev=new Array(8).fill(0);
+function auxActive(g){ return (auxActiveUntil[g]||0)>performance.now(); }
+function updateActivity(){ const now=performance.now(); const bump=s=>{ srcActiveUntil[s]=now+ACT_HOLD; };
+  if((state.meters.Breath||0)>0.02)     bump('Breath');
+  if((state.meters.Expression||0)>0.02) bump('Expression');
+  // velocity: record the value at each note-on edge; show only once it has spread
+  const vel=state.meters.Velocity||0;
+  if(vel>0.02 && velPrev<=0.02){ velMin=Math.min(velMin,vel); velMax=Math.max(velMax,vel); }
+  velPrev=vel;
+  if(vel>0.02 && (velMax-velMin)>0.05) bump('Velocity');
+  // aux: bump on change
+  for(let g=0;g<8;g++){ const v=(state.auxVals&&state.auxVals[g])||0;
+    if(Math.abs(v-auxPrev[g])>0.02) auxActiveUntil[g]=now+ACT_HOLD; auxPrev[g]=v; }
+  let aP=(state.meters.Pressure||0)>0.02, aS=false, aB=false;
+  for(const v of (state.voices||[])){
+    if((v.pressure||0)>0.02)                aP=true;
+    if(Math.abs((v.slide??0.5)-0.5)>0.03)   aS=true;
+    if(Math.abs(v.bend||0)>0.015)           aB=true;   // per-note MPE pitchbend
+  }
+  if(aP)bump('Pressure'); if(aS)bump('Slide'); if(aB)bump('Pitchbend'); }
+function activeSources(){ const now=performance.now();
+  const out=METER_SRC.filter(s=>(srcActiveUntil[s]||0)>now);
+  return out.length ? out : ctrlSources(); }   // idle → controller's catalog set
+let lastMeterKey='';
+function refreshMetersIfChanged(){
+  const k=activeSources().join(',')+'|'+[0,1,2,3,4,5,6,7].filter(auxActive).join('');
+  if(k!==lastMeterKey){ lastMeterKey=k; buildMeters(); } }
+function buildMeters(){
+  const el=$('#meters'); if(!el) return; el.innerHTML='';
+  const active=activeSources();
+  METER_SRC.filter(s=>active.includes(s)).forEach(s=>{
+    el.insertAdjacentHTML('beforeend',
+      `<div class="meter-row"><span class="meter-label"><span class="dot ${SRC_DOT[s]}"></span>${s}</span>
+       <div class="meter"><div class="fill" id="m_${s}" style="background:var(${SRC_COLOR[s]})"></div></div>
+       <span class="meter-cc num">${SRC_CC[s]}</span></div>`);
+  });
+  // configured aux sources (global CCs) — shown only while moving
+  for(let g=0;g<8;g++){ if(!auxActive(g)) continue; const a=state.aux[g]; if(!a) continue;
+    el.insertAdjacentHTML('beforeend',
+      `<div class="meter-row"><span class="meter-label"><span class="dot" style="background:var(--vn-muted)"></span>${escH(a.label||AUX[g])}</span>
+       <div class="meter"><div class="fill" id="m_aux${g}" style="background:var(--vn-muted)"></div></div>
+       <span class="meter-cc num">CC${a.cc}</span></div>`); }
+}
+const hist={}; METER_SRC.forEach(s=>hist[s]=new Array(80).fill(0));
+const auxHist=Array.from({length:8},()=>new Array(80).fill(0));   // aux-source scroll history
+const auxBound=g=>!!(state.aux[g]&&state.aux[g].cc>0);            // aux g is configured
+let view='breath';
+function setView(v){ view=v; document.querySelectorAll('#viewseg button').forEach(b=>b.classList.toggle('active',b.dataset.view===v)); }
+let simT=0;
+// Per-VOICE scrolling history so simultaneous notes don't collapse into one
+// aggregate (the "breaks apart on several channels" problem). Keyed by note;
+// each entry scrolls pressure(p)/slide(s)/bend(b) and fades out after release.
+const VN=80; let voiceTrace={};
+function pushVoices(){
+  const seen={};
+  for(const v of (state.voices||[])){
+    // Key by the engine's stable per-voice index so two channels playing the
+    // SAME note get distinct traces (the Sensel collision). Falls back to note/hz.
+    const id=(v.vi!=null)?('v'+v.vi):(v.note||('h'+Math.round(v.hz||0))); seen[id]=1;
+    let t=voiceTrace[id];
+    if(!t) t=voiceTrace[id]={p:new Array(VN).fill(0),s:new Array(VN).fill(v.slide??0.5),b:new Array(VN).fill(((v.bend||0)+1)/2),fade:0};
+    t.p.push(clamp(v.pressure||0,0,1)); t.p.shift();
+    t.s.push(clamp(v.slide??0.5,0,1));   t.s.shift();
+    t.b.push(clamp(((v.bend||0)+1)/2,0,1)); t.b.shift();
+    t.fade=0;
+  }
+  for(const id in voiceTrace){ if(seen[id]) continue;
+    const t=voiceTrace[id]; t.fade++;
+    t.p.push(0); t.p.shift(); t.s.push(t.s[VN-1]); t.s.shift(); t.b.push(t.b[VN-1]); t.b.shift();
+    if(t.fade>VN) delete voiceTrace[id];
+  }
+}
+function tickMeters(){
+  updateActivity();
+  refreshMetersIfChanged();   // rebuild the legend only when the active set changes
+  for(const s in state.meters){
+    const v=clamp(state.meters[s],0,1);
+    const m=$('#m_'+s); if(m) m.style.width=(v*100)+'%';
+    hist[s].push(v); hist[s].shift();
+  }
+  pushVoices();
+  // aux-source streams (global CCs) — scroll history + legend fills
+  for(let g=0;g<8;g++){ const v=clamp((state.auxVals&&state.auxVals[g])||0,0,1);
+    auxHist[g].push(v); auxHist[g].shift(); const m=$('#m_aux'+g); if(m)m.style.width=(v*100)+'%'; }
+  // row meters in matrix tab
+  document.querySelectorAll('[data-rowmeter]').forEach(el=>{
+    const s=el.getAttribute('data-rowmeter'); const v=clamp(state.meters[s]||0,0,1);
+    el.style.width=(v*100)+'%';
+  });
+  curveUpdateLive();
+  drawVis();
+  $('#visT').textContent='t = '+simT.toFixed(3)+'s · ch 1';
+}
+function drawVis(){
+  const svg=$('#visSvg'); let p='';
+  if(view==='breath'){
+    const W=600, yOf=v=>188-clamp(v,0,1)*172;
+    const line=(h,col,w,op)=>{ let d=''; for(let i=0;i<h.length;i++){const x=i/(h.length-1)*W; d+=(i?'L':'M')+x.toFixed(1)+','+yOf(h[i]).toFixed(1);}
+      return `<path d="${d}" fill="none" stroke="${col}" stroke-width="${w}" stroke-linecap="round" opacity="${op}"/>`; };
+    // Draw the modulations actually in use (per-note MPE dims included).
+    const active=activeSources();
+    // Global CC streams (one value each): Breath bold, Expression secondary.
+    if(active.includes('Expression')) p+=line(hist.Expression, cssv('--vn-expr'), 1.6, 0.45);
+    if(active.includes('Breath'))     p+=line(hist.Breath,     cssv('--vn-breath'), 2.6, 0.9);
+    // Per-NOTE (per-channel) streams: one line PER VOICE for each MPE dimension,
+    // coloured by dimension. Simultaneous notes fan out instead of collapsing
+    // into a single fighting aggregate. Released notes fade out.
+    const dims=[['s',cssv('--vn-slide'),'Slide'],['p',cssv('--vn-pressure'),'Pressure'],['b',cssv('--vn-bend'),'Pitchbend']]
+                 .filter(d=>active.includes(d[2]));
+    for(const id in voiceTrace){ const t=voiceTrace[id]; const op=clamp(1-t.fade/VN,0,1)*0.7;
+      if(op<=0.02) continue;
+      for(const [k,col] of dims) p+=line(t[k], col, 1.6, op.toFixed(2));
+    }
+    // Configured aux sources (global CCs) — dashed muted streams so they read
+    // as secondary next to the coloured primary sources.
+    for(let g=0;g<8;g++){ if(!auxActive(g)) continue;
+      let d=''; const h=auxHist[g];
+      for(let i=0;i<h.length;i++){ const x=i/(h.length-1)*W; d+=(i?'L':'M')+x.toFixed(1)+','+yOf(h[i]).toFixed(1); }
+      p+=`<path d="${d}" fill="none" stroke="${cssv('--vn-muted')}" stroke-width="1.4" stroke-dasharray="4 4" opacity="${(0.5+g*0.04).toFixed(2)}"/>`; }
+  } else if(view==='spectrum'){
+    // Real FFT magnitudes of the output (log-spaced bins, 0..1 = −80..0 dB).
+    const bins=state.spec||[], col=cssv('--vn-breath'), n=bins.length;
+    if(n){ const bw=580/n*0.72;
+      for(let i=0;i<n;i++){ const x=10+(i/n)*580, bh=clamp(bins[i],0,1)*176;
+        p+=`<rect x="${x.toFixed(1)}" y="${(188-bh).toFixed(1)}" width="${bw.toFixed(1)}" height="${bh.toFixed(1)}" rx="1.2" fill="${col}" opacity="0.85"/>`; }
+    }
+  }
+  // (Outputs view is an HTML overlay — see renderOutputs.)
+  // (Pitch view dropped — pitchbend & slide already appear per-voice in Sources.)
+  svg.innerHTML=p;
+  // voice readout reflects live patch
+  const wave='frame '+Math.round(state.patch.Morph*Math.max(0,(state.wt.frames||1)-1));
+  const mode=["LP","BP","HP"][state.patch.Mode];
+  $('#voiceRead').textContent=`${wave} · ${mode} ${(state.patch.Cutoff/1000).toFixed(1)}k`;
+  const hr=$('#harshRead'); if(hr) hr.textContent='⚡ '+Math.round(harshness()*100)+'%';
+}
+// Timbral complexity (#6): normalised spectral centroid of the live output
+// (0 = dark/pure, 1 = bright/harsh). Derived from the FFT bins already pushed.
+function harshness(){ const b=state.spec||[]; const n=b.length; if(n<2) return 0;
+  let num=0, den=0; for(let i=0;i<n;i++){ const m=Math.max(0,b[i]); num+=i*m; den+=m; }
+  if(den<1e-4) return 0; return clamp((num/den)/(n-1),0,1); }
+// Modulation Outputs view — HTML bars (built once, widths updated live).
+const OUT_LABELS=['Cutoff','Reso','VCA','Pitch','Morph','Glide','PW','Noise','Fold','Inharm','Sync','Transient','Detune','Vowel'];
+function renderOutputs(){ const el=$('#outStage'); if(!el) return;
+  if(!el.firstChild) el.innerHTML='<div class="out-head"><span class="eyebrow">Modulation outputs · live</span></div>'+
+    OUT_LABELS.map((l,i)=>`<div class="out-row"><span class="ol">${l}</span><div class="ot"><div class="of" id="of_${i}"></div></div><span class="ov num" id="ov_${i}">0</span></div>`).join('');
+  const mo=state.modOut||[];
+  for(let i=0;i<OUT_LABELS.length;i++){ const raw=mo[i]||0, v=clamp(Math.abs(raw),0,1);
+    const f=document.getElementById('of_'+i); if(f) f.style.width=(v*100)+'%';
+    const t=document.getElementById('ov_'+i); if(t) t.textContent=(raw<0?'−':'')+Math.abs(raw).toFixed(2); } }
+
+// ════════════════════════════════════════════════════════════════════════
+//  Tabs
+// ════════════════════════════════════════════════════════════════════════
+let tab='patch';
+function setTab(t){ tab=t; document.querySelectorAll('.tabs button').forEach(b=>b.classList.toggle('active',b.dataset.tab===t));
+  // Keep the AUv3/iPad focusbar in sync when a tab is selected from anywhere.
+  const fb=document.getElementById('focusbar');
+  if(fb){ const main=$('.main'); if(main) main.dataset.pane='inspector';
+    fb.querySelectorAll('button').forEach(b=>b.classList.toggle('active',b.dataset.focus===t)); }
+  render(); }
+// ── Focus reflow: top segmented switcher swaps Stage ↔ one inspector pane ──────
+function focusPane(id){
+  const main=$('.main'); if(!main) return;
+  document.querySelectorAll('#focusbar button').forEach(b=>b.classList.toggle('active',b.dataset.focus===id));
+  if(id==='stage') main.dataset.pane='stage';
+  else { main.dataset.pane='inspector'; setTab(id); }
+}
+function render(){ ({patch:renderPatch,matrix:renderMatrix,presets:renderPresets}[tab])(); }
+
+// ════════════════════════════════════════════════════════════════════════
+//  Patch tab — sliders with drag + steppers + typed entry
+// ════════════════════════════════════════════════════════════════════════
+const FMT={ Cutoff:v=>Math.round(v)+' Hz', Detune:v=>v.toFixed(0)+' ¢', MasterTune:v=>v.toFixed(0)+' ¢',
+  UniDet:v=>v.toFixed(0)+' ¢', UniWid:v=>Math.round(v*100)+'%',
+  Glide:v=>Math.round(v)+' ms',
+  // Morph is continuous; only round to a whole frame when Snap is on — otherwise
+  // show the fractional frame so it's clear the value isn't snapping.
+  Morph:v=>{ const f=v*Math.max(0,(state.wt.frames||1)-1); return 'frame '+(morphSnap?Math.round(f):f.toFixed(2)); }, PW:v=>v.toFixed(3), Sync:v=>v.toFixed(2)+'×',
+  TrGain:v=>v.toFixed(2), TrDecay:v=>Math.round(v)+' ms', TrVar:v=>Math.round(v*100)+'%', TrDyn:v=>Math.round(v*100)+'%',
+  TrReso:v=>Math.round(v*100)+'%', TrDamp:v=>Math.round(v*100)+'%', TrMorph:v=>Math.round(v)+' ms',
+  Vowel:v=>Math.round(state.patch.VowelMode)===1?Math.round(300*Math.pow(10,clamp(v,0,1)))+' Hz':Math.round(v*100)+'%',
+  VowFront:v=>Math.round(v*100)+'%', VowRound:v=>Math.round(v*100)+'%', VowelAmt:v=>Math.round(v*100)+'%',
+  VowelBite:v=>Math.round(v*100)+'%', VowelMove:v=>Math.round(v*100)+'%', default:v=>v.toFixed(2) };
+const RANGE={ Morph:[0,1,.001], PW:[0.5,0.999,.001], Fold:[0,1,.01], Inharm:[0,1,.01], Sync:[1,8,.01], Noise:[0,1,.01], Detune:[-100,100,1],
+              TrGain:[0,2,.01], TrDecay:[10,2000,1], TrVar:[0,1,.01], TrDyn:[0,1,.01], TrReso:[0,1,.01], TrDamp:[0,1,.01], TrMorph:[0,50,1],
+  Cutoff:[20,20000,10], Reso:[0,1,.01], Output:[0,1,.01], VelVCA:[0,1,.01], Glide:[0,2000,5], MasterTune:[-100,100,1],
+  UniDet:[0,50,1], UniWid:[0,1,.01],
+  Vowel:[0,1,.01], VowFront:[0,1,.01], VowRound:[0,1,.01], VowelAmt:[0,1,.01], VowelBite:[0,1,.01], VowelMove:[0,1,.01] };
+// Sliders that map exponentially (log) — most of the musical action is low.
+const LOGK={ Cutoff:true, TrDecay:true };
+function toNorm(key,v){ const [a,b]=RANGE[key]; if(LOGK[key]&&a>0&&v>0) return clamp(Math.log(v/a)/Math.log(b/a),0,1); return clamp((v-a)/(b-a),0,1); }
+function toVal(key,n){ const [a,b]=RANGE[key]; n=clamp(n,0,1); return (LOGK[key]&&a>0)? a*Math.pow(b/a,n) : a+n*(b-a); }
+
+function pslider(key,label,color="--vn-breath"){
+  return `<div class="pslider" data-pk="${key}">
+    <div class="top"><span class="lbl">${label}</span>
+      <span class="valwrap">
+        <button class="stepper" data-step="-1" aria-label="decrease">−</button>
+        <span class="val num" tabindex="0">…</span>
+        <button class="stepper" data-step="1" aria-label="increase">+</button>
+      </span></div>
+    <div class="track" role="slider" aria-label="${label}">
+      <div class="fill" style="background:var(${color})"></div>
+      <div class="thumb" style="border-color:var(${color})"></div>
+    </div></div>`;
+}
+const patchUpd={};   // key → in-place updater, so param echoes don't rebuild the tab
+// Collapsible patch sections (#14): clickable header + persisted open/closed.
+const collapsed={};
+function gh(name){ return `<div class="grp-head" onclick="toggleGroup('${name}')"><span class="eyebrow">${name}</span><span class="chev">${collapsed[name]?'▸':'▾'}</span></div>`; }
+function toggleGroup(name){ collapsed[name]=!collapsed[name];
+  const g=document.querySelector(`.group[data-grp="${name}"]`); if(g){ g.classList.toggle('collapsed',!!collapsed[name]);
+    const c=g.querySelector('.chev'); if(c)c.textContent=collapsed[name]?'▸':'▾'; } }
+function renderPatch(){
+  for(const k in patchUpd) delete patchUpd[k];
+  const _sc=$('#tabbody').scrollTop;
+  $('#tabbody').innerHTML=`<div class="params">
+    <div class="group ${collapsed['Oscillator']?'collapsed':''}" data-grp="Oscillator">${gh('Oscillator')}
+      <div class="pslider" style="grid-column:1/-1">
+        <div class="top"><span class="lbl">Wavetable</span>
+          <span class="num" id="wtFrame" style="color:var(--vn-slide)">frame —</span></div>
+        <div style="display:flex;gap:4px;flex-wrap:wrap;margin:3px 0">
+          <button class="btn" onclick="openLibraryBrowser()" title="Browse the factory wavetable library (CC0)">Library…</button>
+          <button class="btn" onclick="useBuiltinWavetable()" title="Revert to the built-in Harmonic Stack">Built-in</button>
+          <button class="btn ${morphSnap?'primary':''}" id="wtSnapBtn" onclick="toggleMorphSnap()" title="Snap Morph to exact frames">Snap</button>
+          <button class="btn ${state.wt.phaseAlign?'primary':''}" id="wtAlignBtn" onclick="toggleMorphAlign()" title="Phase-align morph — interpolate magnitudes so the morph never cancels (no effect on phase-coherent tables)">Phase-align</button>
+          <button class="btn" onclick="loadWavetableFile()">Load .wav…</button>
+        </div>
+        <svg id="wtWave" viewBox="0 0 240 60" preserveAspectRatio="none" style="width:100%;height:58px;background:var(--vn-sub);border-radius:8px;margin-top:4px;display:block"></svg>
+        <svg id="wtStrip" viewBox="0 0 280 34" preserveAspectRatio="none" onclick="stripClick(event)" title="Table overview — click to jump" style="width:100%;height:32px;background:var(--vn-sub);border-radius:6px;margin-top:4px;display:block;cursor:pointer"></svg>
+        <div class="num" id="wtInfo" style="color:var(--vn-muted);font-size:12px;padding-top:3px">${(state.wt.name||'Harmonic Stack')} · ${state.wt.frames||16} frames</div></div>
+      ${pslider('Morph','Morph','--vn-slide')}${pslider('PW','Pulse Width','--vn-slide')}
+      ${pslider('Fold','Wavefold','--vn-slide')}${pslider('Inharm','Inharmonicity','--vn-slide')}
+      ${pslider('Sync','Sync (transpose)','--vn-slide')}
+      ${pslider('Noise','Noise','--vn-slide')}
+      <div class="pslider"><div class="top"><span class="lbl">Noise Type</span></div>
+        <div class="seg">${["White","Pink","Brown"].map((n,i)=>`<button class="${state.patch.NoiseType===i?'active':''}" onclick="setChoice('NoiseType',${i})">${n}</button>`).join('')}</div></div>
+      ${pslider('Detune','Detune','--vn-slide')}
+      <div class="pslider" style="grid-column:1/-1"><div class="top"><span class="lbl">Unison</span></div>
+        <div class="seg">${["1","2","3","4","6"].map((n,i)=>`<button class="${Math.round(state.patch.UniVox)===i?'active':''}" onclick="setChoice('UniVox',${i})">${n}</button>`).join('')}</div></div>
+      <div class="pslider" style="grid-column:1/-1"><div class="top"><span class="lbl">Voice Mode</span></div>
+        <div class="seg">${["Detune","Chord"].map((n,i)=>`<button class="${Math.round(state.patch.UniMode)===i?'active':''}" onclick="setChoice('UniMode',${i})">${n}</button>`).join('')}</div></div>
+      ${Math.round(state.patch.UniMode)===1 ? chordSeqEditorHTML() : pslider('UniDet','Uni Detune','--vn-slide')}
+      ${pslider('UniWid','Uni Width','--vn-slide')}
+    </div>
+    <div class="group ${collapsed['Filter']?'collapsed':''}" data-grp="Filter">${gh('Filter')}
+      ${pslider('Cutoff','Cutoff','--vn-breath')}${pslider('Reso','Resonance','--vn-breath')}
+      <div class="pslider"><div class="top"><span class="lbl">Mode</span></div>
+        <div class="seg">${["LP","BP","HP"].map((n,i)=>`<button class="${state.patch.Mode===i?'active':''}" onclick="setChoice('Mode',${i})">${n}</button>`).join('')}</div></div>
+    </div>
+    <div class="group ${collapsed['Vowel']?'collapsed':''}" data-grp="Vowel">${gh('Vowel')}
+      <div class="pslider" style="grid-column:1/-1"><div class="top"><span class="lbl">Formant Filter</span></div>
+        <div class="seg">${["Off","On"].map((n,i)=>`<button class="${Math.round(state.patch.VowelEn)===i?'active':''}" onclick="setChoice('VowelEn',${i})">${n}</button>`).join('')}</div></div>
+      <div class="pslider" style="grid-column:1/-1"><div class="top"><span class="lbl">Mode</span></div>
+        <div class="seg">${["Vowel","Wah"].map((n,i)=>`<button class="${Math.round(state.patch.VowelMode)===i?'active':''}" onclick="setChoice('VowelMode',${i})">${n}</button>`).join('')}</div></div>
+      ${Math.round(state.patch.VowelMode)===1
+        ? pslider('Vowel','Sweep','--vn-breath')
+        : `<div class="pslider" style="grid-column:1/-1"><div class="top"><span class="lbl">Cardinal vowels</span></div>
+            <div class="seg">${[['i',.05,1,0],['e',.30,.85,0],['a',1,.5,0],['o',.35,.10,.85],['u',.05,0,1],['y',.05,1,1],['ø',.30,.85,.9]].map(v=>`<button onclick="setVowelPreset(${v[1]},${v[2]},${v[3]})">${v[0]}</button>`).join('')}</div></div>
+           ${pslider('Vowel','Open (close→open)','--vn-breath')}${pslider('VowFront','Front (back→front)','--vn-breath')}${pslider('VowRound','Round','--vn-breath')}`}
+      ${pslider('VowelAmt','Amount','--vn-breath')}${pslider('VowelBite','Bite','--vn-breath')}
+      ${pslider('VowelMove','Move','--vn-breath')}
+    </div>
+    <div class="group ${collapsed['Performance']?'collapsed':''}" data-grp="Performance">${gh('Performance')}
+      ${pslider('Output','Output','--vn-pressure')}${pslider('VelVCA','Vel → VCA','--vn-pressure')}
+      ${pslider('Glide','Glide','--vn-pressure')}${pslider('MasterTune','Master Tune','--vn-pressure')}
+      <div class="row2">
+        <div class="pslider"><div class="top"><span class="lbl">Glide Mode</span></div>
+          <div class="seg">${["Time","Rate"].map((n,i)=>`<button class="${state.patch.GlideMode===i?'active':''}" onclick="setChoice('GlideMode',${i})">${n}</button>`).join('')}</div></div>
+        <div class="pslider"><div class="top"><span class="lbl">Glide Curve</span></div>
+          <div class="seg">${["Lin","Exp","RC","Béz"].map((n,i)=>`<button class="${state.patch.GlideCurve===i?'active':''}" onclick="setChoice('GlideCurve',${i})">${n}</button>`).join('')}</div></div>
+      </div>
+      ${Math.round(state.patch.GlideCurve)===3?glideEditorHTML():''}
+    </div>
+    <div class="group ${collapsed['Transient']?'collapsed':''}" data-grp="Transient">${gh('Transient')}
+      <div class="pslider" style="grid-column:1/-1"><div class="top"><span class="lbl">Sample</span>
+          <span class="val num">${(state.transients||['None'])[Math.round(state.patch.TrChoice)]||'None'}</span></div>
+        <div class="seg" style="flex-wrap:wrap">${(state.transients||['None']).map((n,i)=>`<button class="${Math.round(state.patch.TrChoice)===i?'active':''}" onclick="trChoice(${i})">${n}</button>`).join('')}</div>
+      </div>
+      ${pslider('TrGain','Gain','--vn-vel')}${pslider('TrDecay','Decay','--vn-vel')}
+      ${pslider('TrVar','Variation','--vn-vel')}${pslider('TrDyn','Dynamics','--vn-vel')}
+      ${pslider('TrReso','Resonate','--vn-vel')}${pslider('TrDamp','Damping','--vn-vel')}
+      ${pslider('TrMorph','Morph','--vn-vel')}
+      <div class="pslider"><div class="top"><span class="lbl">Trigger</span></div>
+        <div class="seg">${["Always","Non-legato"].map((n,i)=>`<button class="${Math.round(state.patch.TrTrigger)===i?'active':''}" onclick="setChoice('TrTrigger',${i})">${n}</button>`).join('')}</div></div>
+      <div class="pslider"><div class="top"><span class="lbl">Filter Route</span></div>
+        <div class="seg">${["Off","On"].map((n,i)=>`<button class="${Math.round(state.patch.TrFilt)===i?'active':''}" onclick="setChoice('TrFilt',${i})">${n}</button>`).join('')}</div></div>
+    </div>
+    <p class="fine-hint">Drag any slider to adjust · hold <kbd>Shift</kbd>/<kbd>Alt</kbd> or drag vertically for fine control · double-click the value to type · <kbd>↑</kbd><kbd>↓</kbd> to nudge · hover for ± steppers.</p>
+  </div>`;
+  document.querySelectorAll('.pslider[data-pk]').forEach(wirePatchSlider);
+  if(Math.round(state.patch.GlideCurve)===3) glideCurveWire();   // glide trajectory editor
+  if(state.wt.strip) renderStrip(state.wt.strip);   // repaint the table overview
+  $('#tabbody').scrollTop=_sc;
+}
+function wirePatchSlider(el){
+  // Sliders operate in NORMALISED [0,1] position space (via toNorm/toVal) so the
+  // drag/keyboard/fine behaviour is uniform and log params (Cutoff) feel right.
+  const key=el.dataset.pk, [a,b]=RANGE[key];
+  const fill=$('.fill',el), thumb=$('.thumb',el), val=$('.val',el), track=$('.track',el);
+  const fmt=()=>{ const v=state.patch[key]; const n=toNorm(key,v);
+    fill.style.width=(n*100)+'%'; thumb.style.left=(n*100)+'%'; val.textContent=(FMT[key]||FMT.default)(v); };
+  patchUpd[key]=fmt;   // param echo updates this slider in place (no rebuild → drag survives)
+  const setV=v=>{ v=clamp(v,a,b); if(key==='Morph'&&morphSnap)v=snapMorph(v); state.patch[key]=v; Bridge.send('setParam',{id:key,value:v}); markDirty(); };
+  const doReset=()=>{ const prev=state.patch[key]; recordUndo('reset '+key, ()=>{ setV(prev); fmt(); });
+    Bridge.send('resetParam',{id:key}); markDirty(); };
+  attachDrag(track,{get:()=>toNorm(key,state.patch[key]),set:n=>setV(toVal(key,n)),min:0,max:1,step:0.01,fineStep:0.0025,onMove:fmt,
+    reset:doReset,   // double-click handled inside attachDrag (touch-safe)
+    type:()=>typeEdit(key,val,a,b,fmt),
+    getRaw:()=>state.patch[key], setRaw:v=>{ setV(clamp(v,a,b)); fmt(); }});
+  el.querySelectorAll('.stepper').forEach(s=>s.onclick=()=>{ setV(toVal(key,clamp(toNorm(key,state.patch[key])+(+s.dataset.step)*0.02,0,1))); fmt(); });
+  val.ondblclick=()=>typeEdit(key,val,a,b,fmt);
+  val.onkeydown=e=>{ if(e.key==='Enter')typeEdit(key,val,a,b,fmt); };
+  fmt();
+}
+function typeEdit(key,el,a,b,after){ const cur=state.patch[key];
+  el.innerHTML=`<input class="field-num" value="${(+cur).toFixed(key==='PW'?3:2)}" />`;
+  const inp=$('input',el); inp.focus(); inp.select();
+  const commit=()=>{ const v=parseFloat(inp.value); if(!isNaN(v)){state.patch[key]=clamp(v,a,b); Bridge.send('setParam',{id:key,value:state.patch[key]}); markDirty();} el.textContent=(FMT[key]||FMT.default)(state.patch[key]); after&&after(); };
+  inp.addEventListener('blur',commit);
+  inp.addEventListener('keydown',e=>{ if(e.key==='Enter')commit(); if(e.key==='Escape'){el.textContent=(FMT[key]||FMT.default)(state.patch[key]);after&&after();} });
+}
+function setChoice(key,i){ state.patch[key]=i; Bridge.send('setParam',{id:key,value:i}); markDirty(); renderPatch(); }
+// Cardinal-vowel preset → set the three articulatory axes at once.
+function setVowelPreset(open,front,round){
+  const set=(k,v)=>{ state.patch[k]=v; Bridge.send('setParam',{id:k,value:v}); };
+  set('Vowel',open); set('VowFront',front); set('VowRound',round);
+  markDirty(); renderPatch();
+}
+function trChoice(i){ setChoice('TrChoice',i); }   // sample picker (rebuilds label + buttons)
+
+// ════════════════════════════════════════════════════════════════════════
+//  Matrix tab — full MMStack row (C1)
+// ════════════════════════════════════════════════════════════════════════
+let mmFilter='all';
+function setMmFilter(f){ mmFilter=f; renderMatrix(); }
+function renderMatrix(){
+  const _sc=$('#tabbody')?$('#tabbody').scrollTop:0;   // preserve scroll across rebuild
+  const all=state.slots.map((s,i)=>({s,i})).filter(x=>x.s.src!==0);
+  let shown=all;
+  if(mmFilter==='active') shown=all.filter(x=>x.s.on);
+  else if(mmFilter!=='all') shown=all.filter(x=>SOURCES[x.s.src]===mmFilter);
+  const canAdd=state.slots.some(s=>s.src===0);
+  const usedSrc=[...new Set(all.map(x=>SOURCES[x.s.src]))];
+  const filterBtns=['all','active',...usedSrc].map(f=>
+    `<button class="${mmFilter===f?'active':''}" onclick="setMmFilter('${f}')">${f==='all'?'All':f==='active'?'Active':f}</button>`).join('');
+  let body;
+  if(all.length===0){
+    body=`<div class="empty-state"><div class="big">No routes yet</div><div>Add a route to map a source onto a destination.</div></div>
+      <div class="empty-add" onclick="addSlot()">+ add a route — pick source, destination, amount</div>`;
+  } else {
+    body=`<div class="slots">${shown.map(({s,i})=>slotRow(s,i)).join('')||'<div class="empty-state">No routes match this filter.</div>'}
+      ${canAdd?`<div class="empty-add" onclick="addSlot()">+ add a route</div>`:''}</div>`;
+  }
+  $('#tabbody').innerHTML=`
+    <div class="mm-toolbar">
+      <span class="eyebrow" style="flex:1">Routes · ${all.length}/${NUM_SLOTS}</span>
+      <div class="mm-filters">${filterBtns}</div>
+      ${canAdd?'<button class="btn primary" onclick="addSlot()">+ New route</button>':''}
+    </div>
+    ${body}
+    <p class="fine-hint">Drag the amount bar · <kbd>Shift</kbd>/vertical for fine · double-click a number to type · toggle enables a route without deleting its settings.</p>`;
+  shown.forEach(({i})=>wireSlot(i));
+  if(curveOpen>=0 && shown.some(x=>x.i===curveOpen)) curveWire(curveOpen);
+  if($('#tabbody')) $('#tabbody').scrollTop=_sc;   // restore scroll (no jump-to-top)
+}
+// ── Mod-curve editor (Bézier response curves) — monotone cubic spline ────────
+let curveOpen = -1;        // slot whose inline editor is expanded (-1 = none)
+const curveSel = {};       // per-slot selected anchor index
+function anchorsForSlot(s){
+  if(Array.isArray(s.anchors) && s.anchors.length) return s.anchors;
+  s.anchors = s.curve===1 ? [{x:.5,y:.27}]            // legacy Exp → bend down
+            : s.curve===2 ? [{x:.32,y:.16},{x:.68,y:.84}] // legacy S → S-curve
+            :               [{x:.5,y:.5}];             // Lin → identity
+  return s.anchors;
+}
+const curveIsBipolar = name => name==='Pitchbend' || name==='Keytrack';
+function curvePts(a){
+  const p=(a&&a.length?a:[{x:.5,y:.5}]).map(q=>({x:clamp(q.x,.012,.988),y:clamp(q.y,0,1)})).sort((u,v)=>u.x-v.x);
+  return [{x:0,y:0},...p,{x:1,y:1}];
+}
+function curveTangents(pts){
+  const n=pts.length,d=[],m=[];
+  for(let i=0;i<n-1;i++) d[i]=(pts[i+1].y-pts[i].y)/(pts[i+1].x-pts[i].x);
+  m[0]=d[0]; m[n-1]=d[n-2];
+  for(let i=1;i<n-1;i++) m[i]=(d[i-1]*d[i]<=0)?0:(d[i-1]+d[i])/2;
+  for(let i=0;i<n-1;i++){ if(d[i]===0){m[i]=0;m[i+1]=0;continue;}
+    const a=m[i]/d[i],b=m[i+1]/d[i],h=Math.hypot(a,b); if(h>3){const t=3/h;m[i]=t*a*d[i];m[i+1]=t*b*d[i];} }
+  return m;
+}
+function curveEvalUni(a,x){
+  const pts=curvePts(a),m=curveTangents(pts),n=pts.length; x=clamp(x,0,1);
+  let i=0; while(i<n-2 && x>pts[i+1].x) i++;
+  const x0=pts[i].x,x1=pts[i+1].x,y0=pts[i].y,y1=pts[i+1].y,h=x1-x0;
+  if(h<=0) return y0;
+  const t=(x-x0)/h,t2=t*t,t3=t2*t;
+  return clamp((2*t3-3*t2+1)*y0+(t3-2*t2+t)*h*m[i]+(-2*t3+3*t2)*y1+(t3-t2)*h*m[i+1],0,1);
+}
+function curveEval(a,u,bip){ if(!bip)return curveEvalUni(a,u); const s=u<0?-1:1; return s*curveEvalUni(a,Math.abs(clamp(u,-1,1))); }
+function curvePath(a,W,H,pad,bip){
+  const N=48; let d=''; const X=u=>bip?pad+(u+1)/2*(W-2*pad):pad+u*(W-2*pad), Y=y=>bip?(H/2)-y*(H/2-pad):(H-pad)-y*(H-2*pad);
+  const lo=bip?-1:0;
+  for(let k=0;k<=N;k++){const u=lo+(k/N)*(1-lo);d+=(k?'L':'M')+X(u).toFixed(1)+','+Y(curveEval(a,u,bip)).toFixed(1);}
+  return d;
+}
+function curveThumb(s,name){
+  const W=46,H=22,pad=3,bip=curveIsBipolar(name),col=cssv(SRC_COLOR[name]||'--vn-muted');
+  const base=bip?`<line class="tline" x1="${pad}" y1="${H/2}" x2="${W-pad}" y2="${H/2}"/>`:`<line class="tline" x1="${pad}" y1="${H-pad}" x2="${W-pad}" y2="${pad}"/>`;
+  return `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">${base}<path d="${curvePath(anchorsForSlot(s),W,H,pad,bip)}" fill="none" stroke="${col}" stroke-width="1.6" stroke-linecap="round"/></svg>`;
+}
+function curveEditorHTML(i){
+  const s=state.slots[i],name=SOURCES[s.src],bip=curveIsBipolar(name),col=SRC_COLOR[name]||'--vn-muted',W=360,H=150,nA=anchorsForSlot(s).length;
+  return `<div class="curve-ed" style="color:var(${col})">
+    <div class="ce-head"><span class="lbl">Response curve</span>${bip?'<span class="biCh">bipolar ±1</span>':''}<span class="sp"></span>
+      <button class="pbtn" onclick="curveAddPoint(${i})" ${nA>=3?'disabled':''}>+ point</button>
+      <button class="pbtn" onclick="curveRemovePoint(${i})" ${nA<=1?'disabled':''}>− point</button></div>
+    <svg class="curve-svg" data-slot="${i}" data-bip="${bip?1:0}" viewBox="0 0 ${W} ${H}" style="height:${H}px" preserveAspectRatio="none"></svg>
+    <div class="ce-foot"><span class="hint">Drag a point to shape the response · amount × curve(source).${bip?' Negative input mirrors.':''}</span></div></div>`;
+}
+function curveDraw(svg,i){
+  const s=state.slots[i],bip=svg.dataset.bip==='1',anchors=anchorsForSlot(s);
+  const vb=svg.viewBox.baseVal,W=vb.width,H=vb.height,pad=16;
+  const X=u=>bip?pad+(u+1)/2*(W-2*pad):pad+u*(W-2*pad), Y=y=>bip?(H/2)-y*(H/2-pad):(H-pad)-y*(H-2*pad);
+  let g='';
+  for(let k=1;k<4;k++){const gx=pad+k/4*(W-2*pad);g+=`<line class="grid" x1="${gx}" y1="${pad}" x2="${gx}" y2="${H-pad}"/>`;}
+  for(let k=1;k<4;k++){const gy=pad+k/4*(H-2*pad);g+=`<line class="grid" x1="${pad}" y1="${gy}" x2="${W-pad}" y2="${gy}"/>`;}
+  if(bip)g+=`<line class="axis" x1="${pad}" y1="${H/2}" x2="${W-pad}" y2="${H/2}"/><line class="axis" x1="${W/2}" y1="${pad}" x2="${W/2}" y2="${H-pad}"/>`;
+  const dPath=curvePath(anchors,W,H,pad,bip),baseY=bip?H/2:H-pad;
+  g+=`<path class="crv crvfill" d="${dPath} L ${X(1)},${baseY} L ${X(bip?-1:0)},${baseY} Z" fill="currentColor" stroke="none"/>`;
+  g+=`<path class="crv" d="${dPath}" stroke="currentColor"/>`;
+  const si=curveSel[i]==null?anchors.length-1:curveSel[i];
+  anchors.forEach((a,ai)=>{const cx=X(bip?Math.abs(a.x):a.x),cy=Y(a.y);
+    g+=`<circle class="anchor ${ai===si?'sel':''}" cx="${cx.toFixed(1)}" cy="${cy.toFixed(1)}" r="6.5" stroke="currentColor"/><circle class="hit" data-ai="${ai}" cx="${cx.toFixed(1)}" cy="${cy.toFixed(1)}" r="17"/>`;});
+  g+=`<circle class="live" data-live cx="-99" cy="-99" r="4.5"/>`;
+  svg.innerHTML=g;
+}
+function curvePaintThumb(i){ const b=document.querySelector(`.curve-thumb[data-cthumb="${i}"]`);
+  if(b){const s=state.slots[i];b.innerHTML=curveThumb(s,SOURCES[s.src]);b.style.color=cssv(SRC_COLOR[SOURCES[s.src]]||'--vn-muted');} }
+function curveWire(i){
+  const svg=document.querySelector(`.curve-svg[data-slot="${i}"]`); if(!svg)return;
+  curveDraw(svg,i); const bip=svg.dataset.bip==='1';
+  const ptr=e=>{const r=svg.getBoundingClientRect(),vb=svg.viewBox.baseVal,pad=16;
+    const vx=(e.clientX-r.left)/r.width*vb.width, vy=(e.clientY-r.top)/r.height*vb.height;
+    let x=(vx-pad)/(vb.width-2*pad),y;
+    if(bip){x=x*2-1;x=Math.abs(x);y=((vb.height/2)-vy)/(vb.height/2-pad);}else{y=((vb.height-pad)-vy)/(vb.height-2*pad);}
+    return {x:clamp(x,.012,.988),y:clamp(y,0,1)};};
+  let drag=-1;
+  svg.addEventListener('pointerdown',e=>{const hit=e.target.closest('.hit');if(!hit)return;
+    drag=+hit.dataset.ai;curveSel[i]=drag;svg.setPointerCapture(e.pointerId);curveDraw(svg,i);e.preventDefault();});
+  svg.addEventListener('pointermove',e=>{if(drag<0)return;const arr=anchorsForSlot(state.slots[i]),a=arr[drag];if(!a)return;
+    const p=ptr(e),loX=drag>0?arr[drag-1].x+0.03:0.02,hiX=drag<arr.length-1?arr[drag+1].x-0.03:0.98;
+    a.x=clamp(p.x,loX,hiX);a.y=p.y;curveDraw(svg,i);curvePaintThumb(i);curveCommit(i);});
+  const up=()=>{drag=-1;};
+  svg.addEventListener('pointerup',up); svg.addEventListener('pointercancel',up);
+}
+function curveCommit(i){ const s=state.slots[i],a=anchorsForSlot(s); s.curve=(a.length>1)?2:(a[0].y<0.45?1:0); pushSlot(i); markDirty(); }
+function toggleCurve(i){ const opening=(curveOpen!==i); curveOpen=opening?i:-1; renderMatrix();
+  // Scroll the editor (not the page top) into view when opening.
+  if(opening) requestAnimationFrame(()=>{ const ed=document.querySelector(`.curve-svg[data-slot="${i}"]`);
+    if(ed) ed.scrollIntoView({block:'nearest',behavior:'smooth'}); }); }
+function curveAddPoint(i){ const arr=anchorsForSlot(state.slots[i]); if(arr.length>=3)return;
+  const pts=[{x:0},...arr,{x:1}]; let gi=0,gw=-1; for(let k=0;k<pts.length-1;k++){const w=pts[k+1].x-pts[k].x;if(w>gw){gw=w;gi=k;}}
+  const nx=(pts[gi].x+pts[gi+1].x)/2; arr.splice(gi,0,{x:nx,y:curveEvalUni(arr,nx)}); arr.sort((p,q)=>p.x-q.x);
+  curveSel[i]=arr.findIndex(p=>p.x===nx); curveCommit(i); renderMatrix(); }
+function curveRemovePoint(i){ const arr=anchorsForSlot(state.slots[i]); if(arr.length<=1)return;
+  const si=curveSel[i]==null?arr.length-1:curveSel[i]; arr.splice(si,1); curveSel[i]=Math.max(0,si-1); curveCommit(i); renderMatrix(); }
+function curveUpdateLive(){ if(curveOpen<0)return;
+  const svg=document.querySelector(`.curve-svg[data-slot="${curveOpen}"]`); if(!svg)return;
+  const s=state.slots[curveOpen]; if(!s)return; const bip=svg.dataset.bip==='1', dot=svg.querySelector('[data-live]'); if(!dot)return;
+  let m=state.meters[SOURCES[s.src]]; if(m==null){dot.setAttribute('cx',-99);return;}
+  const u=bip?clamp(m*2-1,-1,1):clamp(m,0,1);
+  const vb=svg.viewBox.baseVal,W=vb.width,H=vb.height,pad=16,y=curveEval(anchorsForSlot(s),u,bip);
+  dot.setAttribute('cx',(bip?pad+(u+1)/2*(W-2*pad):pad+u*(W-2*pad)).toFixed(1));
+  dot.setAttribute('cy',(bip?(H/2)-y*(H/2-pad):(H-pad)-y*(H-2*pad)).toFixed(1)); }
+
+// ── Glide trajectory curve (Bézier glide) — reuses the curve math, unipolar ──
+let glideSel = null;
+function glideAnchors(){ const a=state.glideAnchors; return (Array.isArray(a)&&a.length)?a:[{x:.5,y:.5}]; }
+Bridge.on('glideCurve',({anchors})=>{ if(Array.isArray(anchors)) state.glideAnchors=anchors;
+  if(tab==='patch'&&Math.round(state.patch.GlideCurve)===3) renderPatch(); });
+function glideEditorHTML(){
+  return `<div class="curve-ed" style="color:var(--vn-pressure);grid-column:1/-1">
+    <div class="ce-head"><span class="lbl">Glide trajectory · time → pitch</span><span class="sp"></span>
+      <button class="pbtn" onclick="glideAddPoint()" ${glideAnchors().length>=3?'disabled':''}>+ point</button>
+      <button class="pbtn" onclick="glideRemovePoint()" ${glideAnchors().length<=1?'disabled':''}>− point</button></div>
+    <svg class="curve-svg glide-svg" viewBox="0 0 360 150" style="height:150px" preserveAspectRatio="none"></svg>
+    <div class="ce-foot"><span class="hint">Shape how pitch travels from the old note to the new one over the glide time. Diagonal = linear.</span></div></div>`;
+}
+function glideCurveDraw(svg){
+  const anchors=glideAnchors(), vb=svg.viewBox.baseVal,W=vb.width,H=vb.height,pad=16;
+  const X=u=>pad+u*(W-2*pad), Y=y=>(H-pad)-y*(H-2*pad);
+  let g='';
+  for(let k=1;k<4;k++){const gx=pad+k/4*(W-2*pad);g+=`<line class="grid" x1="${gx}" y1="${pad}" x2="${gx}" y2="${H-pad}"/>`;}
+  for(let k=1;k<4;k++){const gy=pad+k/4*(H-2*pad);g+=`<line class="grid" x1="${pad}" y1="${gy}" x2="${W-pad}" y2="${gy}"/>`;}
+  const dPath=curvePath(anchors,W,H,pad,false);
+  g+=`<path class="crv crvfill" d="${dPath} L ${X(1)},${H-pad} L ${X(0)},${H-pad} Z" fill="currentColor" stroke="none"/>`;
+  g+=`<path class="crv" d="${dPath}" stroke="currentColor"/>`;
+  const si=glideSel==null?anchors.length-1:glideSel;
+  anchors.forEach((a,ai)=>{const cx=X(a.x),cy=Y(a.y);
+    g+=`<circle class="anchor ${ai===si?'sel':''}" cx="${cx.toFixed(1)}" cy="${cy.toFixed(1)}" r="6.5" stroke="currentColor"/><circle class="hit" data-ai="${ai}" cx="${cx.toFixed(1)}" cy="${cy.toFixed(1)}" r="17"/>`;});
+  svg.innerHTML=g;
+}
+function glideCurveWire(){
+  const svg=document.querySelector('.glide-svg'); if(!svg)return; glideCurveDraw(svg);
+  const ptr=e=>{const r=svg.getBoundingClientRect(),vb=svg.viewBox.baseVal,pad=16;
+    const vx=(e.clientX-r.left)/r.width*vb.width, vy=(e.clientY-r.top)/r.height*vb.height;
+    return {x:clamp((vx-pad)/(vb.width-2*pad),.012,.988), y:clamp(((vb.height-pad)-vy)/(vb.height-2*pad),0,1)};};
+  let drag=-1;
+  svg.addEventListener('pointerdown',e=>{const hit=e.target.closest('.hit');if(!hit)return;
+    drag=+hit.dataset.ai;glideSel=drag;svg.setPointerCapture(e.pointerId);glideCurveDraw(svg);e.preventDefault();});
+  svg.addEventListener('pointermove',e=>{if(drag<0)return;const arr=glideAnchors(),a=arr[drag];if(!a)return;
+    const p=ptr(e),loX=drag>0?arr[drag-1].x+0.03:0.02,hiX=drag<arr.length-1?arr[drag+1].x-0.03:0.98;
+    a.x=clamp(p.x,loX,hiX);a.y=p.y;glideCurveDraw(svg);glideCommit();});
+  const up=()=>{drag=-1;};
+  svg.addEventListener('pointerup',up); svg.addEventListener('pointercancel',up);
+}
+function glideCommit(){ state.glideAnchors=glideAnchors(); Bridge.send('glideCurveEdit',{anchors:state.glideAnchors.map(a=>({x:a.x,y:a.y}))}); markDirty(); }
+function glideAddPoint(){ const arr=glideAnchors(); if(arr.length>=3)return;
+  const pts=[{x:0},...arr,{x:1}]; let gi=0,gw=-1; for(let k=0;k<pts.length-1;k++){const w=pts[k+1].x-pts[k].x;if(w>gw){gw=w;gi=k;}}
+  const nx=(pts[gi].x+pts[gi+1].x)/2; arr.splice(gi,0,{x:nx,y:curveEvalUni(arr,nx)}); arr.sort((p,q)=>p.x-q.x);
+  state.glideAnchors=arr; glideSel=arr.findIndex(p=>p.x===nx); glideCommit(); renderPatch(); }
+function glideRemovePoint(){ const arr=glideAnchors(); if(arr.length<=1)return;
+  const si=glideSel==null?arr.length-1:glideSel; arr.splice(si,1); glideSel=Math.max(0,si-1); state.glideAnchors=arr; glideCommit(); renderPatch(); }
+
+// ── Rotating chords (chord-mode unison) — per-voice interval sequence editor ──
+Bridge.on('chordSeqs',({seqs})=>{ if(typeof seqs==='string'){ state.chordSeqs=seqs;
+  if(tab==='patch'&&Math.round(state.patch.UniMode)===1) renderPatch(); } });
+Bridge.on('chordConfigList',({configs})=>{ if(Array.isArray(configs)){ state.chordConfigs=configs;
+  if(tab==='patch'&&Math.round(state.patch.UniMode)===1) renderPatch(); } });
+Bridge.on('chordRot',({rot})=>{ if(typeof rot==='number'){ state.chordRot=rot;
+  if(tab==='patch'&&Math.round(state.patch.UniMode)===1) updateChordPlayhead(); } });
+let chordCfgName='';   // persists the save-as / selected name across re-renders
+function escH(s){ return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+// Mini-lattice glyph: a dot per step around the played-note baseline, by cents.
+function chordShapeGlyph(seqs,w,h){
+  const cMin=-1300,cMax=2000,pad=4, y=c=>h-pad-(c-cMin)/(cMax-cMin)*(h-2*pad);
+  const voices=(seqs||'').split(';').map(s=>s.trim().split(',').map(t=>t.trim()).filter(Boolean));
+  let g=`<line x1="3" x2="${w-3}" y1="${y(0).toFixed(1)}" y2="${y(0).toFixed(1)}" stroke="var(--vn-line)" stroke-width="1"/>`;
+  voices.forEach((v,vi)=>{ const col=`var(${CHORD_VCOL[vi%CHORD_VCOL.length]})`;
+    v.forEach((tok,si)=>{ const c=chordParseTok(tok).cents;
+      const x=7+vi*((w-14)/Math.max(1,voices.length))+si*3;
+      g+=`<circle cx="${x.toFixed(1)}" cy="${y(c).toFixed(1)}" r="${si===0?2.4:1.5}" fill="${col}" opacity="${si===0?1:0.45}"/>`; }); });
+  return g;
+}
+function chordLibraryHTML(){
+  const cards=(state.chordConfigs||[]).map(c=>`<div class="cshape ${c.name===chordCfgName?'sel':''}"
+      data-n="${escH(c.name)}" onclick="chordConfigLoad(this.dataset.n)" title="Load ${escH(c.name)}">
+      <svg class="cgl" viewBox="0 0 110 42" preserveAspectRatio="none">${chordShapeGlyph(c.seqs,110,42)}</svg>
+      <div class="cnm">${escH(c.name)}</div><div class="cmeta">${c.voices} voices</div></div>`).join('');
+  return `<div class="clib">
+    <div class="clib-head"><span class="t">Chord library</span>
+      <input type="text" placeholder="save as…" value="${escH(chordCfgName)}" oninput="chordCfgName=this.value" aria-label="shape name">
+      <button class="btn" onclick="chordConfigSave()" title="Save the current shape (intervals, voices, mode)">Save</button>
+      <button class="btn" onclick="chordConfigDelete()" title="Delete the named shape">✕</button></div>
+    <div class="cshelf">${cards||'<span class="hint" style="padding:4px 2px">No saved shapes yet — name one and Save to start your library.</span>'}</div></div>`;
+}
+// ── Rotating-chord cell editor (R4 visualise rotation + R5 ratio/cents/semi) ──
+const CHORD_VCOL=['--vn-slide','--vn-breath','--vn-expr','--vn-pressure','--vn-bend'];
+let chordDisp='ratio';   // 'ratio' | 'cents' | 'semi'  — persists across re-renders
+function chordHarmonyCount(){ const v=[1,2,3,4,6][Math.round(state.patch.UniVox)]||1; return Math.max(0,v-1); }
+function chordVoices(){ // [[tok,...],...] padded to the current harmony-voice count
+  const nH=chordHarmonyCount();
+  const vs=(state.chordSeqs||'').split(';').map(s=>s.trim().split(',').map(t=>t.trim()).filter(Boolean));
+  while(vs.length<nH) vs.push([]);
+  return vs;
+}
+function chordVoicesCommit(vs){
+  while(vs.length>0 && vs[vs.length-1].length===0) vs.pop();   // trim trailing empties
+  state.chordSeqs=vs.map(v=>v.join(',')).join(';');
+  Bridge.send('chordSeqsEdit',{seqs:state.chordSeqs}); markDirty();
+}
+function chordParseTok(t){ t=(t||'').trim();
+  const m=t.match(/^(-?\d+(?:\.\d+)?)[:/](-?\d+(?:\.\d+)?)$/);
+  if(m){ const n=+m[1], d=+m[2]; if(d!==0) return {ratio:true,n,d,cents:1200*Math.log2(n/d)}; }
+  const s=parseFloat(t); if(!isNaN(s)) return {ratio:false,semi:s,cents:s*100};
+  return {ratio:false,semi:0,cents:0,bad:true};
+}
+function chordFmtTok(p){ return chordDisp==='cents'?`${p.cents>=0?'+':''}${p.cents.toFixed(0)}`
+  : chordDisp==='semi'?`${p.cents>=0?'+':''}${(p.cents/100).toFixed(2)}`
+  : (p.ratio?`${p.n}/${p.d}`:`${p.semi}`); }
+function chordSubTok(p){ return chordDisp==='ratio'?`${p.cents>=0?'+':''}${p.cents.toFixed(0)}¢`:(p.cents<0?'below':'above'); }
+function chordSeqEditorHTML(){
+  const nH=chordHarmonyCount(), bar=chordLibraryHTML();
+  if(nH===0) return `<div class="curve-ed" id="chordEd" style="grid-column:1/-1;color:var(--vn-slide)">${bar}
+    <div class="ce-foot"><span class="hint">Chord mode needs 2+ unison voices — the extra voices play the rotating intervals. Load a shape above (or add a voice once you raise the count).</span></div></div>`;
+  const vs=chordVoices(), rot=state.chordRot||0;
+  const seg=(m,l)=>`<button class="${chordDisp===m?'on':''}" onclick="chordSetDisp('${m}')">${l}</button>`;
+  let rows='';
+  for(let vi=0;vi<nH;vi++){
+    const v=vs[vi]||[], col=`var(${CHORD_VCOL[vi%CHORD_VCOL.length]})`, len=v.length;
+    const cur=len>0?(((rot%len)+len)%len):-1;
+    let cells='';
+    v.forEach((tok,si)=>{ const p=chordParseTok(tok); const below=p.cents<0;
+      cells+=`<div class="ccell ${si===cur?'cur':''} ${below?'below':''}" style="color:${col}"
+        onclick="openChordPicker(${vi},${si})" title="Tap to change interval">
+        <span class="rt">${chordFmtTok(p)}</span><span class="ct">${chordSubTok(p)}</span></div>`; });
+    if(len===0) cells=`<div class="ccell" style="color:${col};opacity:.6" onclick="chordStepAdd(${vi})" title="Add a step"><span class="rt">+</span><span class="ct">step</span></div>`;
+    rows+=`<div class="vrow">
+      <div class="vname"><span class="vd" style="background:${col}"></span><span>Voice ${vi+2}<br><span class="vlen">loop ${len}</span></span></div>
+      <div class="ctrack">${cells}</div>
+      <div class="crowbtns">
+        <button onclick="chordStepAdd(${vi})" title="Add step">+</button>
+        <button onclick="chordStepDel(${vi})" title="Remove last step" ${len<=0?'disabled':''}>−</button>
+        <button onclick="chordVoiceDel(${vi})" title="Delete this voice">✕</button>
+      </div></div>`;
+  }
+  const canAdd=Math.round(state.patch.UniVox)<4;
+  return `<div class="curve-ed" id="chordEd" style="grid-column:1/-1;color:var(--vn-slide)">
+    ${bar}
+    <div class="chord-bar">
+      <span class="crot">rotation <b>${rot}</b></span>
+      <button class="pbtn" onclick="chordResetRot()" title="Reset the rotation to step 1">⟲ Reset</button>
+      <span class="sp"></span>
+      <span class="lbl" style="font-size:9.5px">Show</span>
+      <div class="cdisp">${seg('ratio','Ratio')}${seg('cents','Cents')}${seg('semi','Semi')}</div>
+    </div>
+    ${rows}
+    ${canAdd?`<button class="caddvoice" onclick="chordVoiceAdd()">+ Add harmony voice</button>`:''}
+    <div class="craw"><span class="lbl2" title="Whole shape as one line: voices split by ; steps by ,">Seq</span>
+      <input type="text" value="${escH(state.chordSeqs||'')}" placeholder="3/2,5/4,9/8 ; 5/4,4/3,3/2 ; 2/1"
+        oninput="chordRawApply(this.value)" onchange="renderPatch()" aria-label="one-line sequence" spellcheck="false"></div>
+    <div class="ce-foot"><span class="hint">Tap a step to set its interval — a just ratio above (<code>3/2</code>) or below (<code>2/3</code>) the played note, or plain semitones — or type the whole shape on the <b>Seq</b> line (voices split by <code>;</code>, steps by <code>,</code>). Each voice loops its own list; the rotation advances one step per played note and the lit cell follows it. Voice 1 is your melody.</span></div></div>`;
+}
+// Single-line entry: commit live to the engine (no re-render, so the cursor
+// stays put); the cells re-sync on blur via onchange=renderPatch.
+function chordRawApply(val){
+  const vs=val.split(';').map(v=>v.trim().split(/[\s,]+/).filter(Boolean)
+    .filter(t=>/^-?\d+(\.\d+)?$/.test(t) || /^-?\d+(\.\d+)?[:/]-?\d+(\.\d+)?$/.test(t)));
+  state.chordSeqs=vs.map(v=>v.join(',')).join(';');
+  Bridge.send('chordSeqsEdit',{seqs:state.chordSeqs}); markDirty();
+}
+function chordSetDisp(m){ chordDisp=m; renderPatch(); }
+function chordResetRot(){ Bridge.send('chordResetRotation',{}); state.chordRot=0; updateChordPlayhead(); }
+function chordStepAdd(vi){ const vs=chordVoices(); vs[vi]=vs[vi]||[]; vs[vi].push(vs[vi].length?vs[vi][vs[vi].length-1]:'3:2'); chordVoicesCommit(vs); renderPatch(); }
+function chordStepDel(vi){ const vs=chordVoices(); if(vs[vi]&&vs[vi].length>0){ vs[vi].pop(); chordVoicesCommit(vs); renderPatch(); } }
+function chordVoiceAdd(){ const idx=Math.round(state.patch.UniVox); if(idx>=4) return;
+  const vs=chordVoices(); vs.push(['3/2']); chordVoicesCommit(vs); setChoice('UniVox',idx+1); }   // setChoice re-renders
+function chordVoiceDel(vi){ const idx=Math.round(state.patch.UniVox);
+  const vs=chordVoices(); vs.splice(vi,1); chordVoicesCommit(vs);
+  if(idx>0) setChoice('UniVox',idx-1); else renderPatch(); }
+function chordStepSet(vi,si,tok){ const vs=chordVoices(); vs[vi]=vs[vi]||[]; vs[vi][si]=tok; chordVoicesCommit(vs); renderPatch(); }
+// Lightweight playhead update for live rotation pushes (no full re-render).
+function updateChordPlayhead(){ const ed=document.getElementById('chordEd'); if(!ed)return;
+  const rot=state.chordRot||0;
+  ed.querySelectorAll('.vrow').forEach(row=>{ const cells=[...row.querySelectorAll('.ccell')]; const len=cells.length; if(!len)return;
+    const cur=((rot%len)+len)%len; cells.forEach((c,i)=>c.classList.toggle('cur',i===cur)); });
+  const rb=ed.querySelector('.crot b'); if(rb) rb.textContent=rot;
+}
+// ── Just-interval picker ──────────────────────────────────────────────────
+const C_UP=[{n:1,d:1,nm:'unison',lim:1},{n:16,d:15,nm:'min 2nd',lim:5},{n:9,d:8,nm:'maj 2nd',lim:3},
+  {n:7,d:6,nm:'sub min 3rd',lim:7},{n:6,d:5,nm:'min 3rd',lim:5},{n:5,d:4,nm:'maj 3rd',lim:5},
+  {n:4,d:3,nm:'perfect 4th',lim:3},{n:7,d:5,nm:'sept tritone',lim:7},{n:3,d:2,nm:'perfect 5th',lim:3},
+  {n:8,d:5,nm:'min 6th',lim:5},{n:5,d:3,nm:'maj 6th',lim:5},{n:7,d:4,nm:'harmonic 7th',lim:7},
+  {n:9,d:5,nm:'min 7th',lim:3},{n:15,d:8,nm:'maj 7th',lim:5},{n:2,d:1,nm:'octave',lim:1},
+  {n:9,d:4,nm:'maj 9th',lim:3},{n:5,d:2,nm:'maj 10th',lim:5},{n:3,d:1,nm:'perfect 12th',lim:3}];
+const C_DN=[{n:15,d:16,nm:'min 2nd ↓',lim:5},{n:8,d:9,nm:'maj 2nd ↓',lim:3},{n:5,d:6,nm:'min 3rd ↓',lim:5},
+  {n:4,d:5,nm:'maj 3rd ↓',lim:5},{n:3,d:4,nm:'perfect 4th ↓',lim:3},{n:5,d:7,nm:'sept tritone ↓',lim:7},
+  {n:2,d:3,nm:'perfect 5th ↓',lim:3},{n:5,d:8,nm:'min 6th ↓',lim:5},{n:3,d:5,nm:'maj 6th ↓',lim:5},
+  {n:4,d:7,nm:'harmonic 7th ↓',lim:7},{n:8,d:15,nm:'maj 7th ↓',lim:5},{n:1,d:2,nm:'octave ↓',lim:1},
+  {n:1,d:3,nm:'twelfth ↓',lim:3}];
+let cPickLim='all', cPick={vi:0,si:0};
+function ensureChordPicker(){
+  if(document.getElementById('cpick')) return;
+  const sc=document.createElement('div'); sc.className='cscrim'; sc.id='cscrim'; sc.onclick=closeChordPicker;
+  const pk=document.createElement('div'); pk.className='cpick'; pk.id='cpick';
+  pk.innerHTML=`<div class="ph"><span class="t">Choose interval</span><button class="x" onclick="closeChordPicker()">×</button></div>
+    <div class="lim" id="cpLim">
+      <button data-lim="all" class="on">All</button><button data-lim="3">3-limit</button>
+      <button data-lim="5">5-limit</button><button data-lim="7">7-limit</button></div>
+    <div class="cpcols">
+      <div class="cpcol"><span class="clbl">Above ▲</span><div class="cpgrid" id="cpUp"></div></div>
+      <div class="cpcol"><span class="clbl" style="color:var(--vn-pressure)">Below ▼</span><div class="cpgrid" id="cpDn"></div></div></div>
+    <div class="typ"><input type="text" id="cpType" placeholder="or type: 7  ·  3:2  ·  -5  ·  9/8" />
+      <button onclick="chordPickType()">Set</button></div>`;
+  document.body.appendChild(sc); document.body.appendChild(pk);
+  pk.querySelector('#cpLim').onclick=e=>{ const b=e.target.closest('button'); if(!b)return;
+    [...pk.querySelectorAll('#cpLim button')].forEach(x=>x.classList.remove('on')); b.classList.add('on');
+    cPickLim=b.dataset.lim; renderChordPickerOpts(); };
+  pk.querySelector('#cpType').addEventListener('keydown',e=>{ if(e.key==='Enter') chordPickType(); });
+}
+function renderChordPickerOpts(){
+  const mk=(arr,dn)=>arr.filter(o=>cPickLim==='all'||o.lim==+cPickLim||o.lim===1).map(o=>{
+    const c=1200*Math.log2(o.n/o.d);
+    return `<button class="popt ${dn?'dn':''}" onclick="chordPickRatio(${o.n},${o.d})">
+      <span class="r">${o.n}/${o.d}</span><span class="nm">${o.nm}</span>
+      <span class="c">${c>=0?'+':''}${c.toFixed(0)}¢</span></button>`; }).join('');
+  document.getElementById('cpUp').innerHTML=mk(C_UP,false);
+  document.getElementById('cpDn').innerHTML=mk(C_DN,true);
+}
+function openChordPicker(vi,si){ ensureChordPicker(); cPick={vi,si}; renderChordPickerOpts();
+  const sc=document.getElementById('cscrim'), pk=document.getElementById('cpick');
+  sc.classList.add('open'); pk.classList.add('open');
+  const tf=document.getElementById('cpType'); if(tf){ const vs=chordVoices(); tf.value=(vs[vi]&&vs[vi][si])||''; }
+  pk.style.left=Math.max(10,(window.innerWidth-pk.offsetWidth)/2)+'px';
+  pk.style.top =Math.max(50,(window.innerHeight-pk.offsetHeight)/2)+'px';
+}
+function closeChordPicker(){ const sc=document.getElementById('cscrim'),pk=document.getElementById('cpick');
+  if(sc)sc.classList.remove('open'); if(pk)pk.classList.remove('open'); }
+function chordPickRatio(n,d){ chordStepSet(cPick.vi,cPick.si,`${n}/${d}`); closeChordPicker(); }
+function chordPickType(){ const tf=document.getElementById('cpType'); if(!tf)return; const t=tf.value.trim();
+  if(/^-?\d+(\.\d+)?$/.test(t) || /^-?\d+(\.\d+)?[:/]-?\d+(\.\d+)?$/.test(t)){ chordStepSet(cPick.vi,cPick.si,t); closeChordPicker(); } }
+function chordConfigLoad(name){ if(!name) return; chordCfgName=name; Bridge.send('chordConfigLoad',{name}); }
+function chordConfigSave(){
+  const name=(chordCfgName||'').trim(); if(!name) return;
+  const voices=[1,2,3,4,6][Math.round(state.patch.UniVox)]||2;
+  Bridge.send('chordConfigSave',{name,seqs:state.chordSeqs||'',voices,mode:1}); markDirty();
+}
+function chordConfigDelete(){ const name=(chordCfgName||'').trim(); if(!name) return;
+  Bridge.send('chordConfigDelete',{name}); chordCfgName=''; }
+
+function slotRow(s,i){
+  const srcName=SOURCES[s.src], col=SRC_COLOR[srcName]||'--vn-muted';
+  const isAux = s.src>=7;
+  const pos=s.amt>=0, mag=Math.min(1,Math.abs(s.amt));
+  const ccTxt = isAux ? ('CC'+((state.aux[s.src-7]||{}).cc??'?'))
+              : BINDABLE[srcName] ? ('CC'+state.cc[srcName]) : (SRC_CC[srcName]||'');
+  return `<div class="slot ${s.on?'':'off'}" data-slot="${i}">
+    <div class="srccell">
+      <div class="srctop">
+        <span class="dot ${SRC_DOT[srcName]||''}"></span>
+        <select onchange="slotSet(${i},'src',+this.value)" aria-label="source">${SOURCES.map((n,k)=>`<option value="${k}" ${k===s.src?'selected':''}>${srcLabel(k)}</option>`).join('')}</select>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <span class="cc ${BINDABLE[srcName]?'bindable':''}" ${BINDABLE[srcName]?`ondblclick="ccEdit(${i},'${srcName}',this)" title="double-click to rebind CC#"`:isAux?'title="bind in Controller setup"':''}>${ccTxt}</span>
+        <span class="rowmeter" style="flex:1"><span class="f" data-rowmeter="${srcName}" style="background:var(${col})"></span></span>
+      </div>
+    </div>
+    <span class="arrow">→</span>
+    <div class="destcell">
+      <select onchange="slotSet(${i},'dst',+this.value)" aria-label="destination" style="width:100%">${DESTS.map((n,k)=>`<option value="${k}" ${k===s.dst?'selected':''}>${n}</option>`).join('')}</select>
+      <div class="scalecell"><span class="xlbl">amount ×</span>
+        <select onchange="slotSet(${i},'scale',+this.value)" aria-label="scale source" title="scale this route's amount by another source (mod-of-mod)">${SOURCES.map((n,k)=>`<option value="${k}" ${k===(s.scale||0)?'selected':''}>${k===0?'source only':'× '+srcLabel(k)}</option>`).join('')}</select></div>
+    </div>
+    <div class="amt">
+      <div class="head"><span>−1</span><span class="v num" ondblclick="slotType(${i},this)">${(pos?'+':'−')+mag.toFixed(2)}</span><span>+1</span></div>
+      <div class="bipolar" role="slider" aria-label="amount" style="color:var(${col})">
+        <div class="fill" data-bipfill style="background:var(${col})"></div>
+        <div class="center"></div>
+        <div class="thumb" data-bipthumb></div>
+      </div>
+    </div>
+    <div class="slotctl">
+      <button class="curve-thumb ${curveOpen===i?'open':''}" data-cthumb="${i}" onclick="toggleCurve(${i})" aria-label="response curve" title="edit response curve" style="color:var(${col})">${curveThumb(s,srcName)}</button>
+      <div class="slotctl-r">
+        <div class="ar">
+          <span class="arf">↑<span class="arv" ondblclick="arEdit(${i},'atk',this)">${s.atk}</span>ms</span>
+          <span class="arf">↓<span class="arv" ondblclick="arEdit(${i},'rel',this)">${s.rel}</span>ms</span>
+        </div>
+        <button class="tog ${s.on?'on':''}" onclick="slotSet(${i},'on',${s.on?0:1})" aria-label="enable route" title="${s.on?'enabled':'disabled'}"></button>
+        <div class="rowops">
+          <button title="Move up" onclick="slotMove(${i},-1)" ${slotCanMove(i,-1)?'':'disabled'}>↑</button>
+          <button title="Move down" onclick="slotMove(${i},1)" ${slotCanMove(i,1)?'':'disabled'}>↓</button>
+          <button title="Duplicate route" onclick="slotDuplicate(${i})" ${state.slots.some(x=>x.src===0)?'':'disabled'}>⧉</button>
+          <button class="del" title="Remove route" onclick="slotDelete(${i})">✕</button>
+        </div>
+      </div>
+    </div>
+    ${curveOpen===i?curveEditorHTML(i):''}
+  </div>`;
+}
+function wireSlot(i){
+  const row=document.querySelector(`.slot[data-slot="${i}"]`); if(!row)return;
+  const bip=$('.bipolar',row), fill=$('[data-bipfill]',row), thumb=$('[data-bipthumb]',row), v=$('.amt .v',row);
+  const upd=()=>{ const a=state.slots[i].amt, pos=a>=0, mag=Math.min(1,Math.abs(a));
+    fill.style.left=(pos?50:50-mag*50)+'%'; fill.style.width=(mag*50)+'%';
+    thumb.style.left=((a+1)/2*100)+'%'; v.textContent=(pos?'+':'−')+mag.toFixed(2); };
+  const amtReset=()=>{ const prev=state.slots[i].amt; recordUndo('reset amount', ()=>{ state.slots[i].amt=prev; pushSlot(i); markDirty(); upd(); });
+    state.slots[i].amt=0; pushSlot(i); markDirty(); upd(); };
+  attachDrag(bip,{get:()=>state.slots[i].amt,set:val=>{state.slots[i].amt=val; pushSlot(i); markDirty();},min:-1,max:1,step:.01,fineStep:.002,onMove:upd,
+    reset:amtReset, type:()=>slotType(i,v),   // double-click handled inside attachDrag
+    getRaw:()=>state.slots[i].amt, setRaw:val=>{ state.slots[i].amt=clamp(val,-1,1); pushSlot(i); markDirty(); upd(); }});
+  upd();
+}
+function addSlot(){ const i=state.slots.findIndex(s=>s.src===0); if(i<0)return;
+  state.slots[i]={src:1,dst:1,amt:0.3,curve:0,scale:0,atk:5,rel:80,on:true,anchors:[]}; pushSlot(i); markDirty(); renderMatrix();
+  // The new route lands at its slot index (which can be mid-list) — scroll it into
+  // view and flash it so it's easy to spot.
+  requestAnimationFrame(()=>{ const row=document.querySelector(`.slot[data-slot="${i}"]`);
+    if(row){ row.scrollIntoView({block:'center',behavior:'smooth'}); row.classList.add('flash');
+      setTimeout(()=>row.classList.remove('flash'),900); } }); }
+function slotDelete(i){ state.slots[i]={src:0,dst:0,amt:0,curve:0,scale:0,atk:5,rel:80,on:true,anchors:[]}; if(curveOpen===i)curveOpen=-1; pushSlot(i); markDirty(); renderMatrix(); }
+// W7: duplicate a route into the first free slot (nearly free — reuses pushSlot).
+function slotDuplicate(i){ const j=state.slots.findIndex(x=>x.src===0); if(j<0) return;
+  const s=state.slots[i]; state.slots[j]={src:s.src,dst:s.dst,amt:s.amt,curve:s.curve,scale:s.scale||0,
+    atk:s.atk,rel:s.rel,on:s.on,anchors:(s.anchors||[]).map(a=>({x:a.x,y:a.y}))};
+  pushSlot(j); markDirty(); renderMatrix();
+  requestAnimationFrame(()=>{ const row=document.querySelector(`.slot[data-slot="${j}"]`);
+    if(row){ row.scrollIntoView({block:'center',behavior:'smooth'}); row.classList.add('flash'); setTimeout(()=>row.classList.remove('flash'),900); } }); }
+// W7: reorder — find the previous/next non-empty route and swap whole slots (the
+// stack order is meaningful), persisting both via pushSlot.
+function slotNeighbor(i,dir){ for(let j=i+dir; j>=0 && j<state.slots.length; j+=dir) if(state.slots[j].src!==0) return j; return -1; }
+function slotCanMove(i,dir){ return slotNeighbor(i,dir)>=0; }
+function slotMove(i,dir){ const j=slotNeighbor(i,dir); if(j<0) return;
+  const tmp=state.slots[i]; state.slots[i]=state.slots[j]; state.slots[j]=tmp;
+  if(curveOpen===i)curveOpen=j; else if(curveOpen===j)curveOpen=i;
+  pushSlot(i); pushSlot(j); markDirty(); renderMatrix(); }
+function slotSet(i,field,val){ state.slots[i][field]= field==='on'?!!val:val; pushSlot(i); markDirty(); renderMatrix(); }
+function slotType(i,el){ const cur=state.slots[i].amt;
+  el.innerHTML=`<input class="field-num" style="width:60px" value="${cur.toFixed(2)}" />`;
+  const inp=$('input',el); inp.focus(); inp.select();
+  const commit=()=>{ const v=parseFloat(inp.value); if(!isNaN(v)){state.slots[i].amt=clamp(v,-1,1); pushSlot(i); markDirty();} renderMatrix(); };
+  inp.addEventListener('blur',commit);
+  inp.addEventListener('keydown',e=>{ if(e.key==='Enter')commit(); if(e.key==='Escape')renderMatrix(); });
+}
+function arEdit(i,field,el){ const cur=state.slots[i][field];
+  el.innerHTML=`<input class="field-num" style="width:46px" value="${cur}" />`;
+  const inp=$('input',el); inp.focus(); inp.select();
+  const commit=()=>{ const v=parseInt(inp.value,10); if(!isNaN(v)){state.slots[i][field]=clamp(v,0,5000); pushSlot(i); markDirty();} renderMatrix(); };
+  inp.addEventListener('blur',commit);
+  inp.addEventListener('keydown',e=>{ if(e.key==='Enter')commit(); if(e.key==='Escape')renderMatrix(); });
+}
+function ccEdit(i,src,el){ const cur=state.cc[src];
+  el.innerHTML=`<input class="field-num" style="width:50px" value="${cur}" />`;
+  const inp=$('input',el); inp.focus(); inp.select();
+  const commit=()=>{ const v=parseInt(inp.value,10); if(!isNaN(v)){state.cc[src]=clamp(v,0,127);
+    Bridge.send('setMacroCC',{which:src==='Expression'?'expr':'breath',cc:state.cc[src]}); markDirty();} renderMatrix(); };
+  inp.addEventListener('blur',commit);
+  inp.addEventListener('keydown',e=>{ if(e.key==='Enter')commit(); if(e.key==='Escape')renderMatrix(); });
+}
+function pushSlot(i){ const s=state.slots[i]; Bridge.send("slotEdit",{slot:i,src:s.src,dst:s.dst,amt:s.amt,curve:s.curve,scale:s.scale||0,atk:s.atk,rel:s.rel,on:s.on,anchors:anchorsForSlot(s).map(a=>({x:a.x,y:a.y}))}); }
+
+// ════════════════════════════════════════════════════════════════════════
+//  Presets tab (E1) — filters, favorites, rename, delete, import/export
+// ════════════════════════════════════════════════════════════════════════
+let PRESETS=[
+  {name:"Reedlike · Lyrical",tags:["breath","mono","soft"],ctrl:"Sylphyo",scale:"12-EDO",fav:true},
+  {name:"Buzz · Clarinet-ish",tags:["breath","fat","reso"],ctrl:"Sylphyo",scale:"12-EDO",fav:false},
+  {name:"Glass Tube",tags:["expr","pure","high"],ctrl:"EWI",scale:"Just",fav:true},
+  {name:"Hex Drone",tags:["mpe","drone","wide"],ctrl:"Exquis",scale:"19-EDO",fav:false},
+  {name:"Bent Reed",tags:["breath","bend","micro"],ctrl:"Sylphyo",scale:"31-EDO",fav:true},
+  {name:"Touch Whisper",tags:["mpe","soft","noise"],ctrl:"Sensel Morph",scale:"Just",fav:false},
+];
+const TAGC={breath:"--vn-breath",expr:"--vn-expr",mpe:"--vn-pressure",bend:"--vn-bend",slide:"--vn-slide"};
+let selPreset=0, pQuery='', pFilter={type:null,value:null};
+const Preset={ step(d){ selPreset=(selPreset+d+PRESETS.length)%PRESETS.length;
+  $('#presetName').textContent=PRESETS[selPreset].name; state.dirty=false; $('#unsaved').classList.remove('on');
+  if(tab==='presets')renderPresets(); Bridge.send('presetLoad',{id:selPreset}); } };
+function pmatch(p){
+  if(pQuery && !(p.name+' '+p.tags.join(' ')).toLowerCase().includes(pQuery.toLowerCase())) return false;
+  if(pFilter.type==='ctrl' && p.ctrl!==pFilter.value) return false;
+  if(pFilter.type==='tag' && !p.tags.includes(pFilter.value)) return false;
+  if(pFilter.type==='scale' && p.scale!==pFilter.value) return false;
+  if(pFilter.type==='fav' && !p.fav) return false;
+  return true;
+}
+function setPFilter(type,value){ if(pFilter.type===type&&pFilter.value===value){pFilter={type:null,value:null};}else{pFilter={type,value};} renderPresets(); }
+function glyphSvg(seed){ let d=''; for(let i=0;i<=20;i++){const x=i/20*46,y=15+Math.sin(i*0.5+seed)*9*Math.sin(i*0.16+seed);d+=(i?'L':'M')+x.toFixed(1)+','+y.toFixed(1);} return `<svg width="46" height="30" viewBox="0 0 46 30"><path d="${d}" fill="none" stroke="var(--vn-breath)" stroke-width="1.6" stroke-linecap="round" opacity="0.8"/></svg>`; }
+function renderPresets(){
+  // Drop empty metadata so the sidebar doesn't show blank Controller/Tag/Scale
+  // rows (PresetManager stores only names until preset metadata exists).
+  const ctrls=[...new Set(PRESETS.map(p=>p.ctrl).filter(Boolean))];
+  const tags=[...new Set(PRESETS.flatMap(p=>p.tags||[]).filter(Boolean))];
+  const scales=[...new Set(PRESETS.map(p=>p.scale).filter(Boolean))];
+  const f=(type,value,label,count)=>`<div class="filter ${pFilter.type===type&&pFilter.value===value?'on':''}" onclick="setPFilter('${type}','${value}')"><span>${label}</span><span class="c num">${count}</span></div>`;
+  const grp=(title,items)=> items.length?`<div class="filter-group"><span class="eyebrow">${title}</span>${items}</div>`:'';
+  const list=PRESETS.map((p,i)=>({p,i})).filter(x=>pmatch(x.p));
+  const listHtml = list.length? list.map(({p,i})=>`<div class="preset-item ${i===selPreset?'sel':''}" data-idx="${i}" onclick="pickPreset(${i})">
+      <span class="glyph">${glyphSvg(i)}</span>
+      <div><div class="nm">${p.name}</div><div class="tags">${p.tags.map(t=>`<span class="tag" style="background:var(${TAGC[t]||'--vn-muted'})">${t}</span>`).join('')}</div></div>
+      <span class="fav" onclick="event.stopPropagation();toggleFav(${i})">${p.fav?'★':'☆'}</span>
+      <span class="kebab" onclick="event.stopPropagation();toggleMenu(${i},this)">⋯<div class="menu" id="menu_${i}">
+        <button onclick="event.stopPropagation();renamePreset(${i})">Rename</button>
+        <button onclick="event.stopPropagation();duplicatePreset(${i})">Duplicate</button>
+        <button class="danger" onclick="event.stopPropagation();deletePreset(${i})">Delete</button></div></span>
+    </div>`).join('')
+    : `<div class="empty-state"><div class="big">No presets match</div><div>Clear filters or save a new patch.</div></div>`;
+  $('#tabbody').innerHTML=`<div class="preset-grid">
+    <div class="preset-side">
+      <input class="search" placeholder="search presets…" value="${pQuery}" oninput="pQuery=this.value;renderPresets()" />
+      ${PRESETS.some(p=>p.fav)?grp('Favorites',f('fav','1','★ Favorites',PRESETS.filter(p=>p.fav).length)):''}
+      ${grp('Controller',ctrls.map(c=>f('ctrl',c,c,PRESETS.filter(p=>p.ctrl===c).length)).join(''))}
+      ${grp('Tag',tags.map(t=>f('tag',t,t,PRESETS.filter(p=>(p.tags||[]).includes(t)).length)).join(''))}
+      ${grp('Scale',scales.map(s=>f('scale',s,s,PRESETS.filter(p=>p.scale===s).length)).join(''))}
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn primary" onclick="savePreset()">+ Save current</button>
+        <button class="btn" onclick="importExport()">Import / Export</button>
+      </div>
+    </div>
+    <div class="preset-list">${listHtml}</div>
+  </div>`;
+}
+function pickPreset(i){ selPreset=i; $('#presetName').textContent=PRESETS[i].name; state.dirty=false; $('#unsaved').classList.remove('on'); Bridge.send('presetLoad',{id:i}); renderPresets(); }
+function toggleFav(i){ PRESETS[i].fav=!PRESETS[i].fav; renderPresets(); }
+let openMenu=null;
+function toggleMenu(i,el){ const m=$('#menu_'+i); const willOpen=!m.classList.contains('open');
+  document.querySelectorAll('.menu.open').forEach(x=>x.classList.remove('open'));
+  if(willOpen)m.classList.add('open'); }
+document.addEventListener('click',e=>{ if(!e.target.closest('.kebab'))document.querySelectorAll('.menu.open').forEach(x=>x.classList.remove('open')); });
+// Right-click: suppress the WebView's "Inspect element" and route to a real
+// contextual menu where we have one (sliders open their own; preset rows reuse
+// the ⋯ menu). Text fields keep their native cut/copy/paste menu.
+document.addEventListener('contextmenu',e=>{
+  const t=e.target, tag=(t.tagName||'').toLowerCase();
+  if(tag==='input'||tag==='textarea'||t.isContentEditable) return;   // native menu on fields
+  if(t.closest('.track,.bipolar')) return;                            // slider handles its own
+  const pi=t.closest('.preset-item');
+  if(pi){ e.preventDefault(); const idx=+pi.dataset.idx;
+    document.querySelectorAll('.menu.open').forEach(x=>x.classList.remove('open'));
+    const m=document.getElementById('menu_'+idx); if(m) m.classList.add('open'); return; }
+  e.preventDefault();   // everywhere else: no accidental "Inspect element"
+});
+function savePreset(){
+  const suggested = (PRESETS[selPreset] && PRESETS[selPreset].name) || '';
+  openModal(`<h3>Save preset</h3><p>Name this patch — it is written to disk and shows up in the browser.</p>
+    <input class="rn" id="spInp" placeholder="My Patch" value="${suggested.replace(/"/g,'&quot;')}" />
+    <div class="actions"><button class="btn" onclick="closeModal()">Cancel</button><button class="btn primary" onclick="commitSave()">Save</button></div>`);
+  setTimeout(()=>{ const e=$('#spInp'); if(e){ e.focus(); e.select(); e.onkeydown=ev=>{ if(ev.key==='Enter')commitSave(); }; } },30);
+}
+function commitSave(){ const v=$('#spInp').value.trim(); if(!v){ $('#spInp').focus(); return; }
+  Bridge.send('presetSave',{name:v});
+  state.dirty=false; $('#unsaved').classList.remove('on'); $('#presetName').textContent=v;
+  closeModal();
+  if(!HAS_JUCE){ PRESETS.push({name:v,tags:[],ctrl:'',scale:'',fav:false}); selPreset=PRESETS.length-1; renderPresets(); }
+  // With the plugin, presetSave triggers a presetList push that refreshes the browser.
+}
+function duplicatePreset(i){ const c={...PRESETS[i],name:PRESETS[i].name+' copy',fav:false,tags:[...PRESETS[i].tags]}; PRESETS.splice(i+1,0,c); renderPresets(); }
+// W5: delete optimistically in the UI but DEFER the real (irreversible) delete to
+// the engine until the undo toast expires, so "Undo" is a true cancel.
+let _pendingDelete=null;
+function flushPendingDelete(){ if(_pendingDelete){ const p=_pendingDelete; _pendingDelete=null; clearTimeout(p.timer); Bridge.send('presetDelete',{id:p.id}); } }
+function deletePreset(i){
+  flushPendingDelete();                       // never hold two pending (index stays valid)
+  const removed=PRESETS[i], id=i; PRESETS.splice(i,1);
+  if(PRESETS.length===0){ $('#presetName').textContent='—'; }
+  else { selPreset=Math.min(selPreset,PRESETS.length-1); $('#presetName').textContent=PRESETS[selPreset].name; }
+  renderPresets();
+  const timer=setTimeout(()=>{ if(_pendingDelete){ _pendingDelete=null; Bridge.send('presetDelete',{id}); } }, 5000);
+  _pendingDelete={ id, timer };
+  showToast('Deleted "'+removed.name+'"','Undo',()=>{
+    if(_pendingDelete){ clearTimeout(_pendingDelete.timer); _pendingDelete=null;
+      PRESETS.splice(id,0,removed); selPreset=id; $('#presetName').textContent=removed.name; renderPresets(); }
+  });
+}
+
+// ── Modals ──────────────────────────────────────────────────────────────
+function openModal(html){ $('#modal').innerHTML=html; $('#scrim').classList.add('open'); }
+function closeModal(){ $('#scrim').classList.remove('open'); }
+function renamePreset(i){
+  openModal(`<h3>Rename preset</h3><p>Give this patch a memorable name.</p>
+    <input class="rn" id="rnInp" value="${PRESETS[i].name}" />
+    <div class="actions"><button class="btn" onclick="closeModal()">Cancel</button><button class="btn primary" onclick="commitRename(${i})">Save</button></div>`);
+  setTimeout(()=>{const e=$('#rnInp');e.focus();e.select();e.onkeydown=ev=>{if(ev.key==='Enter')commitRename(i);};},30);
+}
+function commitRename(i){ const v=$('#rnInp').value.trim(); if(v){PRESETS[i].name=v; if(i===selPreset)$('#presetName').textContent=v;} closeModal(); renderPresets(); }
+function importExport(){
+  // Exports the CURRENT patch (full parameter state, not just the name) as
+  // portable text; Import applies a pasted patch. Driven by the real plugin
+  // state via requestExport/exportData/importState.
+  openModal(`<h3>Export / Import patch</h3><p>Portable text of the <b>current patch</b> — every parameter. Copy to share, or paste a patch and Import.</p>
+    <textarea id="ioTxt" placeholder="requesting current patch…"></textarea>
+    <div class="actions"><button class="btn" onclick="closeModal()">Close</button><button class="btn" onclick="copyIo()">Copy</button><button class="btn primary" onclick="applyIo()">Import</button></div>`);
+  Bridge.send('requestExport');
+  if(!HAS_JUCE){ const t=$('#ioTxt'); if(t)t.value='(export reflects the live patch when running inside the plugin)'; }
+}
+function copyIo(){ const t=$('#ioTxt'); t.select(); try{document.execCommand('copy');}catch(e){} }
+function applyIo(){ const t=$('#ioTxt').value.trim(); if(t){ Bridge.send('importState',{text:t}); state.dirty=true; closeModal(); } }
+
+// ════════════════════════════════════════════════════════════════════════
+//  Misc UI + states (E2)
+// ════════════════════════════════════════════════════════════════════════
+let mono=true;
+function toggleMono(){ mono=!mono; $('#monoBtn').textContent=mono?'Mono':'Poly'; Bridge.send('setParam',{id:'monoMode',value:mono?1:0}); markDirty(); }
+function toggleTheme(){ const r=document.documentElement; r.dataset.theme=r.dataset.theme==='dark'?'light':'dark'; }
+function closeMenus(){ document.querySelectorAll('.menu.open').forEach(x=>x.classList.remove('open')); }
+// Quick preset picker from the header title (F2).
+function openPresetMenu(e){ if(e)e.stopPropagation(); const m=$('#presetMenu'); const willOpen=!m.classList.contains('open');
+  closeMenus(); if(!willOpen) return;
+  m.innerHTML = PRESETS.length
+    ? PRESETS.map((p,i)=>`<button onclick="event.stopPropagation();pickPreset(${i});closeMenus()">${i===selPreset?'● ':'&nbsp;&nbsp;&nbsp;'}${p.name}</button>`).join('')
+    : '<button disabled>No presets</button>';
+  m.classList.add('open'); }
+// Controller chip → opens the Controllers / profile setup (binding + MIDI-learn).
+function openCtrlMenu(e){ if(e)e.stopPropagation(); closeMenus(); openControllers(); }
+// The header pill shows the active controller PROFILE when one is loaded
+// (e.g. "Alfonsylphyo"), falling back to the bare controller name.
+function ctrlPillText(){ return state.profileName || state.controller || 'Generic MPE'; }
+function updateCtrlPill(){ const e=$('#ctrlName'); if(e)e.textContent=ctrlPillText(); }
+// ── Rig (Stage 2a): a composition of controller instances ─────────────────────
+function rigInstances(){ return (state.rig&&state.rig.instances)||[]; }
+function persistRig(){ Bridge.send('setRig',{rig:JSON.stringify(state.rig)}); markDirty(); }
+// Parse a channel-match string ("any" | "1" | "2-16" | "1,10") → 16-bit mask.
+function chSet(s){ s=(s||'any').trim().toLowerCase();
+  if(s===''||s==='any'||s==='omni') return 0xFFFF;
+  let m=0; s.split(',').forEach(tok=>{ tok=tok.trim(); const r=tok.match(/^(\d+)\s*-\s*(\d+)$/);
+    if(r){ let a=+r[1],b=+r[2]; if(a>b){const t=a;a=b;b=t;} for(let c=a;c<=b;c++) if(c>=1&&c<=16)m|=1<<(c-1); }
+    else { const n=+tok; if(n>=1&&n<=16)m|=1<<(n-1); } });
+  return m||0xFFFF; }
+// Compile the rig's per-instance roles + channel match → two 16-bit masks the
+// engine applies: notes pass on channels an instance claims with Notes on; mod
+// on channels claimed with Mod on. Empty → 0xFFFF (accept all), so a plain
+// single-controller rig changes nothing.
+function applyRouting(){ let nm=0, mm=0;
+  rigInstances().forEach(it=>{ const cs=chSet(it.ch); if(it.notes)nm|=cs; if(it.mod)mm|=cs; });
+  Bridge.send('setMidiRouting',{notesMask:(nm||0xFFFF)&0xFFFF, modMask:(mm||0xFFFF)&0xFFFF}); }
+// Compile the rig's instances down to the flat binding pool the engine reads:
+// breath from the first instance that has one; aux = each instance's catalog
+// sources concatenated (capped at 8). Roles + match are stored, not yet enforced
+// (the 2b router does that). Reseeds on structural edits only — never on load,
+// so manual Learn/CC tweaks survive.
+function applyRig(){
+  const insts=rigInstances();
+  const primary=(insts[0]&&insts[0].ctrl)||'Generic MPE';
+  state.controller=primary;
+  Bridge.send('setController',{name:primary});
+  // breath: first instance whose controller sends it
+  let breath=null;
+  for(const it of insts){ const c=catEntry(it.ctrl); if(c&&typeof c.breathCC==='number'){ breath=c.breathCC; break; } }
+  if(breath!==null){ state.cc.Breath=breath; Bridge.send('setMacroCC',{which:'breath',cc:breath}); }
+  // aux: concatenate every instance's catalog aux, cap 8
+  let merged=[]; for(const it of insts){ const c=catEntry(it.ctrl); (c&&c.aux||[]).forEach(a=>merged.push({label:a.label,cc:a.cc||0})); }
+  merged=merged.slice(0,8);
+  merged.forEach((a,i)=>{ state.aux[i]={label:a.label,cc:a.cc};
+    Bridge.send('setAuxLabel',{aux:i,label:a.label}); Bridge.send('setAuxCC',{aux:i,cc:a.cc}); });
+  // mono: engage if any instance is a wind
+  if(insts.some(it=>{const c=catEntry(it.ctrl);return c&&c.mono;}) && !mono){
+    mono=true; const b=$('#monoBtn'); if(b)b.textContent='Mono'; Bridge.send('setParam',{id:'monoMode',value:1}); }
+  persistRig(); applyRouting(); buildMeters(); updateCtrlPill();
+  if(ctrlOpen)renderControllers(); if(tab==='matrix')renderMatrix();
+}
+function setInstanceCtrl(i,c){ if(!rigInstances()[i])return; state.rig.instances[i].ctrl=c; state.rig.instances[i].mode=''; applyRig(); }
+function addInstance(){ state.rig.instances.push({ctrl:'Generic MPE',mode:'',notes:true,mod:true,ch:'any'}); applyRig(); }
+function removeInstance(i){ if(rigInstances().length<=1)return; state.rig.instances.splice(i,1); applyRig(); }
+function toggleRole(i,which){ const it=rigInstances()[i]; if(!it)return; it[which]=!it[which]; persistRig(); applyRouting(); renderControllers(); }
+function setInstanceCh(i,v){ const it=rigInstances()[i]; if(!it)return; it.ch=(v||'any').trim()||'any'; persistRig(); applyRouting(); }
+// Back-compat shim for any caller that set "the controller".
+function setCtrl(c){ setInstanceCtrl(0,c); closeMenus(); }
+
+// ── Controllers panel: source profile (per-note MPE + global aux, learnable) ──
+let learnAux=-1, ctrlOpen=false, probeRunning=false;
+// Per-note dimensions come from MPE — informational, never reassigned here.
+const PERNOTE=[
+  ['Pressure','MPE channel pressure','pressure'],
+  ['Slide','CC74 · MPE Y','slide'],
+  ['Pitchbend','Pitch bend · MPE X','bend'],
+  ['Velocity','Note-on','vel'],
+];
+// ── Controller catalog — a hand-seeded snapshot mirroring Manifold YAML facts
+// (manifold/controllers/**.yaml).  Eventually generated by a Manifold→Vane
+// exporter; for now it proves the pipe.  Picking a controller seeds the global
+// Breath CC, the Aux labels/CCs, and shows the controller's notes.  Honest CCs
+// only: where Manifold documents a number we use it; encoder/accelerometer CCs
+// that depend on the device's own config are left at 0 with a "Learn" prompt.
+//   breathCC: number → seed Breath macro · null → controller has no breath
+//   aux: [{label, cc}]  (cc 0 = unknown, assign via Learn)
+//   sources: canonical dims the controller actually sends — drives which meters
+//            and visualiser traces are shown (no flat "slide" line on a wind).
+//   mono: true → picking it engages Mono mode (wind controllers play one line).
+const CATALOG = {
+  'Generic MPE':         { mpe:true,  breathCC:null, sources:['Pressure','Slide','Pitchbend','Velocity'], aux:[], note:'Bare MPE: per-note pitch/slide/pressure. Add your controller for tailored sources.' },
+  'Sylphyo':             { mpe:true,  breathCC:2,    mono:true, sources:['Breath','Pitchbend','Velocity'], aux:[], note:'Wind controller. Breath on CC2, bite = channel pressure. MPE or single-channel per its app; in MPE set pitch-bend range to 48 to match.' },
+  'LinnStrument':        { mpe:true,  breathCC:null, sources:['Pressure','Slide','Pitchbend','Velocity'], aux:[], note:'MPE grid. Per-pad pressure (Z), slide (Y/CC74), pitch (X). No breath.' },
+  'EWI-USB':             { mpe:false, breathCC:2,    mono:true, sources:['Breath','Pitchbend','Velocity'], aux:[], note:'Breath on CC2. No per-note expression — single channel wind controller.' },
+  'Zefiro Pro':          { mpe:false, breathCC:2,    mono:true, sources:['Breath','Pitchbend','Velocity'], aux:[{label:'Accel X',cc:0},{label:'Accel Y',cc:0},{label:'Accel Z',cc:0}], note:'Breath on CC2. Pro 3-axis accelerometer → 3 aux; CCs not yet documented in Manifold, so assign via Learn.' },
+  'Exquis':              { mpe:true,  breathCC:null, sources:['Pressure','Slide','Pitchbend','Velocity'], aux:[{label:'Encoder 1',cc:0},{label:'Encoder 2',cc:0},{label:'Encoder 3',cc:0},{label:'Encoder 4',cc:0}], note:'MPE surface. Four push-encoders → 4 aux; CC numbers depend on your Exquis / BWS config — assign via Learn.' },
+  'Sensel Morph':        { mpe:true,  breathCC:null, sources:['Pressure','Slide','Pitchbend','Velocity'], aux:[], note:'High-res MPE pressure surface. Slide on CC74. Swappable overlays — see the Thunder profile.' },
+  'Sensel Morph · Thunder':{ mpe:true, breathCC:null, sources:['Pressure','Pitchbend','Velocity'], aux:[], note:'Buchla Thunder overlay. An on-overlay button switches sub-layouts — save one Vane profile per layout.' },
+  'Keystep':             { mpe:false, breathCC:null, sources:['Pitchbend','Velocity'], aux:[{label:'Mod Wheel',cc:1}], note:'Keyboard + touch strips. Mod wheel on CC1, sustain on CC64.' },
+  'MicroFreak':          { mpe:false, breathCC:null, sources:['Pressure','Pitchbend','Velocity'], aux:[{label:'Mod Wheel',cc:1}], note:'Keyboard synth that also sends: aftertouch + mod wheel (CC1). (Not yet in Manifold — a good addition.)' },
+};
+// Legacy / bare controller names → catalog keys (older saved profiles stored
+// "Sylphyo", "EWI", "Zefiro" before the catalog gained variant suffixes).
+const CTRL_ALIAS = { 'Sylphyo (MPE)':'Sylphyo', 'Sylphyo (Standard)':'Sylphyo', 'EWI':'EWI-USB', 'Zefiro':'Zefiro Pro', 'Generic':'Generic MPE' };
+function resolveCtrlKey(name){
+  if(!name) return 'Generic MPE';
+  if(CATALOG[name]) return name;
+  if(CTRL_ALIAS[name] && CATALOG[CTRL_ALIAS[name]]) return CTRL_ALIAS[name];
+  // prefix match: "Sensel Morph" → "Sensel Morph · Thunder"
+  const pre = Object.keys(CATALOG).find(k=>k.startsWith(name+' (')||k.startsWith(name+' ·'));
+  return pre || name;
+}
+function catEntry(name){ return CATALOG[resolveCtrlKey(name)]; }
+// Canonical sources active across the rig (union of every instance's sources) —
+// drives meters + vis. Falls back to the primary controller, then to all.
+function ctrlSources(){
+  const insts=rigInstances();
+  if(insts.length){ const set=new Set();
+    insts.forEach(it=>{ const c=catEntry(it.ctrl); (c&&c.sources||[]).forEach(s=>set.add(s)); });
+    if(set.size) return [...set]; }
+  const c=catEntry(state.controller); return (c&&c.sources)||METER_SRC;
+}
+function openControllers(){
+  ctrlOpen=true; Bridge.send('requestControllerState'); Bridge.send('requestProfileList'); renderControllers();
+}
+function loadProfileByName(name){ if(!name)return; state.profileName=name; updateCtrlPill(); Bridge.send('loadProfile',{name}); }
+function saveProfileAs(){
+  openModal(`<h3>Save rig</h3><p>Reusable across patches — the controllers you play through Vane and what they send.</p>
+    <input class="rn" id="pfInp" value="${(state.profileName||'').replace(/"/g,'&quot;')}" placeholder="My Rig" />
+    <div class="actions"><button class="btn" onclick="renderControllers()">Cancel</button><button class="btn primary" onclick="commitProfileSave()">Save</button></div>`);
+  setTimeout(()=>{const e=$('#pfInp');if(e){e.focus();e.select();e.onkeydown=ev=>{if(ev.key==='Enter')commitProfileSave();};}},30);
+}
+function commitProfileSave(){ const v=$('#pfInp').value.trim(); if(!v){$('#pfInp').focus();return;} Bridge.send('saveProfile',{name:v}); state.profileName=v; updateCtrlPill(); renderControllers(); }
+function saveProfileCur(){ if(state.profileName) Bridge.send('saveProfile',{name:state.profileName}); }
+function deleteProfileCur(){ if(state.profileName){ Bridge.send('deleteProfile',{name:state.profileName}); state.profileName=''; updateCtrlPill(); renderControllers(); } }
+function breathCCedit(v){ const cc=clamp(parseInt(v,10)||0,0,127); state.cc.Breath=cc; Bridge.send('setMacroCC',{which:'breath',cc}); markDirty(); }
+function ctrlOpts(sel){ const key=resolveCtrlKey(sel); const known=!!CATALOG[key];
+  return Object.keys(CATALOG).concat(known?[]:[sel]).map(c=>`<option ${c===(known?key:sel)?'selected':''}>${c}</option>`).join(''); }
+function ctrlNote(name){ const c=catEntry(name); return c&&c.note?`<p class="fine-hint" style="margin:4px 0 0">${c.note}</p>`:''; }
+function instCard(it,i,n){
+  return `<div style="margin-top:10px">
+    <div class="ctrl-row" style="border:none">
+      <select class="ctrl-lbl" style="grid-column:1/3;width:auto" onchange="setInstanceCtrl(${i},this.value)">${ctrlOpts(it.ctrl)}</select>
+      ${n>1?`<button class="btn" onclick="removeInstance(${i})">Remove</button>`:''}
+    </div>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:2px 0 4px">
+      <span class="num" style="color:var(--vn-muted)">Role</span>
+      <button class="btn ${it.notes?'primary':''}" onclick="toggleRole(${i},'notes')" title="Contributes sounding notes">Notes</button>
+      <button class="btn ${it.mod?'primary':''}" onclick="toggleRole(${i},'mod')" title="Contributes modulation">Mod</button>
+      <span class="num" style="color:var(--vn-muted)">ch <input class="ctrl-cc num" style="width:60px" value="${(it.ch||'any').replace(/"/g,'&quot;')}" onchange="setInstanceCh(${i},this.value)" title="channel / zone match — e.g. 1, 2-16, any" /></span>
+    </div>
+    ${ctrlNote(it.ctrl)}</div>`;
+}
+function renderControllers(){
+  const perNote=PERNOTE.map(([n,b,d])=>`<div class="ctrl-row">
+      <span class="meter-label"><span class="dot ${d}"></span>${n}</span>
+      <span class="num" style="color:var(--vn-muted);grid-column:2/-1">${b}</span></div>`).join('');
+  const insts=rigInstances();
+  const anyBreath = insts.some(it=>{const c=catEntry(it.ctrl); return c && typeof c.breathCC==='number';});
+  const breathRow = !anyBreath ? '' : `<div class="ctrl-row">
+      <span class="meter-label"><span class="dot breath"></span>Breath</span>
+      <span class="num" style="color:var(--vn-muted)">CC <input class="ctrl-cc num" type="number" min="0" max="127" value="${state.cc.Breath??2}" onchange="breathCCedit(this.value)" /></span>
+      <span class="num" style="color:var(--vn-muted)">CC2 default · CC11 on some winds</span></div>`;
+  const auxRows=state.aux.map((a,i)=>{
+    const learning=learnAux===i;
+    return `<div class="ctrl-row">
+      <input class="ctrl-lbl" value="${(a.label||('Aux '+(i+1))).replace(/"/g,'&quot;')}" onchange="auxLabel(${i},this.value)" />
+      <span class="num" style="color:var(--vn-muted)">CC <input class="ctrl-cc num" type="number" min="0" max="127" value="${a.cc||0}" onchange="auxCC(${i},this.value)" /></span>
+      <button class="btn ${learning?'primary':''}" onclick="auxLearnToggle(${i})">${learning?'Listening… move a control':'Learn'}</button>
+    </div>`;
+  }).join('');
+  const pOpts=`<option value="">— unsaved —</option>`+state.profiles.map(n=>`<option ${n===state.profileName?'selected':''}>${n}</option>`).join('');
+  const instCards = insts.map((it,i)=>instCard(it,i,insts.length)).join('');
+  openModal(`<h3>Rig</h3>
+    <p>A <b>rig</b> is what you're playing through Vane — one or more controllers. Each adds per-note MPE plus its global controls; assign extras to <b>Aux</b> and route in the Matrix. <b>Notes</b> / <b>Mod</b> per channel are live: e.g. a sequencer on ch 1 (Notes only) + a wind on ch 2 (Mod only) = the sequencer's notes shaped by breath.</p>
+    <div class="ctrl-sec" style="margin-top:0"><span class="eyebrow">Rig</span>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <select class="ctrl-lbl" style="width:auto" onchange="loadProfileByName(this.value)">${pOpts}</select>
+        <button class="btn" onclick="saveProfileAs()">Save as…</button>
+        ${state.profileName?'<button class="btn" onclick="saveProfileCur()">Save</button><button class="btn" onclick="deleteProfileCur()">Delete</button>':''}
+      </div></div>
+    <div class="ctrl-sec"><span class="eyebrow">Controllers</span>${instCards}
+      <div style="margin-top:10px"><button class="btn" onclick="addInstance()">+ Add controller</button></div></div>
+    <div class="ctrl-sec"><span class="eyebrow">Per-note (MPE)</span>${perNote}</div>
+    ${breathRow?`<div class="ctrl-sec"><span class="eyebrow">Global</span>${breathRow}</div>`:''}
+    <div class="ctrl-sec"><span class="eyebrow">Aux — assignable global sources</span>${auxRows}
+      <p class="fine-hint">Click <b>Learn</b>, then move the control. CC74 and the breath CC are ignored (they're fixed sources), so a played note won't be captured.</p></div>
+    <div class="ctrl-sec"><span class="eyebrow">Diagnostics · MIDI probe</span>
+      <p class="fine-hint">What can Vane see about incoming MIDI here? — the channels the host routes to us, the named sources the system exposes, and two <b>test input ports</b> Vane publishes ("Vane Notes" / "Vane Mod"). Route a source to one in your host's matrix (AUM, apeMatrix…) and watch its counter — that's the port-as-role idea, live. Stop removes the ports.</p>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px">
+        <button class="btn ${probeRunning?'primary':''}" onclick="toggleProbe()">${probeRunning?'Stop probe':'Start MIDI probe'}</button>
+        <button class="btn" onclick="resetProbe()">Reset counts</button>
+      </div>
+      <div id="probeOut" class="num" style="font-size:12px;line-height:1.7;color:var(--vn-muted)">${probeReadout()}</div></div>
+    <div class="actions"><button class="btn primary" onclick="closeControllers()">Done</button></div>`);
+}
+function probeReadout(){
+  const p=state.probe;
+  if(!probeRunning && !p.events) return 'Not running.';
+  const chans = p.channels.length? p.channels.join(', ') : '— none yet —';
+  const srcs  = p.sources.length? p.sources.map(s=>{
+    const tag = s.opened===true ? `opened · direct <b>${Math.round(s.events||0)}</b>`
+              : s.opened===false ? '<b>could not open</b>' : 'visible';
+    return `&nbsp;&nbsp;• ${s.name||'(unnamed)'} — ${tag}`;
+  }).join('<br>') : '— none visible —';
+  const vps = (p.vports||[]).map(v=>{
+    const vch = (v.channels&&v.channels.length)? v.channels.join(', ') : '—';
+    return `&nbsp;&nbsp;"${v.name}": ${v.created?'created':'<b>NOT created</b>'}, received <b>${Math.round(v.events||0)}</b> (ch ${vch})`;
+  }).join('<br>');
+  return `Host stream — events: <b>${Math.round(p.events)}</b>&nbsp;(~${(p.rate||0).toFixed(0)}/s), channels: <b>${chans}</b><br>`
+       + `MIDI sources visible (<b>${p.sources.length}</b>):<br>${srcs}`
+       + (vps? `<br>Test input ports (route sources to these in your host):<br>${vps}` : '');
+}
+function toggleProbe(){ probeRunning=!probeRunning;
+  Bridge.send(probeRunning?'requestMidiProbe':'stopMidiProbe'); renderControllers(); }
+function resetProbe(){ state.probe.events=0; state.probe.prevEvents=0; state.probe.rate=0; Bridge.send('resetMidiProbe'); }
+function closeControllers(){ ctrlOpen=false; if(learnAux>=0){Bridge.send('auxLearnCancel');learnAux=-1;}
+  if(probeRunning){ probeRunning=false; Bridge.send('stopMidiProbe'); } closeModal(); }
+function auxLearnToggle(i){ if(learnAux===i){ Bridge.send('auxLearnCancel'); learnAux=-1; }
+  else { if(learnAux>=0)Bridge.send('auxLearnCancel'); learnAux=i; Bridge.send('auxLearn',{aux:i}); } renderControllers(); }
+function auxCC(i,v){ const cc=clamp(parseInt(v,10)||0,0,127); if(state.aux[i])state.aux[i].cc=cc; Bridge.send('setAuxCC',{aux:i,cc}); markDirty(); }
+function auxLabel(i,v){ v=(v||'').trim()||('Aux '+(i+1)); if(state.aux[i])state.aux[i].label=v; Bridge.send('setAuxLabel',{aux:i,label:v}); if(tab==='matrix')renderMatrix(); }
+// Source label for the matrix picker: aux choices (7..) show their profile label.
+function srcLabel(k){ if(k>=7 && state.aux[k-7]) return state.aux[k-7].label||SOURCES[k]; return SOURCES[k]; }
+// Clicking the chip only REQUESTS a reconnect; the real connection state is
+// pushed back by the plugin via tuningStatus and drives the label. The UI never
+// fakes the state (it previously toggled a fictional 12-EDO/disconnected label).
+function toggleMts(){ Bridge.send('reconnectMts'); }
+
+// ════════════════════════════════════════════════════════════════════════
+//  Tuning surface — 4th Stage view (lifted from Claude Design handoff, area 4)
+// ════════════════════════════════════════════════════════════════════════
+// Note names (ASCII safe — never passed through C++ strings).
+const PC = ["C","C#","D","Eb","E","F","F#","G","Ab","A","Bb","B"];
+// Internal tuning library matching TuningClient::setInternalTuning ids.
+const TUN = {
+  edo12:  {name:"12-tone Equal",      sys:"12-EDO 100c/step",        keys:12, cents:[0,100,200,300,400,500,600,700,800,900,1000,1100], holes:[]},
+  just:   {name:"Just Intonation",    sys:"5-limit / C major",       keys:12, cents:[0,111.7,203.9,315.6,386.3,498.0,590.2,702.0,813.7,884.4,996.1,1088.3], holes:[]},
+  pyth:   {name:"Pythagorean",        sys:"3-limit / chain of 5ths", keys:12, cents:[0,113.7,203.9,294.1,407.8,498.0,611.7,702.0,815.6,905.9,996.1,1109.8], holes:[]},
+  meanqc: {name:"Quarter-comma Meantone", sys:"fifth 696.6c",        keys:12, cents:[0,76.0,193.2,310.3,386.3,503.4,579.5,696.6,772.6,889.7,1006.8,1082.9], holes:[]},
+  werck3: {name:"Werckmeister III",   sys:"1691 well-temperament",   keys:12, cents:[0,90.2,192.2,294.1,390.2,498.0,588.3,696.1,792.2,888.3,996.1,1092.2], holes:[]},
+  diat7:  {name:"Just Diatonic",      sys:"7 notes / 5 holes",       keys:12, cents:[0,null,203.9,null,386.3,498.0,null,702.0,null,884.4,null,1088.3], holes:[1,3,6,8,10]},
+  edo19:  {name:"19-tone Equal",      sys:"19-EDO / 63.2c step",     edo:19,  period:1200},
+  bp:     {name:"Bohlen-Pierce",      sys:"13 / tritave (non-octave)",edo:13,  period:1901.955},
+};
+const TUN_ORDER = ["edo12","just","pyth","meanqc","werck3","diat7","edo19","bp"];
+
+const tuningState = { source:'mts', internal:'just', name:'', sys:'', devTable:[], holeFlags:[] };
+
+// Deviation-profile map SVG (the characterful wiggle IS the temperament).
+function tuningMapSvg(devTable, holeFlags, live, big){
+  const W=big?540:300, H=big?160:130, padX=16, top=22, zero=Math.round(H*0.52);
+  const degs = devTable.map((dev,k)=>({label:PC[k%12], dev, hole:holeFlags[k%12]||false, idx:k%12}));
+  const maxDev = Math.max(15, ...degs.filter(d=>!d.hole).map(d=>Math.abs(d.dev)));
+  const half = Math.min(zero-top, H-20-zero);
+  const Y=dev=>zero-(dev/maxDev)*half;
+  const n=degs.length, X=i=>padX+(n<=1?0:i/(n-1)*(W-2*padX));
+  let g='';
+  g+=`<line class="lane" x1="${padX}" y1="${zero}" x2="${W-padX}" y2="${zero}"/>`;
+  g+=`<text class="cents" x="${padX}" y="${(Y(maxDev)-3).toFixed(1)}" >+${Math.round(maxDev)}c</text>`;
+  g+=`<text class="cents" x="${padX}" y="${(Y(-maxDev)+9).toFixed(1)}">-${Math.round(maxDev)}c</text>`;
+  g+=`<text class="cents" x="${(W-padX).toFixed(1)}" y="${(zero-3).toFixed(1)}" text-anchor="end">equal</text>`;
+  const poly=degs.map((d,i)=>d.hole?null:`${X(i).toFixed(1)},${Y(d.dev).toFixed(1)}`).filter(Boolean);
+  if(poly.length>1) g+=`<polyline points="${poly.join(' ')}" fill="none" stroke="var(--vn-slide)" stroke-width="1.4" opacity="0.4"/>`;
+  degs.forEach((d,i)=>{
+    const x=X(i);
+    if(d.hole){ g+=`<line class="holex" x1="${(x-4).toFixed(1)}" y1="${(zero-4).toFixed(1)}" x2="${(x+4).toFixed(1)}" y2="${(zero+4).toFixed(1)}"/>`;
+      g+=`<line class="holex" x1="${(x-4).toFixed(1)}" y1="${(zero+4).toFixed(1)}" x2="${(x+4).toFixed(1)}" y2="${(zero-4).toFixed(1)}"/>`;
+      g+=`<text class="pc" x="${x.toFixed(1)}" y="${(H-5).toFixed(1)}" text-anchor="middle" fill="var(--vn-pressure)">${d.label}</text>`; return; }
+    const lit=live.has(d.idx), y=Y(d.dev);
+    g+=`<line x1="${x.toFixed(1)}" y1="${zero}" x2="${x.toFixed(1)}" y2="${y.toFixed(1)}" stroke="${lit?'var(--vn-bend)':'var(--vn-slide)'}" stroke-width="${lit?2.4:1.6}" opacity="${lit?1:.7}" stroke-linecap="round"/>`;
+    g+=`<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${lit?4.4:3}" fill="${lit?'var(--vn-bend)':'var(--vn-slide)'}" stroke="var(--vn-panel)" stroke-width="1.4"/>`;
+    g+=`<text class="pc" x="${x.toFixed(1)}" y="${(H-5).toFixed(1)}" text-anchor="middle" fill="${lit?'var(--vn-bend)':'var(--vn-muted)'}">${d.label}</text>`;
+    if(lit) g+=`<text class="livelbl" x="${x.toFixed(1)}" y="${(y+(d.dev>=0?-8:14)).toFixed(1)}" text-anchor="middle">${d.dev>=0?'+':''}${d.dev.toFixed(1)}</text>`;
+  });
+  return `<svg class="tm-svg" viewBox="0 0 ${W} ${H}" style="height:${H}px" preserveAspectRatio="xMidYMid meet">${g}</svg>`;
+}
+function livePcSet(){
+  const out=new Set();
+  for(const v of (state.voices||[])){
+    if(!v.hz||v.hz<16) continue;
+    const c=1200*Math.log2(v.hz/16.3516);
+    out.add(Math.round(((c%1200)+1200)%1200/100)%12);
+  }
+  return out;
+}
+function precSegInline(){
+  const t=tuningState;
+  const seg=(id,lbl,on,dis)=>`<button class="pbtn ${on?'on':''}" data-prec="${id}" ${dis?'disabled':''}>${lbl}</button>`;
+  return `<div class="seg">${seg('mts','MTS',t.source==='mts',!state.mts)}${seg('internal','Internal',t.source==='internal',false)}${seg('off','Bypass',t.source==='off',false)}</div>`;
+}
+function sourceName(){ const t=tuningState; const tn=TUN[t.internal]||TUN.just;
+  if(t.source==='off')      return '12-tone Equal';
+  if(t.source==='internal') return tn.name;
+  // FollowMTS: show the master name when connected; explicit "No master" otherwise
+  // so the display never shows the internal tuning name in the master section.
+  return state.mts ? (t.name||'Connected') : 'No master'; }
+function sourceSys(){ const t=tuningState; const tn=TUN[t.internal]||TUN.just;
+  if(t.source==='off')      return '12-EDO 100c/step';
+  if(t.source==='internal') return tn.sys;
+  return state.mts ? '' : 'Waiting for MTS-ESP master'; }
+// Nearest 12-ET name + cents offset for a frequency (for the Notes panel).
+function hzName(hz){ const m=69+12*Math.log2(hz/440), r=Math.round(m);
+  return { name:PC[((r%12)+12)%12]+(Math.floor(r/12)-1), cents:Math.round((m-r)*100) }; }
+// Sounding notes + (in Chord mode) the harmony voices generated off the played
+// note at the current rotation — names, Hz, and cents-off-equal.
+function soundingNotesHTML(){
+  const vs=(state.voices||[]).filter(v=>v.hz>16);
+  if(!vs.length) return `<div class="notes-row empty">— no notes sounding —</div>`;
+  const chord=Math.round(state.patch.UniMode)===1, rot=state.chordRot||0;
+  const seqs=chord?(state.chordSeqs||'').split(';').map(s=>s.trim().split(',').map(x=>x.trim()).filter(Boolean)):[];
+  const row=(lbl,hz,col,extra='')=>{ const n=hzName(hz);
+    return `<div class="notes-row"><span class="nl"><i style="background:var(${col})"></i>${lbl}</span>
+      <span class="nn">${n.name}</span><span class="nd">${n.cents>=0?'+':''}${n.cents}¢</span>
+      <span class="nh num">${hz.toFixed(1)} Hz</span><span class="nx">${extra}</span></div>`; };
+  let h='';
+  vs.forEach((v,vi)=>{ h+=row(v.note||'Note', v.hz, '--vn-text');
+    if(chord && vi===0) seqs.forEach((seq,hi)=>{ if(!seq.length)return;
+      const tok=seq[((rot%seq.length)+seq.length)%seq.length], p=chordParseTok(tok);
+      h+=row('Voice '+(hi+2), v.hz*Math.pow(2,p.cents/1200), CHORD_VCOL[hi%CHORD_VCOL.length],
+             p.ratio?`${p.n}/${p.d}`:tok); }); });
+  return h;
+}
+function paintStageTuning(){
+  const el=$('#tuneStage'); if(!el) return;
+  const t=tuningState;
+  const tn=TUN[t.internal]||TUN.just;
+  // When following MTS with no master, show flat 12-ET (no holes, no deviation)
+  // — the internal table is irrelevant in this mode.
+  const noMaster = (t.source==='mts' && !state.mts);
+  const devT  = noMaster ? new Array(12).fill(0)     : (t.devTable.length===12  ? t.devTable  : new Array(12).fill(0));
+  const holeF = noMaster ? new Array(12).fill(false) : (t.holeFlags.length===12 ? t.holeFlags : new Array(12).fill(false));
+  const live=livePcSet();
+  el.innerHTML=`<div class="tune-stagebar">
+      ${precSegInline()}
+      <span class="num" style="font-size:11px;color:var(--vn-muted)">${sourceName()}</span>
+      <span style="flex:1"></span>
+      ${t.source==='internal'
+        ? `<select data-stagepick style="max-width:160px">
+             ${TUN_ORDER.map(id=>`<option value="${id}" ${t.internal===id?'selected':''}>${TUN[id].name}</option>`).join('')}
+           </select>`
+        : ''}
+    </div>
+    <div style="flex:none"><div class="tune-map">
+      <div class="tm-head"><span class="eyebrow">${sourceName()} - octave map</span><span class="ref">A4 = 440 Hz</span></div>
+      ${tuningMapSvg(devT, holeF, live, true)}
+      <div class="tm-legend">
+        <span><i style="background:var(--vn-slide)"></i>tuned degree</span>
+        <span><i style="background:var(--vn-bend)"></i>sounding</span>
+        <span><i style="background:var(--vn-pressure)"></i>hole</span>
+      </div></div></div>
+    <div class="notes-panel"><div class="np-head"><span class="eyebrow">Sounding notes</span>${Math.round(state.patch.UniMode)===1?'<span class="np-mode">chord · rot '+(state.chordRot||0)+'</span>':''}</div>
+      ${soundingNotesHTML()}</div>`;
+  el.querySelectorAll('[data-prec]').forEach(b=>b.onclick=()=>{
+    if(b.disabled)return;
+    tuningState.source=b.dataset.prec;
+    paintStageTuning();  // immediate optimistic repaint (bridge response will confirm)
+    Bridge.send('setTuningSource',{source:b.dataset.prec}); });
+  const sel=el.querySelector('[data-stagepick]'); if(sel) sel.onchange=()=>{
+    tuningState.internal=sel.value;
+    paintStageTuning();  // immediate repaint
+    Bridge.send('setInternalTuning',{id:sel.value}); };
+}
+// Wire tuning into setView.
+const _origSetView=setView;
+setView=function(v){   // override in place (not a new declaration)
+  _origSetView(v);
+  const vis=$('.stage .vis');
+  if(vis){ vis.classList.toggle('tuning-on', v==='tuning'); vis.classList.toggle('outputs-on', v==='outputs'); }
+  if(v==='tuning'){ lastLivePcKey=''; paintStageTuning(); }
+  if(v==='outputs'){ const o=$('#outStage'); if(o)o.innerHTML=''; renderOutputs(); }
+};
+// Keep sounding-notes live while the tuning stage is open.
+// Tuning live-note tracking: only repaint when sounding pitch-classes change.
+// This avoids rebuilding #tuneStage innerHTML at 30 Hz, which nukes buttons
+// mid-tap and prevents clicks from landing on iPad.
+let lastLivePcKey='';
+const _origDrawVis=drawVis;
+drawVis=function(){ if(view==='tuning'){
+  const key=[...livePcSet()].sort().join(',');
+  if(key!==lastLivePcKey){ lastLivePcKey=key; paintStageTuning(); }
+  return; }
+  if(view==='outputs'){ renderOutputs(); return; }
+  _origDrawVis(); };
+// Header chip now jumps to the Tuning stage view.
+Bridge.on('tuningStatus',({connected,source,name,internalId,devTable,holeFlags})=>{
+  // Update state FIRST, then the chip — so the chip always reads fresh values.
+  state.mts = connected;
+  if(typeof source==='string')     tuningState.source=source;
+  if(typeof name==='string')       tuningState.name=name;
+  if(typeof internalId==='string') tuningState.internal=internalId;
+  if(Array.isArray(devTable))      tuningState.devTable=devTable;
+  if(Array.isArray(holeFlags))     tuningState.holeFlags=holeFlags;
+  updateTuningChip(connected);
+  // Reset livePc cache so the view repaints even when sounding notes haven't
+  // changed (e.g. switching internal tunings while holding a note).
+  lastLivePcKey='';
+  if(view==='tuning') paintStageTuning();
+});
+// Chip text reflects the ACTIVE tuning, not just the MTS connection state.
+function updateTuningChip(connected){ const c=$('#tuningChip'); if(!c)return;
+  c.classList.toggle('warn-state', !connected && tuningState.source==='mts');
+  const t=tuningState;
+  let label;
+  if(t.source==='off')             label = '12-EDO (bypass)';
+  else if(t.source==='internal')   label = sourceName();       // e.g. "Pythagorean"
+  else if(connected && t.name)     label = 'MTS: '+t.name;
+  else if(connected)               label = 'MTS-ESP · on'; // · (ASCII-safe literal)
+  else                             label = '⚠ MTS-ESP off · click to retry';
+  c.textContent=label; c.title='Tuning — click to open'; c.onclick=()=>setView('tuning'); }
+// Keep the original setMtsLabel name working (called from elsewhere).
+function setMtsLabel(connected){ state.mts=connected; updateTuningChip(connected); }
+
+// ── Incoming bridge events (real plugin pushes these) ────────────────────
+Bridge.on('meters',m=>{ Object.assign(state.meters,m); if(!state.sim) tickMeters(); });
+Bridge.on('paramChanged',({id,value})=>{
+  if(id==='monoMode'){ mono=value>0.5; const b=$('#monoBtn'); if(b)b.textContent=mono?'Mono':'Poly'; return; }
+  if(id in state.patch){ state.patch[id]=value;
+    if(tab==='patch'){ const u=patchUpd[id]; if(u) u(); else renderPatch(); } } });
+Bridge.on('tuningStatus',({connected})=>setMtsLabel(connected));
+// Real output spectrum (log-spaced FFT magnitude bins).
+Bridge.on('spectrum',({bins})=>{ if(Array.isArray(bins)) state.spec=bins; });
+Bridge.on('auxMeters',({v})=>{ if(Array.isArray(v)) state.auxVals=v; });
+Bridge.on('modOut',({v})=>{ if(Array.isArray(v)) state.modOut=v; });
+// Active wavetable (name + frame count) — pushed on load and on boot.
+Bridge.on('wavetableInfo',({name,frames,phaseAlign,ok})=>{
+  if(ok && name){ state.wt={name,frames:frames||0,phaseAlign:!!phaseAlign}; }
+  const e=$('#wtInfo'); if(e) e.textContent=`${state.wt.name} · ${state.wt.frames} frames`;
+  const ab=$('#wtAlignBtn'); if(ab) ab.classList.toggle('primary',!!state.wt.phaseAlign);
+  if(!ok){ const b=$('#wtInfo'); if(b) b.textContent='Could not load that .wav'; } });
+function loadWavetableFile(){ Bridge.send('loadWavetable'); }
+function useBuiltinWavetable(){ Bridge.send('useBuiltinWavetable'); }
+
+// ── Factory wavetable library browser ────────────────────────────────────────
+const MORPH_INTENT_LABELS = {
+  spectral_enrichment:'spectral', brightness_ramp:'brightness',
+  fold_growth:'fold', asymmetry_growth:'asymmetry', noise_growth:'noise',
+  formant_shift:'formant', pulse_motion:'pulse', digital_decay:'digital',
+  hybrid:'hybrid', unknown:'—'
+};
+Bridge.on('libraryData',({tables})=>{ if(Array.isArray(tables)) state.library=tables;
+  const el=$('#libRows'); if(el) renderLibRows(el); });
+Bridge.on('transientList',({names})=>{ if(Array.isArray(names)&&names.length){ state.transients=names;
+  if(tab==='patch') renderPatch(); } });
+function renderLibRows(el){
+  el.innerHTML=(state.library||[]).map(t=>`
+    <div class="lib-row ${t.active?'active':''}" onclick="pickLibTable('${t.id}')">
+      <div><div class="lr-title">${t.title}${t.active?' ◆':''}</div>
+        <div class="lr-meta">${t.frameCount} frames · ${MORPH_INTENT_LABELS[t.morphIntent]||t.morphIntent} · ${t.family}</div>
+      </div>
+      <span class="lr-badge">${t.license}</span>
+    </div>`).join('');
+}
+function pickLibTable(id){
+  Bridge.send('loadLibraryTable',{id});
+  closeModal();
+}
+function openLibraryBrowser(){
+  Bridge.send('requestLibrary');
+  openModal(`<h3>Wavetable Library</h3>
+    <p>Factory tables — all <b>CC0 / Public Domain</b>, bundled for iOS compatibility.
+    Click a table to audition immediately; use <b>Load .wav…</b> to import your own.</p>
+    <div id="libRows" class="lib-list">${(state.library||[]).length===0
+      ? '<p style="color:var(--vn-muted);font-size:12px">Loading…</p>'
+      : ''}</div>
+    <div class="actions"><button class="btn primary" onclick="closeModal()">Done</button></div>`);
+  const el=$('#libRows'); if(el) renderLibRows(el);
+}
+function toggleMorphAlign(){ state.wt.phaseAlign=!state.wt.phaseAlign;
+  const ab=$('#wtAlignBtn'); if(ab) ab.classList.toggle('primary',state.wt.phaseAlign);
+  Bridge.send('setMorphPhaseAlign',{on:state.wt.phaseAlign}); markDirty(); }
+// ── WT frame niceties: snap-to-frame + filmstrip overview ──────────────────
+let morphSnap=false;
+function snapMorph(v){ const n=Math.max(1,(state.wt.frames||1)-1); return Math.round(v*n)/n; }
+function setMorphValue(v){ v=clamp(v,0,1); if(morphSnap)v=snapMorph(v);
+  state.patch.Morph=v; Bridge.send('setParam',{id:'Morph',value:v});
+  const u=patchUpd['Morph']; if(u)u(); markDirty(); }
+function toggleMorphSnap(){ morphSnap=!morphSnap; const b=$('#wtSnapBtn'); if(b)b.classList.toggle('primary',morphSnap);
+  if(morphSnap) setMorphValue(state.patch.Morph); }   // snap current position
+function stripClick(ev){ const svg=$('#wtStrip'); if(!svg)return; const r=svg.getBoundingClientRect();
+  setMorphValue((ev.clientX-r.left)/r.width); }   // scrub the table; snaps if Snap is on
+function renderStrip(cols){ const svg=$('#wtStrip'); if(!svg)return;
+  if(!Array.isArray(cols)||!cols.length){ svg.innerHTML=''; return; }
+  const W=280,H=34,mid=H/2,amp=H*0.42,n=cols.length,cw=W/n; state.wt.stripCols=n; let p='';
+  for(let c=0;c<n;c++){ const col=cols[c]||[]; let d=''; const x0=c*cw;
+    for(let i=0;i<col.length;i++){ const x=x0+(i/(col.length-1))*cw*0.86+cw*0.07; const y=mid-clamp(col[i],-1,1)*amp;
+      d+=(i?'L':'M')+x.toFixed(1)+','+y.toFixed(1); }
+    p+=`<path d="${d}" fill="none" stroke="var(--vn-muted)" stroke-width="0.7" opacity="0.7"/>`; }
+  p+=`<rect id="stripCursor" x="0" y="0" width="${cw.toFixed(1)}" height="${H}" fill="var(--vn-slide)" opacity="0.18"/>`;
+  svg.innerHTML=p; positionStripCursor(state.patch.Morph*((state.wt.frames||1)-1)); }
+function positionStripCursor(frame){ const sc=$('#stripCursor'); if(!sc||!(state.wt.frames>1))return;
+  const W=280, cw=W/Math.max(1,state.wt.stripCols||1); sc.setAttribute('x',((frame/(state.wt.frames-1))*(W-cw)).toFixed(1)); }
+Bridge.on('wavetableStrip',({cols,frames})=>{ state.wt.strip=cols; if(typeof frames==='number')state.wt.frames=frames; renderStrip(cols); });
+// Live frame waveform (current morph position) → the WT display.
+Bridge.on('wavetableWave',({pts,frame,frames})=>{
+  const svg=$('#wtWave'); if(!svg||!Array.isArray(pts)||!pts.length)return;
+  const W=240,H=60,mid=H/2,amp=H*0.46; let d='';
+  for(let i=0;i<pts.length;i++){ const x=i/(pts.length-1)*W; const y=mid-clamp(pts[i],-1,1)*amp;
+    d+=(i?'L':'M')+x.toFixed(1)+','+y.toFixed(1); }
+  svg.innerHTML=`<line x1="0" y1="${mid}" x2="${W}" y2="${mid}" stroke="var(--vn-muted-2)" stroke-width="0.5" opacity="0.5"/>`
+    +`<path d="${d}" fill="none" stroke="var(--vn-slide)" stroke-width="1.6" stroke-linejoin="round"/>`;
+  const fe=$('#wtFrame'); if(fe&&frames>0) fe.textContent=`frame ${(frame||0).toFixed(1)} / ${frames}`;
+  positionStripCursor(frame||0); });
+Bridge.on('controllerLabel',({name})=>{ if(name)state.controller=name; updateCtrlPill(); buildMeters(); });
+// Live played-note readout (♪) from the engine's last note.
+Bridge.on('voice',({note})=>{ const e=$('#noteRead'); if(e)e.textContent='♪ '+(note||'—'); });
+// Current-patch text for the Export/Import modal.
+Bridge.on('exportData',({text})=>{ const t=$('#ioTxt'); if(t)t.value=text||''; });
+// Live per-note MPE expression (one entry per sounding voice) → "Notes" view.
+Bridge.on('voices',({v})=>{ state.voices = Array.isArray(v)?v:[]; });
+// Controller profile: aux source bindings + labels.
+Bridge.on('controllerState',({aux,breathCC,exprCC,controller,rig})=>{ state.aux = Array.isArray(aux)?aux:[];
+  if(typeof breathCC==='number') state.cc.Breath=breathCC;
+  if(typeof exprCC==='number')   state.cc.Expression=exprCC;
+  if(controller){ state.controller=controller; }
+  // Restore the rig structure, or migrate a legacy (flat) profile to a 1-instance
+  // rig from its controller name. Don't reseed bindings — the flat params already
+  // carry them (preserves manual Learn/CC tweaks).
+  let parsed=null; if(rig){ try{ parsed=JSON.parse(rig); }catch(e){} }
+  if(parsed && Array.isArray(parsed.instances) && parsed.instances.length){ state.rig=parsed; }
+  else { state.rig={instances:[{ctrl:resolveCtrlKey(controller||state.controller),mode:'',notes:true,mod:true,ch:'any'}]}; }
+  if(state.rig.instances[0]) state.controller=state.rig.instances[0].ctrl;
+  applyRouting();   // sync the engine's role masks to the (loaded/migrated) rig
+  updateCtrlPill(); buildMeters();
+  if(ctrlOpen)renderControllers(); if(tab==='matrix')renderMatrix(); });
+// MIDI probe (diagnostics): host MIDI stats + visible CoreMIDI sources.
+Bridge.on('midiProbe',({events,channels,sources,vports})=>{ const p=state.probe; const now=performance.now();
+  if(p.prevT){ const dt=(now-p.prevT)/1000; if(dt>0) p.rate=Math.max(0,(events-p.prevEvents)/dt); }
+  p.prevT=now; p.prevEvents=events;
+  p.events=events||0; p.channels=Array.isArray(channels)?channels:[]; p.sources=Array.isArray(sources)?sources:[];
+  p.vports=Array.isArray(vports)?vports:[];
+  const out=$('#probeOut'); if(out) out.innerHTML=probeReadout(); });
+// MIDI-learn captured a CC for an aux source.
+Bridge.on('auxLearned',({aux,cc})=>{ if(state.aux[aux])state.aux[aux].cc=cc; if(learnAux===aux)learnAux=-1;
+  if(ctrlOpen)renderControllers(); if(tab==='matrix')renderMatrix(); });
+// Saved controller profiles list.
+Bridge.on('profileList',({profiles,current})=>{ state.profiles=Array.isArray(profiles)?profiles:[];
+  if(typeof current==='string') state.profileName=current; updateCtrlPill(); if(ctrlOpen)renderControllers(); });
+// Preset↔profile association: a loaded patch references a saved profile.
+Bridge.on('profileSuggest',({name})=>{ const b=$('#profileBanner'); if(!b)return;
+  if(name){ b.querySelector('.pb-name').textContent=name; b.dataset.profile=name; b.classList.add('on'); }
+  else b.classList.remove('on'); });
+function applySuggestedProfile(){ const b=$('#profileBanner'); const n=b.dataset.profile;
+  if(n){ state.profileName=n; updateCtrlPill(); Bridge.send('loadProfile',{name:n}); } b.classList.remove('on'); }
+function dismissProfileBanner(){ $('#profileBanner').classList.remove('on'); }
+// Full slot snapshot (on boot + after preset load) → refresh the matrix.
+Bridge.on('slotState',({slots})=>{ if(!Array.isArray(slots))return;
+  slots.forEach((s,i)=>{ if(i<NUM_SLOTS) state.slots[i]=Object.assign({atk:5,rel:80,on:true,scale:0,anchors:[]},s); });
+  if(tab==='matrix')renderMatrix(); });
+// Real preset library from PresetManager.
+Bridge.on('presetList',({presets,selected,current})=>{ if(!Array.isArray(presets))return;
+  // Defensive defaults: real PresetManager rows omit tags/fav → renderPresets()
+  // calls p.tags.map(); without this the Presets tab throws and shows nothing.
+  PRESETS = presets.map(p=> typeof p==='string'
+      ? {name:p,tags:[],ctrl:'',scale:'',fav:false}
+      : {name:'',tags:[],ctrl:'',scale:'',fav:false,...p, tags:Array.isArray(p.tags)?p.tags:[]});
+  // selected may be -1 (unsaved or name not in the list) — don't fall back to 0.
+  if(typeof selected==='number' && selected>=0) selPreset=clamp(selected,0,Math.max(0,PRESETS.length-1));
+  // Show the actual current name from the engine; fall back to the selected row.
+  const nm = (current && current.length) ? current
+           : (selected>=0 && PRESETS[selPreset] ? PRESETS[selPreset].name : '');
+  if(nm) $('#presetName').textContent=nm;
+  if(tab==='presets')renderPresets(); });
+
+// ── Boot + mock animation loop ───────────────────────────────────────────
+state.sim = !HAS_JUCE;                 // live data from the plugin when embedded
+state.aux = AUX.map((a,i)=>({label:a,cc:0}));   // default until controllerState arrives
+// Single-tap typed entry on touch (Claude Design, area 6). The value fields open
+// number editors via ondblclick, which is unreliable on touch; bridge tap→edit
+// for coarse pointers only, leaving desktop double-click untouched. Drag controls
+// set their dblclick in JS (no [ondblclick] attribute), so a tap that begins a
+// drag can't accidentally open an editor.
+(function(){
+  const coarse = matchMedia('(pointer:coarse)').matches || ('ontouchstart' in window);
+  if(!coarse) return;
+  document.documentElement.classList.add('is-touch');
+  document.addEventListener('click', e=>{
+    const el=e.target.closest('[ondblclick]'); if(!el) return;
+    if(el.querySelector('input')) return;            // already editing
+    e.preventDefault(); e.stopPropagation();
+    if(typeof el.ondblclick==='function') el.ondblclick.call(el, e);
+  }, true);
+})();
+// Install the Focus reflow (one-pane-at-a-time on ≤860px / AUv3; desktop grid
+// is untouched — all rules are gated on the narrow breakpoint).
+(function installReflow(){
+  const app=document.getElementById('app'); if(!app) return;
+  app.dataset.reflow='focus';
+  document.body.classList.add('focus-active');
+  if(document.getElementById('focusbar')) return;
+  const bar=document.createElement('div'); bar.className='focusbar'; bar.id='focusbar';
+  const panes=[['stage','Stage'],['patch','Patch'],['matrix','Matrix'],['presets','Presets']];
+  bar.innerHTML=panes.map(([id,lbl],k)=>`<button data-focus="${id}" class="${k===0?'active':''}">${lbl}</button>`).join('');
+  app.querySelector('.header').insertAdjacentElement('afterend', bar);
+  bar.querySelectorAll('button').forEach(b=>b.onclick=()=>focusPane(b.dataset.focus));
+  const main=$('.main'); if(main) main.dataset.pane='stage';   // open on the live Stage
+})();
+buildMeters(); render(); Bridge.send('uiReady');
+setInterval(()=>{
+  if(!state.sim) return;
+  simT+=0.06;
+  state.meters.Breath     = (Math.sin(simT)*0.5+0.5)*0.9;
+  state.meters.Expression = (Math.sin(simT*0.7+1)*0.5+0.5)*0.6;
+  state.meters.Pressure   = (Math.sin(simT*1.3+2)*0.5+0.5)*0.5;
+  state.meters.Slide      = (Math.sin(simT*0.5+0.5)*0.5+0.5);
+  state.meters.Velocity   = 0.4;
+  state.meters.Pitchbend  = Math.sin(simT*0.4)*0.4+0.5;
+  // Demo per-note voices (browser preview only): three "fingers" expressing.
+  const baseHz=[174.6,261.6,392.0];
+  state.voices = baseHz.map((hz,i)=>({
+    note:['F3','C4','G4'][i], hz, level:1,
+    pressure: Math.sin(simT*(1.1+i*0.4)+i)*0.5+0.5,
+    slide:    Math.sin(simT*(0.6+i*0.3)+i*2)*0.5+0.5,
+    bend:     Math.sin(simT*(0.8+i*0.2)+i)*0.4,
+    vel:      0.5+i*0.15,
+  }));
+  tickMeters();
+},40);
+</script>
+</body>
+</html>
