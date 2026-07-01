@@ -101,14 +101,14 @@ quantities, Apple Loops metadata masks, etc.) keep that format's native
 bit order — the convention governs *our* notation, not other people's
 file formats. MIDIcurator's `apple-loops-parser.ts` is the current example.
 
-### Compliance status (2026-06-22)
+### Compliance status (2026-06-22; PitchFold updated 2026-07-01)
 | Codebase | Status |
 |---|---|
 | `@enkerli/theory` | ✅ reference — PCS + rhythm codecs both leftmost-LSB |
 | `@enkerli/ui` `pcs-ring` | ✅ leftmost-LSB |
 | MIDIcurator (via theory) | ✅ |
 | PickPCS / chord-dictionary / progression-studio / exquisite-fingerings | ✅ via theory (rebuild deployed bundles) |
-| PitchFold `PCSEngine.h` | ⚠️ separate repo — flip `bit (11 − interval)` → `bit (interval)` |
+| PitchFold `PCSEngine.h` | ✅ harmonized 2026-06-29 (PitchFold repo, incl. the JS side in `apps/pitchfold`) |
 | Serpe webapp + plugin | ✅ rhythm leftmost-LSB (**breaking** for saved hex/octal/decimal — see Serpe CHANGELOG) |
 
 ### History
