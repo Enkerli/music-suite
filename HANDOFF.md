@@ -127,8 +127,11 @@ bundles) do *not* cover it — file-level backup is required.
 
 ## 7. Accessibility — state and testing prep
 
-Testing will be carried out through specialized means; what exists to
-hand them:
+Testing will be carried out through specialized means. **Start here:
+[docs/A11Y_TEST_PLAN.md](docs/A11Y_TEST_PLAN.md)** — the self-sufficient
+test package (scope, URLs, personas as lenses, component semantics with
+known thin spots, plugin-WebView differences, reporting format). Backing
+material:
 - **Automated floor:** `packages/ui/tools/contrast-audit.mjs` verifies 36
   WCAG-AA contrast contracts over the token themes — run after any token
   change.
