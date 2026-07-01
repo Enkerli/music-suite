@@ -137,15 +137,36 @@ function buildChrome() {
   statusEl.textContent = 'click to enable';
   chip.append(label, selectEl, statusEl);
 
+  // Velocity->Cutoff brightness toggle: a REAL factory mod-matrix route
+  // (0.15 lin — PluginProcessor.cpp kFactory[9]) that fires from the raw MIDI
+  // velocity byte independent of breath, so a wind controller with a fixed/high
+  // note-on velocity gets an unwanted brightness kick on every attack. Default
+  // OFF (matches the other Vane versions); this standalone-only checkbox lets
+  // it be switched on, since it's an interesting effect worth keeping available.
+  // No real UI knob exists for this (it isn't a user-facing param in index.html),
+  // so it lives here rather than intercepting a page control that doesn't exist.
+  const velChip = document.createElement('label');
+  velChip.title = "Velocity->Cutoff brightness kick (off by default to match the other Vane versions; the real factory mod-matrix route, but it fires from raw MIDI velocity independent of breath)";
+  velChip.style.cssText = 'display:inline-flex;align-items:center;gap:5px;cursor:pointer';
+  const velLabel = document.createElement('span');
+  velLabel.textContent = 'Vel→brightness';
+  velLabel.style.cssText = 'opacity:.5;font-size:10px;text-transform:uppercase;letter-spacing:.06em';
+  const velCheckbox = document.createElement('input');
+  velCheckbox.type = 'checkbox';
+  velCheckbox.onchange = () => post({ type: 'param', id: 11, value: velCheckbox.checked ? 1 : 0 });
+  velChip.append(velCheckbox, velLabel);
+
   const header = document.querySelector('.header');
   if (header) {
-    chip.className = 'chip';                 // reuse the page's chip styling
-    chip.style.cursor = 'default';
-    header.appendChild(chip);
+    chip.className = 'chip'; chip.style.cursor = 'default';                 // reuse the page's chip styling
+    velChip.className = 'chip';
+    header.append(chip, velChip);
   } else {                                   // defensive fallback — bottom corner, out of the way
-    chip.style.cssText = 'position:fixed;bottom:8px;right:8px;z-index:9999;display:flex;align-items:center;' +
+    const bar = document.createElement('div');
+    bar.style.cssText = 'position:fixed;bottom:8px;right:8px;z-index:9999;display:flex;gap:8px;align-items:center;' +
       'font:11px/1.4 system-ui;background:rgba(20,18,16,.85);color:#e8e2d6;padding:6px 10px;border-radius:8px';
-    document.body.appendChild(chip);
+    bar.append(chip, velChip);
+    document.body.appendChild(bar);
   }
 }
 
