@@ -118,6 +118,13 @@ bundles) do *not* cover it — file-level backup is required.
   4. **Track D (deferred by design)**: live suite messaging; the
      ProgGenie→MIDIcurator App-Group inbox is **gated on the Apple
      Developer account** (steps written out in the plan doc §6 backlog).
+- **Content model specified, unimplemented:** [docs/LIBRARY_SPEC.md](docs/LIBRARY_SPEC.md)
+  + [docs/schemas/library-item.schema.json](docs/schemas/library-item.schema.json)
+  — the LIS-informed envelope for patches/presets/profiles/progressions/
+  wavetables (identity, provenance, authority control, facets), with a
+  mapping table for every existing content kind and a staged MVP path
+  (ProgGenie kinds first). Known gap it surfaced: DrawnQurve qurves exist
+  only inside plugin state chunks — not yet first-class content.
 - **Platform decision pending:** [docs/JUCE_INDEPENDENCE.md](docs/JUCE_INDEPENDENCE.md)
   — measured footprint, options, effort/risk estimates, and a staged
   recommendation (CLAP desktop shells, JUCE-kept AUv3, identical web UI).
