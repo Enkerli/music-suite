@@ -49,6 +49,7 @@ class VaneProcessor extends AudioWorkletProcessor {
       case 'mono':    this.ex.vane_set_mono(m.value ? 1 : 0); break;
       case 'tuningSource':   this.ex.vane_set_tuning_source(m.value); break;
       case 'internalTuning': this.ex.vane_set_internal_tuning(m.value); break;
+      case 'slot':           this.ex.vane_set_slot(m.slot, m.src, m.dst, m.amt, m.curve, m.on ? 1 : 0); break;
       default: break;
     }
   }

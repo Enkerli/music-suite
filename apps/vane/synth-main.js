@@ -86,8 +86,30 @@ function sendTuningToSynth() {
   if (idx >= 0) post({ type: 'internalTuning', value: idx });
 }
 
+// The factory mod-matrix routing (PluginProcessor.cpp kFactory[], mirrored in
+// the wasm's resetSlotsToFactory). Pushed into the page at boot so the Matrix
+// tab shows the routing that's actually sounding — the page's own defaults are
+// all-Off, which was true of nothing. Slot 9 (Velocity→Cutoff) is off by
+// default standalone (the "Vel→brightness" checkbox toggles it).
+const FACTORY_SLOTS = [
+  { src: 1, dst: 0, amt: 1.00, curve: 0, on: true  },   // Breath     → VCA
+  { src: 2, dst: 0, amt: 1.00, curve: 0, on: true  },   // Expression → VCA
+  { src: 3, dst: 0, amt: 0.50, curve: 0, on: true  },   // Pressure   → VCA
+  { src: 4, dst: 1, amt: 0.90, curve: 0, on: true  },   // Slide      → Cutoff
+  { src: 1, dst: 1, amt: 0.25, curve: 1, on: true  },   // Breath     → Cutoff (exp)
+  { src: 2, dst: 1, amt: 0.25, curve: 1, on: true  },   // Expression → Cutoff (exp)
+  { src: 3, dst: 1, amt: 0.20, curve: 1, on: true  },   // Pressure   → Cutoff (exp)
+  { src: 1, dst: 2, amt: 0.15, curve: 1, on: true  },   // Breath     → Reso (exp)
+  { src: 2, dst: 2, amt: 0.15, curve: 1, on: true  },   // Expression → Reso (exp)
+  { src: 6, dst: 1, amt: 0.15, curve: 0, on: false },   // Velocity   → Cutoff (the toggle)
+];
+function pushSlotState() {
+  const api = window.__vaneStandalone;
+  if (api && api.emit) api.emit('slotState', { slots: FACTORY_SLOTS });
+}
+
 // Non-param bridge sends the standalone synth implements (the page's Tuning
-// stage sends these; in the plugin they go to C++).
+// stage and Matrix tab send these; in the plugin they go to C++).
 function handleSend(id, p) {
   if (id === 'setTuningSource') {
     tuning.source = (p && p.source) || 'internal';
@@ -97,6 +119,12 @@ function handleSend(id, p) {
     sendTuningToSynth(); pushTuningStatus();
   } else if (id === 'reconnectMts') {
     pushTuningStatus();                     // nothing to reconnect to — just re-assert state
+  } else if (id === 'slotEdit' && p && typeof p.slot === 'number') {
+    // Matrix tab slot edit → per-voice mod matrix in the wasm. Per-slot
+    // atk/rel/anchors are accepted by the message but ignored by the synth
+    // (slew rates derive from the source, matching the real engine).
+    post({ type: 'slot', slot: p.slot, src: p.src | 0, dst: p.dst | 0,
+           amt: +p.amt || 0, curve: p.curve | 0, on: p.on !== false });
   }
 }
 
@@ -245,6 +273,7 @@ function boot() {
   buildChrome();
   startMidi();
   pushTuningStatus();   // chip shows the internal tuning, not an MTS warning
+  pushSlotState();      // Matrix tab shows the factory routing actually sounding
   const gesture = () => { startAudio(); window.removeEventListener('pointerdown', gesture); window.removeEventListener('keydown', gesture); };
   window.addEventListener('pointerdown', gesture);
   window.addEventListener('keydown', gesture);
