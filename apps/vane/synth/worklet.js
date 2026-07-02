@@ -21,6 +21,11 @@ class VaneProcessor extends AudioWorkletProcessor {
           wasi_snapshot_preview1: new Proxy({}, { get: () => () => 0 }),
         }).then(({ instance }) => {
           this.ex = instance.exports;
+          // WASI-reactor convention: a --no-entry wasm runs its static C++
+          // constructors only when the embedder calls _initialize. Skipping it
+          // leaves globals unconstructed — TuningClient's cents table stayed
+          // all-zero and every note played at ~8 Hz.
+          if (this.ex._initialize) this.ex._initialize();
           this.ex.vane_init(sampleRate);
           this.bufPtr = this.ex.vane_buffer();
           for (const q of this.pending) this.dispatch(q);
@@ -42,6 +47,8 @@ class VaneProcessor extends AudioWorkletProcessor {
       case 'param':   this.ex.vane_set_param(m.id, m.value); break;
       case 'cc':      this.ex.vane_set_cc(m.cc, m.value); break;
       case 'mono':    this.ex.vane_set_mono(m.value ? 1 : 0); break;
+      case 'tuningSource':   this.ex.vane_set_tuning_source(m.value); break;
+      case 'internalTuning': this.ex.vane_set_internal_tuning(m.value); break;
       default: break;
     }
   }

@@ -2377,6 +2377,11 @@ if (!HAS_JUCE) {
     getPatch(){ return state.patch; },   // current values, so synth-main.js can sync at boot
     getMono(){ return mono; },           // Mono/Poly toggle (declared above, defaults true)
     onParam: null,   // synth-main.js sets this: (id, value) => …
+    onSend: null,    // synth-main.js sets this: (id, payload) => … — non-param bridge
+                     // sends the standalone synth also implements (tuning, panic, …)
+    // Push an event INTO the page as if the plugin had sent it (tuningStatus, …)
+    // so the chip/stage views reflect the standalone synth's actual state.
+    emit(id, p){ Bridge._emit(id, p); },
   };
   // Every Patch-tab control funnels through this one call (setV/commit/setChoice
   // all do Bridge.send('setParam',{id,value})) — intercept it here so synth-main.js
@@ -2385,6 +2390,7 @@ if (!HAS_JUCE) {
   const _send = Bridge.send.bind(Bridge);
   Bridge.send = (id, p) => {
     if (id === 'setParam' && p && window.__vaneStandalone.onParam) window.__vaneStandalone.onParam(p.id, p.value);
+    else if (window.__vaneStandalone.onSend) window.__vaneStandalone.onSend(id, p);
     _send(id, p);
   };
 }

@@ -56,11 +56,57 @@ function sendParam(id, value) {
   if (wasmId != null) post({ type: 'param', id: wasmId, value });
 }
 
+// ── Internal tuning (standalone) ──────────────────────────────────────────────
+// MTS-ESP cannot work in web code — libMTSClient dlopens a system dylib and
+// talks over shared memory, neither of which exists in a browser. The wasm
+// compiles the REAL TuningClient (internal tunings, hole-snapping, live retune)
+// so the standalone uses internal tunings instead, and defaults to Internal so
+// the tuning chip shows a real state rather than an MTS warning.
+const TUN_ORDER = ['edo12', 'just', 'pyth', 'meanqc', 'werck3', 'diat7', 'edo19', 'bp'];
+const TUN_NAMES = {
+  edo12: '12-tone Equal', just: 'Just Intonation', pyth: 'Pythagorean',
+  meanqc: 'Quarter-comma Meantone', werck3: 'Werckmeister III',
+  diat7: 'Just Diatonic', edo19: '19-tone Equal', bp: 'Bohlen-Pierce',
+};
+const tuning = { source: 'internal', internal: 'edo12' };
+function pushTuningStatus() {
+  const api = window.__vaneStandalone;
+  if (!api || !api.emit) return;
+  api.emit('tuningStatus', {
+    connected: false,                       // MTS is structurally absent in web
+    source: tuning.source,
+    internalId: tuning.internal,
+    name: tuning.source === 'internal' ? (TUN_NAMES[tuning.internal] || '') : '',
+  });
+}
+function sendTuningToSynth() {
+  post({ type: 'tuningSource', value: tuning.source === 'internal' ? 1 : tuning.source === 'off' ? 2 : 0 });
+  const idx = TUN_ORDER.indexOf(tuning.internal);
+  if (idx >= 0) post({ type: 'internalTuning', value: idx });
+}
+
+// Non-param bridge sends the standalone synth implements (the page's Tuning
+// stage sends these; in the plugin they go to C++).
+function handleSend(id, p) {
+  if (id === 'setTuningSource') {
+    tuning.source = (p && p.source) || 'internal';
+    sendTuningToSynth(); pushTuningStatus();
+  } else if (id === 'setInternalTuning') {
+    if (p && p.id && TUN_ORDER.includes(p.id)) { tuning.internal = p.id; }
+    sendTuningToSynth(); pushTuningStatus();
+  } else if (id === 'reconnectMts') {
+    pushTuningStatus();                     // nothing to reconnect to — just re-assert state
+  }
+}
+
 // Register as soon as the script loads (index.html's hook exists synchronously),
 // so knob moves before audio even starts aren't lost — sendParam itself no-ops
 // via post() until the worklet is ready, but the *latest* value per id is what
 // matters and React-less state.patch already holds it for the boot-time sync.
-if (window.__vaneStandalone) window.__vaneStandalone.onParam = sendParam;
+if (window.__vaneStandalone) {
+  window.__vaneStandalone.onParam = sendParam;
+  window.__vaneStandalone.onSend = handleSend;
+}
 
 async function startAudio() {
   if (audioStarted) return;
@@ -79,6 +125,7 @@ async function startAudio() {
     const patch = window.__vaneStandalone && window.__vaneStandalone.getPatch();
     if (patch) for (const id in PARAM_MAP) if (patch[id] != null) sendParam(id, patch[id]);
     if (window.__vaneStandalone) post({ type: 'mono', value: window.__vaneStandalone.getMono() });
+    sendTuningToSynth();
     setStatus('audio ready · play your controller');
   } catch (e) {
     setStatus('audio error: ' + (e && e.message || e));
@@ -196,6 +243,7 @@ function buildChrome() {
 function boot() {
   buildChrome();
   startMidi();
+  pushTuningStatus();   // chip shows the internal tuning, not an MTS warning
   const gesture = () => { startAudio(); window.removeEventListener('pointerdown', gesture); window.removeEventListener('keydown', gesture); };
   window.addEventListener('pointerdown', gesture);
   window.addEventListener('keydown', gesture);
