@@ -40,10 +40,14 @@ function pushMeters(partial) {
 
 function sendExpr(ch) {
   const e = expr[ch] || {};
-  post({ type: 'expr', channel: ch, bend: e.bend || 0, slide: e.slide || 0, pressure: e.pressure || 0 });
+  // MPE slide (Y/CC74) is CENTRED: 0.5 = neutral. An unset slide must send 0.5,
+  // not 0 — otherwise the first bend/pressure event on a channel that hasn't
+  // sent CC74 yet slams the Slide→Cutoff route to full-down (~-4.5 octaves).
+  const slide = e.slide == null ? 0.5 : e.slide;
+  post({ type: 'expr', channel: ch, bend: e.bend || 0, slide, pressure: e.pressure || 0 });
   // Pitchbend meter is bipolar (-1..1) drawn on a 0..1 fill, centred at 0.5 —
   // matches the page's own init value (Pitchbend:0.5) for the same reason.
-  pushMeters({ Pressure: e.pressure || 0, Slide: e.slide || 0, Pitchbend: 0.5 + (e.bend || 0) / 2 });
+  pushMeters({ Pressure: e.pressure || 0, Slide: slide, Pitchbend: 0.5 + (e.bend || 0) / 2 });
 }
 
 function sendParam(id, value) {
