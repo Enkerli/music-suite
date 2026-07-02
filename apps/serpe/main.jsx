@@ -246,11 +246,21 @@ function SerpeApp() {
     if (syncField && p.label) setUpiText(p.label);
   }
 
-  function parseField(text = upiText, acc = accText) {
-    // The accent layer lives in the Accents field (acc); prepend it unless the
-    // pattern text already carries its own {…} prefix (don't double up).
+  // The full engine string: the Accents field prepends as {…} unless the
+  // pattern text already carries its own inline prefix (don't double up).
+  function fullUPI(text = upiText, acc = accText) {
     const hasInline = /^\s*\{/.test(text);
-    const full = (!hasInline && acc.trim()) ? `{${acc.trim()}}${text}` : text;
+    return (!hasInline && acc.trim()) ? `{${acc.trim()}}${text}` : text;
+  }
+
+  // Notation the C++ engine advances on re-send: scenes (a|b|c), progressive
+  // transforms (pat>N), and progressive offset/lengthening (pat%N, pat+N, pat*N
+  // with a numeric tail). Combinations (pat+pat) don't match — the tail isn't
+  // numeric — and route to the engine as plain re-parses, same as Tick.
+  const ENGINE_ADVANCE_RE = /[|>]|[%+*]\s*-?\d+\s*$/;
+
+  function parseField(text = upiText, acc = accText) {
+    const full = fullUPI(text, acc);
     LS.set('upi', text);
     if (cfg.host && juceAvailable()) {
       // Plugin: the C++ engine is authoritative — send raw (don't gate on the JS
@@ -348,6 +358,15 @@ function SerpeApp() {
   // accentPrefix, inline or field), so accents survive progressive offset AND
   // lengthening — parseField re-applies them, onset-indexed, to the new pattern.
   function progAdvance() {
+    // Plugin + engine notation in the field (scenes / >N / %N / *N): the C++
+    // engine owns progression — re-send the same string to advance (the exact
+    // semantics of Tick and MIDI-in). The local rotate below stays for the
+    // slider-driven progression and for the webapp.
+    if (cfg.host && juceAvailable() && ENGINE_ADVANCE_RE.test(upiText)) {
+      setCycle(c => c + 1);          // display hint; the engine holds the truth
+      sendUPI(fullUPI());
+      return;
+    }
     if (!baseRef.current) baseRef.current = { steps: steps.slice() };
     const c = cycle + 1; setCycle(c);
     let next;
@@ -571,7 +590,12 @@ function SerpeApp() {
           h('div', { className: 'upi-row' },
             h('span', { className: 'prompt' }, '›'),
             h('input', { className: 'upi-field' + (parseErr ? ' bad' : ''), type: 'text', spellCheck: false, autoComplete: 'off',
-              value: upiText, onChange: e => { resetProgressive(); setUpiText(e.target.value); }, 'aria-label': 'Universal Pattern Input' })),
+              value: upiText, onChange: e => { resetProgressive(); setUpiText(e.target.value); },
+              // Enter re-sends the same string. In the plugin that is the
+              // engine's advance trigger (scenes / >N / %N step forward, same
+              // path as Tick and MIDI-in); in the webapp it's a no-op re-parse.
+              onKeyDown: e => { if (e.key === 'Enter') { e.preventDefault(); parseField(); } },
+              'aria-label': 'Universal Pattern Input' })),
           h('div', { className: 'upi-status' }, parseErr
             ? [h('span', { key: 'e', className: 'err' }, '✗ ' + parseErr), h('span', { key: 'd', className: 'dot' }), h('span', { key: 't' }, 'try E(5,8), 0x94, [0,3,6]:8, P(3,0)')]
             : [h('span', { key: 'o', className: 'ok' }, '✓ parsed'), h('span', { key: 'd1', className: 'dot' }),
