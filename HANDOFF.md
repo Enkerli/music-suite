@@ -34,7 +34,7 @@ Three principles that override habit:
 | **enkerli-juce** | github.com/Enkerli/enkerli-juce | The shared plugin foundation: ~921 LOC C++/ObjC (BridgedWebView, MidiClipScheduler, MidiInputCollector, FileImport/Export) + CMake archetypes encoding host-quirk scar tissue; TESTING.md is the validation ladder |
 | **Vane** | github.com/Enkerli/Vane (local: `~/Vane`) | Flagship instrument (JUCE 8). `Tools/wasm/` builds its real DSP to WASM for the browser standalone |
 | **rhythm_pattern_explorer** (Serpe) | github.com/Enkerli/rhythm_pattern_explorer (local: `~/Desktop/rhythm_pattern_explorer`) | Rhythm engine, production plugin. `Documentation/FEATURE_PARITY.md` is the recovery scope for the WebView UI — the ledger, not the design doc, is authoritative |
-| **DrawnQurve** | github.com/enkerli/drawnqurve (local: `~/DrawnQurve`) | Gesture/automation source; JUCE 7, native UI — the monorepo `apps/drawnqurve` WebUI is its future |
+| **DrawnQurve** | github.com/Enkerli/DrawnQurve (local: `~/DrawnQurve`) | Gesture/automation source; JUCE 7, native UI — the monorepo `apps/drawnqurve` WebUI is its future |
 | **PitchFold** | github.com/Enkerli/PitchFold (local: `~/Desktop/PitchFold`) | PCS quantizer; the WebView-pattern pathfinder |
 | **progression-studio-plugin** (ProgGenie) | github.com/Enkerli/progression-studio-plugin | Thin shell (~1.1k LOC) over `apps/progression-studio` |
 | **midicurator-plugin** | github.com/Enkerli/midicurator-plugin | Thin shell (~1.1k LOC) over `apps/MIDIcurator` |
@@ -44,9 +44,14 @@ Three principles that override habit:
 ## 3. Build, test, deploy
 
 **Monorepo:** `npm install && npm test` (Vitest; 847 tests green as of
-2026-07-01) and `npm run build` per app. The Pages site + app bundles
-deploy via GitHub Actions (`ci:` commits of 2026-06-24/28 define it):
-shared packages build first (`tsc -b`), then apps rebuild into `docs/apps/`.
+2026-07-01). The TS packages must be compiled before app tests/builds can
+resolve them — `npm install` does this automatically (`prepare` runs
+`tsc -b` over the packages) and `pretest` re-runs it incrementally, so the
+two commands above are genuinely sufficient from a fresh clone
+(clone-verified 2026-07-01). App bundles: `npm run build -w <app-name>`
+(e.g. `-w progression-studio`). The Pages site + app bundles deploy via
+GitHub Actions (`ci:` commits of 2026-06-24/28 define it): shared packages
+build first, then apps rebuild into `docs/apps/`.
 
 **Plugins:** CMake per repo; the enkerli-juce archetypes carry the
 format flags. The **validation ladder** (enkerli-juce `TESTING.md`, plus

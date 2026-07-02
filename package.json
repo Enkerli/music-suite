@@ -7,8 +7,11 @@
     "apps/*"
   ],
   "scripts": {
+    "build-packages": "tsc -b packages/theory packages/codegen packages/corpus-tools packages/midi packages/webmidi",
+    "prepare": "npm run build-packages",
+    "pretest": "npm run build-packages",
     "test": "vitest run",
-    "typecheck": "tsc -b packages/theory packages/codegen packages/corpus-tools packages/midi packages/webmidi",
+    "typecheck": "npm run build-packages",
     "sync-apps": "node scripts/sync-apps.mjs",
     "build-site": "node docs/build-site.mjs"
   },
