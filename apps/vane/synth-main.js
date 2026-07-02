@@ -85,8 +85,7 @@ async function startMidi() {
   const res = await connect({ sysex: false }).catch((e) => ({ _err: e }));
   if (!res || res._err) { setStatus('Web MIDI unavailable'); return; }
   midi = res;
-  refreshDevices();
-  if (midi.inputs.length) midi.selectInput(midi.inputs[0].id);
+  refreshDevices();   // picks the remembered device (by name) and BINDS it
   midi.onNoteIn((e) => {
     startAudio();                       // first note also satisfies the gesture
     post({ type: e.on ? 'noteOn' : 'noteOff', note: e.note, vel: e.velocity, channel: e.channel });
@@ -115,13 +114,27 @@ async function startMidi() {
 //    back to a non-overlapping fixed pill only if the header isn't found. ───────
 let statusEl, selectEl;
 function setStatus(t) { if (statusEl) statusEl.textContent = t; }
+
+// The chosen controller is remembered by NAME (localStorage) — Web MIDI port
+// ids are not stable across replugs/sessions, names are. refreshDevices runs
+// at boot AND on every hot-plug (onPortsChanged), and actually re-BINDS the
+// input (midi.selectInput), not just the <select> UI — so replugging the
+// Exquis/Sylphyo reattaches to it instead of silently sticking with whatever
+// was first in the list (usually IAC).
+const MIDI_IN_KEY = 'vane-midi-in-name';
 function refreshDevices() {
   if (!selectEl || !midi) return;
-  const cur = selectEl.value;
+  const saved = (() => { try { return localStorage.getItem(MIDI_IN_KEY); } catch { return null; } })();
+  const curName = midi.inputs.find((p) => p.id === selectEl.value)?.name;
   selectEl.innerHTML = '<option value="">— MIDI in —</option>' +
     midi.inputs.map((p) => `<option value="${p.id}">${p.name}</option>`).join('');
-  if (midi.inputs.some((p) => p.id === cur)) selectEl.value = cur;
-  else if (midi.inputs.length) selectEl.value = midi.inputs[0].id;
+  // Preference order: the remembered device (just re-plugged?) → whatever was
+  // already selected → first available.
+  const pick = midi.inputs.find((p) => p.name === saved)
+            || midi.inputs.find((p) => p.name === curName)
+            || midi.inputs[0];
+  selectEl.value = pick ? pick.id : '';
+  midi.selectInput(pick ? pick.id : null);
 }
 function buildChrome() {
   const chip = document.createElement('span');
@@ -131,7 +144,13 @@ function buildChrome() {
   label.style.cssText = 'opacity:.5;font-size:10px;text-transform:uppercase;letter-spacing:.06em;margin-right:5px';
   selectEl = document.createElement('select');
   selectEl.style.cssText = 'background:transparent;color:inherit;border:none;font:inherit;cursor:pointer;max-width:130px';
-  selectEl.onchange = () => { startAudio(); midi && midi.selectInput(selectEl.value || null); };
+  selectEl.onchange = () => {
+    startAudio();
+    if (!midi) return;
+    midi.selectInput(selectEl.value || null);
+    const name = midi.inputs.find((p) => p.id === selectEl.value)?.name;
+    try { if (name) localStorage.setItem(MIDI_IN_KEY, name); else localStorage.removeItem(MIDI_IN_KEY); } catch {}
+  };
   statusEl = document.createElement('span');
   statusEl.style.cssText = 'opacity:.6;font-size:10px;margin-left:6px';
   statusEl.textContent = 'click to enable';

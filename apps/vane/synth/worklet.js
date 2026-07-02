@@ -8,29 +8,42 @@ class VaneProcessor extends AudioWorkletProcessor {
     super();
     this.ex = null;       // wasm exports
     this.bufPtr = 0;
+    // WebAssembly.instantiate is async, but the host posts its boot-time state
+    // sync (mono mode, current patch params) immediately after the wasm bytes.
+    // Dropping those messages made the synth silently start in Poly while the
+    // page displayed Mono — queue everything until the wasm is ready instead.
+    this.pending = [];
     this.port.onmessage = (e) => {
       const m = e.data;
-      switch (m.type) {
-        case 'wasm':
-          // No JUCE/WASI syscalls are used; satisfy any stray import with no-ops.
-          WebAssembly.instantiate(m.bytes, {
-            wasi_snapshot_preview1: new Proxy({}, { get: () => () => 0 }),
-          }).then(({ instance }) => {
-            this.ex = instance.exports;
-            this.ex.vane_init(sampleRate);
-            this.bufPtr = this.ex.vane_buffer();
-            this.port.postMessage({ type: 'ready' });
-          });
-          break;
-        case 'noteOn':  this.ex && this.ex.vane_note_on(m.note, m.vel, m.channel); break;
-        case 'noteOff': this.ex && this.ex.vane_note_off(m.note, m.channel); break;
-        case 'expr':    this.ex && this.ex.vane_set_expr(m.channel, m.bend, m.slide, m.pressure); break;
-        case 'param':   this.ex && this.ex.vane_set_param(m.id, m.value); break;
-        case 'cc':      this.ex && this.ex.vane_set_cc(m.cc, m.value); break;
-        case 'mono':    this.ex && this.ex.vane_set_mono(m.value ? 1 : 0); break;
-        default: break;
+      if (m.type === 'wasm') {
+        // No JUCE/WASI syscalls are used; satisfy any stray import with no-ops.
+        WebAssembly.instantiate(m.bytes, {
+          wasi_snapshot_preview1: new Proxy({}, { get: () => () => 0 }),
+        }).then(({ instance }) => {
+          this.ex = instance.exports;
+          this.ex.vane_init(sampleRate);
+          this.bufPtr = this.ex.vane_buffer();
+          for (const q of this.pending) this.dispatch(q);
+          this.pending = [];
+          this.port.postMessage({ type: 'ready' });
+        });
+        return;
       }
+      if (!this.ex) { this.pending.push(m); return; }
+      this.dispatch(m);
     };
+  }
+
+  dispatch(m) {
+    switch (m.type) {
+      case 'noteOn':  this.ex.vane_note_on(m.note, m.vel, m.channel); break;
+      case 'noteOff': this.ex.vane_note_off(m.note, m.channel); break;
+      case 'expr':    this.ex.vane_set_expr(m.channel, m.bend, m.slide, m.pressure); break;
+      case 'param':   this.ex.vane_set_param(m.id, m.value); break;
+      case 'cc':      this.ex.vane_set_cc(m.cc, m.value); break;
+      case 'mono':    this.ex.vane_set_mono(m.value ? 1 : 0); break;
+      default: break;
+    }
   }
 
   process(_inputs, outputs) {
