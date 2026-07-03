@@ -22,7 +22,7 @@ const BASE = new URL('.', import.meta.url).href; // dir of synth.js → worklet/
 // engine until they hard-reload — which silently made bug fixes look ineffective.
 // Bump this string on every wasm/worklet change (it rides the query so the URL
 // is unique per build but still cacheable between deploys).
-const ASSET_V = '2026-07-03d';
+const ASSET_V = '2026-07-03e';
 let ctx = null, node = null, midi = null, audioStarted = false;
 let activeNotes = 0;
 const expr = {}; // channel → { bend, slide, pressure }
