@@ -137,29 +137,45 @@ if (window.__vaneStandalone) {
   window.__vaneStandalone.onSend = handleSend;
 }
 
-async function startAudio() {
-  if (audioStarted) return;
-  audioStarted = true;
-  try {
-    ctx = new (window.AudioContext || window.webkitAudioContext)();
-    await ctx.audioWorklet.addModule(BASE + 'worklet.js');
-    node = new AudioWorkletNode(ctx, 'vane-voice', { numberOfInputs: 0, outputChannelCount: [2] });
-    node.connect(ctx.destination);
-    const bytes = await (await fetch(BASE + 'vane-dsp.wasm')).arrayBuffer();
-    node.port.postMessage({ type: 'wasm', bytes });
-    await ctx.resume();
-    // Sync the synth to whatever the patch already shows (default or loaded
-    // preset), so turning audio on doesn't silently revert to the voice's
-    // built-in defaults.
-    const patch = window.__vaneStandalone && window.__vaneStandalone.getPatch();
-    if (patch) for (const id in PARAM_MAP) if (patch[id] != null) sendParam(id, patch[id]);
-    if (window.__vaneStandalone) post({ type: 'mono', value: window.__vaneStandalone.getMono() });
-    sendTuningToSynth();
-    setStatus('audio ready · play your controller');
-  } catch (e) {
-    setStatus('audio error: ' + (e && e.message || e));
+// Idempotent: builds the context/worklet/wasm once, and RETRIES resume on every
+// call. Critical detail: a MIDI message is NOT a user gesture — if the first
+// call comes from a note-in, the browser leaves the AudioContext 'suspended'.
+// The old version latched a did-start flag and reported "audio ready" anyway,
+// so a page reload where MIDI arrived before any click stayed SILENT forever
+// (no later click could revive it). Now the status is honest, every user
+// gesture retries, and onstatechange keeps the label in sync.
+async function ensureAudio() {
+  if (!audioStarted) {
+    audioStarted = true;   // guards the one-time build only, not the resume
+    try {
+      ctx = new (window.AudioContext || window.webkitAudioContext)();
+      ctx.onstatechange = () => reportAudioState();
+      await ctx.audioWorklet.addModule(BASE + 'worklet.js');
+      node = new AudioWorkletNode(ctx, 'vane-voice', { numberOfInputs: 0, outputChannelCount: [2] });
+      node.connect(ctx.destination);
+      const bytes = await (await fetch(BASE + 'vane-dsp.wasm')).arrayBuffer();
+      node.port.postMessage({ type: 'wasm', bytes });
+      // Sync the synth to whatever the patch already shows (default or loaded
+      // preset), so turning audio on doesn't silently revert to the voice's
+      // built-in defaults.
+      const patch = window.__vaneStandalone && window.__vaneStandalone.getPatch();
+      if (patch) for (const id in PARAM_MAP) if (patch[id] != null) sendParam(id, patch[id]);
+      if (window.__vaneStandalone) post({ type: 'mono', value: window.__vaneStandalone.getMono() });
+      sendTuningToSynth();
+    } catch (e) {
+      setStatus('audio error: ' + (e && e.message || e));
+      return;
+    }
   }
+  if (ctx && ctx.state !== 'running') { try { await ctx.resume(); } catch {} }
+  reportAudioState();
 }
+function reportAudioState() {
+  if (!ctx) return;
+  setStatus(ctx.state === 'running' ? 'audio ready · play your controller'
+                                    : 'click/tap the page to enable audio');
+}
+const startAudio = ensureAudio;   // existing call sites keep working
 
 async function startMidi() {
   const res = await connect({ sysex: false }).catch((e) => ({ _err: e }));
@@ -269,12 +285,37 @@ function buildChrome() {
   }
 }
 
+// Hide Patch-tab controls the WASM voice doesn't implement (Transient sample
+// layer, Noise sources, Detune/Unison, Vowel/Wah formant filter — none are
+// wired into vane-dsp.cpp's PARAM_MAP or mod-matrix destinations, so leaving
+// them visible/adjustable would silently do nothing and mislead the player).
+// CSS-scoped rather than removed from the DOM: index.html is shared with the
+// plugin, where these ARE real and must render exactly as before — the
+// standalone-limited class only exists here, added at boot, never in HAS_JUCE.
+// !important beats the [data-standalone-hide] wrapper's own inline
+// `display:contents` (needed there so the plugin's Oscillator grid layout is
+// unaffected by the wrapper elements existing at all).
+function hideUnimplementedControls() {
+  const style = document.createElement('style');
+  style.textContent = `
+    body.standalone-limited [data-standalone-hide] { display: none !important; }
+  `;
+  document.head.appendChild(style);
+  document.body.classList.add('standalone-limited');
+}
+
 function boot() {
   buildChrome();
+  hideUnimplementedControls();
   startMidi();
   pushTuningStatus();   // chip shows the internal tuning, not an MTS warning
   pushSlotState();      // Matrix tab shows the factory routing actually sounding
-  const gesture = () => { startAudio(); window.removeEventListener('pointerdown', gesture); window.removeEventListener('keydown', gesture); };
+  // Deliberately NOT self-removing: ensureAudio() is idempotent and a no-op
+  // once running, but if the first gesture's resume() doesn't stick (e.g. the
+  // browser eats it for some unrelated reason), a stale one-shot listener would
+  // leave the user stuck with no way to retry. Every future click/keypress is
+  // a fresh legitimate user gesture, so just let them all try.
+  const gesture = () => { startAudio(); };
   window.addEventListener('pointerdown', gesture);
   window.addEventListener('keydown', gesture);
 }

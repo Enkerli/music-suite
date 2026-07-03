@@ -1076,23 +1076,25 @@ function renderPatch(){
       ${pslider('Morph','Morph','--vn-slide')}${pslider('PW','Pulse Width','--vn-slide')}
       ${pslider('Fold','Wavefold','--vn-slide')}${pslider('Inharm','Inharmonicity','--vn-slide')}
       ${pslider('Sync','Sync (transpose)','--vn-slide')}
-      ${pslider('Noise','Noise','--vn-slide')}
-      <div class="pslider"><div class="top"><span class="lbl">Noise Type</span></div>
-        <div class="seg">${["White","Pink","Brown"].map((n,i)=>`<button class="${state.patch.NoiseType===i?'active':''}" onclick="setChoice('NoiseType',${i})">${n}</button>`).join('')}</div></div>
-      ${pslider('Detune','Detune','--vn-slide')}
-      <div class="pslider" style="grid-column:1/-1"><div class="top"><span class="lbl">Unison</span></div>
-        <div class="seg">${["1","2","3","4","6"].map((n,i)=>`<button class="${Math.round(state.patch.UniVox)===i?'active':''}" onclick="setChoice('UniVox',${i})">${n}</button>`).join('')}</div></div>
-      <div class="pslider" style="grid-column:1/-1"><div class="top"><span class="lbl">Voice Mode</span></div>
-        <div class="seg">${["Detune","Chord"].map((n,i)=>`<button class="${Math.round(state.patch.UniMode)===i?'active':''}" onclick="setChoice('UniMode',${i})">${n}</button>`).join('')}</div></div>
-      ${Math.round(state.patch.UniMode)===1 ? chordSeqEditorHTML() : pslider('UniDet','Uni Detune','--vn-slide')}
-      ${pslider('UniWid','Uni Width','--vn-slide')}
+      <div data-standalone-hide="1" style="display:contents">
+        ${pslider('Noise','Noise','--vn-slide')}
+        <div class="pslider"><div class="top"><span class="lbl">Noise Type</span></div>
+          <div class="seg">${["White","Pink","Brown"].map((n,i)=>`<button class="${state.patch.NoiseType===i?'active':''}" onclick="setChoice('NoiseType',${i})">${n}</button>`).join('')}</div></div>
+        ${pslider('Detune','Detune','--vn-slide')}
+        <div class="pslider" style="grid-column:1/-1"><div class="top"><span class="lbl">Unison</span></div>
+          <div class="seg">${["1","2","3","4","6"].map((n,i)=>`<button class="${Math.round(state.patch.UniVox)===i?'active':''}" onclick="setChoice('UniVox',${i})">${n}</button>`).join('')}</div></div>
+        <div class="pslider" style="grid-column:1/-1"><div class="top"><span class="lbl">Voice Mode</span></div>
+          <div class="seg">${["Detune","Chord"].map((n,i)=>`<button class="${Math.round(state.patch.UniMode)===i?'active':''}" onclick="setChoice('UniMode',${i})">${n}</button>`).join('')}</div></div>
+        ${Math.round(state.patch.UniMode)===1 ? chordSeqEditorHTML() : pslider('UniDet','Uni Detune','--vn-slide')}
+        ${pslider('UniWid','Uni Width','--vn-slide')}
+      </div>
     </div>
     <div class="group ${collapsed['Filter']?'collapsed':''}" data-grp="Filter">${gh('Filter')}
       ${pslider('Cutoff','Cutoff','--vn-breath')}${pslider('Reso','Resonance','--vn-breath')}
       <div class="pslider"><div class="top"><span class="lbl">Mode</span></div>
         <div class="seg">${["LP","BP","HP"].map((n,i)=>`<button class="${state.patch.Mode===i?'active':''}" onclick="setChoice('Mode',${i})">${n}</button>`).join('')}</div></div>
     </div>
-    <div class="group ${collapsed['Vowel']?'collapsed':''}" data-grp="Vowel">${gh('Vowel')}
+    <div class="group ${collapsed['Vowel']?'collapsed':''}" data-grp="Vowel" data-standalone-hide="1">${gh('Vowel')}
       <div class="pslider" style="grid-column:1/-1"><div class="top"><span class="lbl">Formant Filter</span></div>
         <div class="seg">${["Off","On"].map((n,i)=>`<button class="${Math.round(state.patch.VowelEn)===i?'active':''}" onclick="setChoice('VowelEn',${i})">${n}</button>`).join('')}</div></div>
       <div class="pslider" style="grid-column:1/-1"><div class="top"><span class="lbl">Mode</span></div>
@@ -1116,7 +1118,7 @@ function renderPatch(){
       </div>
       ${Math.round(state.patch.GlideCurve)===3?glideEditorHTML():''}
     </div>
-    <div class="group ${collapsed['Transient']?'collapsed':''}" data-grp="Transient">${gh('Transient')}
+    <div class="group ${collapsed['Transient']?'collapsed':''}" data-grp="Transient" data-standalone-hide="1">${gh('Transient')}
       <div class="pslider" style="grid-column:1/-1"><div class="top"><span class="lbl">Sample</span>
           <span class="val num">${(state.transients||['None'])[Math.round(state.patch.TrChoice)]||'None'}</span></div>
         <div class="seg" style="flex-wrap:wrap">${(state.transients||['None']).map((n,i)=>`<button class="${Math.round(state.patch.TrChoice)===i?'active':''}" onclick="trChoice(${i})">${n}</button>`).join('')}</div>
