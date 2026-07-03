@@ -16,6 +16,13 @@
 import { connect } from '@enkerli/webmidi';
 
 const BASE = new URL('.', import.meta.url).href; // dir of synth.js → worklet/wasm URLs
+// Cache-buster for the two binary assets the browser caches most aggressively
+// (the worklet module and the wasm voice). GitHub Pages serves .wasm with a long
+// cache lifetime, so without this a redeploy leaves players running the OLD
+// engine until they hard-reload — which silently made bug fixes look ineffective.
+// Bump this string on every wasm/worklet change (it rides the query so the URL
+// is unique per build but still cacheable between deploys).
+const ASSET_V = '2026-07-03d';
 let ctx = null, node = null, midi = null, audioStarted = false;
 let activeNotes = 0;
 const expr = {}; // channel → { bend, slide, pressure }
@@ -150,10 +157,10 @@ async function ensureAudio() {
     try {
       ctx = new (window.AudioContext || window.webkitAudioContext)();
       ctx.onstatechange = () => reportAudioState();
-      await ctx.audioWorklet.addModule(BASE + 'worklet.js');
+      await ctx.audioWorklet.addModule(BASE + 'worklet.js?v=' + ASSET_V);
       node = new AudioWorkletNode(ctx, 'vane-voice', { numberOfInputs: 0, outputChannelCount: [2] });
       node.connect(ctx.destination);
-      const bytes = await (await fetch(BASE + 'vane-dsp.wasm')).arrayBuffer();
+      const bytes = await (await fetch(BASE + 'vane-dsp.wasm?v=' + ASSET_V, { cache: 'reload' })).arrayBuffer();
       node.port.postMessage({ type: 'wasm', bytes });
       // Sync the synth to whatever the patch already shows (default or loaded
       // preset), so turning audio on doesn't silently revert to the voice's
