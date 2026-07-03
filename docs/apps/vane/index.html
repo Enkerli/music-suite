@@ -1677,10 +1677,35 @@ let PRESETS=[
   {name:"Touch Whisper",tags:["mpe","soft","noise"],ctrl:"Sensel Morph",scale:"Just",fav:false},
 ];
 const TAGC={breath:"--vn-breath",expr:"--vn-expr",mpe:"--vn-pressure",bend:"--vn-bend",slide:"--vn-slide"};
+// Standalone-only persistence (no JUCE PresetManager here — this webapp has no
+// disk access other than localStorage). Only presets saved FROM this build get
+// a `.data` snapshot (patch + matrix slots + tuning + mono) and are the only
+// ones that actually restore anything on load; the six factory demo rows above
+// are browsing placeholders and were never wired to presetLoad standalone.
+const STANDALONE_PRESETS_KEY='vane-standalone-presets-v1';
+function persistStandalonePresets(){
+  if(HAS_JUCE) return;
+  try{ localStorage.setItem(STANDALONE_PRESETS_KEY, JSON.stringify(PRESETS.filter(p=>p.standalone))); }catch{}
+}
+function snapshotStandalonePatch(){
+  return { patch:{...state.patch}, slots:state.slots.map(s=>({...s})),
+           tuningSource:tuningState.source, tuningInternal:tuningState.internal, mono };
+}
+function loadStandalonePresetData(data){
+  if(!data) return;
+  if(data.patch) for(const k in data.patch){ state.patch[k]=data.patch[k]; Bridge.send('setParam',{id:k,value:data.patch[k]}); }
+  if(Array.isArray(data.slots)) data.slots.forEach((s,i)=>{ if(state.slots[i]){ Object.assign(state.slots[i],s); pushSlot(i); } });
+  if(data.tuningSource){ tuningState.source=data.tuningSource; Bridge.send('setTuningSource',{source:data.tuningSource}); }
+  if(data.tuningInternal){ tuningState.internal=data.tuningInternal; Bridge.send('setInternalTuning',{id:data.tuningInternal}); }
+  if(typeof data.mono==='boolean' && data.mono!==mono) toggleMono();
+  if(view==='tuning') paintStageTuning();
+  render();
+}
 let selPreset=0, pQuery='', pFilter={type:null,value:null};
 const Preset={ step(d){ selPreset=(selPreset+d+PRESETS.length)%PRESETS.length;
   $('#presetName').textContent=PRESETS[selPreset].name; state.dirty=false; $('#unsaved').classList.remove('on');
-  if(tab==='presets')renderPresets(); Bridge.send('presetLoad',{id:selPreset}); } };
+  if(tab==='presets')renderPresets(); Bridge.send('presetLoad',{id:selPreset});
+  if(!HAS_JUCE) loadStandalonePresetData(PRESETS[selPreset].data); } };
 function pmatch(p){
   if(pQuery && !(p.name+' '+p.tags.join(' ')).toLowerCase().includes(pQuery.toLowerCase())) return false;
   if(pFilter.type==='ctrl' && p.ctrl!==pFilter.value) return false;
@@ -1725,8 +1750,9 @@ function renderPresets(){
     <div class="preset-list">${listHtml}</div>
   </div>`;
 }
-function pickPreset(i){ selPreset=i; $('#presetName').textContent=PRESETS[i].name; state.dirty=false; $('#unsaved').classList.remove('on'); Bridge.send('presetLoad',{id:i}); renderPresets(); }
-function toggleFav(i){ PRESETS[i].fav=!PRESETS[i].fav; renderPresets(); }
+function pickPreset(i){ selPreset=i; $('#presetName').textContent=PRESETS[i].name; state.dirty=false; $('#unsaved').classList.remove('on'); Bridge.send('presetLoad',{id:i}); renderPresets();
+  if(!HAS_JUCE) loadStandalonePresetData(PRESETS[i].data); }
+function toggleFav(i){ PRESETS[i].fav=!PRESETS[i].fav; renderPresets(); persistStandalonePresets(); }
 let openMenu=null;
 function toggleMenu(i,el){ const m=$('#menu_'+i); const willOpen=!m.classList.contains('open');
   document.querySelectorAll('.menu.open').forEach(x=>x.classList.remove('open'));
@@ -1756,10 +1782,14 @@ function commitSave(){ const v=$('#spInp').value.trim(); if(!v){ $('#spInp').foc
   Bridge.send('presetSave',{name:v});
   state.dirty=false; $('#unsaved').classList.remove('on'); $('#presetName').textContent=v;
   closeModal();
-  if(!HAS_JUCE){ PRESETS.push({name:v,tags:[],ctrl:'',scale:'',fav:false}); selPreset=PRESETS.length-1; renderPresets(); }
+  if(!HAS_JUCE){
+    PRESETS.push({name:v,tags:[],ctrl:'',scale:'',fav:false,standalone:true,data:snapshotStandalonePatch()});
+    selPreset=PRESETS.length-1; renderPresets(); persistStandalonePresets();
+  }
   // With the plugin, presetSave triggers a presetList push that refreshes the browser.
 }
-function duplicatePreset(i){ const c={...PRESETS[i],name:PRESETS[i].name+' copy',fav:false,tags:[...PRESETS[i].tags]}; PRESETS.splice(i+1,0,c); renderPresets(); }
+function duplicatePreset(i){ const c={...PRESETS[i],name:PRESETS[i].name+' copy',fav:false,tags:[...PRESETS[i].tags],
+  data:PRESETS[i].data?JSON.parse(JSON.stringify(PRESETS[i].data)):undefined}; PRESETS.splice(i+1,0,c); renderPresets(); persistStandalonePresets(); }
 // W5: delete optimistically in the UI but DEFER the real (irreversible) delete to
 // the engine until the undo toast expires, so "Undo" is a true cancel.
 let _pendingDelete=null;
@@ -1769,12 +1799,12 @@ function deletePreset(i){
   const removed=PRESETS[i], id=i; PRESETS.splice(i,1);
   if(PRESETS.length===0){ $('#presetName').textContent='—'; }
   else { selPreset=Math.min(selPreset,PRESETS.length-1); $('#presetName').textContent=PRESETS[selPreset].name; }
-  renderPresets();
+  renderPresets(); persistStandalonePresets();
   const timer=setTimeout(()=>{ if(_pendingDelete){ _pendingDelete=null; Bridge.send('presetDelete',{id}); } }, 5000);
   _pendingDelete={ id, timer };
   showToast('Deleted "'+removed.name+'"','Undo',()=>{
     if(_pendingDelete){ clearTimeout(_pendingDelete.timer); _pendingDelete=null;
-      PRESETS.splice(id,0,removed); selPreset=id; $('#presetName').textContent=removed.name; renderPresets(); }
+      PRESETS.splice(id,0,removed); selPreset=id; $('#presetName').textContent=removed.name; renderPresets(); persistStandalonePresets(); }
   });
 }
 
@@ -1787,7 +1817,7 @@ function renamePreset(i){
     <div class="actions"><button class="btn" onclick="closeModal()">Cancel</button><button class="btn primary" onclick="commitRename(${i})">Save</button></div>`);
   setTimeout(()=>{const e=$('#rnInp');e.focus();e.select();e.onkeydown=ev=>{if(ev.key==='Enter')commitRename(i);};},30);
 }
-function commitRename(i){ const v=$('#rnInp').value.trim(); if(v){PRESETS[i].name=v; if(i===selPreset)$('#presetName').textContent=v;} closeModal(); renderPresets(); }
+function commitRename(i){ const v=$('#rnInp').value.trim(); if(v){PRESETS[i].name=v; if(i===selPreset)$('#presetName').textContent=v; persistStandalonePresets();} closeModal(); renderPresets(); }
 function importExport(){
   // Exports the CURRENT patch (full parameter state, not just the name) as
   // portable text; Import applies a pasted patch. Driven by the real plugin
@@ -2374,6 +2404,10 @@ state.sim = !HAS_JUCE;                 // live data from the plugin when embedde
 // performance. With sim off the meters sit idle until a note/expression arrives.
 if (!HAS_JUCE) {
   state.sim = false;
+  try {
+    const saved = JSON.parse(localStorage.getItem(STANDALONE_PRESETS_KEY) || '[]');
+    if (Array.isArray(saved) && saved.length) PRESETS.push(...saved);
+  } catch {}
   window.__vaneStandalone = {
     setMeters(m){ Object.assign(state.meters, m); tickMeters(); },
     getPatch(){ return state.patch; },   // current values, so synth-main.js can sync at boot
