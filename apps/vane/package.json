@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "mkdir -p dist && npx esbuild synth-main.js --bundle --conditions=source --format=esm --minify --outfile=dist/synth.js && npx esbuild synth/worklet.js --bundle --format=iife --minify --outfile=dist/worklet.js && cp index.html dist/index.html && cp synth/vane-dsp.wasm dist/vane-dsp.wasm"
+    "build": "mkdir -p dist && BUILD_ID=$(date -u +%Y-%m-%d.%H%MZ) && npx esbuild synth-main.js --bundle --conditions=source --format=esm --minify --outfile=dist/synth.js && npx esbuild synth/worklet.js --bundle --format=iife --minify --outfile=dist/worklet.js && sed \"s/__BUILD_ID__/$BUILD_ID/g\" index.html > dist/index.html && cp synth/vane-dsp.wasm dist/vane-dsp.wasm && echo \"vane build $BUILD_ID\""
   },
   "dependencies": {
     "@enkerli/webmidi": "*"

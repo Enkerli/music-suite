@@ -16,13 +16,13 @@
 import { connect } from '@enkerli/webmidi';
 
 const BASE = new URL('.', import.meta.url).href; // dir of synth.js → worklet/wasm URLs
-// Cache-buster for the two binary assets the browser caches most aggressively
-// (the worklet module and the wasm voice). GitHub Pages serves .wasm with a long
-// cache lifetime, so without this a redeploy leaves players running the OLD
-// engine until they hard-reload — which silently made bug fixes look ineffective.
-// Bump this string on every wasm/worklet change (it rides the query so the URL
-// is unique per build but still cacheable between deploys).
-const ASSET_V = '2026-07-03e';
+// Build id, injected into index.html at build time (window.__VANE_BUILD__) and
+// used to cache-bust the worklet + wasm (the browser caches them aggressively).
+// synth.js ITSELF is cache-busted by the ?v= on its own <script src> in
+// index.html, so a redeploy can't leave a player on a stale engine. 'dev' when
+// running an unbuilt source tree (the placeholder wasn't replaced).
+const ASSET_V = (typeof window !== 'undefined' && window.__VANE_BUILD__ && window.__VANE_BUILD__ !== '__BUILD_ID__')
+  ? window.__VANE_BUILD__ : 'dev';
 let ctx = null, node = null, midi = null, audioStarted = false;
 let activeNotes = 0;
 const expr = {}; // channel → { bend, slide, pressure }
@@ -278,16 +278,26 @@ function buildChrome() {
   velCheckbox.onchange = () => post({ type: 'param', id: 11, value: velCheckbox.checked ? 1 : 0 });
   velChip.append(velCheckbox, velLabel);
 
+  // Build-id chip — this is a prototype and it's been too easy to test a stale
+  // cached build without knowing. Shows exactly which build is running (the
+  // timestamp injected at build time), so "am I current?" is answerable at a
+  // glance, no DevTools. 'dev' = unbuilt source.
+  const buildChip = document.createElement('span');
+  buildChip.title = 'Running build id (cache-bust tag). If this is not the latest, hard-reload.';
+  buildChip.textContent = 'build ' + ASSET_V;
+  buildChip.style.cssText = 'opacity:.5;font-size:10px;font-variant-numeric:tabular-nums;letter-spacing:.02em';
+
   const header = document.querySelector('.header');
   if (header) {
     chip.className = 'chip'; chip.style.cursor = 'default';                 // reuse the page's chip styling
     velChip.className = 'chip';
-    header.append(chip, velChip);
+    buildChip.className = 'chip';
+    header.append(chip, velChip, buildChip);
   } else {                                   // defensive fallback — bottom corner, out of the way
     const bar = document.createElement('div');
     bar.style.cssText = 'position:fixed;bottom:8px;right:8px;z-index:9999;display:flex;gap:8px;align-items:center;' +
       'font:11px/1.4 system-ui;background:rgba(20,18,16,.85);color:#e8e2d6;padding:6px 10px;border-radius:8px';
-    bar.append(chip, velChip);
+    bar.append(chip, velChip, buildChip);
     document.body.appendChild(bar);
   }
 }
