@@ -1094,7 +1094,7 @@ function renderPatch(){
       <div class="pslider"><div class="top"><span class="lbl">Mode</span></div>
         <div class="seg">${["LP","BP","HP"].map((n,i)=>`<button class="${state.patch.Mode===i?'active':''}" onclick="setChoice('Mode',${i})">${n}</button>`).join('')}</div></div>
     </div>
-    <div class="group ${collapsed['Vowel']?'collapsed':''}" data-grp="Vowel" data-standalone-hide="1">${gh('Vowel')}
+    <div class="group ${collapsed['Vowel']?'collapsed':''}" data-grp="Vowel">${gh('Vowel')}
       <div class="pslider" style="grid-column:1/-1"><div class="top"><span class="lbl">Formant Filter</span></div>
         <div class="seg">${["Off","On"].map((n,i)=>`<button class="${Math.round(state.patch.VowelEn)===i?'active':''}" onclick="setChoice('VowelEn',${i})">${n}</button>`).join('')}</div></div>
       <div class="pslider" style="grid-column:1/-1"><div class="top"><span class="lbl">Mode</span></div>
@@ -2487,14 +2487,14 @@ setInterval(()=>{
      AudioWorklet, driven by Web MIDI). In the plugin (__JUCE__ present) this is
      skipped — the C++ engine makes the sound and synth.js is never requested. -->
 <script>
-  // Build id injected by the app build (sed-replaces 2026-07-04.0417Z); stays literal
+  // Build id injected by the app build (sed-replaces 2026-07-04.1324Z); stays literal
   // in the plugin (which never loads synth.js). Used to cache-bust synth.js
   // ITSELF (the browser caches it aggressively, and the wasm/worklet cache-bust
   // lives inside it — chicken-and-egg) and shown in the standalone GUI.
-  window.__VANE_BUILD__ = '2026-07-04.0417Z';
+  window.__VANE_BUILD__ = '2026-07-04.1324Z';
   if (typeof window.__JUCE__ === 'undefined') {
     var s = document.createElement('script');
-    s.type = 'module'; s.src = 'synth.js?v=2026-07-04.0417Z';
+    s.type = 'module'; s.src = 'synth.js?v=2026-07-04.1324Z';
     document.head.appendChild(s);
   }
 </script>
