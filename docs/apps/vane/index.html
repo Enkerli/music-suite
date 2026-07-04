@@ -2487,14 +2487,14 @@ setInterval(()=>{
      AudioWorklet, driven by Web MIDI). In the plugin (__JUCE__ present) this is
      skipped — the C++ engine makes the sound and synth.js is never requested. -->
 <script>
-  // Build id injected by the app build (sed-replaces 2026-07-03.2359Z); stays literal
+  // Build id injected by the app build (sed-replaces 2026-07-04.0309Z); stays literal
   // in the plugin (which never loads synth.js). Used to cache-bust synth.js
   // ITSELF (the browser caches it aggressively, and the wasm/worklet cache-bust
   // lives inside it — chicken-and-egg) and shown in the standalone GUI.
-  window.__VANE_BUILD__ = '2026-07-03.2359Z';
+  window.__VANE_BUILD__ = '2026-07-04.0309Z';
   if (typeof window.__JUCE__ === 'undefined') {
     var s = document.createElement('script');
-    s.type = 'module'; s.src = 'synth.js?v=2026-07-03.2359Z';
+    s.type = 'module'; s.src = 'synth.js?v=2026-07-04.0309Z';
     document.head.appendChild(s);
   }
 </script>
