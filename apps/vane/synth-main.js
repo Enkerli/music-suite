@@ -27,6 +27,28 @@ let ctx = null, node = null, midi = null, audioStarted = false;
 let activeNotes = 0;
 const expr = {}; // channel → { bend, slide, pressure }
 
+// ── MIDI capture (proto diagnostics) ────────────────────────────────────────
+// Ring buffer of recent raw MIDI, so the exact controller stream at a note
+// transition (pressure values + timing per channel) can be exported and
+// compared against the JUCE plugin — instead of guessing what a controller
+// sends. The "⧉ MIDI" chip copies the last few seconds to the clipboard.
+const midiLog = [];
+let midiT0 = 0;
+function logMidi(kind, ch, a, b) {
+  const now = performance.now();
+  if (!midiT0) midiT0 = now;
+  midiLog.push({ t: +(now - midiT0).toFixed(1), kind, ch, a, b });
+  if (midiLog.length > 4000) midiLog.shift();
+}
+async function copyMidiLog() {
+  const recent = midiLog.filter((e) => e.t >= (midiLog.length ? midiLog[midiLog.length - 1].t - 6000 : 0));
+  const text = 'vane MIDI log (last ~6s, t in ms)\n' +
+    recent.map((e) => `${e.t}\t${e.kind}\tch${e.ch}\t${e.a}${e.b != null ? '\t' + e.b : ''}`).join('\n');
+  try { await navigator.clipboard.writeText(text); } catch {}
+  console.log(text);
+  return recent.length;
+}
+
 // Vane param id (index.html RANGE keys) → this voice's wasm param id. Values
 // arrive already in real units (Hz, 0..1, ms, …) — same units the page itself
 // uses — so no conversion needed; a param with different units than the wasm
@@ -191,6 +213,7 @@ async function startMidi() {
   refreshDevices();   // picks the remembered device (by name) and BINDS it
   midi.onNoteIn((e) => {
     startAudio();                       // first note also satisfies the gesture
+    logMidi(e.on ? 'noteOn' : 'noteOff', e.channel, e.note, e.on ? e.velocity : undefined);
     post({ type: e.on ? 'noteOn' : 'noteOff', note: e.note, vel: e.velocity, channel: e.channel });
     // Velocity is real (the meter shows it), but it is NOT Breath — Vane's
     // amp envelope is driven by the actual CC2/CC11/pressure controllers below,
@@ -199,6 +222,7 @@ async function startMidi() {
     else if (--activeNotes <= 0) { activeNotes = 0; pushMeters({ Velocity: 0, Pressure: 0, Slide: 0, Pitchbend: 0.5 }); }
   });
   midi.onControlChange((e) => {
+    if (e.controller === 74 || e.controller === 2 || e.controller === 11) logMidi('cc' + e.controller, e.channel, e.value);
     if (e.controller === 74) { (expr[e.channel] = expr[e.channel] || {}).slide = e.value / 127; sendExpr(e.channel); }
     // Breath (CC2) / Expression (CC11) — Vane's default macro bindings
     // (index.html's state.cc) and, by factory routing, the REAL dynamic
@@ -208,7 +232,7 @@ async function startMidi() {
     else if (e.controller === 11) { post({ type: 'cc', cc: 11, value: e.value / 127 }); pushMeters({ Expression: e.value / 127 }); }
   });
   midi.onPitchBend((e) => { (expr[e.channel] = expr[e.channel] || {}).bend = e.value; sendExpr(e.channel); });
-  midi.onChannelPressure((e) => { (expr[e.channel] = expr[e.channel] || {}).pressure = e.value; sendExpr(e.channel); });
+  midi.onChannelPressure((e) => { logMidi('press', e.channel, +e.value.toFixed(3)); (expr[e.channel] = expr[e.channel] || {}).pressure = e.value; sendExpr(e.channel); });
   midi.onPortsChanged(refreshDevices);
 }
 
@@ -287,17 +311,27 @@ function buildChrome() {
   buildChip.textContent = 'build ' + ASSET_V;
   buildChip.style.cssText = 'opacity:.5;font-size:10px;font-variant-numeric:tabular-nums;letter-spacing:.02em';
 
+  // Copy the recent raw MIDI stream (pressure/notes + timing) to the clipboard,
+  // so the exact controller behaviour at a note transition can be shared and
+  // compared against the JUCE plugin.
+  const midiBtn = document.createElement('span');
+  midiBtn.textContent = '⧉ MIDI';
+  midiBtn.title = 'Copy the last ~6s of raw MIDI (notes + pressure + timing) to the clipboard';
+  midiBtn.style.cssText = 'opacity:.55;font-size:10px;cursor:pointer;text-transform:uppercase;letter-spacing:.04em';
+  midiBtn.onclick = async () => { const n = await copyMidiLog(); const o = midiBtn.textContent; midiBtn.textContent = 'copied ' + n; setTimeout(() => { midiBtn.textContent = o; }, 1400); };
+
   const header = document.querySelector('.header');
   if (header) {
     chip.className = 'chip'; chip.style.cursor = 'default';                 // reuse the page's chip styling
     velChip.className = 'chip';
     buildChip.className = 'chip';
-    header.append(chip, velChip, buildChip);
+    midiBtn.className = 'chip';
+    header.append(chip, velChip, midiBtn, buildChip);
   } else {                                   // defensive fallback — bottom corner, out of the way
     const bar = document.createElement('div');
     bar.style.cssText = 'position:fixed;bottom:8px;right:8px;z-index:9999;display:flex;gap:8px;align-items:center;' +
       'font:11px/1.4 system-ui;background:rgba(20,18,16,.85);color:#e8e2d6;padding:6px 10px;border-radius:8px';
-    bar.append(chip, velChip, buildChip);
+    bar.append(chip, velChip, midiBtn, buildChip);
     document.body.appendChild(bar);
   }
 }
