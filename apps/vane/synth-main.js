@@ -55,7 +55,7 @@ async function copyMidiLog() {
 // expects would need a mapping function here. monoMode is handled separately
 // below (it's a 0/1 toggle, not a RANGE-table slider).
 const PARAM_MAP = { Cutoff: 1, Reso: 2, Output: 8, VelVCA: 9, Glide: 10,
-                    Morph: 12, PW: 13, Inharm: 14, Sync: 15 };
+                    Morph: 12, PW: 13, Inharm: 14, Sync: 15, Mode: 16, Fold: 17 };
 
 function post(m) { if (node) node.port.postMessage(m); }
 
