@@ -1,0 +1,25 @@
+{
+  "name": "@enkerli/protocol",
+  "version": "0.1.0",
+  "description": "The suite's SysEx-JSON message protocol: versioned envelope, 7-bit codec, chunking — web↔web over IAC, web↔plugin over host MIDI routing",
+  "type": "module",
+  "license": "CC0-1.0",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./vectors/*": "./vectors/*"
+  },
+  "files": ["dist", "vectors"],
+  "scripts": {
+    "build": "tsc -b",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@enkerli/library": "*"
+  }
+}

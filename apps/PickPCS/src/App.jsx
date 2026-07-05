@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from "react";
+import { pushScale } from "./scale-push.js";
 // Theory logic now comes from the suite's shared core (@enkerli/theory).
 // The previous self-contained implementation is preserved unchanged in
 // ./App.local.jsx until the migration is finalized.
@@ -92,6 +93,7 @@ export default function App() {
   const [selectedRingKey, setSelectedRingKey] = useState(null);
   const [selectedDegree, setSelectedDegree] = useState(null);
   const [pulse, setPulse] = useState(false);
+  const [pushStatus, setPushStatus] = useState("");
 
   const selectedScaleOrdered = useMemo(() => scaleFamily(selectedK, selectedRootPc), [selectedK, selectedRootPc]);
   const selectedScaleSet = useMemo(() => new Set(selectedScaleOrdered), [selectedScaleOrdered]);
@@ -159,9 +161,32 @@ export default function App() {
     });
   }, [selectedScaleSet, subsetSet]);
 
+  async function handlePushScale() {
+    // The suite scale message: mask is pcsToBitmask (leftmost = LSB — one
+    // convention, everywhere), root is the selected root pc.
+    const name = `${NOTE_NAMES_FIFTHS[chromaticToFifthsIndex(selectedRootPc)]} · ${selectedK}-note`;
+    setPushStatus("…");
+    const r = await pushScale({ mask: pcsToBitmask(selectedScaleOrdered), root: selectedRootPc, name });
+    setPushStatus(r.ok ? `sent ${r.detail}` : r.detail);
+    window.setTimeout(() => setPushStatus(""), 4000);
+  }
+
   return (
     <div style={{ minHeight: "100vh", background: "var(--es-bg)", padding: 16, fontFamily: "var(--es-font-sans)", color: "var(--es-fg)" }}>
       <div style={{ maxWidth: 1100, margin: "0 auto", background: "var(--es-bg-raised)", border: "1px solid var(--es-border)", borderRadius: 28, padding: 12, boxShadow: "0 1px 3px rgba(0,0,0,0.05)" }}>
+        {mode === "system" && (
+          <div style={{ display: "flex", gap: 10, alignItems: "center", padding: "2px 8px 10px" }}>
+            <button
+              onClick={handlePushScale}
+              title="Send this scale to other suite apps over MIDI (SysEx) — e.g. PitchFold picks it up as its active scale. Route through an IAC bus."
+              style={{ font: "inherit", fontSize: 13, padding: "6px 14px", borderRadius: 999,
+                       border: "1px solid var(--es-border)", background: "var(--es-bg)",
+                       color: "var(--es-fg)", cursor: "pointer" }}>
+              Push scale ⇢
+            </button>
+            {pushStatus && <span style={{ fontSize: 12, color: "var(--es-fg-muted)" }}>{pushStatus}</span>}
+          </div>
+        )}
         <div style={{ borderRadius: 24, overflow: "hidden", background: "radial-gradient(circle at center, var(--es-bg-raised), var(--es-bg-sunken))" }}>
           <svg viewBox="0 0 840 840" style={{ width: "100%", height: "auto", display: "block" }}>
             <circle cx={cx} cy={cy} r={376} fill="none" stroke="rgba(148,163,184,0.25)" strokeWidth="1.5" />

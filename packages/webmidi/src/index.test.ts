@@ -66,6 +66,8 @@ class FakeOutput implements OutputLike {
   sendNoteOff(n: number, o?: unknown): void { this.sent.push(["off", n, o]); }
   sendControlChange(c: number, v: number, o?: unknown): void { this.sent.push(["cc", c, { v, ...(o as object) }]); }
   sendAllNotesOff(o?: unknown): void { this.sent.push(["panic", 0, o]); }
+  raw: number[][] = [];
+  send(message: number[] | Uint8Array): void { this.raw.push([...message]); }
 }
 class FakeWebMidi implements WebMidiLike {
   enabled = true;
@@ -106,6 +108,28 @@ describe("SuiteMidi", () => {
     inB.emit("clock", {});
     expect(cb).toHaveBeenCalledTimes(1);
     expect(inA.listeners.get("clock")?.size ?? 0).toBe(0); // detached from A
+  });
+
+  it("delivers raw SysEx frames to onSysEx as Uint8Array", () => {
+    const inA = new FakeInput("a", "IAC");
+    const midi = new SuiteMidi(new FakeWebMidi([inA], []));
+    midi.selectInput("a");
+    const cb = vi.fn();
+    midi.onSysEx(cb);
+    const frame = [0xf0, 0x7d, 0x45, 0x4b, 0x01, 0xf7];
+    inA.emit("sysex", { message: { data: frame } });      // WEBMIDI.js shape
+    inA.emit("sysex", { data: Uint8Array.from(frame) });  // fallback shape
+    expect(cb).toHaveBeenCalledTimes(2);
+    expect([...cb.mock.calls[0]![0]]).toEqual(frame);
+    expect(cb.mock.calls[1]![0]).toBeInstanceOf(Uint8Array);
+  });
+
+  it("sends a complete SysEx frame as raw bytes", () => {
+    const out = new FakeOutput("o", "IAC");
+    const midi = new SuiteMidi(new FakeWebMidi([], [out]));
+    midi.selectOutput("IAC");
+    midi.sendSysEx(Uint8Array.from([0xf0, 0x7d, 0x45, 0x4b, 0x01, 0xf7]));
+    expect(out.raw).toEqual([[0xf0, 0x7d, 0x45, 0x4b, 0x01, 0xf7]]);
   });
 
   it("sends note-on to the selected output", () => {

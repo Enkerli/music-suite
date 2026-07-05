@@ -57,6 +57,7 @@ function PitchFoldApp() {
   const [midiInId,  setMidiInId]  = React.useState('');
   const [midiOutId, setMidiOutId] = React.useState('');
   const [midiErr,   setMidiErr]   = React.useState('');
+  const [scaleFlash, setScaleFlash] = React.useState('');   // "scale received" notice
 
   const liveRef    = React.useRef(state); liveRef.current = state;
   const outIdRef   = React.useRef(midiOutId); outIdRef.current = midiOutId;
@@ -102,6 +103,17 @@ function PitchFoldApp() {
     startWebMidi({
       onDevices: p => { if (!cancelled) setMidiPorts(p); },
       onNote: e => handleNote(e),
+      // Suite protocol (@enkerli/protocol over SysEx): another suite app —
+      // canonically PickPCS — pushes a scale; it lands on the SAME path the
+      // scale editor uses, so the engine, pads context, and JUCE param (when
+      // bridged) all follow.
+      onScale: (body, from) => {
+        if (cancelled) return;
+        send('pcsMask', body.mask & 0xFFF);
+        if (Number.isInteger(body.root)) send('pcsRoot', body.root);
+        setScaleFlash(`↧ ${body.name || 'scale'} · from ${from}`);
+        window.setTimeout(() => setScaleFlash(''), 4000);
+      },
     }).then(res => {
       if (cancelled) return;
       if (res.ok) { setMidiPorts(res.ports); setMidiErr(''); }
@@ -220,6 +232,7 @@ function PitchFoldApp() {
                 <DeviceSel label="In"  paper={activePaper} ports={midiPorts.inputs}  value={midiInId}  onChange={setMidiInId} />
                 <DeviceSel label="Out" paper={activePaper} ports={midiPorts.outputs} value={midiOutId} onChange={setMidiOutId} />
               </>}
+          {scaleFlash && <span style={{ color: activePaper.accent || '#B05E2E', fontWeight: 600 }}>{scaleFlash}</span>}
         </div>
       )}
 

@@ -30,6 +30,8 @@ export interface OutputLike extends MidiPortLike {
   sendNoteOff(note: number, options?: unknown): void;
   sendControlChange(controller: number, value: number, options?: unknown): void;
   sendAllNotesOff(options?: unknown): void;
+  /** Raw byte send (WEBMIDI.js Output.send) — used for complete SysEx frames. */
+  send?(message: number[] | Uint8Array, options?: unknown): void;
 }
 export interface WebMidiLike {
   enable(options?: unknown): Promise<unknown>;
@@ -196,6 +198,18 @@ export class SuiteMidi {
   onChannelPressure(cb: (e: ExpressionEvent) => void): Unsubscribe {
     return this.bind(["channelaftertouch", (e) => cb(normalizeExpressionEvent(e))]);
   }
+  /**
+   * Raw SysEx frames (F0 … F7), e.g. @enkerli/protocol suite messages.
+   * Requires connect({ sysex: true }) — browsers gate SysEx behind its own
+   * permission. The full frame bytes are delivered as a Uint8Array.
+   */
+  onSysEx(cb: (bytes: Uint8Array) => void): Unsubscribe {
+    return this.bind(["sysex", (e) => {
+      const ev = e as { message?: { data?: number[] | Uint8Array }; data?: number[] | Uint8Array };
+      const data = ev.message?.data ?? ev.data;
+      if (data) cb(data instanceof Uint8Array ? data : Uint8Array.from(data));
+    }]);
+  }
   onClock(cb: () => void): Unsubscribe {
     return this.bind(["clock", () => cb()]);
   }
@@ -219,6 +233,10 @@ export class SuiteMidi {
   }
   allNotesOff(opts: { channel?: number } = {}): void {
     this.output?.sendAllNotesOff({ channels: opts.channel ?? 1 });
+  }
+  /** Send a complete SysEx frame (F0 … F7) as raw bytes. */
+  sendSysEx(frame: number[] | Uint8Array): void {
+    this.output?.send?.(frame instanceof Uint8Array ? [...frame] : frame);
   }
 
   /** Drop all input subscriptions. */
