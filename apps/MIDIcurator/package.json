@@ -20,7 +20,8 @@
     "sql.js": "^1.14.0",
     "@enkerli/theory": "*",
     "@enkerli/midi": "*",
-    "@enkerli/ui": "*"
+    "@enkerli/ui": "*",
+    "@enkerli/library": "*"
   },
   "devDependencies": {
     "@types/react": "^18.3.12",

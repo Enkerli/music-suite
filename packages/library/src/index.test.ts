@@ -6,6 +6,7 @@ import {
   newId, nowIso, validateEnvelope, assertEnvelope,
   wrapProgression, unwrapProgression,
   wrapCurationProfile, wrapPatch, unwrapSelfIdentified,
+  wrapClip, unwrapClip,
   makeCollection, collectionMembers,
   facetValues, autocomplete, query, suggestSimilar,
   serializeIndex, parseIndex,
@@ -211,6 +212,47 @@ describe("wrap self-identified files", () => {
   });
   it("refuses the wrong format (self-identification is load-bearing)", () => {
     expect(() => wrapPatch(CURATION, "x")).toThrow(/expected format/);
+  });
+});
+
+describe("wrapClip (MIDIcurator)", () => {
+  const CLIP = {
+    id: "55555555-aaaa-bbbb-cccc-000000000005",
+    filename: "groove_120bpm.mid",
+    imported_at: 1751630400000, // 2025-07-04T12:00:00.000Z
+    bpm: 120,
+    rating: 4,
+    flagged: true,
+    gesture: { onsets: [0, 480], density: 0.5 },
+    harmonic: { pitches: [60, 64, 67] },
+    notes: "",
+  };
+
+  it("wraps verbatim, lifts facets, validates", () => {
+    const item = wrapClip(CLIP, { tags: ["jazz", "keeper"] });
+    expect(validateEnvelope(item).ok).toBe(true);
+    expect(item.kind).toBe("clip");
+    expect(item.app).toBe("midicurator");
+    expect(item.title).toBe("groove_120bpm.mid");
+    expect(item.facets).toEqual({ bpm: 120, rating: 4, flagged: true });
+    expect(item.tags).toEqual(["jazz", "keeper"]);
+    expect(item.savedAt).toBe(new Date(CLIP.imported_at).toISOString());
+    expect(unwrapClip(item)).toEqual(CLIP); // payload verbatim
+  });
+
+  it("skips null rating and missing facets", () => {
+    const item = wrapClip({ ...CLIP, rating: null, flagged: undefined as never });
+    expect(item.facets).toEqual({ bpm: 120 });
+    expect(validateEnvelope(item).ok).toBe(true);
+  });
+
+  it("derives a DETERMINISTIC envelope id for schema-short clip ids", () => {
+    const a = wrapClip({ ...CLIP, id: "a" });
+    const b = wrapClip({ ...CLIP, id: "a" });
+    expect(a.id).toBe(b.id);                       // stable across saves
+    expect(a.id.length).toBeGreaterThanOrEqual(8); // schema-valid
+    expect(validateEnvelope(a).ok).toBe(true);
+    expect(unwrapClip(a).id).toBe("a");            // the clip's own id survives
   });
 });
 

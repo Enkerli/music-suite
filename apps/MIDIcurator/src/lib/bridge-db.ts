@@ -7,8 +7,23 @@
  * original MidiDB keeps using IndexedDB.
  *
  * Same public surface as MidiDB (lib/db.ts) — useDatabase picks one.
+ *
+ * File format: an `@enkerli/library` envelope index (docs/LIBRARY_SPEC.md
+ * §5 — "the file becomes a library-index.json"). Each clip is a described
+ * item (kind "clip", identity, provenance, bpm/rating/flagged facets, tag
+ * strings) carrying the Clip verbatim as its payload. The legacy
+ * `{ clips, tags }` object is still ingested and upgrades on the next
+ * persist. Never-lose-data rules: array entries this build doesn't
+ * recognize are carried through persist verbatim (a newer build's items
+ * survive a round-trip through an older one), and a clip that somehow
+ * cannot form a valid envelope is stored bare — load recognizes bare
+ * clips too, so it stays visible rather than vanishing into the
+ * carried-through pile.
  */
 
+import {
+  wrapClip, unwrapClip, validateEnvelope, type LibraryItem, type ClipLike,
+} from '@enkerli/library';
 import type { Clip, TagRecord } from '../types/clip';
 import { bridge } from './juce-bridge';
 
@@ -33,9 +48,22 @@ interface LibraryFile {
 
 const PERSIST_DEBOUNCE_MS = 300;
 
+function isEnvelope(x: unknown): x is LibraryItem {
+  return !!x && typeof x === 'object' &&
+    (x as { envelope?: unknown }).envelope === 'enkerli-library-item';
+}
+
+function isBareClip(x: unknown): x is Clip {
+  const c = x as Partial<Clip> | null;
+  return !!c && typeof c === 'object' &&
+    typeof c.id === 'string' && typeof c.filename === 'string' && !!c.gesture;
+}
+
 export class BridgeDB implements ClipStore {
   private clips = new Map<string, Clip>();
   private tags: TagRecord[] = [];
+  /** Index entries this build can't read — preserved verbatim across persists. */
+  private carried: unknown[] = [];
   private persistTimer: ReturnType<typeof setTimeout> | null = null;
   /**
    * Called whenever the library arrives — including LATE, after init's
@@ -49,10 +77,37 @@ export class BridgeDB implements ClipStore {
   private ingest(data: unknown): void {
     try {
       const json = (data as { json?: string })?.json;
-      if (json) {
-        const lib = JSON.parse(json) as LibraryFile;
+      if (!json) return;
+      const parsed: unknown = JSON.parse(json);
+
+      if (Array.isArray(parsed)) {
+        // Envelope index (current format).
+        const clips = new Map<string, Clip>();
+        const tags: TagRecord[] = [];
+        const carried: unknown[] = [];
+        for (const entry of parsed) {
+          if (isEnvelope(entry) && entry.kind === 'clip' && entry.payload &&
+              validateEnvelope(entry).ok) {
+            const clip = unwrapClip(entry) as unknown as Clip;
+            clips.set(clip.id, clip);
+            const at = Date.parse(entry.savedAt) || Date.now();
+            for (const tag of entry.tags ?? [])
+              tags.push({ clipId: clip.id, tag, added_at: at });
+          } else if (isBareClip(entry)) {
+            clips.set(entry.id, entry); // stored bare by a failed wrap — still a clip
+          } else {
+            carried.push(entry); // unknown (newer build?) — survives the round-trip
+          }
+        }
+        this.clips = clips;
+        this.tags = tags;
+        this.carried = carried;
+      } else if (parsed && typeof parsed === 'object') {
+        // Legacy { clips, tags } file — upgraded to envelopes on next persist.
+        const lib = parsed as LibraryFile;
         this.clips = new Map((lib.clips ?? []).map((c) => [c.id, c]));
         this.tags = lib.tags ?? [];
+        this.carried = [];
       }
     } catch {
       // Corrupt library file: keep current state rather than brick the UI.
@@ -83,8 +138,26 @@ export class BridgeDB implements ClipStore {
     if (this.persistTimer) clearTimeout(this.persistTimer);
     this.persistTimer = setTimeout(() => {
       this.persistTimer = null;
-      const lib: LibraryFile = { clips: [...this.clips.values()], tags: this.tags };
-      bridge.send('enkerliStoreLibrary', { json: JSON.stringify(lib) });
+      const tagsByClip = new Map<string, string[]>();
+      for (const t of this.tags) {
+        if (!tagsByClip.has(t.clipId)) tagsByClip.set(t.clipId, []);
+        tagsByClip.get(t.clipId)!.push(t.tag);
+      }
+      const index: unknown[] = [...this.clips.values()].map((clip) => {
+        try {
+          const tags = tagsByClip.get(clip.id);
+          const item = wrapClip(clip as unknown as ClipLike,
+            tags !== undefined ? { tags } : undefined);
+          // Data preservation first: a clip whose envelope would be invalid is
+          // stored bare (ingest recognizes bare clips) rather than persisted
+          // as a malformed item or dropped.
+          return validateEnvelope(item).ok ? item : clip;
+        } catch {
+          return clip;
+        }
+      });
+      index.push(...this.carried);
+      bridge.send('enkerliStoreLibrary', { json: JSON.stringify(index) });
     }, PERSIST_DEBOUNCE_MS);
   }
 

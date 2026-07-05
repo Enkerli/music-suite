@@ -377,6 +377,66 @@ export function unwrapSelfIdentified(item: LibraryItem): SelfIdentifiedFile {
   return item.payload as unknown as SelfIdentifiedFile;
 }
 
+// ── MIDIcurator clips (LIBRARY_SPEC §5: library.json → an envelope index) ────
+
+/** The structural minimum of a MIDIcurator clip; everything else rides verbatim. */
+export interface ClipLike {
+  id: string;
+  filename: string;
+  /** Import time, epoch milliseconds (the app's existing field). */
+  imported_at: number;
+  bpm?: number;
+  rating?: number | null;
+  flagged?: boolean;
+  [k: string]: unknown;
+}
+
+/**
+ * Envelope id for a clip: the clip's own id when it satisfies the schema,
+ * else a DETERMINISTIC derivation — identity must be stable across saves,
+ * so a fresh UUID per persist would be wrong.
+ */
+function clipEnvelopeId(clipId: string): string {
+  return clipId.length >= 8 ? clipId : `clip:${clipId}`.padEnd(8, "_");
+}
+
+/**
+ * Wrap a MIDIcurator clip. The clip travels verbatim as the payload;
+ * bpm/rating/flagged surface as facets; the clip's tag strings (kept as
+ * separate TagRecords in the app) ride as envelope tags.
+ */
+export function wrapClip(clip: ClipLike, opts?: WrapOptions): LibraryItem {
+  const importedIso = Number.isFinite(clip.imported_at)
+    ? new Date(clip.imported_at).toISOString() : undefined;
+  return {
+    envelope: "enkerli-library-item",
+    envelopeVersion: 1,
+    id: clipEnvelopeId(clip.id),
+    kind: "clip",
+    format: "midicurator-clip",
+    formatVersion: 1,
+    title: clip.filename,
+    creator: opts?.creator ?? "user",
+    app: "midicurator",
+    savedAt: importedIso ?? opts?.savedAt ?? nowIso(),
+    provenance: baseProvenance("midicurator", opts),
+    facets: {
+      ...(typeof clip.bpm === "number" && Number.isFinite(clip.bpm) && { bpm: clip.bpm }),
+      ...(typeof clip.rating === "number" && { rating: clip.rating }),
+      ...(typeof clip.flagged === "boolean" && { flagged: clip.flagged }),
+    },
+    ...(opts?.tags !== undefined && { tags: opts.tags }),
+    payload: { ...clip }, // verbatim
+  };
+}
+
+/** Recover the original clip, verbatim. */
+export function unwrapClip(item: LibraryItem): ClipLike {
+  if (item.kind !== "clip" || !item.payload)
+    throw new Error("not an inline clip item");
+  return item.payload as unknown as ClipLike;
+}
+
 // ── Collections (LIBRARY_SPEC §2: described objects, nestable) ───────────────
 
 export interface CollectionMember { id: string; note?: string }
