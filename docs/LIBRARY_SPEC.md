@@ -153,13 +153,14 @@ A library on disk is: `library-index.json` (array of envelopes with
 | Corpus-derived tables | monorepo `data/transitions.json`, `data/trigrams.json` (+ private `regenerated/`) | derived statistics | `kind: derived-table`; provenance chain: Bunks corpus + Impro-Visor imaginary book (attribute both), extractor version | provenance currently in prose (REGENERATION.md) — envelope makes it structured |
 | SMF interchange files | user-chosen locations; `MCURATOR:v1 PROG` text-meta | format-0 SMF carrying a `Progression` | already self-carrying; an envelope with `payloadRef` describes exported copies in a library | none |
 
-## 6. What implementation looks like (future, not this sprint)
+## 6. What implementation looks like (staged MVP)
 
-Smallest honest MVP, when code resumes:
-1. `@enkerli/library` package: envelope types + validation against the
-   schema + `wrap()/unwrap()` helpers for the three ProgGenie kinds
-   (progression, curation profile, patch) — they have the cleanest
-   existing formats and one owner app.
+Smallest honest MVP:
+1. ✅ **Shipped 2026-07-04** — `@enkerli/library` package: envelope types +
+   validation mirroring the schema (drift-guarded by test) + `wrap()/unwrap()`
+   for the three ProgGenie kinds, plus the faceted query layer (facet counts,
+   controlled-vocabulary autocomplete, similar-by-facets suggestions, index
+   round-trip). 45 tests.
 2. ProgGenie's `library.js` reads/writes envelopes (its legacy entries
    are mechanically upgradable: same fields, new wrapper).
 3. MIDIcurator's `library.json` becomes an envelope index — this is

@@ -1,0 +1,20 @@
+{
+  "name": "@enkerli/library",
+  "version": "0.1.0",
+  "description": "The suite content model: LIS-informed envelope for presets/patches/progressions/profiles — identity, provenance, authority control, facets (docs/LIBRARY_SPEC.md)",
+  "type": "module",
+  "license": "CC0-1.0",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -b",
+    "test": "vitest run"
+  }
+}
