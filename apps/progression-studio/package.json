@@ -15,7 +15,8 @@
     "@enkerli/ui": "*",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "@enkerli/midi": "*"
+    "@enkerli/midi": "*",
+    "@enkerli/library": "*"
   },
   "devDependencies": {
     "@vitejs/plugin-react": "^4.3.4",
