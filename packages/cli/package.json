@@ -1,0 +1,20 @@
+{
+  "name": "@enkerli/cli",
+  "version": "0.1.0",
+  "description": "Headless suite tools (plan §6 E3): chord id, rhythm patterns, bar-notation → SMF, and audio through Vane's real WASM voice — no GUI, no DAW",
+  "type": "module",
+  "license": "CC0-1.0",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "bin": {
+    "enkerli": "dist/cli.js"
+  },
+  "scripts": {
+    "build": "tsc -b",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@enkerli/theory": "*",
+    "@enkerli/midi": "*"
+  }
+}
