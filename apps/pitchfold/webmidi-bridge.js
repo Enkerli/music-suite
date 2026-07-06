@@ -33,29 +33,43 @@ const ports = () => (midi
 
 /**
  * Enable Web MIDI and wire input handlers (parity with the plugin's MIDI path).
- * handlers: { onDevices(ports), onNoteIn({...on only}), onNote({...on&off}), onClock() }.
+ * handlers: { onDevices(ports), onNoteIn({...on only}), onNote({...on&off}), onClock(),
+ *             onScale(body, from) — suite-protocol scale pushes (needs SysEx) }.
  * Use onNote when you need note-offs too (e.g. a quantizer releasing its output).
- * Returns { ok, ports } or { ok:false, error }.
+ * Returns { ok, ports, sysex } or { ok:false, error }.
+ *
+ * SysEx is an UPGRADE, never a dependency: it's a separate, scarier browser
+ * permission (Brave/Chrome prompt again or deny outright), and requesting it
+ * as a precondition once took the whole quantizer's note I/O down with it —
+ * a denied sysex prompt threw before any listener was bound (the 2026-07-06
+ * regression). Now: try with SysEx only when a scale listener wants it, and
+ * on ANY failure retry plain — notes always work; the app just runs without
+ * the scale-receive feature (`sysex: false` in the result says so).
  */
 export async function startWebMidi(handlers = {}) {
   if (!midiSupported()) return { ok: false, error: 'Web MIDI not supported in this browser' };
+  let sysex = !!handlers.onScale;
   try {
-    // SysEx is a separate browser permission — only request it when a suite-
-    // protocol listener actually wants it.
-    midi = await connect({ sysex: !!handlers.onScale });
+    midi = await connect({ sysex });
   } catch (e) {
-    return { ok: false, error: String((e && e.message) || e) };
+    if (!sysex) return { ok: false, error: String((e && e.message) || e) };
+    sysex = false;
+    try {
+      midi = await connect({ sysex: false });   // plain MIDI must survive a SysEx denial
+    } catch (e2) {
+      return { ok: false, error: String((e2 && e2.message) || e2) };
+    }
   }
   midi.onPortsChanged(() => handlers.onDevices && handlers.onDevices(ports()));
   if (handlers.onNoteIn) midi.onNoteIn(e => { if (e.on) handlers.onNoteIn(e); });
   if (handlers.onNote) midi.onNoteIn(e => handlers.onNote(e));
-  if (handlers.onScale) midi.onSysEx(makeScaleIngest(handlers.onScale));
+  if (handlers.onScale && sysex) midi.onSysEx(makeScaleIngest(handlers.onScale));
   if (handlers.onClock) {
     const clock = new ClockCounter(() => handlers.onClock(), 24); // 24 PPQN → beat
     midi.onClock(() => clock.pulse());
     midi.onTransport(t => { if (t === 'stop') clock.reset(); });
   }
-  return { ok: true, ports: ports() };
+  return { ok: true, ports: ports(), sysex };
 }
 
 export function selectMidiInput(id) { if (midi) midi.selectInput(id || null); }
