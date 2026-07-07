@@ -24,7 +24,9 @@
     "./confirm": {
       "types": "./confirm.d.ts",
       "default": "./confirm.js"
-    }
+    },
+    "./library-browser": "./components/library-browser.js",
+    "./toast": "./components/toast.js"
   },
   "files": [
     "tokens",
