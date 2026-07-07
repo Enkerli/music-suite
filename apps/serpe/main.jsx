@@ -26,6 +26,8 @@ import { mutatePattern } from './engine/mutate.js';
 import { createCircleView, createStepView } from './engine/render.js';
 import { initJuceBridge, sendParamActual, sendUPI, sendPlaying, sendBPM, sendToggleAccent, juceAvailable } from './juce-bridge.js';
 import { startWebMidi, selectMidiInput, selectMidiOutput, sendMidiNoteOn, sendMidiNoteOff, allMidiNotesOff, midiSupported } from './webmidi-bridge.js';
+import { createLibraryBrowser } from '@enkerli/ui/library-browser';
+import { toast } from '@enkerli/ui/toast';
 
 // Inline SVG mark — a data-URL <img> with unescaped '#' hex colours renders in
 // Chrome but breaks in macOS WKWebView, so inject the markup directly.
@@ -86,6 +88,46 @@ function applyAccents(steps, pattern, off = 0) {
 }
 
 // An imperative SVG view (render.js) wrapped as a React component.
+/** Generator family of a UPI string (for the browser's badge + facet). */
+function upiFamily(u) {
+  const s = (u || '').trim();
+  if (/^E\(/i.test(s)) return 'Euclidean';
+  if (/^P\(/i.test(s)) return 'Polygon';
+  if (/^R\(/i.test(s)) return 'Random';
+  if (/^[BWD]\(/i.test(s)) return 'Barlow';
+  if (/^0x|:\d/.test(s)) return 'Numeric';
+  if (/^[[{]/.test(s)) return 'Explicit';
+  return 'Other';
+}
+
+/** The pattern library as the shared @enkerli/ui LibraryBrowser (Design pass ·
+ *  Q2), in compact mode for Serpe's 340px rail. Consolidates the old three tabs
+ *  (Presets / Saved / History) into one browser with a Source facet. */
+function PatternLibrary({ items, onOpen, onDelete }) {
+  const host = useRef(null), br = useRef(null), cb = useRef({});
+  cb.current = { onOpen, onDelete };
+  useEffect(() => {
+    br.current = createLibraryBrowser(host.current, {
+      items, compact: true, favorites: false, frontDoors: false, title: 'Patterns',
+      openOnRowClick: true, // a pattern picker — single tap loads (Serpe's original feel)
+      keys: { name: 'name', source: 'source' },
+      sorts: [{ value: 'recent', label: 'Added' }, { value: 'name', label: 'UPI A–Z' }],
+      facets: [
+        { key: 'source', label: 'Source', kind: 'multi', values: ['Saved', 'Preset', 'Recent'], accessor: (it) => it.source },
+        { key: 'family', label: 'Generator', kind: 'multi', badge: true, accessor: (it) => it.family },
+        { key: 'tags', label: 'Tags', kind: 'multi', tag: true, defaultOpen: false, limit: 20, accessor: (it) => it.tags },
+      ],
+      rowActionsFor: (it) => (it.source === 'Saved' ? ['open', 'delete'] : ['open']),
+      emptyHint: 'Save patterns with “Save current”.',
+      onOpen: (it) => cb.current.onOpen(it),
+      onDelete: (it) => cb.current.onDelete(it),
+    });
+    return () => br.current && br.current.destroy();
+  }, []);
+  useEffect(() => { if (br.current) br.current.setItems(items); }, [items]);
+  return h('div', { ref: host });
+}
+
 function EngineView({ create, opts, data }) {
   const host = useRef(null), view = useRef(null);
   useEffect(() => { view.current = create(host.current, opts || {}); }, []);
@@ -155,8 +197,6 @@ function SerpeApp() {
   const [scenes, setScenes] = useState(() => new Array(8).fill(null));
   const [activeScene, setActiveScene] = useState(-1);
 
-  const [dbQuery, setDbQuery] = useState('');
-  const [libTab, setLibTab] = useState('presets');   // presets | library | history
   const parseJSON = (k, d) => { try { return JSON.parse(LS.get(k, d)); } catch { return JSON.parse(d); } };
   const [lib, setLib]   = useState(() => parseJSON('library', '[]'));
   const [hist, setHist] = useState(() => parseJSON('history', '[]'));
@@ -554,7 +594,30 @@ function SerpeApp() {
     setLib(prev => { const next = [{ upi: u }, ...prev.filter(x => x.upi !== u)].slice(0, 64); LS.set('library', JSON.stringify(next)); return next; });
   }
   const delFromLibrary = (u) => setLib(prev => { const next = prev.filter(x => x.upi !== u); LS.set('library', JSON.stringify(next)); return next; });
-  const clearHistory = () => { setHist([]); LS.set('history', '[]'); };
+  /** Delete a saved pattern with the suite's undo-toast idiom (Q4). */
+  function delSavedWithUndo(u) {
+    const idx = lib.findIndex(x => x.upi === u);
+    delFromLibrary(u);
+    toast({ text: `Removed ${u}`, undo: () => setLib(prev => {
+      if (prev.some(x => x.upi === u)) return prev;
+      const next = prev.slice(); next.splice(Math.min(idx < 0 ? 0 : idx, next.length), 0, { upi: u });
+      LS.set('library', JSON.stringify(next)); return next;
+    }) });
+  }
+  // One merged stream for the LibraryBrowser: saved · presets · recents. The
+  // UPI string is the name (what players read); label + k/n ride as tags.
+  const libItems = useMemo(() => {
+    const mk = (u, source, name, i) => {
+      const info = patInfo(u);
+      const tags = [name && name !== u ? name : null, info].filter(Boolean);
+      return { id: source[0] + i, name: u, upi: u, source, family: upiFamily(u), tags };
+    };
+    return [
+      ...lib.map((x, i) => mk(x.upi, 'Saved', null, i)),
+      ...PRESETS.map(([u, n], i) => mk(u, 'Preset', n, i)),
+      ...hist.map((u, i) => mk(u, 'Recent', null, i)),
+    ];
+  }, [lib, hist]);
 
   const synced = cfg.host && hostSync;
 
@@ -767,37 +830,15 @@ function SerpeApp() {
               [1, 2, 3, 10].map(v => h('option', { key: v, value: v }, v))))),
 
         // Patterns: presets / library / history (web)
-        cfg.web && (() => {
-          const q = dbQuery.trim().toLowerCase();
-          const matches = (u, name) => !q || u.toLowerCase().includes(q) || (name && name.toLowerCase().includes(q));
-          // one list row: tap to load; optional name + onset/step badge + delete
-          const row = (key, u, name, onDel) => h('div', { key, className: 'pat-row', onClick: () => loadPattern(u) },
-            h('span', { className: 'es-num pat-upi' }, u),
-            name && h('span', { className: 'lab pat-name' }, name),
-            h('span', { className: 'es-badge es-num' }, patInfo(u) || '—'),
-            onDel && h('button', { className: 'pat-del', title: 'Remove', onClick: e => { e.stopPropagation(); onDel(u); } }, '✕'));
-          let list, empty;
-          if (libTab === 'presets') {
-            list = PRESETS.filter(([u, n]) => matches(u, n)).map(([u, n], i) => row('p' + i, u, n, null));
-            empty = 'No matching presets.';
-          } else if (libTab === 'library') {
-            list = lib.filter(x => matches(x.upi)).map((x, i) => row('l' + i, x.upi, null, delFromLibrary));
-            empty = lib.length ? 'No matches.' : 'Save patterns here with “Save current”.';
-          } else {
-            list = hist.filter(u => matches(u)).map((u, i) => row('h' + i, u, null, null));
-            empty = 'Patterns you use show up here.';
-          }
-          return h(Section, { title: 'Patterns', badge: 'web' },
-            h('div', { className: 'seg', role: 'group', 'aria-label': 'Patterns', style: { marginBottom: 10 } },
-              [['presets', 'Presets'], ['library', 'Library'], ['history', 'History']].map(([v, t]) =>
-                h('button', { key: v, 'aria-pressed': libTab === v, onClick: () => setLibTab(v) }, t))),
-            libTab === 'library' && h('button', { className: 'es-btn es-small', style: { width: '100%', marginBottom: 8 }, onClick: saveToLibrary }, '+ Save current'),
-            libTab !== 'history' && h(Field, null,
-              h('input', { className: 'es-control', type: 'text', placeholder: 'Filter…', value: dbQuery, onChange: e => setDbQuery(e.target.value) })),
-            libTab === 'history' && hist.length > 0 && h('button', { className: 'es-btn es-small', style: { marginBottom: 8 }, onClick: clearHistory }, 'Clear history'),
-            h('div', { className: 'pat-list' }, list.length ? list
-              : h('p', { className: 'note', style: { fontSize: 11, color: 'var(--es-fg-muted)', margin: '4px 0' } }, empty)));
-        })(),
+        // Pattern library — the shared LibraryBrowser (Q2), compact for the
+        // rail; the old presets/saved/history tabs are now one Source facet.
+        cfg.web && h(Section, { title: 'Patterns', badge: 'web' },
+          h('button', { className: 'es-btn es-small', style: { width: '100%', marginBottom: 8 }, onClick: saveToLibrary }, '+ Save current'),
+          h(PatternLibrary, {
+            items: libItems,
+            onOpen: (it) => loadPattern(it.upi),
+            onDelete: (it) => delSavedWithUndo(it.upi),
+          })),
 
         // Web Audio (web)
         cfg.web && h(Section, { title: 'Web Audio', badge: 'web' },

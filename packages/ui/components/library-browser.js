@@ -152,8 +152,12 @@ export function createLibraryBrowser(host, options = {}) {
   }
 
   // ── skeleton (built once; volatile regions re-rendered) ──
+  // `compact` — for narrow rails (Serpe, MIDIcurator sidebars): single column,
+  // facets in a collapsible bar above the list instead of a side rail.
+  const compact = !!opts.compact;
   host.classList.add("lib");
   host.classList.toggle("no-fav", !showFav);
+  host.classList.toggle("compact", compact);
   host.innerHTML = "";
   const aside = el("aside", "lib-facets");
   aside.setAttribute("aria-label", "Filters");
@@ -162,8 +166,20 @@ export function createLibraryBrowser(host, options = {}) {
   const chipsRow = el("div", "chips-row");
   const suggest = el("div", "suggest");
   const list = el("div", "lib-list");
-  main.append(toolbar, chipsRow, suggest, list);
-  host.append(aside, main);
+  // Where facet groups render, and the element toggled to show/hide them.
+  let facetInner = aside, facetWrap = aside, filtersSummary = null;
+  if (compact) {
+    const filters = el("details", "lib-filters");
+    filtersSummary = el("summary", null, "Filters");
+    facetInner = el("div", "lib-filters-body");
+    filters.append(filtersSummary, facetInner);
+    facetWrap = filters;
+    main.append(filters, toolbar, chipsRow, suggest, list);
+    host.append(main);
+  } else {
+    main.append(toolbar, chipsRow, suggest, list);
+    host.append(aside, main);
+  }
 
   // toolbar: title · count · search · sort · front doors (search input persists)
   const titleEl = el("span", "lib-title", esc(title));
@@ -188,12 +204,14 @@ export function createLibraryBrowser(host, options = {}) {
   // affordances (ProgGenie's outer four) hides the browser's to avoid duplicates.
   if (opts.frontDoors !== false) toolbar.append(doors);
 
+  const hasAnyFacet = multiFacets.length > 0 || !!favFacet || !!ratingFacet;
+
   // ── render volatile regions ──
   function renderFacets() {
-    const showFacets = items.length >= facetMin;
+    const showFacets = hasAnyFacet && items.length >= facetMin;
     host.classList.toggle("no-facets", !showFacets);
-    aside.hidden = !showFacets;
-    if (!showFacets) { aside.innerHTML = ""; return; }
+    facetWrap.hidden = !showFacets;
+    if (!showFacets) { facetInner.innerHTML = ""; return; }
     const groups = [];
     groups.push(`<p class="facet-search-hint">Facets narrow the library. Counts reflect the other active filters.</p>`);
     if (favFacet) {
@@ -213,7 +231,8 @@ export function createLibraryBrowser(host, options = {}) {
         label: m === 3 ? "★★★" : "★".repeat(m) + " & up", count: ratingCount(m), data: `rating:${m}` })).join("");
       groups.push(group(ratingFacet.label || "Rating", true, rows));
     }
-    aside.innerHTML = groups.join("");
+    facetInner.innerHTML = groups.join("");
+    if (filtersSummary) { const n = activeChips().length; filtersSummary.textContent = n ? `Filters · ${n}` : "Filters"; }
   }
   const group = (label, open, inner) =>
     `<details class="facet-group"${open ? " open" : ""}><summary>${esc(label)}</summary><div>${inner}</div></details>`;
@@ -295,13 +314,18 @@ export function createLibraryBrowser(host, options = {}) {
         (rating > 0 ? `<span class="row-stars" title="${rating}/3">${[1, 2, 3].map((i) => `<span class="${i <= rating ? "" : "off"}">★</span>`).join("")}</span>` : "") +
         (it[keys.source] ? `<span class="src-tag">${esc(it[keys.source])}</span>` : "") +
         (dateOf(it) != null ? `<span class="row-date">${esc(relTime(dateOf(it)))}</span>` : "") +
-        `<div class="row-actions"><button class="kebab" type="button" aria-haspopup="menu" aria-expanded="${state.menuOpen === it.id}" title="Actions" data-menu="${esc(it.id)}">⋯</button>` +
-        (state.menuOpen === it.id ? menuHtml(it) : "") + `</div>` +
+        (actionsFor(it).length
+          ? `<div class="row-actions"><button class="kebab" type="button" aria-haspopup="menu" aria-expanded="${state.menuOpen === it.id}" title="Actions" data-menu="${esc(it.id)}">⋯</button>` +
+            (state.menuOpen === it.id ? menuHtml(it) : "") + `</div>`
+          : "") +
       `</div></div>`;
   }
   const labelFor = (f, v) => { const nv = f && (f.values || []).map(normVal).find((x) => x.value === v); return nv ? nv.label : v; };
+  // Per-row actions: `rowActionsFor(item)` (e.g. Serpe presets get Open only,
+  // saved patterns get Open + Delete) falls back to the global `rowActions`.
+  const actionsFor = (it) => opts.rowActionsFor ? (opts.rowActionsFor(it) || []) : (opts.rowActions || ["open", "rename", "duplicate", "send", "delete"]);
   function menuHtml(it) {
-    const acts = opts.rowActions || ["open", "rename", "duplicate", "send", "delete"];
+    const acts = actionsFor(it);
     const parts = [];
     if (acts.includes("open")) parts.push(`<button role="menuitem" type="button" data-act="open">${NS_ICON.open} Open</button>`);
     if (acts.includes("rename")) parts.push(`<button role="menuitem" type="button" data-act="rename">${NS_ICON.rename} Rename</button>`);
@@ -372,7 +396,7 @@ export function createLibraryBrowser(host, options = {}) {
   const cssq = (s) => String(s).replace(/["\\]/g, "\\$&");
 
   // ── events (delegated; survive re-render) ──
-  aside.addEventListener("click", (e) => {
+  facetWrap.addEventListener("click", (e) => {
     const row = e.target.closest("[data-facet]"); if (!row) return;
     const d = row.getAttribute("data-facet");
     if (d === "fav:on") state.favOnly = !state.favOnly;
@@ -402,7 +426,16 @@ export function createLibraryBrowser(host, options = {}) {
     const act = e.target.closest("[data-act]");
     if (act) { e.stopPropagation(); const row = act.closest(".lib-row"); const it = items.find((x) => String(x.id) === row.getAttribute("data-id")); state.menuOpen = null; doAction(act.getAttribute("data-act"), it); return; }
     const row = e.target.closest(".lib-row");
-    if (row) { state.selectedId = row.getAttribute("data-id"); opts.onSelect && opts.onSelect(items.find((x) => String(x.id) === state.selectedId)); renderList(); }
+    if (row) {
+      state.selectedId = row.getAttribute("data-id");
+      const it = items.find((x) => String(x.id) === state.selectedId);
+      opts.onSelect && opts.onSelect(it);
+      // Quick-pick surfaces (Serpe patterns) load on a single row click; the
+      // default is select-only (open via the row menu) for surfaces where open
+      // is heavier, like ProgGenie replacing the working document.
+      if (opts.openOnRowClick && it) opts.onOpen && opts.onOpen(it);
+      renderList();
+    }
   });
   list.addEventListener("keydown", (e) => {
     const inp = e.target.closest("[data-rename]"); if (!inp) return;

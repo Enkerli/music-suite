@@ -175,6 +175,51 @@ describe("sort & setItems", () => {
     expect(host.querySelector(".row-date").textContent).toMatch(/ago|yesterday|today/);
   });
 
+  it("compact mode: single column, facets in a collapsible bar (not a side rail)", () => {
+    createLibraryBrowser(host, { items: dense(), facets: FACETS, facetMin: 12, compact: true });
+    expect(host.classList.contains("compact")).toBe(true);
+    expect(host.querySelector("aside.lib-facets")).toBeNull(); // no side rail
+    const filters = host.querySelector(".lib-filters .lib-filters-body");
+    expect(filters).toBeTruthy();
+    expect(filters.querySelectorAll(".facet-group").length).toBeGreaterThan(0);
+    // clicking a facet inside the compact bar still filters
+    const bass = [...filters.querySelectorAll(".facet-row")].find((b) => b.textContent.includes("Bass"));
+    bass.click();
+    expect(host.querySelectorAll(".lib-row").length).toBe(5);
+    // summary reflects the active-filter count
+    expect(host.querySelector(".lib-filters > summary").textContent).toContain("1");
+  });
+
+  it("rowActionsFor gives per-row actions; no actions → no kebab", () => {
+    const items = [mk(0, { id: "ro", source: "Factory" }), mk(1, { id: "rw", source: "User" })];
+    createLibraryBrowser(host, {
+      items, facets: FACETS, facetMin: 1,
+      rowActionsFor: (it) => (it.source === "User" ? ["open", "delete"] : []),
+    });
+    expect(host.querySelector('.lib-row[data-id="ro"] .kebab')).toBeNull(); // read-only, no menu
+    const kebab = host.querySelector('.lib-row[data-id="rw"] .kebab');
+    expect(kebab).toBeTruthy();
+    kebab.click();
+    const acts = [...host.querySelectorAll('.lib-row[data-id="rw"] [data-act]')].map((b) => b.getAttribute("data-act"));
+    expect(acts).toEqual(["open", "delete"]);
+  });
+
+  it("openOnRowClick loads on a single row click (quick-pick surfaces)", () => {
+    const onOpen = vi.fn();
+    createLibraryBrowser(host, { items: dense(), facets: FACETS, facetMin: 12, openOnRowClick: true, onOpen });
+    host.querySelector('.lib-row[data-id="i3"] .row-name').click();
+    expect(onOpen).toHaveBeenCalledOnce();
+    expect(onOpen.mock.calls[0][0].id).toBe("i3");
+  });
+
+  it("without openOnRowClick, a row click only selects (default)", () => {
+    const onOpen = vi.fn();
+    createLibraryBrowser(host, { items: dense(), facets: FACETS, facetMin: 12, onOpen });
+    host.querySelector('.lib-row[data-id="i3"] .row-name').click();
+    expect(onOpen).not.toHaveBeenCalled();
+    expect(host.querySelector('.lib-row[data-id="i3"]').classList.contains("sel")).toBe(true);
+  });
+
   it("setItems replaces the stream", () => {
     const h = createLibraryBrowser(host, { items: dense(), facets: FACETS, facetMin: 12 });
     h.setItems([mk(99, { name: "Only One" })]);

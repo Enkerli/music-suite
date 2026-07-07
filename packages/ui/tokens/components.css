@@ -806,3 +806,29 @@ select.es-control option { background: var(--es-bg-raised); color: var(--es-fg);
   cursor: pointer; font-size: 15px; width: 22px; height: 22px; border-radius: 5px; }
 .toast .x:hover { color: var(--es-bg); }
 .toast .ttext b { font-weight: 600; }
+
+/* LibraryBrowser · compact — narrow rails (Serpe/MIDIcurator sidebars):
+   single column; facets collapse into a bar above the list. */
+.lib.compact { display: block; overflow: auto; flex: none; max-height: 480px; min-height: 0; }
+.lib.compact .lib-main { height: auto; }
+.lib.compact .lib-toolbar { padding: 8px 4px; gap: 7px; }
+.lib.compact .lib-title { font-size: var(--es-text-md); }
+.lib.compact .search-wrap { flex: 1 1 140px; min-width: 120px; }
+.lib.compact .lib-list { overflow: visible; padding: 4px 0 8px; }
+.lib.compact .lib-row { grid-template-columns: 1fr auto; gap: 8px; padding: 6px 8px; }
+.lib.compact.no-fav .lib-row { grid-template-columns: 1fr auto; }
+.lib.compact .kebab { opacity: 1; width: 26px; height: 26px; font-size: 15px; }
+.lib.compact .chips-row { padding: 6px 2px; }
+.lib-filters { border: 1px solid var(--es-border); border-radius: var(--es-radius-sm);
+  background: var(--es-bg-raised); margin-bottom: 8px; }
+.lib-filters > summary {
+  list-style: none; cursor: pointer; padding: 8px 12px; font-size: 10px;
+  letter-spacing: 0.13em; text-transform: uppercase; font-weight: 600; color: var(--es-fg-muted);
+  display: flex; align-items: center; gap: 6px;
+}
+.lib-filters > summary::-webkit-details-marker { display: none; }
+.lib-filters > summary::before { content: "▸"; font-size: 9px; transition: transform var(--es-motion-fast); }
+.lib-filters[open] > summary::before { transform: rotate(90deg); }
+.lib-filters > summary:focus-visible { outline: var(--es-focus-ring); outline-offset: -2px; border-radius: 6px; }
+.lib-filters-body { padding: 2px 10px 10px; }
+.lib-filters-body .facet-search-hint { display: none; }
