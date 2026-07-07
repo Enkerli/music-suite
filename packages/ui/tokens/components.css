@@ -721,6 +721,7 @@ select.es-control option { background: var(--es-bg-raised); color: var(--es-fg);
   padding: 9px 10px; border-radius: var(--es-radius-sm); cursor: default;
   border: 1px solid transparent;
 }
+.lib.no-fav .lib-row { grid-template-columns: 1fr auto; }
 .lib-row:hover { background: var(--es-bg-raised); border-color: var(--es-border-soft); }
 .lib-row.sel { background: var(--es-bg-raised); border-color: var(--es-border); }
 .fav-btn { width: 24px; height: 24px; border: 0; background: transparent; cursor: pointer;

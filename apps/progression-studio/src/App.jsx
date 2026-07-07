@@ -11,6 +11,8 @@ import { analyzeKeyAreas, applySubstitutions, assertDegree, chordScaleFor, parse
 import { resolvedTheme, toggleTheme } from "@enkerli/ui/theme";
 import { createPianoRoll } from "@enkerli/ui/piano-roll";
 import { createPitchGrid } from "@enkerli/ui/pitch-grid";
+import { createLibraryBrowser } from "@enkerli/ui/library-browser";
+import { toast } from "@enkerli/ui/toast";
 import { createLeadsheetEditor } from "@enkerli/ui/leadsheet-editor";
 import { createChordInput } from "./chordInput.js";
 
@@ -378,6 +380,46 @@ function MidiOutSelect({ outputs, selectedId, error, onSelect }) {
       </div>
     </div>
   );
+}
+
+/** The saved-progression library, as the shared @enkerli/ui LibraryBrowser
+ *  (Design pass · Q2) — a React island over the framework-agnostic component.
+ *  Entries are the @enkerli/library envelopes ProgGenie already stores; the
+ *  facet config is just key / source / composer. Front doors are hidden (the
+ *  document toolbar carries the four), and delete uses the undo-toast idiom. */
+function LibraryPanel({ library, onOpen, onRename, onDuplicate, onDelete }) {
+  const hostRef = useRef(null);
+  const browserRef = useRef(null);
+  const cb = useRef({});
+  cb.current = { onOpen, onRename, onDuplicate, onDelete };
+  useEffect(() => {
+    browserRef.current = createLibraryBrowser(hostRef.current, {
+      items: library,
+      title: "Saved progressions",
+      favorites: false,
+      frontDoors: false,
+      keys: { name: "title", date: "savedAt" },
+      sorts: [
+        { value: "recent", label: "Recent" },
+        { value: "name", label: "Name A–Z" },
+        { value: "key", label: "Key" },
+      ],
+      facets: [
+        { key: "key", label: "Key", kind: "multi", badge: true, accessor: (it) => it.key },
+        { key: "source", label: "Source", kind: "multi", accessor: (it) => it.source || "edited" },
+        { key: "composer", label: "Composer", kind: "multi", defaultOpen: false, accessor: (it) => (it.composer || "").trim() || "—" },
+      ],
+      rowActions: ["open", "rename", "duplicate", "delete"],
+      emptyHint: "Save the current progression to start your library.",
+      onOpen: (it) => cb.current.onOpen(it),
+      onRename: (it, name) => cb.current.onRename(it, name),
+      onDuplicate: (copy) => cb.current.onDuplicate(copy),
+      onDelete: (it) => cb.current.onDelete(it),
+    });
+    return () => browserRef.current?.destroy();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { browserRef.current?.setItems(library); }, [library]);
+  return <div ref={hostRef} style={{ height: "min(52vh, 460px)", border: "1px solid var(--es-border)", borderRadius: "var(--es-radius-md)", overflow: "hidden", background: "var(--es-bg)" }} />;
 }
 
 /** Progression shape — the suite's shared piano roll, read-only. */
@@ -1110,8 +1152,28 @@ export default function App() {
   function openFromLibrary(entry) {
     loadProgression(clone(entry.prog), { title: entry.title, composer: entry.composer, source: "library" });
   }
-  function deleteFromLibrary(id) {
-    setLibrary((list) => list.filter((e) => e.id !== id));
+  function renameInLibrary(entry, title) {
+    setLibrary((list) => list.map((e) => (e.id === entry.id ? { ...e, title } : e)));
+  }
+  function duplicateInLibrary(entry) {
+    const copy = {
+      id: newId(), title: `${entry.title} copy`, composer: entry.composer || "",
+      source: "edited", savedAt: new Date().toISOString(),
+      key: entry.key, bars: entry.bars, prog: clone(entry.prog),
+    };
+    setLibrary((list) => [copy, ...list]);
+  }
+  /** Delete with the suite's one destructive idiom (Q4): optimistic + undo toast. */
+  function deleteFromLibrary(entry) {
+    const idx = library.findIndex((e) => e.id === entry.id);
+    setLibrary((list) => list.filter((e) => e.id !== entry.id));
+    toast({
+      text: `Deleted “${entry.title}”`,
+      undo: () => setLibrary((list) => {
+        if (list.some((e) => e.id === entry.id)) return list;
+        const n = [...list]; n.splice(Math.min(idx < 0 ? 0 : idx, n.length), 0, entry); return n;
+      }),
+    });
   }
 
   /** Import typed/pasted bar notation (e.g. "Dm7 G7 | Cmaj7") as the working
@@ -1211,25 +1273,11 @@ export default function App() {
 
           {libraryOpen && (
             <div style={{ marginTop: "var(--es-space-3)", paddingTop: "var(--es-space-3)", borderTop: "1px solid var(--es-border)" }}>
-              {library.length === 0
-                ? <p style={{ color: "var(--es-fg-muted)", fontSize: "var(--es-text-sm)", margin: 0 }}>
-                    No saved progressions yet. Save the current one to start your library.
-                  </p>
-                : <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "flex", flexDirection: "column", gap: 4 }}>
-                    {library.map((e) => (
-                      <li key={e.id} style={{ display: "flex", gap: "var(--es-space-2)", alignItems: "center" }}>
-                        <button className="es-btn es-small" style={{ flex: 1, justifyContent: "flex-start", textAlign: "left" }}
-                          title="Open this progression" onClick={() => openFromLibrary(e)}>
-                          <strong>{e.title}</strong>
-                          <span style={{ color: "var(--es-fg-muted)", marginLeft: 8, fontSize: "var(--es-text-xs)" }}>
-                            {e.composer ? `${e.composer} · ` : ""}{e.key} · {e.bars} bar{e.bars === 1 ? "" : "s"} · {e.source}
-                          </span>
-                        </button>
-                        <button className="es-btn es-small" aria-label={`Delete ${e.title}`} title="Remove from library"
-                          onClick={() => deleteFromLibrary(e.id)}>✕</button>
-                      </li>
-                    ))}
-                  </ul>}
+              <LibraryPanel library={library}
+                onOpen={(e) => { openFromLibrary(e); setLibraryOpen(false); }}
+                onRename={renameInLibrary}
+                onDuplicate={duplicateInLibrary}
+                onDelete={deleteFromLibrary} />
             </div>
           )}
         </div>

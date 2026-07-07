@@ -81,10 +81,14 @@ export function createLibraryBrowser(host, options = {}) {
     selectedId: null, menuOpen: null, renaming: null,
   };
 
+  const showFav = opts.favorites !== false;
   const nameOf = (it) => it[keys.name] ?? "";
   const favOf = (it) => !!it[keys.favorite];
   const ratingOf = (it) => Number(it[keys.rating] || 0);
   const dateOf = (it) => it[keys.date];
+  // Accept a numeric timestamp OR an ISO date string (ProgGenie stores savedAt
+  // as ISO; Vane presets use ms) — coerce for both sort and relative time.
+  const dateNum = (v) => { if (v == null) return 0; const n = typeof v === "number" ? v : Date.parse(v); return Number.isFinite(n) ? n : 0; };
   const facetVals = (f, it) => {
     const v = f.accessor ? f.accessor(it) : it[f.key];
     return v == null ? [] : Array.isArray(v) ? v : [v];
@@ -135,7 +139,7 @@ export function createLibraryBrowser(host, options = {}) {
   function filtered() {
     const out = items.filter((it) => passes(it));
     const cmp = {
-      recent: (a, b) => (dateOf(b) || 0) - (dateOf(a) || 0),
+      recent: (a, b) => dateNum(dateOf(b)) - dateNum(dateOf(a)),
       name: (a, b) => nameOf(a).localeCompare(nameOf(b)),
       rating: (a, b) => ratingOf(b) - ratingOf(a) || nameOf(a).localeCompare(nameOf(b)),
     }[state.sort] || ((a, b) => nameOf(a).localeCompare(nameOf(b)));
@@ -149,6 +153,7 @@ export function createLibraryBrowser(host, options = {}) {
 
   // ── skeleton (built once; volatile regions re-rendered) ──
   host.classList.add("lib");
+  host.classList.toggle("no-fav", !showFav);
   host.innerHTML = "";
   const aside = el("aside", "lib-facets");
   aside.setAttribute("aria-label", "Filters");
@@ -178,7 +183,10 @@ export function createLibraryBrowser(host, options = {}) {
   const newBtn = el("button", "fd primary", NS_ICON.plus + " New"); newBtn.type = "button";
   const importBtn = el("button", "fd", NS_ICON.import + " Import"); importBtn.type = "button";
   doors.append(newBtn, importBtn);
-  toolbar.append(titleEl, countEl, searchWrap, sortSel, doors);
+  toolbar.append(titleEl, countEl, searchWrap, sortSel);
+  // Front doors are optional — an app that already has its own New/Import
+  // affordances (ProgGenie's outer four) hides the browser's to avoid duplicates.
+  if (opts.frontDoors !== false) toolbar.append(doors);
 
   // ── render volatile regions ──
   function renderFacets() {
@@ -254,8 +262,9 @@ export function createLibraryBrowser(host, options = {}) {
     } else suggest.hidden = true;
 
     if (!rows.length) {
+      const emptyHint = opts.emptyHint || (opts.frontDoors === false ? "Save something to start your library." : "Make one with New, or bring some in with Import.");
       list.innerHTML = `<div class="empty"><div class="em-title">${anyFilter ? "Nothing matches" : "Your library is empty"}</div>` +
-        `<p>${anyFilter ? "No items match the current search and filters." : "Make one with New, or bring some in with Import."}</p>` +
+        `<p>${anyFilter ? "No items match the current search and filters." : esc(emptyHint)}</p>` +
         (anyFilter ? `<button class="fd" type="button" data-clear="all" style="margin:8px auto 0">Clear filters</button>` : "") + `</div>`;
       return;
     }
@@ -272,7 +281,7 @@ export function createLibraryBrowser(host, options = {}) {
     const tags = tagF ? facetVals(tagF, it) : [];
     const renaming = state.renaming === it.id;
     return `<div class="lib-row${state.selectedId === it.id ? " sel" : ""}" data-id="${esc(it.id)}">` +
-      `<button class="fav-btn" type="button" aria-pressed="${favOf(it)}" title="${favOf(it) ? "Unfavorite" : "Favorite"}" data-fav="${esc(it.id)}">${favOf(it) ? "★" : "☆"}</button>` +
+      (showFav ? `<button class="fav-btn" type="button" aria-pressed="${favOf(it)}" title="${favOf(it) ? "Unfavorite" : "Favorite"}" data-fav="${esc(it.id)}">${favOf(it) ? "★" : "☆"}</button>` : "") +
       `<div class="row-main"><div class="row-name">` +
         (renaming
           ? `<input class="rename-input" value="${esc(nameOf(it))}" data-rename="${esc(it.id)}">`
@@ -446,7 +455,9 @@ export function createLibraryBrowser(host, options = {}) {
 
 function defaultRelTime(ts) {
   const now = Date.now();
-  const d = Math.round((now - Number(ts)) / 86400000);
+  const n = typeof ts === "number" ? ts : Date.parse(ts);
+  if (!Number.isFinite(n)) return "";
+  const d = Math.round((now - n) / 86400000);
   if (d <= 0) return "today";
   if (d === 1) return "yesterday";
   if (d < 30) return `${d}d ago`;

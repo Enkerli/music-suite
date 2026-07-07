@@ -158,6 +158,23 @@ describe("sort & setItems", () => {
     expect(names).toEqual([...names].sort((a, b) => a.localeCompare(b)));
   });
 
+  it("favorites:false hides the fav column; ISO date strings sort & format", () => {
+    const iso = (d) => new Date(Date.now() - d * 86400000).toISOString();
+    const items = [
+      { id: "a", title: "Older", key: "C major", source: "saved", savedAt: iso(10) },
+      { id: "b", title: "Newer", key: "F major", source: "edited", savedAt: iso(1) },
+    ];
+    const facets = [{ key: "key", label: "Key", kind: "multi", badge: true, accessor: (it) => it.key }];
+    createLibraryBrowser(host, { items, facets, facetMin: 1, favorites: false,
+      keys: { name: "title", date: "savedAt" } });
+    expect(host.classList.contains("no-fav")).toBe(true);
+    expect(host.querySelector(".fav-btn")).toBeNull();
+    // recent sort puts the newer ISO date first, and dates render (not blank)
+    const names = [...host.querySelectorAll(".row-name")].map((n) => n.textContent);
+    expect(names).toEqual(["Newer", "Older"]);
+    expect(host.querySelector(".row-date").textContent).toMatch(/ago|yesterday|today/);
+  });
+
   it("setItems replaces the stream", () => {
     const h = createLibraryBrowser(host, { items: dense(), facets: FACETS, facetMin: 12 });
     h.setItems([mk(99, { name: "Only One" })]);
