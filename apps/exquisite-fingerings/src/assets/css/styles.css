@@ -1,18 +1,19 @@
 /**
- * Exquisite Fingerings Styles
+ * Exquisite Fingerings — app-specific styles
+ *
+ * Component-level styles (buttons, form controls, collapsible sections, panels)
+ * come from @enkerli/ui/components.css imported in app.js. This file contains
+ * only what is unique to this app: layout shell, SVG grid, finger overlays,
+ * and the handful of variants the shared system does not cover.
  */
 
-/* Palette: aliases over the suite's paper & ink tokens (@enkerli/ui).
-   Light/dark resolve via the tokens (OS preference or data-theme). */
+/* Palette aliases over the suite tokens (light/dark resolve via tokens.css) */
 :root {
   --bg: var(--es-bg);
   --ink: var(--es-fg);
   --grid: var(--es-fg-muted);
-  --on: var(--es-dim-breath);
-  --on2: var(--es-dim-pressure);
   --border: var(--es-border);
   --primary: var(--es-accent);
-  --primary-hover: color-mix(in srgb, var(--es-accent) 82%, var(--es-fg));
   --secondary: var(--es-fg-muted);
   --secondary-hover: var(--es-fg-2);
   --danger: #dc3545;
@@ -22,9 +23,9 @@
   --success-bg: var(--es-dim-expr-tint);
 }
 
-* {
-  box-sizing: border-box;
-}
+* { box-sizing: border-box; }
+
+/* ── App shell ─────────────────────────────────────────────────────────── */
 
 body {
   margin: 0;
@@ -45,35 +46,22 @@ aside {
   overflow-x: hidden;
 }
 
-aside::-webkit-scrollbar {
-  width: 8px;
-}
+aside::-webkit-scrollbar { width: 8px; }
+aside::-webkit-scrollbar-track { background: var(--bg); }
+aside::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+aside::-webkit-scrollbar-thumb:hover { background: var(--grid); }
 
-aside::-webkit-scrollbar-track {
-  background: var(--bg);
+/* Sidebar header row */
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 12px;
 }
+.topbar h2 { margin: 0; font-size: 1.5rem; font-weight: 600; }
 
-aside::-webkit-scrollbar-thumb {
-  background: var(--border);
-  border-radius: 4px;
-}
-
-aside::-webkit-scrollbar-thumb:hover {
-  background: var(--grid);
-}
-
-h2 {
-  margin: 0 0 1rem;
-  font-size: 1.5rem;
-  font-weight: 600;
-}
-
-h3 {
-  margin: 0.3rem 0 0.6rem;
-  font-size: 1rem;
-  font-weight: 600;
-}
-
+/* Sub-section labels inside card bodies */
 h4 {
   margin: 0.5rem 0 0.4rem;
   font-size: 0.9rem;
@@ -83,183 +71,94 @@ h4 {
   letter-spacing: 0.5px;
 }
 
+/* Form labels */
 label {
   display: block;
   margin: 0.25rem 0;
   font-size: 0.95rem;
   cursor: pointer;
 }
-
 label input[type="checkbox"],
 label input[type="radio"] {
   margin-right: 0.5rem;
 }
 
-select,
-input[type="number"],
-input[type="text"] {
-  width: 100%;
-  padding: 0.5rem;
-  margin: 0.25rem 0 0.6rem;
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  font-size: 0.9rem;
-  font-family: inherit;
-}
-
-select:focus,
-input:focus {
-  outline: none;
-  border-color: var(--primary);
-  box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.1);
-}
-
+/* Native range inputs (shared full-width style) */
 input[type="range"] {
   width: 100%;
   margin: 0.5rem 0;
 }
 
-button {
-  padding: 0.6rem 1rem;
-  margin: 0.25rem 0;
-  cursor: pointer;
-  background: var(--primary);
-  color: white;
-  border: none;
-  border-radius: 4px;
-  font-size: 0.9rem;
-  font-family: inherit;
-  font-weight: 500;
-  transition: background 0.2s;
-}
+/* ── Button variants not in components.css ─────────────────────────────── */
 
-button:hover {
-  background: var(--primary-hover);
-}
-
-button:disabled {
-  background: var(--es-border);
-  cursor: not-allowed;
-  opacity: 0.6;
-}
-
-button.secondary {
+.es-btn.secondary {
   background: var(--secondary);
+  color: white;
+  border-color: var(--secondary);
 }
+.es-btn.secondary:hover { background: var(--secondary-hover); }
 
-button.secondary:hover {
-  background: var(--secondary-hover);
-}
-
-button.danger {
+.es-btn.danger {
   background: var(--danger);
+  color: white;
+  border-color: var(--danger);
 }
+.es-btn.danger:hover { background: var(--danger-hover); }
 
-button.danger:hover {
-  background: var(--danger-hover);
-}
-
-button.small {
-  padding: 0.4rem 0.8rem;
-  font-size: 0.85rem;
-}
-
+/* Finger number row (1–5) */
 .button-group {
   display: flex;
   gap: 0.25rem;
   margin: 0.5rem 0;
 }
-
 .button-group button {
   flex: 1;
   padding: 0.5rem;
   font-size: 0.85rem;
 }
 
-/* Collapsible sections */
-details {
-  margin: 0;
-}
-
-details summary {
+/* Individual finger buttons */
+.finger-btn {
+  background: var(--es-bg-sunken);
+  border: 1px solid var(--es-border-strong);
+  border-radius: var(--es-radius-sm, 4px);
+  color: var(--es-fg);
   cursor: pointer;
-  user-select: none;
-  list-style: none;
-  padding: 0.5rem 0;
-  border-radius: 4px;
-  transition: background 0.2s;
+  transition: background 0.15s;
+}
+.finger-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.finger-btn.active {
+  background: var(--es-accent);
+  color: var(--es-accent-fg);
+  border-color: var(--es-accent);
 }
 
-details summary:hover {
-  background: rgba(0, 0, 0, 0.03);
+/* Hand selection pair */
+.hand-select-btn {
+  background: var(--es-bg-sunken);
+  border: 2px solid var(--es-border-strong);
+  border-radius: var(--es-radius-sm, 4px);
+  color: var(--es-fg);
+  padding: 0.4rem 0.6rem;
+  cursor: pointer;
+  flex: 1;
+  transition: all 0.2s;
+}
+.hand-select-btn:hover {
+  background: var(--es-bg-raised);
+  border-color: var(--es-fg-2);
+}
+.hand-select-btn.active {
+  background: var(--es-dim-breath-tint);
+  border-color: var(--primary);
+  font-weight: bold;
 }
 
-details summary::-webkit-details-marker {
-  display: none;
-}
+/* ── Shared utilities ──────────────────────────────────────────────────── */
 
-details summary h3 {
-  display: inline-block;
-  margin: 0;
-  position: relative;
-  padding-left: 1.5rem;
-}
+.sep { height: 1px; background: var(--border); margin: 1rem 0; }
 
-details summary h3::before {
-  content: '▶';
-  position: absolute;
-  left: 0;
-  transition: transform 0.2s;
-  font-size: 0.8em;
-  color: var(--grid);
-}
-
-details[open] summary h3::before {
-  transform: rotate(90deg);
-}
-
-details[open] {
-  padding-bottom: 0.5rem;
-}
-
-.sep {
-  height: 1px;
-  background: var(--border);
-  margin: 1rem 0;
-}
-
-/* Info boxes */
-.info-box,
-.warning-box,
-.success-box,
-.error-box {
-  padding: 0.75rem;
-  margin: 0.5rem 0;
-  border-radius: 4px;
-  font-size: 0.85rem;
-  line-height: 1.4;
-}
-
-.info-box {
-  background: var(--info-bg);
-  border-left: 4px solid var(--primary);
-}
-
-.warning-box {
-  background: var(--warning-bg);
-  border-left: 4px solid var(--es-dim-bend);
-}
-
-.success-box {
-  background: var(--success-bg);
-  border-left: 4px solid var(--es-dim-expr);
-}
-
-.error-box {
-  /* token-based tint so it reads on light AND dark (G4 dark audit) */
-  background: color-mix(in srgb, var(--danger) 16%, var(--es-bg-raised));
-  border-left: 4px solid var(--danger);
-}
+.muted { color: var(--es-fg-muted); }
 
 .legend {
   font-size: 0.8rem;
@@ -268,17 +167,25 @@ details[open] {
   margin: 0.5rem 0;
 }
 
-/* Sidebar header row (G3/G4) */
-.topbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  margin-bottom: 12px;
-}
-.topbar h2 { margin: 0; }
+/* ── Status / info boxes ───────────────────────────────────────────────── */
 
-/* Pitch-class checkbox grid (exact-match search) — token borders, dark-safe */
+.info-box, .warning-box, .success-box, .error-box {
+  padding: 0.75rem;
+  margin: 0.5rem 0;
+  border-radius: 4px;
+  font-size: 0.85rem;
+  line-height: 1.4;
+}
+.info-box    { background: var(--info-bg);    border-left: 4px solid var(--primary); }
+.warning-box { background: var(--warning-bg); border-left: 4px solid var(--es-dim-bend); }
+.success-box { background: var(--success-bg); border-left: 4px solid var(--es-dim-expr); }
+.error-box   {
+  background: color-mix(in srgb, var(--danger) 16%, var(--es-bg-raised));
+  border-left: 4px solid var(--danger);
+}
+
+/* ── Pitch-class checkbox grid (exact-match search) ───────────────────── */
+
 .pc-check-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
@@ -292,19 +199,16 @@ details[open] {
   padding: 4px;
   border: 1px solid var(--es-border);
   border-radius: 4px;
-  cursor: pointer;
 }
 .pc-check-grid input { margin: 0; }
 
-/* Disclosure marker for plain nested summaries (es-section provides its own) */
-summary.es-eyebrow {
-  list-style: none;
-  cursor: pointer;
-}
+/* Disclosure marker for plain nested <summary> (es-section has its own) */
+summary.es-eyebrow { list-style: none; cursor: pointer; }
 summary.es-eyebrow::before { content: "▸ "; color: var(--es-fg-muted); }
 details[open] > summary.es-eyebrow::before { content: "▾ "; }
 
-/* Main grid area */
+/* ── Main canvas area ──────────────────────────────────────────────────── */
+
 main {
   width: 100%;
   height: 100%;
@@ -323,36 +227,25 @@ main {
   max-height: 100%;
 }
 
-/* SVG Styles */
-/* Pad fill (canonical Exquis pad colour) and label fill (per-pad ink) are
-   set per-pad in svg-grid.js from @enkerli/ui/pitch-class-colors, matching
-   the hardware LEDs. Here we only style strokes/state so we don't override
-   the per-pad fill. */
+#gridSquare {
+  width: 100%;
+  height: 100%;
+}
+
+/* ── SVG hex pad styles ────────────────────────────────────────────────── */
+
+/* Fill and label ink are set per-pad in svg-grid.js from pitch-class-colors.
+   Only stroke/state is styled here so we don't override the per-pad fill. */
 .pad {
   cursor: pointer;
   transition: stroke-width 0.15s, stroke 0.15s;
   stroke: var(--es-border-strong);
   stroke-width: 1;
 }
-
-.pad:hover {
-  stroke: var(--es-fg);
-  stroke-width: 2;
-}
-
-.pad.on {
-  stroke: var(--es-fg);
-  stroke-width: 3;
-}
-
-.pad.on.chord {
-  stroke: var(--es-fg);
-  stroke-width: 3.5;
-}
-
-.pad.fingering-mode {
-  cursor: crosshair;
-}
+.pad:hover         { stroke: var(--es-fg); stroke-width: 2; }
+.pad.on            { stroke: var(--es-fg); stroke-width: 3; }
+.pad.on.chord      { stroke: var(--es-fg); stroke-width: 3.5; }
+.pad.fingering-mode { cursor: crosshair; }
 
 .label {
   font-size: 10px;
@@ -366,19 +259,10 @@ main {
   pointer-events: none;
   user-select: none;
 }
+.fing.left  { fill: var(--es-dim-breath); }
+.fing.right { fill: #d00; }
 
-.fing.left {
-  fill: var(--es-dim-breath);
-}
-
-.fing.right {
-  fill: #d00;
-}
-
-/* Control sections */
-.control-section {
-  margin-bottom: 0.5rem;
-}
+/* ── MIDI range controls ───────────────────────────────────────────────── */
 
 .control-row {
   display: flex;
@@ -386,11 +270,7 @@ main {
   align-items: center;
   margin: 0.5rem 0;
 }
-
-.control-row label {
-  margin: 0;
-  flex: 1;
-}
+.control-row label { margin: 0; flex: 1; }
 
 .range-value {
   display: inline-block;
@@ -400,72 +280,35 @@ main {
   color: var(--primary);
 }
 
-/* Pattern list */
-.pattern-list {
-  max-height: 200px;
-  overflow-y: auto;
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  margin: 0.5rem 0;
-}
+/* ── Ergonomics score (dynamically rendered into #ergoResult) ──────────── */
 
-.pattern-item {
-  padding: 0.5rem;
-  border-bottom: 1px solid var(--border);
-  cursor: pointer;
-  transition: background 0.15s;
-}
-
-.pattern-item:last-child {
-  border-bottom: none;
-}
-
-.pattern-item:hover {
-  background: var(--info-bg);
-}
-
-.pattern-item.selected {
-  background: var(--primary);
-  color: white;
-}
-
-/* Score display */
 .score-display {
   padding: 1rem;
-  background: white;
+  background: var(--es-bg-raised);
   border: 2px solid var(--border);
   border-radius: 8px;
   margin: 1rem 0;
   text-align: center;
 }
-
 .score-value {
   font-size: 2.5rem;
   font-weight: 700;
   color: var(--primary);
   margin: 0.5rem 0;
 }
-
 .score-label {
   font-size: 0.9rem;
   color: var(--grid);
   text-transform: uppercase;
   letter-spacing: 1px;
 }
-
 .score-recommendation {
   font-size: 0.95rem;
   margin-top: 0.5rem;
   font-style: italic;
 }
 
-/* Issue list */
-.issue-list {
-  list-style: none;
-  padding: 0;
-  margin: 0.5rem 0;
-}
-
+.issue-list { list-style: none; padding: 0; margin: 0.5rem 0; }
 .issue-item {
   padding: 0.5rem;
   margin: 0.25rem 0;
@@ -475,44 +318,8 @@ main {
   font-size: 0.85rem;
 }
 
-/* Responsive */
-@media (max-width: 768px) {
-  body {
-    grid-template-columns: 1fr;
-    grid-template-rows: auto 1fr;
-  }
+/* ── Handprint list items (dynamically rendered) ───────────────────────── */
 
-  aside {
-    border-right: none;
-    border-bottom: 1px solid var(--border);
-    max-height: 40vh;
-  }
-}
-
-/* Dark mode (future) */
-@media (prefers-color-scheme: dark) {
-  /* Will implement dark mode later */
-}
-
-/* Hand selection buttons */
-.hand-select-btn {
-  background: var(--es-bg-sunken);
-  border: 2px solid var(--es-border-strong);
-  transition: all 0.2s;
-}
-
-.hand-select-btn:hover {
-  background: var(--es-bg-raised);
-  border-color: var(--es-fg-2);
-}
-
-.hand-select-btn.active {
-  background: var(--es-dim-breath-tint);
-  border-color: var(--primary);
-  font-weight: bold;
-}
-
-/* Handprint list */
 .handprint-item {
   padding: 8px;
   margin: 4px 0;
@@ -521,11 +328,19 @@ main {
   font-size: 0.85em;
   border-left: 3px solid var(--es-border-strong);
 }
+.handprint-item.left  { border-left-color: var(--es-dim-breath); }
+.handprint-item.right { border-left-color: #d00; }
 
-.handprint-item.left {
-  border-left-color: var(--es-dim-breath);
-}
+/* ── Responsive ────────────────────────────────────────────────────────── */
 
-.handprint-item.right {
-  border-left-color: #d00;
+@media (max-width: 768px) {
+  body {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto 1fr;
+  }
+  aside {
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+    max-height: 40vh;
+  }
 }
