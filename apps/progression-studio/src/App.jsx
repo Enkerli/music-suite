@@ -6,6 +6,7 @@ import { chordStartBeats, exportProgression, voicingsToClip } from "./exportMidi
 import { loadLibrary, saveLibrary, newId } from "./library.js";
 import { progressionFromSMF } from "@enkerli/midi";
 import { createBridge } from "./juceBridge.js";
+import * as midiOut from "./webmidi-out.js";
 import { analyzeKeyAreas, applySubstitutions, assertDegree, chordScaleFor, parseLeadsheet, planModulation, realizeChord, resolveDegree, spellRoot, transitionMotion } from "@enkerli/theory";
 import { resolvedTheme, toggleTheme } from "@enkerli/ui/theme";
 import { createPianoRoll } from "@enkerli/ui/piano-roll";
@@ -253,29 +254,43 @@ function usePlayer() {
   function play(voicings, bpm) {
     stopRef.current();
     const ctx = (ctxRef.current ??= new (window.AudioContext || window.webkitAudioContext)());
+    // When a MIDI output is chosen, notes go there (external synth / another
+    // suite app) instead of the internal Web Audio preview — never both, so
+    // you don't hear a doubled, slightly-flammed chord.
+    const useMidi = midiOut.midiActive();
     const beat = 60 / bpm;
     const t0 = ctx.currentTime + 0.05;
     const nodes = [];
     const timers = [];
+    const msFromNow = (t) => Math.max(0, (t - ctx.currentTime) * 1000);
 
     let accBeats = 0;
     voicings.forEach((v, i) => {
       const start = t0 + accBeats * beat;
       const dur = (v.dur ?? 2) * beat; // honor the harmonic rhythm
-      for (const midi of [v.bass, ...v.notes]) {
-        const osc = ctx.createOscillator();
-        const gain = ctx.createGain();
-        osc.type = "triangle";
-        osc.frequency.value = 440 * 2 ** ((midi - 69) / 12);
-        gain.gain.setValueAtTime(0, start);
-        gain.gain.linearRampToValueAtTime(midi === v.bass ? 0.12 : 0.07, start + 0.02);
-        gain.gain.setTargetAtTime(0, start + Math.max(0.05, dur - 0.15), 0.05);
-        osc.connect(gain).connect(ctx.destination);
-        osc.start(start);
-        osc.stop(start + dur);
-        nodes.push(osc);
+      const chordNotes = [v.bass, ...v.notes];
+      if (useMidi) {
+        for (const midi of chordNotes) {
+          const vel = midi === v.bass ? 100 : 80;
+          timers.push(setTimeout(() => midiOut.sendNoteOn(midi, vel, 1), msFromNow(start)));
+          timers.push(setTimeout(() => midiOut.sendNoteOff(midi, 1), msFromNow(start + dur)));
+        }
+      } else {
+        for (const midi of chordNotes) {
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.type = "triangle";
+          osc.frequency.value = 440 * 2 ** ((midi - 69) / 12);
+          gain.gain.setValueAtTime(0, start);
+          gain.gain.linearRampToValueAtTime(midi === v.bass ? 0.12 : 0.07, start + 0.02);
+          gain.gain.setTargetAtTime(0, start + Math.max(0.05, dur - 0.15), 0.05);
+          osc.connect(gain).connect(ctx.destination);
+          osc.start(start);
+          osc.stop(start + dur);
+          nodes.push(osc);
+        }
       }
-      timers.push(setTimeout(() => setPlayhead(i), (start - ctx.currentTime) * 1000));
+      timers.push(setTimeout(() => setPlayhead(i), msFromNow(start)));
       accBeats += v.dur ?? 2;
     });
     timers.push(setTimeout(() => { setPlaying(false); setPlayhead(-1); }, (t0 - ctx.currentTime + accBeats * beat) * 1000));
@@ -283,12 +298,86 @@ function usePlayer() {
     stopRef.current = () => {
       for (const n of nodes) { try { n.stop(); } catch { /* already stopped */ } }
       for (const t of timers) clearTimeout(t);
+      if (useMidi) midiOut.allNotesOff(1); // silence any note left hanging by an early stop
     };
     setPlaying(true);
   }
 
   useEffect(() => () => stopRef.current(), []);
   return { play, stop, playing, playhead };
+}
+
+/** Standalone MIDI output: enable Web MIDI, track ports, remember the choice
+ *  by name (port ids aren't stable across sessions). A no-op in the browser
+ *  with no Web MIDI. */
+const MIDI_OUT_KEY = "proggenie.midi-out-name";
+function useMidiOut(enabled) {
+  const [outputs, setOutputs] = useState([]);
+  const [selectedId, setSelectedId] = useState(null);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    if (!enabled || !midiOut.midiSupported()) return undefined;
+    let cancelled = false;
+    const apply = (ports) => {
+      if (cancelled) return;
+      setOutputs(ports);
+      // Re-bind a remembered port by name once it (re)appears.
+      const saved = (() => { try { return localStorage.getItem(MIDI_OUT_KEY); } catch { return null; } })();
+      if (saved && !midiOut.selectedOutputId()) {
+        const match = ports.find((p) => p.name === saved);
+        if (match) { midiOut.selectOutput(match.id); setSelectedId(match.id); }
+      }
+    };
+    const off = midiOut.onDevices(apply);
+    midiOut.startMidiOut().then((r) => {
+      if (cancelled) return;
+      if (r.ok) { setError(""); apply(r.outputs); }
+      else setError(r.error || "MIDI unavailable");
+    });
+    return () => { cancelled = true; off(); };
+  }, [enabled]);
+
+  const select = useCallback((id) => {
+    midiOut.selectOutput(id);
+    setSelectedId(id || null);
+    try {
+      const name = midiOut.outputs().find((p) => p.id === id)?.name;
+      if (name) localStorage.setItem(MIDI_OUT_KEY, name);
+      else localStorage.removeItem(MIDI_OUT_KEY);
+    } catch { /* private mode — selection stays in memory */ }
+  }, []);
+
+  return { outputs, selectedId, error, select };
+}
+
+const MIDI_OUT_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="7" r="1.1" fill="currentColor" stroke="none"/><circle cx="7.6" cy="9.6" r="1.1" fill="currentColor" stroke="none"/><circle cx="16.4" cy="9.6" r="1.1" fill="currentColor" stroke="none"/><circle cx="9" cy="15" r="1.1" fill="currentColor" stroke="none"/><circle cx="15" cy="15" r="1.1" fill="currentColor" stroke="none"/></svg>';
+/** The shared .es-device-select chrome (as Serpe/PitchFold use), output only.
+ *  "None" = the internal Web Audio preview. */
+function MidiOutSelect({ outputs, selectedId, error, onSelect }) {
+  const connected = !!selectedId && outputs.some((p) => p.id === selectedId);
+  const state = error ? "empty" : outputs.length === 0 ? "empty" : connected ? "connected" : "available";
+  return (
+    <div className="es-device-bar">
+      <div className="es-device-select" data-state={state}>
+        <div className="es-device-select-head">
+          <span className="es-device-icon" aria-hidden="true" dangerouslySetInnerHTML={{ __html: MIDI_OUT_ICON }} />
+          <span className="es-device-name">MIDI Out</span>
+          <span className="es-device-status">
+            <span className="es-device-led" />
+            {error ? "unavailable" : connected ? "connected" : outputs.length ? "internal" : "none"}
+          </span>
+        </div>
+        {error
+          ? <div className="es-device-empty">{error}</div>
+          : <select className="es-control" value={selectedId || ""} aria-label="MIDI output"
+              onChange={(e) => onSelect(e.target.value || null)}>
+              <option value="">Internal (Web Audio)</option>
+              {outputs.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+            </select>}
+      </div>
+    </div>
+  );
 }
 
 /** Progression shape — the suite's shared piano roll, read-only. */
@@ -677,6 +766,9 @@ export default function App() {
   // browser. The AUv3 in a DAW is host-driven (no local Play).
   const isStandalone = IN_PLUGIN && /standalone/i.test(runtime?.wrapper ?? "");
   const showLocalPlay = !IN_PLUGIN || isStandalone;
+  // Standalone MIDI output — drive an external synth (or another suite app)
+  // instead of the internal Web Audio preview. Same gate as the local Play.
+  const midiOutUi = useMidiOut(showLocalPlay);
   // Chord-follow source: the local player when it's running (browser/standalone),
   // else the host transport (AUv3 in a DAW).
   const playIdx = IN_PLUGIN && !playing ? hostPlayhead : playhead;
@@ -1289,6 +1381,11 @@ export default function App() {
           <button className="es-btn es-small" title="Recall generator settings from a file" onClick={loadPatch}>Load…</button>
           {profileError && <span style={{ color: "var(--es-danger, #b3261e)", fontSize: "var(--es-text-sm)" }}>{profileError}</span>}
           <span style={{ flex: 1 }} />
+          {showLocalPlay && midiOut.midiSupported() &&
+            <span style={{ minWidth: 170 }}>
+              <MidiOutSelect outputs={midiOutUi.outputs} selectedId={midiOutUi.selectedId}
+                error={midiOutUi.error} onSelect={midiOutUi.select} />
+            </span>}
           {showLocalPlay && <label style={{ display: "flex", gap: 6, alignItems: "center", fontSize: "var(--es-text-sm)" }}>Tempo
             <input className="es-control" style={{ width: 64 }} type="number" min="40" max="300" value={bpm} onChange={(e) => setBpm(Number(e.target.value))} />
           </label>}

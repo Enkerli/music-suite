@@ -1,8 +1,21 @@
 import type { Gesture, Harmonic } from '../types/clip';
 
 /**
+ * Optional MIDI destination for playback. When one is set AND active, notes
+ * are sent to it (external synth / another suite app) instead of the internal
+ * oscillators — never both, so you don't hear a doubled, flammed clip.
+ */
+export interface MidiSink {
+  active(): boolean;
+  noteOn(note: number, velocity: number, channel?: number): void;
+  noteOff(note: number, channel?: number): void;
+  allNotesOff(channel?: number): void;
+}
+
+/**
  * WebAudio-based MIDI playback engine.
- * Schedules notes from gesture+harmonic data using oscillators.
+ * Schedules notes from gesture+harmonic data using oscillators, or sends them
+ * to a MIDI output when one is selected.
  * Pure class — no React dependency.
  */
 
@@ -20,9 +33,17 @@ export class PlaybackEngine {
   private listener: PlaybackListener | null = null;
   private rafId: number | null = null;
   private totalDuration = 0;
+  private midiOut: MidiSink | null = null;
+  private midiTimers: ReturnType<typeof setTimeout>[] = [];
+  private midiRouted = false; // did the current run send to MIDI (→ allNotesOff on stop)
 
   setListener(listener: PlaybackListener | null) {
     this.listener = listener;
+  }
+
+  /** Attach (or clear) a MIDI output destination. Takes effect next play(). */
+  setMidiOut(sink: MidiSink | null) {
+    this.midiOut = sink;
   }
 
   getState(): PlaybackState {
@@ -68,6 +89,10 @@ export class PlaybackEngine {
     const offsetTicks = offsetSeconds * ticksPerSecond;
 
     this.scheduledNodes = [];
+    this.midiTimers = [];
+    // Decide the destination once per run: MIDI out (external synth / another
+    // suite app) when a port is selected, else the internal oscillators.
+    this.midiRouted = !!this.midiOut && this.midiOut.active();
     let maxEndTime = 0;
 
     for (let i = 0; i < gesture.onsets.length; i++) {
@@ -86,6 +111,14 @@ export class PlaybackEngine {
       const endSec = (noteEndTick - offsetTicks) / ticksPerSecond;
 
       if (endSec > maxEndTime) maxEndTime = endSec;
+
+      if (this.midiRouted) {
+        // Schedule MIDI note-on/off relative to now (startTime ≈ ctx.currentTime).
+        const sink = this.midiOut!;
+        this.midiTimers.push(setTimeout(() => sink.noteOn(pitch, velocity, 1), startSec * 1000));
+        this.midiTimers.push(setTimeout(() => sink.noteOff(pitch, 1), endSec * 1000));
+        continue;
+      }
 
       const osc = this.ctx.createOscillator();
       const noteGain = this.ctx.createGain();
@@ -150,6 +183,10 @@ export class PlaybackEngine {
       try { osc.stop(); } catch { /* already stopped */ }
     }
     this.scheduledNodes = [];
+    // Cancel any pending MIDI sends and silence notes already sounding.
+    for (const t of this.midiTimers) clearTimeout(t);
+    this.midiTimers = [];
+    if (this.midiRouted && this.midiOut) this.midiOut.allNotesOff(1);
     if (this.ctx) {
       this.ctx.close();
       this.ctx = null;

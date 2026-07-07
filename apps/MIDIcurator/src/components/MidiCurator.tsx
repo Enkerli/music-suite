@@ -127,7 +127,7 @@ function parseUjamFilename(filename: string): {
 
 export function MidiCurator() {
   const { db, clips, tagIndex, refreshClips } = useDatabase();
-  const { playbackState, currentTime, play, pause, stop, toggle } = usePlayback();
+  const { playbackState, currentTime, play, pause, stop, toggle, midi } = usePlayback();
   const [selectedClip, setSelectedClip] = useState<Clip | null>(null);
   const [tags, setTags] = useState<string[]>([]);
   const [filterTag, setFilterTag] = useState('');
@@ -1528,6 +1528,7 @@ export function MidiCurator() {
             onPlay={() => play(selectedClip)}
             onPause={pause}
             onStop={stop}
+            midi={midi}
             selectionRange={selectionRange}
             onRangeSelect={setSelectionRange}
             rangeChordInfo={rangeChordInfo}

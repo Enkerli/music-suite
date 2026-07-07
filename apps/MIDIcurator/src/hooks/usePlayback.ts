@@ -4,6 +4,18 @@ import type { PlaybackState } from '../lib/playback';
 import type { Clip } from '../types/clip';
 import { IN_PLUGIN, bridge } from '../lib/juce-bridge';
 import { clipToHostClip } from '../lib/host-clip';
+import {
+  midiSupported, startMidiOut, outputs as listMidiOutputs, selectOutput,
+  selectedOutputId, onDevices, midiSink,
+} from '../lib/webmidi-out';
+
+/** Standalone MIDI-output selector state (absent in the plugin). */
+export interface MidiOutUi {
+  outputs: { id: string; name: string }[];
+  selectedId: string | null;
+  error: string;
+  select: (id: string | null) => void;
+}
 
 export interface UsePlaybackReturn {
   playbackState: PlaybackState;
@@ -12,7 +24,11 @@ export interface UsePlaybackReturn {
   pause: () => void;
   stop: () => void;
   toggle: (clip: Clip) => void;
+  /** Present only in the standalone webapp with Web MIDI available. */
+  midi?: MidiOutUi;
 }
+
+const MIDI_OUT_KEY = 'midicurator.midi-out-name';
 
 /**
  * Plugin variant: "play" loads the clip into the C++ MidiClipScheduler,
@@ -72,18 +88,58 @@ function useWebAudioPlayback(): UsePlaybackReturn {
   const [currentTime, setCurrentTime] = useState(0);
   const activeClipIdRef = useRef<string | null>(null);
 
-  // Initialize engine once
+  // MIDI-out selector state (standalone only).
+  const [midiOuts, setMidiOuts] = useState<{ id: string; name: string }[]>([]);
+  const [midiSelId, setMidiSelId] = useState<string | null>(null);
+  const [midiError, setMidiError] = useState('');
+
+  // Initialize engine once; give it the MIDI sink so a selected port takes
+  // over from the oscillators automatically.
   useEffect(() => {
     const engine = new PlaybackEngine();
     engine.setListener((state, time) => {
       setPlaybackState(state);
       setCurrentTime(time);
     });
+    engine.setMidiOut(midiSink);
     engineRef.current = engine;
 
     return () => {
       engine.dispose();
     };
+  }, []);
+
+  // Enable Web MIDI output and track ports (hot-plug + remember-by-name).
+  useEffect(() => {
+    if (!midiSupported()) return undefined;
+    let cancelled = false;
+    const apply = (ports: { id: string; name: string }[]) => {
+      if (cancelled) return;
+      setMidiOuts(ports);
+      if (!selectedOutputId()) {
+        let saved: string | null = null;
+        try { saved = localStorage.getItem(MIDI_OUT_KEY); } catch { /* ignore */ }
+        const match = saved ? ports.find((p) => p.name === saved) : undefined;
+        if (match) { selectOutput(match.id); setMidiSelId(match.id); }
+      }
+    };
+    const off = onDevices(apply);
+    startMidiOut().then((r) => {
+      if (cancelled) return;
+      if (r.ok) { setMidiError(''); apply(r.outputs); }
+      else setMidiError(r.error || 'MIDI unavailable');
+    });
+    return () => { cancelled = true; off(); };
+  }, []);
+
+  const selectMidi = useCallback((id: string | null) => {
+    selectOutput(id);
+    setMidiSelId(id);
+    try {
+      const name = listMidiOutputs().find((p) => p.id === id)?.name;
+      if (name) localStorage.setItem(MIDI_OUT_KEY, name);
+      else localStorage.removeItem(MIDI_OUT_KEY);
+    } catch { /* private mode — selection stays in memory */ }
   }, []);
 
   const play = useCallback((clip: Clip) => {
@@ -121,7 +177,11 @@ function useWebAudioPlayback(): UsePlaybackReturn {
     }
   }, []);
 
-  return { playbackState, currentTime, play, pause, stop, toggle };
+  const midi: MidiOutUi | undefined = midiSupported()
+    ? { outputs: midiOuts, selectedId: midiSelId, error: midiError, select: selectMidi }
+    : undefined;
+
+  return { playbackState, currentTime, play, pause, stop, toggle, midi };
 }
 
 // Hook choice is environment-constant for the page's lifetime, so the

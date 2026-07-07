@@ -21,7 +21,8 @@
     "@enkerli/theory": "*",
     "@enkerli/midi": "*",
     "@enkerli/ui": "*",
-    "@enkerli/library": "*"
+    "@enkerli/library": "*",
+    "@enkerli/webmidi": "*"
   },
   "devDependencies": {
     "@types/react": "^18.3.12",
