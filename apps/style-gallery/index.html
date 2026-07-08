@@ -200,7 +200,7 @@
     }).sort((a,b) => b.modified - a.modified);
 
     const FACETS = [
-      { key:"favorite", label:"Favorites", kind:"bool" },
+      { key:"favorite", label:"★ Favorites", kind:"bool" },
       { key:"category", label:"Category", kind:"multi", badge:true, values:CATS, accessor:it=>it.category },
       { key:"dims", label:"Expression", kind:"multi", multi:true, dot:true, pip:true,
         values:DIMS.map(([value,label])=>({value,label})), accessor:it=>it.dims },

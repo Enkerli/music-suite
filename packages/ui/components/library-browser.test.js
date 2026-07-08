@@ -220,6 +220,32 @@ describe("sort & setItems", () => {
     expect(host.querySelector('.lib-row[data-id="i3"]').classList.contains("sel")).toBe(true);
   });
 
+  it("rowMeta renders a secondary line per row", () => {
+    createLibraryBrowser(host, { items: dense(), facets: FACETS, facetMin: 12,
+      rowMeta: (it) => `${it.category} · id ${it.id}` });
+    const sub = host.querySelector('.lib-row[data-id="i3"] .row-submeta');
+    expect(sub).toBeTruthy();
+    expect(sub.textContent).toBe("Pad · id i3"); // i3 category = Pad (3 % 3 = 0)
+  });
+
+  it("moveSelection navigates the visible list, wraps, and fires onSelect", () => {
+    const onSelect = vi.fn();
+    // filter to a known small ordered set: sort by name for determinism
+    const h = createLibraryBrowser(host, { items: dense(), facets: FACETS, facetMin: 12, onSelect });
+    const sel = host.querySelector(".sort-sel"); sel.value = "name"; sel.dispatchEvent(new Event("change"));
+    const names = [...host.querySelectorAll(".row-name")].map((n) => n.textContent);
+    h.moveSelection(1); // no prior selection → first row
+    expect(onSelect.mock.calls.at(-1)[0].name).toBe(names[0]);
+    h.moveSelection(1);
+    expect(onSelect.mock.calls.at(-1)[0].name).toBe(names[1]);
+    h.moveSelection(-1);
+    expect(onSelect.mock.calls.at(-1)[0].name).toBe(names[0]);
+    h.moveSelection(-1); // wrap to last
+    expect(onSelect.mock.calls.at(-1)[0].name).toBe(names.at(-1));
+    // the selected row carries .sel
+    expect(host.querySelector(".lib-row.sel .row-name").textContent).toBe(names.at(-1));
+  });
+
   it("setItems replaces the stream", () => {
     const h = createLibraryBrowser(host, { items: dense(), facets: FACETS, facetMin: 12 });
     h.setItems([mk(99, { name: "Only One" })]);

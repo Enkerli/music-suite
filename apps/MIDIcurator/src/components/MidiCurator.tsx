@@ -18,6 +18,8 @@ import { spliceSegment, isTrivialSegments, removeRestSegments } from '../lib/cho
 import { substituteSegmentPitches } from '../lib/chord-substitute';
 import { parseLeadsheet } from '../lib/leadsheet-parser';
 import { loadLoopDb, lookupLoopMeta, getLoadedDbFileName, keyTypeLabel, rootPcName, gbLoopTypeLabel } from '../lib/loop-database';
+import { toast } from '@enkerli/ui/toast';
+import type { createLibraryBrowser } from '@enkerli/ui/library-browser';
 import { PROGRESSIONS, transposeProgression } from '../lib/progressions';
 import type { VoicingShape } from '../lib/progressions';
 import { generateProgressionClip } from '../lib/generate-clip';
@@ -183,6 +185,23 @@ export function MidiCurator() {
     setSelectedClip(updated);
     refreshClips();
   }, [selectedClip, db, refreshClips]);
+
+  /** The clip browser's handle (for ↑/↓ nav that respects its facet filtering). */
+  const clipBrowserRef = useRef<ReturnType<typeof createLibraryBrowser> | null>(null);
+
+  /** Delete a clip from the library with the suite's undo-toast idiom (Q4):
+   *  optimistic remove, Undo re-adds it. (The detail-pane Delete keeps its
+   *  explicit confirm — a higher-stakes, single-target action.) */
+  const deleteClipFromLibrary = useCallback(async (clip: Clip) => {
+    if (!db) return;
+    if (selectedClip?.id === clip.id) { stop(); setSelectedClip(null); setTags([]); }
+    await db.deleteClip(clip.id);
+    refreshClips();
+    toast({
+      text: `Deleted ${clip.filename}`,
+      undo: async () => { await db.addClip(clip); refreshClips(); },
+    });
+  }, [db, selectedClip, refreshClips, stop]);
 
   const deleteClip = useCallback(async () => {
     if (!selectedClip || !db) return;
@@ -1309,18 +1328,10 @@ export function MidiCurator() {
 
       e.preventDefault();
 
-      // Up/Down: navigate clips in the filtered list
-      if (isUpDown && filteredClips.length > 0) {
-        const currentIdx = selectedClip
-          ? filteredClips.findIndex(c => c.id === selectedClip.id)
-          : -1;
-        let nextIdx: number;
-        if (e.key === 'ArrowDown') {
-          nextIdx = currentIdx < filteredClips.length - 1 ? currentIdx + 1 : 0;
-        } else {
-          nextIdx = currentIdx > 0 ? currentIdx - 1 : filteredClips.length - 1;
-        }
-        selectClip(filteredClips[nextIdx]!);
+      // Up/Down: navigate clips in the browser's OWN visible (facet-filtered)
+      // order, so arrow-nav always matches what's on screen.
+      if (isUpDown && clipBrowserRef.current) {
+        clipBrowserRef.current.moveSelection(e.key === 'ArrowDown' ? 1 : -1);
         return;
       }
 
@@ -1488,6 +1499,8 @@ export function MidiCurator() {
           filterTag={filterTag}
           onFilterChange={setFilterTag}
           onSelectClip={selectClip}
+          onDeleteClip={deleteClipFromLibrary}
+          registerClipBrowser={(h) => { clipBrowserRef.current = h; }}
           onDownloadAll={() => downloadAllAsZip(filteredClips)}
           onDownloadFlagged={() => downloadAllAsZip(clips.filter(c => c.flagged), 'MIDIcurator-flagged.zip')}
           onClearAll={clearAllClips}

@@ -215,8 +215,11 @@ export function createLibraryBrowser(host, options = {}) {
     const groups = [];
     groups.push(`<p class="facet-search-hint">Facets narrow the library. Counts reflect the other active filters.</p>`);
     if (favFacet) {
+      // The row glyph is the facet's own (⚑ for Flagged, ★ for Favorites);
+      // adopters put it in `label`, or default to ★ Favorites.
+      const favLabel = favFacet.label ? favFacet.label : "★ Favorites";
       groups.push(group(favFacet.label || "Quick", true,
-        facetRowHtml({ active: state.favOnly, label: "★ " + (favFacet.label || "Favorites"), count: favCount(), data: "fav:on" })));
+        facetRowHtml({ active: state.favOnly, label: favLabel, count: favCount(), data: "fav:on" })));
     }
     for (const f of multiFacets) {
       const rows = facetValues(f).map((v) => {
@@ -244,7 +247,7 @@ export function createLibraryBrowser(host, options = {}) {
 
   function activeChips() {
     const chips = [];
-    if (favFacet && state.favOnly) chips.push({ k: "Favorites", v: "on", clear: "fav" });
+    if (favFacet && state.favOnly) chips.push({ k: (favFacet.label || "Favorites").replace(/^[★⚑]\s*/, ""), v: "on", clear: "fav" });
     if (ratingFacet && state.minRating) chips.push({ k: "Rating", v: "≥ " + state.minRating + "★", clear: "rating" });
     for (const s of state.sel) {
       const i = s.indexOf(":"); const k = s.slice(0, i); const v = s.slice(i + 1);
@@ -309,6 +312,7 @@ export function createLibraryBrowser(host, options = {}) {
         (badge ? `<span class="cat-badge">${esc(badge)}</span>` : "") +
         (pips.length ? `<span class="dims">${pips.map((d) => `<span class="dim-pip"><span class="es-dot ${esc(d)}"></span>${esc(labelFor(pipF, d))}</span>`).join("")}</span>` : "") +
         (tags.length ? `<span class="row-tags">${tags.map((t) => `<span class="row-tag">${esc(t)}</span>`).join("")}</span>` : "") +
+        (opts.rowMeta ? `<span class="row-submeta">${esc(opts.rowMeta(it) || "")}</span>` : "") +
       `</div></div>` +
       `<div class="row-right">` +
         (rating > 0 ? `<span class="row-stars" title="${rating}/3">${[1, 2, 3].map((i) => `<span class="${i <= rating ? "" : "off"}">★</span>`).join("")}</span>` : "") +
@@ -473,6 +477,27 @@ export function createLibraryBrowser(host, options = {}) {
 
   renderAll();
 
+  /**
+   * Move the selection by `delta` rows among the CURRENTLY visible (filtered +
+   * sorted) list, wrapping at the ends; fires onSelect (and onOpen when
+   * openOnRowClick), and scrolls the row into view. Lets an app wire ↑/↓ to
+   * the browser's own view instead of a separate list (MIDIcurator).
+   */
+  function moveSelection(delta) {
+    const rows = filtered();
+    if (!rows.length) return;
+    const cur = rows.findIndex((it) => String(it.id) === String(state.selectedId));
+    const next = cur < 0 ? (delta > 0 ? 0 : rows.length - 1)
+      : (cur + delta + rows.length) % rows.length;
+    const it = rows[next];
+    state.selectedId = it.id;
+    opts.onSelect && opts.onSelect(it);
+    if (opts.openOnRowClick && opts.onOpen) opts.onOpen(it);
+    renderList();
+    const el2 = list.querySelector(`.lib-row[data-id="${cssq(it.id)}"]`);
+    if (el2 && el2.scrollIntoView) el2.scrollIntoView({ block: "nearest" });
+  }
+
   return {
     /** Replace the item stream (e.g. after an external add/remove). */
     setItems,
@@ -482,6 +507,10 @@ export function createLibraryBrowser(host, options = {}) {
     update: (next) => { if (next && next.items) { items = next.items.slice(); } renderAll(); },
     /** The id of the row the user last opened/selected. */
     getSelectedId: () => state.selectedId,
+    /** Select a row by id (e.g. to sync an external selection). */
+    setSelectedId: (id) => { state.selectedId = id; renderList(); },
+    /** Move selection ↑/↓ within the visible list (delta ±1). */
+    moveSelection,
     destroy() { document.removeEventListener("mousedown", onDocDown); host.innerHTML = ""; host.classList.remove("lib", "no-facets"); },
   };
 }

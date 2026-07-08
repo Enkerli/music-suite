@@ -743,6 +743,8 @@ select.es-control option { background: var(--es-bg-raised); color: var(--es-fg);
 .row-tags { display: inline-flex; gap: 5px; flex-wrap: wrap; }
 .row-tag { font-size: 11px; color: var(--es-fg-muted); }
 .row-tag::before { content: "#"; opacity: 0.5; }
+.row-submeta { font-size: 11px; color: var(--es-fg-muted); font-family: var(--es-font-mono);
+  font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .row-date { font-family: var(--es-font-mono); font-size: 11px; color: var(--es-fg-muted); }
 .row-stars { color: var(--es-dim-bend); font-size: 12px; letter-spacing: 1px; }
 .row-stars .off { color: var(--es-border-strong); }
