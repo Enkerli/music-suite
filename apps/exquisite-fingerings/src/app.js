@@ -4,6 +4,7 @@
  */
 
 import '@enkerli/ui/tokens.css';
+import '@enkerli/ui/fonts.css';
 import '@enkerli/ui/components.css';
 import { resolvedTheme, toggleTheme } from '@enkerli/ui/theme';
 import { GridRenderer } from './ui/svg-grid.js';

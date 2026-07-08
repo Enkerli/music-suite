@@ -32,7 +32,8 @@
     "./toast": {
       "types": "./components/toast.d.ts",
       "default": "./components/toast.js"
-    }
+    },
+    "./fonts.css": "./fonts.css"
   },
   "files": [
     "tokens",
@@ -42,7 +43,9 @@
     "naming.js",
     "naming.d.ts",
     "confirm.js",
-    "confirm.d.ts"
+    "confirm.d.ts",
+    "fonts.css",
+    "fonts"
   ],
   "dependencies": {
     "@enkerli/theory": "*"

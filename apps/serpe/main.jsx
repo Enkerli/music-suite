@@ -8,12 +8,16 @@
 // the JUCE binary-data step to two artifacts and avoids an Xcode build cycle.
 // Tokens + components come from @enkerli/ui (the single source of the design
 // language — no longer vendored here); only serpe.css is app-specific.
+import fontsCss from '@enkerli/ui/fonts.css';
 import tokensCss from '@enkerli/ui/tokens.css';
 import componentsCss from '@enkerli/ui/components.css';
 import serpeCss from './styles/serpe.css';
 {
   const el = document.createElement('style');
-  el.textContent = [tokensCss, componentsCss, serpeCss].join('\n');
+  // fontsCss first: its @font-face url('./fonts/*.woff2') resolve relative to
+  // the page, and the build copies the woff2 into dist/fonts (self-hosted, no
+  // CDN — works offline and in the plugin WebView).
+  el.textContent = [fontsCss, tokensCss, componentsCss, serpeCss].join('\n');
   document.head.appendChild(el);
 }
 
