@@ -833,10 +833,13 @@ function SerpeApp() {
             h('select', { className: 'es-control', value: midiChan, onChange: e => setMidiChan(+e.target.value) },
               [1, 2, 3, 10].map(v => h('option', { key: v, value: v }, v))))),
 
-        // Patterns: presets / library / history (web)
+        // Patterns: presets / library / history — available everywhere (web,
+        // plugin, standalone). Was mistakenly gated on cfg.web, which also
+        // hides it in the JUCE Standalone build (same 'plugin' runtime as the
+        // AU/VST3/CLAP formats, since all three host the same WebView bridge).
         // Pattern library — the shared LibraryBrowser (Q2), compact for the
         // rail; the old presets/saved/history tabs are now one Source facet.
-        cfg.web && h(Section, { title: 'Patterns', badge: 'web' },
+        h(Section, { title: 'Patterns', badge: cfg.web ? 'web' : 'plugin' },
           h('button', { className: 'es-btn es-small', style: { width: '100%', marginBottom: 8 }, onClick: saveToLibrary }, '+ Save current'),
           h(PatternLibrary, {
             items: libItems,
