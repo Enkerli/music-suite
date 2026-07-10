@@ -42,7 +42,9 @@
     <div class="es-eyebrow">@enkerli/ui · paper &amp; ink</div>
     <h1>Style gallery</h1>
   </div>
-  <button class="es-btn" id="theme-toggle" aria-label="Toggle color theme">◐ theme</button>
+  <!-- The shared frame's global-controls cluster — the gallery adopts it
+       first, as the living spec. theme · MIDI · density · Library. -->
+  <div id="cluster-host"></div>
 </header>
 
 <section class="es-panel">
@@ -81,6 +83,28 @@
     Controls use <code>--es-border-strong</code> (≥3:1); panels keep the decorative border.
     The select wears an ink chevron (theme-aware) instead of OS chrome.
     Tab through to see the focus ring.
+  </p>
+</section>
+
+<section class="es-panel">
+  <h2>The shared frame <span style="color:var(--es-fg-muted);font-size:var(--es-text-sm)">(one cluster, one Library — same slots in all ten apps)</span></h2>
+  <p style="color:var(--es-fg-muted); font-size:var(--es-text-sm); margin-top:0">
+    The live cluster is in this page's header ↑ — <b>theme · MIDI · density · Library</b>, in that
+    order, always top-right (or rail-header). Stable ids: <code>#theme-toggle</code>
+    <code>#midi-chip</code> <code>#density-toggle</code> <code>#library-toggle</code>. The theme
+    label names the <em>target</em> mode; the MIDI chip's LED always rides with a word; density
+    toggles <code>.es-dense</code> on the whole page; Library opens the one save/recall drawer.
+    Apps without MIDI simply omit slot 2 — nothing reflows.
+  </p>
+  <div class="es-eyebrow">the saved-item card — one treatment, three kinds</div>
+  <div id="lib-cards" style="max-width:420px; margin-top:6px"></div>
+  <p style="color:var(--es-fg-muted); font-size:var(--es-text-sm)">
+    name · meta · source · kind badge · recall on tap · delete. Kinds map 1:1 onto
+    <code>@enkerli/library</code>: document (<code>wrapProgression/wrapClip</code>),
+    patch (<code>wrapPatch</code>), profile (<code>wrapCurationProfile</code>).
+    Delete is the two-tap inline idiom — tap ✕, it arms (<b>Delete?</b>, pulsing), tap again
+    commits; blur or 3&nbsp;s disarms. Never a modal (<code>window.confirm</code> is a silent
+    no-op in WKWebView).
   </p>
 </section>
 
@@ -159,7 +183,9 @@
 </section>
 
 <script type="module">
-  import { initTheme, toggleTheme } from "../../packages/ui/theme.js";
+  import { initTheme } from "../../packages/ui/theme.js";
+  import { createGlobalCluster } from "../../packages/ui/components/global-cluster.js";
+  import { createLibraryDrawer, createTwoTapDelete } from "../../packages/ui/components/library-drawer.js";
   import { createPcsRing } from "../../packages/ui/components/pcs-ring.js";
   import { createPitchGrid } from "../../packages/ui/components/pitch-grid.js";
   import { createPianoRoll } from "../../packages/ui/components/piano-roll.js";
@@ -242,7 +268,39 @@
   armBtn.addEventListener("click", () => { armed = !armed; syncTransport(); });
   playBtn.addEventListener("click", () => { playing = !playing; syncTransport(); });
   initTheme();
-  document.getElementById("theme-toggle").addEventListener("click", toggleTheme);
+
+  // ── The shared frame, adopted here first (the living spec) ─────────
+  // Library: fixture items behind the real drawer component.
+  let libItems = [
+    { id: "g1", name: "ii–V drift in F", kind: "document", meta: "8 bars · F maj", source: "you" },
+    { id: "g2", name: "Ballad generator", kind: "patch", meta: "gen params", source: "you" },
+    { id: "g3", name: "Your taste profile", kind: "profile", meta: "214 ratings", source: "curation" },
+  ];
+  let drawer = null;
+  const closeDrawer = () => { drawer?.destroy(); drawer = null; syncCluster(); };
+  const openDrawer = () => {
+    drawer = createLibraryDrawer(document.body, {
+      noun: "Gallery demo · Documents · Patches · Profiles", thing: "demo item",
+      items: libItems,
+      onSave: () => { libItems = [{ id: "g" + Date.now(), name: "Demo item " + new Date().toTimeString().slice(0, 5), kind: "document", meta: "just now", source: "you" }, ...libItems]; drawer.update({ items: libItems }); syncCluster(); },
+      onRecall: () => {},
+      onDelete: (it) => { libItems = libItems.filter((x) => x.id !== it.id); drawer.update({ items: libItems }); syncCluster(); },
+      onClose: closeDrawer,
+    });
+  };
+  const cluster = createGlobalCluster(document.getElementById("cluster-host"), {
+    midi: { // fixture ports — the cluster is presentation-only; apps feed real managers
+      inputs: [{ id: "i1", name: "Seaboard RISE 2" }],
+      outputs: [{ id: "o1", name: "IAC Driver Bus 1" }, { id: "o2", name: "Exquis" }],
+      selectedOutId: "o1", sysex: true, badge: "Demo",
+    },
+    densityTarget: document.body,
+    library: { count: libItems.length, onToggle: () => (drawer ? closeDrawer() : openDrawer()) },
+  });
+  const syncCluster = () => cluster.update({
+    library: { count: libItems.length, onToggle: () => (drawer ? closeDrawer() : openDrawer()) },
+  });
+
 
   const css = (name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
   const el = (html) => { const t = document.createElement("template"); t.innerHTML = html.trim(); return t.content.firstChild; };
@@ -266,6 +324,16 @@
   };
   render();
   new MutationObserver(render).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+
+  // The saved-item card grammar, shown statically with a live two-tap delete.
+  const libCards = document.getElementById("lib-cards");
+  for (const item of libItems) {
+    const card = el(`<div class="lib-item"><div class="li-name">${item.name}</div>
+      <div class="li-meta"><span style="font-family:var(--es-font-mono)">${item.meta}</span><span>· ${item.source}</span></div>
+      <div class="li-side"><span class="kind-badge ${item.kind}">${item.kind}</span></div></div>`);
+    card.querySelector(".li-side").append(createTwoTapDelete({ name: item.name, onDelete: () => card.remove() }));
+    libCards.append(card);
+  }
 </script>
 </body>
 </html>
