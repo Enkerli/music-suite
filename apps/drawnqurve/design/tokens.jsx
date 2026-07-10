@@ -1,18 +1,22 @@
-// Design tokens — Sketchbook aesthetic (warm paper)
+// Design tokens — migrated onto @enkerli/ui "paper & ink" (shared-frame pass).
+// Surfaces and inks below ARE the --es-* token values (light + WARM dark;
+// the old cool blue-violet dark is retired, per the signed-off pass).
+// Accents and lane colours stay app-local ("one language, per-app voice").
+// If packages/ui/tokens/tokens.css changes, re-sync these literals.
 // Shared between v1 "Sketchbook" and v2 "Studio"
 
 const PAPER = {
   // surfaces — hex for SVG compat; oklch for CSS vars
-  bg:      '#F5F0E8',
-  bgDeep:  '#EDE6D8',
-  card:    '#FAF8F4',
-  rule:    '#D4CAB8',
-  ruleFaint:'#EAE3D8',
+  bg:      '#f5f2eb',
+  bgDeep:  '#efebe2',
+  card:    '#fcfbf7',
+  rule:    '#ddd6ca',
+  ruleFaint:'#eae3d4',
   // ink
-  ink:     '#2D2620',
-  ink70:   '#574E44',
-  ink50:   '#6B5E55',  // was #857870 — lifted to meet WCAG AA (5.5:1 on bg)
-  ink30:   '#B3A99E',
+  ink:     '#2d2b27',
+  ink70:   '#4b463e',
+  ink50:   '#736e62',  // --es-fg-muted (AA)
+  ink30:   '#b3ac9e',  // --es-fg-faint (disabled ink only)
   // accents
   amber:   '#C4873A',
   amberInk:'#8A5520',
@@ -24,15 +28,15 @@ const PAPER = {
 };
 
 const PAPER_DARK = {
-  bg:       '#1A1A24',
-  bgDeep:   '#12121A',
-  card:     '#22222E',
-  rule:     '#484862',  // was #3A3A50 — brighter so borders read clearly
-  ruleFaint:'#32324A',  // was #2A2A3C
-  ink:      '#DCDCE8',
-  ink70:    '#A8A8C0',
-  ink50:    '#9898B4',  // was #787890 — lifted to meet WCAG AA (6.1:1 on bg)
-  ink30:    '#6E6E88',  // was #505068 — lifted for better legibility
+  bg:       '#1a1814',
+  bgDeep:   '#14130f',
+  card:     '#221f1a',
+  rule:     '#38332b',
+  ruleFaint:'#2b2620',
+  ink:      '#e8e1d2',
+  ink70:    '#cfc7b5',
+  ink50:    '#908672',  // --es-fg-muted (AA)
+  ink30:    '#5f584a',  // --es-fg-faint (disabled ink only)
   amber:    '#E8A838',
   amberInk: '#E8C878',
   laneInk:  '#4A90E2',

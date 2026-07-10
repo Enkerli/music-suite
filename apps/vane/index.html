@@ -26,30 +26,38 @@
     E1 preset browser (filters/fav/rename/delete/import-export)   E2 states (MTS, unsaved, empty)
     F1 dot+label always, focus rings, keyboard   F2 preset name is the primary title
 -->
+<link rel="stylesheet" href="../../packages/ui/tokens/tokens.css">
 <style>
-/* ── Design tokens — verbatim from wireframe-styles.css (spec §3) ─────────── */
+/* ── Design tokens — ALIAS SHEET over @enkerli/ui (shared-frame pass) ───────
+   Vane was the paper-&-ink language's source; its --vn-* literals matched
+   the shared --es-* tokens near-exactly, so the vn names now RESOLVE to the
+   shared tokens (per the consistency-pass token-mapping table). Existing
+   rules keep working with zero markup churn; BOTH themes come from
+   tokens.css via [data-theme] — no per-app dark block anymore. Call-sites
+   migrate to --es-* opportunistically, then this sheet dies. The plugin
+   repo's build.mjs must inline tokens.css ahead of this block.
+   Mapping notes:
+   · --vn-panel2 folds into --es-bg-sunken (one surface fewer, by design)
+   · --vn-muted adopts the AA-compliant --es-fg-muted value
+   · --vn-muted-2 (disabled ink) → the new --es-fg-faint                     */
 :root{
-  --vn-bg:#f5f2eb; --vn-panel:#fcfbf7; --vn-panel2:#f3eee3; --vn-field:#efebe2;
-  --vn-line:#ddd6ca; --vn-line-soft:#eae3d4; --vn-text:#2d2b27; --vn-text-2:#4b463e;
-  --vn-muted:#8b8678; --vn-muted-2:#b6b0a1;
-  --vn-breath:#4b86c7; --vn-breath-tint:#dde8f4;
-  --vn-expr:#2d9d8a;   --vn-expr-tint:#d6ebe6;
-  --vn-pressure:#d28330;--vn-pressure-tint:#f4e3cf;
-  --vn-slide:#a35bbf;  --vn-slide-tint:#ecdcf2;
-  --vn-bend:#c39529;   --vn-bend-tint:#f1e6c3;
-  --vn-vel:#7a4cff;
-  --vn-ui:"Inter",-apple-system,BlinkMacSystemFont,"SF Pro Text",system-ui,sans-serif;
-  --vn-mono:"JetBrains Mono",ui-monospace,SF Mono,monospace;
+  --vn-bg:var(--es-bg); --vn-panel:var(--es-bg-raised);
+  --vn-panel2:var(--es-bg-sunken); --vn-field:var(--es-bg-sunken);
+  --vn-line:var(--es-border); --vn-line-soft:var(--es-border-soft);
+  --vn-text:var(--es-fg); --vn-text-2:var(--es-fg-2);
+  --vn-muted:var(--es-fg-muted); --vn-muted-2:var(--es-fg-faint);
+  --vn-breath:var(--es-dim-breath); --vn-breath-tint:var(--es-dim-breath-tint);
+  --vn-expr:var(--es-dim-expr);     --vn-expr-tint:var(--es-dim-expr-tint);
+  --vn-pressure:var(--es-dim-pressure); --vn-pressure-tint:var(--es-dim-pressure-tint);
+  --vn-slide:var(--es-dim-slide);   --vn-slide-tint:var(--es-dim-slide-tint);
+  --vn-bend:var(--es-dim-bend);     --vn-bend-tint:var(--es-dim-bend-tint);
+  --vn-vel:var(--es-dim-vel);
+  --vn-ui:var(--es-font-sans);
+  --vn-mono:var(--es-font-mono);
   --r:20px; --r-md:14px; --r-sm:10px;
-  --shadow:0 6px 22px rgba(28,25,20,.05);
+  --shadow:var(--es-shadow);
   /* Density scale (B1) — bumped to ≥44pt at touch/narrow */
   --ctl-h:32px; --track-h:8px; --thumb:15px; --tap:32px; --seg-pad:7px 12px; --gap:10px;
-}
-[data-theme="dark"]{
-  --vn-bg:#1a1814; --vn-panel:#221f1a; --vn-panel2:#1d1b16; --vn-field:#14130f;
-  --vn-line:#38332b; --vn-line-soft:#2b2620; --vn-text:#e8e1d2; --vn-text-2:#cfc7b5;
-  --vn-muted:#897f6c; --vn-muted-2:#5e564a;
-  --shadow:0 6px 22px rgba(0,0,0,.28);
 }
 @media (max-width:860px),(pointer:coarse){
   :root{ --ctl-h:44px; --track-h:14px; --thumb:22px; --tap:44px; --seg-pad:11px 14px; --gap:12px; }
@@ -556,7 +564,8 @@ input,textarea,[contenteditable]{ -webkit-user-select:text; user-select:text; -w
     <span class="chip ghost" id="tuningChip" onclick="toggleMts()" title="MTS-ESP — click to (re)connect">MTS-ESP</span>
     <button class="icon-btn" id="monoBtn" onclick="toggleMono()" style="width:auto;max-width:none;min-width:62px;padding:0 16px">Mono</button>
     <button class="icon-btn warn" title="Panic" onclick="Bridge.send('panic')">!</button>
-    <button class="icon-btn" title="Toggle theme" onclick="toggleTheme()">◐</button>
+    <button class="icon-btn" id="theme-toggle" title="Switch theme"
+      style="width:auto;max-width:none;padding:0 12px" onclick="toggleTheme()">● Dark</button>
   </div>
 
   <!-- Preset↔profile association notice -->
@@ -1836,7 +1845,28 @@ function applyIo(){ const t=$('#ioTxt').value.trim(); if(t){ Bridge.send('import
 // ════════════════════════════════════════════════════════════════════════
 let mono=true;
 function toggleMono(){ mono=!mono; $('#monoBtn').textContent=mono?'Mono':'Poly'; Bridge.send('setParam',{id:'monoMode',value:mono?1:0}); markDirty(); }
-function toggleTheme(){ const r=document.documentElement; r.dataset.theme=r.dataset.theme==='dark'?'light':'dark'; }
+/* Theme — the suite's ONE mechanism (shared-frame pass): [data-theme] on
+   <html>, persisted as "enkerli.theme", OS preference respected until
+   chosen. Inline (this page has no module imports) but semantics-identical
+   to @enkerli/ui/theme; the canonical label names the TARGET mode. */
+function resolvedTheme(){
+  try{ const s=localStorage.getItem('enkerli.theme'); if(s==='light'||s==='dark') return s; }catch{}
+  try{ return matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light'; }catch{}
+  return 'light';
+}
+function labelThemeToggle(){
+  const b=document.getElementById('theme-toggle'); if(!b) return;
+  b.textContent = resolvedTheme()==='dark' ? '☀︎ Light' : '● Dark';
+}
+function toggleTheme(){
+  const next = resolvedTheme()==='dark' ? 'light' : 'dark';
+  try{ localStorage.setItem('enkerli.theme', next); }catch{}
+  document.documentElement.dataset.theme = next;
+  labelThemeToggle();
+}
+/* init: apply the persisted/OS theme (the static markup says light) */
+document.documentElement.dataset.theme = resolvedTheme();
+labelThemeToggle();
 function closeMenus(){ document.querySelectorAll('.menu.open').forEach(x=>x.classList.remove('open')); }
 // Quick preset picker from the header title (F2).
 function openPresetMenu(e){ if(e)e.stopPropagation(); const m=$('#presetMenu'); const willOpen=!m.classList.contains('open');
