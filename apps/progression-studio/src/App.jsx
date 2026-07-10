@@ -8,7 +8,9 @@ import { progressionFromSMF } from "@enkerli/midi";
 import { createBridge } from "./juceBridge.js";
 import * as midiOut from "./webmidi-out.js";
 import { analyzeKeyAreas, applySubstitutions, assertDegree, chordScaleFor, parseLeadsheet, planModulation, realizeChord, resolveDegree, spellRoot, transitionMotion } from "@enkerli/theory";
-import { resolvedTheme, toggleTheme } from "@enkerli/ui/theme";
+import { createGlobalCluster } from "@enkerli/ui/global-cluster";
+import { createLibraryDrawer } from "@enkerli/ui/library-drawer";
+import appIcon from "@enkerli/ui/icons/proggenie.svg";
 import { createPianoRoll } from "@enkerli/ui/piano-roll";
 import { createPitchGrid } from "@enkerli/ui/pitch-grid";
 import { createLeadsheetEditor } from "@enkerli/ui/leadsheet-editor";
@@ -351,33 +353,45 @@ function useMidiOut(enabled) {
   return { outputs, selectedId, error, select };
 }
 
-const MIDI_OUT_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="7" r="1.1" fill="currentColor" stroke="none"/><circle cx="7.6" cy="9.6" r="1.1" fill="currentColor" stroke="none"/><circle cx="16.4" cy="9.6" r="1.1" fill="currentColor" stroke="none"/><circle cx="9" cy="15" r="1.1" fill="currentColor" stroke="none"/><circle cx="15" cy="15" r="1.1" fill="currentColor" stroke="none"/></svg>';
-/** The shared .es-device-select chrome (as Serpe/PitchFold use), output only.
- *  "None" = the internal Web Audio preview. */
-function MidiOutSelect({ outputs, selectedId, error, onSelect }) {
-  const connected = !!selectedId && outputs.some((p) => p.id === selectedId);
-  const state = error ? "empty" : outputs.length === 0 ? "empty" : connected ? "connected" : "available";
-  return (
-    <div className="es-device-bar">
-      <div className="es-device-select" data-state={state}>
-        <div className="es-device-select-head">
-          <span className="es-device-icon" aria-hidden="true" dangerouslySetInnerHTML={{ __html: MIDI_OUT_ICON }} />
-          <span className="es-device-name">MIDI Out</span>
-          <span className="es-device-status">
-            <span className="es-device-led" />
-            {error ? "unavailable" : connected ? "connected" : outputs.length ? "internal" : "none"}
-          </span>
-        </div>
-        {error
-          ? <div className="es-device-empty">{error}</div>
-          : <select className="es-control" value={selectedId || ""} aria-label="MIDI output"
-              onChange={(e) => onSelect(e.target.value || null)}>
-              <option value="">Internal (Web Audio)</option>
-              {outputs.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-            </select>}
-      </div>
-    </div>
-  );
+/** The shared frame's global cluster (theme · MIDI · density · Library) as a
+ *  React island. MIDI is now the shared chip + popover panel — this retired
+ *  the app's own MidiOutSelect (the chrome lives in @enkerli/ui, DIN-5 icon
+ *  included). `midi` must be memoized upstream: update() re-renders the
+ *  cluster, and playback re-renders App at 10 Hz. */
+function GlobalClusterMount({ midi, densityTargetRef, libCount, onLibToggle }) {
+  const hostRef = useRef(null);
+  const clusterRef = useRef(null);
+  const onLibRef = useRef(onLibToggle); onLibRef.current = onLibToggle;
+  useEffect(() => {
+    clusterRef.current = createGlobalCluster(hostRef.current, {
+      midi, densityTarget: densityTargetRef.current,
+      library: { count: libCount, onToggle: () => onLibRef.current() },
+    });
+    return () => clusterRef.current.destroy();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps -- mounts once
+  useEffect(() => {
+    clusterRef.current?.update({ midi, library: { count: libCount, onToggle: () => onLibRef.current() } });
+  }, [midi, libCount]);
+  return <div ref={hostRef} />;
+}
+
+/** The one Library drawer (shared @enkerli/ui surface) as a React island. */
+function LibraryDrawerMount({ noun, thing, items, onSave, onRecall, onDelete, onClose }) {
+  const hostRef = useRef(null);
+  const drawerRef = useRef(null);
+  const cbs = useRef({}); cbs.current = { onSave, onRecall, onDelete, onClose };
+  useEffect(() => {
+    drawerRef.current = createLibraryDrawer(hostRef.current, {
+      noun, thing, items,
+      onSave: () => cbs.current.onSave(),
+      onRecall: (it) => cbs.current.onRecall(it),
+      onDelete: (it) => cbs.current.onDelete(it),
+      onClose: () => cbs.current.onClose(),
+    });
+    return () => drawerRef.current.destroy();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps -- mounts once
+  useEffect(() => { drawerRef.current?.update({ items }); }, [items]);
+  return <div ref={hostRef} />;
 }
 
 /** Progression shape — the suite's shared piano roll, read-only. */
@@ -547,7 +561,7 @@ export default function App() {
   const [showCuration, setShowCuration] = useState(true);
   const [host, setHost] = useState({ playing: false, bpm: 0 });
   const [runtime, setRuntime] = useState(null);
-  const [theme, setThemeState] = useState(resolvedTheme);
+  const appRef = useRef(null); // the shared frame's density target (.es-dense)
   const [temperature, setTemperature] = useState(1);
   const [reharm, setReharm] = useState("off"); // substitution reharm: off | subtle | bold
   const [modulate, setModulate] = useState("off"); // key changes every N bars: off | 4 | 8
@@ -568,10 +582,10 @@ export default function App() {
   const [pendingProfile, setPendingProfile] = useState(null); // a loaded profile awaiting Replace/Merge
   const [profileError, setProfileError] = useState(null);
   const [depthOpen, setDepthOpen] = useState(false); // "Depth · advanced" generator group (Context/Reharm/Modulation)
-  const fileKindRef = useRef("profile"); // routes a native "fileOpened" to the right loader (profile | patch | midi)
-  const [library, setLibrary] = useState(loadLibrary); // the musician's saved progressions
+  const fileKindRef = useRef("profile"); // routes a native "fileOpened" to the right loader (profile | midi)
+  const [library, setLibrary] = useState(loadLibrary); // the musician's saved things (documents · patches · profiles)
   const [docMeta, setDocMeta] = useState({ title: "", composer: "", source: "generated" }); // current document
-  const [libraryOpen, setLibraryOpen] = useState(false);
+  const [libraryOpen, setLibraryOpen] = useState(false); // the shared-frame Library drawer
   const [importOpen, setImportOpen] = useState(false);
   const [pasteText, setPasteText] = useState("");
   const [docError, setDocError] = useState(null);
@@ -625,10 +639,8 @@ export default function App() {
       try {
         const bytes = Uint8Array.from(atob(d?.b64 ?? ""), (ch) => ch.charCodeAt(0));
         if (fileKindRef.current === "midi") { receiveMidiBytes(bytes); return; }
-        // Text kinds: decode as UTF-8 (labels carry ♭/♯/→).
-        const text = new TextDecoder().decode(bytes);
-        if (fileKindRef.current === "patch") applyPatchText(text);
-        else receiveProfileText(text);
+        // Text kind (profile): decode as UTF-8 (labels carry ♭/♯/→).
+        receiveProfileText(new TextDecoder().decode(bytes));
       } catch { setProfileError("Couldn't read that file."); }
     });
     bridge.ready();
@@ -1049,23 +1061,18 @@ export default function App() {
       setProfileError(null);
     } catch { setProfileError("That file isn't a generator patch."); }
   }
-  function savePatch() {
+  /** Keep the current generator settings in the Library (kind: patch) — the
+   *  shared drawer replaced the old file-based patch Save…/Load… segment;
+   *  the same self-identified proggenie-patch JSON now travels as the
+   *  envelope payload (wrapPatch) instead of a loose file. */
+  function savePatchToLibrary() {
     const savedAt = new Date().toISOString();
-    const filename = `proggenie-patch-${savedAt.slice(0, 16).replace(/[:T]/g, "-")}.json`;
-    const bytes = new TextEncoder().encode(JSON.stringify({ format: "proggenie-patch", version: 1, savedAt, params: currentPatch() }, null, 2));
-    if (bridge?.saveFile?.(filename, bytes)) return;
-    const url = URL.createObjectURL(new Blob([bytes], { type: "application/json" }));
-    const a = document.createElement("a"); a.href = url; a.download = filename; a.click();
-    URL.revokeObjectURL(url);
-  }
-  function loadPatch() {
-    setProfileError(null);
-    fileKindRef.current = "patch";
-    if (bridge?.openFile?.("*.json")) return;
-    const input = document.createElement("input");
-    input.type = "file"; input.accept = ".json,application/json";
-    input.onchange = () => input.files?.[0]?.text().then(applyPatchText).catch(() => setProfileError("Couldn't read that file."));
-    input.click();
+    const entry = {
+      id: newId(), kind: "patch", savedAt,
+      title: `Patch — ${tonic} ${mode} · ${bars} bars · ${method}`,
+      file: { format: "proggenie-patch", version: 1, savedAt, params: currentPatch() },
+    };
+    setLibrary((list) => [entry, ...list]);
   }
 
   // ── Library & import — the progression as a document (Step 03) ───────────
@@ -1098,12 +1105,25 @@ export default function App() {
   function saveToLibrary() {
     const title = (docMeta.title || "").trim() || "Untitled progression";
     const entry = {
-      id: newId(), title, composer: (docMeta.composer || "").trim(),
+      id: newId(), kind: "document", title, composer: (docMeta.composer || "").trim(),
       source: docMeta.source || "edited", savedAt: new Date().toISOString(),
       key: `${tonic} ${mode}`, bars: docBarCount, prog: clone(effectiveProg),
     };
     setLibrary((list) => [entry, ...list]);
     setDocMeta((m) => ({ ...m, title, source: "saved" }));
+  }
+
+  /** Keep a snapshot of the curation profile in the Library (kind: profile).
+   *  File export/import stays in the curation panel for cross-device sharing. */
+  function saveProfileToLibrary() {
+    const savedAt = new Date().toISOString();
+    const n = Object.keys(curation.multipliers).length;
+    const entry = {
+      id: newId(), kind: "profile", savedAt,
+      title: `Profile — ${n} weight${n === 1 ? "" : "s"}`,
+      file: JSON.parse(exportCuration(curation, { savedAt })),
+    };
+    setLibrary((list) => [entry, ...list]);
   }
 
   /** Recall a saved progression as the working document. */
@@ -1113,6 +1133,35 @@ export default function App() {
   function deleteFromLibrary(id) {
     setLibrary((list) => list.filter((e) => e.id !== id));
   }
+
+  /** The drawer's recall, dispatched by kind: documents open as the working
+   *  progression; patches apply their generator params; profiles stage as
+   *  the pending Replace/Merge (never silently clobber taste). */
+  function recallFromLibrary(item) {
+    const entry = library.find((e) => e.id === item.id);
+    if (!entry) return;
+    if (entry.kind === "patch") {
+      applyPatchText(JSON.stringify(entry.file));
+      setLibraryOpen(false);
+    } else if (entry.kind === "profile") {
+      receiveProfileText(JSON.stringify(entry.file));
+      setShowCuration(true); // the Replace/Merge staging lives in the curation panel
+      setLibraryOpen(false);
+    } else {
+      openFromLibrary(entry);
+    }
+  }
+
+  /** The drawer's card list — one shape for all three kinds. */
+  const drawerItems = useMemo(() => library.map((e) => ({
+    id: e.id,
+    name: e.title || "Untitled",
+    kind: e.kind === "patch" ? "patch" : e.kind === "profile" ? "profile" : "document",
+    meta: e.kind === "patch" ? "generator settings"
+      : e.kind === "profile" ? `${Object.keys(e.file?.multipliers ?? {}).length} weights`
+      : [e.key, e.bars != null ? `${e.bars} bar${e.bars === 1 ? "" : "s"}` : null].filter(Boolean).join(" · "),
+    source: e.kind === "patch" || e.kind === "profile" ? "you" : (e.composer || e.source || "you"),
+  })), [library]);
 
   /** Import typed/pasted bar notation (e.g. "Dm7 G7 | Cmaj7") as the working
    *  document, realized in the current key. A line break reads as a bar
@@ -1154,12 +1203,40 @@ export default function App() {
     input.click();
   }
 
+  // Cluster slot 2 (MIDI) — memoized so playback's 10 Hz re-renders don't
+  // re-render the cluster (update() would close an open popover). Hidden
+  // in-DAW (the host owns routing); "No Web MIDI" is a chip state, not
+  // a hidden control.
+  const clusterMidi = useMemo(() => {
+    if (!showLocalPlay) return null;
+    if (!midiOut.midiSupported() || midiOutUi.error) return { unavailable: true };
+    return {
+      outputs: midiOutUi.outputs.map((p) => ({ id: p.id, name: p.name })),
+      selectedOutId: midiOutUi.selectedId,
+      noneOption: "Internal (Web Audio)",
+      onSelectOut: midiOutUi.select,
+      badge: isStandalone ? "Standalone" : undefined,
+    };
+  }, [showLocalPlay, midiOutUi.outputs, midiOutUi.selectedId, midiOutUi.error, midiOutUi.select, isStandalone]);
+
   return (
-    <div className="es-app" style={{ padding: "var(--es-space-4)" }}>
-      <div style={{ maxWidth: 900, margin: "0 auto" }}>
+    <div className="es-app" ref={appRef}>
+      {/* The shared frame: brand · (transport is host-owned) · the global
+          cluster — theme · MIDI · density · Library, same slots as every
+          suite app. */}
+      <div className="es-shellbar">
+        <div className="brand">
+          <img src={appIcon} alt="" />
+          <span className="nm">Progression Studio</span>
+          <span className="k">ProgGenie</span>
+        </div>
+        <div className="mid"></div>
+        <GlobalClusterMount midi={clusterMidi} densityTargetRef={appRef}
+          libCount={library.length} onLibToggle={() => setLibraryOpen((o) => !o)} />
+      </div>
+      <div style={{ maxWidth: 1100, margin: "0 auto", padding: "var(--es-space-4)" }}>
         <header style={{ marginBottom: "var(--es-space-4)" }}>
-          <h1 style={{ fontSize: "var(--es-text-xl)", margin: 0 }}>Progression Studio</h1>
-          <p style={{ color: "var(--es-fg-muted)", fontSize: "var(--es-text-sm)", margin: "var(--es-space-1) 0 0" }}>
+          <p style={{ color: "var(--es-fg-muted)", fontSize: "var(--es-text-sm)", margin: 0 }}>
             Markov walk over {Object.keys(table[mode]).length} degree labels from 2,611 jazz lead sheets
             {IN_PLUGIN && <> · host {host.playing ? "playing" : "stopped"}{host.bpm ? ` · ${Math.round(host.bpm)} bpm` : ""}</>}
             {IN_PLUGIN && runtime && <> · {runtime.host} · {runtime.wrapper} · {runtime.memMB} MB</>}
@@ -1182,13 +1259,12 @@ export default function App() {
             <span className="es-badge" title="Where this progression came from"
               style={{ alignSelf: "center" }}>{docMeta.source} · {tonic} {mode} · {docBarCount} bar{docBarCount === 1 ? "" : "s"}</span>
             <span style={{ flex: 1 }} />
+            {/* Open/save moved to the shared-frame Library (cluster, top
+                right) — the doc strip keeps the input paths only. */}
             <button className="es-btn es-small" title="Blank the sheet — start a new progression from scratch"
               onClick={() => { handleClear(); setDocMeta({ title: "", composer: "", source: "new" }); }}>New</button>
-            <button className="es-btn es-small" title="Recall a saved progression" aria-pressed={libraryOpen}
-              onClick={() => { setLibraryOpen((o) => !o); setImportOpen(false); }}>Open…{library.length ? ` (${library.length})` : ""}</button>
             <button className="es-btn es-small" title="Type or paste a leadsheet in bar notation, or open a .mid file" aria-pressed={importOpen}
               onClick={() => { setImportOpen((o) => !o); setLibraryOpen(false); }}>Type / Import…</button>
-            <button className="es-btn es-small es-primary" title="Save this progression to your library" onClick={saveToLibrary}>Save to library</button>
           </div>
           {docError && <p style={{ color: "var(--es-danger, #b3261e)", fontSize: "var(--es-text-sm)", margin: "var(--es-space-2) 0 0" }}>{docError}</p>}
 
@@ -1209,29 +1285,6 @@ export default function App() {
             </div>
           )}
 
-          {libraryOpen && (
-            <div style={{ marginTop: "var(--es-space-3)", paddingTop: "var(--es-space-3)", borderTop: "1px solid var(--es-border)" }}>
-              {library.length === 0
-                ? <p style={{ color: "var(--es-fg-muted)", fontSize: "var(--es-text-sm)", margin: 0 }}>
-                    No saved progressions yet. Save the current one to start your library.
-                  </p>
-                : <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "flex", flexDirection: "column", gap: 4 }}>
-                    {library.map((e) => (
-                      <li key={e.id} style={{ display: "flex", gap: "var(--es-space-2)", alignItems: "center" }}>
-                        <button className="es-btn es-small" style={{ flex: 1, justifyContent: "flex-start", textAlign: "left" }}
-                          title="Open this progression" onClick={() => openFromLibrary(e)}>
-                          <strong>{e.title}</strong>
-                          <span style={{ color: "var(--es-fg-muted)", marginLeft: 8, fontSize: "var(--es-text-xs)" }}>
-                            {e.composer ? `${e.composer} · ` : ""}{e.key} · {e.bars} bar{e.bars === 1 ? "" : "s"} · {e.source}
-                          </span>
-                        </button>
-                        <button className="es-btn es-small" aria-label={`Delete ${e.title}`} title="Remove from library"
-                          onClick={() => deleteFromLibrary(e.id)}>✕</button>
-                      </li>
-                    ))}
-                  </ul>}
-            </div>
-          )}
         </div>
 
         <div style={{ display: "flex", flexWrap: "wrap", gap: "var(--es-space-3)", alignItems: "stretch", marginBottom: "var(--es-space-3)" }}>
@@ -1376,16 +1429,12 @@ export default function App() {
           <button className="es-btn" title="Append a continuation from the last chord (works from a typed chord, too)" onClick={handleExtend}>+ Extend</button>
           <button className="es-btn" title="Clear the leadsheet — start from scratch" onClick={handleClear}>Blank</button>
           <span style={{ alignSelf: "stretch", width: 1, background: "var(--es-border)", margin: "0 4px" }} />
-          <span className="es-eyebrow">patch</span>
-          <button className="es-btn es-small" title="Save these generator settings to a file" onClick={savePatch}>Save…</button>
-          <button className="es-btn es-small" title="Recall generator settings from a file" onClick={loadPatch}>Load…</button>
+          {/* Patch save/recall moved to the Library (drawer, kind: patch);
+              MIDI out moved to the cluster's chip. */}
+          <button className="es-btn es-small" title="Keep these generator settings in the Library (recall them from the drawer)"
+            onClick={savePatchToLibrary}>Save patch</button>
           {profileError && <span style={{ color: "var(--es-danger, #b3261e)", fontSize: "var(--es-text-sm)" }}>{profileError}</span>}
           <span style={{ flex: 1 }} />
-          {showLocalPlay && midiOut.midiSupported() &&
-            <span style={{ minWidth: 170 }}>
-              <MidiOutSelect outputs={midiOutUi.outputs} selectedId={midiOutUi.selectedId}
-                error={midiOutUi.error} onSelect={midiOutUi.select} />
-            </span>}
           {showLocalPlay && <label style={{ display: "flex", gap: 6, alignItems: "center", fontSize: "var(--es-text-sm)" }}>Tempo
             <input className="es-control" style={{ width: 64 }} type="number" min="40" max="300" value={bpm} onChange={(e) => setBpm(Number(e.target.value))} />
           </label>}
@@ -1407,8 +1456,7 @@ export default function App() {
             </span>
             <span style={{ fontSize: "var(--es-text-xs)", color: "var(--es-fg-muted)" }}>carries the shared leadsheet — the suite can read it back</span>
           </span>
-          <button className="es-btn" aria-label="Toggle color theme" title="Light is the house default; dark is one tap away"
-            onClick={() => setThemeState(toggleTheme())}>{theme === "dark" ? "☀︎ Light" : "● Dark"}</button>
+          {/* Theme moved to the cluster (slot 1, top right) — the frame owns it. */}
         </div>
 
         {/* Now-playing chord card — follows the playhead during playback (Q5
@@ -1650,8 +1698,10 @@ export default function App() {
                 onClick={() => navigator.clipboard?.writeText(exportCuration(curation, { savedAt: new Date().toISOString() }))}>
                 Copy profile
               </button>
-              <button className="es-btn es-small" onClick={saveProfile}>Save profile…</button>
-              <button className="es-btn es-small" onClick={loadProfile}>Load profile…</button>
+              <button className="es-btn es-small" title="Keep a snapshot of this profile in the Library"
+                onClick={saveProfileToLibrary}>Save to Library</button>
+              <button className="es-btn es-small" title="Save the profile to a file (share it across devices)" onClick={saveProfile}>Save file…</button>
+              <button className="es-btn es-small" title="Load a profile file" onClick={loadProfile}>Load file…</button>
               <button className={`es-btn es-small ${resetArmed ? "es-primary" : ""}`}
                 title="Clear every curated weight"
                 onClick={() => {
@@ -1691,6 +1741,19 @@ export default function App() {
           Degree labels per the suite conventions; voicings via minimal (taxicab) voice leading.
         </footer>
       </div>
+
+      {/* The one Library drawer — documents · patches · profiles, one surface. */}
+      {libraryOpen && (
+        <LibraryDrawerMount
+          noun="Progressions · Patches · Profiles"
+          thing="progression"
+          items={drawerItems}
+          onSave={saveToLibrary}
+          onRecall={recallFromLibrary}
+          onDelete={(item) => deleteFromLibrary(item.id)}
+          onClose={() => setLibraryOpen(false)}
+        />
+      )}
     </div>
   );
 }
