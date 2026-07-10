@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { resolvedTheme, toggleTheme } from "@enkerli/ui/theme";
+import { createGlobalCluster } from "@enkerli/ui/global-cluster";
+import appIcon from "@enkerli/ui/icons/chord-dictionary.svg";
 import { createPitchGrid } from "@enkerli/ui/pitch-grid";
 import { chordCircleSVG } from "./chordCircle.js";
 import { FORTE_BY_DECIMAL } from "./forte.js";
@@ -122,13 +123,27 @@ function resolveChordSymbol(input, qualities) {
   return q ? { root, qualityKey: q.key, hadRoot: true } : null;
 }
 
+/** The shared frame's global cluster as a React island (theme · density —
+ *  this app has no MIDI and no saved collections, so slots 2 and 4 are
+ *  omitted; nothing reflows). Trimmed from Progression Studio's mount. */
+function GlobalClusterMount({ densityTargetRef }) {
+  const hostRef = useRef(null);
+  useEffect(() => {
+    const cluster = createGlobalCluster(hostRef.current, {
+      midi: null, densityTarget: densityTargetRef.current, library: null,
+    });
+    return () => cluster.destroy();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps -- mounts once
+  return <div ref={hostRef} />;
+}
+
 export default function App() {
   const [root, setRoot] = useState("C");
   const [query, setQuery] = useState("");
-  const [theme, setThemeState] = useState(resolvedTheme);
   const [mode, setMode] = useState("circle"); // circle | square | hex
   const [secondPosition, setSecondPosition] = useState(false);
   const [showAllNotes, setShowAllNotes] = useState(false);
+  const appRef = useRef(null); // the shared frame's density target (.es-dense)
 
   const qualities = useMemo(() => getAllQualities(), []);
   const rootPc = ROOT_PC[root];
@@ -210,8 +225,18 @@ export default function App() {
   );
 
   return (
-    <div className="es-app" style={{ padding: "var(--es-space-4)" }}>
-      <div style={{ maxWidth: 1200, margin: "0 auto" }}>
+    <div className="es-app" ref={appRef}>
+      {/* The shared frame: brand (left) · the global cluster (right) — same
+          chrome as every suite app; MIDI and Library slots omitted here. */}
+      <div className="es-shellbar">
+        <div className="brand">
+          <img src={appIcon} alt="" />
+          <span className="nm">Chord Dictionary</span>
+        </div>
+        <div className="mid"></div>
+        <GlobalClusterMount densityTargetRef={appRef} />
+      </div>
+      <div style={{ maxWidth: 1100, margin: "0 auto", padding: "var(--es-space-4)" }}>
         <header style={{ display: "flex", flexWrap: "wrap", gap: "var(--es-space-3)", alignItems: "baseline", marginBottom: "var(--es-space-4)" }}>
           <h1 style={{ fontSize: "var(--es-text-xl)", margin: 0 }}>Chord Dictionary</h1>
           <span style={{ color: "var(--es-fg-muted)", fontSize: "var(--es-text-sm)" }}>
@@ -236,9 +261,6 @@ export default function App() {
             style={{ flex: "1 1 220px" }}
           />
           <button onClick={() => exportJson(qualities)} className="es-btn es-primary">Export JSON</button>
-          <button className="es-btn" aria-label="Toggle color theme" onClick={() => setThemeState(toggleTheme())}>
-            {theme === "dark" ? "☀︎ Light" : "● Dark"}
-          </button>
         </div>
 
         {/* Per-quality inspector — the MIDIsplainer-style explainer with

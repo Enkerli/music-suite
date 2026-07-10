@@ -38,3 +38,26 @@ export async function pushScale(scale) {
   for (const frame of encodeMessage(msg)) midi.sendSysEx(frame);
   return { ok: true, detail: `→ ${port.name}` };
 }
+
+/** Device state for the shared frame's MIDI chip (cluster slot 2): connects
+ *  lazily (SysEx permission) and reports the outputs + the remembered pick. */
+export async function midiOutState() {
+  try {
+    midi ??= await connect({ sysex: true });
+  } catch {
+    return { unavailable: true };
+  }
+  let saved = null;
+  try { saved = globalThis.localStorage?.getItem(OUT_KEY) ?? null; } catch { /* fine */ }
+  const outputs = midi.outputs.map((p) => ({ id: p.id, name: p.name }));
+  const sel = outputs.find((p) => p.name === saved) ?? null;
+  return { outputs, selectedOutId: sel?.id ?? null };
+}
+
+/** Remember the chip's pick (by NAME — port ids aren't session-stable). */
+export function rememberOutput(id) {
+  const p = midi?.outputs.find((x) => x.id === id);
+  if (!p) return;
+  midi.selectOutput(p.id);
+  try { globalThis.localStorage?.setItem(OUT_KEY, p.name); } catch { /* fine */ }
+}

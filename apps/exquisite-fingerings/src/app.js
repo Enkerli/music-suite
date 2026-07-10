@@ -5,7 +5,8 @@
 
 import '@enkerli/ui/tokens.css';
 import '@enkerli/ui/components.css';
-import { resolvedTheme, toggleTheme } from '@enkerli/ui/theme';
+import { createGlobalCluster } from '@enkerli/ui/global-cluster';
+import { createLibraryDrawer } from '@enkerli/ui/library-drawer';
 import { GridRenderer } from './ui/svg-grid.js';
 import { midiManager } from './core/midi.js';
 import { FingeringPattern, ergoAnalyzer } from './core/fingering.js';
@@ -93,14 +94,9 @@ class ExquisFingerings {
    * Initialize UI event handlers
    */
   initUI() {
-    // Theme toggle (G4) — the standard suite control; theme.js sets data-theme
-    // and persists, the tokens carry the dark palette.
-    const themeBtn = document.getElementById('themeToggle');
-    if (themeBtn) {
-      const label = () => { themeBtn.textContent = resolvedTheme() === 'dark' ? '☀︎ Light' : '● Dark'; };
-      label();
-      themeBtn.addEventListener('click', () => { toggleTheme(); label(); });
-    }
+    // The shared frame (consistency pass): the global cluster owns theme ·
+    // MIDI · density · Library — same slots and ids as every suite app.
+    this.initSharedFrame();
 
     // Layout: square (shared fourths grid) vs hex (Exquis hardware). G1/G5 —
     // "Layout" names the grid structure; "Orientation" is a hex-only rotation.
@@ -198,30 +194,15 @@ class ExquisFingerings {
       this.suggestFingerings();
     });
 
-    // Pattern management
-    document.getElementById('savePattern').addEventListener('click', () => this.saveCurrentPattern());
-    document.getElementById('loadPattern').addEventListener('change', (e) => {
-      if (e.target.value) {
-        this.loadPatternByName(e.target.value);
-      }
-    });
-    document.getElementById('deletePattern').addEventListener('click', () => this.deleteCurrentPattern());
-
-    // Export/Import
+    // Pattern save/load/delete moved to the Library drawer (cluster slot 4);
+    // file export/import stays as the sharing path.
     document.getElementById('exportPattern').addEventListener('click', () => this.exportPattern());
     document.getElementById('importPatternBtn').addEventListener('click', () => {
       document.getElementById('importPattern').click();
     });
     document.getElementById('importPattern').addEventListener('change', (e) => this.importPattern(e));
 
-    // MIDI
-    document.getElementById('enableMidi').addEventListener('click', () => this.initMIDI());
-    document.getElementById('midiDevice').addEventListener('change', (e) => {
-      if (e.target.value) {
-        midiManager.selectOutputDevice(e.target.value);
-        this.updateMIDIStatus();
-      }
-    });
+    // MIDI device selection moved to the cluster's chip (slot 2).
 
     // MIDI Hold Duration
     const holdDurationSlider = document.getElementById('midiHoldDuration');
@@ -675,12 +656,146 @@ class ExquisFingerings {
   /**
    * Save current pattern
    */
-  saveCurrentPattern() {
-    const name = document.getElementById('patternName').value.trim();
-    if (!name) {
-      alert('Please enter a pattern name');
-      return;
+  // ── The shared frame: cluster + the one Library drawer ─────────────────
+
+  /** Mount the global cluster (theme · MIDI · density · Library) in the rail
+   *  header. Theme is the shared mechanism; MIDI feeds from midiManager
+   *  (permission probed only if already granted — the send/capture flows
+   *  still prompt on first use, then the chip refreshes); density targets
+   *  the whole document; Library opens the drawer. */
+  initSharedFrame() {
+    // One-time migration: the old "Save as Pattern" suggestion path wrote an
+    // orphan localStorage key ('fingeringPatterns') that nothing read — fold
+    // any stranded entries into the real store, then retire the key.
+    try {
+      const orphans = JSON.parse(localStorage.getItem('fingeringPatterns') || 'null');
+      if (orphans && typeof orphans === 'object') {
+        for (const [name, data] of Object.entries(orphans)) savePattern(name, data);
+        localStorage.removeItem('fingeringPatterns');
+      }
+    } catch { /* unreadable — leave it */ }
+
+    const host = document.getElementById('clusterHost');
+    if (!host) return;
+    this.cluster = createGlobalCluster(host, {
+      midi: this.clusterMidiState(),
+      densityTarget: document.body,
+      library: { count: this.libraryItems().length, onToggle: () => this.toggleLibraryDrawer() },
+    });
+
+    // Probe MIDI at startup only when SysEx permission is ALREADY granted
+    // (permission is a panel state, not a page-load prompt).
+    (async () => {
+      if (!midiManager.isSupported) return;
+      try {
+        const st = await navigator.permissions?.query?.({ name: 'midi', sysex: true });
+        if (st?.state === 'granted') await this.initMIDI();
+      } catch { /* permissions API absent — the first send/capture prompts */ }
+    })();
+  }
+
+  /** The cluster's MIDI opts, derived from midiManager's current state. */
+  clusterMidiState() {
+    if (!midiManager.isSupported) return { unavailable: true };
+    const outputs = midiManager.getOutputDevices();
+    return {
+      outputs,
+      selectedOutId: midiManager.selectedOutput?.id ?? null,
+      sysex: true,
+      onSelectOut: async (id) => {
+        if (!midiManager.midiAccess) { try { await this.initMIDI(); } catch { return; } }
+        if (id) midiManager.selectOutputDevice(id);
+        this.refreshSharedFrame();
+      },
+    };
+  }
+
+  /** Push current MIDI + library state into the cluster (and open drawer). */
+  refreshSharedFrame() {
+    this.cluster?.update({
+      midi: this.clusterMidiState(),
+      library: { count: this.libraryItems().length, onToggle: () => this.toggleLibraryDrawer() },
+    });
+    this.libDrawer?.update({ items: this.libraryItems() });
+  }
+
+  /** The drawer's cards — all three saved collections, one surface:
+   *  fingering patterns (document) · handprints (patch) · captured chord
+   *  fingerings (document). */
+  libraryItems() {
+    const items = [];
+    for (const name of getPatternNames()) {
+      items.push({ id: `pat:${name}`, name, kind: 'document', meta: 'fingering pattern', source: 'you' });
     }
+    for (const hp of this.savedHandprints) {
+      items.push({
+        id: `hp:${hp.capturedAt}`, name: `${hp.hand} handprint`, kind: 'patch',
+        meta: `comfort ${hp.comfortRating ?? '?'} · MIDI ${hp.baseMidi}`, source: 'captured',
+      });
+    }
+    for (const cf of this.savedChordFingerings) {
+      items.push({
+        id: `cf:${cf.id}`, name: `${getChordName(cf.chordRoot, cf.chordQuality)} (${cf.hand})`,
+        kind: 'document', meta: `${cf.positions.length} fingers · comfort ${cf.comfortRating}/5`,
+        source: 'captured',
+      });
+    }
+    return items;
+  }
+
+  toggleLibraryDrawer() {
+    if (this.libDrawer) { this.closeLibraryDrawer(); return; }
+    this.libDrawerHost = document.createElement('div');
+    document.body.appendChild(this.libDrawerHost);
+    this.libDrawer = createLibraryDrawer(this.libDrawerHost, {
+      noun: 'Patterns · Handprints · Fingerings',
+      thing: 'pattern',
+      items: this.libraryItems(),
+      onSave: () => { this.saveCurrentPattern(); },
+      onRecall: (item) => {
+        if (item.id.startsWith('pat:')) {
+          this.loadPatternByName(item.id.slice(4));
+          this.closeLibraryDrawer();
+        }
+        // handprints / chord fingerings have no apply action (yet) — they
+        // feed the suggestion engine; the drawer lists and manages them.
+      },
+      onDelete: (item) => this.deleteLibraryItem(item),
+      onClose: () => this.closeLibraryDrawer(),
+    });
+  }
+
+  closeLibraryDrawer() {
+    this.libDrawer?.destroy();
+    this.libDrawerHost?.remove();
+    this.libDrawer = null;
+    this.libDrawerHost = null;
+  }
+
+  deleteLibraryItem(item) {
+    if (item.id.startsWith('pat:')) {
+      deletePattern(item.id.slice(4));
+    } else if (item.id.startsWith('hp:')) {
+      const at = Number(item.id.slice(3));
+      this.savedHandprints = this.savedHandprints.filter((hp) => hp.capturedAt !== at);
+      this.settings.handprints = this.savedHandprints;
+      saveSettings(this.settings);
+      this.updateHandprintList();
+    } else if (item.id.startsWith('cf:')) {
+      const id = item.id.slice(3);
+      this.savedChordFingerings = this.savedChordFingerings.filter((cf) => cf.id !== id);
+      this.settings.chordFingerings = this.savedChordFingerings;
+      saveSettings(this.settings);
+      this.updateChordFingeringList();
+    }
+    this.refreshSharedFrame();
+  }
+
+  saveCurrentPattern() {
+    // Name from the Patterns card's field when given, else timestamped —
+    // never a blocking prompt (the drawer's save must always succeed).
+    const name = document.getElementById('patternName')?.value.trim()
+      || `Pattern ${new Date().toISOString().slice(5, 16).replace('T', ' ')}`;
 
     const patternData = {
       ...this.currentPattern.toJSON(),
@@ -691,8 +806,8 @@ class ExquisFingerings {
 
     savePattern(name, patternData);
     this.updatePatternList();
-    document.getElementById('patternName').value = '';
-    alert(`Pattern "${name}" saved!`);
+    const nameEl = document.getElementById('patternName');
+    if (nameEl) nameEl.value = '';
   }
 
   /**
@@ -714,22 +829,8 @@ class ExquisFingerings {
     this.render();
   }
 
-  /**
-   * Delete current pattern
-   */
-  deleteCurrentPattern() {
-    const name = document.getElementById('loadPattern').value;
-    if (!name) {
-      alert('Please select a pattern to delete');
-      return;
-    }
-
-    if (!confirm(`Delete pattern "${name}"?`)) return;
-
-    deletePattern(name);
-    this.updatePatternList();
-    document.getElementById('loadPattern').value = '';
-  }
+  // (deleteCurrentPattern retired — the Library drawer's two-tap delete
+  // owns pattern deletion now.)
 
   /**
    * Export current pattern to JSON file
@@ -812,19 +913,11 @@ class ExquisFingerings {
   }
 
   /**
-   * Update pattern list dropdown
+   * Patterns changed — refresh the Library drawer + cluster count (the old
+   * dropdown this filled lives in the drawer now).
    */
   updatePatternList() {
-    const select = document.getElementById('loadPattern');
-    const names = getPatternNames();
-
-    select.innerHTML = '<option value="">-- Select Pattern --</option>';
-    names.forEach(name => {
-      const option = document.createElement('option');
-      option.value = name;
-      option.textContent = name;
-      select.appendChild(option);
-    });
+    this.refreshSharedFrame();
   }
 
   /**
@@ -841,46 +934,14 @@ class ExquisFingerings {
   }
 
   /**
-   * Update MIDI device list
+   * MIDI device state changed — the cluster's chip is the display now.
    */
   updateMIDIDeviceList() {
-    const select = document.getElementById('midiDevice');
-    const devices = midiManager.getOutputDevices();
-
-    select.innerHTML = '<option value="">-- Select device --</option>';
-    devices.forEach(device => {
-      const option = document.createElement('option');
-      option.value = device.id;
-      option.textContent = device.name;
-      select.appendChild(option);
-    });
-
-    select.disabled = devices.length === 0;
+    this.refreshSharedFrame();
   }
 
-  /**
-   * Update MIDI status display
-   */
-  updateMIDIStatus(error = null) {
-    const status = midiManager.getStatus();
-    const statusEl = document.getElementById('midiStatus');
-
-    if (error) {
-      statusEl.textContent = `Error: ${error}`;
-      statusEl.className = 'error-box';
-    } else if (!status.isSupported) {
-      statusEl.textContent = 'WebMIDI not supported (use Chrome/Brave/Edge)';
-      statusEl.className = 'warning-box';
-    } else if (!status.isInitialized) {
-      statusEl.textContent = 'MIDI not initialized';
-      statusEl.className = 'warning-box';
-    } else if (!status.hasDevice) {
-      statusEl.textContent = 'MIDI ready - select a device';
-      statusEl.className = 'info-box';
-    } else {
-      statusEl.textContent = `Connected: ${status.deviceName}`;
-      statusEl.className = 'success-box';
-    }
+  updateMIDIStatus() {
+    this.refreshSharedFrame();
   }
 
   /**
@@ -1020,8 +1081,7 @@ class ExquisFingerings {
           const selectedDevice = exquisDevice || devices[0];
 
           midiManager.selectOutputDevice(selectedDevice.id);
-          document.getElementById('midiDevice').value = selectedDevice.id;
-          this.updateMIDIStatus();
+          this.updateMIDIStatus(); // the cluster's chip shows the selection
         }
       } catch (err) {
         alert(`Cannot enable MIDI: ${err.message}\n\nFallback: You can click pads on the grid instead.`);
@@ -1401,31 +1461,11 @@ class ExquisFingerings {
    * Update handprint list display
    */
   updateHandprintList() {
-    const listEl = document.getElementById('handprintList');
+    // The list lives in the Library drawer now; here we only gate the
+    // file-export sharing button and refresh the drawer/cluster.
     const exportBtn = document.getElementById('exportHandprints');
-    const clearBtn = document.getElementById('clearHandprints');
-
-    if (this.savedHandprints.length === 0) {
-      listEl.innerHTML = '<div style="opacity:0.7;">No handprints captured yet.</div>';
-      exportBtn.style.display = 'none';
-      clearBtn.style.display = 'none';
-      return;
-    }
-
-    listEl.innerHTML = this.savedHandprints.map(hp => {
-      const date = new Date(hp.capturedAt);
-      const timeStr = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-      const comfort = hp.comfortRating || '?';
-      return `
-        <div class="handprint-item ${hp.hand}">
-          <strong>${hp.hand.toUpperCase()}</strong> | Comfort: ${comfort}/100<br/>
-          <span style="font-size:0.85em; opacity:0.7;">MIDI ${hp.baseMidi} | ${hp.orientation} | ${timeStr}</span>
-        </div>
-      `;
-    }).join('');
-
-    exportBtn.style.display = 'block';
-    clearBtn.style.display = 'block';
+    if (exportBtn) exportBtn.style.display = this.savedHandprints.length ? 'block' : 'none';
+    this.refreshSharedFrame();
   }
 
   /**
@@ -1804,11 +1844,12 @@ class ExquisFingerings {
       ...pattern.metadata
     };
 
-    const patterns = JSON.parse(localStorage.getItem('fingeringPatterns') || '{}');
-    patterns[patternName] = patternData;
-    localStorage.setItem('fingeringPatterns', JSON.stringify(patterns));
+    // Through the ONE pattern store (this used to write the orphan
+    // 'fingeringPatterns' key that nothing read — the Library reads
+    // exquisPatterns via storage.js, so saves finally show up).
+    savePattern(patternName, patternData);
 
-    // Update pattern list
+    // Update the Library drawer + cluster count
     this.updatePatternList();
 
     // Show feedback
@@ -1971,8 +2012,7 @@ class ExquisFingerings {
           const selectedDevice = exquisDevice || devices[0];
 
           midiManager.selectOutputDevice(selectedDevice.id);
-          document.getElementById('midiDevice').value = selectedDevice.id;
-          this.updateMIDIStatus();
+          this.updateMIDIStatus(); // the cluster's chip shows the selection
 
           console.log('[ChordCapture] Auto-selected MIDI device:', selectedDevice.name);
         }
@@ -2204,29 +2244,11 @@ class ExquisFingerings {
    * Update chord fingering list display
    */
   updateChordFingeringList() {
-    const listEl = document.getElementById('chordFingeringList');
-
-    if (this.savedChordFingerings.length === 0) {
-      listEl.innerHTML = '<div style="opacity:0.7;">No chord fingerings captured yet.</div>';
-      document.getElementById('exportChordFingerings').style.display = 'none';
-      document.getElementById('clearChordFingerings').style.display = 'none';
-      return;
-    }
-
-    listEl.innerHTML = this.savedChordFingerings.map((f, index) => {
-      const chordName = getChordName(f.chordRoot, f.chordQuality);
-      return `
-        <div style="padding:6px; background:#f5f5f5; border-radius:3px; margin-bottom:4px;">
-          <strong>${chordName}</strong> (${f.hand})<br>
-          <span style="font-size:0.85em;">
-            ${f.positions.length} fingers • Comfort: ${f.comfortRating}/5
-          </span>
-        </div>
-      `;
-    }).join('');
-
-    document.getElementById('exportChordFingerings').style.display = 'block';
-    document.getElementById('clearChordFingerings').style.display = 'block';
+    // The list lives in the Library drawer now; here we only gate the
+    // file-export sharing button and refresh the drawer/cluster.
+    const exportBtn = document.getElementById('exportChordFingerings');
+    if (exportBtn) exportBtn.style.display = this.savedChordFingerings.length ? 'block' : 'none';
+    this.refreshSharedFrame();
   }
 }
 

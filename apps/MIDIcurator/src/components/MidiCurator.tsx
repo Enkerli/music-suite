@@ -25,6 +25,7 @@ import { IN_PLUGIN, IS_PLUGIN_BUILD, bridge, b64ToBytes } from '../lib/juce-brid
 import { esConfirm, esAlert } from '@enkerli/ui/confirm';
 import { readEmbeddedProgression, leadsheetTextFromProgression } from '../lib/progression-import';
 import { Sidebar } from './Sidebar';
+import { LibraryDrawerMount, type ClusterMidi, type DrawerItem } from './SharedFrame';
 import { ClipDetail } from './ClipDetail';
 import { KeyboardShortcutsBar } from './KeyboardShortcutsBar';
 
@@ -128,6 +129,20 @@ function parseUjamFilename(filename: string): {
 export function MidiCurator() {
   const { db, clips, tagIndex, refreshClips } = useDatabase();
   const { playbackState, currentTime, play, pause, stop, toggle, midi } = usePlayback();
+
+  // Cluster slot 2 — the shared MIDI chip's state, from the same
+  // usePlayback source the old MidiOutBar used. Memoized so playback
+  // ticks don't re-render the cluster.
+  const clusterMidi = useMemo<ClusterMidi | null>(() => {
+    if (!midi) return null;
+    if (midi.error) return { unavailable: true };
+    return {
+      outputs: midi.outputs,
+      selectedOutId: midi.selectedId,
+      noneOption: 'Internal (Web Audio)',
+      onSelectOut: midi.select,
+    };
+  }, [midi]);
   const [selectedClip, setSelectedClip] = useState<Clip | null>(null);
   const [tags, setTags] = useState<string[]>([]);
   const [filterTag, setFilterTag] = useState('');
@@ -183,6 +198,26 @@ export function MidiCurator() {
     setSelectedClip(updated);
     refreshClips();
   }, [selectedClip, db, refreshClips]);
+
+  // Drawer delete — the two-tap control IS the destructive confirm.
+  const deleteClipById = useCallback(async (id: string) => {
+    if (!db) return;
+    if (selectedClip?.id === id) { stop(); setSelectedClip(null); setTags([]); }
+    await db.deleteClip(id);
+    refreshClips();
+  }, [db, selectedClip, refreshClips, stop]);
+
+  const [libOpen, setLibOpen] = useState(false);
+
+  // The drawer's cards — the clip library as kind "document".
+  const drawerItems = useMemo<DrawerItem[]>(() => clips.map(c => ({
+    id: c.id,
+    name: c.filename,
+    kind: 'document' as const,
+    meta: [c.bpm ? `${Math.round(c.bpm)} bpm` : null, c.flagged ? '⚑ flagged' : null]
+      .filter(Boolean).join(' · ') || undefined,
+    source: 'you',
+  })), [clips]);
 
   const deleteClip = useCallback(async () => {
     if (!selectedClip || !db) return;
@@ -1484,6 +1519,8 @@ export function MidiCurator() {
         <Sidebar
           clips={filteredClips}
           allClips={clips}
+          clusterMidi={clusterMidi}
+          onToggleLibrary={() => setLibOpen(o => !o)}
           selectedClipId={selectedClip?.id ?? null}
           filterTag={filterTag}
           onFilterChange={setFilterTag}
@@ -1528,7 +1565,6 @@ export function MidiCurator() {
             onPlay={() => play(selectedClip)}
             onPause={pause}
             onStop={stop}
-            midi={midi}
             selectionRange={selectionRange}
             onRangeSelect={setSelectionRange}
             rangeChordInfo={rangeChordInfo}
@@ -1572,6 +1608,22 @@ export function MidiCurator() {
       </div>
 
       <KeyboardShortcutsBar />
+
+      {/* The one Library drawer — the sidebar list is the working surface;
+          this is the same collection through the suite-wide surface. */}
+      {libOpen && (
+        <LibraryDrawerMount
+          noun="Clips"
+          items={drawerItems}
+          onRecall={(item: DrawerItem) => {
+            const clip = clips.find(c => c.id === item.id);
+            if (clip) selectClip(clip);
+            setLibOpen(false);
+          }}
+          onDelete={(item: DrawerItem) => { void deleteClipById(item.id); }}
+          onClose={() => setLibOpen(false)}
+        />
+      )}
     </div>
   );
 }

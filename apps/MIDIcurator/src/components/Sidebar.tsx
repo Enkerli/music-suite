@@ -6,7 +6,7 @@ import { parseChordSymbol } from '../lib/chord-parser';
 import { DropZone } from './DropZone';
 import { IN_PLUGIN, IS_PLUGIN_BUILD, bridge } from '../lib/juce-bridge';
 import { ClipCard } from './ClipCard';
-import { ThemeToggle } from './ThemeToggle';
+import { GlobalClusterMount, type ClusterMidi } from './SharedFrame';
 import { ProgressionGenerator } from './ProgressionGenerator';
 
 interface SidebarProps {
@@ -38,11 +38,17 @@ interface SidebarProps {
    * Shown when provided and there are filtered clips in the list.
    */
   onBulkLeadsheetUpdate?: (symbol: string) => void;
+  /** Cluster slot 2 — the shared MIDI chip's state (null omits the slot). */
+  clusterMidi: ClusterMidi | null;
+  /** Cluster slot 4 — open/close the Library drawer. */
+  onToggleLibrary: () => void;
 }
 
 export function Sidebar({
   clips,
   allClips,
+  clusterMidi,
+  onToggleLibrary,
   selectedClipId,
   filterTag,
   onFilterChange,
@@ -170,7 +176,10 @@ export function Sidebar({
     <div className="mc-sidebar">
       <div className="mc-sidebar-header">
         <h2>MIDI Curator <span style={{ fontSize: '0.6em', fontWeight: 400, color: 'var(--es-fg-muted)' }} title="Build tag — confirms which bundle is running">build {__BUILD_TAG__}</span></h2>
-        <ThemeToggle />
+        {/* The shared frame's global cluster (theme · MIDI · density ·
+            Library) — archetype A: it lives in the rail header. */}
+        <GlobalClusterMount midi={clusterMidi} libCount={allClips.length}
+          onLibToggle={onToggleLibrary} />
       </div>
 
       {IN_PLUGIN ? (
@@ -385,6 +394,7 @@ export function Sidebar({
         </div>
       )}
 
+      <div className="es-eyebrow" style={{ padding: '10px 12px 0' }}>Library — Clips</div>
       <div className="mc-clip-count">
         <span>{clips.length} clips{flaggedCount > 0 ? ` · ⚑ ${flaggedCount}` : ''}</span>
         <span className="mc-clip-count-actions">

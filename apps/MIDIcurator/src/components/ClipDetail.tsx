@@ -1,7 +1,6 @@
 import { useCallback, useMemo, useState, useRef, useEffect } from 'react';
 import type { Clip, DetectedChord } from '../types/clip';
 import type { PlaybackState } from '../lib/playback';
-import type { MidiOutUi } from '../hooks/usePlayback';
 import type { TickRange } from '../lib/piano-roll';
 import { StatsGrid } from './StatsGrid';
 import { PianoRoll } from './PianoRoll';
@@ -9,7 +8,6 @@ import { ChordBar } from './ChordBar';
 import { LeadsheetBar } from './LeadsheetBar';
 import { LeadsheetInput } from './LeadsheetInput';
 import { TransportBar } from './TransportBar';
-import { MidiOutBar } from './MidiOutBar';
 import { TagEditor } from './TagEditor';
 import { TransformControls } from './TransformControls';
 import { VpIntensityControls } from './VpIntensityControls';
@@ -47,7 +45,6 @@ interface ClipDetailProps {
   onPause: () => void;
   onStop: () => void;
   /** Standalone MIDI-output selector state (absent in the plugin). */
-  midi?: MidiOutUi;
   selectionRange: TickRange | null;
   onRangeSelect: (range: TickRange | null) => void;
   rangeChordInfo: {
@@ -103,7 +100,6 @@ export function ClipDetail({
   onPlay,
   onPause,
   onStop,
-  midi,
   selectionRange,
   onRangeSelect,
   rangeChordInfo,
@@ -223,7 +219,6 @@ export function ClipDetail({
             onPause={onPause}
             onStop={onStop}
           />
-          {midi && <MidiOutBar midi={midi} />}
           <button
             className={`mc-btn--tool ${scissorsMode ? 'mc-btn--tool-active' : ''}`}
             onClick={onToggleScissors}
