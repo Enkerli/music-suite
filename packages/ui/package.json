@@ -21,6 +21,8 @@
       "default": "./naming.js"
     },
     "./leadsheet-editor": "./components/leadsheet-editor.js",
+    "./global-cluster": "./components/global-cluster.js",
+    "./library-drawer": "./components/library-drawer.js",
     "./confirm": {
       "types": "./confirm.d.ts",
       "default": "./confirm.js"

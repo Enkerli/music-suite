@@ -6,6 +6,8 @@ import { layoutNotes } from "./piano-roll.js";
 import { createSection } from "./section.js";
 import { createRangeSlider, midiName } from "./range-slider.js";
 import { PITCH_CLASS_COLORS, padColor, padInk } from "./pitch-class-colors.js";
+import { createGlobalCluster } from "./global-cluster.js";
+import { createLibraryDrawer } from "./library-drawer.js";
 
 describe("pcs mask codec (leftmost = LSB, CONVENTIONS.md)", () => {
   it("C ionian 2741 decodes pc i = bit i", () => {
@@ -200,5 +202,129 @@ describe("collapsible section", () => {
     details.open = true;
     details.dispatchEvent(new Event("toggle"));
     expect(onToggle).toHaveBeenCalledWith(true);
+  });
+});
+
+describe("global cluster (the shared frame)", () => {
+  it("renders the four slots in the canonical order with stable ids", () => {
+    const el = document.createElement("div");
+    createGlobalCluster(el, {
+      midi: { outputs: [{ id: "o1", name: "IAC Bus 1" }] },
+      densityTarget: el,
+      library: { count: 3, onToggle: () => {} },
+    });
+    const ids = [...el.querySelectorAll("button")].map((b) => b.id);
+    expect(ids).toEqual(["theme-toggle", "midi-chip", "density-toggle", "library-toggle"]);
+    expect(el.querySelector(".lib-count-badge").textContent).toBe("3");
+  });
+
+  it("omits MIDI/density/library slots when not configured — nothing reflows", () => {
+    const el = document.createElement("div");
+    createGlobalCluster(el, {});
+    const ids = [...el.querySelectorAll("button")].map((b) => b.id);
+    expect(ids).toEqual(["theme-toggle"]);
+  });
+
+  it("theme toggle flips [data-theme] via the shared mechanism and relabels", () => {
+    localStorage.removeItem("enkerli.theme");
+    const el = document.createElement("div");
+    const onThemeChange = vi.fn();
+    createGlobalCluster(el, { onThemeChange });
+    const btn = el.querySelector("#theme-toggle");
+    expect(btn.textContent).toContain("Dark"); // names the TARGET mode
+    btn.click();
+    expect(document.documentElement.getAttribute("data-theme")).toBe("dark");
+    expect(onThemeChange).toHaveBeenCalledWith("dark");
+    expect(btn.textContent).toContain("Light");
+    btn.click(); // restore
+    localStorage.removeItem("enkerli.theme");
+  });
+
+  it("MIDI chip states: counts ports, flags no-Web-MIDI", () => {
+    const el = document.createElement("div");
+    const c = createGlobalCluster(el, {
+      midi: { inputs: [{ id: "i", name: "Rise" }], outputs: [{ id: "o", name: "Exquis" }] },
+    });
+    expect(el.querySelector("#midi-chip").textContent).toContain("MIDI · 2");
+    expect(el.querySelector("#midi-chip").dataset.state).toBe("connected");
+    c.update({ midi: { unavailable: true } });
+    expect(el.querySelector("#midi-chip").textContent).toContain("No Web MIDI");
+    expect(el.querySelector("#midi-chip").dataset.state).toBe("unavailable");
+  });
+
+  it("chip opens the device panel; only provided directions render", () => {
+    const el = document.createElement("div");
+    document.body.appendChild(el);
+    createGlobalCluster(el, {
+      midi: { outputs: [{ id: "o", name: "Exquis" }], noneOption: "Internal (Web Audio)" },
+    });
+    el.querySelector("#midi-chip").click();
+    const names = [...el.querySelectorAll(".es-device-name")].map((n) => n.textContent);
+    expect(names).toEqual(["MIDI Out"]); // out-only app: no dead In row
+    expect(el.querySelector("select option").textContent).toBe("Internal (Web Audio)");
+    el.remove();
+  });
+
+  it("density toggle flips .es-dense on the target", () => {
+    const el = document.createElement("div");
+    const target = document.createElement("div");
+    createGlobalCluster(el, { densityTarget: target });
+    const btn = el.querySelector("#density-toggle");
+    expect(btn.textContent).toContain("Cozy");
+    btn.click();
+    expect(target.classList.contains("es-dense")).toBe(true);
+    expect(btn.textContent).toContain("Dense");
+  });
+});
+
+describe("library drawer (the one save/recall surface)", () => {
+  const items = [
+    { id: "a", name: "ii–V drift in F", kind: "document", meta: "8 bars · F maj", source: "you" },
+    { id: "b", name: "Ballad generator", kind: "patch", meta: "gen params" },
+    { id: "c", name: "Taste profile", kind: "profile", meta: "214 ratings" },
+  ];
+
+  it("titles Library, groups by kind in canonical order, badges every card", () => {
+    const el = document.createElement("div");
+    createLibraryDrawer(el, { noun: "Progressions · Patches · Profile", thing: "progression",
+      items, onSave: () => {}, onClose: () => {} });
+    expect(el.querySelector(".ld-title").textContent).toBe("Library");
+    expect(el.querySelector(".ld-sub").textContent).toBe("Progressions · Patches · Profile");
+    const kinds = [...el.querySelectorAll(".ld-kind")].map((k) => k.textContent);
+    expect(kinds).toEqual(["Documents", "Patches", "Profiles"]);
+    const badges = [...el.querySelectorAll(".kind-badge")].map((b) => b.textContent);
+    expect(badges).toEqual(["document", "patch", "profile"]);
+    expect(el.querySelector(".ld-save").textContent).toBe("+ Save current progression");
+  });
+
+  it("recall on tap; Escape closes", () => {
+    const el = document.createElement("div");
+    const onRecall = vi.fn(), onClose = vi.fn();
+    createLibraryDrawer(el, { noun: "Clips", items, onRecall, onClose });
+    el.querySelector(".lib-item").click();
+    expect(onRecall).toHaveBeenCalledWith(expect.objectContaining({ id: "a" }));
+    document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
+    expect(onClose).toHaveBeenCalled();
+  });
+
+  it("two-tap delete: first arms, second commits; never deletes on one tap", () => {
+    const el = document.createElement("div");
+    const onDelete = vi.fn();
+    createLibraryDrawer(el, { noun: "Clips", items, onDelete, onClose: () => {} });
+    const del = el.querySelector(".del-btn");
+    del.click();
+    expect(onDelete).not.toHaveBeenCalled(); // armed, not committed
+    expect(del.classList.contains("armed")).toBe(true);
+    expect(del.textContent).toBe("Delete?");
+    del.click();
+    expect(onDelete).toHaveBeenCalledWith(expect.objectContaining({ id: "a" }));
+  });
+
+  it("empty state names the save affordance", () => {
+    const el = document.createElement("div");
+    createLibraryDrawer(el, { noun: "Scale sets", thing: "scale set", items: [],
+      onSave: () => {}, onClose: () => {} });
+    expect(el.querySelector(".lib-empty .t").textContent).toBe("Nothing saved yet");
+    expect(el.querySelector(".lib-empty p").textContent).toContain("Save current scale set");
   });
 });

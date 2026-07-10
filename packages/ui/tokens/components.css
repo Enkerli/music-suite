@@ -605,3 +605,129 @@ select.es-control option { background: var(--es-bg-raised); color: var(--es-fg);
 }
 .es-device-select[data-state="empty"] select.es-control { display: none; }
 .es-device-select:not([data-state="empty"]) .es-device-empty { display: none; }
+
+/* ── The shared frame (consistency pass, 2026-07) ────────────────────
+   One frame for all ten apps: a chrome bar with named slots — brand
+   (left) · optional transport (center, host-owned in plugins) · the
+   global-controls cluster (right). The cluster order is fixed
+   everywhere: theme · MIDI · density · Library. Stable identities:
+   #theme-toggle #midi-chip #density-toggle #library-toggle.
+   Spec: the "Shared Frame — Consistency Pass" design document. */
+
+.es-shellbar {
+  display: flex; align-items: center; gap: 14px; min-height: 52px;
+  padding: 8px 14px; background: var(--es-bg-raised);
+  border-bottom: 1px solid var(--es-border);
+}
+.es-shellbar .brand { display: flex; align-items: center; gap: 9px; min-width: 0; }
+.es-shellbar .brand img { width: 26px; height: 26px; border-radius: 7px; }
+.es-shellbar .brand .nm { font-weight: 600; letter-spacing: -0.01em; white-space: nowrap; }
+.es-shellbar .brand .k { font-size: var(--es-text-xs); color: var(--es-fg-muted); white-space: nowrap; }
+.es-shellbar .mid { flex: 1 1 auto; display: flex; justify-content: center; min-width: 0; }
+
+/* THE global-controls cluster — same order, every app:
+   theme · MIDI · density · Library */
+.es-cluster { display: flex; align-items: center; gap: 8px; flex: none; }
+.es-cluster .es-btn { display: inline-flex; align-items: center; gap: 7px;
+  font-size: var(--es-text-sm); font-weight: 500; white-space: nowrap; cursor: pointer; }
+.es-cluster .glyph { font-size: 13px; line-height: 1; }
+
+/* archetype D — chrome-less canvas gets a floating cluster */
+.es-float-bar {
+  position: absolute; top: 12px; right: 12px; z-index: 5;
+  display: flex; align-items: center; gap: 8px;
+  padding: 6px 8px; border-radius: var(--es-radius-md);
+  background: color-mix(in oklab, var(--es-bg-raised) 88%, transparent);
+  border: 1px solid var(--es-border); box-shadow: var(--es-shadow);
+  backdrop-filter: blur(8px);
+}
+
+/* MIDI status chip (cluster slot 2) — LED always rides with the word */
+.midi-led { width: 8px; height: 8px; border-radius: 50%; flex: none; background: var(--es-border-strong); }
+.midi-chip[data-state="connected"] .midi-led { background: var(--es-dim-expr); }
+.midi-chip[data-state="unavailable"] .midi-led { background: var(--es-danger); }
+.midi-chip svg { flex: none; }
+
+/* Library chip counter (cluster slot 4) */
+.lib-count-badge { font-family: var(--es-font-mono); font-size: 10px; padding: 0 5px;
+  border-radius: 999px; background: var(--es-border); color: var(--es-fg-2); }
+
+/* popover (the MIDI panel's home off the chip) */
+.pop-anchor { position: relative; }
+.es-popover {
+  position: absolute; top: calc(100% + 8px); right: 0; z-index: 50; width: 300px;
+  background: var(--es-bg-raised); border: 1px solid var(--es-border-strong);
+  border-radius: var(--es-radius-md); box-shadow: 0 14px 40px rgba(28,25,20,0.16);
+  padding: var(--es-space-3);
+}
+[data-theme="dark"] .es-popover { box-shadow: 0 14px 40px rgba(0,0,0,0.5); }
+.es-popover .pop-head { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+.es-popover .pop-head .es-eyebrow { flex: 1; }
+
+/* ── The Library drawer (D4) — the ONE save/recall surface ──────────
+   Viewport-pinned right drawer (the prototype anchored it inside the
+   app frame; fixed is the same picture when the app fills the window,
+   and stays correct on scrolling pages). Trigger and surface share
+   the noun: the button says Library, the drawer titles Library. */
+.lib-drawer {
+  position: fixed; top: 0; right: 0; bottom: 0; z-index: 80; width: min(340px, 88%);
+  background: var(--es-bg-raised); border-left: 1px solid var(--es-border-strong);
+  box-shadow: -12px 0 34px rgba(28,25,20,0.14);
+  display: flex; flex-direction: column;
+  animation: es-drawer-in var(--es-motion-base);
+}
+[data-theme="dark"] .lib-drawer { box-shadow: -12px 0 34px rgba(0,0,0,0.45); }
+@keyframes es-drawer-in { from { transform: translateX(14px); opacity: 0; } to { transform: none; opacity: 1; } }
+.lib-drawer .ld-head { padding: 12px 14px 10px; border-bottom: 1px solid var(--es-border); }
+.lib-drawer .ld-title-row { display: flex; align-items: center; gap: 8px; }
+.lib-drawer .ld-title { font-weight: 600; font-size: var(--es-text-lg); letter-spacing: -0.01em; }
+.lib-drawer .ld-sub { font-size: var(--es-text-xs); color: var(--es-fg-muted); margin-top: 1px; }
+.lib-drawer .ld-x { margin-left: auto; width: 28px; height: 28px; border-radius: 7px;
+  border: 1px solid var(--es-border-strong); background: var(--es-bg-raised); color: var(--es-fg);
+  cursor: pointer; font-size: 14px; }
+.lib-drawer .ld-x:hover { background: var(--es-bg-sunken); }
+.lib-drawer .ld-save { margin: 10px 14px 0; }
+.lib-drawer .ld-body { flex: 1; overflow: auto; padding: 10px 14px 16px; }
+.lib-drawer .ld-kind { margin: 10px 0 6px; }
+
+/* the ONE saved-item card: name · meta · source · kind · recall · delete */
+.lib-item {
+  display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 4px 10px;
+  padding: 9px 11px; border: 1px solid var(--es-border); border-radius: var(--es-radius-sm);
+  background: var(--es-bg); cursor: pointer;
+}
+.lib-item + .lib-item { margin-top: 7px; }
+.lib-item:hover { border-color: var(--es-border-strong); background: var(--es-bg-sunken); }
+.lib-item:focus-visible { outline: var(--es-focus-ring); outline-offset: 1px; }
+.lib-item .li-name { font-weight: 600; font-size: var(--es-text-sm); letter-spacing: -0.01em;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lib-item .li-meta { grid-column: 1; display: flex; align-items: center; gap: 8px;
+  font-size: var(--es-text-xs); color: var(--es-fg-muted); }
+.lib-item .li-side { grid-row: 1 / span 2; display: flex; align-items: center; gap: 6px; }
+
+/* saved-item kinds — map 1:1 to @enkerli/library wrap helpers:
+   document (wrapProgression/wrapClip) · patch (wrapPatch) ·
+   profile (wrapCurationProfile). Colour pairs with the word. */
+.kind-badge { font-family: var(--es-font-mono); font-size: 9px; letter-spacing: 0.04em;
+  text-transform: uppercase; font-weight: 600; padding: 1px 6px; border-radius: 999px; }
+.kind-badge.document { background: var(--es-dim-breath-tint); color: var(--es-dim-breath); }
+.kind-badge.patch { background: var(--es-dim-pressure-tint); color: var(--es-dim-pressure); }
+.kind-badge.profile { background: var(--es-dim-slide-tint); color: var(--es-dim-slide); }
+[data-theme="dark"] .kind-badge.document { background: color-mix(in oklab, var(--es-dim-breath) 24%, transparent); }
+[data-theme="dark"] .kind-badge.patch { background: color-mix(in oklab, var(--es-dim-pressure) 26%, transparent); }
+[data-theme="dark"] .kind-badge.profile { background: color-mix(in oklab, var(--es-dim-slide) 26%, transparent); }
+
+/* two-tap inline delete (the "Reset armed" idiom — no modal confirm;
+   window.confirm is a silent no-op in WKWebView) */
+.del-btn { width: 26px; height: 26px; border-radius: 7px; border: 1px solid transparent;
+  background: transparent; color: var(--es-fg-muted); cursor: pointer; font-size: 13px; line-height: 1; }
+.del-btn:hover { border-color: var(--es-border-strong); color: var(--es-danger); background: var(--es-bg-raised); }
+.del-btn:focus-visible { outline: var(--es-focus-ring); outline-offset: 1px; }
+.del-btn.armed { background: var(--es-danger); border-color: var(--es-danger); color: #fff;
+  width: auto; padding: 0 9px; font-weight: 600; font-size: var(--es-text-xs);
+  animation: es-pulse-arm 1.05s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) { .del-btn.armed { animation: none; } }
+
+.lib-empty { text-align: center; color: var(--es-fg-muted); padding: 26px 16px; }
+.lib-empty .t { font-family: var(--es-font-serif); font-style: italic; font-size: 1.15rem; color: var(--es-fg-2); }
+.lib-empty p { font-size: var(--es-text-sm); line-height: 1.5; margin: 6px 0 0; }
