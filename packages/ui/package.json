@@ -23,6 +23,7 @@
     "./leadsheet-editor": "./components/leadsheet-editor.js",
     "./global-cluster": "./components/global-cluster.js",
     "./library-drawer": "./components/library-drawer.js",
+    "./icons/*": "./icons/*",
     "./confirm": {
       "types": "./confirm.d.ts",
       "default": "./confirm.js"
@@ -30,6 +31,7 @@
   },
   "files": [
     "tokens",
+    "icons",
     "theme.js",
     "theme.d.ts",
     "components",
