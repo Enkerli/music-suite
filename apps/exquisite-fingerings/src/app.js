@@ -4,9 +4,11 @@
  */
 
 import '@enkerli/ui/tokens.css';
+import '@enkerli/ui/fonts.css';
 import '@enkerli/ui/components.css';
 import { createGlobalCluster } from '@enkerli/ui/global-cluster';
-import { createLibraryDrawer } from '@enkerli/ui/library-drawer';
+import { createLibraryBrowser } from '@enkerli/ui/library-browser';
+import { toast } from '@enkerli/ui/toast';
 import { GridRenderer } from './ui/svg-grid.js';
 import { midiManager } from './core/midi.js';
 import { FingeringPattern, ergoAnalyzer } from './core/fingering.js';
@@ -656,13 +658,15 @@ class ExquisFingerings {
   /**
    * Save current pattern
    */
-  // ── The shared frame: cluster + the one Library drawer ─────────────────
+  // ── The shared frame: cluster + the one Library (Design pass · Q2) ──────
 
   /** Mount the global cluster (theme · MIDI · density · Library) in the rail
-   *  header. Theme is the shared mechanism; MIDI feeds from midiManager
-   *  (permission probed only if already granted — the send/capture flows
-   *  still prompt on first use, then the chip refreshes); density targets
-   *  the whole document; Library opens the drawer. */
+   *  header, and the Library browser (hidden until toggled) right below it.
+   *  Theme is the shared mechanism; MIDI feeds from midiManager (permission
+   *  probed only if already granted — the send/capture flows still prompt
+   *  on first use, then the chip refreshes); density targets the whole
+   *  document; Library is the shared LibraryBrowser (compact, for the rail),
+   *  the same pattern ProgGenie/Serpe/MIDIcurator use. */
   initSharedFrame() {
     // One-time migration: the old "Save as Pattern" suggestion path wrote an
     // orphan localStorage key ('fingeringPatterns') that nothing read — fold
@@ -680,8 +684,30 @@ class ExquisFingerings {
     this.cluster = createGlobalCluster(host, {
       midi: this.clusterMidiState(),
       densityTarget: document.body,
-      library: { count: this.libraryItems().length, onToggle: () => this.toggleLibraryDrawer() },
+      library: { count: this.libraryItems().length, onToggle: () => this.toggleLibrary() },
     });
+
+    const libHost = document.getElementById('libraryHost');
+    if (libHost) {
+      this.library = createLibraryBrowser(libHost, {
+        items: this.libraryItems(),
+        title: 'Library',
+        compact: true,
+        favorites: false,
+        frontDoors: false,
+        openOnRowClick: true,
+        keys: { name: 'name', date: 'savedAt' },
+        sorts: [{ value: 'recent', label: 'Recent' }, { value: 'name', label: 'Name A–Z' }],
+        facets: [
+          { key: 'kind', label: 'Kind', kind: 'multi', badge: true,
+            accessor: (it) => (it.kind === 'patch' ? 'Handprint' : it.id.startsWith('cf:') ? 'Chord fingering' : 'Pattern') },
+        ],
+        rowActionsFor: (it) => (it.id.startsWith('pat:') ? ['open', 'delete'] : ['delete']),
+        emptyHint: 'Save a pattern, or capture a handprint / chord fingering.',
+        onOpen: (it) => { if (it.id.startsWith('pat:')) this.loadPatternByName(it.id.slice(4)); },
+        onDelete: (it) => this.deleteLibraryItem(it),
+      });
+    }
 
     // Probe MIDI at startup only when SysEx permission is ALREADY granted
     // (permission is a panel state, not a page-load prompt).
@@ -710,16 +736,16 @@ class ExquisFingerings {
     };
   }
 
-  /** Push current MIDI + library state into the cluster (and open drawer). */
+  /** Push current MIDI + Library state into the cluster + browser. */
   refreshSharedFrame() {
     this.cluster?.update({
       midi: this.clusterMidiState(),
-      library: { count: this.libraryItems().length, onToggle: () => this.toggleLibraryDrawer() },
+      library: { count: this.libraryItems().length, onToggle: () => this.toggleLibrary() },
     });
-    this.libDrawer?.update({ items: this.libraryItems() });
+    this.library?.setItems(this.libraryItems());
   }
 
-  /** The drawer's cards — all three saved collections, one surface:
+  /** The Library's rows — all three saved collections, one surface:
    *  fingering patterns (document) · handprints (patch) · captured chord
    *  fingerings (document). */
   libraryItems() {
@@ -743,50 +769,48 @@ class ExquisFingerings {
     return items;
   }
 
-  toggleLibraryDrawer() {
-    if (this.libDrawer) { this.closeLibraryDrawer(); return; }
-    this.libDrawerHost = document.createElement('div');
-    document.body.appendChild(this.libDrawerHost);
-    this.libDrawer = createLibraryDrawer(this.libDrawerHost, {
-      noun: 'Patterns · Handprints · Fingerings',
-      thing: 'pattern',
-      items: this.libraryItems(),
-      onSave: () => { this.saveCurrentPattern(); },
-      onRecall: (item) => {
-        if (item.id.startsWith('pat:')) {
-          this.loadPatternByName(item.id.slice(4));
-          this.closeLibraryDrawer();
-        }
-        // handprints / chord fingerings have no apply action (yet) — they
-        // feed the suggestion engine; the drawer lists and manages them.
-      },
-      onDelete: (item) => this.deleteLibraryItem(item),
-      onClose: () => this.closeLibraryDrawer(),
-    });
+  toggleLibrary() {
+    const libHost = document.getElementById('libraryHost');
+    if (!libHost) return;
+    const open = libHost.style.display === 'none';
+    libHost.style.display = open ? '' : 'none';
+    if (open) this.library?.setItems(this.libraryItems());
   }
 
-  closeLibraryDrawer() {
-    this.libDrawer?.destroy();
-    this.libDrawerHost?.remove();
-    this.libDrawer = null;
-    this.libDrawerHost = null;
-  }
-
+  /** Delete with the suite's one destructive idiom (Q4): optimistic + undo toast. */
   deleteLibraryItem(item) {
     if (item.id.startsWith('pat:')) {
-      deletePattern(item.id.slice(4));
-    } else if (item.id.startsWith('hp:')) {
+      const name = item.id.slice(4);
+      const data = loadPattern(name);
+      deletePattern(name);
+      toast({ text: `Deleted "${name}"`, undo: () => { if (data) { savePattern(name, data); this.refreshSharedFrame(); } } });
+      this.updatePatternList();
+      return;
+    }
+    if (item.id.startsWith('hp:')) {
       const at = Number(item.id.slice(3));
+      const removed = this.savedHandprints.find((hp) => hp.capturedAt === at);
       this.savedHandprints = this.savedHandprints.filter((hp) => hp.capturedAt !== at);
       this.settings.handprints = this.savedHandprints;
       saveSettings(this.settings);
       this.updateHandprintList();
-    } else if (item.id.startsWith('cf:')) {
+      if (removed) toast({
+        text: `Deleted "${removed.hand} handprint"`,
+        undo: () => { this.savedHandprints = [...this.savedHandprints, removed]; this.settings.handprints = this.savedHandprints; saveSettings(this.settings); this.updateHandprintList(); },
+      });
+      return;
+    }
+    if (item.id.startsWith('cf:')) {
       const id = item.id.slice(3);
+      const removed = this.savedChordFingerings.find((cf) => cf.id === id);
       this.savedChordFingerings = this.savedChordFingerings.filter((cf) => cf.id !== id);
       this.settings.chordFingerings = this.savedChordFingerings;
       saveSettings(this.settings);
       this.updateChordFingeringList();
+      if (removed) toast({
+        text: `Deleted "${item.name}"`,
+        undo: () => { this.savedChordFingerings = [...this.savedChordFingerings, removed]; this.settings.chordFingerings = this.savedChordFingerings; saveSettings(this.settings); this.updateChordFingeringList(); },
+      });
     }
     this.refreshSharedFrame();
   }

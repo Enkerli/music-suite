@@ -18,6 +18,8 @@ import { spliceSegment, isTrivialSegments, removeRestSegments } from '../lib/cho
 import { substituteSegmentPitches } from '../lib/chord-substitute';
 import { parseLeadsheet } from '../lib/leadsheet-parser';
 import { loadLoopDb, lookupLoopMeta, getLoadedDbFileName, keyTypeLabel, rootPcName, gbLoopTypeLabel } from '../lib/loop-database';
+import { toast } from '@enkerli/ui/toast';
+import type { createLibraryBrowser } from '@enkerli/ui/library-browser';
 import { PROGRESSIONS, transposeProgression } from '../lib/progressions';
 import type { VoicingShape } from '../lib/progressions';
 import { generateProgressionClip } from '../lib/generate-clip';
@@ -25,7 +27,7 @@ import { IN_PLUGIN, IS_PLUGIN_BUILD, bridge, b64ToBytes } from '../lib/juce-brid
 import { esConfirm, esAlert } from '@enkerli/ui/confirm';
 import { readEmbeddedProgression, leadsheetTextFromProgression } from '../lib/progression-import';
 import { Sidebar } from './Sidebar';
-import { LibraryDrawerMount, type ClusterMidi, type DrawerItem } from './SharedFrame';
+import type { ClusterMidi } from './SharedFrame';
 import { ClipDetail } from './ClipDetail';
 import { KeyboardShortcutsBar } from './KeyboardShortcutsBar';
 
@@ -199,25 +201,22 @@ export function MidiCurator() {
     refreshClips();
   }, [selectedClip, db, refreshClips]);
 
-  // Drawer delete — the two-tap control IS the destructive confirm.
-  const deleteClipById = useCallback(async (id: string) => {
+  /** The clip browser's handle (for ↑/↓ nav that respects its facet filtering). */
+  const clipBrowserRef = useRef<ReturnType<typeof createLibraryBrowser> | null>(null);
+
+  /** Delete a clip from the library with the suite's undo-toast idiom (Q4):
+   *  optimistic remove, Undo re-adds it. (The detail-pane Delete keeps its
+   *  explicit confirm — a higher-stakes, single-target action.) */
+  const deleteClipFromLibrary = useCallback(async (clip: Clip) => {
     if (!db) return;
-    if (selectedClip?.id === id) { stop(); setSelectedClip(null); setTags([]); }
-    await db.deleteClip(id);
+    if (selectedClip?.id === clip.id) { stop(); setSelectedClip(null); setTags([]); }
+    await db.deleteClip(clip.id);
     refreshClips();
+    toast({
+      text: `Deleted ${clip.filename}`,
+      undo: async () => { await db.addClip(clip); refreshClips(); },
+    });
   }, [db, selectedClip, refreshClips, stop]);
-
-  const [libOpen, setLibOpen] = useState(false);
-
-  // The drawer's cards — the clip library as kind "document".
-  const drawerItems = useMemo<DrawerItem[]>(() => clips.map(c => ({
-    id: c.id,
-    name: c.filename,
-    kind: 'document' as const,
-    meta: [c.bpm ? `${Math.round(c.bpm)} bpm` : null, c.flagged ? '⚑ flagged' : null]
-      .filter(Boolean).join(' · ') || undefined,
-    source: 'you',
-  })), [clips]);
 
   const deleteClip = useCallback(async () => {
     if (!selectedClip || !db) return;
@@ -1344,18 +1343,10 @@ export function MidiCurator() {
 
       e.preventDefault();
 
-      // Up/Down: navigate clips in the filtered list
-      if (isUpDown && filteredClips.length > 0) {
-        const currentIdx = selectedClip
-          ? filteredClips.findIndex(c => c.id === selectedClip.id)
-          : -1;
-        let nextIdx: number;
-        if (e.key === 'ArrowDown') {
-          nextIdx = currentIdx < filteredClips.length - 1 ? currentIdx + 1 : 0;
-        } else {
-          nextIdx = currentIdx > 0 ? currentIdx - 1 : filteredClips.length - 1;
-        }
-        selectClip(filteredClips[nextIdx]!);
+      // Up/Down: navigate clips in the browser's OWN visible (facet-filtered)
+      // order, so arrow-nav always matches what's on screen.
+      if (isUpDown && clipBrowserRef.current) {
+        clipBrowserRef.current.moveSelection(e.key === 'ArrowDown' ? 1 : -1);
         return;
       }
 
@@ -1520,11 +1511,12 @@ export function MidiCurator() {
           clips={filteredClips}
           allClips={clips}
           clusterMidi={clusterMidi}
-          onToggleLibrary={() => setLibOpen(o => !o)}
           selectedClipId={selectedClip?.id ?? null}
           filterTag={filterTag}
           onFilterChange={setFilterTag}
           onSelectClip={selectClip}
+          onDeleteClip={deleteClipFromLibrary}
+          registerClipBrowser={(h) => { clipBrowserRef.current = h; }}
           onDownloadAll={() => downloadAllAsZip(filteredClips)}
           onDownloadFlagged={() => downloadAllAsZip(clips.filter(c => c.flagged), 'MIDIcurator-flagged.zip')}
           onClearAll={clearAllClips}
@@ -1608,22 +1600,6 @@ export function MidiCurator() {
       </div>
 
       <KeyboardShortcutsBar />
-
-      {/* The one Library drawer — the sidebar list is the working surface;
-          this is the same collection through the suite-wide surface. */}
-      {libOpen && (
-        <LibraryDrawerMount
-          noun="Clips"
-          items={drawerItems}
-          onRecall={(item: DrawerItem) => {
-            const clip = clips.find(c => c.id === item.id);
-            if (clip) selectClip(clip);
-            setLibOpen(false);
-          }}
-          onDelete={(item: DrawerItem) => { void deleteClipById(item.id); }}
-          onClose={() => setLibOpen(false)}
-        />
-      )}
     </div>
   );
 }

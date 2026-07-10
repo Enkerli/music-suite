@@ -17,6 +17,11 @@
  *  - motion respects prefers-reduced-motion
  */
 
+/* Fonts are loaded separately via '@enkerli/ui/fonts.css' (self-hosted, SIL
+   OFL) — kept out of tokens.css so text-injected consumers don't runtime-fetch
+   a bundler-relative @import. Each app imports fonts.css the way its build
+   wants it (bundled url() for vite, injected text + dist/fonts for esbuild). */
+
 :root {
   /* ── Type ────────────────────────────────────────────────────────── */
   --es-font-sans: "Inter Tight", Inter, -apple-system, BlinkMacSystemFont,

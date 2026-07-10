@@ -87,12 +87,17 @@ substrate for any library-browser UI.
    mechanical; Vane needs care — its index.html is also the plugin UI).
 2. **The library browser** — one pattern over `@enkerli/library` facets/
    autocomplete/suggestions; what does it look like, and how does it scale
-   from 3 items to 300?
+   from 3 items to 300? — **✅ SHIPPED 2026-07-07: `@enkerli/ui`
+   `createLibraryBrowser` (config-driven, framework-agnostic) + the
+   count-based scaling (rail hides < facetMin). Demoed in the style gallery.
+   Adoption in the apps is the remaining rollout.**
 3. **Device bar as a shared component** — bless `.es-device-bar` as the
    canonical chrome and spec the component API (ports, remember-by-name,
    status LED, permission states incl. SysEx).
 4. **Destructive-action idiom** — pick one of the three confirm/undo
-   patterns suite-wide.
+   patterns suite-wide. — **✅ SHIPPED 2026-07-07: `@enkerli/ui` `toast(text,
+   { undo })` — optimistic act + undo toast, confirm.js's successor. The
+   LibraryBrowser's delete uses it.**
 5. **Vane strategy** — restyle in place (vn→es var mapping) vs the fuller
    rework already queued in Vane's own backlog ("preset browser / UX
    rework — revisit with Design").

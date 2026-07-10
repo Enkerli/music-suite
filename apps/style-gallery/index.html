@@ -9,6 +9,7 @@
      If it looks wrong, the tokens are wrong. Serve from the repo
      (npx vite apps/style-gallery) or open the file directly. -->
 <link rel="stylesheet" href="../../packages/ui/tokens/tokens.css" />
+<link rel="stylesheet" href="../../packages/ui/fonts.css" />
 <link rel="stylesheet" href="../../packages/ui/tokens/components.css" />
 <!-- The leadsheet editor imports @enkerli/theory (bare specifier); this
      bundler-less gallery resolves it to the built dist via an import map. -->
@@ -87,24 +88,15 @@
 </section>
 
 <section class="es-panel">
-  <h2>The shared frame <span style="color:var(--es-fg-muted);font-size:var(--es-text-sm)">(one cluster, one Library — same slots in all ten apps)</span></h2>
+  <h2>The shared frame <span style="color:var(--es-fg-muted);font-size:var(--es-text-sm)">(one cluster, same slots in all ten apps)</span></h2>
   <p style="color:var(--es-fg-muted); font-size:var(--es-text-sm); margin-top:0">
     The live cluster is in this page's header ↑ — <b>theme · MIDI · density · Library</b>, in that
     order, always top-right (or rail-header). Stable ids: <code>#theme-toggle</code>
     <code>#midi-chip</code> <code>#density-toggle</code> <code>#library-toggle</code>. The theme
     label names the <em>target</em> mode; the MIDI chip's LED always rides with a word; density
-    toggles <code>.es-dense</code> on the whole page; Library opens the one save/recall drawer.
-    Apps without MIDI simply omit slot 2 — nothing reflows.
-  </p>
-  <div class="es-eyebrow">the saved-item card — one treatment, three kinds</div>
-  <div id="lib-cards" style="max-width:420px; margin-top:6px"></div>
-  <p style="color:var(--es-fg-muted); font-size:var(--es-text-sm)">
-    name · meta · source · kind badge · recall on tap · delete. Kinds map 1:1 onto
-    <code>@enkerli/library</code>: document (<code>wrapProgression/wrapClip</code>),
-    patch (<code>wrapPatch</code>), profile (<code>wrapCurationProfile</code>).
-    Delete is the two-tap inline idiom — tap ✕, it arms (<b>Delete?</b>, pulsing), tap again
-    commits; blur or 3&nbsp;s disarms. Never a modal (<code>window.confirm</code> is a silent
-    no-op in WKWebView).
+    toggles <code>.es-dense</code> on the whole page; Library opens the LibraryBrowser
+    (below — the two design efforts converged on that one surface). Apps without MIDI simply
+    omit slot 2 — nothing reflows.
   </p>
 </section>
 
@@ -182,10 +174,16 @@
   </div>
 </section>
 
+<section>
+  <h2>Library browser <span class="es-eyebrow" style="text-transform:none">— the one pattern (Design pass · Q2), config-driven over @enkerli/library</span></h2>
+  <div class="es-eyebrow">300 synthetic presets. Facets · search + autocomplete · chips · sort · row actions · delete-with-undo (Q4). Toggle below to see it scale down to a first-run library.</div>
+  <label style="display:inline-flex; gap:6px; align-items:center; margin:6px 0"><input type="checkbox" id="lib-sparse"> sparse (first-run — 3 items, facet rail hides)</label>
+  <div id="library" style="height:560px; border:1px solid var(--es-border); border-radius:var(--es-radius-md); overflow:hidden; background:var(--es-bg)"></div>
+</section>
+
 <script type="module">
   import { initTheme } from "../../packages/ui/theme.js";
   import { createGlobalCluster } from "../../packages/ui/components/global-cluster.js";
-  import { createLibraryDrawer, createTwoTapDelete } from "../../packages/ui/components/library-drawer.js";
   import { createPcsRing } from "../../packages/ui/components/pcs-ring.js";
   import { createPitchGrid } from "../../packages/ui/components/pitch-grid.js";
   import { createPianoRoll } from "../../packages/ui/components/piano-roll.js";
@@ -193,6 +191,56 @@
   import { createRangeSlider, midiName } from "../../packages/ui/components/range-slider.js";
   import { PITCH_CLASS_COLORS } from "../../packages/ui/components/pitch-class-colors.js";
   import { createLeadsheetEditor } from "../../packages/ui/components/leadsheet-editor.js";
+  import { createLibraryBrowser } from "../../packages/ui/components/library-browser.js";
+  import { toast } from "../../packages/ui/components/toast.js";
+
+  // ── Library browser demo — synthetic Vane-preset dataset (the same shape
+  //    @enkerli/library's query layer returns: identity + facets). ──
+  (() => {
+    const CATS = ["Pad", "Lead", "Bass", "Keys", "Texture", "Pluck", "Perc", "Drone"];
+    const DIMS = [["breath","Breath"],["expr","Expression"],["pressure","Pressure"],["slide","Slide"],["bend","Bend"],["vel","Velocity"]];
+    const SRC = ["Factory","User","Imported"];
+    const TAGS = ["warm","bright","dark","evolving","analog","digital","glassy","wide","mono","vintage","cinematic","lofi","hollow","metallic","airy","punchy","detuned","fm","granular"];
+    const ADJ = ["Velvet","Copper","Hollow","Northern","Paper","Amber","Slate","Cobalt","Ivory","Rust","Ember","Marble","Cinder","Willow","Glass","Iron","Dusk","Tidal","Umber","Gilded","Frost","Loom","Quill","Fable","Vellum","Sable","Cove"];
+    const NOUN = ["Choir","Bloom","Engine","Field","Spire","Drift","Pulse","Loft","Cascade","Ridge","Halo","Thread","Column","Lantern","Harbor","Motion","Signal","Weather","Glow","Reed","Anvil","Static","Bellows","Meadow","Vault"];
+    function mulberry32(a){return function(){a|=0;a=(a+0x6D2B79F5)|0;let t=Math.imul(a^(a>>>15),1|a);t=(t+Math.imul(t^(t>>>7),61|t))^t;return((t^(t>>>14))>>>0)/4294967296;};}
+    const rng = mulberry32(20260706);
+    const pick = (arr) => arr[Math.floor(rng()*arr.length)];
+    const pickN = (arr,n) => { const p=arr.slice(),o=[]; for(let i=0;i<n&&p.length;i++)o.push(p.splice(Math.floor(rng()*p.length),1)[0]); return o; };
+    const NOW = Date.now(), DAY = 86400000, used = new Set();
+    const make = (count) => Array.from({length:count}, (_,i) => {
+      let name; do { name = pick(ADJ)+" "+pick(NOUN); } while (used.has(name) && used.size < ADJ.length*NOUN.length);
+      used.add(name);
+      return { id:"p"+i, name, category:pick(CATS), dims:pickN(DIMS.map(d=>d[0]), 1+Math.floor(rng()*3)),
+        source: rng()<0.55?"Factory":rng()<0.7?"User":"Imported", tags:pickN(TAGS, 1+Math.floor(rng()*3)),
+        rating: rng()<0.4?0:1+Math.floor(rng()*3), favorite: rng()<0.14, modified: NOW - Math.floor(rng()*400)*DAY };
+    }).sort((a,b) => b.modified - a.modified);
+
+    const FACETS = [
+      { key:"favorite", label:"★ Favorites", kind:"bool" },
+      { key:"category", label:"Category", kind:"multi", badge:true, values:CATS, accessor:it=>it.category },
+      { key:"dims", label:"Expression", kind:"multi", multi:true, dot:true, pip:true,
+        values:DIMS.map(([value,label])=>({value,label})), accessor:it=>it.dims },
+      { key:"source", label:"Source", kind:"multi", values:SRC, accessor:it=>it.source },
+      { key:"tags", label:"Tags", kind:"multi", multi:true, tag:true, defaultOpen:false, limit:14, accessor:it=>it.tags },
+      { key:"rating", label:"Rating", kind:"min" },
+    ];
+    const dense = make(300), sparse = dense.slice(0,3);
+    const host = document.getElementById("library");
+    let browser;
+    const mount = (items) => {
+      if (browser) browser.destroy();
+      browser = createLibraryBrowser(host, {
+        items, facets: FACETS, title: "Presets", sendLabel: "Send to MIDIcurator…", toast,
+        onOpen: (it) => toast({ text: "Opened " + it.name + " to the stage" }),
+        onDuplicate: (c) => toast({ text: "Duplicated as " + c.name }),
+        onSend: (it) => toast({ text: "Sent " + it.name + " to MIDIcurator" }),
+        onImport: () => toast({ text: "Import — native file picker (bridge / FileExport)" }),
+      });
+    };
+    mount(dense);
+    document.getElementById("lib-sparse").addEventListener("change", (e) => mount(e.target.checked ? sparse : dense));
+  })();
 
   const lsText = document.getElementById("leadsheet-text");
   const leadsheet = createLeadsheetEditor(document.getElementById("leadsheet"), {
@@ -270,22 +318,31 @@
   initTheme();
 
   // ── The shared frame, adopted here first (the living spec) ─────────
-  // Library: fixture items behind the real drawer component.
+  // Library: the cluster's slot 4 opens the SAME LibraryBrowser every
+  // adopting app uses (Design pass · Q2) — a small fixture panel here,
+  // the full 300-item demo lives in its own section below.
   let libItems = [
     { id: "g1", name: "ii–V drift in F", kind: "document", meta: "8 bars · F maj", source: "you" },
     { id: "g2", name: "Ballad generator", kind: "patch", meta: "gen params", source: "you" },
     { id: "g3", name: "Your taste profile", kind: "profile", meta: "214 ratings", source: "curation" },
   ];
-  let drawer = null;
-  const closeDrawer = () => { drawer?.destroy(); drawer = null; syncCluster(); };
-  const openDrawer = () => {
-    drawer = createLibraryDrawer(document.body, {
-      noun: "Gallery demo · Documents · Patches · Profiles", thing: "demo item",
-      items: libItems,
-      onSave: () => { libItems = [{ id: "g" + Date.now(), name: "Demo item " + new Date().toTimeString().slice(0, 5), kind: "document", meta: "just now", source: "you" }, ...libItems]; drawer.update({ items: libItems }); syncCluster(); },
-      onRecall: () => {},
-      onDelete: (it) => { libItems = libItems.filter((x) => x.id !== it.id); drawer.update({ items: libItems }); syncCluster(); },
-      onClose: closeDrawer,
+  let libBrowser = null, libPanel = null;
+  const closeLibPanel = () => { libBrowser?.destroy(); libPanel?.remove(); libBrowser = null; libPanel = null; syncCluster(); };
+  const openLibPanel = () => {
+    libPanel = el(`<div style="position:fixed; top:56px; right:16px; z-index:60; width:320px;
+      background:var(--es-bg-raised); border:1px solid var(--es-border-strong); border-radius:var(--es-radius-md);
+      box-shadow:0 14px 40px rgba(0,0,0,.18); padding:10px;"></div>`);
+    const host = el(`<div style="height:280px; border:1px solid var(--es-border); border-radius:var(--es-radius-sm); overflow:hidden;"></div>`);
+    libPanel.append(host);
+    document.body.append(libPanel);
+    libBrowser = createLibraryBrowser(host, {
+      items: libItems, title: "Library", compact: true, favorites: false, frontDoors: false,
+      keys: { name: "name", date: "meta" },
+      facets: [{ key: "kind", label: "Kind", kind: "multi", badge: true, accessor: (it) => it.kind }],
+      rowActions: ["open", "delete"],
+      emptyHint: "Save a demo item to start the library.",
+      onOpen: () => {},
+      onDelete: (it) => { libItems = libItems.filter((x) => x.id !== it.id); libBrowser.setItems(libItems); syncCluster(); toast({ text: `Deleted "${it.name}"` }); },
     });
   };
   const cluster = createGlobalCluster(document.getElementById("cluster-host"), {
@@ -295,10 +352,10 @@
       selectedOutId: "o1", sysex: true, badge: "Demo",
     },
     densityTarget: document.body,
-    library: { count: libItems.length, onToggle: () => (drawer ? closeDrawer() : openDrawer()) },
+    library: { count: libItems.length, onToggle: () => (libBrowser ? closeLibPanel() : openLibPanel()) },
   });
   const syncCluster = () => cluster.update({
-    library: { count: libItems.length, onToggle: () => (drawer ? closeDrawer() : openDrawer()) },
+    library: { count: libItems.length, onToggle: () => (libBrowser ? closeLibPanel() : openLibPanel()) },
   });
 
 
@@ -324,16 +381,6 @@
   };
   render();
   new MutationObserver(render).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
-
-  // The saved-item card grammar, shown statically with a live two-tap delete.
-  const libCards = document.getElementById("lib-cards");
-  for (const item of libItems) {
-    const card = el(`<div class="lib-item"><div class="li-name">${item.name}</div>
-      <div class="li-meta"><span style="font-family:var(--es-font-mono)">${item.meta}</span><span>· ${item.source}</span></div>
-      <div class="li-side"><span class="kind-badge ${item.kind}">${item.kind}</span></div></div>`);
-    card.querySelector(".li-side").append(createTwoTapDelete({ name: item.name, onDelete: () => card.remove() }));
-    libCards.append(card);
-  }
 </script>
 </body>
 </html>

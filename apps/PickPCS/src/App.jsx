@@ -1,7 +1,8 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { pushScale, midiOutState, rememberOutput } from "./scale-push.js";
 import { createGlobalCluster } from "@enkerli/ui/global-cluster";
-import { createLibraryDrawer } from "@enkerli/ui/library-drawer";
+import { createLibraryBrowser } from "@enkerli/ui/library-browser";
+import { toast } from "@enkerli/ui/toast";
 import appIcon from "@enkerli/ui/icons/pickpcs.svg";
 // Theory logic now comes from the suite's shared core (@enkerli/theory).
 // The previous self-contained implementation is preserved unchanged in
@@ -44,23 +45,39 @@ function GlobalClusterMount({ midi, libCount, onLibToggle }) {
   return <div ref={hostRef} />;
 }
 
-/** The one Library drawer (shared @enkerli/ui surface) as a React island. */
-function LibraryDrawerMount({ noun, thing, items, onSave, onRecall, onDelete, onClose }) {
+/** The Library — saved scale sets — as the shared @enkerli/ui LibraryBrowser
+ *  (Design pass · Q2), the same pattern ProgGenie/Serpe/MIDIcurator use. */
+function ScaleLibraryPanel({ items, onSave, onOpen, onRename, onDelete }) {
   const hostRef = useRef(null);
-  const drawerRef = useRef(null);
-  const cbs = useRef({}); cbs.current = { onSave, onRecall, onDelete, onClose };
+  const browserRef = useRef(null);
+  const cb = useRef({});
+  cb.current = { onOpen, onRename, onDelete };
   useEffect(() => {
-    drawerRef.current = createLibraryDrawer(hostRef.current, {
-      noun, thing, items,
-      onSave: () => cbs.current.onSave(),
-      onRecall: (it) => cbs.current.onRecall(it),
-      onDelete: (it) => cbs.current.onDelete(it),
-      onClose: () => cbs.current.onClose(),
+    browserRef.current = createLibraryBrowser(hostRef.current, {
+      items,
+      title: "Library",
+      favorites: false,
+      frontDoors: false,
+      keys: { name: "name", date: "savedAt" },
+      sorts: [{ value: "recent", label: "Recent" }, { value: "name", label: "Name A–Z" }],
+      facets: [{ key: "k", label: "Notes", kind: "multi", badge: true, accessor: (it) => `${it.k}-note` }],
+      rowActions: ["open", "rename", "delete"],
+      emptyHint: "Save the current scale set to start your library.",
+      onOpen: (it) => cb.current.onOpen(it),
+      onRename: (it, name) => cb.current.onRename(it, name),
+      onDelete: (it) => cb.current.onDelete(it),
     });
-    return () => drawerRef.current.destroy();
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps -- mounts once
-  useEffect(() => { drawerRef.current?.update({ items }); }, [items]);
-  return <div ref={hostRef} />;
+    return () => browserRef.current?.destroy();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { browserRef.current?.setItems(items); }, [items]);
+  return (
+    <div style={{ width: 320 }}>
+      <button className="es-btn es-small es-primary" style={{ width: "100%", marginBottom: 8 }} onClick={onSave}>
+        + Save current scale set
+      </button>
+      <div ref={hostRef} style={{ height: 360, border: "1px solid var(--es-border)", borderRadius: "var(--es-radius-md)", overflow: "hidden", background: "var(--es-bg)" }} />
+    </div>
+  );
 }
 
 function polar(cx, cy, r, angle) {
@@ -255,16 +272,25 @@ export default function App() {
       k: selectedK, rootPc: selectedRootPc, savedAt: new Date().toISOString() };
     setScaleLib((l) => [entry, ...l]);
   }
-  function recallScaleSet(item) {
-    const e = scaleLib.find((x) => x.id === item.id);
-    if (!e) return;
-    enterSystem(e.k, e.rootPc);
+  function recallScaleSet(entry) {
+    enterSystem(entry.k, entry.rootPc);
     setLibOpen(false);
   }
-  const drawerItems = useMemo(() => scaleLib.map((e) => ({
-    id: e.id, name: e.name, kind: "document",
-    meta: `${e.k} pcs · root ${e.rootPc}`, source: "you",
-  })), [scaleLib]);
+  function renameScaleSet(entry, name) {
+    setScaleLib((l) => l.map((e) => (e.id === entry.id ? { ...e, name } : e)));
+  }
+  /** Delete with the suite's one destructive idiom (Q4): optimistic + undo toast. */
+  function deleteScaleSet(entry) {
+    const idx = scaleLib.findIndex((e) => e.id === entry.id);
+    setScaleLib((l) => l.filter((e) => e.id !== entry.id));
+    toast({
+      text: `Deleted “${entry.name}”`,
+      undo: () => setScaleLib((l) => {
+        if (l.some((e) => e.id === entry.id)) return l;
+        const n = [...l]; n.splice(Math.min(idx < 0 ? 0 : idx, n.length), 0, entry); return n;
+      }),
+    });
+  }
 
   return (
     <div style={{ minHeight: "100vh", background: "var(--es-bg)", padding: 16, fontFamily: "var(--es-font-sans)", color: "var(--es-fg)", position: "relative" }}>
@@ -274,16 +300,16 @@ export default function App() {
         <img src={appIcon} alt="" style={{ width: 24, height: 24, borderRadius: 6 }} />
         <span>PickPCS</span>
       </div>
-      <div className="es-float-bar">
+      <div className="es-float-bar" style={{ flexDirection: "column", alignItems: "stretch" }}>
         <GlobalClusterMount midi={clusterMidi} libCount={scaleLib.length}
           onLibToggle={() => setLibOpen((o) => !o)} />
+        {libOpen && (
+          <div style={{ marginTop: 8 }}>
+            <ScaleLibraryPanel items={scaleLib} onSave={saveScaleSet}
+              onOpen={recallScaleSet} onRename={renameScaleSet} onDelete={deleteScaleSet} />
+          </div>
+        )}
       </div>
-      {libOpen && (
-        <LibraryDrawerMount noun="Scale sets" thing="scale set" items={drawerItems}
-          onSave={saveScaleSet} onRecall={recallScaleSet}
-          onDelete={(item) => setScaleLib((l) => l.filter((x) => x.id !== item.id))}
-          onClose={() => setLibOpen(false)} />
-      )}
       <div style={{ maxWidth: 1100, margin: "0 auto", background: "var(--es-bg-raised)", border: "1px solid var(--es-border)", borderRadius: 28, padding: 12, boxShadow: "0 1px 3px rgba(0,0,0,0.05)" }}>
         {mode === "system" && (
           <div style={{ display: "flex", gap: 10, alignItems: "center", padding: "2px 8px 10px" }}>

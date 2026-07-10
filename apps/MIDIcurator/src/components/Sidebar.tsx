@@ -1,12 +1,13 @@
 import { type RefObject, useState, useMemo } from 'react';
 import type { Clip } from '../types/clip';
 import type { VoicingShape } from '../lib/progressions';
+import type { createLibraryBrowser } from '@enkerli/ui/library-browser';
 import { getEffectiveBarChords } from '../lib/gesture';
 import { parseChordSymbol } from '../lib/chord-parser';
 import { DropZone } from './DropZone';
 import { IN_PLUGIN, IS_PLUGIN_BUILD, bridge } from '../lib/juce-bridge';
-import { ClipCard } from './ClipCard';
 import { GlobalClusterMount, type ClusterMidi } from './SharedFrame';
+import { ClipBrowser } from './ClipBrowser';
 import { ProgressionGenerator } from './ProgressionGenerator';
 
 interface SidebarProps {
@@ -17,6 +18,8 @@ interface SidebarProps {
   filterTag: string;
   onFilterChange: (value: string) => void;
   onSelectClip: (clip: Clip) => void;
+  onDeleteClip: (clip: Clip) => void;
+  registerClipBrowser: (h: ReturnType<typeof createLibraryBrowser> | null) => void;
   onDownloadAll: () => void;
   onDownloadFlagged?: () => void;
   onClearAll: () => void;
@@ -40,19 +43,18 @@ interface SidebarProps {
   onBulkLeadsheetUpdate?: (symbol: string) => void;
   /** Cluster slot 2 — the shared MIDI chip's state (null omits the slot). */
   clusterMidi: ClusterMidi | null;
-  /** Cluster slot 4 — open/close the Library drawer. */
-  onToggleLibrary: () => void;
 }
 
 export function Sidebar({
   clips,
   allClips,
   clusterMidi,
-  onToggleLibrary,
   selectedClipId,
   filterTag,
   onFilterChange,
   onSelectClip,
+  onDeleteClip,
+  registerClipBrowser,
   onDownloadAll,
   onDownloadFlagged,
   onClearAll,
@@ -176,10 +178,11 @@ export function Sidebar({
     <div className="mc-sidebar">
       <div className="mc-sidebar-header">
         <h2>MIDI Curator <span style={{ fontSize: '0.6em', fontWeight: 400, color: 'var(--es-fg-muted)' }} title="Build tag — confirms which bundle is running">build {__BUILD_TAG__}</span></h2>
-        {/* The shared frame's global cluster (theme · MIDI · density ·
-            Library) — archetype A: it lives in the rail header. */}
-        <GlobalClusterMount midi={clusterMidi} libCount={allClips.length}
-          onLibToggle={onToggleLibrary} />
+        {/* The shared frame's global cluster (theme · MIDI · density) —
+            archetype A: it lives in the rail header. No Library slot here:
+            the ClipBrowser below IS the library, always visible — a
+            drawer toggle would just duplicate it. */}
+        <GlobalClusterMount midi={clusterMidi} />
       </div>
 
       {IN_PLUGIN ? (
@@ -268,15 +271,8 @@ export function Sidebar({
         </button>
       )}
 
-      <input
-        type="text"
-        className="mc-filter-input"
-        placeholder="Filter clips..."
-        aria-label="Filter clips by tag or name"
-        value={filterTag}
-        onChange={(e) => onFilterChange(e.target.value)}
-      />
-
+      {/* Free-text filtering now lives in the ClipBrowser's search box below;
+          these quick-filters remain as fast top-level (problem) filters. */}
       {clips.length > 0 && (
         <div className="mc-quick-filters">
           <button
@@ -429,16 +425,13 @@ export function Sidebar({
         </span>
       </div>
 
-      <div className="mc-clip-list">
-        {clips.map(clip => (
-          <ClipCard
-            key={clip.id}
-            clip={clip}
-            isSelected={selectedClipId === clip.id}
-            onClick={() => onSelectClip(clip)}
-          />
-        ))}
-      </div>
+      <ClipBrowser
+        clips={clips}
+        selectedClipId={selectedClipId}
+        onSelectClip={onSelectClip}
+        onDeleteClip={onDeleteClip}
+        registerHandle={registerClipBrowser}
+      />
     </div>
   );
 }

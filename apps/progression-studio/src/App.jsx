@@ -9,10 +9,11 @@ import { createBridge } from "./juceBridge.js";
 import * as midiOut from "./webmidi-out.js";
 import { analyzeKeyAreas, applySubstitutions, assertDegree, chordScaleFor, parseLeadsheet, planModulation, realizeChord, resolveDegree, spellRoot, transitionMotion } from "@enkerli/theory";
 import { createGlobalCluster } from "@enkerli/ui/global-cluster";
-import { createLibraryDrawer } from "@enkerli/ui/library-drawer";
 import appIcon from "@enkerli/ui/icons/proggenie.svg";
 import { createPianoRoll } from "@enkerli/ui/piano-roll";
 import { createPitchGrid } from "@enkerli/ui/pitch-grid";
+import { createLibraryBrowser } from "@enkerli/ui/library-browser";
+import { toast } from "@enkerli/ui/toast";
 import { createLeadsheetEditor } from "@enkerli/ui/leadsheet-editor";
 import { createChordInput } from "./chordInput.js";
 
@@ -375,23 +376,50 @@ function GlobalClusterMount({ midi, densityTargetRef, libCount, onLibToggle }) {
   return <div ref={hostRef} />;
 }
 
-/** The one Library drawer (shared @enkerli/ui surface) as a React island. */
-function LibraryDrawerMount({ noun, thing, items, onSave, onRecall, onDelete, onClose }) {
+/** The Library — the musician's saved things, as the shared @enkerli/ui
+ *  LibraryBrowser (Design pass · Q2) — a React island over the
+ *  framework-agnostic component. Entries are @enkerli/library envelopes;
+ *  since the shared-frame pass this is a MIXED-KIND list (documents ·
+ *  patches · profiles, see library.js), so a Kind facet joins Key/Source/
+ *  Composer (blank for non-document kinds) and rowActionsFor keeps
+ *  Duplicate to documents only — duplicateInLibrary assumes a progression
+ *  shape. Front doors are hidden (the document toolbar carries the four),
+ *  and delete uses the undo-toast idiom. */
+function LibraryPanel({ library, onOpen, onRename, onDuplicate, onDelete }) {
   const hostRef = useRef(null);
-  const drawerRef = useRef(null);
-  const cbs = useRef({}); cbs.current = { onSave, onRecall, onDelete, onClose };
+  const browserRef = useRef(null);
+  const cb = useRef({});
+  cb.current = { onOpen, onRename, onDuplicate, onDelete };
   useEffect(() => {
-    drawerRef.current = createLibraryDrawer(hostRef.current, {
-      noun, thing, items,
-      onSave: () => cbs.current.onSave(),
-      onRecall: (it) => cbs.current.onRecall(it),
-      onDelete: (it) => cbs.current.onDelete(it),
-      onClose: () => cbs.current.onClose(),
+    browserRef.current = createLibraryBrowser(hostRef.current, {
+      items: library,
+      title: "Library",
+      favorites: false,
+      frontDoors: false,
+      keys: { name: "title", date: "savedAt" },
+      sorts: [
+        { value: "recent", label: "Recent" },
+        { value: "name", label: "Name A–Z" },
+        { value: "key", label: "Key" },
+      ],
+      facets: [
+        { key: "kind", label: "Kind", kind: "multi", badge: true,
+          accessor: (it) => (it.kind === "patch" ? "Patch" : it.kind === "profile" ? "Profile" : "Document") },
+        { key: "key", label: "Key", kind: "multi", accessor: (it) => it.key || "—" },
+        { key: "source", label: "Source", kind: "multi", defaultOpen: false, accessor: (it) => it.source || "edited" },
+        { key: "composer", label: "Composer", kind: "multi", defaultOpen: false, accessor: (it) => (it.composer || "").trim() || "—" },
+      ],
+      rowActionsFor: (it) => (it.kind === "document" ? ["open", "rename", "duplicate", "delete"] : ["open", "rename", "delete"]),
+      emptyHint: "Save a progression, patch, or profile to start your library.",
+      onOpen: (it) => cb.current.onOpen(it),
+      onRename: (it, name) => cb.current.onRename(it, name),
+      onDuplicate: (copy) => cb.current.onDuplicate(copy),
+      onDelete: (it) => cb.current.onDelete(it),
     });
-    return () => drawerRef.current.destroy();
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps -- mounts once
-  useEffect(() => { drawerRef.current?.update({ items }); }, [items]);
-  return <div ref={hostRef} />;
+    return () => browserRef.current?.destroy();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { browserRef.current?.setItems(library); }, [library]);
+  return <div ref={hostRef} style={{ height: "min(52vh, 460px)", border: "1px solid var(--es-border)", borderRadius: "var(--es-radius-md)", overflow: "hidden", background: "var(--es-bg)" }} />;
 }
 
 /** Progression shape — the suite's shared piano roll, read-only. */
@@ -1130,16 +1158,34 @@ export default function App() {
   function openFromLibrary(entry) {
     loadProgression(clone(entry.prog), { title: entry.title, composer: entry.composer, source: "library" });
   }
-  function deleteFromLibrary(id) {
-    setLibrary((list) => list.filter((e) => e.id !== id));
+  function renameInLibrary(entry, title) {
+    setLibrary((list) => list.map((e) => (e.id === entry.id ? { ...e, title } : e)));
+  }
+  function duplicateInLibrary(entry) {
+    const copy = {
+      id: newId(), title: `${entry.title} copy`, composer: entry.composer || "",
+      source: "edited", savedAt: new Date().toISOString(),
+      key: entry.key, bars: entry.bars, prog: clone(entry.prog),
+    };
+    setLibrary((list) => [copy, ...list]);
+  }
+  /** Delete with the suite's one destructive idiom (Q4): optimistic + undo toast. */
+  function deleteFromLibrary(entry) {
+    const idx = library.findIndex((e) => e.id === entry.id);
+    setLibrary((list) => list.filter((e) => e.id !== entry.id));
+    toast({
+      text: `Deleted “${entry.title}”`,
+      undo: () => setLibrary((list) => {
+        if (list.some((e) => e.id === entry.id)) return list;
+        const n = [...list]; n.splice(Math.min(idx < 0 ? 0 : idx, n.length), 0, entry); return n;
+      }),
+    });
   }
 
-  /** The drawer's recall, dispatched by kind: documents open as the working
-   *  progression; patches apply their generator params; profiles stage as
-   *  the pending Replace/Merge (never silently clobber taste). */
-  function recallFromLibrary(item) {
-    const entry = library.find((e) => e.id === item.id);
-    if (!entry) return;
+  /** The Library panel's Open, dispatched by kind: documents open as the
+   *  working progression; patches apply their generator params; profiles
+   *  stage as the pending Replace/Merge (never silently clobber taste). */
+  function recallFromLibrary(entry) {
     if (entry.kind === "patch") {
       applyPatchText(JSON.stringify(entry.file));
       setLibraryOpen(false);
@@ -1151,17 +1197,6 @@ export default function App() {
       openFromLibrary(entry);
     }
   }
-
-  /** The drawer's card list — one shape for all three kinds. */
-  const drawerItems = useMemo(() => library.map((e) => ({
-    id: e.id,
-    name: e.title || "Untitled",
-    kind: e.kind === "patch" ? "patch" : e.kind === "profile" ? "profile" : "document",
-    meta: e.kind === "patch" ? "generator settings"
-      : e.kind === "profile" ? `${Object.keys(e.file?.multipliers ?? {}).length} weights`
-      : [e.key, e.bars != null ? `${e.bars} bar${e.bars === 1 ? "" : "s"}` : null].filter(Boolean).join(" · "),
-    source: e.kind === "patch" || e.kind === "profile" ? "you" : (e.composer || e.source || "you"),
-  })), [library]);
 
   /** Import typed/pasted bar notation (e.g. "Dm7 G7 | Cmaj7") as the working
    *  document, realized in the current key. A line break reads as a bar
@@ -1259,12 +1294,14 @@ export default function App() {
             <span className="es-badge" title="Where this progression came from"
               style={{ alignSelf: "center" }}>{docMeta.source} · {tonic} {mode} · {docBarCount} bar{docBarCount === 1 ? "" : "s"}</span>
             <span style={{ flex: 1 }} />
-            {/* Open/save moved to the shared-frame Library (cluster, top
-                right) — the doc strip keeps the input paths only. */}
+            {/* Open moved to the shared-frame Library (cluster, top right,
+                Design pass · Q2's LibraryBrowser) — the doc strip keeps the
+                input paths plus the save affordance the browser doesn't own. */}
             <button className="es-btn es-small" title="Blank the sheet — start a new progression from scratch"
               onClick={() => { handleClear(); setDocMeta({ title: "", composer: "", source: "new" }); }}>New</button>
             <button className="es-btn es-small" title="Type or paste a leadsheet in bar notation, or open a .mid file" aria-pressed={importOpen}
               onClick={() => { setImportOpen((o) => !o); setLibraryOpen(false); }}>Type / Import…</button>
+            <button className="es-btn es-small es-primary" title="Save this progression to your library" onClick={saveToLibrary}>Save to library</button>
           </div>
           {docError && <p style={{ color: "var(--es-danger, #b3261e)", fontSize: "var(--es-text-sm)", margin: "var(--es-space-2) 0 0" }}>{docError}</p>}
 
@@ -1285,6 +1322,15 @@ export default function App() {
             </div>
           )}
 
+          {libraryOpen && (
+            <div style={{ marginTop: "var(--es-space-3)", paddingTop: "var(--es-space-3)", borderTop: "1px solid var(--es-border)" }}>
+              <LibraryPanel library={library}
+                onOpen={recallFromLibrary}
+                onRename={renameInLibrary}
+                onDuplicate={duplicateInLibrary}
+                onDelete={deleteFromLibrary} />
+            </div>
+          )}
         </div>
 
         <div style={{ display: "flex", flexWrap: "wrap", gap: "var(--es-space-3)", alignItems: "stretch", marginBottom: "var(--es-space-3)" }}>
@@ -1741,19 +1787,6 @@ export default function App() {
           Degree labels per the suite conventions; voicings via minimal (taxicab) voice leading.
         </footer>
       </div>
-
-      {/* The one Library drawer — documents · patches · profiles, one surface. */}
-      {libraryOpen && (
-        <LibraryDrawerMount
-          noun="Progressions · Patches · Profiles"
-          thing="progression"
-          items={drawerItems}
-          onSave={saveToLibrary}
-          onRecall={recallFromLibrary}
-          onDelete={(item) => deleteFromLibrary(item.id)}
-          onClose={() => setLibraryOpen(false)}
-        />
-      )}
     </div>
   );
 }

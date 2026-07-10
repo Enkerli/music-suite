@@ -8,12 +8,16 @@
 // the JUCE binary-data step to two artifacts and avoids an Xcode build cycle.
 // Tokens + components come from @enkerli/ui (the single source of the design
 // language — no longer vendored here); only serpe.css is app-specific.
+import fontsCss from '@enkerli/ui/fonts.css';
 import tokensCss from '@enkerli/ui/tokens.css';
 import componentsCss from '@enkerli/ui/components.css';
 import serpeCss from './styles/serpe.css';
 {
   const el = document.createElement('style');
-  el.textContent = [tokensCss, componentsCss, serpeCss].join('\n');
+  // fontsCss first: its @font-face url('./fonts/*.woff2') resolve relative to
+  // the page, and the build copies the woff2 into dist/fonts (self-hosted, no
+  // CDN — works offline and in the plugin WebView).
+  el.textContent = [fontsCss, tokensCss, componentsCss, serpeCss].join('\n');
   document.head.appendChild(el);
 }
 
@@ -28,7 +32,8 @@ import { initJuceBridge, sendParamActual, sendUPI, sendPlaying, sendBPM, sendTog
 import { startWebMidi, selectMidiInput, selectMidiOutput, sendMidiNoteOn, sendMidiNoteOff, allMidiNotesOff, midiSupported } from './webmidi-bridge.js';
 import { initTheme } from '@enkerli/ui/theme';
 import { createGlobalCluster } from '@enkerli/ui/global-cluster';
-import { createLibraryDrawer } from '@enkerli/ui/library-drawer';
+import { createLibraryBrowser } from '@enkerli/ui/library-browser';
+import { toast } from '@enkerli/ui/toast';
 
 // ── theme: the ONE shared mechanism (shared frame) ──
 // Serpe used to persist its own 'serpe.theme'; migrate it to the suite-wide
@@ -102,6 +107,46 @@ function applyAccents(steps, pattern, off = 0) {
 }
 
 // An imperative SVG view (render.js) wrapped as a React component.
+/** Generator family of a UPI string (for the browser's badge + facet). */
+function upiFamily(u) {
+  const s = (u || '').trim();
+  if (/^E\(/i.test(s)) return 'Euclidean';
+  if (/^P\(/i.test(s)) return 'Polygon';
+  if (/^R\(/i.test(s)) return 'Random';
+  if (/^[BWD]\(/i.test(s)) return 'Barlow';
+  if (/^0x|:\d/.test(s)) return 'Numeric';
+  if (/^[[{]/.test(s)) return 'Explicit';
+  return 'Other';
+}
+
+/** The pattern library as the shared @enkerli/ui LibraryBrowser (Design pass ·
+ *  Q2), in compact mode for Serpe's 340px rail. Consolidates the old three tabs
+ *  (Presets / Saved / History) into one browser with a Source facet. */
+function PatternLibrary({ items, onOpen, onDelete }) {
+  const host = useRef(null), br = useRef(null), cb = useRef({});
+  cb.current = { onOpen, onDelete };
+  useEffect(() => {
+    br.current = createLibraryBrowser(host.current, {
+      items, compact: true, favorites: false, frontDoors: false, title: 'Patterns',
+      openOnRowClick: true, // a pattern picker — single tap loads (Serpe's original feel)
+      keys: { name: 'name', source: 'source' },
+      sorts: [{ value: 'recent', label: 'Added' }, { value: 'name', label: 'UPI A–Z' }],
+      facets: [
+        { key: 'source', label: 'Source', kind: 'multi', values: ['Saved', 'Preset', 'Recent'], accessor: (it) => it.source },
+        { key: 'family', label: 'Generator', kind: 'multi', badge: true, accessor: (it) => it.family },
+        { key: 'tags', label: 'Tags', kind: 'multi', tag: true, defaultOpen: false, limit: 20, accessor: (it) => it.tags },
+      ],
+      rowActionsFor: (it) => (it.source === 'Saved' ? ['open', 'delete'] : ['open']),
+      emptyHint: 'Save patterns with “Save current”.',
+      onOpen: (it) => cb.current.onOpen(it),
+      onDelete: (it) => cb.current.onDelete(it),
+    });
+    return () => br.current && br.current.destroy();
+  }, []);
+  useEffect(() => { if (br.current) br.current.setItems(items); }, [items]);
+  return h('div', { ref: host });
+}
+
 function EngineView({ create, opts, data }) {
   const host = useRef(null), view = useRef(null);
   useEffect(() => { view.current = create(host.current, opts || {}); }, []);
@@ -144,7 +189,6 @@ function SerpeApp() {
   // Density lives on <body> now (the shared cluster toggles .es-dense there);
   // seed the runtime default once.
   useEffect(() => { document.body.classList.toggle('es-dense', cfg.dense); }, []); // eslint-disable-line react-hooks/exhaustive-deps
-  const [libOpen, setLibOpen] = useState(false); // the shared-frame Library drawer
 
   const [genType, setGenType] = useState('E');
   const [genK, setGenK] = useState(5), [genN, setGenN] = useState(8), [genRot, setGenRot] = useState(0);
@@ -173,8 +217,6 @@ function SerpeApp() {
   const [scenes, setScenes] = useState(() => new Array(8).fill(null));
   const [activeScene, setActiveScene] = useState(-1);
 
-  const [dbQuery, setDbQuery] = useState('');
-  const [libTab, setLibTab] = useState('presets');   // presets | library | history
   const parseJSON = (k, d) => { try { return JSON.parse(LS.get(k, d)); } catch { return JSON.parse(d); } };
   const [lib, setLib]   = useState(() => parseJSON('library', '[]'));
   const [hist, setHist] = useState(() => parseJSON('history', '[]'));
@@ -571,7 +613,30 @@ function SerpeApp() {
     setLib(prev => { const next = [{ upi: u }, ...prev.filter(x => x.upi !== u)].slice(0, 64); LS.set('library', JSON.stringify(next)); return next; });
   }
   const delFromLibrary = (u) => setLib(prev => { const next = prev.filter(x => x.upi !== u); LS.set('library', JSON.stringify(next)); return next; });
-  const clearHistory = () => { setHist([]); LS.set('history', '[]'); };
+  /** Delete a saved pattern with the suite's undo-toast idiom (Q4). */
+  function delSavedWithUndo(u) {
+    const idx = lib.findIndex(x => x.upi === u);
+    delFromLibrary(u);
+    toast({ text: `Removed ${u}`, undo: () => setLib(prev => {
+      if (prev.some(x => x.upi === u)) return prev;
+      const next = prev.slice(); next.splice(Math.min(idx < 0 ? 0 : idx, next.length), 0, { upi: u });
+      LS.set('library', JSON.stringify(next)); return next;
+    }) });
+  }
+  // One merged stream for the LibraryBrowser: saved · presets · recents. The
+  // UPI string is the name (what players read); label + k/n ride as tags.
+  const libItems = useMemo(() => {
+    const mk = (u, source, name, i) => {
+      const info = patInfo(u);
+      const tags = [name && name !== u ? name : null, info].filter(Boolean);
+      return { id: source[0] + i, name: u, upi: u, source, family: upiFamily(u), tags };
+    };
+    return [
+      ...lib.map((x, i) => mk(x.upi, 'Saved', null, i)),
+      ...PRESETS.map(([u, n], i) => mk(u, 'Preset', n, i)),
+      ...hist.map((u, i) => mk(u, 'Recent', null, i)),
+    ];
+  }, [lib, hist]);
 
   const synced = cfg.host && hostSync;
 
@@ -588,11 +653,6 @@ function SerpeApp() {
       badge: 'Standalone',
     };
   }, [runtime, midiErr, midiPorts, midiInId, midiOutId]);
-
-  // The drawer's cards — serpe's saved patterns (kind: document).
-  const drawerItems = useMemo(() => lib.map((x) => ({
-    id: x.upi, name: x.upi, kind: 'document', meta: patInfo(x.upi) || '—', source: 'you',
-  })), [lib]);
 
   // ── render ──
   return h('div', { className: 'serpe', id: 'serpe' },
@@ -613,13 +673,12 @@ function SerpeApp() {
       cfg.host && h('div', { className: 'hostchip' + (synced ? ' synced' : '') },
         h('span', { className: 'led' }), h('span', null, synced ? `Host: ${hostInfo?.bpm ?? 124} BPM` : 'Host sync off')),
       h('div', { className: 'spacer' }),
-      // The shared frame's global cluster — theme · MIDI · density · Library,
-      // same order and ids as every suite app. Replaces the bespoke
-      // Density/Theme iconbtns; the Library slot is web-only (like the old
-      // Patterns/Library tab it replaces).
-      h(ClusterMount, { midi: clusterMidi,
-        libCount: cfg.web ? lib.length : null,
-        onLib: () => setLibOpen(o => !o) })),
+      // The shared frame's global cluster — theme · MIDI · density, same
+      // order and ids as every suite app. Replaces the bespoke Density/Theme
+      // iconbtns. No Library slot: the rail's Patterns section (below) is
+      // the LibraryBrowser, always visible — a cluster toggle would just
+      // duplicate it (same call as MIDIcurator's sidebar).
+      h(ClusterMount, { midi: clusterMidi })),
 
     // body
     h('div', { className: 'serpe-body' },
@@ -796,38 +855,19 @@ function SerpeApp() {
             h('select', { className: 'es-control', value: midiChan, onChange: e => setMidiChan(+e.target.value) },
               [1, 2, 3, 10].map(v => h('option', { key: v, value: v }, v))))),
 
-        // Patterns: presets / library / history (web)
-        cfg.web && (() => {
-          const q = dbQuery.trim().toLowerCase();
-          const matches = (u, name) => !q || u.toLowerCase().includes(q) || (name && name.toLowerCase().includes(q));
-          // one list row: tap to load; optional name + onset/step badge + delete
-          const row = (key, u, name, onDel) => h('div', { key, className: 'pat-row', onClick: () => loadPattern(u) },
-            h('span', { className: 'es-num pat-upi' }, u),
-            name && h('span', { className: 'lab pat-name' }, name),
-            h('span', { className: 'es-badge es-num' }, patInfo(u) || '—'),
-            onDel && h('button', { className: 'pat-del', title: 'Remove', onClick: e => { e.stopPropagation(); onDel(u); } }, '✕'));
-          // The user's saved patterns moved to the shared Library drawer
-          // (cluster, top right) — this section keeps the built-in preset
-          // catalogue and the auto-recorded history, which are pickers, not
-          // saved things.
-          let list, empty;
-          if (libTab === 'presets') {
-            list = PRESETS.filter(([u, n]) => matches(u, n)).map(([u, n], i) => row('p' + i, u, n, null));
-            empty = 'No matching presets.';
-          } else {
-            list = hist.filter(u => matches(u)).map((u, i) => row('h' + i, u, null, null));
-            empty = 'Patterns you use show up here.';
-          }
-          return h(Section, { title: 'Patterns', badge: 'web' },
-            h('div', { className: 'seg', role: 'group', 'aria-label': 'Patterns', style: { marginBottom: 10 } },
-              [['presets', 'Presets'], ['history', 'History']].map(([v, t]) =>
-                h('button', { key: v, 'aria-pressed': libTab === v, onClick: () => setLibTab(v) }, t))),
-            libTab !== 'history' && h(Field, null,
-              h('input', { className: 'es-control', type: 'text', placeholder: 'Filter…', value: dbQuery, onChange: e => setDbQuery(e.target.value) })),
-            libTab === 'history' && hist.length > 0 && h('button', { className: 'es-btn es-small', style: { marginBottom: 8 }, onClick: clearHistory }, 'Clear history'),
-            h('div', { className: 'pat-list' }, list.length ? list
-              : h('p', { className: 'note', style: { fontSize: 11, color: 'var(--es-fg-muted)', margin: '4px 0' } }, empty)));
-        })(),
+        // Patterns: presets / library / history — available everywhere (web,
+        // plugin, standalone). Was mistakenly gated on cfg.web, which also
+        // hides it in the JUCE Standalone build (same 'plugin' runtime as the
+        // AU/VST3/CLAP formats, since all three host the same WebView bridge).
+        // Pattern library — the shared LibraryBrowser (Q2), compact for the
+        // rail; the old presets/saved/history tabs are now one Source facet.
+        h(Section, { title: 'Patterns', badge: cfg.web ? 'web' : 'plugin' },
+          h('button', { className: 'es-btn es-small', style: { width: '100%', marginBottom: 8 }, onClick: saveToLibrary }, '+ Save current'),
+          h(PatternLibrary, {
+            items: libItems,
+            onOpen: (it) => loadPattern(it.upi),
+            onDelete: (it) => delSavedWithUndo(it.upi),
+          })),
 
         // Web Audio (web)
         cfg.web && h(Section, { title: 'Web Audio', badge: 'web' },
@@ -843,47 +883,17 @@ function SerpeApp() {
           h('div', null, [['Pattern length', a.n], ['Subdivision', group || '—'], ['Accent velocity', accVel],
             ['MIDI note', midiNote], ['BPM', tempo], ['Host transport', hostSync ? 'on' : 'off']].map(([k, v]) =>
             h('div', { key: k, className: 'meter-row', style: { gridTemplateColumns: '1fr auto' } },
-              h('span', { className: 'lab' }, k), h('span', { className: 'val', style: { textAlign: 'right' } }, String(v))))))),
-
-    // The one Library drawer (shared @enkerli/ui surface) — saved patterns.
-    libOpen && cfg.web && h(DrawerMount, {
-      noun: 'Patterns', thing: 'pattern', items: drawerItems,
-      onSave: saveToLibrary,
-      onRecall: (item) => { loadPattern(item.id); setLibOpen(false); },
-      onDelete: (item) => delFromLibrary(item.id),
-      onClose: () => setLibOpen(false),
-    })));
+              h('span', { className: 'lab' }, k), h('span', { className: 'val', style: { textAlign: 'right' } }, String(v)))))))));
 }
 
-// ── shared-frame mounts (the framework-agnostic cluster/drawer as islands) ──
-function ClusterMount({ midi, libCount, onLib }) {
+// ── shared-frame mount (the framework-agnostic cluster as an island) ──
+function ClusterMount({ midi }) {
   const host = useRef(null), cluster = useRef(null);
-  const onLibRef = useRef(onLib); onLibRef.current = onLib;
-  const lib = (count) => (count != null ? { count, onToggle: () => onLibRef.current() } : null);
   useEffect(() => {
-    cluster.current = createGlobalCluster(host.current, {
-      midi, densityTarget: document.body, library: lib(libCount),
-    });
+    cluster.current = createGlobalCluster(host.current, { midi, densityTarget: document.body });
     return () => cluster.current.destroy();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps -- mounts once
-  useEffect(() => { cluster.current?.update({ midi, library: lib(libCount) }); }, [midi, libCount]); // eslint-disable-line react-hooks/exhaustive-deps
-  return h('div', { ref: host });
-}
-
-function DrawerMount({ noun, thing, items, onSave, onRecall, onDelete, onClose }) {
-  const host = useRef(null), drawer = useRef(null);
-  const cbs = useRef({}); cbs.current = { onSave, onRecall, onDelete, onClose };
-  useEffect(() => {
-    drawer.current = createLibraryDrawer(host.current, {
-      noun, thing, items,
-      onSave: () => cbs.current.onSave(),
-      onRecall: (it) => cbs.current.onRecall(it),
-      onDelete: (it) => cbs.current.onDelete(it),
-      onClose: () => cbs.current.onClose(),
-    });
-    return () => drawer.current.destroy();
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps -- mounts once
-  useEffect(() => { drawer.current?.update({ items }); }, [items]);
+  useEffect(() => { cluster.current?.update({ midi }); }, [midi]); // eslint-disable-line react-hooks/exhaustive-deps
   return h('div', { ref: host });
 }
 
