@@ -43,7 +43,23 @@ function PitchFoldApp() {
   const paper = window.PAPER || {};
   const [state, setState] = React.useState(DEFAULT_STATE);
   const [tab,   setTab]   = React.useState('scale');   // 'scale' | 'time' | 'voice' | 'pads'
-  const [dark,  setDark]  = React.useState(false);
+  // Theme — the suite's ONE mechanism (shared-frame pass): [data-theme] on
+  // <html>, persisted as "enkerli.theme", OS preference until chosen. The
+  // PAPER swap keys off the same resolved value, so SVG attrs and any
+  // --es-* CSS agree.
+  const resolvedDark = () => {
+    try { const s = localStorage.getItem('enkerli.theme'); if (s === 'light' || s === 'dark') return s === 'dark'; } catch { /* fine */ }
+    try { return matchMedia('(prefers-color-scheme: dark)').matches; } catch { return false; }
+  };
+  const [dark, setDark] = React.useState(resolvedDark);
+  React.useEffect(() => {
+    document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
+  }, [dark]);
+  const toggleTheme = () => {
+    const next = !dark;
+    try { localStorage.setItem('enkerli.theme', next ? 'dark' : 'light'); } catch { /* fine */ }
+    setDark(next);
+  };
 
   const activePaper = dark ? (window.PAPER_DARK || paper) : paper;
 
@@ -197,13 +213,14 @@ function PitchFoldApp() {
             </button>
           ))}
 
-          {/* Dark mode */}
-          <button onClick={() => setDark(d => !d)} title="Toggle dark mode" style={{
+          {/* Theme — canonical suite control: names the TARGET mode */}
+          <button id="theme-toggle" onClick={toggleTheme} title="Switch theme"
+            aria-pressed={dark} style={{
             padding: '4px 8px', fontSize: 12, borderRadius: 5, cursor: 'pointer',
-            border: `1px solid ${activePaper.rule || '#D4CAB8'}`,
-            background: 'transparent', color: activePaper.ink70 || '#574E44',
+            border: `1px solid ${activePaper.rule || '#ddd6ca'}`,
+            background: 'transparent', color: activePaper.ink70 || '#4b463e',
           }}>
-            {dark ? '☀' : '◑'}
+            {dark ? '☀︎ Light' : '● Dark'}
           </button>
 
           {/* Panic */}

@@ -1,5 +1,9 @@
-import React, { useMemo, useState } from "react";
-import { pushScale } from "./scale-push.js";
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import { pushScale, midiOutState, rememberOutput } from "./scale-push.js";
+import { createGlobalCluster } from "@enkerli/ui/global-cluster";
+import { createLibraryBrowser } from "@enkerli/ui/library-browser";
+import { toast } from "@enkerli/ui/toast";
+import appIcon from "@enkerli/ui/icons/pickpcs.svg";
 // Theory logic now comes from the suite's shared core (@enkerli/theory).
 // The previous self-contained implementation is preserved unchanged in
 // ./App.local.jsx until the migration is finalized.
@@ -13,6 +17,68 @@ import {
 
 const NOTE_NAMES_FIFTHS = ["C", "G", "D", "A", "E", "B", "F#", "C#", "Ab", "Eb", "Bb", "F"];
 const BROWSER_RINGS = [8, 7, 6, 5, 4, 3];
+
+// ── The shared frame ────────────────────────────────────────────────────
+// Saved scale sets — plain JSON in localStorage (the app has no other
+// persistence; the @enkerli/library envelope can wrap these later).
+const LIB_KEY = "pickpcs.library.v1";
+function loadScaleLib() {
+  try { const a = JSON.parse(globalThis.localStorage?.getItem(LIB_KEY) ?? "null"); return Array.isArray(a) ? a : []; }
+  catch { return []; }
+}
+function saveScaleLib(list) {
+  try { globalThis.localStorage?.setItem(LIB_KEY, JSON.stringify(list)); } catch { /* private mode */ }
+}
+
+/** The global cluster (theme · MIDI · Library — density omitted: the app has
+ *  no dense control surface) as a React island. */
+function GlobalClusterMount({ midi, libCount, onLibToggle }) {
+  const hostRef = useRef(null);
+  const clusterRef = useRef(null);
+  const onLibRef = useRef(onLibToggle); onLibRef.current = onLibToggle;
+  const lib = (count) => ({ count, onToggle: () => onLibRef.current() });
+  useEffect(() => {
+    clusterRef.current = createGlobalCluster(hostRef.current, { midi, library: lib(libCount) });
+    return () => clusterRef.current.destroy();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps -- mounts once
+  useEffect(() => { clusterRef.current?.update({ midi, library: lib(libCount) }); }, [midi, libCount]); // eslint-disable-line react-hooks/exhaustive-deps
+  return <div ref={hostRef} />;
+}
+
+/** The Library — saved scale sets — as the shared @enkerli/ui LibraryBrowser
+ *  (Design pass · Q2), the same pattern ProgGenie/Serpe/MIDIcurator use. */
+function ScaleLibraryPanel({ items, onSave, onOpen, onRename, onDelete }) {
+  const hostRef = useRef(null);
+  const browserRef = useRef(null);
+  const cb = useRef({});
+  cb.current = { onOpen, onRename, onDelete };
+  useEffect(() => {
+    browserRef.current = createLibraryBrowser(hostRef.current, {
+      items,
+      title: "Library",
+      favorites: false,
+      frontDoors: false,
+      keys: { name: "name", date: "savedAt" },
+      sorts: [{ value: "recent", label: "Recent" }, { value: "name", label: "Name A–Z" }],
+      facets: [{ key: "k", label: "Notes", kind: "multi", badge: true, accessor: (it) => `${it.k}-note` }],
+      rowActions: ["open", "rename", "delete"],
+      emptyHint: "Save the current scale set to start your library.",
+      onOpen: (it) => cb.current.onOpen(it),
+      onRename: (it, name) => cb.current.onRename(it, name),
+      onDelete: (it) => cb.current.onDelete(it),
+    });
+    return () => browserRef.current?.destroy();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { browserRef.current?.setItems(items); }, [items]);
+  return (
+    <div style={{ width: 320 }}>
+      <button className="es-btn es-small es-primary" style={{ width: "100%", marginBottom: 8 }} onClick={onSave}>
+        + Save current scale set
+      </button>
+      <div ref={hostRef} style={{ height: 360, border: "1px solid var(--es-border)", borderRadius: "var(--es-radius-md)", overflow: "hidden", background: "var(--es-bg)" }} />
+    </div>
+  );
+}
 
 function polar(cx, cy, r, angle) {
   return {
@@ -94,6 +160,33 @@ export default function App() {
   const [selectedDegree, setSelectedDegree] = useState(null);
   const [pulse, setPulse] = useState(false);
   const [pushStatus, setPushStatus] = useState("");
+  // Shared frame: MIDI chip state (lazy SysEx connect), the Library drawer.
+  const [clusterMidi, setClusterMidi] = useState(null); // null until probed
+  const [scaleLib, setScaleLib] = useState(loadScaleLib);
+  const [libOpen, setLibOpen] = useState(false);
+  useEffect(() => { saveScaleLib(scaleLib); }, [scaleLib]);
+  const probeMidi = async () => {
+    const s = await midiOutState();
+    setClusterMidi(s.unavailable ? { unavailable: true, sysex: true }
+      : { outputs: s.outputs, selectedOutId: s.selectedOutId, sysex: true,
+          onSelectOut: (id) => { rememberOutput(id); } });
+  };
+  useEffect(() => {
+    // Permission is a panel state, not a page-load prompt: probe on mount
+    // only when SysEx MIDI is ALREADY granted; otherwise the chip reads
+    // "MIDI · 0" and the first "Push scale" (which prompts, as before)
+    // refreshes it.
+    let on = true;
+    (async () => {
+      if (!("requestMIDIAccess" in navigator)) { if (on) setClusterMidi({ unavailable: true }); return; }
+      try {
+        const st = await navigator.permissions?.query?.({ name: "midi", sysex: true });
+        if (st?.state !== "granted") { if (on) setClusterMidi({ outputs: [], sysex: true }); return; }
+      } catch { /* permissions API absent — leave the chip unprobed */ }
+      if (on) await probeMidi();
+    })();
+    return () => { on = false; };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const selectedScaleOrdered = useMemo(() => scaleFamily(selectedK, selectedRootPc), [selectedK, selectedRootPc]);
   const selectedScaleSet = useMemo(() => new Set(selectedScaleOrdered), [selectedScaleOrdered]);
@@ -169,10 +262,54 @@ export default function App() {
     const r = await pushScale({ mask: pcsToBitmask(selectedScaleOrdered), root: selectedRootPc, name });
     setPushStatus(r.ok ? `sent ${r.detail}` : r.detail);
     window.setTimeout(() => setPushStatus(""), 4000);
+    probeMidi(); // permission granted (or refused) just now — refresh the chip
+  }
+
+  // The Library's save/recall — a scale set is the selection (k, root).
+  function saveScaleSet() {
+    const name = `${NOTE_NAMES_FIFTHS[chromaticToFifthsIndex(selectedRootPc)]} · ${selectedK}-note`;
+    const entry = { id: `s${Date.now()}-${Math.floor(Math.random() * 1e6)}`, name,
+      k: selectedK, rootPc: selectedRootPc, savedAt: new Date().toISOString() };
+    setScaleLib((l) => [entry, ...l]);
+  }
+  function recallScaleSet(entry) {
+    enterSystem(entry.k, entry.rootPc);
+    setLibOpen(false);
+  }
+  function renameScaleSet(entry, name) {
+    setScaleLib((l) => l.map((e) => (e.id === entry.id ? { ...e, name } : e)));
+  }
+  /** Delete with the suite's one destructive idiom (Q4): optimistic + undo toast. */
+  function deleteScaleSet(entry) {
+    const idx = scaleLib.findIndex((e) => e.id === entry.id);
+    setScaleLib((l) => l.filter((e) => e.id !== entry.id));
+    toast({
+      text: `Deleted “${entry.name}”`,
+      undo: () => setScaleLib((l) => {
+        if (l.some((e) => e.id === entry.id)) return l;
+        const n = [...l]; n.splice(Math.min(idx < 0 ? 0 : idx, n.length), 0, entry); return n;
+      }),
+    });
   }
 
   return (
-    <div style={{ minHeight: "100vh", background: "var(--es-bg)", padding: 16, fontFamily: "var(--es-font-sans)", color: "var(--es-fg)" }}>
+    <div style={{ minHeight: "100vh", background: "var(--es-bg)", padding: 16, fontFamily: "var(--es-font-sans)", color: "var(--es-fg)", position: "relative" }}>
+      {/* The shared frame, archetype D: minimal brand top-left, the global
+          cluster floating top-right — the canvas keeps the whole stage. */}
+      <div style={{ position: "absolute", top: 16, left: 16, display: "flex", alignItems: "center", gap: 8, color: "var(--es-fg-muted)", fontWeight: 600, zIndex: 5 }}>
+        <img src={appIcon} alt="" style={{ width: 24, height: 24, borderRadius: 6 }} />
+        <span>PickPCS</span>
+      </div>
+      <div className="es-float-bar" style={{ flexDirection: "column", alignItems: "stretch" }}>
+        <GlobalClusterMount midi={clusterMidi} libCount={scaleLib.length}
+          onLibToggle={() => setLibOpen((o) => !o)} />
+        {libOpen && (
+          <div style={{ marginTop: 8 }}>
+            <ScaleLibraryPanel items={scaleLib} onSave={saveScaleSet}
+              onOpen={recallScaleSet} onRename={renameScaleSet} onDelete={deleteScaleSet} />
+          </div>
+        )}
+      </div>
       <div style={{ maxWidth: 1100, margin: "0 auto", background: "var(--es-bg-raised)", border: "1px solid var(--es-border)", borderRadius: 28, padding: 12, boxShadow: "0 1px 3px rgba(0,0,0,0.05)" }}>
         {mode === "system" && (
           <div style={{ display: "flex", gap: 10, alignItems: "center", padding: "2px 8px 10px" }}>

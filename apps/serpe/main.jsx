@@ -8,12 +8,16 @@
 // the JUCE binary-data step to two artifacts and avoids an Xcode build cycle.
 // Tokens + components come from @enkerli/ui (the single source of the design
 // language — no longer vendored here); only serpe.css is app-specific.
+import fontsCss from '@enkerli/ui/fonts.css';
 import tokensCss from '@enkerli/ui/tokens.css';
 import componentsCss from '@enkerli/ui/components.css';
 import serpeCss from './styles/serpe.css';
 {
   const el = document.createElement('style');
-  el.textContent = [tokensCss, componentsCss, serpeCss].join('\n');
+  // fontsCss first: its @font-face url('./fonts/*.woff2') resolve relative to
+  // the page, and the build copies the woff2 into dist/fonts (self-hosted, no
+  // CDN — works offline and in the plugin WebView).
+  el.textContent = [fontsCss, tokensCss, componentsCss, serpeCss].join('\n');
   document.head.appendChild(el);
 }
 
@@ -26,6 +30,23 @@ import { mutatePattern } from './engine/mutate.js';
 import { createCircleView, createStepView } from './engine/render.js';
 import { initJuceBridge, sendParamActual, sendUPI, sendPlaying, sendBPM, sendToggleAccent, juceAvailable } from './juce-bridge.js';
 import { startWebMidi, selectMidiInput, selectMidiOutput, sendMidiNoteOn, sendMidiNoteOff, allMidiNotesOff, midiSupported } from './webmidi-bridge.js';
+import { initTheme } from '@enkerli/ui/theme';
+import { createGlobalCluster } from '@enkerli/ui/global-cluster';
+import { createLibraryBrowser } from '@enkerli/ui/library-browser';
+import { toast } from '@enkerli/ui/toast';
+
+// ── theme: the ONE shared mechanism (shared frame) ──
+// Serpe used to persist its own 'serpe.theme'; migrate it to the suite-wide
+// 'enkerli.theme' once, then let @enkerli/ui/theme own [data-theme].
+try {
+  const old = localStorage.getItem('serpe.theme');
+  if (old != null) {
+    if (localStorage.getItem('enkerli.theme') == null && (old === 'light' || old === 'dark'))
+      localStorage.setItem('enkerli.theme', old);
+    localStorage.removeItem('serpe.theme');
+  }
+} catch { /* storage unavailable */ }
+initTheme();
 
 // Inline SVG mark — a data-URL <img> with unescaped '#' hex colours renders in
 // Chrome but breaks in macOS WKWebView, so inject the markup directly.
@@ -86,6 +107,46 @@ function applyAccents(steps, pattern, off = 0) {
 }
 
 // An imperative SVG view (render.js) wrapped as a React component.
+/** Generator family of a UPI string (for the browser's badge + facet). */
+function upiFamily(u) {
+  const s = (u || '').trim();
+  if (/^E\(/i.test(s)) return 'Euclidean';
+  if (/^P\(/i.test(s)) return 'Polygon';
+  if (/^R\(/i.test(s)) return 'Random';
+  if (/^[BWD]\(/i.test(s)) return 'Barlow';
+  if (/^0x|:\d/.test(s)) return 'Numeric';
+  if (/^[[{]/.test(s)) return 'Explicit';
+  return 'Other';
+}
+
+/** The pattern library as the shared @enkerli/ui LibraryBrowser (Design pass ·
+ *  Q2), in compact mode for Serpe's 340px rail. Consolidates the old three tabs
+ *  (Presets / Saved / History) into one browser with a Source facet. */
+function PatternLibrary({ items, onOpen, onDelete }) {
+  const host = useRef(null), br = useRef(null), cb = useRef({});
+  cb.current = { onOpen, onDelete };
+  useEffect(() => {
+    br.current = createLibraryBrowser(host.current, {
+      items, compact: true, favorites: false, frontDoors: false, title: 'Patterns',
+      openOnRowClick: true, // a pattern picker — single tap loads (Serpe's original feel)
+      keys: { name: 'name', source: 'source' },
+      sorts: [{ value: 'recent', label: 'Added' }, { value: 'name', label: 'UPI A–Z' }],
+      facets: [
+        { key: 'source', label: 'Source', kind: 'multi', values: ['Saved', 'Preset', 'Recent'], accessor: (it) => it.source },
+        { key: 'family', label: 'Generator', kind: 'multi', badge: true, accessor: (it) => it.family },
+        { key: 'tags', label: 'Tags', kind: 'multi', tag: true, defaultOpen: false, limit: 20, accessor: (it) => it.tags },
+      ],
+      rowActionsFor: (it) => (it.source === 'Saved' ? ['open', 'delete'] : ['open']),
+      emptyHint: 'Save patterns with “Save current”.',
+      onOpen: (it) => cb.current.onOpen(it),
+      onDelete: (it) => cb.current.onDelete(it),
+    });
+    return () => br.current && br.current.destroy();
+  }, []);
+  useEffect(() => { if (br.current) br.current.setItems(items); }, [items]);
+  return h('div', { ref: host });
+}
+
 function EngineView({ create, opts, data }) {
   const host = useRef(null), view = useRef(null);
   useEffect(() => { view.current = create(host.current, opts || {}); }, []);
@@ -123,10 +184,11 @@ function SerpeApp() {
   const [view, setView]       = useState('both');
   const [showLabels, setShowLabels] = useState(false);
 
-  const [theme, setTheme]     = useState(LS.get('theme', 'light'));
   const [runtime, setRuntime] = useState(juceAvailable() ? 'plugin' : 'webapp');
   const cfg = RT[runtime];
-  const [dense, setDense]     = useState(cfg.dense);
+  // Density lives on <body> now (the shared cluster toggles .es-dense there);
+  // seed the runtime default once.
+  useEffect(() => { document.body.classList.toggle('es-dense', cfg.dense); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const [genType, setGenType] = useState('E');
   const [genK, setGenK] = useState(5), [genN, setGenN] = useState(8), [genRot, setGenRot] = useState(0);
@@ -155,8 +217,6 @@ function SerpeApp() {
   const [scenes, setScenes] = useState(() => new Array(8).fill(null));
   const [activeScene, setActiveScene] = useState(-1);
 
-  const [dbQuery, setDbQuery] = useState('');
-  const [libTab, setLibTab] = useState('presets');   // presets | library | history
   const parseJSON = (k, d) => { try { return JSON.parse(LS.get(k, d)); } catch { return JSON.parse(d); } };
   const [lib, setLib]   = useState(() => parseJSON('library', '[]'));
   const [hist, setHist] = useState(() => parseJSON('history', '[]'));
@@ -230,8 +290,7 @@ function SerpeApp() {
     setUpiText(accLayerPrefix(L) + patternUPI(next));
   };
 
-  // ── apply theme / runtime / density to the document ──
-  useEffect(() => { document.documentElement.setAttribute('data-theme', theme); LS.set('theme', theme); }, [theme]);
+  // ── apply runtime to the document (theme is owned by @enkerli/ui/theme) ──
   useEffect(() => { document.documentElement.setAttribute('data-runtime', runtime); }, [runtime]);
 
   // ── core: set a pattern from parsed UPI or generator ──
@@ -554,12 +613,49 @@ function SerpeApp() {
     setLib(prev => { const next = [{ upi: u }, ...prev.filter(x => x.upi !== u)].slice(0, 64); LS.set('library', JSON.stringify(next)); return next; });
   }
   const delFromLibrary = (u) => setLib(prev => { const next = prev.filter(x => x.upi !== u); LS.set('library', JSON.stringify(next)); return next; });
-  const clearHistory = () => { setHist([]); LS.set('history', '[]'); };
+  /** Delete a saved pattern with the suite's undo-toast idiom (Q4). */
+  function delSavedWithUndo(u) {
+    const idx = lib.findIndex(x => x.upi === u);
+    delFromLibrary(u);
+    toast({ text: `Removed ${u}`, undo: () => setLib(prev => {
+      if (prev.some(x => x.upi === u)) return prev;
+      const next = prev.slice(); next.splice(Math.min(idx < 0 ? 0 : idx, next.length), 0, { upi: u });
+      LS.set('library', JSON.stringify(next)); return next;
+    }) });
+  }
+  // One merged stream for the LibraryBrowser: saved · presets · recents. The
+  // UPI string is the name (what players read); label + k/n ride as tags.
+  const libItems = useMemo(() => {
+    const mk = (u, source, name, i) => {
+      const info = patInfo(u);
+      const tags = [name && name !== u ? name : null, info].filter(Boolean);
+      return { id: source[0] + i, name: u, upi: u, source, family: upiFamily(u), tags };
+    };
+    return [
+      ...lib.map((x, i) => mk(x.upi, 'Saved', null, i)),
+      ...PRESETS.map(([u, n], i) => mk(u, 'Preset', n, i)),
+      ...hist.map((u, i) => mk(u, 'Recent', null, i)),
+    ];
+  }, [lib, hist]);
 
   const synced = cfg.host && hostSync;
 
+  // Cluster slot 2 (MIDI) — webapp runtime only (a plugin host owns routing);
+  // memoized so pattern-typing re-renders don't re-render the cluster.
+  const clusterMidi = useMemo(() => {
+    if (runtime !== 'webapp') return null;
+    if (midiErr) return { unavailable: true };
+    return {
+      inputs: midiPorts.inputs, outputs: midiPorts.outputs,
+      selectedInId: midiInId || null, selectedOutId: midiOutId || null,
+      onSelectIn: (v) => { setMidiInId(v || ''); LS.set('midiIn', v || ''); },
+      onSelectOut: (v) => { setMidiOutId(v || ''); LS.set('midiOut', v || ''); },
+      badge: 'Standalone',
+    };
+  }, [runtime, midiErr, midiPorts, midiInId, midiOutId]);
+
   // ── render ──
-  return h('div', { className: 'serpe' + (dense ? ' es-dense' : ''), id: 'serpe' },
+  return h('div', { className: 'serpe', id: 'serpe' },
     // top bar
     h('div', { className: 'serpe-top' },
       h('div', { className: 'title' }, h('span', { className: 'title-mark', dangerouslySetInnerHTML: { __html: ICON_SVG } }), 'Serpe'),
@@ -577,10 +673,12 @@ function SerpeApp() {
       cfg.host && h('div', { className: 'hostchip' + (synced ? ' synced' : '') },
         h('span', { className: 'led' }), h('span', null, synced ? `Host: ${hostInfo?.bpm ?? 124} BPM` : 'Host sync off')),
       h('div', { className: 'spacer' }),
-      h('button', { className: 'iconbtn', onClick: () => setDense(d => !d), title: 'Density' },
-        h('span', { 'aria-hidden': true }, dense ? '▤' : '≡'), h('span', { className: 'lbl' }, dense ? 'Dense' : 'Comfortable')),
-      h('button', { className: 'iconbtn', onClick: () => setTheme(t => t === 'dark' ? 'light' : 'dark'), title: 'Theme' },
-        h('span', { 'aria-hidden': true }, theme === 'dark' ? '☀' : '☾'), h('span', { className: 'lbl' }, theme === 'dark' ? 'Light' : 'Dark'))),
+      // The shared frame's global cluster — theme · MIDI · density, same
+      // order and ids as every suite app. Replaces the bespoke Density/Theme
+      // iconbtns. No Library slot: the rail's Patterns section (below) is
+      // the LibraryBrowser, always visible — a cluster toggle would just
+      // duplicate it (same call as MIDIcurator's sidebar).
+      h(ClusterMount, { midi: clusterMidi })),
 
     // body
     h('div', { className: 'serpe-body' },
@@ -627,17 +725,8 @@ function SerpeApp() {
                 h('span', null, h('span', { className: 'k' }, 'onsets '), h('b', null, a.k), '/', h('b', null, a.n)),
                 h('span', null, h('span', { className: 'k' }, 'intervals '), h('b', { className: 'es-num' }, intervalsStr || '—'))))))),
 
-      // control rail
+      // control rail — MIDI routing moved to the cluster's chip (slot 2)
       h('div', { className: 'serpe-rail' },
-        // MIDI device routing — standalone-only chrome (a plugin host owns this).
-        runtime === 'webapp' && h(Section, { title: 'MIDI', open: true, badge: 'standalone' },
-          midiErr
-            ? h('p', { className: 'note', style: { margin: 0 } }, midiErr)
-            : h('div', { className: 'es-device-bar' },
-                h(DeviceSelect, { label: 'MIDI In', ports: midiPorts.inputs, value: midiInId,
-                  onChange: v => { setMidiInId(v); LS.set('midiIn', v); } }),
-                h(DeviceSelect, { label: 'MIDI Out', ports: midiPorts.outputs, value: midiOutId,
-                  onChange: v => { setMidiOutId(v); LS.set('midiOut', v); } }))),
         // Generators
         h(Section, { title: 'Generators', open: true },
           h(Field, { label: 'Type' },
@@ -766,38 +855,19 @@ function SerpeApp() {
             h('select', { className: 'es-control', value: midiChan, onChange: e => setMidiChan(+e.target.value) },
               [1, 2, 3, 10].map(v => h('option', { key: v, value: v }, v))))),
 
-        // Patterns: presets / library / history (web)
-        cfg.web && (() => {
-          const q = dbQuery.trim().toLowerCase();
-          const matches = (u, name) => !q || u.toLowerCase().includes(q) || (name && name.toLowerCase().includes(q));
-          // one list row: tap to load; optional name + onset/step badge + delete
-          const row = (key, u, name, onDel) => h('div', { key, className: 'pat-row', onClick: () => loadPattern(u) },
-            h('span', { className: 'es-num pat-upi' }, u),
-            name && h('span', { className: 'lab pat-name' }, name),
-            h('span', { className: 'es-badge es-num' }, patInfo(u) || '—'),
-            onDel && h('button', { className: 'pat-del', title: 'Remove', onClick: e => { e.stopPropagation(); onDel(u); } }, '✕'));
-          let list, empty;
-          if (libTab === 'presets') {
-            list = PRESETS.filter(([u, n]) => matches(u, n)).map(([u, n], i) => row('p' + i, u, n, null));
-            empty = 'No matching presets.';
-          } else if (libTab === 'library') {
-            list = lib.filter(x => matches(x.upi)).map((x, i) => row('l' + i, x.upi, null, delFromLibrary));
-            empty = lib.length ? 'No matches.' : 'Save patterns here with “Save current”.';
-          } else {
-            list = hist.filter(u => matches(u)).map((u, i) => row('h' + i, u, null, null));
-            empty = 'Patterns you use show up here.';
-          }
-          return h(Section, { title: 'Patterns', badge: 'web' },
-            h('div', { className: 'seg', role: 'group', 'aria-label': 'Patterns', style: { marginBottom: 10 } },
-              [['presets', 'Presets'], ['library', 'Library'], ['history', 'History']].map(([v, t]) =>
-                h('button', { key: v, 'aria-pressed': libTab === v, onClick: () => setLibTab(v) }, t))),
-            libTab === 'library' && h('button', { className: 'es-btn es-small', style: { width: '100%', marginBottom: 8 }, onClick: saveToLibrary }, '+ Save current'),
-            libTab !== 'history' && h(Field, null,
-              h('input', { className: 'es-control', type: 'text', placeholder: 'Filter…', value: dbQuery, onChange: e => setDbQuery(e.target.value) })),
-            libTab === 'history' && hist.length > 0 && h('button', { className: 'es-btn es-small', style: { marginBottom: 8 }, onClick: clearHistory }, 'Clear history'),
-            h('div', { className: 'pat-list' }, list.length ? list
-              : h('p', { className: 'note', style: { fontSize: 11, color: 'var(--es-fg-muted)', margin: '4px 0' } }, empty)));
-        })(),
+        // Patterns: presets / library / history — available everywhere (web,
+        // plugin, standalone). Was mistakenly gated on cfg.web, which also
+        // hides it in the JUCE Standalone build (same 'plugin' runtime as the
+        // AU/VST3/CLAP formats, since all three host the same WebView bridge).
+        // Pattern library — the shared LibraryBrowser (Q2), compact for the
+        // rail; the old presets/saved/history tabs are now one Source facet.
+        h(Section, { title: 'Patterns', badge: cfg.web ? 'web' : 'plugin' },
+          h('button', { className: 'es-btn es-small', style: { width: '100%', marginBottom: 8 }, onClick: saveToLibrary }, '+ Save current'),
+          h(PatternLibrary, {
+            items: libItems,
+            onOpen: (it) => loadPattern(it.upi),
+            onDelete: (it) => delSavedWithUndo(it.upi),
+          })),
 
         // Web Audio (web)
         cfg.web && h(Section, { title: 'Web Audio', badge: 'web' },
@@ -816,6 +886,17 @@ function SerpeApp() {
               h('span', { className: 'lab' }, k), h('span', { className: 'val', style: { textAlign: 'right' } }, String(v)))))))));
 }
 
+// ── shared-frame mount (the framework-agnostic cluster as an island) ──
+function ClusterMount({ midi }) {
+  const host = useRef(null), cluster = useRef(null);
+  useEffect(() => {
+    cluster.current = createGlobalCluster(host.current, { midi, densityTarget: document.body });
+    return () => cluster.current.destroy();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps -- mounts once
+  useEffect(() => { cluster.current?.update({ midi }); }, [midi]); // eslint-disable-line react-hooks/exhaustive-deps
+  return h('div', { ref: host });
+}
+
 // ── small presentational helpers ──
 const BADGE_LABEL = { web: 'web', host: 'plugin', standalone: 'standalone' };
 function Section({ title, badge, open, children }) {
@@ -824,22 +905,8 @@ function Section({ title, badge, open, children }) {
     h('div', { className: 'es-section-body' }, children));
 }
 
-// A single MIDI endpoint selector (the design's .es-device-select). The CSS uses
-// [data-state] to swap the <select> for an empty message and to colour the LED.
-const MIDI_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="7" r="1.1" fill="currentColor" stroke="none"/><circle cx="7.6" cy="9.6" r="1.1" fill="currentColor" stroke="none"/><circle cx="16.4" cy="9.6" r="1.1" fill="currentColor" stroke="none"/><circle cx="9" cy="15" r="1.1" fill="currentColor" stroke="none"/><circle cx="15" cy="15" r="1.1" fill="currentColor" stroke="none"/></svg>';
-function DeviceSelect({ label, ports, value, onChange }) {
-  const connected = !!value && ports.some(p => p.id === value);
-  const state = ports.length === 0 ? 'empty' : (connected ? 'connected' : 'available');
-  return h('div', { className: 'es-device-select', 'data-state': state },
-    h('div', { className: 'es-device-select-head' },
-      h('span', { className: 'es-device-icon', 'aria-hidden': true, dangerouslySetInnerHTML: { __html: MIDI_ICON } }),
-      h('span', { className: 'es-device-name' }, label),
-      h('span', { className: 'es-device-status' }, h('span', { className: 'es-device-led' }),
-        connected ? 'connected' : (ports.length ? 'select…' : 'none'))),
-    h('select', { className: 'es-control', value: value || '', onChange: e => onChange(e.target.value), 'aria-label': label },
-      [h('option', { key: '', value: '' }, 'None'), ...ports.map(p => h('option', { key: p.id, value: p.id }, p.name))]),
-    h('div', { className: 'es-device-empty' }, 'No MIDI devices found'));
-}
+// (The rail's DeviceSelect retired — the shared cluster's MIDI chip owns
+// device routing now, DIN-5 icon included.)
 function Field({ label, children }) {
   return h('div', { className: 'field' }, label && h('label', null, label), children);
 }

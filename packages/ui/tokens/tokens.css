@@ -17,6 +17,11 @@
  *  - motion respects prefers-reduced-motion
  */
 
+/* Fonts are loaded separately via '@enkerli/ui/fonts.css' (self-hosted, SIL
+   OFL) — kept out of tokens.css so text-injected consumers don't runtime-fetch
+   a bundler-relative @import. Each app imports fonts.css the way its build
+   wants it (bundled url() for vite, injected text + dist/fonts for esbuild). */
+
 :root {
   /* ── Type ────────────────────────────────────────────────────────── */
   --es-font-sans: "Inter Tight", Inter, -apple-system, BlinkMacSystemFont,
@@ -104,6 +109,8 @@
   --es-fg: #2d2b27;          /* ink */
   --es-fg-2: #4b463e;
   --es-fg-muted: #736e62;    /* ≥4.5:1 on bg and bg-raised */
+  --es-fg-faint: #b3ac9e;    /* disabled ink ONLY (WCAG-exempt) — never for
+                                content; replaces --vn-muted-2 / PAPER.ink30 */
   --es-border: #ddd6ca;      /* decorative — separation, not identification */
   --es-border-soft: #eae3d4;
   --es-border-strong: #9d8967; /* ≥3:1 — boundaries that identify a control */
@@ -124,6 +131,7 @@
     --es-fg: #e8e1d2;
     --es-fg-2: #cfc7b5;
     --es-fg-muted: #908672;    /* ≥4.5:1 on bg and bg-raised */
+    --es-fg-faint: #5f584a;    /* disabled ink ONLY (WCAG-exempt) */
     --es-border: #38332b;
     --es-border-soft: #2b2620;
     --es-border-strong: #736958; /* ≥3:1 — boundaries that identify a control */
@@ -148,6 +156,7 @@
   --es-fg: #e8e1d2;
   --es-fg-2: #cfc7b5;
   --es-fg-muted: #908672;    /* ≥4.5:1 on bg and bg-raised */
+  --es-fg-faint: #5f584a;    /* disabled ink ONLY (WCAG-exempt) */
   --es-border: #38332b;
   --es-border-soft: #2b2620;
   --es-border-strong: #736958; /* ≥3:1 — boundaries that identify a control */

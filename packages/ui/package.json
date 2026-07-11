@@ -21,20 +21,34 @@
       "default": "./naming.js"
     },
     "./leadsheet-editor": "./components/leadsheet-editor.js",
+    "./global-cluster": "./components/global-cluster.js",
+    "./icons/*": "./icons/*",
     "./confirm": {
       "types": "./confirm.d.ts",
       "default": "./confirm.js"
-    }
+    },
+    "./library-browser": {
+      "types": "./components/library-browser.d.ts",
+      "default": "./components/library-browser.js"
+    },
+    "./toast": {
+      "types": "./components/toast.d.ts",
+      "default": "./components/toast.js"
+    },
+    "./fonts.css": "./fonts.css"
   },
   "files": [
     "tokens",
+    "icons",
     "theme.js",
     "theme.d.ts",
     "components",
     "naming.js",
     "naming.d.ts",
     "confirm.js",
-    "confirm.d.ts"
+    "confirm.d.ts",
+    "fonts.css",
+    "fonts"
   ],
   "dependencies": {
     "@enkerli/theory": "*"

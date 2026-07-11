@@ -22,11 +22,12 @@ function entry(over = {}) {
 describe("progression library store", () => {
   beforeEach(() => globalThis.localStorage?.clear());
 
-  it("starts empty and round-trips a saved list", () => {
+  it("starts empty and round-trips a saved list (kind surfaces on load)", () => {
     expect(loadLibrary()).toEqual([]);
     const list = [entry()];
     saveLibrary(list);
-    expect(loadLibrary()).toEqual(list);
+    // The mixed-kind store types every entry on the way out.
+    expect(loadLibrary()).toEqual([{ kind: "document", ...entry() }]);
   });
 
   it("persists @enkerli/library envelopes, not bare entries", () => {
@@ -44,7 +45,7 @@ describe("progression library store", () => {
     // simulate a pre-envelope library already in storage
     globalThis.localStorage.setItem(KEY, JSON.stringify([entry()]));
     const list = loadLibrary();
-    expect(list).toEqual([entry()]); // app shape unchanged
+    expect(list).toEqual([{ kind: "document", ...entry() }]); // legacy reads as a document
     saveLibrary(list); // …and the next save upgrades the storage format
     const raw = JSON.parse(globalThis.localStorage.getItem(KEY));
     expect(raw[0].envelope).toBe("enkerli-library-item");
@@ -62,7 +63,7 @@ describe("progression library store", () => {
   it("never loses an entry that cannot form a valid envelope", () => {
     const odd = entry({ id: "a" }); // short id fails the schema's id rule
     saveLibrary([odd]);
-    expect(loadLibrary()).toEqual([odd]); // stored verbatim, round-trips
+    expect(loadLibrary()).toEqual([{ kind: "document", ...odd }]); // stored verbatim, round-trips
     const raw = JSON.parse(globalThis.localStorage.getItem(KEY));
     expect(raw[0].envelope).toBeUndefined();
   });
@@ -74,5 +75,27 @@ describe("progression library store", () => {
 
   it("mints unique ids", () => {
     expect(newId()).not.toBe(newId());
+  });
+
+  // The shared-frame Library holds all three kinds in one list (D4).
+  it("round-trips patches and profiles beside documents, via their envelopes", () => {
+    const patch = {
+      id: "55555555-aaaa-bbbb-cccc-000000000005", kind: "patch",
+      title: "Ballad generator", savedAt: "2026-07-04T12:00:00.000Z",
+      file: { format: "proggenie-patch", version: 1, savedAt: "2026-07-04T12:00:00.000Z", params: { tonic: "C", bars: 8 } },
+    };
+    const profile = {
+      id: "66666666-aaaa-bbbb-cccc-000000000006", kind: "profile",
+      title: "Taste profile", savedAt: "2026-07-04T12:00:00.000Z",
+      file: { format: "progression-studio-curation", version: 1, savedAt: "2026-07-04T12:00:00.000Z", multipliers: { "V7\u2192Imaj7": 1.4 } },
+    };
+    saveLibrary([entry(), patch, profile]);
+    const raw = JSON.parse(globalThis.localStorage.getItem(KEY));
+    expect(raw.map((r) => r.kind)).toEqual(["progression", "patch", "curation-profile"]);
+    expect(raw.every((r) => r.envelope === "enkerli-library-item")).toBe(true);
+    const back = loadLibrary();
+    expect(back[0]).toEqual({ kind: "document", ...entry() });
+    expect(back[1]).toEqual(patch); // self-identified file travels verbatim
+    expect(back[2]).toEqual(profile);
   });
 });

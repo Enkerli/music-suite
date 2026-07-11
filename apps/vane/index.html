@@ -27,28 +27,46 @@
     F1 dot+label always, focus rings, keyboard   F2 preset name is the primary title
 -->
 <style>
-/* ── Design tokens — verbatim from wireframe-styles.css (spec §3) ─────────── */
+/* ── Design tokens — SELF-CONTAINED, values synced from @enkerli/ui ─────────
+   Vane was the paper-&-ink language's source; its --vn-* literals match the
+   shared --es-* tokens exactly (per the consistency-pass mapping). These are
+   INLINED literals, not a <link> to the real tokens.css: this file is copied
+   byte-for-byte by build.sh (sed only rewrites __BUILD_ID__) into dist/ and
+   then into docs/apps/vane/ for the Pages site, at a different relative
+   depth each time — an external stylesheet link breaks silently at one of
+   those depths (found in production: the whole theme resolved to nothing,
+   because --es-* was never defined, so every --vn-* alias below it fell
+   through). Same self-contained approach as pitchfold/drawnqurve's PAPER
+   objects. If packages/ui/tokens/tokens.css changes, re-sync these literals.
+   Mapping notes:
+   · --vn-panel2 folds into --es-bg-sunken (one surface fewer, by design)
+   · --vn-muted adopts the AA-compliant --es-fg-muted value
+   · --vn-muted-2 (disabled ink) → --es-fg-faint (WCAG-exempt, disabled-only) */
 :root{
-  --vn-bg:#f5f2eb; --vn-panel:#fcfbf7; --vn-panel2:#f3eee3; --vn-field:#efebe2;
-  --vn-line:#ddd6ca; --vn-line-soft:#eae3d4; --vn-text:#2d2b27; --vn-text-2:#4b463e;
-  --vn-muted:#8b8678; --vn-muted-2:#b6b0a1;
+  --vn-bg:#f5f2eb; --vn-panel:#fcfbf7;
+  --vn-panel2:#efebe2; --vn-field:#efebe2;
+  --vn-line:#ddd6ca; --vn-line-soft:#eae3d4;
+  --vn-text:#2d2b27; --vn-text-2:#4b463e;
+  --vn-muted:#736e62; --vn-muted-2:#b3ac9e;
   --vn-breath:#4b86c7; --vn-breath-tint:#dde8f4;
   --vn-expr:#2d9d8a;   --vn-expr-tint:#d6ebe6;
   --vn-pressure:#d28330;--vn-pressure-tint:#f4e3cf;
   --vn-slide:#a35bbf;  --vn-slide-tint:#ecdcf2;
   --vn-bend:#c39529;   --vn-bend-tint:#f1e6c3;
   --vn-vel:#7a4cff;
-  --vn-ui:"Inter",-apple-system,BlinkMacSystemFont,"SF Pro Text",system-ui,sans-serif;
-  --vn-mono:"JetBrains Mono",ui-monospace,SF Mono,monospace;
+  --vn-ui:"Inter Tight",Inter,-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",system-ui,sans-serif;
+  --vn-mono:"JetBrains Mono","SF Mono",ui-monospace,Menlo,Consolas,monospace;
   --r:20px; --r-md:14px; --r-sm:10px;
   --shadow:0 6px 22px rgba(28,25,20,.05);
   /* Density scale (B1) — bumped to ≥44pt at touch/narrow */
   --ctl-h:32px; --track-h:8px; --thumb:15px; --tap:32px; --seg-pad:7px 12px; --gap:10px;
 }
 [data-theme="dark"]{
-  --vn-bg:#1a1814; --vn-panel:#221f1a; --vn-panel2:#1d1b16; --vn-field:#14130f;
-  --vn-line:#38332b; --vn-line-soft:#2b2620; --vn-text:#e8e1d2; --vn-text-2:#cfc7b5;
-  --vn-muted:#897f6c; --vn-muted-2:#5e564a;
+  --vn-bg:#1a1814; --vn-panel:#221f1a;
+  --vn-panel2:#14130f; --vn-field:#14130f;
+  --vn-line:#38332b; --vn-line-soft:#2b2620;
+  --vn-text:#e8e1d2; --vn-text-2:#cfc7b5;
+  --vn-muted:#908672; --vn-muted-2:#5f584a;
   --shadow:0 6px 22px rgba(0,0,0,.28);
 }
 @media (max-width:860px),(pointer:coarse){
@@ -556,7 +574,8 @@ input,textarea,[contenteditable]{ -webkit-user-select:text; user-select:text; -w
     <span class="chip ghost" id="tuningChip" onclick="toggleMts()" title="MTS-ESP — click to (re)connect">MTS-ESP</span>
     <button class="icon-btn" id="monoBtn" onclick="toggleMono()" style="width:auto;max-width:none;min-width:62px;padding:0 16px">Mono</button>
     <button class="icon-btn warn" title="Panic" onclick="Bridge.send('panic')">!</button>
-    <button class="icon-btn" title="Toggle theme" onclick="toggleTheme()">◐</button>
+    <button class="icon-btn" id="theme-toggle" title="Switch theme"
+      style="width:auto;max-width:none;padding:0 12px" onclick="toggleTheme()">● Dark</button>
   </div>
 
   <!-- Preset↔profile association notice -->
@@ -1836,7 +1855,28 @@ function applyIo(){ const t=$('#ioTxt').value.trim(); if(t){ Bridge.send('import
 // ════════════════════════════════════════════════════════════════════════
 let mono=true;
 function toggleMono(){ mono=!mono; $('#monoBtn').textContent=mono?'Mono':'Poly'; Bridge.send('setParam',{id:'monoMode',value:mono?1:0}); markDirty(); }
-function toggleTheme(){ const r=document.documentElement; r.dataset.theme=r.dataset.theme==='dark'?'light':'dark'; }
+/* Theme — the suite's ONE mechanism (shared-frame pass): [data-theme] on
+   <html>, persisted as "enkerli.theme", OS preference respected until
+   chosen. Inline (this page has no module imports) but semantics-identical
+   to @enkerli/ui/theme; the canonical label names the TARGET mode. */
+function resolvedTheme(){
+  try{ const s=localStorage.getItem('enkerli.theme'); if(s==='light'||s==='dark') return s; }catch{}
+  try{ return matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light'; }catch{}
+  return 'light';
+}
+function labelThemeToggle(){
+  const b=document.getElementById('theme-toggle'); if(!b) return;
+  b.textContent = resolvedTheme()==='dark' ? '☀︎ Light' : '● Dark';
+}
+function toggleTheme(){
+  const next = resolvedTheme()==='dark' ? 'light' : 'dark';
+  try{ localStorage.setItem('enkerli.theme', next); }catch{}
+  document.documentElement.dataset.theme = next;
+  labelThemeToggle();
+}
+/* init: apply the persisted/OS theme (the static markup says light) */
+document.documentElement.dataset.theme = resolvedTheme();
+labelThemeToggle();
 function closeMenus(){ document.querySelectorAll('.menu.open').forEach(x=>x.classList.remove('open')); }
 // Quick preset picker from the header title (F2).
 function openPresetMenu(e){ if(e)e.stopPropagation(); const m=$('#presetMenu'); const willOpen=!m.classList.contains('open');

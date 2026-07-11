@@ -6,6 +6,7 @@ import { layoutNotes } from "./piano-roll.js";
 import { createSection } from "./section.js";
 import { createRangeSlider, midiName } from "./range-slider.js";
 import { PITCH_CLASS_COLORS, padColor, padInk } from "./pitch-class-colors.js";
+import { createGlobalCluster } from "./global-cluster.js";
 
 describe("pcs mask codec (leftmost = LSB, CONVENTIONS.md)", () => {
   it("C ionian 2741 decodes pc i = bit i", () => {
@@ -202,3 +203,82 @@ describe("collapsible section", () => {
     expect(onToggle).toHaveBeenCalledWith(true);
   });
 });
+
+describe("global cluster (the shared frame)", () => {
+  it("renders the four slots in the canonical order with stable ids", () => {
+    const el = document.createElement("div");
+    createGlobalCluster(el, {
+      midi: { outputs: [{ id: "o1", name: "IAC Bus 1" }] },
+      densityTarget: el,
+      library: { count: 3, onToggle: () => {} },
+    });
+    const ids = [...el.querySelectorAll("button")].map((b) => b.id);
+    expect(ids).toEqual(["theme-toggle", "midi-chip", "density-toggle", "library-toggle"]);
+    expect(el.querySelector(".lib-count-badge").textContent).toBe("3");
+  });
+
+  it("omits MIDI/density/library slots when not configured — nothing reflows", () => {
+    const el = document.createElement("div");
+    createGlobalCluster(el, {});
+    const ids = [...el.querySelectorAll("button")].map((b) => b.id);
+    expect(ids).toEqual(["theme-toggle"]);
+  });
+
+  it("theme toggle flips [data-theme] via the shared mechanism and relabels", () => {
+    localStorage.removeItem("enkerli.theme");
+    const el = document.createElement("div");
+    const onThemeChange = vi.fn();
+    createGlobalCluster(el, { onThemeChange });
+    const btn = el.querySelector("#theme-toggle");
+    expect(btn.textContent).toContain("Dark"); // names the TARGET mode
+    btn.click();
+    expect(document.documentElement.getAttribute("data-theme")).toBe("dark");
+    expect(onThemeChange).toHaveBeenCalledWith("dark");
+    expect(btn.textContent).toContain("Light");
+    btn.click(); // restore
+    localStorage.removeItem("enkerli.theme");
+  });
+
+  it("MIDI chip states: counts ports, flags no-Web-MIDI", () => {
+    const el = document.createElement("div");
+    const c = createGlobalCluster(el, {
+      midi: { inputs: [{ id: "i", name: "Rise" }], outputs: [{ id: "o", name: "Exquis" }] },
+    });
+    expect(el.querySelector("#midi-chip").textContent).toContain("MIDI · 2");
+    expect(el.querySelector("#midi-chip").dataset.state).toBe("connected");
+    c.update({ midi: { unavailable: true } });
+    expect(el.querySelector("#midi-chip").textContent).toContain("No Web MIDI");
+    expect(el.querySelector("#midi-chip").dataset.state).toBe("unavailable");
+  });
+
+  it("chip opens the device panel; only provided directions render", () => {
+    const el = document.createElement("div");
+    document.body.appendChild(el);
+    createGlobalCluster(el, {
+      midi: { outputs: [{ id: "o", name: "Exquis" }], noneOption: "Internal (Web Audio)" },
+    });
+    el.querySelector("#midi-chip").click();
+    const names = [...el.querySelectorAll(".es-device-name")].map((n) => n.textContent);
+    expect(names).toEqual(["MIDI Out"]); // out-only app: no dead In row
+    expect(el.querySelector("select option").textContent).toBe("Internal (Web Audio)");
+    el.remove();
+  });
+
+  it("density toggle flips .es-dense on the target", () => {
+    const el = document.createElement("div");
+    const target = document.createElement("div");
+    createGlobalCluster(el, { densityTarget: target });
+    const btn = el.querySelector("#density-toggle");
+    expect(btn.textContent).toContain("Cozy");
+    btn.click();
+    expect(target.classList.contains("es-dense")).toBe(true);
+    expect(btn.textContent).toContain("Dense");
+  });
+});
+
+// The "library drawer" pattern (kind-grouped cards, two-tap delete) was
+// superseded by @enkerli/ui/library-browser (Design pass · Q2, tested in
+// library-browser.test.js) once both design efforts converged on one
+// save/recall surface — see components.css's note above the LibraryBrowser
+// block. library-drawer.js is retired; the cluster's Library slot (tested
+// above) now opens the browser in every adopting app.

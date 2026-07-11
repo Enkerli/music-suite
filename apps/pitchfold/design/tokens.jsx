@@ -1,22 +1,31 @@
-// Design tokens — Sketchbook aesthetic (warm paper)
-// Shared between v1 "Sketchbook" and v2 "Studio"
+// Design tokens — migrated onto @enkerli/ui "paper & ink" (shared-frame pass).
+// The PAPER object keeps its shape (SVG attrs need concrete hex values), but
+// every SURFACE and INK value below IS the corresponding --es-* token value
+// (packages/ui/tokens/tokens.css) per the consistency-pass mapping:
+//   bg→--es-bg · bgDeep→--es-bg-sunken · card→--es-bg-raised ·
+//   rule→--es-border · ruleFaint→--es-border-soft · ink→--es-fg ·
+//   ink70→--es-fg-2 · ink50→--es-fg-muted · ink30→--es-fg-faint
+// PAPER_DARK adopts the suite's WARM dark (the old cool blue-violet dark is
+// retired — flagged and signed off in the pass). The amber accent and the
+// four lane colours stay app-local by design ("one language, per-app voice").
+// If tokens.css changes, re-sync these literals.
 
 const PAPER = {
-  // surfaces — hex for SVG compat; oklch for CSS vars
-  bg:      '#F5F0E8',
-  bgDeep:  '#EDE6D8',
-  card:    '#FAF8F4',
-  rule:    '#D4CAB8',
-  ruleFaint:'#EAE3D8',
+  // surfaces — the es light theme, verbatim
+  bg:      '#f5f2eb',
+  bgDeep:  '#efebe2',
+  card:    '#fcfbf7',
+  rule:    '#ddd6ca',
+  ruleFaint:'#eae3d4',
   // ink
-  ink:     '#2D2620',
-  ink70:   '#574E44',
-  ink50:   '#6B5E55',  // was #857870 — lifted to meet WCAG AA (5.5:1 on bg)
-  ink30:   '#B3A99E',
-  // accents
+  ink:     '#2d2b27',
+  ink70:   '#4b463e',
+  ink50:   '#736e62',  // ≥4.5:1 on bg and card (AA, machine-checked in ui)
+  ink30:   '#b3ac9e',  // disabled ink only (--es-fg-faint)
+  // accents — PitchFold's per-app voice (NOT system tokens)
   amber:   '#C4873A',
   amberInk:'#8A5520',
-  // lanes
+  // lanes — working-surface colours, app-local
   laneInk:   '#3A4060',
   laneRose:  '#C4624A',
   laneMoss:  '#4A7A55',
@@ -24,15 +33,16 @@ const PAPER = {
 };
 
 const PAPER_DARK = {
-  bg:       '#1A1A24',
-  bgDeep:   '#12121A',
-  card:     '#22222E',
-  rule:     '#484862',  // was #3A3A50 — brighter so borders read clearly
-  ruleFaint:'#32324A',  // was #2A2A3C
-  ink:      '#DCDCE8',
-  ink70:    '#A8A8C0',
-  ink50:    '#9898B4',  // was #787890 — lifted to meet WCAG AA (6.1:1 on bg)
-  ink30:    '#6E6E88',  // was #505068 — lifted for better legibility
+  // surfaces — the es WARM dark theme, verbatim
+  bg:       '#1a1814',
+  bgDeep:   '#14130f',
+  card:     '#221f1a',
+  rule:     '#38332b',
+  ruleFaint:'#2b2620',
+  ink:      '#e8e1d2',
+  ink70:    '#cfc7b5',
+  ink50:    '#908672',  // ≥4.5:1 on bg and card (AA)
+  ink30:    '#5f584a',  // disabled ink only (--es-fg-faint)
   amber:    '#E8A838',
   amberInk: '#E8C878',
   laneInk:  '#4A90E2',

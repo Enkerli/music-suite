@@ -15,7 +15,8 @@ describe("App render smoke", () => {
     expect(html).toContain("Progression Studio");
     expect(html).toContain("New take"); // grouped generator (was "Generate")
     expect(html).toContain("More like this"); // unified leadsheet + curation surface
-    expect(html).toContain("Save to library"); // document strip (library & import, Step 03)
+    expect(html).toContain("es-shellbar"); // the shared frame's chrome bar (consistency pass)
+    expect(html).toContain("Save patch"); // patch save/recall lives in the Library now
     expect(html).toContain("Your profile"); // curation summarized — profile-as-shape (Step 05)
     expect(html).toContain("Send to MIDIcurator"); // named destination (Step 06)
     // Q3 generator taxonomy — group headers (Context/Reharm/Modulation now live

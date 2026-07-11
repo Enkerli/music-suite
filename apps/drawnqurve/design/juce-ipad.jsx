@@ -86,14 +86,29 @@ function JuceIPadStudio({ width = 1024, height = 768 }) {
   const eng = useDrawnQurveEngine({ mode: 'standard' });
   const recorder = useMidiRecorder(eng);
 
-  // Theme — persisted in localStorage so it survives plugin reload.
-  const [useDark, setUseDarkRaw] = React.useState(
-    () => (typeof localStorage !== 'undefined') && localStorage.getItem('dq-theme') === 'dark'
-  );
+  // Theme — the suite's ONE mechanism (shared-frame pass): [data-theme] on
+  // <html>, persisted as "enkerli.theme" (the old 'dq-theme' key migrates
+  // once), OS preference respected until chosen.
+  const [useDark, setUseDarkRaw] = React.useState(() => {
+    try {
+      const legacy = localStorage.getItem('dq-theme');
+      if (legacy != null) {
+        if (localStorage.getItem('enkerli.theme') == null && (legacy === 'light' || legacy === 'dark'))
+          localStorage.setItem('enkerli.theme', legacy);
+        localStorage.removeItem('dq-theme');
+      }
+      const s = localStorage.getItem('enkerli.theme');
+      if (s === 'light' || s === 'dark') return s === 'dark';
+    } catch (_) {}
+    try { return matchMedia('(prefers-color-scheme: dark)').matches; } catch (_) { return false; }
+  });
+  React.useEffect(() => {
+    document.documentElement.setAttribute('data-theme', useDark ? 'dark' : 'light');
+  }, [useDark]);
   const setUseDark = React.useCallback((next) => {
     const dark = typeof next === 'function' ? next(useDark) : next;
     setUseDarkRaw(dark);
-    try { localStorage.setItem('dq-theme', dark ? 'dark' : 'light'); } catch (_) {}
+    try { localStorage.setItem('enkerli.theme', dark ? 'dark' : 'light'); } catch (_) {}
     // Update lane display colours in engine state without reinitialising.
     const lanes = window.LANES || [];
     lanes.forEach((ldef, i) => {
@@ -616,11 +631,11 @@ function JuceTopBar({ eng, paper, h, helpOpen, setHelpOpen, useDark, setUseDark,
         onClick={() => setHelpOpen(!helpOpen)} title="Quick reference (? key)">
         <span style={{ fontSize: 14 }}>?</span>
       </IconBtn>
-      {/* Theme toggle — ☾ in light mode (offers dark), ☼ in dark mode (offers light) */}
-      <IconBtn paper={paper} size={36} active={useDark}
+      {/* Theme — canonical suite control: names the TARGET mode */}
+      <IconBtn paper={paper} size={36} active={useDark} id="theme-toggle"
         onClick={() => setUseDark(d => !d)}
-        title={useDark ? 'Switch to light mode' : 'Switch to dark mode'}>
-        <span style={{ fontSize: 15 }}>{useDark ? '☼' : '☾'}</span>
+        title="Switch theme">
+        <span style={{ fontSize: 12, whiteSpace: 'nowrap', padding: '0 6px' }}>{useDark ? '☀\uFE0E Light' : '● Dark'}</span>
       </IconBtn>
     </div>
   );
