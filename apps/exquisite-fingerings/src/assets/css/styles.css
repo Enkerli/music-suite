@@ -32,7 +32,7 @@ body {
   background: var(--bg);
   color: var(--ink);
   display: grid;
-  grid-template-columns: 300px 1fr;
+  grid-template-columns: 320px 1fr;
   height: 100vh;
   overflow: hidden;
 }
@@ -268,9 +268,11 @@ details[open] {
   margin: 0.5rem 0;
 }
 
-/* Sidebar header row (G3/G4) */
+/* Sidebar header row (G3/G4) — wraps so the cluster (theme·MIDI·density)
+   never clips at the rail's width; every control stays reachable. */
 .topbar {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: 8px;

@@ -619,7 +619,7 @@ select.es-control option { background: var(--es-bg-raised); color: var(--es-fg);
    Spec: the "Shared Frame — Consistency Pass" design document. */
 
 .es-shellbar {
-  display: flex; align-items: center; gap: 14px; min-height: 52px;
+  display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; min-height: 52px;
   padding: 8px 14px; background: var(--es-bg-raised);
   border-bottom: 1px solid var(--es-border);
 }
@@ -630,8 +630,10 @@ select.es-control option { background: var(--es-bg-raised); color: var(--es-fg);
 .es-shellbar .mid { flex: 1 1 auto; display: flex; justify-content: center; min-width: 0; }
 
 /* THE global-controls cluster — same order, every app:
-   theme · MIDI · density · Library */
-.es-cluster { display: flex; align-items: center; gap: 8px; flex: none; }
+   theme · MIDI · density · Library. Wraps (never clips) when the host rail
+   is too narrow for all four in one row — every control stays reachable;
+   see .mc-sidebar-header / .topbar for the sidebar-header wrap partner. */
+.es-cluster { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; flex: none; }
 .es-cluster .es-btn { display: inline-flex; align-items: center; gap: 7px;
   font-size: var(--es-text-sm); font-weight: 500; white-space: nowrap; cursor: pointer; }
 .es-cluster .glyph { font-size: 13px; line-height: 1; }

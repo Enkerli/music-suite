@@ -26,38 +26,48 @@
     E1 preset browser (filters/fav/rename/delete/import-export)   E2 states (MTS, unsaved, empty)
     F1 dot+label always, focus rings, keyboard   F2 preset name is the primary title
 -->
-<link rel="stylesheet" href="../../packages/ui/tokens/tokens.css">
 <style>
-/* ── Design tokens — ALIAS SHEET over @enkerli/ui (shared-frame pass) ───────
-   Vane was the paper-&-ink language's source; its --vn-* literals matched
-   the shared --es-* tokens near-exactly, so the vn names now RESOLVE to the
-   shared tokens (per the consistency-pass token-mapping table). Existing
-   rules keep working with zero markup churn; BOTH themes come from
-   tokens.css via [data-theme] — no per-app dark block anymore. Call-sites
-   migrate to --es-* opportunistically, then this sheet dies. The plugin
-   repo's build.mjs must inline tokens.css ahead of this block.
+/* ── Design tokens — SELF-CONTAINED, values synced from @enkerli/ui ─────────
+   Vane was the paper-&-ink language's source; its --vn-* literals match the
+   shared --es-* tokens exactly (per the consistency-pass mapping). These are
+   INLINED literals, not a <link> to the real tokens.css: this file is copied
+   byte-for-byte by build.sh (sed only rewrites __BUILD_ID__) into dist/ and
+   then into docs/apps/vane/ for the Pages site, at a different relative
+   depth each time — an external stylesheet link breaks silently at one of
+   those depths (found in production: the whole theme resolved to nothing,
+   because --es-* was never defined, so every --vn-* alias below it fell
+   through). Same self-contained approach as pitchfold/drawnqurve's PAPER
+   objects. If packages/ui/tokens/tokens.css changes, re-sync these literals.
    Mapping notes:
    · --vn-panel2 folds into --es-bg-sunken (one surface fewer, by design)
    · --vn-muted adopts the AA-compliant --es-fg-muted value
-   · --vn-muted-2 (disabled ink) → the new --es-fg-faint                     */
+   · --vn-muted-2 (disabled ink) → --es-fg-faint (WCAG-exempt, disabled-only) */
 :root{
-  --vn-bg:var(--es-bg); --vn-panel:var(--es-bg-raised);
-  --vn-panel2:var(--es-bg-sunken); --vn-field:var(--es-bg-sunken);
-  --vn-line:var(--es-border); --vn-line-soft:var(--es-border-soft);
-  --vn-text:var(--es-fg); --vn-text-2:var(--es-fg-2);
-  --vn-muted:var(--es-fg-muted); --vn-muted-2:var(--es-fg-faint);
-  --vn-breath:var(--es-dim-breath); --vn-breath-tint:var(--es-dim-breath-tint);
-  --vn-expr:var(--es-dim-expr);     --vn-expr-tint:var(--es-dim-expr-tint);
-  --vn-pressure:var(--es-dim-pressure); --vn-pressure-tint:var(--es-dim-pressure-tint);
-  --vn-slide:var(--es-dim-slide);   --vn-slide-tint:var(--es-dim-slide-tint);
-  --vn-bend:var(--es-dim-bend);     --vn-bend-tint:var(--es-dim-bend-tint);
-  --vn-vel:var(--es-dim-vel);
-  --vn-ui:var(--es-font-sans);
-  --vn-mono:var(--es-font-mono);
+  --vn-bg:#f5f2eb; --vn-panel:#fcfbf7;
+  --vn-panel2:#efebe2; --vn-field:#efebe2;
+  --vn-line:#ddd6ca; --vn-line-soft:#eae3d4;
+  --vn-text:#2d2b27; --vn-text-2:#4b463e;
+  --vn-muted:#736e62; --vn-muted-2:#b3ac9e;
+  --vn-breath:#4b86c7; --vn-breath-tint:#dde8f4;
+  --vn-expr:#2d9d8a;   --vn-expr-tint:#d6ebe6;
+  --vn-pressure:#d28330;--vn-pressure-tint:#f4e3cf;
+  --vn-slide:#a35bbf;  --vn-slide-tint:#ecdcf2;
+  --vn-bend:#c39529;   --vn-bend-tint:#f1e6c3;
+  --vn-vel:#7a4cff;
+  --vn-ui:"Inter Tight",Inter,-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",system-ui,sans-serif;
+  --vn-mono:"JetBrains Mono","SF Mono",ui-monospace,Menlo,Consolas,monospace;
   --r:20px; --r-md:14px; --r-sm:10px;
-  --shadow:var(--es-shadow);
+  --shadow:0 6px 22px rgba(28,25,20,.05);
   /* Density scale (B1) — bumped to ≥44pt at touch/narrow */
   --ctl-h:32px; --track-h:8px; --thumb:15px; --tap:32px; --seg-pad:7px 12px; --gap:10px;
+}
+[data-theme="dark"]{
+  --vn-bg:#1a1814; --vn-panel:#221f1a;
+  --vn-panel2:#14130f; --vn-field:#14130f;
+  --vn-line:#38332b; --vn-line-soft:#2b2620;
+  --vn-text:#e8e1d2; --vn-text-2:#cfc7b5;
+  --vn-muted:#908672; --vn-muted-2:#5f584a;
+  --shadow:0 6px 22px rgba(0,0,0,.28);
 }
 @media (max-width:860px),(pointer:coarse){
   :root{ --ctl-h:44px; --track-h:14px; --thumb:22px; --tap:44px; --seg-pad:11px 14px; --gap:12px; }
