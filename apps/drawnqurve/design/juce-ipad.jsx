@@ -631,11 +631,13 @@ function JuceTopBar({ eng, paper, h, helpOpen, setHelpOpen, useDark, setUseDark,
         onClick={() => setHelpOpen(!helpOpen)} title="Quick reference (? key)">
         <span style={{ fontSize: 14 }}>?</span>
       </IconBtn>
-      {/* Theme — canonical suite control: names the TARGET mode */}
+      {/* Theme — canonical suite control: names the TARGET mode. Text label
+          (not a single glyph like the other IconBtns here), so it needs its
+          own width — the shared 36px SQUARE clipped "● Dark"/"☀︎ Light". */}
       <IconBtn paper={paper} size={36} active={useDark} id="theme-toggle"
         onClick={() => setUseDark(d => !d)}
-        title="Switch theme">
-        <span style={{ fontSize: 12, whiteSpace: 'nowrap', padding: '0 6px' }}>{useDark ? '☀\uFE0E Light' : '● Dark'}</span>
+        title="Switch theme" style={{ width: 'auto', minWidth: 36, padding: '0 10px' }}>
+        <span style={{ fontSize: 12, whiteSpace: 'nowrap' }}>{useDark ? '☀\uFE0E Light' : '● Dark'}</span>
       </IconBtn>
     </div>
   );
