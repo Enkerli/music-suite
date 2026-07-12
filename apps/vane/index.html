@@ -649,7 +649,8 @@ const SRC_COLOR={Breath:"--vn-breath",Expression:"--vn-expr",Pressure:"--vn-pres
 AUX.forEach(a=>{ SRC_COLOR[a]="--vn-muted"; SRC_CC[a]="CC?"; });   // bound via the Controllers profile (next phase)
 SRC_COLOR["Keytrack"]="--vn-pressure"; SRC_CC["Keytrack"]="note";   // per-note pitch source (bipolar)
 const BINDABLE = {Breath:true,Expression:true};   // these sources expose a CC# binding
-const DESTS   = ["VCA","Cutoff","Reso","Pitch","Morph","PW","Fold","Noise","Inharm","Sync","Transient","Uni Detune","Vowel"];
+const DESTS   = ["VCA","Cutoff","Reso","Pitch","Morph","PW","Fold","Noise","Inharm","Sync","Transient","Uni Detune","Vowel",
+                  "Wg Embouchure","Wg Reed Stiff","Wg Aperture","Wg Damping","Wg Bell","Wg Conical","Wg Breath Noise","Wg Growl"];
 const CURVES  = ["Lin","Exp","S"];
 const NUM_SLOTS = 24;
 const METER_SRC = ["Breath","Expression","Pressure","Slide","Pitchbend","Velocity"];
