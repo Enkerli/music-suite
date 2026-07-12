@@ -50,6 +50,16 @@
   font-size: var(--es-text-sm);
   padding: 0 var(--es-space-2);
 }
+/* House rule (DESIGN.md): touch targets ≥44px on coarse pointers — "small"
+   is a visual density for fine pointers, not a licence for tiny touch
+   targets. Native checks/radios/ranges get real target boxes too (they
+   default 13-16px, under even the WCAG 2.5.8 24px floor). */
+@media (pointer: coarse) {
+  .es-btn.es-small { min-height: 44px; min-width: 44px; }
+  input[type="checkbox"], input[type="radio"] { width: 24px; height: 24px; }
+  input[type="range"] { min-height: 44px; }
+  .es-link { min-height: 24px; } /* inline text-buttons clear the WCAG floor */
+}
 
 .es-control:focus-visible,
 .es-btn:focus-visible {
@@ -316,6 +326,13 @@ select.es-control option { background: var(--es-bg-raised); color: var(--es-fg);
   background: transparent; color: var(--es-border-strong); cursor: pointer;
   font-size: var(--es-text-md); line-height: 1;
 }
+/* On touch the caret's hit box widens (the negative margins keep its FLOW
+   width at 10px, so bars don't reflow) — the promised coarse-pointer hit
+   zone; 32px box rather than the full 44 so taps near a chord's edge still
+   land on the chord. */
+@media (pointer: coarse) {
+  .es-ls-caret { width: 32px; margin: 0 -11px; }
+}
 .es-ls-caret:hover, .es-ls-caret:focus-visible {
   border-color: var(--es-accent); color: var(--es-accent);
   background: color-mix(in oklch, var(--es-accent) 9%, transparent); outline: none;
@@ -521,12 +538,16 @@ select.es-control option { background: var(--es-bg-raised); color: var(--es-fg);
   border-radius: 999px;
   margin-left: auto;
 }
-.feat-badge.web { background: var(--es-dim-breath-tint); color: var(--es-dim-breath); }
-.feat-badge.host { background: var(--es-dim-pressure-tint); color: var(--es-dim-pressure); }
-.feat-badge.standalone { background: var(--es-dim-slide-tint); color: var(--es-dim-slide); }
-[data-theme="dark"] .feat-badge.web { background: color-mix(in oklab, var(--es-dim-breath) 24%, transparent); }
-[data-theme="dark"] .feat-badge.host { background: color-mix(in oklab, var(--es-dim-pressure) 26%, transparent); }
-[data-theme="dark"] .feat-badge.standalone { background: color-mix(in oklab, var(--es-dim-slide) 26%, transparent); }
+/* Badge TEXT is a darkened take on each dimension hue (a11y pass): the raw
+   dim colours sit ~3:1 on their own tints — under AA for 9px text. Same hue
+   family, deepened until ≥4.5:1 on the tint. Dark theme reverts to the raw
+   hues (they clear 4.5:1 on the dark mixes). */
+.feat-badge.web { background: var(--es-dim-breath-tint); color: #2b619f; }
+.feat-badge.host { background: var(--es-dim-pressure-tint); color: #8a561d; }
+.feat-badge.standalone { background: var(--es-dim-slide-tint); color: #71407f; }
+[data-theme="dark"] .feat-badge.web { background: color-mix(in oklab, var(--es-dim-breath) 24%, transparent); color: #8db9ea; }
+[data-theme="dark"] .feat-badge.host { background: color-mix(in oklab, var(--es-dim-pressure) 26%, transparent); color: #e9a95e; }
+[data-theme="dark"] .feat-badge.standalone { background: color-mix(in oklab, var(--es-dim-slide) 26%, transparent); color: #cf9ce2; }
 
 /* ── Standalone chrome: device selectors ─────────────────────────────
    .es-device-bar  — a stack of device endpoints (the surface)

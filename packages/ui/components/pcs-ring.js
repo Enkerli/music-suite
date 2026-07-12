@@ -138,6 +138,9 @@ export function createPcsRing(el, opts = {}) {
         dot.setAttribute("cy", my);
         dot.setAttribute("r", "5");
         dot.setAttribute("fill", "var(--es-fg)");
+        // a11y: aria-label is prohibited on a role-less <circle>; role="img"
+        // makes the root marker a named graphic.
+        dot.setAttribute("role", "img");
         dot.setAttribute("aria-label", `root ${labelFor(pc)}`);
         children.push(dot);
       }

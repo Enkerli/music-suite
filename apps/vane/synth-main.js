@@ -273,9 +273,10 @@ function buildChrome() {
   chip.title = 'Standalone Web Audio synth — MIDI input';
   const label = document.createElement('span');
   label.textContent = 'MIDI';
-  label.style.cssText = 'opacity:.5;font-size:10px;text-transform:uppercase;letter-spacing:.06em;margin-right:5px';
+  label.style.cssText = 'color:var(--vn-muted);font-size:10px;text-transform:uppercase;letter-spacing:.06em;margin-right:5px';
   selectEl = document.createElement('select');
-  selectEl.style.cssText = 'background:transparent;color:inherit;border:none;font:inherit;cursor:pointer;max-width:130px';
+  selectEl.setAttribute('aria-label', 'MIDI input device');
+  selectEl.style.cssText = 'background:transparent;color:inherit;border:none;font:inherit;cursor:pointer;max-width:130px;min-height:24px;padding:2px 0';
   selectEl.onchange = () => {
     startAudio();
     if (!midi) return;
@@ -284,7 +285,7 @@ function buildChrome() {
     try { if (name) localStorage.setItem(MIDI_IN_KEY, name); else localStorage.removeItem(MIDI_IN_KEY); } catch {}
   };
   statusEl = document.createElement('span');
-  statusEl.style.cssText = 'opacity:.6;font-size:10px;margin-left:6px';
+  statusEl.style.cssText = 'color:var(--vn-muted);font-size:10px;margin-left:6px';
   statusEl.textContent = 'click to enable';
   chip.append(label, selectEl, statusEl);
 
@@ -301,7 +302,7 @@ function buildChrome() {
   velChip.style.cssText = 'display:inline-flex;align-items:center;gap:5px;cursor:pointer';
   const velLabel = document.createElement('span');
   velLabel.textContent = 'Vel→brightness';
-  velLabel.style.cssText = 'opacity:.5;font-size:10px;text-transform:uppercase;letter-spacing:.06em';
+  velLabel.style.cssText = 'color:var(--vn-muted);font-size:10px;text-transform:uppercase;letter-spacing:.06em';
   const velCheckbox = document.createElement('input');
   velCheckbox.type = 'checkbox';
   velCheckbox.onchange = () => post({ type: 'param', id: 11, value: velCheckbox.checked ? 1 : 0 });
@@ -314,7 +315,7 @@ function buildChrome() {
   const buildChip = document.createElement('span');
   buildChip.title = 'Running build id (cache-bust tag). If this is not the latest, hard-reload.';
   buildChip.textContent = 'build ' + ASSET_V;
-  buildChip.style.cssText = 'opacity:.5;font-size:10px;font-variant-numeric:tabular-nums;letter-spacing:.02em';
+  buildChip.style.cssText = 'color:var(--vn-muted);font-size:10px;font-variant-numeric:tabular-nums;letter-spacing:.02em';
 
   // Copy the recent raw MIDI stream (pressure/notes + timing) to the clipboard,
   // so the exact controller behaviour at a note transition can be shared and
@@ -322,7 +323,7 @@ function buildChrome() {
   const midiBtn = document.createElement('span');
   midiBtn.textContent = '⧉ MIDI';
   midiBtn.title = 'Copy the last ~6s of raw MIDI (notes + pressure + timing) to the clipboard';
-  midiBtn.style.cssText = 'opacity:.55;font-size:10px;cursor:pointer;text-transform:uppercase;letter-spacing:.04em';
+  midiBtn.style.cssText = 'color:var(--vn-muted);font-size:10px;cursor:pointer;text-transform:uppercase;letter-spacing:.04em';
   midiBtn.onclick = async () => { const n = await copyMidiLog(); const o = midiBtn.textContent; midiBtn.textContent = 'copied ' + n; setTimeout(() => { midiBtn.textContent = o; }, 1400); };
 
   const header = document.querySelector('.header');

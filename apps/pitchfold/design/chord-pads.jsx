@@ -164,7 +164,7 @@ function PadEditor({ pad, mainMask, mainRoot, paper, onSave, onClose }) {
           fontFamily: 'InterTight, system-ui' }}>Label</div>
         <input
           value={label} onChange={e => setLabel(e.target.value)}
-          placeholder={recognizeName(mask)}
+          placeholder={recognizeName(mask)} aria-label="Pad label"
           style={{
             width: '100%', padding: '4px 8px', fontSize: 11, borderRadius: 4,
             border: `1px solid ${paper?.rule || '#D4CAB8'}`,

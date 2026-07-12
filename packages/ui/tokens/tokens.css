@@ -97,7 +97,9 @@
   --es-pc-pad-ink-0: #0d0d0d;  --es-pc-pad-ink-1: #ffffff;  --es-pc-pad-ink-2: #0d0d0d;
   --es-pc-pad-ink-3: #0d0d0d;  --es-pc-pad-ink-4: #0d0d0d;  --es-pc-pad-ink-5: #0d0d0d;
   --es-pc-pad-ink-6: #ffffff;  --es-pc-pad-ink-7: #0d0d0d;  --es-pc-pad-ink-8: #0d0d0d;
-  --es-pc-pad-ink-9: #0d0d0d;  --es-pc-pad-ink-10: #0d0d0d; --es-pc-pad-ink-11: #0d0d0d;
+  --es-pc-pad-ink-9: #0d0d0d;  --es-pc-pad-ink-10: #000000; --es-pc-pad-ink-11: #0d0d0d;
+  /* pad-ink-10 is true black: the A♯ red is the dimmest pad, and #0d0d0d
+     lands at 4.48:1 — a hair under AA small-text; #000 clears 4.8:1. */
 }
 
 /* ── Paper (light) — the default design target ─────────────────────── */
@@ -108,15 +110,20 @@
   --es-bg-sunken: #efebe2;   /* field / well */
   --es-fg: #2d2b27;          /* ink */
   --es-fg-2: #4b463e;
-  --es-fg-muted: #736e62;    /* ≥4.5:1 on bg and bg-raised */
+  --es-fg-muted: #6b665b;    /* ≥4.5:1 on bg, bg-raised AND bg-sunken (was
+                                #736e62, which hit 4.26 on sunken — apps
+                                legitimately put muted text on wells) */
   --es-fg-faint: #b3ac9e;    /* disabled ink ONLY (WCAG-exempt) — never for
                                 content; replaces --vn-muted-2 / PAPER.ink30 */
   --es-border: #ddd6ca;      /* decorative — separation, not identification */
   --es-border-soft: #eae3d4;
   --es-border-strong: #9d8967; /* ≥3:1 — boundaries that identify a control */
-  --es-accent: #3b79be;      /* breath blue, deepened: white text ≥4.5:1,
-                                ≥3:1 vs paper as a focus ring (the graphic
-                                dim-breath hue stays #4b86c7) */
+  --es-accent: #2f66a5;      /* breath blue, deepened further (a11y pass):
+                                usable as SMALL TEXT ≥4.5:1 on bg, raised and
+                                sunken — links, chips, readouts — while white
+                                text on it stays ≥4.5:1 and it stays ≥3:1 vs
+                                paper as a focus ring (the graphic dim-breath
+                                hue stays #4b86c7) */
   --es-accent-fg: #ffffff;
   --es-danger: #b3403a;        /* destructive actions; ≥3:1 on both surfaces */
   color-scheme: light;

@@ -104,18 +104,20 @@ function JuceIPadStudio({ width = 1024, height = 768 }) {
   });
   React.useEffect(() => {
     document.documentElement.setAttribute('data-theme', useDark ? 'dark' : 'light');
-  }, [useDark]);
+    // Lane display colours follow the theme HERE (mount + change), not only
+    // in the toggle handler — a persisted dark load was keeping the light
+    // lane hues (navy-on-near-black readouts, 1.6:1).
+    const lanes = window.LANES || [];
+    lanes.forEach((ldef, i) => {
+      const newColor = useDark ? (ldef.colorDark || ldef.color) : ldef.color;
+      eng.updateLane(i, { color: newColor });
+    });
+  }, [useDark, eng]);
   const setUseDark = React.useCallback((next) => {
     const dark = typeof next === 'function' ? next(useDark) : next;
     setUseDarkRaw(dark);
     try { localStorage.setItem('enkerli.theme', dark ? 'dark' : 'light'); } catch (_) {}
-    // Update lane display colours in engine state without reinitialising.
-    const lanes = window.LANES || [];
-    lanes.forEach((ldef, i) => {
-      const newColor = dark ? (ldef.colorDark || ldef.color) : ldef.color;
-      eng.updateLane(i, { color: newColor });
-    });
-  }, [useDark, eng]);
+  }, [useDark]);
 
   const paper = useDark ? (window.PAPER_DARK || window.PAPER) : window.PAPER;
   const focusLane = eng.lanes.find(l => l.id === eng.focus);
@@ -1101,7 +1103,6 @@ function JuceLanePanel({ eng, paper, width, height, open, setOpen, recorder }) {
         const focused = eng.focus === l.id;
         return (
           <div key={l.id}
-            role="button" tabIndex={0}
             onClick={() => eng.setFocus(l.id)}
             style={{
               padding: '14px 12px',
@@ -1114,6 +1115,11 @@ function JuceLanePanel({ eng, paper, width, height, open, setOpen, recorder }) {
               userSelect: 'none',
             }}
           >
+            {/* A11y (nested-interactive): the row is a pointer convenience,
+                not a button — mute/eye/clear are real buttons inside it, and
+                a button-in-button tree is unreachable for AT. The keyboard/
+                screen-reader path to "focus this lane" is the lane-name
+                button below. */}
             {/* Row 1: mute dot · lane name · eye ──────────────────────────── */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
               {/* Mute dot — solid = active, hollow = muted (MIDI output). */}
@@ -1131,13 +1137,18 @@ function JuceLanePanel({ eng, paper, width, height, open, setOpen, recorder }) {
                   cursor: 'pointer', padding: 0,
                   transition: 'background 120ms, opacity 120ms',
                 }} />
-              <span style={{
-                fontFamily: '"Instrument Serif", Georgia, serif',
-                fontStyle: 'italic', fontSize: 17,
-                color: focused ? paper.ink : paper.ink70, lineHeight: 1,
-                flex: 1,
-                textDecoration: l.enabled ? 'none' : `line-through ${paper.ink30}`,
-              }}>Lane {l.id + 1}</span>
+              <button
+                onClick={e => { e.stopPropagation(); eng.setFocus(l.id); }}
+                title={`Focus lane ${l.id + 1}`}
+                style={{
+                  fontFamily: '"Instrument Serif", Georgia, serif',
+                  fontStyle: 'italic', fontSize: 17,
+                  color: focused ? paper.ink : paper.ink70, lineHeight: 1,
+                  flex: 1, textAlign: 'left',
+                  background: 'transparent', border: 'none', padding: 0,
+                  cursor: 'pointer',
+                  textDecoration: l.enabled ? 'none' : `line-through ${paper.ink30}`,
+                }}>Lane {l.id + 1}</button>
               {/* Eye — toggles curve visibility on canvas (independent of mute). */}
               <button
                 onPointerDown={e => e.stopPropagation()}
@@ -1271,12 +1282,15 @@ function JuceLanePanel({ eng, paper, width, height, open, setOpen, recorder }) {
           }
           // Audit F-15: emphasise the focused lane's readout so the active
           // lane reads at a glance even when several lanes are running.
+          // A11y: emphasis comes from SIZE/WEIGHT, not an opacity fade —
+          // faded lane hues fell under AA. The dot carries the lane colour
+          // (full strength); non-focused value text uses readable ink, the
+          // focused one keeps its lane hue at large-text size (≥3:1).
           const isFocus = l.id === eng.focus;
           return (
             <div key={l.id} style={{
               display: 'flex', alignItems: 'baseline', gap: 6,
               marginBottom: isFocus ? 6 : 3,
-              opacity: isFocus ? 1 : 0.7,
             }}>
               <span style={{
                 width: isFocus ? 9 : 7, height: isFocus ? 9 : 7,
@@ -1287,7 +1301,7 @@ function JuceLanePanel({ eng, paper, width, height, open, setOpen, recorder }) {
                 fontStyle: 'italic',
                 fontSize: isFocus ? 26 : 16, lineHeight: 1,
                 fontWeight: isFocus ? 600 : 400,
-                color: l.color,
+                color: isFocus ? l.color : paper.ink70,
                 fontVariantNumeric: 'tabular-nums',
               }}>{val}</span>
             </div>
@@ -2367,14 +2381,16 @@ function MidiInputSelector({ recorder, paper }) {
     textTransform: 'uppercase',
   };
 
+  {/* ink50, not ink30: these are readable status chips, not disabled
+      controls — faint ink is reserved for true disabled state (a11y). */}
   if (!hasAccess) return (
-    <div style={{ ...baseStyle, color: paper.ink30 }}>
+    <div style={{ ...baseStyle, color: paper.ink50 }}>
       <span style={{ fontSize: 8 }}>●</span> MIDI in
     </div>
   );
 
   if (inputs.length === 0) return (
-    <div style={{ ...baseStyle, color: paper.ink30 }}>
+    <div style={{ ...baseStyle, color: paper.ink50 }}>
       <span style={{ fontSize: 8 }}>●</span> No MIDI
     </div>
   );
@@ -2416,7 +2432,8 @@ function MidiOutputSelector({ recorder, paper }) {
     background: paper.card, border: `1px solid ${paper.rule}`,
     borderRadius: 2, flexShrink: 0,
     fontFamily: 'Inter Tight', fontSize: 10, letterSpacing: 0.8,
-    color: paper.ink30, display: 'flex', alignItems: 'center', gap: 5,
+    // ink50, not ink30: a readable status chip, not a disabled control (a11y)
+    color: paper.ink50, display: 'flex', alignItems: 'center', gap: 5,
     textTransform: 'uppercase',
   };
   if (!outputs || outputs.length === 0) return (

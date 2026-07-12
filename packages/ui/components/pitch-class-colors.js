@@ -24,7 +24,7 @@ export const PITCH_CLASS_COLORS = [
   { name: "G",  pad: "#40f2a0", ink: "#0d0d0d" },
   { name: "G♯", pad: "#f20df2", ink: "#0d0d0d" },
   { name: "A",  pad: "#0dbf40", ink: "#0d0d0d" },
-  { name: "A♯", pad: "#f20d0d", ink: "#0d0d0d" },
+  { name: "A♯", pad: "#f20d0d", ink: "#000000" }, // true black: the red pad is the dimmest; #0d0d0d sat at 4.48:1, a hair under AA small-text
   { name: "B",  pad: "#0d7ff2", ink: "#0d0d0d" },
 ];
 
