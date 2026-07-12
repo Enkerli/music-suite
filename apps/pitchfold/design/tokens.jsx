@@ -20,7 +20,7 @@ const PAPER = {
   // ink
   ink:     '#2d2b27',
   ink70:   '#4b463e',
-  ink50:   '#736e62',  // ≥4.5:1 on bg and card (AA, machine-checked in ui)
+  ink50:   '#6b665b',  // ≥4.5:1 on bg, card AND bgDeep (AA, machine-checked in ui)
   ink30:   '#b3ac9e',  // disabled ink only (--es-fg-faint)
   // accents — PitchFold's per-app voice (NOT system tokens)
   amber:   '#C4873A',

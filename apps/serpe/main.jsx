@@ -907,14 +907,23 @@ function Section({ title, badge, open, children }) {
 
 // (The rail's DeviceSelect retired — the shared cluster's MIDI chip owns
 // device routing now, DIN-5 icon included.)
+// Label association (a11y): the label renders as a SIBLING row (the flex
+// layout depends on it), so the control gets a generated id + htmlFor —
+// wrapping would break `.field > label`'s row styling.
 function Field({ label, children }) {
-  return h('div', { className: 'field' }, label && h('label', null, label), children);
+  const id = useRef(null);
+  if (!id.current) id.current = 'fld-' + Math.random().toString(36).slice(2, 8);
+  const kid = label && React.isValidElement(children) && !children.props.id
+    ? React.cloneElement(children, { id: id.current }) : children;
+  return h('div', { className: 'field' }, label && h('label', { htmlFor: id.current }, label), kid);
 }
 function Slider({ label, value, min, max, set, fmt }) {
   const shown = fmt ? fmt(value) : value;
+  const id = useRef(null);
+  if (!id.current) id.current = 'sld-' + Math.random().toString(36).slice(2, 8);
   return h('div', { className: 'field' },
-    h('label', null, label, ' ', h('span', { className: 'v' }, shown)),
-    h('input', { type: 'range', min, max, value, onChange: e => set(+e.target.value) }));
+    h('label', { htmlFor: id.current }, label, ' ', h('span', { className: 'v' }, shown)),
+    h('input', { id: id.current, type: 'range', min, max, value, onChange: e => set(+e.target.value) }));
 }
 function Meter({ label, frac, text }) {
   return h('div', { className: 'meter-row' },

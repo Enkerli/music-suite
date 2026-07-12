@@ -1,5 +1,22 @@
 # Suite accessibility audit — 2026-07-11
 
+> **STATUS: FIXED, same day.** Every P1–P3 finding below (and the sub-24px
+> P4 targets) shipped in the follow-up commit; the re-run of this exact
+> audit is **axe-clean on all eleven pages in BOTH themes**, keyboard is
+> clean, and no interactive target measures under the 24px WCAG floor on
+> coarse pointers. What shipped, beyond the per-finding fixes:
+> `--es-fg-muted` deepened to clear AA on the sunken surface too;
+> `--es-accent` deepened so it's small-text-safe on every light surface;
+> `--es-pc-pad-ink-10` to true black (4.48→4.8:1); feat-badge text split
+> from the graphic dims (darkened light / lightened dark); `es-small`,
+> carets, checkboxes/radios/ranges and the bespoke PitchFold/DrawnQurve/
+> Vane controls all get coarse-pointer target sizing; zoom re-enabled in
+> the three plugin UIs. Remaining advisories: ~10-19 controls per app sit
+> in the 24–43px band on touch (above the WCAG floor, below the house
+> 44px bar — mostly 32-38px selects/segments), and the range-slider-thumb
+> "no focus indicator" flag is a tooling false positive (its ring lives on
+> a `::after`). The original findings are preserved below as the record.
+
 *Automated sweep of all ten apps + the showcase index, at the production
 `docs/` layout (rebuilt via `sync-apps --monorepo`, served locally, driven
 headless). Method: axe-core 4.x, WCAG 2.0/2.1 A+AA rulesets, run in **both

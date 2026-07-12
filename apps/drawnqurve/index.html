@@ -2,12 +2,22 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <!-- Zoom stays enabled (WCAG 1.4.4) — accidental pinch inside the plugin
+       WebView is handled by the canvas's own touch-action, not by disabling
+       the whole page's scaling. -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>DrawnQurve</title>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     html, body { width: 100%; height: 100%; overflow: hidden; background: #F5F0E8; }
     #root { width: 100%; height: 100%; }
+    /* Touch targets: WCAG 2.5.8 floor for the inline-styled controls (the
+       slim rail-collapse handles and small icon buttons default 6-18px);
+       min-* wins over inline width/height. */
+    @media (pointer: coarse) {
+      button { min-width: 24px; min-height: 24px; }
+      select { min-height: 32px; }
+    }
     /* Disable iOS long-press callouts and selection on UI elements */
     button, [role=button], canvas { -webkit-user-select: none; user-select: none; }
     /* Teach CC listening pulse */

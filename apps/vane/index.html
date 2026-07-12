@@ -47,7 +47,7 @@
   --vn-panel2:#efebe2; --vn-field:#efebe2;
   --vn-line:#ddd6ca; --vn-line-soft:#eae3d4;
   --vn-text:#2d2b27; --vn-text-2:#4b463e;
-  --vn-muted:#736e62; --vn-muted-2:#b3ac9e;
+  --vn-muted:#6b665b; --vn-muted-2:#b3ac9e;
   --vn-breath:#4b86c7; --vn-breath-tint:#dde8f4;
   --vn-expr:#2d9d8a;   --vn-expr-tint:#d6ebe6;
   --vn-pressure:#d28330;--vn-pressure-tint:#f4e3cf;
@@ -71,6 +71,9 @@
 }
 @media (max-width:860px),(pointer:coarse){
   :root{ --ctl-h:44px; --track-h:14px; --thumb:22px; --tap:44px; --seg-pad:11px 14px; --gap:12px; }
+  /* Touch targets for the native controls the density vars don't reach */
+  input[type="checkbox"]{ width:24px; height:24px; }
+  select{ min-height:32px; min-width:24px; }
 }
 *{box-sizing:border-box}
 html,body{margin:0;height:100%}
@@ -128,7 +131,7 @@ input,textarea,[contenteditable]{ -webkit-user-select:text; user-select:text; -w
 .stage{display:flex;flex-direction:column;gap:12px;min-height:0}
 .stage-head{display:flex;align-items:center;justify-content:space-between;gap:8px}
 .viewseg{display:inline-flex;background:var(--vn-field);border-radius:var(--r-md);padding:4px;gap:3px}
-.viewseg button{border:none;background:transparent;color:var(--vn-muted);font-size:12px;font-weight:600;padding:6px 12px;border-radius:10px;cursor:pointer}
+.viewseg button{border:none;background:transparent;color:var(--vn-text-2);font-size:12px;font-weight:600;padding:6px 12px;border-radius:10px;cursor:pointer}
 .viewseg button.active{background:var(--vn-panel);color:var(--vn-text);box-shadow:0 1px 4px rgba(0,0,0,.06)}
 .vis{position:relative;flex:1;min-height:140px;background:var(--vn-field);border-radius:var(--r-md);overflow:hidden}
 .vis svg{position:absolute;inset:0;width:100%;height:100%}
@@ -143,12 +146,12 @@ input,textarea,[contenteditable]{ -webkit-user-select:text; user-select:text; -w
 .meter-label{display:flex;align-items:center;gap:7px;font-weight:600;font-size:12px}
 .meter{height:8px;border-radius:999px;background:var(--vn-field);overflow:hidden}
 .meter .fill{height:100%;border-radius:999px;transition:width .04s linear}
-.meter-cc{font-size:10px;color:var(--vn-muted)}
+.meter-cc{font-size:10px;color:var(--vn-text-2)}
 
 /* ── Inspector tabs ─────────────────────────────────────────── */
 .inspector{display:flex;flex-direction:column;gap:12px;min-height:0}
 .tabs{display:flex;gap:4px;background:var(--vn-panel2);border:1px solid var(--vn-line);border-radius:999px;padding:4px;flex:none}
-.tabs button{flex:1;border:none;background:transparent;color:var(--vn-muted);font-weight:600;font-size:13px;
+.tabs button{flex:1;border:none;background:transparent;color:var(--vn-text-2);font-weight:600;font-size:13px;
   padding:9px 10px;border-radius:999px;cursor:pointer;min-height:var(--tap);max-height:40px}
 .tabs button.active{background:var(--vn-panel);color:var(--vn-text);box-shadow:0 1px 3px rgba(0,0,0,.07)}
 .tabbody{flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;container-type:inline-size}
@@ -178,7 +181,7 @@ input,textarea,[contenteditable]{ -webkit-user-select:text; user-select:text; -w
 .track:hover .thumb,.bipolar:hover .thumb{transform:translate(-50%,-50%) scale(1.1)}
 .row2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
 .seg{display:inline-flex;background:var(--vn-field);border-radius:var(--r-md);padding:4px;gap:3px;flex-wrap:wrap}
-.seg button{border:none;background:transparent;color:var(--vn-muted);font-size:12px;font-weight:600;padding:var(--seg-pad);border-radius:10px;cursor:pointer;min-height:var(--tap);max-height:38px}
+.seg button{border:none;background:transparent;color:var(--vn-text-2);font-size:12px;font-weight:600;padding:var(--seg-pad);border-radius:10px;cursor:pointer;min-height:var(--tap);max-height:38px}
 .seg button.active{background:var(--vn-panel);color:var(--vn-text);box-shadow:0 1px 4px rgba(0,0,0,.06)}
 .group{margin-bottom:18px}
 .group .eyebrow{margin-bottom:10px;display:block}
@@ -1092,7 +1095,7 @@ function renderPatch(){
       ${Math.round(state.patch.WaveguideOn)===1 ? `<div class="pslider" style="grid-column:1/-1;padding:8px 10px;background:var(--vn-panel2);border-radius:8px;color:var(--vn-muted);font-size:12px">Wavetable is silent — <b style="color:var(--vn-text)">Waveguide mode</b> is driving the oscillator (see below).</div>` : ''}
       <div class="pslider" style="grid-column:1/-1">
         <div class="top"><span class="lbl">Wavetable</span>
-          <span class="num" id="wtFrame" style="color:var(--vn-slide)">frame —</span></div>
+          <span class="num" id="wtFrame" style="color:var(--vn-text-2)">frame —</span></div>
         <div style="display:flex;gap:4px;flex-wrap:wrap;margin:3px 0">
           <button class="btn" onclick="openLibraryBrowser()" title="Browse the factory wavetable library (CC0)">Library…</button>
           <button class="btn" onclick="useBuiltinWavetable()" title="Revert to the built-in Harmonic Stack">Built-in</button>
@@ -1187,8 +1190,11 @@ function wirePatchSlider(el){
   // drag/keyboard/fine behaviour is uniform and log params (Cutoff) feel right.
   const key=el.dataset.pk, [a,b]=RANGE[key];
   const fill=$('.fill',el), thumb=$('.thumb',el), val=$('.val',el), track=$('.track',el);
+  track.setAttribute('aria-valuemin',a); track.setAttribute('aria-valuemax',b);
   const fmt=()=>{ const v=state.patch[key]; const n=toNorm(key,v);
-    fill.style.width=(n*100)+'%'; thumb.style.left=(n*100)+'%'; val.textContent=(FMT[key]||FMT.default)(v); };
+    fill.style.width=(n*100)+'%'; thumb.style.left=(n*100)+'%';
+    const txt=(FMT[key]||FMT.default)(v); val.textContent=txt;
+    track.setAttribute('aria-valuenow',v); track.setAttribute('aria-valuetext',txt); };
   patchUpd[key]=fmt;   // param echo updates this slider in place (no rebuild → drag survives)
   const setV=v=>{ v=clamp(v,a,b); if(key==='Morph'&&morphSnap)v=snapMorph(v); state.patch[key]=v; Bridge.send('setParam',{id:key,value:v}); markDirty(); };
   const doReset=()=>{ const prev=state.patch[key]; recordUndo('reset '+key, ()=>{ setV(prev); fmt(); });
@@ -1650,9 +1656,11 @@ function slotRow(s,i){
 function wireSlot(i){
   const row=document.querySelector(`.slot[data-slot="${i}"]`); if(!row)return;
   const bip=$('.bipolar',row), fill=$('[data-bipfill]',row), thumb=$('[data-bipthumb]',row), v=$('.amt .v',row);
+  bip.setAttribute('aria-valuemin',-1); bip.setAttribute('aria-valuemax',1);
   const upd=()=>{ const a=state.slots[i].amt, pos=a>=0, mag=Math.min(1,Math.abs(a));
     fill.style.left=(pos?50:50-mag*50)+'%'; fill.style.width=(mag*50)+'%';
-    thumb.style.left=((a+1)/2*100)+'%'; v.textContent=(pos?'+':'−')+mag.toFixed(2); };
+    thumb.style.left=((a+1)/2*100)+'%'; const txt=(pos?'+':'−')+mag.toFixed(2); v.textContent=txt;
+    bip.setAttribute('aria-valuenow',a); bip.setAttribute('aria-valuetext',txt); };
   const amtReset=()=>{ const prev=state.slots[i].amt; recordUndo('reset amount', ()=>{ state.slots[i].amt=prev; pushSlot(i); markDirty(); upd(); });
     state.slots[i].amt=0; pushSlot(i); markDirty(); upd(); };
   attachDrag(bip,{get:()=>state.slots[i].amt,set:val=>{state.slots[i].amt=val; pushSlot(i); markDirty();},min:-1,max:1,step:.01,fineStep:.002,onMove:upd,

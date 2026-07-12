@@ -15,7 +15,7 @@ const PAPER = {
   // ink
   ink:     '#2d2b27',
   ink70:   '#4b463e',
-  ink50:   '#736e62',  // --es-fg-muted (AA)
+  ink50:   '#6b665b',  // --es-fg-muted (AA on bg, card and bgDeep)
   ink30:   '#b3ac9e',  // --es-fg-faint (disabled ink only)
   // accents
   amber:   '#C4873A',

@@ -6,6 +6,7 @@
 import '@enkerli/ui/tokens.css';
 import '@enkerli/ui/fonts.css';
 import '@enkerli/ui/components.css';
+import { initTheme } from '@enkerli/ui/theme';
 import { createGlobalCluster } from '@enkerli/ui/global-cluster';
 import { createLibraryBrowser } from '@enkerli/ui/library-browser';
 import { toast } from '@enkerli/ui/toast';
@@ -28,6 +29,10 @@ import { getChordPitchClasses, getChordName, analyzeVoicing } from './core/chord
 class ExquisFingerings {
   constructor() {
     debugLog('app', '[APP] Constructor started');
+
+    // Apply the persisted theme choice on load (the cluster's toggle only
+    // covers subsequent flips) — was never applied at startup before.
+    initTheme();
 
     // Ensure grid starts in intervals mode FIRST (before any grid calculations)
     setGridMode('intervals');

@@ -233,7 +233,10 @@ function RootPicker({ root, useFlats, onRootChange, paper = window.PAPER }) {
           width: 30, height: 24, fontSize: 10, borderRadius: 4, cursor: 'pointer',
           border: `1px solid ${i === root ? (paper?.amber || '#C4873A') : (paper?.rule || '#D4CAB8')}`,
           background: i === root ? (paper?.amber || '#C4873A') : (paper?.card || '#FAF8F4'),
-          color: i === root ? (paper?.card || '#FAF8F4') : (paper?.ink || '#2D2620'),
+          // a11y: amber is mid-bright in BOTH themes, so the active chip
+          // always takes constant dark ink (theme ink went light in dark
+          // mode, 1.6:1 on amber); inactive follows the theme.
+          color: i === root ? '#2D2620' : (paper?.ink || '#2D2620'),
           fontFamily: 'InterTight, system-ui',
         }}>
           {n}
@@ -309,7 +312,10 @@ function ScaleBank({ mask, root, onSelect, paper = window.PAPER }) {
           padding: '4px 9px', fontSize: 11, borderRadius: 5, cursor: 'pointer',
           border: `1px solid ${active ? (paper?.amber || '#C4873A') : (paper?.rule || '#D4CAB8')}`,
           background: active ? (paper?.amber || '#C4873A') : (paper?.card || '#FAF8F4'),
-          color: active ? (paper?.card || '#FAF8F4') : (paper?.ink || '#2D2620'),
+          // a11y: amber is mid-bright in BOTH themes, so the active chip
+          // always takes constant dark ink (theme ink went light in dark
+          // mode, 1.6:1 on amber); inactive follows the theme.
+          color: active ? '#2D2620' : (paper?.ink || '#2D2620'),
           fontFamily: 'InterTight, system-ui',
           transition: 'background 100ms',
           display: 'flex', alignItems: 'center', gap: 4,
@@ -376,7 +382,7 @@ function ScaleMaskInput({ mask, onMaskChange, paper = window.PAPER }) {
         fontSize: 10, letterSpacing: '0.07em', textTransform: 'uppercase',
         color: paper?.ink50 || '#6B5E55', fontFamily: 'InterTight, system-ui',
       }}>Mask</span>
-      <input type="text" value={draft}
+      <input type="text" value={draft} aria-label="Scale mask (hex, decimal or binary)"
         onChange={e => setDraft(e.target.value)}
         onKeyDown={e => {
           if (e.key === 'Enter') { commit(); e.currentTarget.blur(); }

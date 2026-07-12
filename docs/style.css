@@ -3,8 +3,10 @@
 
 :root {
   --bg: #f4efe6; --raised: #fbf8f1; --sunken: #ece5d8; --ink: #2a2620;
-  --ink2: #4a443a; --muted: #8a8170; --border: #ddd4c4; --border-strong: #c8bda8;
-  --accent: #b5532b; --accent-fg: #fbf8f1;
+  /* a11y: muted ≥4.5:1 and accent-as-link-text ≥4.5:1 on bg AND raised
+     (were #8a8170 @3.4 and #b5532b @4.3) */
+  --ink2: #4a443a; --muted: #6b665b; --border: #ddd4c4; --border-strong: #c8bda8;
+  --accent: #9c4423; --accent-fg: #fbf8f1;
   --sans: "Inter Tight", system-ui, sans-serif; --body: "Inter", system-ui, sans-serif;
   --mono: "JetBrains Mono", ui-monospace, monospace; --radius: 14px;
 }
@@ -32,6 +34,11 @@ code { font-family: var(--mono); font-size: .88em; background: var(--sunken); bo
 .brand:hover { text-decoration: none; }
 .topnav { margin-left: auto; display: flex; gap: 18px; font-size: 14px; flex-wrap: wrap; }
 .topnav a { color: var(--ink2); }
+/* Touch targets: bare text links measure ~15-22px tall — pad the tap box on
+   coarse pointers (the visual line stays where it is). */
+@media (pointer: coarse) {
+  .topnav a, footer a, .ctas a { display: inline-block; padding: 10px 4px; margin: -10px -4px; }
+}
 
 /* Hero */
 .hero { padding: 64px 0 36px; }
@@ -80,6 +87,8 @@ a.chip:hover { text-decoration: none; border-color: var(--accent); }
 .note { background: var(--sunken); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 18px; font-size: 14px; color: var(--ink2); }
 
 footer { border-top: 1px solid var(--border); margin-top: 40px; padding: 24px 0 60px; color: var(--muted); font-size: 13px; }
+/* a11y: a link inside running text must not rely on colour alone */
+footer a { text-decoration: underline; }
 
 /* Rendered-markdown doc pages */
 .prose { padding: 40px 0 60px; max-width: 760px; }

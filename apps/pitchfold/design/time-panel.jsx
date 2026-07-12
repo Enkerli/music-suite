@@ -99,7 +99,7 @@ function SliderRow({ label, value, min, max, step, format, onChange, paper }) {
           {format ? format(value) : value}
         </span>
       </div>
-      <input type="range" min={min} max={max} step={step} value={value}
+      <input type="range" min={min} max={max} step={step} value={value} aria-label={label}
         onChange={e => onChange(parseFloat(e.target.value))}
         style={{ width: '100%', accentColor: paper?.ink || '#2D2620' }} />
     </div>
