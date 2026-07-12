@@ -678,7 +678,9 @@ const state = {
           TrGain:0.0,TrDecay:200,TrChoice:0,TrTrigger:1,TrVar:0.3,TrFilt:1,TrDyn:0.75,TrReso:0.3,TrDamp:0.5,TrMorph:12,
           Cutoff:1128,Reso:0.1,Mode:0,Output:0.8,VelVCA:0.0,
           Glide:0,GlideMode:0,GlideCurve:0,MasterTune:0,UniVox:0,UniDet:14,UniWid:0.7,UniMode:0,
-          VowelEn:0,VowelMode:0,Vowel:0.5,VowFront:0.5,VowRound:0,VowelAmt:1,VowelBite:0.5,VowelMove:0 },
+          VowelEn:0,VowelMode:0,Vowel:0.5,VowFront:0.5,VowRound:0,VowelAmt:1,VowelBite:0.5,VowelMove:0,
+          WaveguideOn:0,WgEmbouchure:0.5,WgReedStiff:0.5,WgReedAperture:0.5,WgBoreDamping:0.2,
+          WgBellBright:0.7,WgConical:0.62,WgBreathNoise:0.05,WgGrowl:0.0 },
   slots: Array.from({length:NUM_SLOTS},()=>({src:0,dst:0,amt:0,curve:0,scale:0,atk:5,rel:80,on:true,anchors:[]})),
   voices:[],   // live per-note MPE expression: [{note,hz,level,pressure,slide,bend,vel}]
   aux:[],      // controller-profile aux sources: [{label, cc}] (from controllerState)
@@ -1043,12 +1045,19 @@ const FMT={ Cutoff:v=>Math.round(v)+' Hz', Detune:v=>v.toFixed(0)+' ¢', MasterT
   TrReso:v=>Math.round(v*100)+'%', TrDamp:v=>Math.round(v*100)+'%', TrMorph:v=>Math.round(v)+' ms',
   Vowel:v=>Math.round(state.patch.VowelMode)===1?Math.round(300*Math.pow(10,clamp(v,0,1)))+' Hz':Math.round(v*100)+'%',
   VowFront:v=>Math.round(v*100)+'%', VowRound:v=>Math.round(v*100)+'%', VowelAmt:v=>Math.round(v*100)+'%',
-  VowelBite:v=>Math.round(v*100)+'%', VowelMove:v=>Math.round(v*100)+'%', default:v=>v.toFixed(2) };
+  VowelBite:v=>Math.round(v*100)+'%', VowelMove:v=>Math.round(v*100)+'%',
+  WgEmbouchure:v=>Math.round(v*100)+'%', WgReedStiff:v=>Math.round(v*100)+'%',
+  WgReedAperture:v=>Math.round(v*100)+'%', WgBoreDamping:v=>Math.round(v*100)+'%',
+  WgBellBright:v=>Math.round(v*100)+'%', WgConical:v=>Math.round(v*100)+'%',
+  WgBreathNoise:v=>Math.round(v*100)+'%', WgGrowl:v=>Math.round(v*100)+'%',
+  default:v=>v.toFixed(2) };
 const RANGE={ Morph:[0,1,.001], PW:[0.5,0.999,.001], Fold:[0,1,.01], Inharm:[0,1,.01], Sync:[1,8,.01], Noise:[0,1,.01], Detune:[-100,100,1],
               TrGain:[0,2,.01], TrDecay:[10,2000,1], TrVar:[0,1,.01], TrDyn:[0,1,.01], TrReso:[0,1,.01], TrDamp:[0,1,.01], TrMorph:[0,50,1],
   Cutoff:[20,20000,10], Reso:[0,1,.01], Output:[0,1,.01], VelVCA:[0,1,.01], Glide:[0,2000,5], MasterTune:[-100,100,1],
   UniDet:[0,50,1], UniWid:[0,1,.01],
-  Vowel:[0,1,.01], VowFront:[0,1,.01], VowRound:[0,1,.01], VowelAmt:[0,1,.01], VowelBite:[0,1,.01], VowelMove:[0,1,.01] };
+  Vowel:[0,1,.01], VowFront:[0,1,.01], VowRound:[0,1,.01], VowelAmt:[0,1,.01], VowelBite:[0,1,.01], VowelMove:[0,1,.01],
+  WgEmbouchure:[0,1,.01], WgReedStiff:[0,1,.01], WgReedAperture:[0,1,.01], WgBoreDamping:[0,1,.01],
+  WgBellBright:[0,1,.01], WgConical:[0,1,.01], WgBreathNoise:[0,1,.01], WgGrowl:[0,1,.01] };
 // Sliders that map exponentially (log) — most of the musical action is low.
 const LOGK={ Cutoff:true, TrDecay:true };
 function toNorm(key,v){ const [a,b]=RANGE[key]; if(LOGK[key]&&a>0&&v>0) return clamp(Math.log(v/a)/Math.log(b/a),0,1); return clamp((v-a)/(b-a),0,1); }
@@ -1079,6 +1088,7 @@ function renderPatch(){
   const _sc=$('#tabbody').scrollTop;
   $('#tabbody').innerHTML=`<div class="params">
     <div class="group ${collapsed['Oscillator']?'collapsed':''}" data-grp="Oscillator">${gh('Oscillator')}
+      ${Math.round(state.patch.WaveguideOn)===1 ? `<div class="pslider" style="grid-column:1/-1;padding:8px 10px;background:var(--vn-panel2);border-radius:8px;color:var(--vn-muted);font-size:12px">Wavetable is silent — <b style="color:var(--vn-text)">Waveguide mode</b> is driving the oscillator (see below).</div>` : ''}
       <div class="pslider" style="grid-column:1/-1">
         <div class="top"><span class="lbl">Wavetable</span>
           <span class="num" id="wtFrame" style="color:var(--vn-slide)">frame —</span></div>
@@ -1107,6 +1117,19 @@ function renderPatch(){
         ${Math.round(state.patch.UniMode)===1 ? chordSeqEditorHTML() : pslider('UniDet','Uni Detune','--vn-slide')}
         ${pslider('UniWid','Uni Width','--vn-slide')}
       </div>
+    </div>
+    <div class="group ${collapsed['Waveguide']?'collapsed':''}" data-grp="Waveguide" data-standalone-hide="1">${gh('Waveguide')}
+      <div class="pslider" style="grid-column:1/-1">
+        <div class="top"><span class="lbl">Reed / Bore Engine</span></div>
+        <div class="seg" style="width:100%">${["Off","On"].map((n,i)=>`<button class="${Math.round(state.patch.WaveguideOn)===i?'active':''}" onclick="setChoice('WaveguideOn',${i})" style="flex:1">${n}</button>`).join('')}</div>
+        <div class="num" style="color:var(--vn-muted);font-size:12px;padding-top:5px">Replaces the wavetable oscillator with a breath-blown reed/bore model (MiniSax) — sax-like, physically driven by breath.</div>
+      </div>
+      ${Math.round(state.patch.WaveguideOn)===1 ? `
+        ${pslider('WgEmbouchure','Embouchure','--vn-expr')}${pslider('WgReedStiff','Reed Stiffness','--vn-expr')}
+        ${pslider('WgReedAperture','Reed Aperture','--vn-expr')}${pslider('WgBoreDamping','Bore Damping','--vn-expr')}
+        ${pslider('WgBellBright','Bell Brightness','--vn-expr')}${pslider('WgConical','Conical Amount','--vn-expr')}
+        ${pslider('WgBreathNoise','Breath Noise','--vn-expr')}${pslider('WgGrowl','Growl','--vn-expr')}
+      ` : ''}
     </div>
     <div class="group ${collapsed['Filter']?'collapsed':''}" data-grp="Filter">${gh('Filter')}
       ${pslider('Cutoff','Cutoff','--vn-breath')}${pslider('Reso','Resonance','--vn-breath')}
