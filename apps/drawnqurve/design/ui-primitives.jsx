@@ -21,15 +21,16 @@ function Btn({ active, onClick, children, style = {}, small, paper = window.PAPE
   );
 }
 
-function IconBtn({ active, onClick, children, size = 32, paper = window.PAPER, title }) {
+function IconBtn({ active, onClick, children, size = 32, paper = window.PAPER, title, id, style = {} }) {
   return (
-    <button onClick={onClick} title={title} style={{
+    <button onClick={onClick} title={title} id={id} style={{
       width: size, height: size, borderRadius: 2,
       border: `1px solid ${active ? paper.ink : paper.rule}`,
       background: active ? paper.ink : 'transparent',
       color: active ? paper.bg : paper.ink70,
       display: 'flex', alignItems: 'center', justifyContent: 'center',
       cursor: 'pointer', padding: 0,
+      ...style,
     }}>{children}</button>
   );
 }
