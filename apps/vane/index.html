@@ -1123,7 +1123,7 @@ function renderPatch(){
       <div class="pslider" style="grid-column:1/-1">
         <div class="top"><span class="lbl">Reed / Bore Engine</span></div>
         <div class="seg" style="width:100%">${["Off","On"].map((n,i)=>`<button class="${Math.round(state.patch.WaveguideOn)===i?'active':''}" onclick="setChoice('WaveguideOn',${i})" style="flex:1">${n}</button>`).join('')}</div>
-        <div class="num" style="color:var(--vn-muted);font-size:12px;padding-top:5px">Replaces the wavetable oscillator with a breath-blown reed/bore model (MiniSax) — sax-like, physically driven by breath.</div>
+        <div class="num" style="color:var(--vn-muted);font-size:12px;padding-top:5px">Replaces the wavetable oscillator with a reed/bore model (MiniSax). Breath blows the reed directly — dynamics, subtone below the speaking threshold, and rearticulation come from the model itself; no VCA routing needed.</div>
       </div>
       ${Math.round(state.patch.WaveguideOn)===1 ? `
         ${pslider('WgEmbouchure','Embouchure','--vn-expr')}${pslider('WgReedStiff','Reed Stiffness','--vn-expr')}
