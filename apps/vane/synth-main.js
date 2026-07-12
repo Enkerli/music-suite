@@ -57,7 +57,10 @@ async function copyMidiLog() {
 const PARAM_MAP = { Cutoff: 1, Reso: 2, Output: 8, VelVCA: 9, Glide: 10,
                     Morph: 12, PW: 13, Inharm: 14, Sync: 15, Mode: 16, Fold: 17,
                     VowelEn: 18, VowelMode: 19, Vowel: 20, VowFront: 21, VowRound: 22,
-                    VowelAmt: 23, VowelBite: 24, VowelMove: 25 };
+                    VowelAmt: 23, VowelBite: 24, VowelMove: 25,
+                    Noise: 26, NoiseType: 27, Detune: 28, MasterTune: 29,
+                    WaveguideOn: 30, WgEmbouchure: 31, WgReedStiff: 32, WgReedAperture: 33,
+                    WgBoreDamping: 34, WgBellBright: 35, WgConical: 36, WgBreathNoise: 37, WgGrowl: 38 };
 
 function post(m) { if (node) node.port.postMessage(m); }
 
@@ -338,10 +341,12 @@ function buildChrome() {
   }
 }
 
-// Hide Patch-tab controls the WASM voice doesn't implement (Transient sample
-// layer, Noise sources, Detune/Unison, Vowel/Wah formant filter — none are
-// wired into vane-dsp.cpp's PARAM_MAP or mod-matrix destinations, so leaving
-// them visible/adjustable would silently do nothing and mislead the player).
+// Hide Patch-tab controls the WASM voice doesn't implement YET (Transient
+// sample layer and Unison/Chord voices — the render path is still mono, so
+// stereo unison needs the worklet upgraded first; leaving them visible/
+// adjustable would silently do nothing and mislead the player). Noise,
+// Detune/MasterTune, Vowel, and the Waveguide (MiniSax) mode ARE implemented
+// in vane-dsp.cpp and stay visible.
 // CSS-scoped rather than removed from the DOM: index.html is shared with the
 // plugin, where these ARE real and must render exactly as before — the
 // standalone-limited class only exists here, added at boot, never in HAS_JUCE.

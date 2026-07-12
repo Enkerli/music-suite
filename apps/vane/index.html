@@ -1106,11 +1106,11 @@ function renderPatch(){
       ${pslider('Morph','Morph','--vn-slide')}${pslider('PW','Pulse Width','--vn-slide')}
       ${pslider('Fold','Wavefold','--vn-slide')}${pslider('Inharm','Inharmonicity','--vn-slide')}
       ${pslider('Sync','Sync (transpose)','--vn-slide')}
+      ${pslider('Noise','Noise','--vn-slide')}
+      <div class="pslider"><div class="top"><span class="lbl">Noise Type</span></div>
+        <div class="seg">${["White","Pink","Brown"].map((n,i)=>`<button class="${state.patch.NoiseType===i?'active':''}" onclick="setChoice('NoiseType',${i})">${n}</button>`).join('')}</div></div>
+      ${pslider('Detune','Detune','--vn-slide')}
       <div data-standalone-hide="1" style="display:contents">
-        ${pslider('Noise','Noise','--vn-slide')}
-        <div class="pslider"><div class="top"><span class="lbl">Noise Type</span></div>
-          <div class="seg">${["White","Pink","Brown"].map((n,i)=>`<button class="${state.patch.NoiseType===i?'active':''}" onclick="setChoice('NoiseType',${i})">${n}</button>`).join('')}</div></div>
-        ${pslider('Detune','Detune','--vn-slide')}
         <div class="pslider" style="grid-column:1/-1"><div class="top"><span class="lbl">Unison</span></div>
           <div class="seg">${["1","2","3","4","6"].map((n,i)=>`<button class="${Math.round(state.patch.UniVox)===i?'active':''}" onclick="setChoice('UniVox',${i})">${n}</button>`).join('')}</div></div>
         <div class="pslider" style="grid-column:1/-1"><div class="top"><span class="lbl">Voice Mode</span></div>
@@ -1119,7 +1119,7 @@ function renderPatch(){
         ${pslider('UniWid','Uni Width','--vn-slide')}
       </div>
     </div>
-    <div class="group ${collapsed['Waveguide']?'collapsed':''}" data-grp="Waveguide" data-standalone-hide="1">${gh('Waveguide')}
+    <div class="group ${collapsed['Waveguide']?'collapsed':''}" data-grp="Waveguide">${gh('Waveguide')}
       <div class="pslider" style="grid-column:1/-1">
         <div class="top"><span class="lbl">Reed / Bore Engine</span></div>
         <div class="seg" style="width:100%">${["Off","On"].map((n,i)=>`<button class="${Math.round(state.patch.WaveguideOn)===i?'active':''}" onclick="setChoice('WaveguideOn',${i})" style="flex:1">${n}</button>`).join('')}</div>
