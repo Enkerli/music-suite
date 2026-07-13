@@ -27,7 +27,10 @@ class VaneProcessor extends AudioWorkletProcessor {
           // all-zero and every note played at ~8 Hz.
           if (this.ex._initialize) this.ex._initialize();
           this.ex.vane_init(sampleRate);
-          this.bufPtr = this.ex.vane_buffer();
+          this.bufPtr  = this.ex.vane_buffer();
+          // Stereo: vane_buffer() is the LEFT channel (kept as-is for mono
+          // consumers like the CLI); vane_buffer_r() is the right.
+          this.bufPtrR = this.ex.vane_buffer_r ? this.ex.vane_buffer_r() : 0;
           for (const q of this.pending) this.dispatch(q);
           this.pending = [];
           this.port.postMessage({ type: 'ready' });
@@ -50,6 +53,17 @@ class VaneProcessor extends AudioWorkletProcessor {
       case 'tuningSource':   this.ex.vane_set_tuning_source(m.value); break;
       case 'internalTuning': this.ex.vane_set_internal_tuning(m.value); break;
       case 'slot':           this.ex.vane_set_slot(m.slot, m.src, m.dst, m.amt, m.curve, m.on ? 1 : 0); break;
+      case 'chords':
+        // Rotating-chord sequences: per harmony voice j, a length + fractional-
+        // semitone steps (ratios already resolved by the host). Guarded — an
+        // older wasm without the exports just ignores the edit.
+        if (this.ex.vane_set_chord && this.ex.vane_set_chord_len)
+          for (let j = 0; j < m.seqs.length && j < 5; j++) {
+            const seq = m.seqs[j] || [];
+            for (let k = 0; k < seq.length && k < 16; k++) this.ex.vane_set_chord(j, k, seq[k]);
+            this.ex.vane_set_chord_len(j, Math.min(seq.length, 16));
+          }
+        break;
       default: break;
     }
   }
@@ -59,9 +73,17 @@ class VaneProcessor extends AudioWorkletProcessor {
     if (!this.ex || !out || out.length === 0) return true;
     const n = out[0].length;
     this.ex.vane_render(n);
-    // Re-derive the view each block: WASM memory can be detached/resized.
-    const buf = new Float32Array(this.ex.memory.buffer, this.bufPtr, n);
-    for (let ch = 0; ch < out.length; ch++) out[ch].set(buf);
+    // Re-derive the views each block: WASM memory can be detached/resized.
+    // True stereo (unison width/chords pan sub-voices across the field);
+    // channel 0 = left, channel 1 = right, extra channels mirror the right.
+    const bufL = new Float32Array(this.ex.memory.buffer, this.bufPtr, n);
+    if (out.length > 1 && this.bufPtrR) {
+      const bufR = new Float32Array(this.ex.memory.buffer, this.bufPtrR, n);
+      out[0].set(bufL);
+      for (let ch = 1; ch < out.length; ch++) out[ch].set(bufR);
+    } else {
+      for (let ch = 0; ch < out.length; ch++) out[ch].set(bufL);
+    }
     return true;
   }
 }

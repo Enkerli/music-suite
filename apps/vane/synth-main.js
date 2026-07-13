@@ -60,7 +60,26 @@ const PARAM_MAP = { Cutoff: 1, Reso: 2, Output: 8, VelVCA: 9, Glide: 10,
                     VowelAmt: 23, VowelBite: 24, VowelMove: 25,
                     Noise: 26, NoiseType: 27, Detune: 28, MasterTune: 29,
                     WaveguideOn: 30, WgEmbouchure: 31, WgReedStiff: 32, WgReedAperture: 33,
-                    WgBoreDamping: 34, WgBellBright: 35, WgConical: 36, WgBreathNoise: 37, WgGrowl: 38 };
+                    WgBoreDamping: 34, WgBellBright: 35, WgConical: 36, WgBreathNoise: 37, WgGrowl: 38,
+                    UniVox: 39, UniDet: 40, UniWid: 41, UniMode: 42 };
+
+// Rotating-chord sequence parsing — the plugin's parseChordInterval semantics:
+// ';' separates harmony voices, ',' separates steps; each step is decimal
+// semitones ("7", "3.5") or a just ratio ("3/2" → 12·log2(3/2)); junk entries
+// are rejected (skipped), never silently read as 0.
+function parseChordSeqs(str) {
+  return String(str || '').split(';').map((voiceStr) =>
+    voiceStr.split(',').map((tok) => {
+      const t = tok.trim();
+      if (!t) return NaN;
+      const ratio = t.match(/^(\d+(?:\.\d+)?)\s*\/\s*(\d+(?:\.\d+)?)$/);
+      if (ratio) { const num = +ratio[1], den = +ratio[2];
+        return den > 0 && num > 0 ? 12 * Math.log2(num / den) : NaN; }
+      const v = Number(t);
+      return Number.isFinite(v) ? v : NaN;
+    }).filter(Number.isFinite));
+}
+function sendChordSeqs(str) { post({ type: 'chords', seqs: parseChordSeqs(str) }); }
 
 function post(m) { if (node) node.port.postMessage(m); }
 
@@ -159,6 +178,9 @@ function handleSend(id, p) {
     // (slew rates derive from the source, matching the real engine).
     post({ type: 'slot', slot: p.slot, src: p.src | 0, dst: p.dst | 0,
            amt: +p.amt || 0, curve: p.curve | 0, on: p.on !== false });
+  } else if (id === 'chordSeqsEdit' && p && typeof p.seqs === 'string') {
+    // Chord editor → rotating-chord sequences in the wasm (Chord voice mode).
+    sendChordSeqs(p.seqs);
   }
 }
 
@@ -195,6 +217,11 @@ async function ensureAudio() {
       const patch = window.__vaneStandalone && window.__vaneStandalone.getPatch();
       if (patch) for (const id in PARAM_MAP) if (patch[id] != null) sendParam(id, patch[id]);
       if (window.__vaneStandalone) post({ type: 'mono', value: window.__vaneStandalone.getMono() });
+      // Chord sequences: sync the page's current editor state at boot (the wasm
+      // carries the same factory default, but the user may have edited before
+      // audio started). Older page bundles without the getter just skip.
+      if (window.__vaneStandalone && window.__vaneStandalone.getChordSeqs)
+        sendChordSeqs(window.__vaneStandalone.getChordSeqs());
       sendTuningToSynth();
     } catch (e) {
       setStatus('audio error: ' + (e && e.message || e));

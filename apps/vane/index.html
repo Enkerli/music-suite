@@ -1113,14 +1113,12 @@ function renderPatch(){
       <div class="pslider"><div class="top"><span class="lbl">Noise Type</span></div>
         <div class="seg">${["White","Pink","Brown"].map((n,i)=>`<button class="${state.patch.NoiseType===i?'active':''}" onclick="setChoice('NoiseType',${i})">${n}</button>`).join('')}</div></div>
       ${pslider('Detune','Detune','--vn-slide')}
-      <div data-standalone-hide="1" style="display:contents">
-        <div class="pslider" style="grid-column:1/-1"><div class="top"><span class="lbl">Unison</span></div>
-          <div class="seg">${["1","2","3","4","6"].map((n,i)=>`<button class="${Math.round(state.patch.UniVox)===i?'active':''}" onclick="setChoice('UniVox',${i})">${n}</button>`).join('')}</div></div>
-        <div class="pslider" style="grid-column:1/-1"><div class="top"><span class="lbl">Voice Mode</span></div>
-          <div class="seg">${["Detune","Chord"].map((n,i)=>`<button class="${Math.round(state.patch.UniMode)===i?'active':''}" onclick="setChoice('UniMode',${i})">${n}</button>`).join('')}</div></div>
-        ${Math.round(state.patch.UniMode)===1 ? chordSeqEditorHTML() : pslider('UniDet','Uni Detune','--vn-slide')}
-        ${pslider('UniWid','Uni Width','--vn-slide')}
-      </div>
+      <div class="pslider" style="grid-column:1/-1"><div class="top"><span class="lbl">Unison</span></div>
+        <div class="seg">${["1","2","3","4","6"].map((n,i)=>`<button class="${Math.round(state.patch.UniVox)===i?'active':''}" onclick="setChoice('UniVox',${i})">${n}</button>`).join('')}</div></div>
+      <div class="pslider" style="grid-column:1/-1"><div class="top"><span class="lbl">Voice Mode</span></div>
+        <div class="seg">${["Detune","Chord"].map((n,i)=>`<button class="${Math.round(state.patch.UniMode)===i?'active':''}" onclick="setChoice('UniMode',${i})">${n}</button>`).join('')}</div></div>
+      ${Math.round(state.patch.UniMode)===1 ? chordSeqEditorHTML() : pslider('UniDet','Uni Detune','--vn-slide')}
+      ${pslider('UniWid','Uni Width','--vn-slide')}
     </div>
     <div class="group ${collapsed['Waveguide']?'collapsed':''}" data-grp="Waveguide">${gh('Waveguide')}
       <div class="pslider" style="grid-column:1/-1">
@@ -2484,6 +2482,7 @@ if (!HAS_JUCE) {
     setMeters(m){ Object.assign(state.meters, m); tickMeters(); },
     getPatch(){ return state.patch; },   // current values, so synth-main.js can sync at boot
     getMono(){ return mono; },           // Mono/Poly toggle (declared above, defaults true)
+    getChordSeqs(){ return state.chordSeqs; },   // rotating-chord editor state (boot sync)
     onParam: null,   // synth-main.js sets this: (id, value) => …
     onSend: null,    // synth-main.js sets this: (id, payload) => … — non-param bridge
                      // sends the standalone synth also implements (tuning, panic, …)
