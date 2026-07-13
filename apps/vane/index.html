@@ -1162,7 +1162,7 @@ function renderPatch(){
       </div>
       ${Math.round(state.patch.GlideCurve)===3?glideEditorHTML():''}
     </div>
-    <div class="group ${collapsed['Transient']?'collapsed':''}" data-grp="Transient" data-standalone-hide="1">${gh('Transient')}
+    <div class="group ${collapsed['Transient']?'collapsed':''}" data-grp="Transient">${gh('Transient')}
       <div class="pslider" style="grid-column:1/-1"><div class="top"><span class="lbl">Sample</span>
           <span class="val num">${(state.transients||['None'])[Math.round(state.patch.TrChoice)]||'None'}</span></div>
         <div class="seg" style="flex-wrap:wrap">${(state.transients||['None']).map((n,i)=>`<button class="${Math.round(state.patch.TrChoice)===i?'active':''}" onclick="trChoice(${i})">${n}</button>`).join('')}</div>

@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "comment": "Factory transient manifest — MUST mirror the plugin's TransientLibrary.cpp constructor order exactly: TrChoice indices are 1-based positions in this list (0 = None). All samples CC0-1.0 (VSCO-2-CE, VCSL, gen_inharmonic.py).",
+  "samples": [
+    { "file": "flute_stac_A4.wav",    "name": "Flute Chiff",     "nativeHz": 440.0,  "pitched": true  },
+    { "file": "recorder_stac_D4.wav", "name": "Recorder Chiff",  "nativeHz": 293.66, "pitched": true  },
+    { "file": "clarinet_stac_D4.wav", "name": "Clarinet Attack", "nativeHz": 293.66, "pitched": true  },
+    { "file": "cello_spic_C3.wav",    "name": "Cello Spiccato",  "nativeHz": 130.81, "pitched": true  },
+    { "file": "trumpet_stac_A4.wav",  "name": "Trumpet Attack",  "nativeHz": 440.0,  "pitched": true  },
+    { "file": "gen_tongue.wav",  "name": "Tongue",        "nativeHz": 440.0, "pitched": false },
+    { "file": "gen_click.wav",   "name": "Key Click",     "nativeHz": 440.0, "pitched": false },
+    { "file": "gen_chiff.wav",   "name": "Air Chiff",     "nativeHz": 440.0, "pitched": false },
+    { "file": "gen_knock.wav",   "name": "Wood Knock",    "nativeHz": 440.0, "pitched": false },
+    { "file": "gen_pick.wav",    "name": "Pick Noise",    "nativeHz": 440.0, "pitched": false },
+    { "file": "gen_buzz.wav",    "name": "Reed Buzz",     "nativeHz": 440.0, "pitched": false },
+    { "file": "gen_ping.wav",    "name": "Metallic Ping", "nativeHz": 440.0, "pitched": false },
+    { "file": "gen_squeak.wav",  "name": "Finger Squeak", "nativeHz": 440.0, "pitched": false },
+    { "file": "gen_scratch.wav", "name": "Bow Scratch",   "nativeHz": 440.0, "pitched": false },
+    { "file": "gen_tick.wav",    "name": "Snare Tick",    "nativeHz": 440.0, "pitched": false }
+  ]
+}

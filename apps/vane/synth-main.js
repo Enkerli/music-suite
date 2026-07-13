@@ -61,7 +61,10 @@ const PARAM_MAP = { Cutoff: 1, Reso: 2, Output: 8, VelVCA: 9, Glide: 10,
                     Noise: 26, NoiseType: 27, Detune: 28, MasterTune: 29,
                     WaveguideOn: 30, WgEmbouchure: 31, WgReedStiff: 32, WgReedAperture: 33,
                     WgBoreDamping: 34, WgBellBright: 35, WgConical: 36, WgBreathNoise: 37, WgGrowl: 38,
-                    UniVox: 39, UniDet: 40, UniWid: 41, UniMode: 42 };
+                    UniVox: 39, UniDet: 40, UniWid: 41, UniMode: 42,
+                    TrChoice: 43, TrGain: 44, TrDecay: 45, TrTrigger: 46, TrVar: 47,
+                    TrFilt: 48, TrDyn: 49, TrReso: 50, TrDamp: 51, TrMorph: 52,
+                    GlideMode: 53, GlideCurve: 54 };
 
 // Rotating-chord sequence parsing — the plugin's parseChordInterval semantics:
 // ';' separates harmony voices, ',' separates steps; each step is decimal
@@ -108,6 +111,7 @@ function sendParam(id, value) {
   if (id === 'monoMode') { post({ type: 'mono', value: value > 0.5 }); return; }
   const wasmId = PARAM_MAP[id];
   if (wasmId != null) post({ type: 'param', id: wasmId, value });
+  if (id === 'Morph') sendWaveDisplay();   // live WT frame display (host-drawn)
 }
 
 // ── Internal tuning (standalone) ──────────────────────────────────────────────
@@ -163,6 +167,136 @@ function pushSlotState() {
 
 // Non-param bridge sends the standalone synth implements (the page's Tuning
 // stage and Matrix tab send these; in the plugin they go to C++).
+// ── Minimal WAV parser (PCM 16/24/32f, any channel count → mono) ─────────────
+// decodeAudioData resamples to the AudioContext rate, which would CORRUPT
+// wavetable frame boundaries (frames must stay exactly frameLength samples).
+// Parsing the RIFF ourselves keeps frames exact and gives the true srcRate
+// for transients (SamplePlayer corrects rate via speedRatio).
+function parseWav(buf) {
+  const dv = new DataView(buf);
+  if (dv.getUint32(0, false) !== 0x52494646 || dv.getUint32(8, false) !== 0x57415645) return null; // RIFF/WAVE
+  let off = 12, fmt = null, data = null;
+  while (off + 8 <= dv.byteLength) {
+    const id = dv.getUint32(off, false), size = dv.getUint32(off + 4, true);
+    if (id === 0x666d7420) fmt = { tag: dv.getUint16(off + 8, true), ch: dv.getUint16(off + 10, true),
+                                   rate: dv.getUint32(off + 12, true), bits: dv.getUint16(off + 22, true) };
+    else if (id === 0x64617461) data = { off: off + 8, size };
+    off += 8 + size + (size & 1);
+  }
+  if (!fmt || !data) return null;
+  const bytesPer = fmt.bits >> 3, frames = Math.floor(data.size / (bytesPer * fmt.ch));
+  const out = new Float32Array(frames);
+  for (let i = 0; i < frames; i++) {
+    let acc = 0;
+    for (let c = 0; c < fmt.ch; c++) {
+      const o = data.off + (i * fmt.ch + c) * bytesPer;
+      if (fmt.tag === 3 && fmt.bits === 32) acc += dv.getFloat32(o, true);
+      else if (fmt.bits === 16) acc += dv.getInt16(o, true) / 32768;
+      else if (fmt.bits === 24) { const b = (dv.getUint8(o) | (dv.getUint8(o+1) << 8) | (dv.getUint8(o+2) << 16));
+                                  acc += (b > 0x7FFFFF ? b - 0x1000000 : b) / 8388608; }
+      else if (fmt.bits === 32) acc += dv.getInt32(o, true) / 2147483648;
+    }
+    out[i] = acc / fmt.ch;
+  }
+  return { samples: out, sampleRate: fmt.rate };
+}
+
+// ── Factory assets: wavetable library + transient samples ────────────────────
+// Fetched from ./assets (bundled by the build, all CC0), decoded host-side,
+// and pushed into the wasm through its staging buffer. The library manifest is
+// the SAME library.json the plugin embeds via BinaryData.
+const emit = (id, p) => { const api = window.__vaneStandalone; if (api && api.emit) api.emit(id, p); };
+let gLibrary = [];                 // library.json tables (+ .active flag)
+let gActiveTableId = null;         // id of the sounding table (null = built-in)
+// Cached current table frames so phase-align retoggle and the wave/strip
+// displays can recompute without refetching.
+let gTable = null;                 // { frames: Float32Array[], name, phaseAlign }
+let gTransientNames = ['None'];
+let gAssetsLoaded = false;
+
+function tableDisplays() {
+  if (!gTable) { emit('wavetableStrip', { cols: [], frames: 16 }); return; }
+  const F = gTable.frames.length;
+  const cols = [];
+  const nCols = Math.min(28, F);
+  for (let c = 0; c < nCols; c++) {
+    const f = gTable.frames[Math.round((c / Math.max(1, nCols - 1)) * (F - 1))];
+    const pts = [];
+    for (let i = 0; i < 24; i++) pts.push(f[Math.floor((i / 23) * (f.length - 1))]);
+    cols.push(pts);
+  }
+  emit('wavetableStrip', { cols, frames: F });
+  sendWaveDisplay();
+}
+function sendWaveDisplay() {
+  if (!gTable) return;
+  const F = gTable.frames.length;
+  const patch = window.__vaneStandalone && window.__vaneStandalone.getPatch();
+  const morph = patch ? (patch.Morph || 0) : 0;
+  const framePos = morph * (F - 1);
+  const f = gTable.frames[Math.min(F - 1, Math.round(framePos))];
+  const pts = [];
+  for (let i = 0; i < 64; i++) pts.push(f[Math.floor((i / 63) * (f.length - 1))]);
+  emit('wavetableWave', { pts, frame: framePos, frames: F });
+}
+
+// Slice a decoded wavetable WAV into frames and ship it to the synth.
+function shipWavetable(samples, frameLength, name, phaseAlign) {
+  const F = Math.floor(samples.length / frameLength);
+  if (F < 1) { emit('wavetableInfo', { name, frames: 0, phaseAlign, ok: false }); return false; }
+  const frames = [];
+  for (let f = 0; f < F; f++) frames.push(samples.subarray(f * frameLength, (f + 1) * frameLength));
+  gTable = { frames, name, phaseAlign, samples, frameLength };
+  post({ type: 'wavetable', data: samples, frameSize: frameLength, phaseAlign: !!phaseAlign });
+  emit('wavetableInfo', { name, frames: F, phaseAlign: !!phaseAlign, ok: true });
+  tableDisplays();
+  return true;
+}
+
+async function loadLibraryTable(id) {
+  const t = gLibrary.find((x) => x.id === id);
+  if (!t) return;
+  try {
+    const buf = await (await fetch(new URL('assets/library/' + t.file, BASE))).arrayBuffer();
+    const wav = parseWav(buf);
+    if (!wav) return;
+    const patch = window.__vaneStandalone && window.__vaneStandalone.getPatch();
+    const align = !!(gTable && gTable.phaseAlign);
+    if (shipWavetable(wav.samples, t.frameLength || 2048, t.title, align)) {
+      gActiveTableId = id;
+      gLibrary.forEach((x) => { x.active = x.id === id; });
+      emit('libraryData', { tables: gLibrary });
+    }
+  } catch (e) { console.warn('library table load failed', e); }
+}
+
+async function loadFactoryAssets() {
+  if (gAssetsLoaded) return;
+  gAssetsLoaded = true;
+  // Wavetable library manifest (fetch failures leave the modal on "Loading…" —
+  // same soft behavior as a plugin whose bridge is quiet).
+  try {
+    const lib = await (await fetch(new URL('assets/library/library.json', BASE))).json();
+    gLibrary = (lib.tables || []).map((t) => ({ ...t, active: false }));
+  } catch (e) { console.warn('wavetable library manifest failed', e); }
+  // Transients: decode + ship in MANIFEST ORDER — TrChoice indices must match
+  // the plugin's TransientLibrary order, so ship strictly sequentially.
+  try {
+    const man = await (await fetch(new URL('assets/transients/transients.json', BASE))).json();
+    for (const s of man.samples || []) {
+      try {
+        const buf = await (await fetch(new URL('assets/transients/' + s.file, BASE))).arrayBuffer();
+        const wav = parseWav(buf);
+        if (!wav) continue;
+        post({ type: 'transient', data: wav.samples, srcRate: wav.sampleRate,
+               nativeHz: s.nativeHz || 440, pitched: s.pitched !== false });
+        gTransientNames.push(s.name);
+      } catch (e) { console.warn('transient failed:', s.file, e); }
+    }
+    emit('transientList', { names: gTransientNames });
+  } catch (e) { console.warn('transient manifest failed', e); }
+}
+
 function handleSend(id, p) {
   if (id === 'setTuningSource') {
     tuning.source = (p && p.source) || 'internal';
@@ -181,6 +315,38 @@ function handleSend(id, p) {
   } else if (id === 'chordSeqsEdit' && p && typeof p.seqs === 'string') {
     // Chord editor → rotating-chord sequences in the wasm (Chord voice mode).
     sendChordSeqs(p.seqs);
+  } else if (id === 'requestLibrary') {
+    emit('libraryData', { tables: gLibrary });
+  } else if (id === 'loadLibraryTable' && p && p.id) {
+    loadLibraryTable(p.id);
+  } else if (id === 'useBuiltinWavetable') {
+    post({ type: 'builtinWavetable' });
+    gTable = null; gActiveTableId = null;
+    gLibrary.forEach((x) => { x.active = false; });
+    emit('wavetableInfo', { name: 'Harmonic Stack (built-in)', frames: 16, phaseAlign: false, ok: true });
+    emit('wavetableStrip', { cols: [], frames: 16 });
+  } else if (id === 'setMorphPhaseAlign' && p) {
+    // Re-build the current table with the new flag (host keeps the raw frames).
+    if (gTable) shipWavetable(gTable.samples, gTable.frameLength, gTable.name, !!p.on);
+  } else if (id === 'loadWavetable') {
+    // User .wav import — Serum-style concatenated 2048-sample frames.
+    const inp = document.createElement('input');
+    inp.type = 'file'; inp.accept = '.wav,audio/wav';
+    inp.onchange = async () => {
+      const f = inp.files && inp.files[0];
+      if (!f) return;
+      const wav = parseWav(await f.arrayBuffer());
+      if (!wav) { emit('wavetableInfo', { name: f.name, frames: 0, phaseAlign: false, ok: false }); return; }
+      if (shipWavetable(wav.samples, 2048, f.name.replace(/\.wav$/i, ''), !!(gTable && gTable.phaseAlign))) {
+        gActiveTableId = null;
+        gLibrary.forEach((x) => { x.active = false; });
+      }
+    };
+    inp.click();
+  } else if (id === 'glideCurveEdit' && p && Array.isArray(p.anchors)) {
+    const pairs = new Float32Array(p.anchors.length * 2);
+    p.anchors.forEach((a, i) => { pairs[i * 2] = +a.x || 0; pairs[i * 2 + 1] = +a.y || 0; });
+    post({ type: 'glideAnchors', pairs });
   }
 }
 
@@ -223,6 +389,7 @@ async function ensureAudio() {
       if (window.__vaneStandalone && window.__vaneStandalone.getChordSeqs)
         sendChordSeqs(window.__vaneStandalone.getChordSeqs());
       sendTuningToSynth();
+      loadFactoryAssets();   // wavetable library + transient samples (async)
     } catch (e) {
       setStatus('audio error: ' + (e && e.message || e));
       return;

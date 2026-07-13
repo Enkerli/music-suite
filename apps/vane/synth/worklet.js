@@ -53,6 +53,34 @@ class VaneProcessor extends AudioWorkletProcessor {
       case 'tuningSource':   this.ex.vane_set_tuning_source(m.value); break;
       case 'internalTuning': this.ex.vane_set_internal_tuning(m.value); break;
       case 'slot':           this.ex.vane_set_slot(m.slot, m.src, m.dst, m.amt, m.curve, m.on ? 1 : 0); break;
+      case 'wavetable': {
+        // Staged morph-wavetable frames (host-decoded WAV, exact frame sizes).
+        const n = m.data.length;
+        const ptr = this.ex.vane_staging(n);
+        new Float32Array(this.ex.memory.buffer, ptr, n).set(m.data);
+        this.ex.vane_load_wavetable(n, m.frameSize, m.phaseAlign ? 1 : 0);
+        break;
+      }
+      case 'builtinWavetable':
+        if (this.ex.vane_use_builtin_wavetable) this.ex.vane_use_builtin_wavetable();
+        break;
+      case 'transient': {
+        // Factory transient PCM — MUST arrive in manifest order (TrChoice
+        // indices are 1-based positions; the host ships sequentially).
+        const n = m.data.length;
+        const ptr = this.ex.vane_staging(n);
+        new Float32Array(this.ex.memory.buffer, ptr, n).set(m.data);
+        this.ex.vane_add_transient(n, m.srcRate, m.nativeHz, m.pitched ? 1 : 0);
+        break;
+      }
+      case 'glideAnchors': {
+        // Bezier glide trajectory anchors as (x,y) pairs.
+        const n = m.pairs.length;
+        const ptr = this.ex.vane_staging(n);
+        new Float32Array(this.ex.memory.buffer, ptr, n).set(m.pairs);
+        this.ex.vane_set_glide_anchors(n >> 1);
+        break;
+      }
       case 'chords':
         // Rotating-chord sequences: per harmony voice j, a length + fractional-
         // semitone steps (ratios already resolved by the host). Guarded — an
