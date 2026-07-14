@@ -14,7 +14,8 @@ import './design/scale-editor.jsx';
 // ── JUCE bridge ───────────────────────────────────────────────────────────────
 import { initJuceBridge, sendCurve, sendParam, sendFocus,
          sendPlaying, sendDirection, sendEnabled, sendGlobalActual,
-         sendClearLane, sendAddLane, sendRemoveLane, sendPanic,
+         sendClearLane, sendAddLane, sendRemoveLane,
+         sendAddQurve, sendRemoveQurve, sendPanic,
          sendBeginTeach, sendCancelTeach,
          sendBeginRecord, sendStopRecord } from './juce-bridge.js';
 
@@ -57,6 +58,8 @@ import { initJuceBridge, sendCurve, sendParam, sendFocus,
     const [jucePhase, setJucePhase] = React.useState(null);
     // Per-lane phases from C++: array indexed by lane id, or null in demo mode.
     const [juceLanePhases, setJuceLanePhases] = React.useState(null);
+    // Per-(lane,qurve) phases from C++ — array (by lane id) of arrays (by qurve).
+    const [juceQurvePhases, setJuceQurvePhases] = React.useState(null);
     const jucePhaseTimeRef = React.useRef(0);
     // Handler for incoming MIDI events forwarded from the C++ bridge.
     // useMidiRecorder registers itself here in JUCE mode.
@@ -75,6 +78,7 @@ import { initJuceBridge, sendCurve, sendParam, sendFocus,
             jucePhaseTimeRef.current = performance.now();
             setJucePhase(action.phase);
             if (action.lanePhases) setJuceLanePhases(action.lanePhases);
+            if (action.qurvePhases) setJuceQurvePhases(action.qurvePhases);
             // Mirror host transport state into the demo RAF loop so that when
             // the host pauses (JUCE stops emitting phase), the demo loop also
             // pauses rather than taking over and causing "keeps looping".
@@ -95,8 +99,9 @@ import { initJuceBridge, sendCurve, sendParam, sendFocus,
             demo.setLanes(prev => prev.slice(0, action.count));
             break;
           case 'curveData':
-            demo.setLanes(prev => prev.map(l =>
-              l.id === action.lane ? { ...l, curve: action.curve } : l));
+            // Route to the reported qurve via the demo mutator so the curves
+            // array and selected-curve mirror stay coherent.
+            demo.setCurve(action.lane, action.curve, action.qurve ?? 0);
             break;
           case 'paramChange': {
             const { id, value } = action;
@@ -157,10 +162,11 @@ import { initJuceBridge, sendCurve, sendParam, sendFocus,
     }, []);
 
     // ── Wrapped mutators that also notify JUCE ──────────────────────────────
-    const setCurve = React.useCallback((id, curve) => {
-      demo.setCurve(id, curve);
-      sendCurve(id, curve);
-    }, [demo.setCurve]);
+    const setCurve = React.useCallback((id, curve, qurve) => {
+      const q = qurve ?? (demo.activeQurves?.[id] ?? 0);
+      demo.setCurve(id, curve, q);
+      sendCurve(id, curve, q);
+    }, [demo.setCurve, demo.activeQurves]);
 
     const setFocus = React.useCallback((id) => {
       demo.setFocus(id);
@@ -224,6 +230,19 @@ import { initJuceBridge, sendCurve, sendParam, sendFocus,
       sendRemoveLane(id);
     }, []);
 
+    // Qurves: mutate locally for instant feedback (and for the pure-demo
+    // webapp, where the RPC is a no-op); in the plugin the C++ stateSnapshot
+    // reply re-hydrates the lanes wholesale, which is idempotent with the
+    // local mutation.
+    const addQurve = React.useCallback((id) => {
+      demo.addQurveLocal(id);
+      sendAddQurve(id);
+    }, [demo.addQurveLocal]);
+    const removeQurve = React.useCallback((id, q) => {
+      demo.removeQurveLocal(id, q);
+      sendRemoveQurve(id, q);
+    }, [demo.removeQurveLocal]);
+
     const clearAll = React.useCallback(() => {
       demo.clearAll();
       demo.lanes.forEach(l => sendClearLane(l.id));
@@ -253,6 +272,9 @@ import { initJuceBridge, sendCurve, sendParam, sendFocus,
       ...demo,
       phase: effectivePhase,
       lanePhases: effectiveLanePhases,
+      qurvePhases: isJuceDriving ? juceQurvePhases : null,
+      addQurve,
+      removeQurve,
       setCurve,
       setFocus,
       setPlaying,

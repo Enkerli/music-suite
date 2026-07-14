@@ -30,6 +30,7 @@ function useDrawnQurveEngine(initial = {}) {
       name: window.LANES[0].name,
       dash: window.LANES[0].dash,
       curve: makeSineCurve(256, 0.5, 0.35, 1.2, 0),
+      curves: null,   // seeded from `curve` below (single-qurve default)
       enabled: true,
       target: 'CC',      // 'CC' | 'Aftertouch' | 'PitchBend' | 'Note'
       targetDetail: 74,  // CC number or velocity
@@ -62,6 +63,7 @@ function useDrawnQurveEngine(initial = {}) {
       name: window.LANES[1].name,
       dash: window.LANES[1].dash,
       curve: makeSineCurve(256, 0.5, 0.25, 2.4, Math.PI / 3),
+      curves: null,
       enabled: true,
       target: 'Note',
       targetDetail: 100,
@@ -189,13 +191,77 @@ function useDrawnQurveEngine(initial = {}) {
     return () => cancelAnimationFrame(raf);
   }, [playing, direction, syncOn, beats, speed, ppForward]);
 
+  // ── Qurve selection ────────────────────────────────────────────────────────
+  // Which qurve of each lane is "active" (draw/record/edit target).  Kept
+  // OUTSIDE the lane objects so a wholesale stateSnapshot hydration doesn't
+  // reset the user's selection.  A ref mirror lets event handlers resolve the
+  // current selection synchronously (setLanes callbacks are async).
+  const [activeQurves, setActiveQurves] = React.useState({});
+  const activeQurvesRef = React.useRef(activeQurves);
+  activeQurvesRef.current = activeQurves;
+  const qurveOf = (id) => activeQurvesRef.current[id] ?? 0;
+  const selectQurve = (id, q) => {
+    q = Math.max(0, q | 0);
+    setActiveQurves(m => ({ ...m, [id]: q }));
+    // Keep the `curve` mirror (= selected qurve) coherent — readouts, the
+    // shape well, and the canvas's emphasized path all read it.
+    setLanes(ls => ls.map(l => {
+      if (l.id !== id) return l;
+      const curves = (l.curves && l.curves.length) ? l.curves : [l.curve ?? null];
+      return { ...l, curve: curves[Math.min(q, curves.length - 1)] ?? null };
+    }));
+  };
+
+  // Normalised per-lane curve list: lanes predating the poly model carry only
+  // `curve` — treat that as a one-qurve list.
+  const laneCurves = (l) => (l.curves && l.curves.length ? l.curves : [l.curve ?? null]);
+
   const updateLane = (id, patch) => setLanes(ls => ls.map(l => l.id === id ? { ...l, ...patch } : l));
-  const setCurve = (id, curve) => updateLane(id, { curve });
-  const clearLane = (id) => updateLane(id, { curve: null });
-  const clearAll = () => setLanes(ls => ls.map(l => ({ ...l, curve: null })));
+
+  // setCurve targets one qurve (default: the lane's selected one).  `curve`
+  // stays a MIRROR of the selected qurve so every existing single-curve
+  // consumer (readouts, shape well, empty-hint) keeps working untouched.
+  const setCurve = (id, curve, qurve) => setLanes(ls => ls.map(l => {
+    if (l.id !== id) return l;
+    const q = qurve ?? Math.min(qurveOf(id), Math.max(0, laneCurves(l).length - 1));
+    const curves = laneCurves(l).slice();
+    while (curves.length <= q) curves.push(null);
+    curves[q] = curve;
+    const sel = Math.min(qurveOf(id), curves.length - 1);
+    return { ...l, curves, curve: curves[sel] };
+  }));
+
+  const clearLane = (id) => setLanes(ls => ls.map(l =>
+    l.id === id ? { ...l, curve: null, curves: laneCurves(l).map(() => null) } : l));
+  const clearAll = () => setLanes(ls => ls.map(l =>
+    ({ ...l, curve: null, curves: laneCurves(l).map(() => null) })));
+
+  // Demo-local add/remove (the JUCE build ALSO RPCs these — see main.jsx —
+  // and the C++ stateSnapshot reply reconciles; standalone/demo gets the
+  // same interaction purely locally).
+  const addQurveLocal = (id) => setLanes(ls => ls.map(l => {
+    if (l.id !== id) return l;
+    const curves = laneCurves(l);
+    if (curves.length >= (window.MAX_QURVES ?? 4)) return l;
+    const next = [...curves, null];
+    // Select the new empty qurve so the next draw lands in it — and point the
+    // `curve` mirror at it (null) so the canvas shows the draw hint.
+    setActiveQurves(m => ({ ...m, [id]: next.length - 1 }));
+    return { ...l, curves: next, curve: null };
+  }));
+  const removeQurveLocal = (id, q) => setLanes(ls => ls.map(l => {
+    if (l.id !== id) return l;
+    const curves = laneCurves(l).slice();
+    if (curves.length <= 1) { return { ...l, curves: [null], curve: null }; }
+    curves.splice(q, 1);
+    const sel = Math.min(qurveOf(id), curves.length - 1);
+    setActiveQurves(m => ({ ...m, [id]: sel }));
+    return { ...l, curves, curve: curves[sel] };
+  }));
 
   return {
     lanes, setLanes, focus, setFocus, updateLane, setCurve, clearLane, clearAll,
+    activeQurves, selectQurve, addQurveLocal, removeQurveLocal,
     playing, setPlaying, direction, setDirection,
     syncOn, setSyncOn, speed, setSpeed, beats, setBeats, phase,
     mode, setMode,
@@ -308,6 +374,8 @@ function smoothCurvePoints(points, n = 256) {
   }
   return arr;
 }
+
+window.MAX_QURVES = 4;   // mirrors C++ kMaxQurves
 
 Object.assign(window, {
   useDrawnQurveEngine, sampleCurve, sampleLaneQuantized, applyLane, snapSemitone,

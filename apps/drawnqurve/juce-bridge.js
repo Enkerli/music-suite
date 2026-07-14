@@ -164,6 +164,10 @@ export function initJuceBridge(onEvent) {
           name:  l.name  ?? fallback.name ?? `Lane ${l.id + 1}`,
           dash:  fallback.dash ?? '0',
           curve: l.curve ? arrayToF32(l.curve) : null,
+          // Per-qurve curves (v3 snapshots) — fall back to the single curve.
+          curves: Array.isArray(l.curves)
+            ? l.curves.map(c => (c ? arrayToF32(c) : null))
+            : [l.curve ? arrayToF32(l.curve) : null],
           scaleId,
         };
       });
@@ -191,8 +195,9 @@ export function initJuceBridge(onEvent) {
   // `playing` mirrors the engine's _isPlaying flag so JS can pause its demo
   // RAF loop when the host transport stops, preventing the "keeps looping"
   // symptom where the demo loop takes over after JUCE stops emitting phase.
-  juceOn('phase', ({ phase, lanes: lanePhases, playing }) =>
-    onEvent({ type: 'setPhase', phase, lanePhases: lanePhases ?? null, playing }));
+  juceOn('phase', ({ phase, lanes: lanePhases, qurves: qurvePhases, playing }) =>
+    onEvent({ type: 'setPhase', phase, lanePhases: lanePhases ?? null,
+              qurvePhases: qurvePhases ?? null, playing }));
 
   // Incoming MIDI captured by the audio thread while a lane is armed for
   // recording.  JS recorder accumulates these and converts them to a curve.
@@ -203,8 +208,9 @@ export function initJuceBridge(onEvent) {
   juceOn('paramChange', ({ id, value }) => onEvent({ type: 'paramChange', id, value }));
 
   // Curve data for one lane
-  juceOn('curveData', ({ lane, data }) =>
-    onEvent({ type: 'curveData', lane, curve: data ? arrayToF32(data) : null }));
+  juceOn('curveData', ({ lane, qurve, data }) =>
+    onEvent({ type: 'curveData', lane, qurve: qurve ?? 0,
+              curve: data ? arrayToF32(data) : null }));
 
   // Tell C++ we're ready — it will reply with stateSnapshot
   juceEmit('uiReady', {});
@@ -257,8 +263,8 @@ export function sendEnabled(lane, enabled) {
   juceEmit('setParam', { id: laneParamId(lane, 'enabled'), value: enabled ? 1.0 : 0.0 });
 }
 
-export function sendCurve(lane, f32) {
-  juceEmit('setCurve', { lane, data: f32ToArray(f32) });
+export function sendCurve(lane, f32, qurve = 0) {
+  juceEmit('setCurve', { lane, qurve, data: f32ToArray(f32) });
 }
 
 export function sendFocus(lane)          { juceEmit('setFocus',     { lane }); }
@@ -267,6 +273,8 @@ export function sendDirection(direction) { juceEmit('setDirection', { direction 
 export function sendClearLane(lane)      { juceEmit('clearLane',    { lane }); }
 export function sendAddLane()            { juceEmit('addLane',      {}); }
 export function sendRemoveLane(lane)     { juceEmit('removeLane',   { lane }); }
+export function sendAddQurve(lane)          { juceEmit('addQurve',    { lane }); }
+export function sendRemoveQurve(lane, qurve){ juceEmit('removeQurve', { lane, qurve }); }
 export function sendPanic()              { juceEmit('panic',        {}); }
 // Teach CC — arm a lane to capture the next incoming CC number.
 // cancelTeach disarms without changing the CC number.

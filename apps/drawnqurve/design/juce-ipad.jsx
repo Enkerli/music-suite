@@ -327,6 +327,8 @@ function JuceIPadStudio({ width = 1024, height = 768 }) {
                 width={canvasSize.w} height={canvasSize.h}
                 lanes={eng.lanes} focus={eng.focus} phase={eng.phase}
                 lanePhases={eng.lanePhases}
+                qurvePhases={eng.qurvePhases}
+                activeQurve={eng.activeQurves?.[eng.focus] ?? 0}
                 setCurve={eng.setCurve}
                 variant="studio"
                 showScaleBanding={focusLane?.target === 'Note'}
@@ -1250,6 +1252,54 @@ function JuceLanePanel({ eng, paper, width, height, open, setOpen, recorder }) {
                 );
               })()}
             </div>
+            {/* Qurve chips — NOTE lanes hold up to MAX_QURVES independent
+                curves (polyphony).  Tap a chip to select the draw/record
+                target; ✕ on the selected chip removes it; '+' adds one.
+                CC/PB/AT lanes stay monophonic — no chips, no '+'. */}
+            {focused && l.target === 'Note' && (() => {
+              const curves = (l.curves && l.curves.length) ? l.curves : [l.curve];
+              const sel = Math.min(eng.activeQurves?.[l.id] ?? 0, curves.length - 1);
+              const max = window.MAX_QURVES ?? 4;
+              const chip = (on) => ({
+                minWidth: 22, height: 20, padding: '0 5px',
+                display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 3,
+                borderRadius: 5, cursor: 'pointer', boxSizing: 'border-box',
+                fontFamily: 'Inter Tight', fontSize: 11, fontWeight: on ? 700 : 500,
+                border: on ? `2px solid ${l.color}` : `1px solid ${paper.rule}`,
+                background: on ? `${l.color}22` : 'transparent',
+                color: on ? paper.ink : paper.ink50,
+              });
+              return (
+                <div style={{ display: 'flex', gap: 4, marginTop: 4, alignItems: 'center', flexWrap: 'wrap' }}>
+                  {curves.map((c, q) => (
+                    <button key={q}
+                      onPointerDown={e => e.stopPropagation()}
+                      onClick={e => { e.stopPropagation(); eng.selectQurve(l.id, q); }}
+                      title={`Qurve ${q + 1}${c ? '' : ' — empty, draw or record into it'}`}
+                      style={{ ...chip(sel === q), opacity: c ? 1 : 0.55 }}>
+                      {q + 1}
+                      {sel === q && curves.length > 1 && (
+                        <span
+                          title="Remove this qurve"
+                          onClick={ev => { ev.stopPropagation(); eng.removeQurve(l.id, q); }}
+                          style={{ fontSize: 11, lineHeight: 1, padding: '0 1px', color: paper.ink50 }}>
+                          ✕
+                        </span>
+                      )}
+                    </button>
+                  ))}
+                  {curves.length < max && (
+                    <button
+                      onPointerDown={e => e.stopPropagation()}
+                      onClick={e => { e.stopPropagation(); eng.addQurve(l.id); }}
+                      title="Add a qurve — another curve looping in this lane (polyphonic)"
+                      style={{ ...chip(false), fontWeight: 700, fontSize: 13 }}>
+                      +
+                    </button>
+                  )}
+                </div>
+              );
+            })()}
             {focused && (
               <div style={{ display: 'flex', gap: 5, marginTop: 2 }}>
                 <ConfirmChip paper={paper}

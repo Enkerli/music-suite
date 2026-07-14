@@ -8,6 +8,8 @@ function CurveCanvas({
   focus,
   phase,
   lanePhases = null,   // optional array indexed by lane.id for per-lane playheads
+  qurvePhases = null,  // optional array (by lane.id) of per-qurve phase arrays
+  activeQurve = 0,     // focused lane's selected qurve (draw target, emphasized)
   setCurve,
   gridX = 8,
   gridY = 8,
@@ -52,7 +54,11 @@ function CurveCanvas({
     // subsequent click on the button.
     if (e.target !== ref.current) return;
     e.preventDefault();
-    ref.current.setPointerCapture(e.pointerId);
+    // Capture keeps the stroke alive when the pointer leaves the canvas.
+    // Some environments (synthetic pointers, certain WKWebView edge cases)
+    // throw NotFoundError here — drawing still works without capture, so a
+    // failed capture must not abort the stroke.
+    try { ref.current.setPointerCapture(e.pointerId); } catch {}
     setDrawing(true);
     ptsRef.current = [toCanvasXY(e)];
     setLiveStroke([...ptsRef.current]);
@@ -190,16 +196,28 @@ function CurveCanvas({
           );
         })}
 
-        {/* Ghost lanes (inactive or unfocused) */}
-        {lanes.map(l => {
-          if (l.id === focus || !l.curve || !l.enabled || l.visible === false) return null;
-          return <CurvePath key={'g' + l.id} curve={l.curve} w={width} h={height} stroke={l.color} opacity={0.25} width={1.5} dash={l.dash} phaseOffset={l.phaseOffset} />;
+        {/* Ghost lanes (inactive or unfocused) — every qurve, faint */}
+        {lanes.flatMap(l => {
+          if (l.id === focus || !l.enabled || l.visible === false) return [];
+          const curves = (l.curves && l.curves.length) ? l.curves : [l.curve];
+          return curves.map((c, q) => c
+            ? <CurvePath key={'g' + l.id + 'q' + q} curve={c} w={width} h={height} stroke={l.color} opacity={0.25} width={1.5} dash={l.dash} phaseOffset={l.phaseOffset} />
+            : null);
         })}
 
-        {/* Focused lane curve — drawn with phaseOffset rotation so the curve
-            shape matches what the engine actually samples.  The playhead dot
-            (using sampleLaneQuantized which also applies phaseOffset) will then
-            sit correctly ON the displayed curve at the raw playback phase. */}
+        {/* Focused lane's OTHER qurves — mid-weight companions so the whole
+            polyphonic texture of the lane is visible while the selected qurve
+            (drawn below, full strength) stays clearly the edit target. */}
+        {focusLane?.curves && focusLane.curves.map((c, q) => {
+          if (!c || q === activeQurve) return null;
+          return <CurvePath key={'fq' + q} curve={c} w={width} h={height} stroke={focusLane.color} opacity={0.45} width={1.8} dash={focusLane.dash} phaseOffset={focusLane.phaseOffset} />;
+        })}
+
+        {/* Focused lane's selected qurve — drawn with phaseOffset rotation so
+            the curve shape matches what the engine actually samples.  The
+            playhead dot (using sampleLaneQuantized which also applies
+            phaseOffset) will then sit correctly ON the displayed curve at the
+            raw playback phase. */}
         {focusLane?.curve && (
           <CurvePath curve={focusLane.curve} w={width} h={height} stroke={focusLane.color} opacity={0.95} width={2.5} dash={focusLane.dash} phaseOffset={focusLane.phaseOffset} />
         )}
@@ -248,31 +266,40 @@ function CurveCanvas({
           />
         )}
 
-        {/* Per-lane playheads */}
-        {lanes.map(l => {
-          if (!l.curve || !l.enabled || (l.id !== focus && l.visible === false)) return null;
-          // Use per-lane phase when available (JUCE override-transport mode);
-          // fall back to the shared global phase in demo / sync mode.
-          const lPhase = (lanePhases && lanePhases[l.id] != null) ? lanePhases[l.id] : phase;
-          // Show the playhead at the actual playback X (snapped if quantizeX)
-          // and the quantized Y, so the dot tracks what's emitted via MIDI.
-          let xPhase = lPhase;
-          if (l.quantizeX && l.xDivisions >= 2) {
-            const tickWidth = 1 / l.xDivisions;
-            xPhase = Math.floor(xPhase / tickWidth) * tickWidth;
-          }
-          const x = xPhase * width;
-          const v = sampleLaneQuantized(l, lPhase);
-          const y = (1 - v) * height;
-          const isFocus = l.id === focus;
-          return (
-            <g key={'p' + l.id}>
-              {isFocus && (
-                <line x1={x} x2={x} y1={0} y2={height} stroke={l.color} strokeWidth={1} strokeDasharray="3 3" opacity={0.5} />
-              )}
-              <circle cx={x} cy={y} r={isFocus ? 6 : 4} fill={l.color} stroke={paper.bg} strokeWidth={2} />
-            </g>
-          );
+        {/* Per-qurve playheads — one dot per sounding curve.  Each qurve
+            loops at its own natural duration, so each dot advances at its
+            own rate (per-qurve phases from C++; demo mode shares phase). */}
+        {lanes.flatMap(l => {
+          if (!l.enabled || (l.id !== focus && l.visible === false)) return [];
+          const curves = (l.curves && l.curves.length) ? l.curves : [l.curve];
+          return curves.map((c, q) => {
+            if (!c) return null;
+            // Phase priority: per-qurve (JUCE) → per-lane → shared global.
+            const qp = qurvePhases?.[l.id]?.[q];
+            const lPhase = (qp != null) ? qp
+                         : (lanePhases && lanePhases[l.id] != null) ? lanePhases[l.id] : phase;
+            // Show the playhead at the actual playback X (snapped if quantizeX)
+            // and the quantized Y, so the dot tracks what's emitted via MIDI.
+            let xPhase = lPhase;
+            if (l.quantizeX && l.xDivisions >= 2) {
+              const tickWidth = 1 / l.xDivisions;
+              xPhase = Math.floor(xPhase / tickWidth) * tickWidth;
+            }
+            const x = xPhase * width;
+            const v = sampleLaneQuantized({ ...l, curve: c }, lPhase);
+            const y = (1 - v) * height;
+            const isMain = l.id === focus && q === activeQurve;
+            return (
+              <g key={'p' + l.id + 'q' + q}>
+                {isMain && (
+                  <line x1={x} x2={x} y1={0} y2={height} stroke={l.color} strokeWidth={1} strokeDasharray="3 3" opacity={0.5} />
+                )}
+                <circle cx={x} cy={y} r={isMain ? 6 : 4} fill={l.color}
+                        fillOpacity={l.id === focus && !isMain ? 0.7 : 1}
+                        stroke={paper.bg} strokeWidth={2} />
+              </g>
+            );
+          });
         })}
       </svg>
 
