@@ -59,8 +59,10 @@ integration, it sits **inside** the moratorium, not against it. It is the
 highest-leverage thread in the suite: done once, it delivers headless-MIDI,
 piping, shortcuts, and modulation together.
 
-> Design detail lives in its own spec when we start it:
-> `docs/CONTROL_PLANE.md` (to be written).
+> Design detail lives in its own spec, started 2026-07-14:
+> [CONTROL_PLANE.md](CONTROL_PLANE.md). Its core move — *one message model,
+> several transports, two new verbs* (`param`/`command`) — is what makes the
+> workspace and the Shortcuts hooks into adapters rather than features.
 
 ### 1.2 Roadmap items, sorted by the moratorium
 
@@ -78,7 +80,7 @@ piping, shortcuts, and modulation together.
 
 | Item | Why it waits | Note |
 |---|---|---|
-| **Polyrhythmic Serpe** — concentric circles + stacked step lanes | genuine new feature | mirrors the just-shipped DrawnQurve polyphonic pattern (commit `5aae20a`); the cheapest new feature to reach because the interaction grammar is proven |
+| **Polyrhythmic Serpe** — concentric circles + stacked step lanes | genuine new feature; **long-held goal, not pressing** (2026-07-14) | mirrors the just-shipped DrawnQurve polyphonic pattern (commit `5aae20a`); the cheapest new feature to reach because the interaction grammar is proven — so it stays on the shelf, ready, rather than urgent |
 | **Single-page movable-module workspace** | large; and it *depends on* §1.1 | modules are only worth co-locating once they share a message bus — so this is **downstream** of the control plane, not parallel to it |
 | **Apple Shortcuts / widgets** | platform-specific whim; lowest leverage | naturally becomes cheap *after* §1.1 — a Shortcut is just another sender of a `command`/`param` message |
 
@@ -111,19 +113,51 @@ Full spec when we pick it up: `docs/SERPE_POLYRHYTHM.md`.
 
 ## 2. Product layer
 
-*The suite has 5 personas ([personas.md](personas.md)) and an
-accessibility test plan that already uses them as lenses
-([A11Y_TEST_PLAN.md](A11Y_TEST_PLAN.md)). It does **not** yet have use
-cases, a user-testing protocol, or training material. This section is the
-skeleton for those — the genuinely missing part of "master plan."*
+*More product research exists than the roadmaps acknowledged — but it is
+**per-tool and unreconciled**, which is exactly the gap "bringing things
+together" names. Inventory first, then the skeleton for what's missing
+(use cases, a suite-wide test protocol, training).*
 
-### 2.1 Personas (exist — recap for reference)
+### 2.0 What already exists (inventory, 2026-07-14)
 
-The five design targets, unchanged from [personas.md](personas.md):
-wind-controller performer · grid-instrument learner · theory
-explorer/educator · producer curating material · accessibility-first
-performer. Every use case below names the persona(s) it serves; every
-test session is run through at least one persona lens.
+- **Suite personas** — [personas.md](personas.md): five design targets
+  (wind-controller performer · grid-instrument learner · theory
+  explorer/educator · producer curating material · accessibility-first
+  performer), used as lenses by [A11Y_TEST_PLAN.md](A11Y_TEST_PLAN.md).
+- **MIDIcurator design-research set** —
+  `apps/MIDIcurator/docs/design/` (dated 2026-02-12): a full Design-Thinking
+  arc — **its own five personas** (Jordan · Aisha · Riley · Sam · Marcus),
+  empathy maps, journey maps, scenarios, competitive/stakeholder analysis,
+  accessibility audit+plan, and **[15-testing-plan.md](../apps/MIDIcurator/docs/design/15-testing-plan.md)**
+  (recruitment matrix, SUS targets, task list). This is the one real,
+  written usability-testing protocol in the suite today — tool-scoped, not
+  suite-scoped.
+- **DrawnQurve user-testing notes** — believed to exist **local-only**
+  (pre-April 2026); **not in this repo or its git history.** Action:
+  recover and push, then fold into the suite protocol. Until then it is
+  at-risk like any unbacked local artifact.
+
+### 2.1 The reconciliation job (the actual §2 work)
+
+There are now **two persona sets** — the suite's five and MIDIcurator's
+five — that overlap but were authored independently:
+
+| Suite persona | MIDIcurator analogue |
+|---|---|
+| accessibility-first performer | Riley (blind, screen-reader) + Sam (neurodiverse, systematic) — **MIDIcurator splits this into two** |
+| producer curating material | Aisha (theory-savvy curator) |
+| theory explorer/educator | Marcus (educator) |
+| grid-instrument learner | — (no analogue) |
+| wind-controller performer | — (no analogue) |
+| — | Jordan (GarageBand explorer / casual-by-ear) — **no suite analogue** |
+
+The decision to make (not made here): is the suite persona set canonical
+with MIDIcurator's as a tool-specific refinement, or do the two merge into a
+richer shared set (e.g. splitting accessibility-first into low-vision and
+neurodiverse, adding the casual-by-ear explorer)? **Recommendation:** merge
+upward into `personas.md` as the single authority (LIS: one controlled
+vocabulary), keeping MIDIcurator's richer detail as the worked example.
+Every use case below then names the merged persona(s) it serves.
 
 ### 2.2 Use cases — *to write*
 
@@ -146,13 +180,20 @@ The **cross-tool** use cases (U2, U3, U4) are the ones that justify the
 control plane; capturing them well is how we keep §1.1 honest about what it
 must support.
 
-### 2.3 User-testing protocol — *to write*
+### 2.3 User-testing protocol — *generalize MIDIcurator's*
 
-What the suite needs before it can claim it was tested with people, not
-just against axe-core. Skeleton:
+Don't write this from scratch: **MIDIcurator's
+[15-testing-plan.md](../apps/MIDIcurator/docs/design/15-testing-plan.md)
+already is one** — objectives, a recruitment matrix, SUS>70 and
+task-completion targets, quant+qual criteria. The job is to **lift it to
+the suite level**: same structure, personas swapped for the merged §2.1 set,
+tasks swapped for the §2.2 cross-tool use cases (a MIDIcurator-only plan
+can't exercise U2/U3/U4 — that lift *is* the "bringing things together"
+work). Skeleton once lifted:
 
 - **Method** — moderated task-based sessions; think-aloud; small-n
-  (5 is enough to surface the majority of issues).
+  (5 is enough to surface the majority of issues) — as MIDIcurator's plan
+  already specifies.
 - **Recruitment** — one participant matched to each persona where possible;
   the accessibility-first persona recruited with real assistive tech, not
   simulated.
@@ -199,16 +240,24 @@ material (a curated preset set *is* a lesson).
 
 ## 4. Immediate next actions (proposal)
 
-1. **Write `docs/CONTROL_PLANE.md`** — the §1.1 spec: parameter-manifest
-   schema, `param`/`command` envelope additions, binding-layer shape.
-   This is the keystone; almost everything else gets cheaper after it.
-2. **Draft the U1–U5 use cases in full** (§2.2) — they double as the §1.1
-   requirements check *and* the §2.3 test scripts, so they pay for
-   themselves twice.
-3. Then choose: promote `@enkerli/upi` (unblocks headless Serpe + informs
-   the polyrhythm data shape) **or** start the polyrhythmic-Serpe spec.
+1. **Control plane, steps 1–3** ([CONTROL_PLANE.md](CONTROL_PLANE.md) §6):
+   `manifest` + `param`/`command` types in `@enkerli/protocol` (schema,
+   validation, vectors) and the stdio-NDJSON transport in `@enkerli/cli`.
+   This is the keystone — pure package work, inside the moratorium, and
+   enough to *demonstrate* headless piping before any app UI changes. The
+   spec is written; this is the first code.
+2. **Merge the persona sets** (§2.1) into `personas.md` as the one
+   authority, then **draft the U1–U5 use cases in full** (§2.2) — they
+   double as the control-plane requirements check *and* the §2.3 test
+   scripts, so they pay for themselves twice.
+3. **Recover the local DrawnQurve testing notes** (§2.0) and push them —
+   an at-risk artifact until it is in the repo.
+4. Then the first fork: pick the **pilot manifest app**
+   ([CONTROL_PLANE.md](CONTROL_PLANE.md) §6.4 — Serpe vs. Vane), which also
+   decides whether the `@enkerli/upi` promotion leads. The
+   polyrhythmic-Serpe spec stays shelved (§1.2) until you want it.
 
 *Sequence rationale: 1 and 2 are mutually reinforcing and both sit inside
-the moratorium; 3 is the first place the roadmap forks between "more
-integration" and "the fun new feature," and is the right place to make a
-deliberate choice rather than drift.*
+the moratorium; the spec de-risked the design so the next move is code, not
+more planning. Item 4 is the first real fork between "more integration" and
+"the fun new feature" — a deliberate choice, not a drift.*
