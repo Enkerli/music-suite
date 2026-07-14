@@ -1,0 +1,214 @@
+# Master plan
+
+*Started 2026-07-14. The **public** counterpart to the private
+`SUITE_AUDIT_AND_PLAN.md` (see [HANDOFF.md](../HANDOFF.md) §5) — that file
+stays the planning document of record for the corpus-bound work; this one
+carries the parts that belong with the open-source suite: the roadmap
+spine, and the product layer (personas → use cases → user testing →
+training) that the suite did not have written down yet.*
+
+*This is a living document. It makes commitments about **sequence and
+principle**, not dates. Where a claim can drift from the code, it names the
+file that is authoritative instead.*
+
+---
+
+## 0. The two things that govern everything
+
+1. **Integration before features.** The moratorium in
+   [HANDOFF.md](../HANDOFF.md) §1 still holds: no new features until
+   integration is robust. The §1 roadmap below is sorted by that rule —
+   the "extend what integrates" work comes before the "new capability"
+   work, and each item is tagged accordingly.
+2. **The conventions are deliberate** ([CONVENTIONS.md](../CONVENTIONS.md)):
+   leftmost = LSB, structural note spelling, derived-statistics-only
+   corpus data. Every item below inherits them; none of them are open to
+   re-litigation as a side effect of a feature.
+
+---
+
+## 1. Roadmap spine
+
+### 1.1 The unifying insight — the control & interop plane
+
+Four separate-looking wishes are facets of **one** system:
+
+- run every tool headless, driven over MIDI;
+- pipe one tool's output into another;
+- keyboard and MIDI shortcuts that send messages to a tool ("change the
+  pattern");
+- expose parameters so they can be modulated and automated.
+
+They all reduce to two primitives — **every tool publishes a named
+parameter/command surface**, and **messages flow between tools** — and the
+substrate already exists: [`@enkerli/protocol`](../packages/protocol) is a
+versioned SysEx-JSON envelope with `from`/`to` routing and `scale` /
+`chord` / `progression` / `pattern` message types. What is missing is
+small and mechanical relative to the payoff:
+
+- **`param` and `command` message types** in the protocol envelope (with
+  vectors, like every other cross-language contract here);
+- **a parameter manifest per tool** — a small declared table of
+  `{ id, label, range, unit, default }` — so a parameter is addressable
+  the same way from a knob, a MIDI CC, a keystroke, or another tool;
+- **a binding layer** — key / MIDI-CC → command or param — per app,
+  reading the manifest.
+
+Because this is *extension of a shipped foundation* and the whole point is
+integration, it sits **inside** the moratorium, not against it. It is the
+highest-leverage thread in the suite: done once, it delivers headless-MIDI,
+piping, shortcuts, and modulation together.
+
+> Design detail lives in its own spec when we start it:
+> `docs/CONTROL_PLANE.md` (to be written).
+
+### 1.2 Roadmap items, sorted by the moratorium
+
+**Tier A — extend what integrates (moratorium-approved):**
+
+| Item | Existing prep | Named gap |
+|---|---|---|
+| Control/interop plane (§1.1) | `@enkerli/protocol`, `@enkerli/cli`, [HEADLESS.md](HEADLESS.md) | `param`/`command` types; per-tool parameter manifest; binding layer |
+| Every tool headless | [HEADLESS.md](HEADLESS.md) inventory | promote `apps/serpe/engine` → `@enkerli/upi`; promote ProgGenie generation → package; **DrawnQurve has no headless path** (its `GestureEngine` test target was never built); CLI entries for PitchFold / MIDIcurator |
+| Parameter exposure for modulation | protocol envelope | the parameter-manifest schema (shared with §1.1) |
+| Keyboard + MIDI shortcuts | protocol routing | command vocabulary + binding layer (shared with §1.1) |
+| Preset / pattern curation (your work) | `createLibraryBrowser` shipped ([UX_AUDIT.md](UX_AUDIT.md) §4 Q2), `@enkerli/library` model | content authoring — coding-light, see §2.4 |
+
+**Tier B — new capability (the "wait" pile; scheduled, not started):**
+
+| Item | Why it waits | Note |
+|---|---|---|
+| **Polyrhythmic Serpe** — concentric circles + stacked step lanes | genuine new feature | mirrors the just-shipped DrawnQurve polyphonic pattern (commit `5aae20a`); the cheapest new feature to reach because the interaction grammar is proven |
+| **Single-page movable-module workspace** | large; and it *depends on* §1.1 | modules are only worth co-locating once they share a message bus — so this is **downstream** of the control plane, not parallel to it |
+| **Apple Shortcuts / widgets** | platform-specific whim; lowest leverage | naturally becomes cheap *after* §1.1 — a Shortcut is just another sender of a `command`/`param` message |
+
+The ordering claim worth internalizing: **§1.1 makes B2 and B3 small.**
+The workspace and the Shortcuts hooks are both "just another client of the
+control plane." Building the plane first turns two large/awkward features
+into thin adapters.
+
+### 1.3 Polyrhythmic Serpe — the shape (Tier B, sketch)
+
+Parallel to DrawnQurve's polyphony (per-lane qurves, chips + `+` button,
+overlaid canvas, one playhead per sounding curve):
+
+- **Concentric circles** = multiple rhythm cycles sharing a center,
+  each its own period (the polyrhythm) — the circular analogue of
+  DrawnQurve's stacked curves.
+- **Stacked step lanes** = the linear view of the same thing: one lane per
+  cycle, independently editable, playing simultaneously.
+- The **selected cycle** renders at full strength; companions mid-weight;
+  a per-cycle playhead. The single-cycle field stays a **mirror** of the
+  selected cycle so existing consumers work unchanged — exactly the
+  DrawnQurve tactic.
+- Engine question to settle first: does `apps/serpe/engine` model one mask
+  or many? (This intersects the `@enkerli/upi` promotion — decide the data
+  shape once, for both.)
+
+Full spec when we pick it up: `docs/SERPE_POLYRHYTHM.md`.
+
+---
+
+## 2. Product layer
+
+*The suite has 5 personas ([personas.md](personas.md)) and an
+accessibility test plan that already uses them as lenses
+([A11Y_TEST_PLAN.md](A11Y_TEST_PLAN.md)). It does **not** yet have use
+cases, a user-testing protocol, or training material. This section is the
+skeleton for those — the genuinely missing part of "master plan."*
+
+### 2.1 Personas (exist — recap for reference)
+
+The five design targets, unchanged from [personas.md](personas.md):
+wind-controller performer · grid-instrument learner · theory
+explorer/educator · producer curating material · accessibility-first
+performer. Every use case below names the persona(s) it serves; every
+test session is run through at least one persona lens.
+
+### 2.2 Use cases — *to write*
+
+The missing bridge between personas and features. Shape per use case:
+
+> **Title** · persona(s) · trigger · tools involved · the flow · what
+> "success" looks like · which roadmap items it exercises.
+
+Seed set (one strong use case per persona, to be fleshed out):
+
+| # | Persona | Sketch |
+|---|---|---|
+| U1 | Wind-controller performer | Recall a Vane preset hands-free and switch density to Performance mode from a foot controller — exercises §1.1 command bindings |
+| U2 | Grid-instrument learner | Build a fingering in exquisite-fingerings, push its PCS to PickPCS/PitchFold — exercises `scale` messaging (the shipped pair) |
+| U3 | Theory explorer/educator | Follow one chord across Chord Dictionary → PickPCS → Progression Studio with synchronized representations |
+| U4 | Producer curating material | Batch-tag clips in MIDIcurator, export a Serpe pattern into the DAW, never lose work — exercises library + export idioms |
+| U5 | Accessibility-first performer | Drive a full session with keyboard + switch only — the §1.1 binding layer is the enabling feature, not an add-on |
+
+The **cross-tool** use cases (U2, U3, U4) are the ones that justify the
+control plane; capturing them well is how we keep §1.1 honest about what it
+must support.
+
+### 2.3 User-testing protocol — *to write*
+
+What the suite needs before it can claim it was tested with people, not
+just against axe-core. Skeleton:
+
+- **Method** — moderated task-based sessions; think-aloud; small-n
+  (5 is enough to surface the majority of issues).
+- **Recruitment** — one participant matched to each persona where possible;
+  the accessibility-first persona recruited with real assistive tech, not
+  simulated.
+- **Tasks** — drawn directly from §2.2 use cases (a use case *is* a test
+  script).
+- **Instrumentation** — what to capture (completion, time, error, quotes),
+  and the ethics/consent note (Public-Domain project, but sessions are
+  still people's data — no recording without consent, no PII retained).
+- **Reporting** — reuse the [A11Y_TEST_PLAN.md](A11Y_TEST_PLAN.md)
+  reporting format so accessibility and usability findings live in one
+  ledger.
+- **Cadence** — when in the roadmap testing happens (proposal: after §1.1
+  ships the binding layer, because U1/U5 can't be tested before it exists).
+
+### 2.4 Training & documentation plan — *to write*
+
+Two audiences, deliberately separated:
+
+- **User-facing** — per-tool quickstarts and the cross-tool use-case
+  walkthroughs; single-sourced through the existing site pipeline
+  ([site.md](site.md) → `build-site.mjs`), copy staying plain and humble
+  per the HANDOFF principle. The existing `docs/content/*` (user-guide,
+  the-story, architecture) is the seam to extend.
+- **Contributor/agent-facing** — the HANDOFF + CONVENTIONS + per-package
+  docs already serve this well; the gap is a single index that says "start
+  here for X."
+
+The **your-work-heavy** items you named — presets, pattern curation — live
+here: they are content authored on top of shipped mechanism
+(`createLibraryBrowser`, the library model), and they double as training
+material (a curated preset set *is* a lesson).
+
+---
+
+## 3. What this plan is deliberately not deciding yet
+
+- The three-vs-one design-system question — owned by the Design pass
+  ([UX_AUDIT.md](UX_AUDIT.md) §4), not this document.
+- JUCE independence — owned by [JUCE_INDEPENDENCE.md](JUCE_INDEPENDENCE.md).
+- Anything gated on the Apple Developer account (live App-Group inbox) —
+  tracked in the private plan doc §6, not re-opened here.
+
+---
+
+## 4. Immediate next actions (proposal)
+
+1. **Write `docs/CONTROL_PLANE.md`** — the §1.1 spec: parameter-manifest
+   schema, `param`/`command` envelope additions, binding-layer shape.
+   This is the keystone; almost everything else gets cheaper after it.
+2. **Draft the U1–U5 use cases in full** (§2.2) — they double as the §1.1
+   requirements check *and* the §2.3 test scripts, so they pay for
+   themselves twice.
+3. Then choose: promote `@enkerli/upi` (unblocks headless Serpe + informs
+   the polyrhythm data shape) **or** start the polyrhythmic-Serpe spec.
+
+*Sequence rationale: 1 and 2 are mutually reinforcing and both sit inside
+the moratorium; 3 is the first place the roadmap forks between "more
+integration" and "the fun new feature," and is the right place to make a
+deliberate choice rather than drift.*
