@@ -264,3 +264,41 @@ describe("vaneParamIdMap", () => {
     expect(map["output"]).toBe(8);          // Output:8
   });
 });
+
+// ── upi verb (the promoted @enkerli/upi engine) ──────────────────────────────
+
+import { upiInfo } from "./index.js";
+
+describe("upiInfo (full Serpe UPI language, headless)", () => {
+  it("parses Euclidean E(3,8) to the tresillo with analysis", () => {
+    const r = upiInfo("E(3,8)");
+    expect(r.ok).toBe(true);
+    expect(r.analysis!.binary).toBe("10010010");
+    expect(r.analysis!.hex).toBe("0x94");
+    expect(r.analysis!.decimal).toBe(73);
+    expect(r.analysis!.onsets).toEqual([0, 3, 6]);
+  });
+  it("handles polygon-LCM combination P(3,0)+P(5,0) → 15 steps", () => {
+    const r = upiInfo("P(3,0)+P(5,0)");
+    expect(r.ok).toBe(true);
+    expect(r.analysis!.n).toBe(15);   // lcm(3,5)
+  });
+  it("carries an {accent} layer", () => {
+    const r = upiInfo("{100}E(3,8)");
+    expect(r.accents.some((x) => x)).toBe(true);
+  });
+  it("respects the --steps context for bare specs", () => {
+    expect(upiInfo("E(5,8);16", 16).analysis!.n).toBe(16);
+  });
+});
+
+describe("Serpe manifest", () => {
+  it("resolves by app id and validates", () => {
+    expect(bundledManifestPath("serpe")).toMatch(/apps\/serpe\/manifest\.json$/);
+    const body = JSON.parse(readFileSync(bundledManifestPath("serpe")!, "utf8"));
+    const { manifest } = describeManifest(body);   // throws if invalid
+    expect(manifest.app).toBe("serpe");
+    expect(manifest.params.map((p) => p.id)).toContain("steps");
+    expect(manifest.commands.map((c) => c.name)).toContain("rotate");
+  });
+});

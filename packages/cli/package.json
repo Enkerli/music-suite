@@ -16,6 +16,7 @@
   "dependencies": {
     "@enkerli/theory": "*",
     "@enkerli/midi": "*",
-    "@enkerli/protocol": "*"
+    "@enkerli/protocol": "*",
+    "@enkerli/upi": "*"
   }
 }

@@ -10,10 +10,13 @@ inherits every suite convention (leftmost = LSB, structural spelling,
 
 *Status: **steps 1–3 shipped 2026-07-15** (see §6) — the `manifest`/`param`/
 `command` types live in `@enkerli/protocol` with committed vectors, and the
-stdio-NDJSON transport (`enkerli send`/`recv`/`describe`) runs headless. The
-rest of this document (the manifest-per-app rollout, bindings, the pilot) is
-still design; genuinely open decisions are marked **[OPEN]**. Nothing ships
-without committed vectors, like every other cross-language contract here.*
+stdio-NDJSON transport (`enkerli send`/`recv`/`describe`) runs headless. Two
+real manifests exist — **Vane** (the pilot, 36 params) and **Serpe** (proving
+the pattern generalizes from an instrument to a pattern engine) — and
+`enkerli render --stream` closes the message → sound loop. The rest (the
+manifest-per-app rollout, the binding layer) is still design; genuinely open
+decisions are marked **[OPEN]**. Nothing ships without committed vectors,
+like every other cross-language contract here.*
 
 ---
 

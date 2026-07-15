@@ -21,7 +21,7 @@
  */
 import { readFileSync, writeFileSync } from "node:fs";
 import {
-  chordInfo, patternInfo, smfFromBars, renderVane,
+  chordInfo, patternInfo, upiInfo, smfFromBars, renderVane,
   sendMessage, toNdjson, parseNdjson, summarizeMessage, describeManifest,
   bundledManifestPath, MANIFEST_APPS, paramsFromStream, vaneParamIdMap,
   type SendOptions,
@@ -31,6 +31,7 @@ import type { AppId, Destination, ParamMode } from "@enkerli/protocol";
 const USAGE = `enkerli <command> …
   chord <values…> [--pcs|--notes]
   pattern <spec>                        E(3,8) · 0x94:8 · o111:8 · d73:8 · 10010010
+  upi "<notation>" [--steps N]          the full Serpe UPI language: P(3,0)+P(5,0), E(3,8);12, {100}E(3,8), Morse…
   smf "<bars>" -o <file.mid> [--tonic C] [--mode major|minor] [--bpm N] [--beats-per-chord N]
   render <notes…> -o <file.wav> [--seconds N] [--breath 0..1] [--sr N] [--param id=value]… [--stream]
                                         --stream: apply a control-plane param NDJSON stream from stdin (message → sound)
@@ -94,6 +95,22 @@ async function main(): Promise<number> {
       console.log(`octal   o${p.octal}:${p.steps}`);
       console.log(`decimal d${p.decimal}:${p.steps}`);
       console.log(`onsets  [${p.onsets.join(" ")}] (${p.onsetCount})`);
+      return 0;
+    }
+    case "upi": {
+      const notation = args.positional.join(" ");
+      if (!notation) throw new Error('upi: a UPI notation is required, e.g. "E(3,8)" or "P(3,0)+P(5,0)"');
+      const info = upiInfo(notation, one(args, "steps") !== undefined ? Number(one(args, "steps")) : 16);
+      if (!info.ok) { console.log(`no pattern (${info.error ?? "unparsed"})`); return 1; }
+      const a = info.analysis!;
+      console.log(`label   ${info.label}`);
+      console.log(`steps   ${a.n}`);
+      console.log(`binary  ${a.binary}`);
+      console.log(`hex     ${a.hex}:${a.n}`);
+      console.log(`decimal d${a.decimal}:${a.n}`);
+      console.log(`onsets  [${a.onsets.join(" ")}] (${a.k}, density ${a.density.toFixed(3)})`);
+      if (info.accents.some((x) => x)) console.log(`accents [${info.accents.join("")}]`);
+      console.log(`balanced ${a.balanced} · evenness ${a.evenness.toFixed(3)}`);
       return 0;
     }
     case "smf": {

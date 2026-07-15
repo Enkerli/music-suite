@@ -29,6 +29,7 @@ import {
   parseLeadsheet, type Progression,
 } from "@enkerli/theory";
 import { progressionToSMF, progressionFromSMF } from "@enkerli/midi";
+import { parseUPI, analyse } from "@enkerli/upi";
 
 // ── chord ─────────────────────────────────────────────────────────────────────
 
@@ -104,6 +105,30 @@ export function patternInfo(spec: string): PatternInfo {
     octal: patternToOctal(pattern),
     decimal: patternToDecimal(pattern),
   };
+}
+
+// ── upi (the full Serpe notation language, via @enkerli/upi) ──────────────────
+
+export interface UpiInfo {
+  ok: boolean;
+  label: string;
+  steps: number[];
+  accents: number[];
+  analysis: import("@enkerli/upi").Analysis | null;
+  error?: string;
+}
+
+/**
+ * Parse Serpe's UPI notation (the full language: Euclidean, polygons, Morse,
+ * combinations `P(3,0)+P(5,0)`, quantization `E(3,8);12`, `{accent}` prefixes,
+ * shorthand names) and report the resulting pattern with its analysis. Where
+ * `patternInfo` covers the canonical theory codecs, this covers the whole
+ * notation — the reason `apps/serpe/engine` was promoted to `@enkerli/upi`.
+ */
+export function upiInfo(notation: string, steps = 16): UpiInfo {
+  const r = parseUPI(notation, { n: steps });
+  if (!r.ok) return { ok: false, label: r.label ?? notation, steps: [], accents: [], analysis: null, ...(r.error !== undefined && { error: r.error }) };
+  return { ok: true, label: r.label, steps: r.steps, accents: r.accents, analysis: analyse(r.steps) };
 }
 
 // ── smf ───────────────────────────────────────────────────────────────────────
@@ -334,6 +359,7 @@ export function summarizeMessage(m: SuiteMessage): string {
  */
 export const MANIFEST_APPS: Partial<Record<AppId, string>> = {
   vane: "../../../apps/vane/manifest.json",
+  serpe: "../../../apps/serpe/manifest.json",
 };
 
 /** Absolute path to a bundled app manifest, or null if the app ships none. */

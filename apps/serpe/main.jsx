@@ -22,11 +22,9 @@ import serpeCss from './styles/serpe.css';
 }
 
 import { parseUPI, euclid, polygon, rotate, complement,
-         barlowTransform, indispensabilityWeights, onsetCount } from './engine/upi.js';
-import { analyse } from './engine/analysis.js';
-import { analyzeSyncopation } from './engine/syncopation.js';
-import { funkyEuclidean, bellCurveRandomSteps } from './engine/rhythm.js';
-import { mutatePattern } from './engine/mutate.js';
+         barlowTransform, indispensabilityWeights, onsetCount,
+         analyse, analyzeSyncopation, funkyEuclidean, bellCurveRandomSteps,
+         mutatePattern } from '@enkerli/upi';
 import { createCircleView, createStepView } from './engine/render.js';
 import { initJuceBridge, sendParamActual, sendUPI, sendPlaying, sendBPM, sendToggleAccent, juceAvailable } from './juce-bridge.js';
 import { startWebMidi, selectMidiInput, selectMidiOutput, sendMidiNoteOn, sendMidiNoteOff, allMidiNotesOff, midiSupported } from './webmidi-bridge.js';

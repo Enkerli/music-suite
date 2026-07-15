@@ -270,11 +270,19 @@ material (a curated preset set *is* a lesson).
    `enkerli send --to vane --param morph=1.0 | enkerli render 69 -o out.wav
    --stream` makes audio from a message, headless. The whole plane now runs
    end to end: intent → message → transport → tool → sound.
-   **Next choices:** the Serpe / `@enkerli/upi` manifest+promotion (settles
-   the polyrhythm data shape too); the shared **binding layer** (key/MIDI-CC
-   → param/command, §1.1); or the *time-varying* automation form of
-   `--stream` ([CONTROL_PLANE.md](CONTROL_PLANE.md) §7 #6). The
-   polyrhythmic-Serpe spec stays shelved (§1.2) until you want it.
+6. ✅ **Serpe / `@enkerli/upi` promotion + manifest** *(shipped 2026-07-15)*:
+   `apps/serpe/engine/{upi,rhythm,analysis,syncopation,mutate}.js` → the new
+   `@enkerli/upi` package (framework-agnostic; the DOM views stay app-side);
+   `enkerli upi` speaks the full notation language headless; `apps/serpe/
+   manifest.json` (steps/tempo/swing + rotate/invert/complement/mutate)
+   proves the manifest pattern generalizes from an instrument (Vane) to a
+   pattern engine. The engine gained its **first tests** (14) in the move.
+   **Next choices:** the shared **binding layer** (key/MIDI-CC →
+   param/command, §1.1); the last headless promotion (ProgGenie generation →
+   package); or the *time-varying* automation form of `--stream`
+   ([CONTROL_PLANE.md](CONTROL_PLANE.md) §7 #6). The polyrhythmic-Serpe spec
+   stays shelved (§1.2) until you want it — but the `@enkerli/upi` data shape
+   is now the place its multi-cycle model will live.
 
 *Sequence rationale: 1 and 2 are mutually reinforcing and both sit inside
 the moratorium; the spec de-risked the design so the next move is code, not
