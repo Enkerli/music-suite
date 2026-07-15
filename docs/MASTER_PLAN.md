@@ -152,15 +152,17 @@ personas.md): whether #7 stays a persona or becomes a cross-cutting
 "cognitive style" dimension. Every use case below names the merged
 persona(s) it serves.
 
-### 2.2 Use cases — *to write*
+### 2.2 Use cases — ✅ drafted in full ([USE_CASES.md](USE_CASES.md), 2026-07-15)
 
-The missing bridge between personas and features. Shape per use case:
+The bridge between personas and features. All seven are now written out in
+full — each doubling as a **plane requirements-check** and a **user-testing
+script** (§2.3 draws its tasks straight from them), with "works today" kept
+separate from "what it surfaces as a gap." Shape per use case:
 
 > **Title** · persona(s) · trigger · tools involved · the flow · what
-> "success" looks like · which roadmap items it exercises.
+> "success" looks like (observable) · what it exercises · what it surfaces.
 
-Seed set (one strong use case per persona, to be fleshed out) — one per the
-seven reconciled personas:
+The seed set that became the full doc:
 
 | # | Persona | Sketch |
 |---|---|---|
@@ -184,9 +186,11 @@ Don't write this from scratch: **MIDIcurator's
 already is one** — objectives, a recruitment matrix, SUS>70 and
 task-completion targets, quant+qual criteria. The job is to **lift it to
 the suite level**: same structure, personas swapped for the merged §2.1 set,
-tasks swapped for the §2.2 cross-tool use cases (a MIDIcurator-only plan
-can't exercise U2/U3/U4 — that lift *is* the "bringing things together"
-work). Skeleton once lifted:
+tasks swapped for the **§2.2 use cases** — which were written with observable
+success criteria and a "readiest to run" note precisely so they drop in as
+test tasks ([USE_CASES.md](USE_CASES.md); U7 is fully real now, U6 next). A
+MIDIcurator-only plan can't exercise U1–U3 — that lift *is* the "bringing
+things together" work. Skeleton once lifted:
 
 - **Method** — moderated task-based sessions; think-aloud; small-n
   (5 is enough to surface the majority of issues) — as MIDIcurator's plan
@@ -252,10 +256,10 @@ material (a curated preset set *is* a lesson).
    `enkerli send --to serpe --param density=0.7 | enkerli recv` carries the
    message model over a Unix pipe — headless piping, demonstrated, pure
    package work inside the moratorium. **Next code:** item 4 (pilot manifest).
-2. ✅ **Persona sets merged** (§2.1) into `personas.md` as the one authority
-   — seven reconciled personas *(2026-07-15)*. **Next:** draft the U1–U7 use
-   cases in full (§2.2) — they double as the plane's requirements check *and*
-   the §2.3 test scripts, so they pay for themselves twice.
+2. ✅ **Personas merged** (§2.1, seven) **and use cases drafted in full**
+   (§2.2, [USE_CASES.md](USE_CASES.md)) *(2026-07-15)* — U1–U7 double as the
+   plane's requirements check *and* the §2.3 test scripts. **Next:** the
+   user-testing protocol (§2.3), lifting MIDIcurator's plan over these.
 3. **Recover the local DrawnQurve testing notes** (§2.0) and push them —
    an at-risk artifact until it is in the repo.
 4. ✅ **Pilot manifest — Vane** *(shipped 2026-07-15)*:
