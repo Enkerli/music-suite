@@ -71,7 +71,7 @@ piping, shortcuts, and modulation together.
 | Item | Existing prep | Named gap |
 |---|---|---|
 | Control/interop plane (§1.1) | `@enkerli/protocol`, `@enkerli/cli`, [HEADLESS.md](HEADLESS.md) | ✅ **shipped**: `param`/`command`/`manifest` types, NDJSON transport, Vane+Serpe manifests, `@enkerli/control` binding layer |
-| Every tool headless | [HEADLESS.md](HEADLESS.md) inventory | ✅ Serpe → `@enkerli/upi`; **remaining:** ProgGenie generation → package; **DrawnQurve has no headless path**; CLI entries for PitchFold / MIDIcurator |
+| Every tool headless | [HEADLESS.md](HEADLESS.md) inventory | ✅ Serpe → `@enkerli/upi`, ProgGenie → `@enkerli/proggen` (`enkerli generate`); **remaining:** **DrawnQurve has no headless path**; CLI verbs for PitchFold / MIDIcurator |
 | Parameter exposure for modulation | protocol envelope | ✅ **shipped**: the parameter-manifest schema + `param` verb (Vane 36 params, Serpe) |
 | Keyboard + MIDI shortcuts | protocol routing | ✅ **shipped**: `@enkerli/control` + `enkerli bind`; **remaining:** in-app control-map editor UI (Track B) |
 | Preset / pattern curation (your work) | `createLibraryBrowser` shipped ([UX_AUDIT.md](UX_AUDIT.md) §4 Q2), `@enkerli/library` model | content authoring — coding-light, see §2.4 |
@@ -295,15 +295,22 @@ material (a curated preset set *is* a lesson).
    and a **bus monitor**. Layout persists; modules drag. It landed as the
    *thin adapter* the plan predicted — the ordering claim (§1.2) is now
    borne out. Verified end-to-end under happy-dom (16 tests).
-   **Next choices:** the last headless promotion (ProgGenie generation →
-   package); the *time-varying* `--stream` automation form
+9. ✅ **ProgGenie → `@enkerli/proggen`** *(shipped 2026-07-15)*: the last
+   engine promotion — `apps/progression-studio/src/{generate,curation}.js` +
+   the derived tables → `@enkerli/proggen`; `enkerli generate` is the full
+   **params → progression → SMF** pipeline (Roman bars reproducible by seed,
+   realized with `--tonic`, or straight to SMF with `-o`; chains with `smf`).
+   Both engine promotions (Serpe, ProgGenie) are now done — every core engine
+   has a headless version. 52 tests moved with the engine.
+   **Next choices:** the *time-varying* `--stream` automation form
    ([CONTROL_PLANE.md](CONTROL_PLANE.md) §7 #6); the in-app **control-map
    editor UI** (Track B — logic shipped, surface not); the **Apple Shortcuts**
-   adapter (the last projection); or — a shift the whole session has deferred
-   — the **product layer** (§2: persona reconciliation, U1–U5 use cases),
-   which now has a complete plane to exercise. The polyrhythmic-Serpe spec
-   stays shelved (§1.2) — the `@enkerli/upi` data shape is where its
-   multi-cycle model will live.
+   adapter (the last projection); the narrow headless remainder (a DrawnQurve
+   path; PitchFold/MIDIcurator CLI verbs); or — the shift the whole session
+   has deferred — the **product layer** (§2: persona reconciliation, U1–U5
+   use cases), which now has a complete plane to exercise. The polyrhythmic-
+   Serpe spec stays shelved (§1.2) — the `@enkerli/upi` data shape is where
+   its multi-cycle model will live.
 
 *Sequence rationale: 1 and 2 are mutually reinforcing and both sit inside
 the moratorium; the spec de-risked the design so the next move is code, not

@@ -30,6 +30,7 @@ import {
 } from "@enkerli/theory";
 import { progressionToSMF, progressionFromSMF } from "@enkerli/midi";
 import { parseUPI, analyse } from "@enkerli/upi";
+import { generateLabels, realizeLabel } from "@enkerli/proggen";
 import {
   resolveEvent, validateControlMap,
   type ControlMap, type InputEvent,
@@ -133,6 +134,49 @@ export function upiInfo(notation: string, steps = 16): UpiInfo {
   const r = parseUPI(notation, { n: steps });
   if (!r.ok) return { ok: false, label: r.label ?? notation, steps: [], accents: [], analysis: null, ...(r.error !== undefined && { error: r.error }) };
   return { ok: true, label: r.label, steps: r.steps, accents: r.accents, analysis: analyse(r.steps) };
+}
+
+// ── generate (ProgGenie's corpus generation, via @enkerli/proggen) ────────────
+
+/** The bundled corpus transition table (derived statistics only, ships in the package). */
+export function proggenTablePath(): string {
+  return fileURLToPath(new URL("../../proggen/src/data/transitions.json", import.meta.url));
+}
+
+export interface GenerateInfo {
+  mode: "major" | "minor";
+  labels: string[];
+  /** Bar notation (one Roman-numeral chord per bar) — feeds `enkerli smf`. */
+  bars: string;
+  /** Realized chord symbols in the given key, when a tonic is supplied. */
+  symbols?: string[];
+}
+
+/**
+ * Generate a progression from the corpus transition statistics — the full
+ * headless pipeline the ProgGenie promotion unlocks. Output is Roman-numeral
+ * bar notation (the suite convention) that chains straight into `smfFromBars`;
+ * with a tonic, also realizes the chords to spelled symbols.
+ */
+export function generateInfo(opts: {
+  mode?: "major" | "minor"; length?: number; seed?: number;
+  method?: "markov" | "markov-cadence" | "circle"; variety?: string; tonic?: string;
+} = {}): GenerateInfo {
+  const tables = JSON.parse(readFileSync(proggenTablePath(), "utf8")) as Record<"major" | "minor", Record<string, unknown>>;
+  const mode = opts.mode ?? "major";
+  const labels = generateLabels(tables[mode], mode, {
+    length: opts.length ?? 8,
+    ...(opts.seed !== undefined && { seed: opts.seed }),
+    method: opts.method ?? "markov",
+    variety: opts.variety ?? "faithful",
+  });
+  const bars = labels.join(" | ");
+  const info: GenerateInfo = { mode, labels, bars };
+  if (opts.tonic) {
+    const key = { tonic: opts.tonic, mode };
+    info.symbols = labels.map((l) => realizeLabel(l, key)?.symbol ?? l);
+  }
+  return info;
 }
 
 // ── smf ───────────────────────────────────────────────────────────────────────

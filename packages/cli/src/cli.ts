@@ -21,7 +21,7 @@
  */
 import { readFileSync, writeFileSync } from "node:fs";
 import {
-  chordInfo, patternInfo, upiInfo, smfFromBars, renderVane,
+  chordInfo, patternInfo, upiInfo, generateInfo, smfFromBars, renderVane,
   sendMessage, toNdjson, parseNdjson, summarizeMessage, describeManifest,
   bundledManifestPath, MANIFEST_APPS, paramsFromStream, vaneParamIdMap,
   resolveEvent, validateControlMap, manifestsForControlMap,
@@ -33,6 +33,8 @@ const USAGE = `enkerli <command> …
   chord <values…> [--pcs|--notes]
   pattern <spec>                        E(3,8) · 0x94:8 · o111:8 · d73:8 · 10010010
   upi "<notation>" [--steps N]          the full Serpe UPI language: P(3,0)+P(5,0), E(3,8);12, {100}E(3,8), Morse…
+  generate [--mode major|minor] [--length N] [--seed N] [--method markov|markov-cadence|circle] [--tonic C] [-o out.mid]
+                                        a progression from the corpus statistics → Roman bars (or realized SMF with -o)
   smf "<bars>" -o <file.mid> [--tonic C] [--mode major|minor] [--bpm N] [--beats-per-chord N]
   render <notes…> -o <file.wav> [--seconds N] [--breath 0..1] [--sr N] [--param id=value]… [--stream]
                                         --stream: apply a control-plane param NDJSON stream from stdin (message → sound)
@@ -114,6 +116,32 @@ async function main(): Promise<number> {
       console.log(`onsets  [${a.onsets.join(" ")}] (${a.k}, density ${a.density.toFixed(3)})`);
       if (info.accents.some((x) => x)) console.log(`accents [${info.accents.join("")}]`);
       console.log(`balanced ${a.balanced} · evenness ${a.evenness.toFixed(3)}`);
+      return 0;
+    }
+    case "generate": {
+      const mode = one(args, "mode");
+      if (mode !== undefined && mode !== "major" && mode !== "minor")
+        throw new Error("generate: --mode must be major or minor");
+      const method = one(args, "method");
+      const info = generateInfo({
+        ...(mode !== undefined && { mode }),
+        ...(one(args, "length") !== undefined && { length: Number(one(args, "length")) }),
+        ...(one(args, "seed") !== undefined && { seed: Number(one(args, "seed")) }),
+        ...(method !== undefined && { method: method as "markov" | "markov-cadence" | "circle" }),
+        ...(one(args, "variety") !== undefined && { variety: one(args, "variety")! }),
+        ...(one(args, "tonic") !== undefined && { tonic: one(args, "tonic")! }),
+      });
+      const out = one(args, "out");
+      if (out) {
+        // realize headless straight to SMF: Roman bars → the same embedded-Progression file `smf` writes
+        const r = smfFromBars(info.bars, { mode: info.mode, ...(one(args, "tonic") !== undefined && { tonic: one(args, "tonic")! }) });
+        writeFileSync(out, r.bytes);
+        console.log(`wrote ${out}: ${r.chordCount} chords from a generated ${info.mode} progression (embedded Progression included)`);
+        return 0;
+      }
+      console.log(`bars    ${info.bars}`);
+      if (info.symbols) console.log(`symbols ${info.symbols.join(" | ")}`);
+      console.log(`(${info.labels.length} chords · ${info.mode}${one(args, "seed") !== undefined ? ` · seed ${one(args, "seed")}` : ""}) — pipe the bars into 'enkerli smf' or add -o`);
       return 0;
     }
     case "smf": {

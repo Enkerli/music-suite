@@ -1,0 +1,23 @@
+{
+  "name": "@enkerli/proggen",
+  "version": "0.1.0",
+  "description": "ProgGenie's progression engine: Markov/trigram generation over corpus transition statistics, realization via @enkerli/theory, curation weighting, voicing — framework-agnostic. Powers enkerli generate.",
+  "license": "CC0-1.0",
+  "type": "module",
+  "main": "src/index.js",
+  "types": "index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./index.d.ts",
+      "default": "./src/index.js"
+    },
+    "./data/transitions.json": "./src/data/transitions.json",
+    "./data/trigrams.json": "./src/data/trigrams.json"
+  },
+  "scripts": {
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@enkerli/theory": "*"
+  }
+}

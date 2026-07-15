@@ -17,6 +17,7 @@ wrapper over an import-testable library):
 | `enkerli pattern "E(3,8)"` | rhythm codecs: binary/hex/octal/decimal/onsets (accepts `0x94:8`, `o111:8`, `d73:8`, `10010010`) | `@enkerli/theory` rhythm — leftmost = LSB throughout |
 | `enkerli upi "P(3,0)+P(5,0)"` | the **full Serpe UPI language** — polygons, combination (LCM projection), quantization `E(3,8);12`, `{accent}` prefixes, Morse — with analysis | `@enkerli/upi` (the promoted engine) |
 | `enkerli smf "Dm7 G7 \| Cmaj7" -o out.mid` | bar notation → canonical Progression → format-0 SMF **with the embedded `MCURATOR:v1 PROG` payload** — the same file "Send to MIDIcurator" writes | `@enkerli/theory` parseLeadsheet + `@enkerli/midi` |
+| `enkerli generate --mode major --length 8 --seed 42 [--tonic C] [-o out.mid]` | a progression from the corpus statistics → Roman bars (reproducible by seed), realized to symbols with `--tonic`, or straight to SMF with `-o` — the full **params → progression → SMF** pipeline | `@enkerli/proggen` (the promoted engine) + `@enkerli/theory` |
 | `enkerli render 60 64 67 -o out.wav --breath 0.9 --param 12=0.6` | **audio through Vane's real DSP** (the committed `apps/vane/synth/vane-dsp.wasm` the browser standalone plays); breath-driven envelope, wasm param ids | Vane WASM voice in node |
 | `enkerli send --to serpe --param density=0.7` · `--command mutate --arg amount=0.3` | control-plane message → one NDJSON `SuiteMessage` (docs/CONTROL_PLANE.md); `\| enkerli recv` reads/validates/summarizes — **`enkerli A \| enkerli B` is tool-to-tool piping over a Unix pipe** | `@enkerli/protocol` (added 2026-07-15) |
 | `enkerli describe <app\|manifest.json>` | print a tool's parameter/command surface (`enkerli describe vane` = the pilot manifest, 36 params) | `@enkerli/protocol` + `apps/vane/manifest.json` |
@@ -31,7 +32,7 @@ wrapper over an import-testable library):
 | **TS packages** (theory, midi, library, protocol, webmidi codecs, corpus-tools, codegen) | ✅ by construction | `npm test` (937+ vitest, node); `regenerate-transitions` bin (corpus-tools); vector generators (theory, protocol) | — |
 | **Vane** | ✅ **four ways** | ① WASM voice in node: `node Tools/wasm/regression-test.mjs` (33 checks) + `enkerli render`; ② console targets: `VaneSelfTest` (unit-test gate), `VaneRenderProbe` (engine measurement), `VanePresetGen`, `VanePresetExport` (→ MODEP LV2 preset bundles); ③ headless Linux **LV2** (default Linux build: no WebView, no WebKitGTK — MODEP/Patchbox); ④ **CLAP** target on every desktop OS | WASM voice still lags the plugin on transient/unison/etc. (parity queue) — `render` reflects the wasm's feature set |
 | **Serpe** | ✅ engines **+ package + CLI** | node conformance: `node WebApp/tests/rhythm-conformance.mjs` (134 vectors); C++ `serpe_conformance` console app (CTest + post-build gate); **`@enkerli/upi`** (the promoted engine, 14 vitest) drives `enkerli upi` | ✅ **promoted 2026-07-15**: `apps/serpe/engine/{upi,rhythm,analysis,syncopation,mutate}.js` → `@enkerli/upi` (the DOM SVG views stay in `apps/serpe/engine/render.js`); `enkerli upi` speaks the full notation language. Progressive/scenes stay stateful/engine-side |
-| **ProgGenie** | 🟡 in principle | `apps/progression-studio/src/generate.js` is plain ESM over `@enkerli/theory` + the derived tables (`data/transitions.json`, `data/trigrams.json`) — vitest exercises it in node today | **generation is app code, not a package** — promoting it would unlock `enkerli generate` (params → progression → SMF, the full headless pipeline with `smf`) |
+| **ProgGenie** | ✅ engine **+ package + CLI** | **`@enkerli/proggen`** (the promoted engine — generation + curation + realization over the derived tables it now ships) drives `enkerli generate`; 52 vitest | ✅ **promoted 2026-07-15**: `apps/progression-studio/src/{generate,curation}.js` + `data/*.json` → `@enkerli/proggen`; `enkerli generate` is the full params → progression → SMF pipeline (chains with `smf`). Corpus stays derived-statistics-only (HANDOFF §5) |
 | **MIDIcurator** | 🟡 analysis only | `src/lib/` (gesture/harmonic/leadsheet analysis, SMF metadata) runs in node via vitest | no CLI entry; Apple-Loops DB reading is sql.js/browser-bound by design |
 | **PitchFold** | ✅ engine | `apps/pitchfold/engine/{pcs,voices}.js` node-clean, unit-tested (quantizer verified against the C++ probe) | no CLI entry (quantize-a-stream would be trivial once wanted) |
 | **DrawnQurve** | ✗ | — | its own roadmap Q3: `GestureEngine` is host-free C++, "directly unit-testable" — the test target was never built; no console/render path |
@@ -45,7 +46,10 @@ wrapper over an import-testable library):
   Output param (id 8) is the headroom lever.
 - Everything here obeys the suite conventions: leftmost = LSB masks,
   structural spelling, derived-statistics-only corpus data.
-- The Serpe UPI-engine promotion is **done** (2026-07-15 → `@enkerli/upi`,
-  `enkerli upi`). The remaining ProgGenie generation promotion is the last
-  step between "engines run in node" and "every tool has a headless version";
-  a mechanical extraction, queued in plan §6 E3.
+- **Both engine promotions are done** (2026-07-15): Serpe → `@enkerli/upi`
+  (`enkerli upi`) and ProgGenie → `@enkerli/proggen` (`enkerli generate`).
+  That closes the distance between "engines run in node" and "every core
+  engine has a headless version." What remains for full headless coverage is
+  narrower: DrawnQurve still has **no** headless path (its `GestureEngine`
+  test target was never built), and PitchFold/MIDIcurator have importable
+  engines but no `enkerli` verb yet.

@@ -337,3 +337,43 @@ describe("bind (control-map resolution over bundled manifests)", () => {
     expect((m!.body as { name: string }).name).toBe("mutate");
   });
 });
+
+// ── generate (the promoted @enkerli/proggen engine) ──────────────────────────
+
+import { generateInfo, proggenTablePath } from "./index.js";
+import { existsSync as exists2 } from "node:fs";
+
+describe("generateInfo (corpus progression generation, headless)", () => {
+  it("ships the bundled transition table", () => {
+    expect(exists2(proggenTablePath())).toBe(true);
+  });
+  it("generates a progression of the requested length, starting on the tonic", () => {
+    const r = generateInfo({ mode: "major", length: 8, seed: 42 });
+    expect(r.labels).toHaveLength(8);
+    expect(r.labels[0]).toBe("Imaj7"); // major start label
+    expect(r.bars).toBe(r.labels.join(" | "));
+  });
+  it("is reproducible by seed and varies with it", () => {
+    const a = generateInfo({ mode: "major", length: 8, seed: 42 });
+    const b = generateInfo({ mode: "major", length: 8, seed: 42 });
+    const c = generateInfo({ mode: "major", length: 8, seed: 43 });
+    expect(a.bars).toBe(b.bars);
+    expect(a.bars).not.toBe(c.bars);
+  });
+  it("realizes Roman labels to spelled symbols in a key", () => {
+    const r = generateInfo({ mode: "major", length: 6, seed: 7, tonic: "C" });
+    expect(r.symbols).toBeDefined();
+    expect(r.symbols[0]).toBe("Cmaj7"); // Imaj7 in C
+    expect(r.symbols).toHaveLength(r.labels.length);
+  });
+  it("the circle method walks the circle of fifths", () => {
+    const r = generateInfo({ mode: "major", method: "circle", length: 6 });
+    expect(r.labels).toHaveLength(6);
+  });
+  it("generated bars feed smfFromBars (the full headless pipeline)", () => {
+    const g = generateInfo({ mode: "major", length: 4, seed: 3 });
+    const smf = smfFromBars(g.bars, { tonic: "C", mode: "major" });
+    expect(smf.chordCount).toBe(4);
+    expect(smf.bytes[0]).toBe(0x4d); // "M" — a real MIDI file
+  });
+});

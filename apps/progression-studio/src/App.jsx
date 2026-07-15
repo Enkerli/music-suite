@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import table from "./data/transitions.json";
-import trigrams from "./data/trigrams.json";
-import { BEATS_PER_BAR, chordCompletions, chordSlots, divideBar, generateLabels, generateSections, labelMass, nextChordSuggestions, realizeLabel, rhythmBeats, rhythmPlan, startLabel, voiceChord, voiceProgression, voicingSuggestions } from "./generate.js";
+import table from "@enkerli/proggen/data/transitions.json";
+import trigrams from "@enkerli/proggen/data/trigrams.json";
+import { BEATS_PER_BAR, chordCompletions, chordSlots, divideBar, generateLabels, generateSections, labelMass, nextChordSuggestions, realizeLabel, rhythmBeats, rhythmPlan, startLabel, voiceChord, voiceProgression, voicingSuggestions } from "@enkerli/proggen";
 import { chordStartBeats, exportProgression, voicingsToClip } from "./exportMidi.js";
 import { loadLibrary, saveLibrary, newId } from "./library.js";
 import { progressionFromSMF } from "@enkerli/midi";
@@ -234,7 +234,7 @@ import {
   saveCuration,
   transitionDegrees,
   TRANSITION_STEP,
-} from "./curation.js";
+} from "@enkerli/proggen";
 
 const ROOTS = [
   "C", "C♯", "D♭", "D", "D♯", "E♭", "E", "F",

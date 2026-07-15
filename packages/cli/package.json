@@ -18,6 +18,7 @@
     "@enkerli/midi": "*",
     "@enkerli/protocol": "*",
     "@enkerli/upi": "*",
-    "@enkerli/control": "*"
+    "@enkerli/control": "*",
+    "@enkerli/proggen": "*"
   }
 }

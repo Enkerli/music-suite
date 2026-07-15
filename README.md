@@ -14,6 +14,7 @@ in the jazz-progressions workspace for the full architecture.
 | [`@enkerli/ui`](packages/ui) | Design tokens (CSS custom properties) and, later, shared components (PCS ring, hex grid, piano roll, collapsible-density shell) for webapps **and** JUCE WebView plugin UIs. |
 | [`@enkerli/upi`](packages/upi) | Serpe's UPI (Universal Pattern Input) rhythm engine, promoted from `apps/serpe`: notation parser, Euclidean/polygon/Barlow generators, transforms, and analysis — framework-agnostic, leftmost = LSB. Powers `enkerli upi`; the DOM SVG views stay app-side. |
 | [`@enkerli/control`](packages/control) | The binding layer: keyboard / MIDI-CC / MIDI-note → control-plane `param`/`command`, resolved against tool manifests (CC-normalization honors each param's scale). Framework-agnostic; a control-map is the saveable library-item shape. Powers `enkerli bind`. |
+| [`@enkerli/proggen`](packages/proggen) | ProgGenie's progression engine, promoted from `apps/progression-studio`: Markov/trigram generation over corpus transition statistics, realization via `@enkerli/theory`, curation weighting, voicing — framework-agnostic. Ships the derived tables (never the corpus); powers `enkerli generate`. |
 
 `apps/` will host the webapps as they migrate in (MIDIcurator, PickPCS,
 exquisite-fingerings, Chord Dictionary, Progression Studio).
