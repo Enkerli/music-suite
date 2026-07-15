@@ -17,6 +17,8 @@ wrapper over an import-testable library):
 | `enkerli pattern "E(3,8)"` | rhythm codecs: binary/hex/octal/decimal/onsets (accepts `0x94:8`, `o111:8`, `d73:8`, `10010010`) | `@enkerli/theory` rhythm — leftmost = LSB throughout |
 | `enkerli smf "Dm7 G7 \| Cmaj7" -o out.mid` | bar notation → canonical Progression → format-0 SMF **with the embedded `MCURATOR:v1 PROG` payload** — the same file "Send to MIDIcurator" writes | `@enkerli/theory` parseLeadsheet + `@enkerli/midi` |
 | `enkerli render 60 64 67 -o out.wav --breath 0.9 --param 12=0.6` | **audio through Vane's real DSP** (the committed `apps/vane/synth/vane-dsp.wasm` the browser standalone plays); breath-driven envelope, wasm param ids | Vane WASM voice in node |
+| `enkerli send --to serpe --param density=0.7` · `--command mutate --arg amount=0.3` | control-plane message → one NDJSON `SuiteMessage` (docs/CONTROL_PLANE.md); `\| enkerli recv` reads/validates/summarizes — **`enkerli A \| enkerli B` is tool-to-tool piping over a Unix pipe** | `@enkerli/protocol` (added 2026-07-15) |
+| `enkerli describe <manifest.json>` | validate a tool's parameter/command manifest and print its surface | `@enkerli/protocol` |
 
 ## Per tool
 

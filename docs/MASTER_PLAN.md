@@ -220,6 +220,14 @@ Two audiences, deliberately separated:
 - **Contributor/agent-facing** — the HANDOFF + CONVENTIONS + per-package
   docs already serve this well; the gap is a single index that says "start
   here for X."
+- **Reference substrate** (both audiences) — two catalogues started
+  2026-07-15, to grow as the docs pass proceeds:
+  - [GLOSSARY.md](GLOSSARY.md) — the suite's recurring terms (apps,
+    conventions, content model, control plane) in plain definitions.
+  - [NOTATION_SYSTEMS.md](NOTATION_SYSTEMS.md) — every way the suite writes
+    down a musical object (rhythm · PCS · chord · scale · fingering ·
+    voicing), each with its canonical form and authority. The editorial
+    goal is a "Rosetta" example per object — one value in all its forms.
 
 The **your-work-heavy** items you named — presets, pattern curation — live
 here: they are content authored on top of shipped mechanism
@@ -240,12 +248,13 @@ material (a curated preset set *is* a lesson).
 
 ## 4. Immediate next actions (proposal)
 
-1. **Control plane, steps 1–3** ([CONTROL_PLANE.md](CONTROL_PLANE.md) §6):
-   `manifest` + `param`/`command` types in `@enkerli/protocol` (schema,
-   validation, vectors) and the stdio-NDJSON transport in `@enkerli/cli`.
-   This is the keystone — pure package work, inside the moratorium, and
-   enough to *demonstrate* headless piping before any app UI changes. The
-   spec is written; this is the first code.
+1. ✅ **Control plane, steps 1–3** ([CONTROL_PLANE.md](CONTROL_PLANE.md) §6)
+   — **shipped 2026-07-15**: `manifest` + `param`/`command` types in
+   `@enkerli/protocol` (schema, validation, committed vectors) and the
+   stdio-NDJSON transport in `@enkerli/cli` (`send`/`recv`/`describe`).
+   `enkerli send --to serpe --param density=0.7 | enkerli recv` carries the
+   message model over a Unix pipe — headless piping, demonstrated, pure
+   package work inside the moratorium. **Next code:** item 4 (pilot manifest).
 2. **Merge the persona sets** (§2.1) into `personas.md` as the one
    authority, then **draft the U1–U5 use cases in full** (§2.2) — they
    double as the control-plane requirements check *and* the §2.3 test

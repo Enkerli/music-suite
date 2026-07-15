@@ -8,9 +8,12 @@ and parameter modulation all fall out together. It **extends**
 inherits every suite convention (leftmost = LSB, structural spelling,
 `@enkerli/library`'s app vocabulary as the one addressing authority).*
 
-*Status: design in progress. This document makes recommendations and marks
-the genuinely open decisions as **[OPEN]**. Nothing here ships until it has
-committed vectors, like every other cross-language contract in the repo.*
+*Status: **steps 1–3 shipped 2026-07-15** (see §6) — the `manifest`/`param`/
+`command` types live in `@enkerli/protocol` with committed vectors, and the
+stdio-NDJSON transport (`enkerli send`/`recv`/`describe`) runs headless. The
+rest of this document (the manifest-per-app rollout, bindings, the pilot) is
+still design; genuinely open decisions are marked **[OPEN]**. Nothing ships
+without committed vectors, like every other cross-language contract here.*
 
 ---
 
@@ -223,13 +226,17 @@ they become importable — do the extraction and the manifest together.
 
 ## 6. Sequencing (what to build, in order)
 
-1. **`ManifestBody` + `manifest` type** in `@enkerli/protocol` — schema,
-   validation, vectors. The keystone; nothing else is addressable without
-   it.
-2. **`param` + `command` types** — schema, validation, vectors, `make*`
-   helpers mirroring `makeMessage`.
-3. **stdio-NDJSON transport + `enkerli send`/`describe`** — the smallest end
-   to end proof: drive one app's engine headless over a pipe.
+1. ✅ **`ManifestBody` + `manifest` type** in `@enkerli/protocol` — schema,
+   validation, vectors, `makeManifest`. The keystone; nothing else is
+   addressable without it. *(shipped 2026-07-15)*
+2. ✅ **`param` + `command` types** — schema, validation, vectors,
+   `makeParam`/`makeCommand` mirroring `makeMessage`. Structural validation
+   only; manifest-conformance is the receiver's job (§3.1). *(shipped)*
+3. ✅ **stdio-NDJSON transport + `enkerli send`/`recv`/`describe`** — the
+   smallest end-to-end proof: `enkerli send --to serpe --param density=0.7 |
+   enkerli recv` carries the message model over an ordinary Unix pipe;
+   `describe <manifest.json>` validates and prints a tool's surface.
+   *(shipped; `--midi <port>` output deferred — needs a node MIDI dep)*
 4. **First real manifest on one app** — recommend **Serpe** (it is already
    the `@enkerli/upi` promotion candidate, and "change the pattern" is its
    native verb), or **Vane** (its wasm param ids are a manifest waiting to
