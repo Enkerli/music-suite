@@ -1,0 +1,19 @@
+{
+  "name": "@enkerli/control",
+  "version": "0.1.0",
+  "description": "The suite's binding layer: keyboard / MIDI-CC / MIDI-note → control-plane param/command, resolved against tool manifests. Framework-agnostic, leftmost = LSB",
+  "license": "CC0-1.0",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": "./dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc -b",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@enkerli/protocol": "*"
+  }
+}

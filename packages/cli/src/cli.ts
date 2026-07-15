@@ -24,7 +24,8 @@ import {
   chordInfo, patternInfo, upiInfo, smfFromBars, renderVane,
   sendMessage, toNdjson, parseNdjson, summarizeMessage, describeManifest,
   bundledManifestPath, MANIFEST_APPS, paramsFromStream, vaneParamIdMap,
-  type SendOptions,
+  resolveEvent, validateControlMap, manifestsForControlMap,
+  type SendOptions, type ControlMap, type InputEvent,
 } from "./index.js";
 import type { AppId, Destination, ParamMode } from "@enkerli/protocol";
 
@@ -37,7 +38,9 @@ const USAGE = `enkerli <command> …
                                         --stream: apply a control-plane param NDJSON stream from stdin (message → sound)
   send [--from app] [--to app|*] (--param id=value… [--mode set|report|observe] | --command name [--arg k=v]…)
   recv                                  read NDJSON SuiteMessages from stdin, validate + summarize
-  describe <app|manifest.json>          print a tool's parameter/command surface (app id e.g. vane, or a manifest file)`;
+  describe <app|manifest.json>          print a tool's parameter/command surface (app id e.g. vane, or a manifest file)
+  bind <control-map.json> (--cc N=V [--channel C] | --note N [--velocity V] [--channel C] | --key "combo" | --validate)
+                                        resolve an input through a control-map → the param/command message(s) (NDJSON)`;
 
 interface Args { positional: string[]; flags: Map<string, string[]> }
 
@@ -48,7 +51,7 @@ function parseArgs(argv: string[]): Args {
     const a = argv[i]!;
     if (a.startsWith("--")) {
       const name = a.slice(2);
-      const boolean = ["pcs", "notes", "help", "stream"].includes(name);
+      const boolean = ["pcs", "notes", "help", "stream", "validate"].includes(name);
       const value = boolean ? "true" : argv[++i];
       if (value === undefined) throw new Error(`--${name} needs a value`);
       if (!flags.has(name)) flags.set(name, []);
@@ -207,6 +210,37 @@ async function main(): Promise<number> {
       }
       console.error(`recv: ${seen} message(s)${bad ? `, ${bad} skipped` : ""}`);
       return bad && !seen ? 1 : 0;
+    }
+    case "bind": {
+      const path = args.positional[0];
+      if (!path) throw new Error("bind: a control-map JSON file path is required");
+      const map = JSON.parse(readFileSync(path, "utf8")) as ControlMap;
+      const manifests = manifestsForControlMap(map);
+      if (args.flags.has("validate")) {
+        const r = validateControlMap(map, manifests);
+        if (r.ok) { console.log(`valid: ${map.bindings.length} binding(s) over ${manifests.length} manifest(s)`); return 0; }
+        for (const e of r.errors) console.error(`  ${e}`);
+        return 1;
+      }
+      // Build one input event from --cc / --note / --key.
+      let event: InputEvent;
+      const ch = one(args, "channel") !== undefined ? Number(one(args, "channel")) : 1;
+      const cc = one(args, "cc"), note = one(args, "note"), key = one(args, "key");
+      if (cc !== undefined) {
+        const mm = /^(\d+)=(\d+)$/.exec(cc);
+        if (!mm) throw new Error(`bind: --cc expects N=V (e.g. 74=127), got "${cc}"`);
+        event = { kind: "midi-cc", cc: Number(mm[1]), channel: ch, value: Number(mm[2]) };
+      } else if (note !== undefined) {
+        event = { kind: "midi-note", note: Number(note), channel: ch, velocity: one(args, "velocity") !== undefined ? Number(one(args, "velocity")) : 100 };
+      } else if (key !== undefined) {
+        event = { kind: "key", combo: key };
+      } else {
+        throw new Error("bind: an input is required — --cc N=V, --note N, or --key \"combo\" (or --validate)");
+      }
+      const msgs = resolveEvent(map, event, manifests);
+      for (const m of msgs) process.stdout.write(toNdjson(m));
+      console.error(`bind: ${msgs.length} message(s) from ${map.bindings.length} binding(s)`);
+      return msgs.length ? 0 : 1;
     }
     case "describe": {
       const arg = args.positional[0];

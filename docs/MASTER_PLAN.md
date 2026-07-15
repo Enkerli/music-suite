@@ -70,10 +70,10 @@ piping, shortcuts, and modulation together.
 
 | Item | Existing prep | Named gap |
 |---|---|---|
-| Control/interop plane (§1.1) | `@enkerli/protocol`, `@enkerli/cli`, [HEADLESS.md](HEADLESS.md) | `param`/`command` types; per-tool parameter manifest; binding layer |
-| Every tool headless | [HEADLESS.md](HEADLESS.md) inventory | promote `apps/serpe/engine` → `@enkerli/upi`; promote ProgGenie generation → package; **DrawnQurve has no headless path** (its `GestureEngine` test target was never built); CLI entries for PitchFold / MIDIcurator |
-| Parameter exposure for modulation | protocol envelope | the parameter-manifest schema (shared with §1.1) |
-| Keyboard + MIDI shortcuts | protocol routing | command vocabulary + binding layer (shared with §1.1) |
+| Control/interop plane (§1.1) | `@enkerli/protocol`, `@enkerli/cli`, [HEADLESS.md](HEADLESS.md) | ✅ **shipped**: `param`/`command`/`manifest` types, NDJSON transport, Vane+Serpe manifests, `@enkerli/control` binding layer |
+| Every tool headless | [HEADLESS.md](HEADLESS.md) inventory | ✅ Serpe → `@enkerli/upi`; **remaining:** ProgGenie generation → package; **DrawnQurve has no headless path**; CLI entries for PitchFold / MIDIcurator |
+| Parameter exposure for modulation | protocol envelope | ✅ **shipped**: the parameter-manifest schema + `param` verb (Vane 36 params, Serpe) |
+| Keyboard + MIDI shortcuts | protocol routing | ✅ **shipped**: `@enkerli/control` + `enkerli bind`; **remaining:** in-app control-map editor UI (Track B) |
 | Preset / pattern curation (your work) | `createLibraryBrowser` shipped ([UX_AUDIT.md](UX_AUDIT.md) §4 Q2), `@enkerli/library` model | content authoring — coding-light, see §2.4 |
 
 **Tier B — new capability (the "wait" pile; scheduled, not started):**
@@ -277,12 +277,23 @@ material (a curated preset set *is* a lesson).
    manifest.json` (steps/tempo/swing + rotate/invert/complement/mutate)
    proves the manifest pattern generalizes from an instrument (Vane) to a
    pattern engine. The engine gained its **first tests** (14) in the move.
-   **Next choices:** the shared **binding layer** (key/MIDI-CC →
-   param/command, §1.1); the last headless promotion (ProgGenie generation →
-   package); or the *time-varying* automation form of `--stream`
-   ([CONTROL_PLANE.md](CONTROL_PLANE.md) §7 #6). The polyrhythmic-Serpe spec
-   stays shelved (§1.2) until you want it — but the `@enkerli/upi` data shape
-   is now the place its multi-cycle model will live.
+7. ✅ **The binding layer** *(shipped 2026-07-15)*: `@enkerli/control`
+   (framework-agnostic `resolveEvent` + `createBindingEngine`, 18 tests) maps
+   keyboard / MIDI-CC / MIDI-note → `param`/`command`, reading the manifests
+   (CC-normalization honors each param's scale automatically). A **control-map**
+   is the library-item shape (§1.1). `enkerli bind stage.json --cc 74=40 |
+   enkerli render 69 -o out.wav --stream` runs the **whole plane from a MIDI
+   knob to Vane audio, headless**. This turns the plane from pipeline into
+   instrument — and it is the last core plane component, so the projections
+   (§1.2 B2/B3, the workspace and Shortcuts) are now the thin adapters the
+   roadmap promised.
+   **Next choices:** the last headless promotion (ProgGenie generation →
+   package); the *time-varying* `--stream` automation form
+   ([CONTROL_PLANE.md](CONTROL_PLANE.md) §7 #6); the in-app **control-map
+   editor UI** (Track B — logic shipped, surface not); or the first
+   **projection** (the single-page workspace, now cheap). The polyrhythmic-
+   Serpe spec stays shelved (§1.2) — the `@enkerli/upi` data shape is where
+   its multi-cycle model will live.
 
 *Sequence rationale: 1 and 2 are mutually reinforcing and both sit inside
 the moratorium; the spec de-risked the design so the next move is code, not

@@ -30,6 +30,10 @@ import {
 } from "@enkerli/theory";
 import { progressionToSMF, progressionFromSMF } from "@enkerli/midi";
 import { parseUPI, analyse } from "@enkerli/upi";
+import {
+  resolveEvent, validateControlMap,
+  type ControlMap, type InputEvent,
+} from "@enkerli/control";
 
 // ── chord ─────────────────────────────────────────────────────────────────────
 
@@ -367,6 +371,25 @@ export function bundledManifestPath(app: string): string | null {
   const rel = MANIFEST_APPS[app as AppId];
   return rel ? fileURLToPath(new URL(rel, import.meta.url)) : null;
 }
+
+/** Load the bundled manifests for a set of apps (skips apps that ship none). */
+export function loadBundledManifests(apps: AppId[]): ManifestBody[] {
+  const out: ManifestBody[] = [];
+  for (const app of apps) {
+    const p = bundledManifestPath(app);
+    if (p) out.push(JSON.parse(readFileSync(p, "utf8")) as ManifestBody);
+  }
+  return out;
+}
+
+/** The bundled manifests a control-map's bindings target — for resolution/validation. */
+export function manifestsForControlMap(map: ControlMap): ManifestBody[] {
+  const apps = [...new Set(map.bindings.map((b) => b.action.app))];
+  return loadBundledManifests(apps);
+}
+
+/** Re-exported so the CLI can resolve/validate bindings headless. */
+export { resolveEvent, validateControlMap, type ControlMap, type InputEvent };
 
 /** A manifest param carrying its engine binding (Vane-specific extension field). */
 interface EngineParamSpec { id: string; wasmId?: number }

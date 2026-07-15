@@ -166,9 +166,12 @@ enforces.
 
 ## 4. Bindings — keyboard & MIDI shortcuts
 
-A **binding** maps an input event to a `param` or `command` on some target.
-It is *the* mechanism behind "keyboard and MIDI shortcuts… sending messages
-to tools could change patterns."
+*✅ **shipped 2026-07-15** as `@enkerli/control` (18 tests) + `enkerli bind`.
+A **binding** maps an input event to a `param` or `command` on some target —
+the mechanism behind "keyboard and MIDI shortcuts… sending messages to tools
+to change patterns." The whole plane now runs from an input to sound:
+`enkerli bind stage.json --cc 74=40 | enkerli render 69 -o out.wav --stream`
+turns a MIDI knob into Vane audio, headless, through the control-map.*
 
 ```jsonc
 { "trigger": { "kind": "midi-cc", "cc": 74, "channel": 1 },
@@ -193,13 +196,22 @@ Design commitments:
   is what lets a performer *save and recall* their control surface, and it
   is where the accessibility-first persona's switch/key layout lives as a
   first-class, shareable object.
-- **The binding layer is shared, framework-agnostic**, in `@enkerli/ui`
-  (or a small `@enkerli/control` package) — one implementation, adopted per
-  app, reading each app's manifest. Not re-solved per app (the UX_AUDIT
+- **The binding layer is shared, framework-agnostic** — shipped as
+  **`@enkerli/control`** (stateless `resolveEvent` + a live
+  `createBindingEngine`), one implementation reading each app's manifest.
+  The browser wires DOM `keydown`/WebMIDI to it; the CLI feeds simulated
+  events; both get the same messages. Not re-solved per app (the UX_AUDIT
   lesson).
-- **[OPEN]** where CC-normalization curves live (linear/exp/toggle/
-  14-bit); how chords/long-press/switch-hold are modeled for the
-  accessibility persona; MPE-vs-CC precedence.
+- **CC-normalization** is done: `ccToNative`/`nativeToCc` honor the param's
+  own manifest `scale` by default (a log Vane cutoff auto-maps without the
+  binding restating it), overridable per-binding (`linear`/`log`/`toggle`),
+  with 7- or 14-bit resolution and `step` quantization. A CC bound to a
+  *command* fires above a switch threshold.
+- **[OPEN]** remaining: chords/long-press/switch-hold modeling for the
+  accessibility persona (needs input *state*, which the stateless resolver
+  doesn't track); MPE-vs-CC precedence; the control-map **editor UI** and
+  its adoption in the apps (the logic is shipped; the in-app surface is
+  Track B).
 
 ---
 
@@ -283,8 +295,10 @@ Marked **[OPEN]** above, gathered for the crafting pass:
    now. A true single-source derivation stays the goal.
 3. `observe`/subscribe in v1, or always-`report`-on-change.
 4. `param` batching shape (single vs. array vs. both).
-5. Binding model for the accessibility persona (hold/switch/chord) and
-   CC-normalization curves; MPE vs. CC precedence.
+5. **Mostly resolved** by `@enkerli/control`: CC-normalization curves
+   (linear/log/toggle, 7/14-bit, step quantization, manifest-scale default)
+   are shipped. Still open: the accessibility persona's stateful inputs
+   (hold/switch/chord) and MPE-vs-CC precedence.
 6. Headless param-stream timing. **Static snapshot shipped** (`render
    --stream`, §5); the *time-varying* automation-track form (schedule across
    render blocks, `sentAt` as clock, `--rate`/realtime flag) is still open.

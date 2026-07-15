@@ -302,3 +302,38 @@ describe("Serpe manifest", () => {
     expect(manifest.commands.map((c) => c.name)).toContain("rotate");
   });
 });
+
+// ── bind: the binding layer, headless (docs/CONTROL_PLANE.md §4) ──────────────
+
+import { resolveEvent, validateControlMap, manifestsForControlMap, loadBundledManifests } from "./index.js";
+
+const stageMap = {
+  id: "cm-test", kind: "control-map" as const,
+  bindings: [
+    { trigger: { kind: "midi-cc" as const, cc: 74, channel: 1 }, action: { app: "vane" as const, param: "filter-cutoff" } },
+    { trigger: { kind: "key" as const, combo: "mod+shift+m" }, action: { app: "serpe" as const, command: "mutate", args: { amount: 0.3 } } },
+    { trigger: { kind: "midi-note" as const, note: 36, channel: 10 }, action: { app: "serpe" as const, command: "next-pattern" } },
+  ],
+};
+
+describe("bind (control-map resolution over bundled manifests)", () => {
+  it("loads the manifests a map targets", () => {
+    const ms = manifestsForControlMap(stageMap);
+    expect(ms.map((m) => m.app).sort()).toEqual(["serpe", "vane"]);
+    expect(loadBundledManifests(["vane"])).toHaveLength(1);
+  });
+  it("validates the shipped stage map against the shipped Vane/Serpe manifests", () => {
+    const r = validateControlMap(stageMap, manifestsForControlMap(stageMap));
+    expect(r).toEqual({ ok: true, errors: [] });
+  });
+  it("resolves a CC knob to a normalized Vane param (log cutoff → full)", () => {
+    const [m] = resolveEvent(stageMap, { kind: "midi-cc", cc: 74, channel: 1, value: 127 }, manifestsForControlMap(stageMap));
+    expect(m!.to).toBe("vane");
+    expect((m!.body as { id: string; value: number })).toMatchObject({ id: "filter-cutoff", value: 20000 });
+  });
+  it("resolves a keystroke to a Serpe command", () => {
+    const [m] = resolveEvent(stageMap, { kind: "key", combo: "mod+shift+m" }, manifestsForControlMap(stageMap));
+    expect(m!.type).toBe("command");
+    expect((m!.body as { name: string }).name).toBe("mutate");
+  });
+});

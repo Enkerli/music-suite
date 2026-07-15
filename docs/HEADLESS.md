@@ -21,6 +21,8 @@ wrapper over an import-testable library):
 | `enkerli send --to serpe --param density=0.7` · `--command mutate --arg amount=0.3` | control-plane message → one NDJSON `SuiteMessage` (docs/CONTROL_PLANE.md); `\| enkerli recv` reads/validates/summarizes — **`enkerli A \| enkerli B` is tool-to-tool piping over a Unix pipe** | `@enkerli/protocol` (added 2026-07-15) |
 | `enkerli describe <app\|manifest.json>` | print a tool's parameter/command surface (`enkerli describe vane` = the pilot manifest, 36 params) | `@enkerli/protocol` + `apps/vane/manifest.json` |
 | `enkerli send --to vane --param morph=1.0 \| enkerli render 69 -o out.wav --stream` | **message → sound**: render applies a control-plane `param` stream to Vane's real DSP (manifest id → wasm id), headless | control plane + Vane WASM voice |
+| `enkerli bind stage.json --cc 74=40 \| enkerli render 69 -o out.wav --stream` | **input → sound**: a control-map resolves a MIDI knob/key/pad through the manifests to a `param`/`command` message — the whole plane from a knob to audio, headless | `@enkerli/control` + control plane |
+| `enkerli bind stage.json --validate` | check a control-map's bindings against the bundled manifests (unknown ids, out-of-range values, undeclared args) | `@enkerli/control` |
 
 ## Per tool
 
