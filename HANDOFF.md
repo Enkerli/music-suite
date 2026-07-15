@@ -148,8 +148,9 @@ material:
   WCAG-AA contrast contracts over the token themes — run after any token
   change.
 - **Design commitments:** `packages/ui/DESIGN.md` (a11y/personas/
-  localization/theming checklist), `docs/personas.md` (five personas,
-  including an accessibility-first performer), `packages/ui/HANDOFF.md`
+  localization/theming checklist), `docs/personas.md` (seven personas
+  since the 2026-07-15 reconciliation, including an accessibility-first
+  performer), `packages/ui/HANDOFF.md`
   (component-level notes).
 - **Component semantics:** the shared components (pcs-ring, pitch-grid,
   piano-roll, section, range-slider, leadsheet-editor) are keyboard-

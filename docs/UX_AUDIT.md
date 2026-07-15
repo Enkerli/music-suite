@@ -77,7 +77,7 @@ device-bar family, badges, buttons, standalone-chrome gating), `theme.js`,
 (pcs-ring · pitch-grid · piano-roll · section · range-slider ·
 leadsheet-editor), the pc-color identity (`pitch-class-colors.js`,
 hardware-validated Exquis palette), 51-contract contrast audit, DESIGN.md
-checklist, five personas. Plus `@enkerli/library`'s query layer as the
+checklist, seven personas. Plus `@enkerli/library`'s query layer as the
 substrate for any library-browser UI.
 
 ## 4. Questions for the Design pass (the brief)

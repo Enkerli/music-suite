@@ -120,10 +120,10 @@ together" names. Inventory first, then the skeleton for what's missing
 
 ### 2.0 What already exists (inventory, 2026-07-14)
 
-- **Suite personas** — [personas.md](personas.md): five design targets
-  (wind-controller performer · grid-instrument learner · theory
-  explorer/educator · producer curating material · accessibility-first
-  performer), used as lenses by [A11Y_TEST_PLAN.md](A11Y_TEST_PLAN.md).
+- **Suite personas** — [personas.md](personas.md): design targets used as
+  lenses by [A11Y_TEST_PLAN.md](A11Y_TEST_PLAN.md). Five at this inventory's
+  date; **seven** after the §2.1 reconciliation (added a by-ear newcomer and
+  a systematic maker).
 - **MIDIcurator design-research set** —
   `apps/MIDIcurator/docs/design/` (dated 2026-02-12): a full Design-Thinking
   arc — **its own five personas** (Jordan · Aisha · Riley · Sam · Marcus),

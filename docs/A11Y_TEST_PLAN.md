@@ -54,7 +54,7 @@ Notes for testers:
 - `drawnqurve` and `serpe` render heavily to `<canvas>`; these are the
   highest-risk apps for screen-reader users and deserve extra attention.
 
-## 3. Test lenses — the five personas
+## 3. Test lenses — the seven personas
 
 Full text in [personas.md](personas.md); use them as lenses, not scripts:
 
@@ -68,9 +68,17 @@ Full text in [personas.md](personas.md); use them as lenses, not scripts:
 4. **Producer in a DAW** — speed: keyboard shortcuts, batch operations,
    never losing work.
 5. **Accessibility-first performer** — switch access, limited fine
-   motor, low vision: full keyboard operability, generous targets,
-   density modes, reduced motion. *The suite's collapsible-density
+   motor, low vision, blindness: full keyboard operability, generous
+   targets, density modes, reduced motion, and screen-reader-voiceable
+   structure/labels/live regions. *The suite's collapsible-density
    layout grammar exists chiefly for this persona.*
+6. **Curious newcomer** — by-ear, no theory vocabulary: an approachable
+   first screen, sound-first exploration, plain-language explanation
+   offered but never forced (no jargon walls, no "you're behind").
+7. **Systematic maker** — systematic thinker, often neurodivergent,
+   command-line comfortable: **visible state**, predictable and
+   reversible actions, **specific error messages** (what's wrong *and*
+   how to fix it), no color-only or implicit-state encoding.
 
 ## 4. What automation already covers (do not re-test by hand)
 

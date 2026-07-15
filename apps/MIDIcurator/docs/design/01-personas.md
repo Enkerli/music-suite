@@ -4,6 +4,14 @@
 
 ## Overview
 
+> **Canonical set:** since the 2026-07-15 reconciliation, the suite's single
+> authority for personas is [`docs/personas.md`](../../../../docs/personas.md)
+> (seven personas). These five remain the **worked example** — richer
+> demographics, quotes, and success metrics — for the personas they inform:
+> Jordan → Curious newcomer, Aisha → Producer curating material, Riley →
+> Accessibility-first performer, Sam → Systematic maker, Marcus → Theory
+> explorer/educator.
+
 This document presents five detailed personas representing the primary user archetypes for MIDIcurator. Each persona is grounded in the #MTILT mission (Music Tech: Inclusive Learning & Teaching) and reflects diverse abilities, learning styles, and musical backgrounds.
 
 **Personas**:
