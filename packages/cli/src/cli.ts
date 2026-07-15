@@ -23,6 +23,7 @@ import { readFileSync, writeFileSync } from "node:fs";
 import {
   chordInfo, patternInfo, smfFromBars, renderVane,
   sendMessage, toNdjson, parseNdjson, summarizeMessage, describeManifest,
+  bundledManifestPath, MANIFEST_APPS,
   type SendOptions,
 } from "./index.js";
 import type { AppId, Destination, ParamMode } from "@enkerli/protocol";
@@ -34,7 +35,7 @@ const USAGE = `enkerli <command> …
   render <notes…> -o <file.wav> [--seconds N] [--breath 0..1] [--sr N] [--param id=value]…
   send [--from app] [--to app|*] (--param id=value… [--mode set|report|observe] | --command name [--arg k=v]…)
   recv                                  read NDJSON SuiteMessages from stdin, validate + summarize
-  describe <manifest.json>              validate a manifest and print its parameter/command surface`;
+  describe <app|manifest.json>          print a tool's parameter/command surface (app id e.g. vane, or a manifest file)`;
 
 interface Args { positional: string[]; flags: Map<string, string[]> }
 
@@ -179,8 +180,9 @@ async function main(): Promise<number> {
       return bad && !seen ? 1 : 0;
     }
     case "describe": {
-      const path = args.positional[0];
-      if (!path) throw new Error("describe: a manifest JSON file path is required");
+      const arg = args.positional[0];
+      if (!arg) throw new Error(`describe: an app id (${Object.keys(MANIFEST_APPS).join(", ")}) or a manifest JSON path is required`);
+      const path = bundledManifestPath(arg) ?? arg;   // app id → bundled manifest, else a file path
       const { lines } = describeManifest(JSON.parse(readFileSync(path, "utf8")));
       for (const l of lines) console.log(l);
       return 0;

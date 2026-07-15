@@ -184,3 +184,36 @@ describe("describeManifest", () => {
     expect(() => describeManifest(bad)).toThrow(/invalid manifest/);
   });
 });
+
+// ── Vane pilot manifest (docs/CONTROL_PLANE.md §6.4) ──────────────────────────
+
+import { readFileSync } from "node:fs";
+import { bundledManifestPath, MANIFEST_APPS } from "./index.js";
+
+describe("Vane manifest (the pilot)", () => {
+  it("ships a bundled manifest resolvable by app id", () => {
+    expect(MANIFEST_APPS.vane).toBeDefined();
+    expect(bundledManifestPath("vane")).toMatch(/apps\/vane\/manifest\.json$/);
+    expect(bundledManifestPath("no-such-app")).toBeNull();
+  });
+  it("the committed manifest validates and exposes Vane's continuous surface", () => {
+    const body = JSON.parse(readFileSync(bundledManifestPath("vane")!, "utf8"));
+    const { manifest, lines } = describeManifest(body);   // throws if invalid
+    expect(manifest.app).toBe("vane");
+    expect(manifest.params.length).toBeGreaterThanOrEqual(36);
+    // the log-scaled cutoff the pilot surfaced
+    const cutoff = manifest.params.find((p) => p.id === "filter-cutoff")!;
+    expect(cutoff.unit).toBe("hz");
+    expect(cutoff.scale).toBe("log");
+    expect(cutoff.min).toBeGreaterThan(0); // log scale requires min > 0
+    expect(lines[0]).toContain("vane manifest v1");
+  });
+  it("every manifest param carries an in-range default and a stable kebab id", () => {
+    const body = JSON.parse(readFileSync(bundledManifestPath("vane")!, "utf8")) as { params: Array<{ id: string; min: number; max: number; default: number }> };
+    for (const p of body.params) {
+      expect(p.id).toMatch(/^[a-z0-9-]+$/);
+      expect(p.default).toBeGreaterThanOrEqual(p.min);
+      expect(p.default).toBeLessThanOrEqual(p.max);
+    }
+  });
+});

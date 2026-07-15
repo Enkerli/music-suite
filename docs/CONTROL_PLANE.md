@@ -237,11 +237,17 @@ they become importable — do the extraction and the manifest together.
    enkerli recv` carries the message model over an ordinary Unix pipe;
    `describe <manifest.json>` validates and prints a tool's surface.
    *(shipped; `--midi <port>` output deferred — needs a node MIDI dep)*
-4. **First real manifest on one app** — recommend **Serpe** (it is already
-   the `@enkerli/upi` promotion candidate, and "change the pattern" is its
-   native verb), or **Vane** (its wasm param ids are a manifest waiting to
-   be declared, and modulation is most visceral there). **[OPEN]** which
-   pilot.
+4. ✅ **First real manifest on one app — Vane** *(shipped 2026-07-15)*.
+   `apps/vane/manifest.json` declares Vane's 36 continuous (RANGE-table)
+   parameters — the surface that matters for modulation/automation —
+   generated from the app's own RANGE/PARAM_MAP/defaults by
+   `apps/vane/gen-manifest.mjs` (kept in sync until a derivation extracts
+   them directly). `enkerli describe vane` prints it; `enkerli send --to vane
+   --param filter-cutoff=800 | enkerli recv` routes to it. **Pilot finding:**
+   faithful representation needed a `scale: "linear"|"log"` field on
+   `ParamSpec` (Vane's Cutoff/TrDecay are log) — added to the protocol with
+   vectors, resolving open decision #1's cousin. Discrete mode-switches
+   (enum value vocabularies) are Vane manifest v2.
 5. **The shared binding layer** — key + MIDI-CC → action, reading the
    manifest; control-map as a library `kind`.
 6. Then, and only then, the projections: workspace bus (BroadcastChannel
@@ -260,14 +266,19 @@ Marked **[OPEN]** above, gathered for the crafting pass:
 
 1. Wire values: native-unit-with-range (recommended) vs. normalized 0..1.
 2. Manifest: hand-authored vs. derived from existing param tables (Vane
-   wasm ids, PitchFold APVTS).
+   wasm ids, PitchFold APVTS). **Partly resolved by the Vane pilot:** a
+   committed generator (`gen-manifest.mjs`) transcribes the app's RANGE
+   table — controlled duplication with a "keep in sync" note — because
+   Vane's `index.html` is also the plugin UI and must not be restructured
+   now. A true single-source derivation stays the goal.
 3. `observe`/subscribe in v1, or always-`report`-on-change.
 4. `param` batching shape (single vs. array vs. both).
 5. Binding model for the accessibility persona (hold/switch/chord) and
    CC-normalization curves; MPE vs. CC precedence.
 6. Headless param-stream timing (envelope `sentAt` as clock + realtime
    flag).
-7. The pilot app for the first manifest (Serpe vs. Vane).
+7. ~~The pilot app for the first manifest (Serpe vs. Vane).~~ **Resolved:
+   Vane** (§6.4). Serpe/`@enkerli/upi` follows.
 8. Multi-instance addressing (two of the same tool in the workspace) —
    almost certainly **not** v1, but the `to` field may need an instance
    suffix later; note it so v1 doesn't foreclose it.

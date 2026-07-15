@@ -133,6 +133,12 @@ export interface ParamSpec {
   default: number;
   /** Optional quantization; absent = continuous. */
   step?: number;
+  /**
+   * How the native range maps to a normalized 0..1 knob/CC. "linear"
+   * (default) or "log" (exponential — most of the musical action is low, e.g.
+   * a filter cutoff). Surfaced by the Vane pilot, whose Cutoff/TrDecay are log.
+   */
+  scale?: "linear" | "log";
   /** For unit "enum": the ordered value labels (value is the index). */
   values?: string[];
 }
@@ -332,6 +338,10 @@ function validateSpec(
     err(`${where}.default: must be within [min, max]`);
   if (s.step !== undefined && (typeof s.step !== "number" || (s.step as number) <= 0))
     err(`${where}.step: positive number required`);
+  if (s.scale !== undefined && s.scale !== "linear" && s.scale !== "log")
+    err(`${where}.scale: "linear" or "log" required`);
+  if (s.scale === "log" && (typeof s.min === "number") && (s.min as number) <= 0)
+    err(`${where}: log scale requires min > 0`);
   if (s.unit === "enum" && (!Array.isArray(s.values) || (s.values as unknown[]).length === 0))
     err(`${where}: enum unit requires a non-empty values[]`);
 }

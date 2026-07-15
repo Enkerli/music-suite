@@ -261,10 +261,14 @@ material (a curated preset set *is* a lesson).
    scripts, so they pay for themselves twice.
 3. **Recover the local DrawnQurve testing notes** (§2.0) and push them —
    an at-risk artifact until it is in the repo.
-4. Then the first fork: pick the **pilot manifest app**
-   ([CONTROL_PLANE.md](CONTROL_PLANE.md) §6.4 — Serpe vs. Vane), which also
-   decides whether the `@enkerli/upi` promotion leads. The
-   polyrhythmic-Serpe spec stays shelved (§1.2) until you want it.
+4. ✅ **Pilot manifest — Vane** *(shipped 2026-07-15)*:
+   `apps/vane/manifest.json` (36 continuous params) +
+   `enkerli describe vane`; the pilot surfaced and fixed the `scale`
+   (linear/log) gap in the manifest schema. **Next:** either the Serpe /
+   `@enkerli/upi` manifest+promotion (which also settles the polyrhythm data
+   shape), or the render-consumes-a-`param`-stream integration (control plane
+   → real audio, headless). The polyrhythmic-Serpe spec stays shelved (§1.2)
+   until you want it.
 
 *Sequence rationale: 1 and 2 are mutually reinforcing and both sit inside
 the moratorium; the spec de-risked the design so the next move is code, not

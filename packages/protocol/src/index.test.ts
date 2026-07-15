@@ -100,6 +100,18 @@ describe("manifest validation", () => {
     const bad = { ...serpeManifest, params: [{ id: "m", label: "Mode", unit: "enum", min: 0, max: 2, default: 0 }] };
     expect(validateMessage(makeManifest("serpe", bad as never)).ok).toBe(false);
   });
+  it("accepts a log-scaled param with min > 0 (the Vane cutoff case)", () => {
+    const ok = { ...serpeManifest, params: [{ id: "cutoff", label: "Cutoff", unit: "hz", min: 20, max: 20000, default: 1000, scale: "log" }] };
+    expect(validateMessage(makeManifest("vane", ok as never)).ok).toBe(true);
+  });
+  it("rejects a log scale with min ≤ 0 (log(0) undefined)", () => {
+    const bad = { ...serpeManifest, params: [{ id: "cutoff", label: "Cutoff", unit: "hz", min: 0, max: 20000, default: 1000, scale: "log" }] };
+    expect(validateMessage(makeManifest("vane", bad as never)).ok).toBe(false);
+  });
+  it("rejects an unknown scale", () => {
+    const bad = { ...serpeManifest, params: [{ id: "x", label: "X", unit: "ratio", min: 0, max: 1, default: 0.5, scale: "quadratic" }] };
+    expect(validateMessage(makeManifest("serpe", bad as never)).ok).toBe(false);
+  });
 });
 
 describe("param validation", () => {

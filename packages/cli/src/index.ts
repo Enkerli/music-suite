@@ -328,6 +328,20 @@ export function summarizeMessage(m: SuiteMessage): string {
   }
 }
 
+/**
+ * Apps that ship a control-plane manifest (docs/CONTROL_PLANE.md), resolvable
+ * by id so `enkerli describe <app>` works without a path. Grows as apps adopt.
+ */
+export const MANIFEST_APPS: Partial<Record<AppId, string>> = {
+  vane: "../../../apps/vane/manifest.json",
+};
+
+/** Absolute path to a bundled app manifest, or null if the app ships none. */
+export function bundledManifestPath(app: string): string | null {
+  const rel = MANIFEST_APPS[app as AppId];
+  return rel ? fileURLToPath(new URL(rel, import.meta.url)) : null;
+}
+
 /** Validate a hand-authored manifest body and return a human-readable surface. */
 export function describeManifest(body: unknown): { manifest: ManifestBody; lines: string[] } {
   if (typeof body !== "object" || body === null || Array.isArray(body))
@@ -339,7 +353,7 @@ export function describeManifest(body: unknown): { manifest: ManifestBody; lines
   const lines: string[] = [`${mb.app} manifest v${mb.v}`];
   lines.push(`params (${mb.params.length}):`);
   for (const p of mb.params)
-    lines.push(`  ${p.id}  ${p.label}  [${p.min}..${p.max} ${p.unit}${p.step ? ` step ${p.step}` : ""}]  default ${p.default}`);
+    lines.push(`  ${p.id}  ${p.label}  [${p.min}..${p.max} ${p.unit}${p.scale === "log" ? " log" : ""}${p.step ? ` step ${p.step}` : ""}]  default ${p.default}`);
   lines.push(`commands (${mb.commands.length}):`);
   for (const c of mb.commands)
     lines.push(`  ${c.name}  ${c.label}` + (c.args?.length ? `  args: ${c.args.map((a) => `${a.id}[${a.min}..${a.max} ${a.unit}]`).join(", ")}` : ""));
