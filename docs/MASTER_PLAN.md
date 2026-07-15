@@ -264,11 +264,17 @@ material (a curated preset set *is* a lesson).
 4. ✅ **Pilot manifest — Vane** *(shipped 2026-07-15)*:
    `apps/vane/manifest.json` (36 continuous params) +
    `enkerli describe vane`; the pilot surfaced and fixed the `scale`
-   (linear/log) gap in the manifest schema. **Next:** either the Serpe /
-   `@enkerli/upi` manifest+promotion (which also settles the polyrhythm data
-   shape), or the render-consumes-a-`param`-stream integration (control plane
-   → real audio, headless). The polyrhythmic-Serpe spec stays shelved (§1.2)
-   until you want it.
+   (linear/log) gap in the manifest schema.
+5. ✅ **Message → sound** *(shipped 2026-07-15)*: `enkerli render --stream`
+   applies a control-plane `param` NDJSON stream to Vane's real DSP, so
+   `enkerli send --to vane --param morph=1.0 | enkerli render 69 -o out.wav
+   --stream` makes audio from a message, headless. The whole plane now runs
+   end to end: intent → message → transport → tool → sound.
+   **Next choices:** the Serpe / `@enkerli/upi` manifest+promotion (settles
+   the polyrhythm data shape too); the shared **binding layer** (key/MIDI-CC
+   → param/command, §1.1); or the *time-varying* automation form of
+   `--stream` ([CONTROL_PLANE.md](CONTROL_PLANE.md) §7 #6). The
+   polyrhythmic-Serpe spec stays shelved (§1.2) until you want it.
 
 *Sequence rationale: 1 and 2 are mutually reinforcing and both sit inside
 the moratorium; the spec de-risked the design so the next move is code, not

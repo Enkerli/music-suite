@@ -211,11 +211,18 @@ The stdio-NDJSON transport is the headless half. Concretely:
   pipes carrying the message model.** No new IPC to invent.
 - `enkerli describe serpe` — print the manifest (drives docs, shell
   completion, the binding editor's target list).
-- The existing `enkerli render` / `smf` verbs stay; they gain the ability to
-  *consume* a `param` stream (e.g. `render` honoring a `param` NDJSON as an
-  automation track). **[OPEN]** timing model for a param stream headless —
-  timestamped frames vs. as-fast-as-read; recommend `sentAt` already on the
-  envelope is the clock, with a `--rate`/realtime flag.
+- ✅ **`enkerli render --stream`** *(shipped 2026-07-15)* — the message →
+  sound path: render reads a `param` NDJSON stream from stdin, resolves
+  manifest ids → Vane wasm ids (`vaneParamIdMap`, from the pilot manifest's
+  `wasmId` fields), and renders with them. `enkerli send --to vane --param
+  morph=1.0 | enkerli render 69 -o out.wav --stream` turns a control-plane
+  message into real audio, headless. Consumes only `param` messages for vane
+  (or `*`); unresolved ids and foreign/other-app lines are surfaced on
+  stderr, not dropped silently. This is a **static snapshot** (last value per
+  id wins, applied before the render). **[OPEN]** the *time-varying* form —
+  a `param` stream as an automation track applied across render blocks —
+  remains open decision #6: `sentAt` is the clock; needs `renderVane` to
+  accept a schedule + a `--rate`/realtime flag.
 
 This also closes the two HEADLESS.md gaps from the same lever: promoting
 `apps/serpe/engine` → `@enkerli/upi` and ProgGenie generation → a package
@@ -275,8 +282,9 @@ Marked **[OPEN]** above, gathered for the crafting pass:
 4. `param` batching shape (single vs. array vs. both).
 5. Binding model for the accessibility persona (hold/switch/chord) and
    CC-normalization curves; MPE vs. CC precedence.
-6. Headless param-stream timing (envelope `sentAt` as clock + realtime
-   flag).
+6. Headless param-stream timing. **Static snapshot shipped** (`render
+   --stream`, §5); the *time-varying* automation-track form (schedule across
+   render blocks, `sentAt` as clock, `--rate`/realtime flag) is still open.
 7. ~~The pilot app for the first manifest (Serpe vs. Vane).~~ **Resolved:
    Vane** (§6.4). Serpe/`@enkerli/upi` follows.
 8. Multi-instance addressing (two of the same tool in the workspace) —

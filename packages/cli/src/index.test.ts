@@ -217,3 +217,50 @@ describe("Vane manifest (the pilot)", () => {
     }
   });
 });
+
+// ── control plane → sound: --stream param resolution (CONTROL_PLANE.md §5) ────
+
+import { paramsFromStream, vaneParamIdMap } from "./index.js";
+
+describe("paramsFromStream (message → renderVane params)", () => {
+  const map = { "filter-cutoff": 1, "morph": 12 };
+  const line = (over: object) => toNdjson(sendMessage({ to: "vane", param: over as never }));
+  it("resolves manifest ids to wasm ids, last-write-wins", () => {
+    const stream = line({ id: "morph", value: 0.2 }) + line({ id: "morph", value: 0.9 }) + line({ id: "filter-cutoff", value: 800 });
+    const r = paramsFromStream(stream, map);
+    expect(r.params).toEqual({ 12: 0.9, 1: 800 });   // last morph wins
+    expect(r.messages).toBe(3);
+    expect(r.unresolved).toEqual([]);
+  });
+  it("handles the batch param form", () => {
+    const stream = toNdjson(sendMessage({ from: "vane", params: [{ id: "morph", value: 0.5 }, { id: "filter-cutoff", value: 500 }] } as never));
+    const r = paramsFromStream(stream, map);
+    expect(r.params).toEqual({ 12: 0.5, 1: 500 });
+  });
+  it("surfaces unresolved ids instead of dropping them", () => {
+    const r = paramsFromStream(line({ id: "nonesuch", value: 1 }), map);
+    expect(r.unresolved).toEqual(["nonesuch"]);
+    expect(r.params).toEqual({});
+  });
+  it("ignores non-param lines and messages for other apps", () => {
+    const forSerpe = toNdjson(sendMessage({ to: "serpe", param: { id: "density", value: 0.9 } }));
+    const cmd = toNdjson(sendMessage({ to: "vane", command: { name: "panic" } }));
+    const r = paramsFromStream(forSerpe + cmd + line({ id: "morph", value: 0.3 }), map);
+    expect(r.params).toEqual({ 12: 0.3 });
+    expect(r.ignored).toBe(2);
+    expect(r.messages).toBe(1);
+  });
+  it("accepts broadcast (to: '*') param messages", () => {
+    const r = paramsFromStream(toNdjson(sendMessage({ from: "vane", to: "*", param: { id: "morph", value: 0.4 } })), map);
+    expect(r.params).toEqual({ 12: 0.4 });
+  });
+});
+
+describe("vaneParamIdMap", () => {
+  it("maps Vane manifest ids to their wasm ids", () => {
+    const map = vaneParamIdMap();
+    expect(map["filter-cutoff"]).toBe(1);   // index.html PARAM_MAP Cutoff:1
+    expect(map["morph"]).toBe(12);          // Morph:12
+    expect(map["output"]).toBe(8);          // Output:8
+  });
+});

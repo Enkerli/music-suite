@@ -18,7 +18,8 @@ wrapper over an import-testable library):
 | `enkerli smf "Dm7 G7 \| Cmaj7" -o out.mid` | bar notation → canonical Progression → format-0 SMF **with the embedded `MCURATOR:v1 PROG` payload** — the same file "Send to MIDIcurator" writes | `@enkerli/theory` parseLeadsheet + `@enkerli/midi` |
 | `enkerli render 60 64 67 -o out.wav --breath 0.9 --param 12=0.6` | **audio through Vane's real DSP** (the committed `apps/vane/synth/vane-dsp.wasm` the browser standalone plays); breath-driven envelope, wasm param ids | Vane WASM voice in node |
 | `enkerli send --to serpe --param density=0.7` · `--command mutate --arg amount=0.3` | control-plane message → one NDJSON `SuiteMessage` (docs/CONTROL_PLANE.md); `\| enkerli recv` reads/validates/summarizes — **`enkerli A \| enkerli B` is tool-to-tool piping over a Unix pipe** | `@enkerli/protocol` (added 2026-07-15) |
-| `enkerli describe <manifest.json>` | validate a tool's parameter/command manifest and print its surface | `@enkerli/protocol` |
+| `enkerli describe <app\|manifest.json>` | print a tool's parameter/command surface (`enkerli describe vane` = the pilot manifest, 36 params) | `@enkerli/protocol` + `apps/vane/manifest.json` |
+| `enkerli send --to vane --param morph=1.0 \| enkerli render 69 -o out.wav --stream` | **message → sound**: render applies a control-plane `param` stream to Vane's real DSP (manifest id → wasm id), headless | control plane + Vane WASM voice |
 
 ## Per tool
 

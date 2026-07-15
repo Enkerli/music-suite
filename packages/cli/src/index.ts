@@ -342,6 +342,70 @@ export function bundledManifestPath(app: string): string | null {
   return rel ? fileURLToPath(new URL(rel, import.meta.url)) : null;
 }
 
+/** A manifest param carrying its engine binding (Vane-specific extension field). */
+interface EngineParamSpec { id: string; wasmId?: number }
+
+/**
+ * The Vane manifest's `id → wasm param id` map — how a control-plane `param`
+ * message (addressed by stable manifest id, e.g. "filter-cutoff") resolves to
+ * the numeric engine parameter `renderVane` sets. This is the bridge that lets
+ * the plane drive real audio: `enkerli send --to vane --param … | enkerli
+ * render --stream`.
+ */
+export function vaneParamIdMap(): Record<string, number> {
+  const path = bundledManifestPath("vane");
+  if (!path) return {};
+  const body = JSON.parse(readFileSync(path, "utf8")) as { params: EngineParamSpec[] };
+  const map: Record<string, number> = {};
+  for (const p of body.params) if (typeof p.wasmId === "number") map[p.id] = p.wasmId;
+  return map;
+}
+
+export interface StreamParamResult {
+  /** wasm param id → value (last write wins — `set` semantics). */
+  params: Record<number, number>;
+  /** each resolved application, in stream order (for the readout). */
+  applied: Array<{ id: string; wasmId: number; value: number }>;
+  /** manifest ids not in the resolver map (surfaced, not silently dropped). */
+  unresolved: string[];
+  /** count of `param` messages consumed for the target. */
+  messages: number;
+  /** count of lines ignored (non-param, or addressed to another app). */
+  ignored: number;
+}
+
+/**
+ * Reduce a `param` NDJSON stream to a wasm-id param set for `renderVane`.
+ * Consumes only `param` messages addressed to `target` (or broadcast "*");
+ * single and batch forms both handled; last value per id wins. Non-param
+ * lines and messages for other apps are counted as ignored, not errors — a
+ * stream may legitimately carry more than this renderer cares about.
+ */
+export function paramsFromStream(
+  ndjson: string, idToWasm: Record<string, number>, target: AppId = "vane",
+): StreamParamResult {
+  const params: Record<number, number> = {};
+  const applied: Array<{ id: string; wasmId: number; value: number }> = [];
+  const unresolved: string[] = [];
+  let messages = 0, ignored = 0;
+  const apply = (id: string, value: number) => {
+    const wasmId = idToWasm[id];
+    if (wasmId === undefined) { if (!unresolved.includes(id)) unresolved.push(id); return; }
+    params[wasmId] = value;
+    applied.push({ id, wasmId, value });
+  };
+  for (const line of ndjson.split("\n")) {
+    const m = parseNdjson(line);
+    if (!m) continue;
+    if (m.type !== "param" || (m.to !== target && m.to !== "*")) { ignored++; continue; }
+    messages++;
+    const b = m.body as { id?: string; value?: number; params?: Array<{ id: string; value: number }> };
+    if (Array.isArray(b.params)) for (const p of b.params) apply(p.id, p.value);
+    else if (typeof b.id === "string" && typeof b.value === "number") apply(b.id, b.value);
+  }
+  return { params, applied, unresolved, messages, ignored };
+}
+
 /** Validate a hand-authored manifest body and return a human-readable surface. */
 export function describeManifest(body: unknown): { manifest: ManifestBody; lines: string[] } {
   if (typeof body !== "object" || body === null || Array.isArray(body))

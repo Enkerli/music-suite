@@ -23,7 +23,7 @@ import { readFileSync, writeFileSync } from "node:fs";
 import {
   chordInfo, patternInfo, smfFromBars, renderVane,
   sendMessage, toNdjson, parseNdjson, summarizeMessage, describeManifest,
-  bundledManifestPath, MANIFEST_APPS,
+  bundledManifestPath, MANIFEST_APPS, paramsFromStream, vaneParamIdMap,
   type SendOptions,
 } from "./index.js";
 import type { AppId, Destination, ParamMode } from "@enkerli/protocol";
@@ -32,7 +32,8 @@ const USAGE = `enkerli <command> …
   chord <values…> [--pcs|--notes]
   pattern <spec>                        E(3,8) · 0x94:8 · o111:8 · d73:8 · 10010010
   smf "<bars>" -o <file.mid> [--tonic C] [--mode major|minor] [--bpm N] [--beats-per-chord N]
-  render <notes…> -o <file.wav> [--seconds N] [--breath 0..1] [--sr N] [--param id=value]…
+  render <notes…> -o <file.wav> [--seconds N] [--breath 0..1] [--sr N] [--param id=value]… [--stream]
+                                        --stream: apply a control-plane param NDJSON stream from stdin (message → sound)
   send [--from app] [--to app|*] (--param id=value… [--mode set|report|observe] | --command name [--arg k=v]…)
   recv                                  read NDJSON SuiteMessages from stdin, validate + summarize
   describe <app|manifest.json>          print a tool's parameter/command surface (app id e.g. vane, or a manifest file)`;
@@ -46,7 +47,7 @@ function parseArgs(argv: string[]): Args {
     const a = argv[i]!;
     if (a.startsWith("--")) {
       const name = a.slice(2);
-      const boolean = ["pcs", "notes", "help"].includes(name);
+      const boolean = ["pcs", "notes", "help", "stream"].includes(name);
       const value = boolean ? "true" : argv[++i];
       if (value === undefined) throw new Error(`--${name} needs a value`);
       if (!flags.has(name)) flags.set(name, []);
@@ -123,6 +124,17 @@ async function main(): Promise<number> {
         const m = /^(\d+)=(-?[\d.]+)$/.exec(pv);
         if (!m) throw new Error(`render: --param expects id=value, got "${pv}"`);
         params[Number(m[1])] = Number(m[2]);
+      }
+      // --stream: consume a control-plane `param` NDJSON stream from stdin,
+      // resolve manifest ids → Vane wasm ids, and merge (stream over --param).
+      // This is the message → sound path: `enkerli send … | enkerli render --stream`.
+      if (args.flags.has("stream")) {
+        const s = paramsFromStream(readFileSync(0, "utf8"), vaneParamIdMap(), "vane");
+        Object.assign(params, s.params);
+        console.error(`render: applied ${s.applied.length} param(s) from stream` +
+          `${s.messages ? ` (${s.messages} message${s.messages === 1 ? "" : "s"})` : ""}` +
+          `${s.unresolved.length ? `; unresolved: ${s.unresolved.join(", ")}` : ""}` +
+          `${s.ignored ? `; ${s.ignored} line(s) ignored` : ""}`);
       }
       const r = await renderVane({
         notes,
