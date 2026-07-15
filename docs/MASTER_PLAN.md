@@ -137,27 +137,20 @@ together" names. Inventory first, then the skeleton for what's missing
   recover and push, then fold into the suite protocol. Until then it is
   at-risk like any unbacked local artifact.
 
-### 2.1 The reconciliation job (the actual §2 work)
+### 2.1 The reconciliation job — ✅ done (2026-07-15)
 
-There are now **two persona sets** — the suite's five and MIDIcurator's
-five — that overlap but were authored independently:
-
-| Suite persona | MIDIcurator analogue |
-|---|---|
-| accessibility-first performer | Riley (blind, screen-reader) + Sam (neurodiverse, systematic) — **MIDIcurator splits this into two** |
-| producer curating material | Aisha (theory-savvy curator) |
-| theory explorer/educator | Marcus (educator) |
-| grid-instrument learner | — (no analogue) |
-| wind-controller performer | — (no analogue) |
-| — | Jordan (GarageBand explorer / casual-by-ear) — **no suite analogue** |
-
-The decision to make (not made here): is the suite persona set canonical
-with MIDIcurator's as a tool-specific refinement, or do the two merge into a
-richer shared set (e.g. splitting accessibility-first into low-vision and
-neurodiverse, adding the casual-by-ear explorer)? **Recommendation:** merge
-upward into `personas.md` as the single authority (LIS: one controlled
-vocabulary), keeping MIDIcurator's richer detail as the worked example.
-Every use case below then names the merged persona(s) it serves.
+The two persona sets — the suite's five role-based targets and MIDIcurator's
+five named personas — are **merged into [personas.md](personas.md) as the
+single authority** (LIS: one controlled vocabulary). The decision made: keep
+the role-based backbone (it covers the instrument/performance world
+MIDIcurator's set never did), enrich roles 3–5 with the named personas'
+detail, and **add two** the role set had no seat for — a **by-ear newcomer**
+(Jordan) and a **systematic maker** (Sam, whom the headless/explicit design
+serves almost by construction). Seven canonical personas; MIDIcurator's doc
+stays the worked example. One call left to the maintainer (noted in
+personas.md): whether #7 stays a persona or becomes a cross-cutting
+"cognitive style" dimension. Every use case below names the merged
+persona(s) it serves.
 
 ### 2.2 Use cases — *to write*
 
@@ -166,19 +159,23 @@ The missing bridge between personas and features. Shape per use case:
 > **Title** · persona(s) · trigger · tools involved · the flow · what
 > "success" looks like · which roadmap items it exercises.
 
-Seed set (one strong use case per persona, to be fleshed out):
+Seed set (one strong use case per persona, to be fleshed out) — one per the
+seven reconciled personas:
 
 | # | Persona | Sketch |
 |---|---|---|
-| U1 | Wind-controller performer | Recall a Vane preset hands-free and switch density to Performance mode from a foot controller — exercises §1.1 command bindings |
+| U1 | Wind-controller performer | Recall a Vane preset hands-free and switch density to Performance mode from a foot controller — exercises the shipped `command` bindings |
 | U2 | Grid-instrument learner | Build a fingering in exquisite-fingerings, push its PCS to PickPCS/PitchFold — exercises `scale` messaging (the shipped pair) |
 | U3 | Theory explorer/educator | Follow one chord across Chord Dictionary → PickPCS → Progression Studio with synchronized representations |
 | U4 | Producer curating material | Batch-tag clips in MIDIcurator, export a Serpe pattern into the DAW, never lose work — exercises library + export idioms |
-| U5 | Accessibility-first performer | Drive a full session with keyboard + switch only — the §1.1 binding layer is the enabling feature, not an add-on |
+| U5 | Accessibility-first performer | Drive a full session with keyboard + switch only, via a saved control-map — the binding layer is the enabling feature, not an add-on |
+| U6 | Curious newcomer | Hear a generated progression, then discover *why* it works — sound-first, plain-language on-ramp (`generate` → play → optional theory) |
+| U7 | Systematic maker | Script a batch headless: `generate`/`upi` → `smf`/`render`, inspect every step with `describe`/`--validate` — the CLI as first-class path |
 
-The **cross-tool** use cases (U2, U3, U4) are the ones that justify the
-control plane; capturing them well is how we keep §1.1 honest about what it
-must support.
+The **cross-tool** use cases (U2, U3, U4) justify the control plane; **U6/U7**
+are the two the reconciliation added, and both are now buildable — U7 against
+the shipped headless CLI, U6 against `generate` + playback. Capturing them well
+is how we keep the plane honest about what it must support.
 
 ### 2.3 User-testing protocol — *generalize MIDIcurator's*
 
@@ -255,10 +252,10 @@ material (a curated preset set *is* a lesson).
    `enkerli send --to serpe --param density=0.7 | enkerli recv` carries the
    message model over a Unix pipe — headless piping, demonstrated, pure
    package work inside the moratorium. **Next code:** item 4 (pilot manifest).
-2. **Merge the persona sets** (§2.1) into `personas.md` as the one
-   authority, then **draft the U1–U5 use cases in full** (§2.2) — they
-   double as the control-plane requirements check *and* the §2.3 test
-   scripts, so they pay for themselves twice.
+2. ✅ **Persona sets merged** (§2.1) into `personas.md` as the one authority
+   — seven reconciled personas *(2026-07-15)*. **Next:** draft the U1–U7 use
+   cases in full (§2.2) — they double as the plane's requirements check *and*
+   the §2.3 test scripts, so they pay for themselves twice.
 3. **Recover the local DrawnQurve testing notes** (§2.0) and push them —
    an at-risk artifact until it is in the repo.
 4. ✅ **Pilot manifest — Vane** *(shipped 2026-07-15)*:
