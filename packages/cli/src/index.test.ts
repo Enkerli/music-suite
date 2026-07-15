@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   chordInfo, patternInfo, smfFromBars, progressionFromSmfBytes,
   renderVane, encodeWav16, defaultWasmPath,
+  sendMessage, toNdjson, parseNdjson, summarizeMessage, describeManifest,
 } from "./index.js";
 import { existsSync } from "node:fs";
 
@@ -115,5 +116,71 @@ describe("encodeWav16", () => {
     expect(view.getUint32(24, true)).toBe(48000);   // sample rate
     expect(view.getInt16(44 + 6, true)).toBe(32767); // 2.0 clamped to full scale
     expect(wav.length).toBe(44 + 4 * 2);
+  });
+});
+
+// ── control & interop plane over stdio (docs/CONTROL_PLANE.md) ────────────────
+
+describe("sendMessage / NDJSON transport", () => {
+  it("builds a validated param-set message with CLI defaults", () => {
+    const m = sendMessage({ to: "serpe", param: { id: "density", value: 0.7 } });
+    expect(m.from).toBe("external");   // CLI-originated default sender
+    expect(m.to).toBe("serpe");
+    expect(m.type).toBe("param");
+    expect(m.body).toMatchObject({ mode: "set", id: "density", value: 0.7 });
+  });
+  it("builds a batch param message from multiple pairs", () => {
+    const m = sendMessage({ from: "serpe", mode: "report", params: [{ id: "density", value: 0.7 }, { id: "steps", value: 16 }] });
+    expect(m.type).toBe("param");
+    expect((m.body as { params: unknown[] }).params).toHaveLength(2);
+    expect((m.body as { mode: string }).mode).toBe("report");
+  });
+  it("builds a command with named args", () => {
+    const m = sendMessage({ to: "serpe", command: { name: "mutate", args: { amount: 0.3 } } });
+    expect(m.type).toBe("command");
+    expect(m.body).toMatchObject({ name: "mutate", args: { amount: 0.3 } });
+  });
+  it("refuses a param and a command at once", () => {
+    expect(() => sendMessage({ to: "serpe", param: { id: "x", value: 1 }, command: { name: "y" } })).toThrow(/not both/);
+  });
+  it("refuses an empty send", () => {
+    expect(() => sendMessage({ to: "serpe" })).toThrow(/required/);
+  });
+  it("refuses an unknown target app (validation)", () => {
+    expect(() => sendMessage({ to: "daw" as never, param: { id: "x", value: 1 } })).toThrow(/invalid message/);
+  });
+  it("round-trips through NDJSON (the pipe transport)", () => {
+    const m = sendMessage({ to: "serpe", command: { name: "next-pattern" } });
+    const line = toNdjson(m);
+    expect(line.endsWith("\n")).toBe(true);
+    const back = parseNdjson(line);
+    expect(back).toEqual(m);
+  });
+  it("parseNdjson rejects blank, foreign, and malformed lines", () => {
+    expect(parseNdjson("")).toBeNull();
+    expect(parseNdjson("not json")).toBeNull();
+    expect(parseNdjson(JSON.stringify({ hello: "world" }))).toBeNull();
+  });
+  it("summarizes each message type on one line", () => {
+    expect(summarizeMessage(sendMessage({ to: "serpe", param: { id: "density", value: 0.7 } }))).toContain("density=0.7");
+    expect(summarizeMessage(sendMessage({ to: "serpe", command: { name: "mutate", args: { amount: 0.3 } } }))).toContain("mutate");
+  });
+});
+
+describe("describeManifest", () => {
+  const manifest = {
+    app: "serpe", v: 1,
+    params: [{ id: "density", label: "Density", unit: "ratio", min: 0, max: 1, default: 0.5, step: 0.01 }],
+    commands: [{ name: "mutate", label: "Mutate", args: [{ id: "amount", unit: "ratio", min: 0, max: 1, default: 0.2 }] }],
+  };
+  it("validates and renders a manifest surface", () => {
+    const { lines } = describeManifest(manifest);
+    expect(lines[0]).toContain("serpe manifest v1");
+    expect(lines.join("\n")).toContain("density");
+    expect(lines.join("\n")).toContain("mutate");
+  });
+  it("throws on an invalid manifest (unknown unit)", () => {
+    const bad = { ...manifest, params: [{ ...manifest.params[0], unit: "furlong" }] };
+    expect(() => describeManifest(bad)).toThrow(/invalid manifest/);
   });
 });

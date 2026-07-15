@@ -5,7 +5,8 @@ import {
   PROTOCOL_VERSION, MANUFACTURER_ID, SYSEX_START, SYSEX_END,
   makeMessage, validateMessage, pack7, unpack7,
   encodeMessage, decodeFrame, Reassembler,
-  type SuiteMessage,
+  makeManifest, makeParam, makeCommand,
+  type SuiteMessage, type ManifestBody,
 } from "./index.js";
 
 // ── pack7 / unpack7 ──────────────────────────────────────────────────────────
@@ -58,6 +59,82 @@ describe("validateMessage", () => {
   it("pattern bounds its steps", () => {
     expect(validateMessage(makeMessage("serpe", "pattern", { steps: 0, mask: 1 })).ok).toBe(false);
     expect(validateMessage(makeMessage("serpe", "pattern", { steps: 8, mask: 73 })).ok).toBe(true);
+  });
+});
+
+// ── Control & interop plane (manifest / param / command) ─────────────────────
+
+const serpeManifest: ManifestBody = {
+  app: "serpe", v: 1,
+  params: [
+    { id: "density", label: "Density", unit: "ratio", min: 0, max: 1, default: 0.5, step: 0.01 },
+    { id: "steps", label: "Steps", unit: "count", min: 1, max: 128, default: 16, step: 1 },
+  ],
+  commands: [
+    { name: "next-pattern", label: "Next pattern" },
+    { name: "mutate", label: "Mutate", args: [{ id: "amount", unit: "ratio", min: 0, max: 1, default: 0.2 }] },
+  ],
+};
+
+describe("manifest validation", () => {
+  it("accepts a well-formed manifest", () => {
+    expect(validateMessage(makeManifest("serpe", serpeManifest)).ok).toBe(true);
+  });
+  it("rejects an unknown unit", () => {
+    const bad = { ...serpeManifest, params: [{ id: "x", label: "X", unit: "furlong", min: 0, max: 1, default: 0 }] };
+    expect(validateMessage(makeManifest("serpe", bad as never)).ok).toBe(false);
+  });
+  it("rejects a default outside [min, max]", () => {
+    const bad = { ...serpeManifest, params: [{ id: "x", label: "X", unit: "ratio", min: 0, max: 1, default: 2 }] };
+    expect(validateMessage(makeManifest("serpe", bad)).ok).toBe(false);
+  });
+  it("rejects min > max", () => {
+    const bad = { ...serpeManifest, params: [{ id: "x", label: "X", unit: "ratio", min: 1, max: 0, default: 0.5 }] };
+    expect(validateMessage(makeManifest("serpe", bad)).ok).toBe(false);
+  });
+  it("rejects duplicate param ids", () => {
+    const bad = { ...serpeManifest, params: [serpeManifest.params[0]!, serpeManifest.params[0]!] };
+    expect(validateMessage(makeManifest("serpe", bad)).ok).toBe(false);
+  });
+  it("requires values[] for an enum unit", () => {
+    const bad = { ...serpeManifest, params: [{ id: "m", label: "Mode", unit: "enum", min: 0, max: 2, default: 0 }] };
+    expect(validateMessage(makeManifest("serpe", bad as never)).ok).toBe(false);
+  });
+});
+
+describe("param validation", () => {
+  it("accepts a single set", () => {
+    expect(validateMessage(makeParam("external", { id: "density", value: 0.7 }, { to: "serpe" })).ok).toBe(true);
+  });
+  it("accepts a report batch", () => {
+    expect(validateMessage(makeParam("serpe", { mode: "report", params: [{ id: "density", value: 0.7 }] })).ok).toBe(true);
+  });
+  it("rejects both single and batch at once", () => {
+    expect(validateMessage(makeParam("serpe", { id: "density", value: 1, params: [{ id: "steps", value: 8 }] })).ok).toBe(false);
+  });
+  it("rejects neither single nor batch", () => {
+    expect(validateMessage(makeParam("serpe", {})).ok).toBe(false);
+  });
+  it("rejects a non-numeric value", () => {
+    expect(validateMessage(makeParam("serpe", { id: "density", value: "loud" as never })).ok).toBe(false);
+  });
+  it("rejects an unknown mode", () => {
+    expect(validateMessage(makeMessage("serpe", "param", { mode: "toggle", id: "x", value: 1 })).ok).toBe(false);
+  });
+});
+
+describe("command validation", () => {
+  it("accepts a command with named args", () => {
+    expect(validateMessage(makeCommand("external", { name: "mutate", args: { amount: 0.3 } }, { to: "serpe" })).ok).toBe(true);
+  });
+  it("accepts a bare command", () => {
+    expect(validateMessage(makeCommand("external", { name: "next-pattern" }, { to: "serpe" })).ok).toBe(true);
+  });
+  it("rejects an empty command name", () => {
+    expect(validateMessage(makeCommand("external", { name: "" })).ok).toBe(false);
+  });
+  it("rejects non-object args", () => {
+    expect(validateMessage(makeMessage("external", "command", { name: "x", args: [1, 2] })).ok).toBe(false);
   });
 });
 

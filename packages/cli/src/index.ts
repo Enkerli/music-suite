@@ -242,3 +242,106 @@ export function encodeWav16(samples: Float32Array, sampleRate: number): Uint8Arr
   }
   return new Uint8Array(data.buffer);
 }
+
+// ── suite messages: the control & interop plane over stdio (NDJSON) ──────────
+// docs/CONTROL_PLANE.md — one message model, several transports. Here the
+// transport is one JSON SuiteMessage per line: `enkerli send … | enkerli recv`
+// is the message model carried over an ordinary Unix pipe (headless piping).
+
+import {
+  makeParam, makeCommand, validateMessage,
+  type SuiteMessage, type AppId, type Destination, type ParamMode, type ManifestBody,
+} from "@enkerli/protocol";
+
+export interface SendOptions {
+  from?: AppId;
+  to?: Destination;
+  param?: { id: string; value: number; mode?: ParamMode };
+  params?: Array<{ id: string; value: number }>;
+  command?: { name: string; args?: Record<string, number> };
+  mode?: ParamMode;
+  id?: string;
+  sentAt?: string;
+}
+
+/**
+ * Build a validated control-plane SuiteMessage from CLI intent. Throws on an
+ * invalid message — never emit a malformed frame onto the transport.
+ */
+export function sendMessage(opts: SendOptions): SuiteMessage {
+  const from = opts.from ?? "external";
+  const carry = { ...(opts.to !== undefined && { to: opts.to }), ...(opts.id !== undefined && { id: opts.id }), ...(opts.sentAt !== undefined && { sentAt: opts.sentAt }) };
+  const isParam = opts.param !== undefined || opts.params !== undefined;
+  if (isParam && opts.command) throw new Error("send: give a param or a command, not both");
+  let msg: SuiteMessage;
+  if (opts.params !== undefined) {
+    msg = makeParam(from, { ...(opts.mode && { mode: opts.mode }), params: opts.params }, carry);
+  } else if (opts.param !== undefined) {
+    msg = makeParam(from, { mode: opts.param.mode ?? opts.mode ?? "set", id: opts.param.id, value: opts.param.value }, carry);
+  } else if (opts.command !== undefined) {
+    msg = makeCommand(from, opts.command, carry);
+  } else {
+    throw new Error("send: a --param, --params, or --command is required");
+  }
+  const r = validateMessage(msg);
+  if (!r.ok) throw new Error(`send: invalid message — ${r.errors.join("; ")}`);
+  return msg;
+}
+
+/** Serialize a message as one NDJSON line (the stdio transport frame). */
+export function toNdjson(msg: SuiteMessage): string {
+  return JSON.stringify(msg) + "\n";
+}
+
+/** Parse one NDJSON line back to a validated SuiteMessage, or null (blank / foreign / invalid). */
+export function parseNdjson(line: string): SuiteMessage | null {
+  const t = line.trim();
+  if (!t) return null;
+  let parsed: unknown;
+  try { parsed = JSON.parse(t); } catch { return null; }
+  return validateMessage(parsed).ok ? (parsed as SuiteMessage) : null;
+}
+
+/** A one-line human summary of a message — the `recv` readout. */
+export function summarizeMessage(m: SuiteMessage): string {
+  const route = `${m.from} → ${m.to}`;
+  const b = m.body as Record<string, unknown>;
+  switch (m.type) {
+    case "param": {
+      const mode = (b.mode as string) ?? "set";
+      if (Array.isArray(b.params))
+        return `param ${mode} [${route}] ${(b.params as Array<{ id: string; value: number }>).map((p) => `${p.id}=${p.value}`).join(" ")}`;
+      return `param ${mode} [${route}] ${b.id as string}=${b.value as number}`;
+    }
+    case "command":
+      return `command [${route}] ${b.name as string}` +
+        (b.args ? `(${Object.entries(b.args as Record<string, number>).map(([k, v]) => `${k}=${v}`).join(", ")})` : "");
+    case "manifest": {
+      const mb = m.body as unknown as ManifestBody;
+      return `manifest [${route}] ${mb.app} v${mb.v}: ${mb.params.length} params, ${mb.commands.length} commands`;
+    }
+    case "scale": return `scale [${route}] mask ${b.mask as number}${b.name ? ` (${b.name as string})` : ""}`;
+    case "chord": return `chord [${route}] ${(b.symbol as string) ?? `pcs ${b.pcs as number}`}`;
+    case "pattern": return `pattern [${route}] ${b.steps as number} steps, mask ${b.mask as number}${b.name ? ` (${b.name as string})` : ""}`;
+    case "progression": return `progression [${route}]`;
+    default: return `${m.type} [${route}]`;
+  }
+}
+
+/** Validate a hand-authored manifest body and return a human-readable surface. */
+export function describeManifest(body: unknown): { manifest: ManifestBody; lines: string[] } {
+  if (typeof body !== "object" || body === null || Array.isArray(body))
+    throw new Error("describe: manifest must be a JSON object");
+  const mb = body as ManifestBody;
+  const probe = { protocol: "enkerli-suite", v: 1, id: "describe-probe", from: mb.app, to: "*", sentAt: "2026-01-01T00:00:00Z", type: "manifest", body: mb };
+  const r = validateMessage(probe);
+  if (!r.ok) throw new Error(`describe: invalid manifest — ${r.errors.join("; ")}`);
+  const lines: string[] = [`${mb.app} manifest v${mb.v}`];
+  lines.push(`params (${mb.params.length}):`);
+  for (const p of mb.params)
+    lines.push(`  ${p.id}  ${p.label}  [${p.min}..${p.max} ${p.unit}${p.step ? ` step ${p.step}` : ""}]  default ${p.default}`);
+  lines.push(`commands (${mb.commands.length}):`);
+  for (const c of mb.commands)
+    lines.push(`  ${c.name}  ${c.label}` + (c.args?.length ? `  args: ${c.args.map((a) => `${a.id}[${a.min}..${a.max} ${a.unit}]`).join(", ")}` : ""));
+  return { manifest: mb, lines };
+}

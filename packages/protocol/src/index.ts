@@ -27,12 +27,25 @@
 
 import { APPS, type AppId } from "@enkerli/library";
 
+// Re-exported: `AppId` and `Destination` are part of this protocol's public
+// addressing surface (the envelope `from`/`to`), so consumers need not also
+// depend on @enkerli/library just to name a sender or target.
+export type { AppId };
+
 // ── Message envelope ─────────────────────────────────────────────────────────
 
 export const PROTOCOL = "enkerli-suite" as const;
 export const PROTOCOL_VERSION = 1;
 
-export const MESSAGE_TYPES = ["scale", "chord", "progression", "pattern"] as const;
+export const MESSAGE_TYPES = [
+  // data-sharing (the original four)
+  "scale", "chord", "progression", "pattern",
+  // control & interop plane (docs/CONTROL_PLANE.md) — additive vocabulary,
+  // still protocol v1: the wire envelope/framing is unchanged, only the set
+  // of `type` values grows. A pre-plane receiver rejects these as unknown
+  // types, which is correct — it cannot act on them.
+  "manifest", "param", "command",
+] as const;
 export type MessageType = (typeof MESSAGE_TYPES)[number];
 
 /** `to` is an app id or "*" (broadcast — every listener may act). */
@@ -85,6 +98,102 @@ export interface PatternBody {
   name?: string;
 }
 
+// ── Control & interop plane bodies (docs/CONTROL_PLANE.md) ───────────────────
+
+/**
+ * Controlled vocabulary for a parameter's unit — the authority a binder reads
+ * to normalize (CC ↔ native), format, and range-check. Suite conventions
+ * carry through: `pc-mask`/`rhythm-mask` values are integers, leftmost = LSB.
+ */
+export const PARAM_UNITS = [
+  "ratio",       // dimensionless 0..1 (the modulation lingua franca)
+  "percent",     // 0..100
+  "count",       // integer quantity (steps, voices)
+  "semitone",    // pitch interval
+  "cents",
+  "pc",          // pitch class 0..11
+  "pc-mask",     // 12-bit pitch-class mask (leftmost = LSB)
+  "rhythm-mask", // rhythm onset mask (leftmost = LSB)
+  "bpm", "ms", "hz", "db",
+  "bool",        // 0/1
+  "enum",        // one of `values`
+] as const;
+export type ParamUnit = (typeof PARAM_UNITS)[number];
+
+/** One addressable parameter in a tool's manifest. `id` is the contract. */
+export interface ParamSpec {
+  /** Stable, unique within the app, never localized (LIS identity). */
+  id: string;
+  /** Display label — localizable, never used for addressing. */
+  label: string;
+  unit: ParamUnit;
+  /** Native range (min ≤ max). Lets any binder normalize to/from 0..1. */
+  min: number;
+  max: number;
+  default: number;
+  /** Optional quantization; absent = continuous. */
+  step?: number;
+  /** For unit "enum": the ordered value labels (value is the index). */
+  values?: string[];
+}
+
+/** One named argument of a command. */
+export interface ArgSpec {
+  id: string;
+  unit: ParamUnit;
+  min: number;
+  max: number;
+  default: number;
+  values?: string[];
+}
+
+/** One invokable action in a tool's manifest. */
+export interface CommandSpec {
+  /** Stable, unique within the app, never localized. */
+  name: string;
+  label: string;
+  args?: ArgSpec[];
+}
+
+/**
+ * A tool's addressable surface — the keystone of the control plane. Carried
+ * as a SuiteMessage (`type: "manifest"`) so tools are self-describing: a tool
+ * broadcasts it on start and answers a `describe` command with it.
+ */
+export interface ManifestBody {
+  /** The declaring app (redundant with the envelope `from`, but self-contained). */
+  app: AppId;
+  /** Manifest schema revision for this app (bump when ids change). */
+  v: number;
+  params: ParamSpec[];
+  commands: CommandSpec[];
+}
+
+/** How a `param` message acts on its target. */
+export const PARAM_MODES = ["set", "report", "observe"] as const;
+export type ParamMode = (typeof PARAM_MODES)[number];
+
+/**
+ * Set, report, or observe one or more parameters. Structural validation only
+ * here (id is a string, value a number) — manifest-conformance (id exists,
+ * value in range) is the RECEIVER's job, since only it holds the manifest.
+ */
+export interface ParamBody {
+  /** set (default) | report (tool announcing its own state) | observe (subscribe). */
+  mode?: ParamMode;
+  /** Single-param form. */
+  id?: string;
+  value?: number;
+  /** Batch form (preset recall / one automation frame). */
+  params?: Array<{ id: string; value: number }>;
+}
+
+/** Invoke a named action; args are named and manifest-validated by the receiver. */
+export interface CommandBody {
+  name: string;
+  args?: Record<string, number>;
+}
+
 function newId(): string {
   const uuid = (globalThis as { crypto?: { randomUUID?: () => string } })
     .crypto?.randomUUID?.();
@@ -110,6 +219,23 @@ export function makeMessage(
     type,
     body,
   };
+}
+
+type MakeOpts = { to?: Destination; id?: string; sentAt?: string };
+
+/** A tool announcing its addressable surface (`type: "manifest"`). */
+export function makeManifest(from: AppId, body: ManifestBody, opts: MakeOpts = {}): SuiteMessage {
+  return makeMessage(from, "manifest", body as unknown as Record<string, unknown>, opts);
+}
+
+/** Set / report / observe a parameter (`type: "param"`). */
+export function makeParam(from: AppId, body: ParamBody, opts: MakeOpts = {}): SuiteMessage {
+  return makeMessage(from, "param", { mode: "set", ...body } as Record<string, unknown>, opts);
+}
+
+/** Invoke a named action (`type: "command"`). */
+export function makeCommand(from: AppId, body: CommandBody, opts: MakeOpts = {}): SuiteMessage {
+  return makeMessage(from, "command", body as unknown as Record<string, unknown>, opts);
 }
 
 export interface ValidationResult { ok: boolean; errors: string[] }
@@ -165,9 +291,100 @@ export function validateMessage(x: unknown): ValidationResult {
         if (!Number.isInteger(b.mask) || (b.mask as number) < 0)
           err("body.mask: non-negative integer required (leftmost = LSB)");
         break;
+      case "manifest":
+        validateManifestBody(b, err);
+        break;
+      case "param":
+        validateParamBody(b, err);
+        break;
+      case "command":
+        if (typeof b.name !== "string" || b.name.length === 0)
+          err("body.name: non-empty command name required");
+        if (b.args !== undefined && !isPlainObject(b.args))
+          err("body.args: object of named arguments required");
+        break;
     }
   }
   return { ok: errors.length === 0, errors };
+}
+
+const UNIT_SET = new Set<string>(PARAM_UNITS);
+
+/** A param/arg spec is structurally sound: id, label, unit, ordered range, in-range default. */
+function validateSpec(
+  s: unknown, where: string, err: (m: string) => void, keyName: "id" | "name",
+): void {
+  if (!isPlainObject(s)) { err(`${where}: object required`); return; }
+  if (typeof s[keyName] !== "string" || (s[keyName] as string).length === 0)
+    err(`${where}.${keyName}: non-empty string required`);
+  if (keyName === "id" && s.label !== undefined && typeof s.label !== "string")
+    err(`${where}.label: string required`);
+  if (!UNIT_SET.has(s.unit as string))
+    err(`${where}.unit: one of ${PARAM_UNITS.join("|")} required (${String(s.unit)})`);
+  const nums = ["min", "max", "default"] as const;
+  for (const k of nums)
+    if (typeof s[k] !== "number" || !Number.isFinite(s[k] as number))
+      err(`${where}.${k}: finite number required`);
+  if (typeof s.min === "number" && typeof s.max === "number" && (s.min as number) > (s.max as number))
+    err(`${where}: min must be ≤ max`);
+  if (typeof s.default === "number" && typeof s.min === "number" && typeof s.max === "number" &&
+      ((s.default as number) < (s.min as number) || (s.default as number) > (s.max as number)))
+    err(`${where}.default: must be within [min, max]`);
+  if (s.step !== undefined && (typeof s.step !== "number" || (s.step as number) <= 0))
+    err(`${where}.step: positive number required`);
+  if (s.unit === "enum" && (!Array.isArray(s.values) || (s.values as unknown[]).length === 0))
+    err(`${where}: enum unit requires a non-empty values[]`);
+}
+
+function validateManifestBody(b: Record<string, unknown>, err: (m: string) => void): void {
+  if (!(APPS as readonly string[]).includes(b.app as string))
+    err(`body.app: not in the app vocabulary (${String(b.app)})`);
+  if (!Number.isInteger(b.v) || (b.v as number) < 1) err("body.v: integer ≥ 1 required");
+  if (!Array.isArray(b.params)) err("body.params: array required");
+  else {
+    const ids = new Set<string>();
+    b.params.forEach((p, i) => {
+      validateSpec(p, `body.params[${i}]`, err, "id");
+      const id = isPlainObject(p) ? (p.id as string) : undefined;
+      if (typeof id === "string") {
+        if (ids.has(id)) err(`body.params[${i}].id: duplicate "${id}"`);
+        ids.add(id);
+      }
+    });
+  }
+  if (!Array.isArray(b.commands)) err("body.commands: array required");
+  else b.commands.forEach((c, i) => {
+    if (!isPlainObject(c)) { err(`body.commands[${i}]: object required`); return; }
+    if (typeof c.name !== "string" || c.name.length === 0)
+      err(`body.commands[${i}].name: non-empty string required`);
+    if (typeof c.label !== "string") err(`body.commands[${i}].label: string required`);
+    if (c.args !== undefined) {
+      if (!Array.isArray(c.args)) err(`body.commands[${i}].args: array required`);
+      else c.args.forEach((a, j) => validateSpec(a, `body.commands[${i}].args[${j}]`, err, "id"));
+    }
+  });
+}
+
+function validateParamBody(b: Record<string, unknown>, err: (m: string) => void): void {
+  if (b.mode !== undefined && !(PARAM_MODES as readonly string[]).includes(b.mode as string))
+    err(`body.mode: one of ${PARAM_MODES.join("|")} required`);
+  const single = b.id !== undefined;
+  const batch = b.params !== undefined;
+  if (single === batch) err("body: exactly one of single (id+value) or batch (params[]) required");
+  if (single) {
+    if (typeof b.id !== "string" || (b.id as string).length === 0) err("body.id: non-empty string required");
+    if (typeof b.value !== "number" || !Number.isFinite(b.value as number))
+      err("body.value: finite number required");
+  }
+  if (batch) {
+    if (!Array.isArray(b.params) || b.params.length === 0) err("body.params: non-empty array required");
+    else b.params.forEach((p, i) => {
+      if (!isPlainObject(p) || typeof p.id !== "string" || (p.id as string).length === 0)
+        err(`body.params[${i}].id: non-empty string required`);
+      else if (typeof p.value !== "number" || !Number.isFinite(p.value as number))
+        err(`body.params[${i}].value: finite number required`);
+    });
+  }
 }
 
 // ── 7-in-8 packing (SysEx data bytes must stay below 0x80) ──────────────────
