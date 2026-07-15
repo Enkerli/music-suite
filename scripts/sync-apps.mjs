@@ -52,6 +52,9 @@ const MANIFEST = [
   // the plugin (separate repo) reads index.html via a configurable CMake path and
   // ignores synth.js (it makes sound in C++).
   { slug: "vane",             title: "Vane",                 kind: "esbuild",   dir: join(ROOT, "apps", "vane"), dist: "dist" },
+  // Suite Workspace: the single-page, movable-module projection of the control
+  // & interop plane (docs/CONTROL_PLANE.md). In-repo only (no plugin twin).
+  { slug: "workspace",        title: "Suite Workspace",      kind: "esbuild",   dir: join(ROOT, "apps", "workspace"), dist: "dist" },
 ];
 
 // Per-machine source overrides for the external apps.

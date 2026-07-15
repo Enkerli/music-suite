@@ -81,13 +81,13 @@ piping, shortcuts, and modulation together.
 | Item | Why it waits | Note |
 |---|---|---|
 | **Polyrhythmic Serpe** — concentric circles + stacked step lanes | genuine new feature; **long-held goal, not pressing** (2026-07-14) | mirrors the just-shipped DrawnQurve polyphonic pattern (commit `5aae20a`); the cheapest new feature to reach because the interaction grammar is proven — so it stays on the shelf, ready, rather than urgent |
-| **Single-page movable-module workspace** | large; and it *depends on* §1.1 | modules are only worth co-locating once they share a message bus — so this is **downstream** of the control plane, not parallel to it |
-| **Apple Shortcuts / widgets** | platform-specific whim; lowest leverage | naturally becomes cheap *after* §1.1 — a Shortcut is just another sender of a `command`/`param` message |
+| **Single-page movable-module workspace** | large; *depended on* §1.1 | ✅ **shipped 2026-07-15** (`apps/workspace`): a `SuiteBus` (in-page + BroadcastChannel) hosts movable modules — a manifest-driven control surface, a `@enkerli/upi` pattern module, a bus monitor — all speaking SuiteMessages. It came in as the *thin adapter* the plan predicted (~600 LOC over the plane), confirming the ordering claim |
+| **Apple Shortcuts / widgets** | platform-specific whim; lowest leverage | naturally becomes cheap *after* §1.1 — a Shortcut is just another sender of a `command`/`param` message; the last remaining projection |
 
-The ordering claim worth internalizing: **§1.1 makes B2 and B3 small.**
-The workspace and the Shortcuts hooks are both "just another client of the
-control plane." Building the plane first turns two large/awkward features
-into thin adapters.
+The ordering claim, now **borne out**: **§1.1 made B2 small.** The workspace
+arrived as "just another client of the control plane" — a bus + a few
+modules over the shipped manifests/protocol/upi, not a rewrite. The
+Shortcuts hook (B3) is the same shape, still to come.
 
 ### 1.3 Polyrhythmic Serpe — the shape (Tier B, sketch)
 
@@ -287,15 +287,27 @@ material (a curated preset set *is* a lesson).
    instrument — and it is the last core plane component, so the projections
    (§1.2 B2/B3, the workspace and Shortcuts) are now the thin adapters the
    roadmap promised.
+8. ✅ **Workspace projection** *(shipped 2026-07-15)*: `apps/workspace` — a
+   `SuiteBus` (in-page + BroadcastChannel, the third transport) hosts
+   movable modules that talk SuiteMessages: a **manifest-driven control
+   surface** (36 Vane sliders / Serpe commands generated from the manifests,
+   scale-aware), a **`@enkerli/upi` pattern module** (both source and sink),
+   and a **bus monitor**. Layout persists; modules drag. It landed as the
+   *thin adapter* the plan predicted — the ordering claim (§1.2) is now
+   borne out. Verified end-to-end under happy-dom (16 tests).
    **Next choices:** the last headless promotion (ProgGenie generation →
    package); the *time-varying* `--stream` automation form
    ([CONTROL_PLANE.md](CONTROL_PLANE.md) §7 #6); the in-app **control-map
-   editor UI** (Track B — logic shipped, surface not); or the first
-   **projection** (the single-page workspace, now cheap). The polyrhythmic-
-   Serpe spec stays shelved (§1.2) — the `@enkerli/upi` data shape is where
-   its multi-cycle model will live.
+   editor UI** (Track B — logic shipped, surface not); the **Apple Shortcuts**
+   adapter (the last projection); or — a shift the whole session has deferred
+   — the **product layer** (§2: persona reconciliation, U1–U5 use cases),
+   which now has a complete plane to exercise. The polyrhythmic-Serpe spec
+   stays shelved (§1.2) — the `@enkerli/upi` data shape is where its
+   multi-cycle model will live.
 
 *Sequence rationale: 1 and 2 are mutually reinforcing and both sit inside
 the moratorium; the spec de-risked the design so the next move is code, not
-more planning. Item 4 is the first real fork between "more integration" and
-"the fun new feature" — a deliberate choice, not a drift.*
+more planning. Item 4 was the first real fork between "more integration" and
+"the fun new feature" — a deliberate choice, not a drift. Items 4→8 then
+walked the plane to structural completion; the open question now is whether
+to keep extending it or turn to the product layer that validates it.*

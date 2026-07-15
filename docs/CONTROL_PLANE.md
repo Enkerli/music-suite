@@ -33,10 +33,14 @@ realization:
 - **The transports** are interchangeable carriers of that same message:
   1. **SysEx** — shipped (`encodeMessage`/`Reassembler`); web↔web over an
      IAC bus, web↔plugin and plugin↔plugin via host MIDI routing.
-  2. **stdio NDJSON** — *new, trivial*: one JSON `SuiteMessage` per line on
-     stdin/stdout. This **is** headless piping — `enkerli A | enkerli B`.
-  3. later: App-Group inbox (gated on the Apple account, per HANDOFF),
-     WebSocket/BroadcastChannel (the single-page workspace bus).
+  2. **stdio NDJSON** — one JSON `SuiteMessage` per line on stdin/stdout.
+     This **is** headless piping — `enkerli A | enkerli B`. *(shipped)*
+  3. **in-page bus + BroadcastChannel** — the `SuiteBus` in `apps/workspace`
+     carries SuiteMessages between modules on one page (and across browser
+     tabs via BroadcastChannel). *(shipped 2026-07-15 — the workspace
+     projection.)*
+  4. later: App-Group inbox (gated on the Apple account, per HANDOFF);
+     WebSocket for cross-device.
 - **The two new verbs** turn a data-sharing protocol into a control
   protocol: **`param`** (set/observe a named value) and **`command`**
   (invoke a named action). Plus **`manifest`** (a tool declares what it can
@@ -48,10 +52,10 @@ Everything the roadmap wants is a projection of this:
 |---|---|
 | Run every tool headless over MIDI | any tool ↔ SysEx transport (most already do) |
 | Pipe one tool into another | the stdio NDJSON transport + existing CLI |
-| Keyboard / MIDI shortcuts change patterns | a **binding** (key/CC → `command` or `param`) |
-| Expose parameters for modulation/automation | the **`param`** verb + the **manifest** |
-| Single-page movable modules | modules on the BroadcastChannel transport |
-| Apple Shortcuts / widgets | a Shortcut is just another `command`/`param` sender |
+| Keyboard / MIDI shortcuts change patterns | a **binding** (key/CC → `command` or `param`) — ✅ `@enkerli/control` |
+| Expose parameters for modulation/automation | the **`param`** verb + the **manifest** — ✅ |
+| Single-page movable modules | modules on the in-page/BroadcastChannel bus — ✅ `apps/workspace` |
+| Apple Shortcuts / widgets | a Shortcut is just another `command`/`param` sender — *the remaining adapter* |
 
 The payoff is the leverage claim from the master plan, made concrete: build
 these three verbs + two transports once, and six roadmap items become
