@@ -330,8 +330,11 @@ material (a curated preset set *is* a lesson).
     the **Apple Shortcuts** adapter; the narrow headless remainder (DrawnQurve
     path; PitchFold/MIDIcurator CLI verbs); MIDI-CC capture + library-item save
     in the editor; or **Vane UI-knob reflection** (deferred — needs a setter
-    hook in Vane's plugin-shared `index.html`, unverifiable without a real
-    browser here). Polyrhythmic Serpe stays shelved (§1.2) — the `@enkerli/upi`
+    hook in Vane's plugin-shared `index.html`, verified via
+    [BROWSER_TEST.md](BROWSER_TEST.md) §8). That protocol *(added 2026-07-15)*
+    is the step-by-step manual pass for everything only a real browser can show
+    — the cross-tab loops, audio, and the deferred items — and unblocks the
+    browser-gated work. Polyrhythmic Serpe stays shelved (§1.2) — the `@enkerli/upi`
     data shape is where its multi-cycle model will live.
 
 *Sequence rationale: 1 and 2 are mutually reinforcing and both sit inside

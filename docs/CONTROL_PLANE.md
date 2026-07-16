@@ -254,7 +254,13 @@ Design commitments:
   only today); saving a control-map as a library item (the `kind` is specced,
   the editor persists to layout for now); **Vane UI-knob reflection** of an
   incoming value (deferred — it needs a setter hook inside Vane's
-  plugin-shared `index.html`, unverifiable without a real browser here).
+  plugin-shared `index.html`, verified via [BROWSER_TEST.md](BROWSER_TEST.md)
+  §8, which can't run in CI).
+- **Live verification:** everything above that only a real browser can show —
+  the cross-tab loops (a workspace slider changing another tab's sound, a
+  keystroke rotating a real pattern), audio, and the deferred items — has a
+  step-by-step protocol in [BROWSER_TEST.md](BROWSER_TEST.md). The automated
+  tests prove the logic; that protocol proves the live behaviour.
 
 ---
 
