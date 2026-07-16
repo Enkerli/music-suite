@@ -9,20 +9,40 @@
  *   enkerli smf "Dm7 G7 | Cmaj7" -o out.mid [--tonic C] [--mode major] [--bpm 120]
  *   enkerli render 60 64 67 -o out.wav [--seconds 2] [--breath 0.9] [--sr 48000]
  *                                      [--param 12=0.8]  (Vane wasm param id=value)
+ *   enkerli send --to serpe --command mutate --arg amount=0.3   control-plane message → NDJSON
+ *   enkerli send --to serpe --param density=0.7                 …a param set
+ *   enkerli … | enkerli recv                                    read NDJSON messages from a pipe
+ *   enkerli describe <manifest.json>                            validate + print a tool's surface
  *
  * Everything runs from the repo with no GUI, no DAW, no plugin host — render
- * goes through the SAME vane-dsp.wasm the browser standalone plays.
+ * goes through the SAME vane-dsp.wasm the browser standalone plays; send/recv
+ * carry the @enkerli/protocol message model over an ordinary Unix pipe
+ * (docs/CONTROL_PLANE.md — the headless half of the control & interop plane).
  */
-import { writeFileSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
 import {
-  chordInfo, patternInfo, smfFromBars, renderVane,
+  chordInfo, patternInfo, upiInfo, generateInfo, smfFromBars, renderVane,
+  sendMessage, toNdjson, parseNdjson, summarizeMessage, describeManifest,
+  bundledManifestPath, MANIFEST_APPS, paramsFromStream, vaneParamIdMap,
+  resolveEvent, validateControlMap, manifestsForControlMap,
+  type SendOptions, type ControlMap, type InputEvent,
 } from "./index.js";
+import type { AppId, Destination, ParamMode } from "@enkerli/protocol";
 
 const USAGE = `enkerli <command> …
   chord <values…> [--pcs|--notes]
   pattern <spec>                        E(3,8) · 0x94:8 · o111:8 · d73:8 · 10010010
+  upi "<notation>" [--steps N]          the full Serpe UPI language: P(3,0)+P(5,0), E(3,8);12, {100}E(3,8), Morse…
+  generate [--mode major|minor] [--length N] [--seed N] [--method markov|markov-cadence|circle] [--tonic C] [-o out.mid]
+                                        a progression from the corpus statistics → Roman bars (or realized SMF with -o)
   smf "<bars>" -o <file.mid> [--tonic C] [--mode major|minor] [--bpm N] [--beats-per-chord N]
-  render <notes…> -o <file.wav> [--seconds N] [--breath 0..1] [--sr N] [--param id=value]…`;
+  render <notes…> -o <file.wav> [--seconds N] [--breath 0..1] [--sr N] [--param id=value]… [--stream]
+                                        --stream: apply a control-plane param NDJSON stream from stdin (message → sound)
+  send [--from app] [--to app|*] (--param id=value… [--mode set|report|observe] | --command name [--arg k=v]…)
+  recv                                  read NDJSON SuiteMessages from stdin, validate + summarize
+  describe <app|manifest.json>          print a tool's parameter/command surface (app id e.g. vane, or a manifest file)
+  bind <control-map.json> (--cc N=V [--channel C] | --note N [--velocity V] [--channel C] | --key "combo" | --validate)
+                                        resolve an input through a control-map → the param/command message(s) (NDJSON)`;
 
 interface Args { positional: string[]; flags: Map<string, string[]> }
 
@@ -33,7 +53,7 @@ function parseArgs(argv: string[]): Args {
     const a = argv[i]!;
     if (a.startsWith("--")) {
       const name = a.slice(2);
-      const boolean = ["pcs", "notes", "help"].includes(name);
+      const boolean = ["pcs", "notes", "help", "stream", "validate"].includes(name);
       const value = boolean ? "true" : argv[++i];
       if (value === undefined) throw new Error(`--${name} needs a value`);
       if (!flags.has(name)) flags.set(name, []);
@@ -82,6 +102,48 @@ async function main(): Promise<number> {
       console.log(`onsets  [${p.onsets.join(" ")}] (${p.onsetCount})`);
       return 0;
     }
+    case "upi": {
+      const notation = args.positional.join(" ");
+      if (!notation) throw new Error('upi: a UPI notation is required, e.g. "E(3,8)" or "P(3,0)+P(5,0)"');
+      const info = upiInfo(notation, one(args, "steps") !== undefined ? Number(one(args, "steps")) : 16);
+      if (!info.ok) { console.log(`no pattern (${info.error ?? "unparsed"})`); return 1; }
+      const a = info.analysis!;
+      console.log(`label   ${info.label}`);
+      console.log(`steps   ${a.n}`);
+      console.log(`binary  ${a.binary}`);
+      console.log(`hex     ${a.hex}:${a.n}`);
+      console.log(`decimal d${a.decimal}:${a.n}`);
+      console.log(`onsets  [${a.onsets.join(" ")}] (${a.k}, density ${a.density.toFixed(3)})`);
+      if (info.accents.some((x) => x)) console.log(`accents [${info.accents.join("")}]`);
+      console.log(`balanced ${a.balanced} · evenness ${a.evenness.toFixed(3)}`);
+      return 0;
+    }
+    case "generate": {
+      const mode = one(args, "mode");
+      if (mode !== undefined && mode !== "major" && mode !== "minor")
+        throw new Error("generate: --mode must be major or minor");
+      const method = one(args, "method");
+      const info = generateInfo({
+        ...(mode !== undefined && { mode }),
+        ...(one(args, "length") !== undefined && { length: Number(one(args, "length")) }),
+        ...(one(args, "seed") !== undefined && { seed: Number(one(args, "seed")) }),
+        ...(method !== undefined && { method: method as "markov" | "markov-cadence" | "circle" }),
+        ...(one(args, "variety") !== undefined && { variety: one(args, "variety")! }),
+        ...(one(args, "tonic") !== undefined && { tonic: one(args, "tonic")! }),
+      });
+      const out = one(args, "out");
+      if (out) {
+        // realize headless straight to SMF: Roman bars → the same embedded-Progression file `smf` writes
+        const r = smfFromBars(info.bars, { mode: info.mode, ...(one(args, "tonic") !== undefined && { tonic: one(args, "tonic")! }) });
+        writeFileSync(out, r.bytes);
+        console.log(`wrote ${out}: ${r.chordCount} chords from a generated ${info.mode} progression (embedded Progression included)`);
+        return 0;
+      }
+      console.log(`bars    ${info.bars}`);
+      if (info.symbols) console.log(`symbols ${info.symbols.join(" | ")}`);
+      console.log(`(${info.labels.length} chords · ${info.mode}${one(args, "seed") !== undefined ? ` · seed ${one(args, "seed")}` : ""}) — pipe the bars into 'enkerli smf' or add -o`);
+      return 0;
+    }
     case "smf": {
       const text = args.positional.join(" ");
       const out = one(args, "out");
@@ -111,6 +173,17 @@ async function main(): Promise<number> {
         if (!m) throw new Error(`render: --param expects id=value, got "${pv}"`);
         params[Number(m[1])] = Number(m[2]);
       }
+      // --stream: consume a control-plane `param` NDJSON stream from stdin,
+      // resolve manifest ids → Vane wasm ids, and merge (stream over --param).
+      // This is the message → sound path: `enkerli send … | enkerli render --stream`.
+      if (args.flags.has("stream")) {
+        const s = paramsFromStream(readFileSync(0, "utf8"), vaneParamIdMap(), "vane");
+        Object.assign(params, s.params);
+        console.error(`render: applied ${s.applied.length} param(s) from stream` +
+          `${s.messages ? ` (${s.messages} message${s.messages === 1 ? "" : "s"})` : ""}` +
+          `${s.unresolved.length ? `; unresolved: ${s.unresolved.join(", ")}` : ""}` +
+          `${s.ignored ? `; ${s.ignored} line(s) ignored` : ""}`);
+      }
       const r = await renderVane({
         notes,
         ...(one(args, "seconds") !== undefined && { seconds: Number(one(args, "seconds")) }),
@@ -123,6 +196,86 @@ async function main(): Promise<number> {
       const secs = (r.samples.length / r.sampleRate).toFixed(2);
       console.log(`wrote ${out}: ${secs}s @ ${r.sampleRate}Hz, peak ${r.peak.toFixed(3)} — rendered by Vane's real DSP (WASM)`);
       if (r.peak < 0.001) console.log("note: near-silence — Vane's envelope is breath-driven; try --breath 0.9");
+      return 0;
+    }
+    case "send": {
+      const parsePairs = (vals: string[], what: string): Array<{ id: string; value: number }> =>
+        vals.map((pv) => {
+          const eq = pv.indexOf("=");
+          if (eq < 1) throw new Error(`send: ${what} expects id=value, got "${pv}"`);
+          const value = Number(pv.slice(eq + 1));
+          if (Number.isNaN(value)) throw new Error(`send: ${what} value must be numeric, got "${pv}"`);
+          return { id: pv.slice(0, eq), value };
+        });
+      const opts: SendOptions = {
+        ...(one(args, "from") !== undefined && { from: one(args, "from") as AppId }),
+        ...(one(args, "to") !== undefined && { to: one(args, "to") as Destination }),
+        ...(one(args, "mode") !== undefined && { mode: one(args, "mode") as ParamMode }),
+      };
+      const params = parsePairs(args.flags.get("param") ?? [], "--param");
+      const commandName = one(args, "command");
+      if (params.length > 1) opts.params = params;
+      else if (params.length === 1) opts.param = params[0]!;
+      if (commandName !== undefined) {
+        const argEntries = parsePairs(args.flags.get("arg") ?? [], "--arg");
+        opts.command = {
+          name: commandName,
+          ...(argEntries.length && { args: Object.fromEntries(argEntries.map((a) => [a.id, a.value])) }),
+        };
+      }
+      const msg = sendMessage(opts);
+      process.stdout.write(toNdjson(msg));
+      return 0;
+    }
+    case "recv": {
+      const text = readFileSync(0, "utf8");
+      let seen = 0, bad = 0;
+      for (const line of text.split("\n")) {
+        if (!line.trim()) continue;
+        const m = parseNdjson(line);
+        if (m) { console.log(summarizeMessage(m)); seen++; }
+        else { console.error(`skipped a line (blank / foreign / invalid): ${line.slice(0, 60)}`); bad++; }
+      }
+      console.error(`recv: ${seen} message(s)${bad ? `, ${bad} skipped` : ""}`);
+      return bad && !seen ? 1 : 0;
+    }
+    case "bind": {
+      const path = args.positional[0];
+      if (!path) throw new Error("bind: a control-map JSON file path is required");
+      const map = JSON.parse(readFileSync(path, "utf8")) as ControlMap;
+      const manifests = manifestsForControlMap(map);
+      if (args.flags.has("validate")) {
+        const r = validateControlMap(map, manifests);
+        if (r.ok) { console.log(`valid: ${map.bindings.length} binding(s) over ${manifests.length} manifest(s)`); return 0; }
+        for (const e of r.errors) console.error(`  ${e}`);
+        return 1;
+      }
+      // Build one input event from --cc / --note / --key.
+      let event: InputEvent;
+      const ch = one(args, "channel") !== undefined ? Number(one(args, "channel")) : 1;
+      const cc = one(args, "cc"), note = one(args, "note"), key = one(args, "key");
+      if (cc !== undefined) {
+        const mm = /^(\d+)=(\d+)$/.exec(cc);
+        if (!mm) throw new Error(`bind: --cc expects N=V (e.g. 74=127), got "${cc}"`);
+        event = { kind: "midi-cc", cc: Number(mm[1]), channel: ch, value: Number(mm[2]) };
+      } else if (note !== undefined) {
+        event = { kind: "midi-note", note: Number(note), channel: ch, velocity: one(args, "velocity") !== undefined ? Number(one(args, "velocity")) : 100 };
+      } else if (key !== undefined) {
+        event = { kind: "key", combo: key };
+      } else {
+        throw new Error("bind: an input is required — --cc N=V, --note N, or --key \"combo\" (or --validate)");
+      }
+      const msgs = resolveEvent(map, event, manifests);
+      for (const m of msgs) process.stdout.write(toNdjson(m));
+      console.error(`bind: ${msgs.length} message(s) from ${map.bindings.length} binding(s)`);
+      return msgs.length ? 0 : 1;
+    }
+    case "describe": {
+      const arg = args.positional[0];
+      if (!arg) throw new Error(`describe: an app id (${Object.keys(MANIFEST_APPS).join(", ")}) or a manifest JSON path is required`);
+      const path = bundledManifestPath(arg) ?? arg;   // app id → bundled manifest, else a file path
+      const { lines } = describeManifest(JSON.parse(readFileSync(path, "utf8")));
+      for (const l of lines) console.log(l);
       return 0;
     }
     default:

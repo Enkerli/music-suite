@@ -1,0 +1,369 @@
+{
+  "app": "vane",
+  "v": 1,
+  "params": [
+    {
+      "id": "morph",
+      "label": "Morph",
+      "unit": "ratio",
+      "min": 0,
+      "max": 1,
+      "step": 0.001,
+      "default": 0,
+      "wasmId": 12
+    },
+    {
+      "id": "pulse-width",
+      "label": "Pulse Width",
+      "unit": "ratio",
+      "min": 0.5,
+      "max": 0.999,
+      "step": 0.001,
+      "default": 0.5,
+      "wasmId": 13
+    },
+    {
+      "id": "wavefold",
+      "label": "Wavefold",
+      "unit": "ratio",
+      "min": 0,
+      "max": 1,
+      "step": 0.01,
+      "default": 0,
+      "wasmId": 17
+    },
+    {
+      "id": "inharmonicity",
+      "label": "Inharmonicity",
+      "unit": "ratio",
+      "min": 0,
+      "max": 1,
+      "step": 0.01,
+      "default": 0,
+      "wasmId": 14
+    },
+    {
+      "id": "hard-sync",
+      "label": "Hard Sync",
+      "unit": "ratio",
+      "min": 1,
+      "max": 8,
+      "step": 0.01,
+      "default": 1,
+      "wasmId": 15
+    },
+    {
+      "id": "noise",
+      "label": "Noise",
+      "unit": "ratio",
+      "min": 0,
+      "max": 1,
+      "step": 0.01,
+      "default": 0,
+      "wasmId": 26
+    },
+    {
+      "id": "detune",
+      "label": "Detune",
+      "unit": "cents",
+      "min": -100,
+      "max": 100,
+      "step": 1,
+      "default": 0,
+      "wasmId": 28
+    },
+    {
+      "id": "filter-cutoff",
+      "label": "Filter Cutoff",
+      "unit": "hz",
+      "min": 20,
+      "max": 20000,
+      "step": 10,
+      "default": 1128,
+      "scale": "log",
+      "wasmId": 1
+    },
+    {
+      "id": "filter-resonance",
+      "label": "Filter Resonance",
+      "unit": "ratio",
+      "min": 0,
+      "max": 1,
+      "step": 0.01,
+      "default": 0.1,
+      "wasmId": 2
+    },
+    {
+      "id": "output",
+      "label": "Output",
+      "unit": "ratio",
+      "min": 0,
+      "max": 1,
+      "step": 0.01,
+      "default": 0.8,
+      "wasmId": 8
+    },
+    {
+      "id": "vel-vca",
+      "label": "Velocity → VCA",
+      "unit": "ratio",
+      "min": 0,
+      "max": 1,
+      "step": 0.01,
+      "default": 0,
+      "wasmId": 9
+    },
+    {
+      "id": "glide-time",
+      "label": "Glide Time",
+      "unit": "ms",
+      "min": 0,
+      "max": 2000,
+      "step": 5,
+      "default": 0,
+      "wasmId": 10
+    },
+    {
+      "id": "master-tune",
+      "label": "Master Tune",
+      "unit": "cents",
+      "min": -100,
+      "max": 100,
+      "step": 1,
+      "default": 0,
+      "wasmId": 29
+    },
+    {
+      "id": "unison-detune",
+      "label": "Unison Detune",
+      "unit": "cents",
+      "min": 0,
+      "max": 50,
+      "step": 1,
+      "default": 14,
+      "wasmId": 40
+    },
+    {
+      "id": "unison-width",
+      "label": "Unison Width",
+      "unit": "ratio",
+      "min": 0,
+      "max": 1,
+      "step": 0.01,
+      "default": 0.7,
+      "wasmId": 41
+    },
+    {
+      "id": "vowel",
+      "label": "Vowel",
+      "unit": "ratio",
+      "min": 0,
+      "max": 1,
+      "step": 0.01,
+      "default": 0.5,
+      "wasmId": 20
+    },
+    {
+      "id": "vowel-front",
+      "label": "Vowel Front",
+      "unit": "ratio",
+      "min": 0,
+      "max": 1,
+      "step": 0.01,
+      "default": 0.5,
+      "wasmId": 21
+    },
+    {
+      "id": "vowel-round",
+      "label": "Vowel Round",
+      "unit": "ratio",
+      "min": 0,
+      "max": 1,
+      "step": 0.01,
+      "default": 0,
+      "wasmId": 22
+    },
+    {
+      "id": "vowel-amount",
+      "label": "Vowel Amount",
+      "unit": "ratio",
+      "min": 0,
+      "max": 1,
+      "step": 0.01,
+      "default": 1,
+      "wasmId": 23
+    },
+    {
+      "id": "vowel-bite",
+      "label": "Vowel Bite",
+      "unit": "ratio",
+      "min": 0,
+      "max": 1,
+      "step": 0.01,
+      "default": 0.5,
+      "wasmId": 24
+    },
+    {
+      "id": "vowel-move",
+      "label": "Vowel Move",
+      "unit": "ratio",
+      "min": 0,
+      "max": 1,
+      "step": 0.01,
+      "default": 0,
+      "wasmId": 25
+    },
+    {
+      "id": "wg-embouchure",
+      "label": "Waveguide Embouchure",
+      "unit": "ratio",
+      "min": 0,
+      "max": 1,
+      "step": 0.01,
+      "default": 0.5,
+      "wasmId": 31
+    },
+    {
+      "id": "wg-reed-stiff",
+      "label": "Waveguide Reed Stiffness",
+      "unit": "ratio",
+      "min": 0,
+      "max": 1,
+      "step": 0.01,
+      "default": 0.5,
+      "wasmId": 32
+    },
+    {
+      "id": "wg-reed-aperture",
+      "label": "Waveguide Reed Aperture",
+      "unit": "ratio",
+      "min": 0,
+      "max": 1,
+      "step": 0.01,
+      "default": 0.5,
+      "wasmId": 33
+    },
+    {
+      "id": "wg-bore-damping",
+      "label": "Waveguide Bore Damping",
+      "unit": "ratio",
+      "min": 0,
+      "max": 1,
+      "step": 0.01,
+      "default": 0.2,
+      "wasmId": 34
+    },
+    {
+      "id": "wg-bell-bright",
+      "label": "Waveguide Bell Brightness",
+      "unit": "ratio",
+      "min": 0,
+      "max": 1,
+      "step": 0.01,
+      "default": 0.7,
+      "wasmId": 35
+    },
+    {
+      "id": "wg-conical",
+      "label": "Waveguide Conical",
+      "unit": "ratio",
+      "min": 0,
+      "max": 1,
+      "step": 0.01,
+      "default": 0.62,
+      "wasmId": 36
+    },
+    {
+      "id": "wg-breath-noise",
+      "label": "Waveguide Breath Noise",
+      "unit": "ratio",
+      "min": 0,
+      "max": 1,
+      "step": 0.01,
+      "default": 0.05,
+      "wasmId": 37
+    },
+    {
+      "id": "wg-growl",
+      "label": "Waveguide Growl",
+      "unit": "ratio",
+      "min": 0,
+      "max": 1,
+      "step": 0.01,
+      "default": 0,
+      "wasmId": 38
+    },
+    {
+      "id": "transient-gain",
+      "label": "Transient Gain",
+      "unit": "ratio",
+      "min": 0,
+      "max": 2,
+      "step": 0.01,
+      "default": 0,
+      "wasmId": 44
+    },
+    {
+      "id": "transient-decay",
+      "label": "Transient Decay",
+      "unit": "ms",
+      "min": 10,
+      "max": 2000,
+      "step": 1,
+      "default": 200,
+      "scale": "log",
+      "wasmId": 45
+    },
+    {
+      "id": "transient-var",
+      "label": "Transient Variation",
+      "unit": "ratio",
+      "min": 0,
+      "max": 1,
+      "step": 0.01,
+      "default": 0.3,
+      "wasmId": 47
+    },
+    {
+      "id": "transient-dyn",
+      "label": "Transient Dynamics",
+      "unit": "ratio",
+      "min": 0,
+      "max": 1,
+      "step": 0.01,
+      "default": 0.75,
+      "wasmId": 49
+    },
+    {
+      "id": "transient-reso",
+      "label": "Transient Resonance",
+      "unit": "ratio",
+      "min": 0,
+      "max": 1,
+      "step": 0.01,
+      "default": 0.3,
+      "wasmId": 50
+    },
+    {
+      "id": "transient-damp",
+      "label": "Transient Damping",
+      "unit": "ratio",
+      "min": 0,
+      "max": 1,
+      "step": 0.01,
+      "default": 0.5,
+      "wasmId": 51
+    },
+    {
+      "id": "transient-morph",
+      "label": "Transient Morph",
+      "unit": "ms",
+      "min": 0,
+      "max": 50,
+      "step": 1,
+      "default": 12,
+      "wasmId": 52
+    }
+  ],
+  "commands": []
+}

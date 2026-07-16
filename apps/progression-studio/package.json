@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@enkerli/theory": "*",
+    "@enkerli/proggen": "*",
     "@enkerli/ui": "*",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",

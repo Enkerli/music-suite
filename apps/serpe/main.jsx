@@ -21,13 +21,13 @@ import serpeCss from './styles/serpe.css';
   document.head.appendChild(el);
 }
 
-import { parseUPI, euclid, polygon, rotate, complement,
-         barlowTransform, indispensabilityWeights, onsetCount } from './engine/upi.js';
-import { analyse } from './engine/analysis.js';
-import { analyzeSyncopation } from './engine/syncopation.js';
-import { funkyEuclidean, bellCurveRandomSteps } from './engine/rhythm.js';
-import { mutatePattern } from './engine/mutate.js';
+import { parseUPI, euclid, polygon, rotate, complement, invert,
+         barlowTransform, indispensabilityWeights, onsetCount,
+         analyse, analyzeSyncopation, funkyEuclidean, bellCurveRandomSteps,
+         mutatePattern } from '@enkerli/upi';
 import { createCircleView, createStepView } from './engine/render.js';
+import serpeManifest from './manifest.json';
+import { connectSerpe } from './control.js';
 import { initJuceBridge, sendParamActual, sendUPI, sendPlaying, sendBPM, sendToggleAccent, juceAvailable } from './juce-bridge.js';
 import { startWebMidi, selectMidiInput, selectMidiOutput, sendMidiNoteOn, sendMidiNoteOff, allMidiNotesOff, midiSupported } from './webmidi-bridge.js';
 import { initTheme } from '@enkerli/ui/theme';
@@ -391,10 +391,19 @@ function SerpeApp() {
     retro: s => s.slice().reverse(),   // retrograde — reverse the step order
   };
   // Mutate: move each onset by the selected style/amount (keeps onset count).
-  function applyMutate() {
+  // amount is 0..1; defaults to the UI's mutAmount (also used by the control plane).
+  function applyMutate(amount = mutAmount / 100) {
     resetProgressive();
-    const r = mutatePattern(steps.slice(), mutAmount / 100, { mutationStyle: mutStyle });
+    const r = mutatePattern(steps.slice(), amount, { mutationStyle: mutStyle });
     setUpiText(accentPrefix() + patternUPI(r.mutated.map(Number)));
+  }
+  // Resize to n steps, keeping the onset count (re-spaced Euclidean) — the
+  // control plane's `steps` param. Predictable: same hits, new grid.
+  function applyResize(n) {
+    const target = Math.max(1, Math.min(128, Math.round(n)));
+    if (target === steps.length) return;
+    resetProgressive();
+    setUpiText(patternUPI(euclid(Math.max(1, Math.min(target, onsetCount(steps))), target)));
   }
   // Dilute (−1 onset) / concentrate (+1) using the selected weighting — Euclid,
   // Dilcue, Barlow and Wolrab are all *modes* that change onset count (as in the
@@ -411,6 +420,19 @@ function SerpeApp() {
     else                           next = complement(euclid(n - target, n)); // dilcue: anti-even
     setUpiText(accentPrefix() + patternUPI(next));
   }
+
+  // ── control plane: keyboard shortcuts + incoming messages (control.js) ──
+  // Serpe's actions, exposed to the plane. Kept in a ref so the keyboard/bus
+  // listeners always see the current handlers (no stale closures across renders).
+  const ctlApi = useRef({});
+  ctlApi.current = {
+    rotate: (by) => applyTransform((s) => rotate(s, by)),
+    invert: () => applyTransform(invert),
+    complement: () => applyTransform(complement),
+    mutate: (amount) => applyMutate(amount),
+    setTempo, setSwing, setSteps: applyResize,
+  };
+  useEffect(() => connectSerpe({ getApi: () => ctlApi.current, manifests: [serpeManifest] }), []);
 
   // ── progressive ──
   // Each step evolves the base rhythm and re-attaches the accent layer (via

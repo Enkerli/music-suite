@@ -56,6 +56,55 @@ const CASES = [
       body: { prog: { key: "C major", sections: [{ bars: [["Dm7", "G7"], ["Cmaj7"]] }] } },
     },
   },
+  // ── control & interop plane (docs/CONTROL_PLANE.md) ──
+  {
+    name: "manifest: Serpe declares its addressable surface",
+    msgId: 6,
+    chunkBytes: 200,
+    message: {
+      protocol: "enkerli-suite", v: 1, id: "vec-manifest-serpe",
+      from: "serpe", to: "*", sentAt: "2026-07-05T12:00:00Z",
+      type: "manifest",
+      body: {
+        app: "serpe", v: 1,
+        params: [
+          { id: "density", label: "Density", unit: "ratio", min: 0, max: 1, default: 0.5, step: 0.01 },
+          { id: "steps", label: "Steps", unit: "count", min: 1, max: 128, default: 16, step: 1 },
+        ],
+        commands: [
+          { name: "next-pattern", label: "Next pattern" },
+          { name: "mutate", label: "Mutate", args: [{ id: "amount", unit: "ratio", min: 0, max: 1, default: 0.2 }] },
+        ],
+      },
+    },
+  },
+  {
+    name: "param set: Serpe density → 0.7 (native unit)",
+    msgId: 7,
+    message: {
+      protocol: "enkerli-suite", v: 1, id: "vec-param-density",
+      from: "external", to: "serpe", sentAt: "2026-07-05T12:00:00Z",
+      type: "param", body: { mode: "set", id: "density", value: 0.7 },
+    },
+  },
+  {
+    name: "param report batch: a preset-recall snapshot",
+    msgId: 8,
+    message: {
+      protocol: "enkerli-suite", v: 1, id: "vec-param-batch",
+      from: "serpe", to: "*", sentAt: "2026-07-05T12:00:00Z",
+      type: "param", body: { mode: "report", params: [{ id: "density", value: 0.7 }, { id: "steps", value: 16 }] },
+    },
+  },
+  {
+    name: "command: mutate with a named arg",
+    msgId: 9,
+    message: {
+      protocol: "enkerli-suite", v: 1, id: "vec-command-mutate",
+      from: "external", to: "serpe", sentAt: "2026-07-05T12:00:00Z",
+      type: "command", body: { name: "mutate", args: { amount: 0.3 } },
+    },
+  },
 ];
 
 const vectors = CASES.map((c) => ({

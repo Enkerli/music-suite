@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { progressionFromSMF } from "@enkerli/midi";
 import { exportProgression, progressionToSMF, progressionFromVoicings, voicingsToClip, TICKS_PER_BEAT, BEATS_PER_CHORD } from "./exportMidi.js";
-import { realizeLabel, voiceProgression } from "./generate.js";
+import { realizeLabel, voiceProgression } from "@enkerli/proggen";
 
 describe("voicingsToClip honors per-chord duration (harmonic rhythm)", () => {
   it("lays chords out by their dur, cumulative", () => {
@@ -117,7 +117,7 @@ describe("Send to MIDIcurator vs Export MIDI file (Step 06 — name the destinat
 
 describe("channel modes", async () => {
   const { voicingsToClip } = await import("./exportMidi.js");
-  const { realizeLabel, voiceProgression } = await import("./generate.js");
+  const { realizeLabel, voiceProgression } = await import("@enkerli/proggen");
   const voicings = voiceProgression(
     ["IIm7", "V7", "Imaj7"].map((l) => realizeLabel(l, { tonic: "C", mode: "major" })),
   );

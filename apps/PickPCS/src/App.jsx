@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { pushScale, midiOutState, rememberOutput } from "./scale-push.js";
+import { broadcastScale } from "./control.js";
 import { createGlobalCluster } from "@enkerli/ui/global-cluster";
 import { createLibraryBrowser } from "@enkerli/ui/library-browser";
 import { toast } from "@enkerli/ui/toast";
@@ -253,6 +254,17 @@ export default function App() {
       };
     });
   }, [selectedScaleSet, subsetSet]);
+
+  // Control plane: broadcast the current selection onto the shared bus, live,
+  // so PitchFold / the workspace / another tab reflect it without MIDI (the
+  // explicit MIDI push below is unchanged — same message, the other transport).
+  useEffect(() => {
+    broadcastScale({
+      mask: pcsToBitmask(selectedScaleOrdered),
+      root: selectedRootPc,
+      name: `${NOTE_NAMES_FIFTHS[chromaticToFifthsIndex(selectedRootPc)]} · ${selectedK}-note`,
+    });
+  }, [selectedScaleOrdered, selectedRootPc, selectedK]);
 
   async function handlePushScale() {
     // The suite scale message: mask is pcsToBitmask (leftmost = LSB — one

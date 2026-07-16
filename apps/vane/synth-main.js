@@ -14,6 +14,7 @@
 // Mono/Poly toggle through the same Bridge.send('setParam',...) channel used
 // for every other knob.
 import { connect } from '@enkerli/webmidi';
+import { connectVane } from './control.js';
 
 const BASE = new URL('.', import.meta.url).href; // dir of synth.js → worklet/wasm URLs
 // Build id, injected into index.html at build time (window.__VANE_BUILD__) and
@@ -24,6 +25,7 @@ const BASE = new URL('.', import.meta.url).href; // dir of synth.js → worklet/
 const ASSET_V = (typeof window !== 'undefined' && window.__VANE_BUILD__ && window.__VANE_BUILD__ !== '__BUILD_ID__')
   ? window.__VANE_BUILD__ : 'dev';
 let ctx = null, node = null, midi = null, audioStarted = false;
+let busConnected = false;   // control-plane bus listener attached once (see connectVane)
 let activeNotes = 0;
 const expr = {}; // channel → { bend, slide, pressure }
 
@@ -375,6 +377,8 @@ async function ensureAudio() {
       await ctx.audioWorklet.addModule(BASE + 'worklet.js?v=' + ASSET_V);
       node = new AudioWorkletNode(ctx, 'vane-voice', { numberOfInputs: 0, outputChannelCount: [2] });
       node.connect(ctx.destination);
+      // Control plane: workspace/bus `param` messages drive the voice (once).
+      if (!busConnected) { connectVane({ post }); busConnected = true; }
       const bytes = await (await fetch(BASE + 'vane-dsp.wasm?v=' + ASSET_V, { cache: 'reload' })).arrayBuffer();
       node.port.postMessage({ type: 'wasm', bytes });
       // Sync the synth to whatever the patch already shows (default or loaded

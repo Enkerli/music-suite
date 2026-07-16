@@ -4,6 +4,7 @@ import { initJuceBridge, sendParam, sendSelectPad, sendPadData, sendPanic, PARAM
   from './juce-bridge.js';
 import { startWebMidi, selectMidiInput, selectMidiOutput, sendMidiNoteOn, sendMidiNoteOff, midiSupported }
   from './webmidi-bridge.js';
+import { connectPitchFold } from './control.js';
 import { quantize } from './engine/pcs.js';
 import { VoiceProcessor } from './engine/voices.js';
 import './design/tokens.jsx';              // window.PAPER, SCALES, SCALE_FAMILIES, PITCH_*
@@ -116,26 +117,28 @@ function PitchFoldApp() {
   React.useEffect(() => {
     if (!standalone || !midiSupported()) return undefined;
     let cancelled = false;
+    // Suite protocol (@enkerli/protocol): another suite app — canonically
+    // PickPCS — pushes a scale; it lands on the SAME path the scale editor
+    // uses, so the engine, pads context, and JUCE param (when bridged) all
+    // follow. One handler, two transports: MIDI SysEx AND the in-browser bus.
+    const onScale = (body, from) => {
+      if (cancelled) return;
+      send('pcsMask', body.mask & 0xFFF);
+      if (Number.isInteger(body.root)) send('pcsRoot', body.root);
+      setScaleFlash(`↧ ${body.name || 'scale'} · from ${from}`);
+      window.setTimeout(() => setScaleFlash(''), 4000);
+    };
     startWebMidi({
       onDevices: p => { if (!cancelled) setMidiPorts(p); },
       onNote: e => handleNote(e),
-      // Suite protocol (@enkerli/protocol over SysEx): another suite app —
-      // canonically PickPCS — pushes a scale; it lands on the SAME path the
-      // scale editor uses, so the engine, pads context, and JUCE param (when
-      // bridged) all follow.
-      onScale: (body, from) => {
-        if (cancelled) return;
-        send('pcsMask', body.mask & 0xFFF);
-        if (Number.isInteger(body.root)) send('pcsRoot', body.root);
-        setScaleFlash(`↧ ${body.name || 'scale'} · from ${from}`);
-        window.setTimeout(() => setScaleFlash(''), 4000);
-      },
+      onScale,
     }).then(res => {
       if (cancelled) return;
       if (res.ok) { setMidiPorts(res.ports); setMidiErr(''); }
       else setMidiErr(res.error || 'MIDI unavailable');
     });
-    return () => { cancelled = true; };
+    const offBus = connectPitchFold({ onScale });   // the in-browser bus transport
+    return () => { cancelled = true; offBus(); };
   }, [standalone]);
   React.useEffect(() => { selectMidiInput(midiInId); },  [midiInId, midiPorts]);
   React.useEffect(() => { selectMidiOutput(midiOutId); }, [midiOutId, midiPorts]);

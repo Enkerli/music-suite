@@ -1,0 +1,20 @@
+{
+  "name": "workspace-webui",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "npx esbuild main.js --bundle --conditions=source --loader:.css=text --loader:.svg=dataurl --define:process.env.NODE_ENV=\\\"production\\\" --minify --outfile=dist/bundle.js && cp index.html dist/index.html && mkdir -p dist/fonts && cp ../../packages/ui/fonts/*.woff2 dist/fonts/",
+    "dev": "npx esbuild main.js --bundle --conditions=source --loader:.css=text --loader:.svg=dataurl --sourcemap --outfile=dist/bundle.js && cp index.html dist/index.html && mkdir -p dist/fonts && cp ../../packages/ui/fonts/*.woff2 dist/fonts/",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@enkerli/protocol": "*",
+    "@enkerli/control": "*",
+    "@enkerli/upi": "*",
+    "@enkerli/ui": "*"
+  },
+  "devDependencies": {
+    "esbuild": "^0.24.0"
+  }
+}

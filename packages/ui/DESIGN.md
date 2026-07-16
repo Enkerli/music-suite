@@ -42,7 +42,7 @@ on their own; this package makes the convergence official.
   `prefers-reduced-motion` zeroes the motion tokens; no color-only
   encoding (the pitch-class palette and dimension colors are always
   paired with text/shape).
-- **Personas** (docs/personas.md): every screen names which of the five
+- **Personas** (docs/personas.md): every screen names which of the seven
   it serves; the stage-performer persona gets a density toggle, the
   educator persona gets precise labels and screen-reader-meaningful
   structure.

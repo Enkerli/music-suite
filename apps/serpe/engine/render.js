@@ -4,7 +4,7 @@
  *   createStepView(el, opts)    → linear step lane, beat grouping, playhead
  * Both expose .update({ steps, accents, playhead, ... }) and theme via tokens.
  */
-import { centerOfGravity } from "./analysis.js";
+import { centerOfGravity } from "@enkerli/upi";
 
 const NS = "http://www.w3.org/2000/svg";
 const TAU = Math.PI * 2;

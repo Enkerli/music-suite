@@ -29,6 +29,12 @@ import {
   parseLeadsheet, type Progression,
 } from "@enkerli/theory";
 import { progressionToSMF, progressionFromSMF } from "@enkerli/midi";
+import { parseUPI, analyse } from "@enkerli/upi";
+import { generateLabels, realizeLabel } from "@enkerli/proggen";
+import {
+  resolveEvent, validateControlMap,
+  type ControlMap, type InputEvent,
+} from "@enkerli/control";
 
 // ── chord ─────────────────────────────────────────────────────────────────────
 
@@ -104,6 +110,73 @@ export function patternInfo(spec: string): PatternInfo {
     octal: patternToOctal(pattern),
     decimal: patternToDecimal(pattern),
   };
+}
+
+// ── upi (the full Serpe notation language, via @enkerli/upi) ──────────────────
+
+export interface UpiInfo {
+  ok: boolean;
+  label: string;
+  steps: number[];
+  accents: number[];
+  analysis: import("@enkerli/upi").Analysis | null;
+  error?: string;
+}
+
+/**
+ * Parse Serpe's UPI notation (the full language: Euclidean, polygons, Morse,
+ * combinations `P(3,0)+P(5,0)`, quantization `E(3,8);12`, `{accent}` prefixes,
+ * shorthand names) and report the resulting pattern with its analysis. Where
+ * `patternInfo` covers the canonical theory codecs, this covers the whole
+ * notation — the reason `apps/serpe/engine` was promoted to `@enkerli/upi`.
+ */
+export function upiInfo(notation: string, steps = 16): UpiInfo {
+  const r = parseUPI(notation, { n: steps });
+  if (!r.ok) return { ok: false, label: r.label ?? notation, steps: [], accents: [], analysis: null, ...(r.error !== undefined && { error: r.error }) };
+  return { ok: true, label: r.label, steps: r.steps, accents: r.accents, analysis: analyse(r.steps) };
+}
+
+// ── generate (ProgGenie's corpus generation, via @enkerli/proggen) ────────────
+
+/** The bundled corpus transition table (derived statistics only, ships in the package). */
+export function proggenTablePath(): string {
+  return fileURLToPath(new URL("../../proggen/src/data/transitions.json", import.meta.url));
+}
+
+export interface GenerateInfo {
+  mode: "major" | "minor";
+  labels: string[];
+  /** Bar notation (one Roman-numeral chord per bar) — feeds `enkerli smf`. */
+  bars: string;
+  /** Realized chord symbols in the given key, when a tonic is supplied. */
+  symbols?: string[];
+}
+
+/**
+ * Generate a progression from the corpus transition statistics — the full
+ * headless pipeline the ProgGenie promotion unlocks. Output is Roman-numeral
+ * bar notation (the suite convention) that chains straight into `smfFromBars`;
+ * with a tonic, also realizes the chords to spelled symbols.
+ */
+export function generateInfo(opts: {
+  mode?: "major" | "minor"; length?: number; seed?: number;
+  method?: "markov" | "markov-cadence" | "circle"; variety?: string; tonic?: string;
+} = {}): GenerateInfo {
+  const tables = JSON.parse(readFileSync(proggenTablePath(), "utf8")) as Record<"major" | "minor", Record<string, unknown>>;
+  const mode = opts.mode ?? "major";
+  const labels = generateLabels(tables[mode], mode, {
+    length: opts.length ?? 8,
+    ...(opts.seed !== undefined && { seed: opts.seed }),
+    method: opts.method ?? "markov",
+    variety: opts.variety ?? "faithful",
+  });
+  const bars = labels.join(" | ");
+  const info: GenerateInfo = { mode, labels, bars };
+  if (opts.tonic) {
+    const key = { tonic: opts.tonic, mode };
+    info.symbols = labels.map((l) => realizeLabel(l, key)?.symbol ?? l);
+  }
+  return info;
 }
 
 // ── smf ───────────────────────────────────────────────────────────────────────
@@ -241,4 +314,205 @@ export function encodeWav16(samples: Float32Array, sampleRate: number): Uint8Arr
     data.setInt16(44 + i * 2, Math.round(v * 32767), true);
   }
   return new Uint8Array(data.buffer);
+}
+
+// ── suite messages: the control & interop plane over stdio (NDJSON) ──────────
+// docs/CONTROL_PLANE.md — one message model, several transports. Here the
+// transport is one JSON SuiteMessage per line: `enkerli send … | enkerli recv`
+// is the message model carried over an ordinary Unix pipe (headless piping).
+
+import {
+  makeParam, makeCommand, validateMessage,
+  type SuiteMessage, type AppId, type Destination, type ParamMode, type ManifestBody,
+} from "@enkerli/protocol";
+
+export interface SendOptions {
+  from?: AppId;
+  to?: Destination;
+  param?: { id: string; value: number; mode?: ParamMode };
+  params?: Array<{ id: string; value: number }>;
+  command?: { name: string; args?: Record<string, number> };
+  mode?: ParamMode;
+  id?: string;
+  sentAt?: string;
+}
+
+/**
+ * Build a validated control-plane SuiteMessage from CLI intent. Throws on an
+ * invalid message — never emit a malformed frame onto the transport.
+ */
+export function sendMessage(opts: SendOptions): SuiteMessage {
+  const from = opts.from ?? "external";
+  const carry = { ...(opts.to !== undefined && { to: opts.to }), ...(opts.id !== undefined && { id: opts.id }), ...(opts.sentAt !== undefined && { sentAt: opts.sentAt }) };
+  const isParam = opts.param !== undefined || opts.params !== undefined;
+  if (isParam && opts.command) throw new Error("send: give a param or a command, not both");
+  let msg: SuiteMessage;
+  if (opts.params !== undefined) {
+    msg = makeParam(from, { ...(opts.mode && { mode: opts.mode }), params: opts.params }, carry);
+  } else if (opts.param !== undefined) {
+    msg = makeParam(from, { mode: opts.param.mode ?? opts.mode ?? "set", id: opts.param.id, value: opts.param.value }, carry);
+  } else if (opts.command !== undefined) {
+    msg = makeCommand(from, opts.command, carry);
+  } else {
+    throw new Error("send: a --param, --params, or --command is required");
+  }
+  const r = validateMessage(msg);
+  if (!r.ok) throw new Error(`send: invalid message — ${r.errors.join("; ")}`);
+  return msg;
+}
+
+/** Serialize a message as one NDJSON line (the stdio transport frame). */
+export function toNdjson(msg: SuiteMessage): string {
+  return JSON.stringify(msg) + "\n";
+}
+
+/** Parse one NDJSON line back to a validated SuiteMessage, or null (blank / foreign / invalid). */
+export function parseNdjson(line: string): SuiteMessage | null {
+  const t = line.trim();
+  if (!t) return null;
+  let parsed: unknown;
+  try { parsed = JSON.parse(t); } catch { return null; }
+  return validateMessage(parsed).ok ? (parsed as SuiteMessage) : null;
+}
+
+/** A one-line human summary of a message — the `recv` readout. */
+export function summarizeMessage(m: SuiteMessage): string {
+  const route = `${m.from} → ${m.to}`;
+  const b = m.body as Record<string, unknown>;
+  switch (m.type) {
+    case "param": {
+      const mode = (b.mode as string) ?? "set";
+      if (Array.isArray(b.params))
+        return `param ${mode} [${route}] ${(b.params as Array<{ id: string; value: number }>).map((p) => `${p.id}=${p.value}`).join(" ")}`;
+      return `param ${mode} [${route}] ${b.id as string}=${b.value as number}`;
+    }
+    case "command":
+      return `command [${route}] ${b.name as string}` +
+        (b.args ? `(${Object.entries(b.args as Record<string, number>).map(([k, v]) => `${k}=${v}`).join(", ")})` : "");
+    case "manifest": {
+      const mb = m.body as unknown as ManifestBody;
+      return `manifest [${route}] ${mb.app} v${mb.v}: ${mb.params.length} params, ${mb.commands.length} commands`;
+    }
+    case "scale": return `scale [${route}] mask ${b.mask as number}${b.name ? ` (${b.name as string})` : ""}`;
+    case "chord": return `chord [${route}] ${(b.symbol as string) ?? `pcs ${b.pcs as number}`}`;
+    case "pattern": return `pattern [${route}] ${b.steps as number} steps, mask ${b.mask as number}${b.name ? ` (${b.name as string})` : ""}`;
+    case "progression": return `progression [${route}]`;
+    default: return `${m.type} [${route}]`;
+  }
+}
+
+/**
+ * Apps that ship a control-plane manifest (docs/CONTROL_PLANE.md), resolvable
+ * by id so `enkerli describe <app>` works without a path. Grows as apps adopt.
+ */
+export const MANIFEST_APPS: Partial<Record<AppId, string>> = {
+  vane: "../../../apps/vane/manifest.json",
+  serpe: "../../../apps/serpe/manifest.json",
+};
+
+/** Absolute path to a bundled app manifest, or null if the app ships none. */
+export function bundledManifestPath(app: string): string | null {
+  const rel = MANIFEST_APPS[app as AppId];
+  return rel ? fileURLToPath(new URL(rel, import.meta.url)) : null;
+}
+
+/** Load the bundled manifests for a set of apps (skips apps that ship none). */
+export function loadBundledManifests(apps: AppId[]): ManifestBody[] {
+  const out: ManifestBody[] = [];
+  for (const app of apps) {
+    const p = bundledManifestPath(app);
+    if (p) out.push(JSON.parse(readFileSync(p, "utf8")) as ManifestBody);
+  }
+  return out;
+}
+
+/** The bundled manifests a control-map's bindings target — for resolution/validation. */
+export function manifestsForControlMap(map: ControlMap): ManifestBody[] {
+  const apps = [...new Set(map.bindings.map((b) => b.action.app))];
+  return loadBundledManifests(apps);
+}
+
+/** Re-exported so the CLI can resolve/validate bindings headless. */
+export { resolveEvent, validateControlMap, type ControlMap, type InputEvent };
+
+/** A manifest param carrying its engine binding (Vane-specific extension field). */
+interface EngineParamSpec { id: string; wasmId?: number }
+
+/**
+ * The Vane manifest's `id → wasm param id` map — how a control-plane `param`
+ * message (addressed by stable manifest id, e.g. "filter-cutoff") resolves to
+ * the numeric engine parameter `renderVane` sets. This is the bridge that lets
+ * the plane drive real audio: `enkerli send --to vane --param … | enkerli
+ * render --stream`.
+ */
+export function vaneParamIdMap(): Record<string, number> {
+  const path = bundledManifestPath("vane");
+  if (!path) return {};
+  const body = JSON.parse(readFileSync(path, "utf8")) as { params: EngineParamSpec[] };
+  const map: Record<string, number> = {};
+  for (const p of body.params) if (typeof p.wasmId === "number") map[p.id] = p.wasmId;
+  return map;
+}
+
+export interface StreamParamResult {
+  /** wasm param id → value (last write wins — `set` semantics). */
+  params: Record<number, number>;
+  /** each resolved application, in stream order (for the readout). */
+  applied: Array<{ id: string; wasmId: number; value: number }>;
+  /** manifest ids not in the resolver map (surfaced, not silently dropped). */
+  unresolved: string[];
+  /** count of `param` messages consumed for the target. */
+  messages: number;
+  /** count of lines ignored (non-param, or addressed to another app). */
+  ignored: number;
+}
+
+/**
+ * Reduce a `param` NDJSON stream to a wasm-id param set for `renderVane`.
+ * Consumes only `param` messages addressed to `target` (or broadcast "*");
+ * single and batch forms both handled; last value per id wins. Non-param
+ * lines and messages for other apps are counted as ignored, not errors — a
+ * stream may legitimately carry more than this renderer cares about.
+ */
+export function paramsFromStream(
+  ndjson: string, idToWasm: Record<string, number>, target: AppId = "vane",
+): StreamParamResult {
+  const params: Record<number, number> = {};
+  const applied: Array<{ id: string; wasmId: number; value: number }> = [];
+  const unresolved: string[] = [];
+  let messages = 0, ignored = 0;
+  const apply = (id: string, value: number) => {
+    const wasmId = idToWasm[id];
+    if (wasmId === undefined) { if (!unresolved.includes(id)) unresolved.push(id); return; }
+    params[wasmId] = value;
+    applied.push({ id, wasmId, value });
+  };
+  for (const line of ndjson.split("\n")) {
+    const m = parseNdjson(line);
+    if (!m) continue;
+    if (m.type !== "param" || (m.to !== target && m.to !== "*")) { ignored++; continue; }
+    messages++;
+    const b = m.body as { id?: string; value?: number; params?: Array<{ id: string; value: number }> };
+    if (Array.isArray(b.params)) for (const p of b.params) apply(p.id, p.value);
+    else if (typeof b.id === "string" && typeof b.value === "number") apply(b.id, b.value);
+  }
+  return { params, applied, unresolved, messages, ignored };
+}
+
+/** Validate a hand-authored manifest body and return a human-readable surface. */
+export function describeManifest(body: unknown): { manifest: ManifestBody; lines: string[] } {
+  if (typeof body !== "object" || body === null || Array.isArray(body))
+    throw new Error("describe: manifest must be a JSON object");
+  const mb = body as ManifestBody;
+  const probe = { protocol: "enkerli-suite", v: 1, id: "describe-probe", from: mb.app, to: "*", sentAt: "2026-01-01T00:00:00Z", type: "manifest", body: mb };
+  const r = validateMessage(probe);
+  if (!r.ok) throw new Error(`describe: invalid manifest — ${r.errors.join("; ")}`);
+  const lines: string[] = [`${mb.app} manifest v${mb.v}`];
+  lines.push(`params (${mb.params.length}):`);
+  for (const p of mb.params)
+    lines.push(`  ${p.id}  ${p.label}  [${p.min}..${p.max} ${p.unit}${p.scale === "log" ? " log" : ""}${p.step ? ` step ${p.step}` : ""}]  default ${p.default}`);
+  lines.push(`commands (${mb.commands.length}):`);
+  for (const c of mb.commands)
+    lines.push(`  ${c.name}  ${c.label}` + (c.args?.length ? `  args: ${c.args.map((a) => `${a.id}[${a.min}..${a.max} ${a.unit}]`).join(", ")}` : ""));
+  return { manifest: mb, lines };
 }

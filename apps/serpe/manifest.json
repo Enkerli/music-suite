@@ -1,0 +1,15 @@
+{
+  "app": "serpe",
+  "v": 1,
+  "params": [
+    { "id": "steps", "label": "Steps", "unit": "count", "min": 1, "max": 128, "default": 8, "step": 1 },
+    { "id": "tempo", "label": "Tempo", "unit": "bpm", "min": 20, "max": 300, "default": 120, "step": 1 },
+    { "id": "swing", "label": "Swing", "unit": "ratio", "min": 0, "max": 1, "default": 0, "step": 0.01 }
+  ],
+  "commands": [
+    { "name": "rotate", "label": "Rotate", "args": [ { "id": "by", "unit": "count", "min": -64, "max": 64, "default": 1 } ] },
+    { "name": "invert", "label": "Invert" },
+    { "name": "complement", "label": "Complement" },
+    { "name": "mutate", "label": "Mutate", "args": [ { "id": "amount", "unit": "ratio", "min": 0, "max": 1, "default": 0.5 } ] }
+  ]
+}
