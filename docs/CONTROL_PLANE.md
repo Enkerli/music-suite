@@ -225,8 +225,15 @@ Design commitments:
     seam: `param` messages resolve manifest id → wasm id and post straight to
     the voice's worklet (`applyVaneParam`, 8 tests), driving real sound. Lives
     in the standalone host (`synth-main.js`), never touching the plugin UI.
-  The reducer is pure over the app's own callbacks in both, so each unit-tests
-  without audio or a browser. The remaining apps follow the same shape.
+  - **PickPCS → PitchFold** (the canonical pair) — the first **data**-message
+    adoption (`scale`, not param/command). PickPCS broadcasts its selection on
+    the bus (`broadcastScale`); PitchFold routes an incoming `scale` to the
+    *same* `onScale` handler its MIDI-SysEx path already uses
+    (`applyScaleMessage`, 7 tests across the two) — one handler, two
+    transports. This is the "several transports, one message model" claim made
+    literal: the pair worked over SysEx; the bus is just another carrier.
+  The reducer is pure over the app's own callbacks in every case, so each
+  unit-tests without audio or a browser. The remaining apps follow the shape.
 - **[OPEN]** remaining: chords/long-press/switch-hold modeling for the
   accessibility persona (needs input *state*, which the stateless resolver
   doesn't track); MPE-vs-CC precedence; the control-map **editor UI** (Serpe

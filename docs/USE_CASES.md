@@ -63,10 +63,13 @@ spelled consistently (leftmost = LSB mask throughout); the quantizer audibly
 folds to it.
 **Exercises:** the `scale` message type · the canonical PickPCS→PitchFold pair
 · consistent structural spelling across tools.
-**Surfaces:** *reality today:* the shipped, wired pair is **PickPCS → PitchFold**;
-sending live *from* exquisite-fingerings isn't in-app yet, so today the
-fingering→scale hop is demonstrable via the protocol/CLI rather than one-click
-in the grid app. The message type and codecs are done; the app-side send is the gap.
+**Surfaces:** *reality today:* the **PickPCS → PitchFold** pair is wired live
+over **both** transports — MIDI SysEx (needs an IAC bus) *and* the in-browser
+bus (`apps/PickPCS/src/control.js` broadcasts; `apps/pitchfold/control.js`
+receives), so PickPCS's selection quantizes PitchFold with no MIDI at all, and
+the workspace/another tab can join. The remaining gap is the *first* hop:
+sending live **from exquisite-fingerings** isn't wired yet — the fingering→scale
+step is still protocol/CLI, not one-click in the grid app.
 
 ---
 
@@ -208,12 +211,14 @@ it is also the readiest to run as an actual test session.
 Reading the seven together, the recurring gaps are consistent — and small:
 
 - **In-app adoption lags the mechanism — but is underway.** The binding
-  layer, control-maps, and cross-tool messages exist and are tested; **two
-  apps are now wired in** — Serpe (React, keyboard + bus, both ways) and Vane
-  (vanilla JS + worklet, bus receive → real sound), proving the `control.js`
-  pattern generalizes across architectures. Still to do: the same wiring in the
-  remaining apps; Vane UI-knob *reflection* of incoming values; and an in-app
-  control-map *editor* (rebinding, not just a default map).
+  layer, control-maps, and cross-tool messages exist and are tested; **four
+  apps are now wired in** — Serpe (React, keyboard + bus, both ways), Vane
+  (vanilla JS + worklet, bus receive → real sound), and the **PickPCS →
+  PitchFold** pair (a `scale` data message over the bus) — proving the
+  `control.js` pattern generalizes across architectures *and* across message
+  kinds (command/param and data). Still to do: exquisite-fingerings /
+  Chord Dictionary; Vane UI-knob *reflection* of incoming values; and an
+  in-app control-map *editor* (rebinding, not just a default map).
 - **Vane needs discrete commands** (manifest v2) for U1's foot-switch.
 - **The screen-reader pass on live pages** (U3/U5) is the one a11y task still
   outstanding.
