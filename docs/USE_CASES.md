@@ -36,10 +36,13 @@ the sweep has no dead zone; nothing modal interrupts play.
 **Exercises:** `@enkerli/control` bindings · Vane's manifest · scale-aware
 CC-normalization (the log cutoff maps correctly without the binding restating
 it).
-**Surfaces:** step 4 needs Vane to declare **discrete commands** (manifest v2 —
-today Vane's manifest is 36 continuous params, no commands). And in-app
-control-map loading is Track B — *reality today:* the binding runs through the
-CLI/bus, not yet inside the Vane app's own UI.
+**Surfaces:** *reality today:* **Vane now receives `param` messages live** —
+its standalone host listens on the workspace bus (`apps/vane/control.js`), so
+the workspace's Vane control surface (or a pedal routed through `bind`) drives
+the **real voice's sound**. Still open: Vane's UI knobs don't yet *reflect* an
+incoming value (engine moves, knob doesn't — an `index.html` hook, deferred to
+avoid the plugin file); the foot-switch in step 4 needs Vane **discrete
+commands** (manifest v2 — today 36 continuous params, no commands).
 
 ---
 
@@ -204,13 +207,13 @@ it is also the readiest to run as an actual test session.
 
 Reading the seven together, the recurring gaps are consistent — and small:
 
-- **In-app adoption lags the mechanism — but has started.** The binding
-  layer, control-maps, and cross-tool messages exist and are tested;
-  **Serpe is now the first app wired in** (keyboard shortcuts + a bus
-  listener on the workspace channel, `apps/serpe/control.js`), the reusable
-  pattern for the rest. Still to do: the same wiring in the other apps, and an
-  in-app control-map *editor* (rebinding, not just a default map) — what
-  U1/U2 still wait on.
+- **In-app adoption lags the mechanism — but is underway.** The binding
+  layer, control-maps, and cross-tool messages exist and are tested; **two
+  apps are now wired in** — Serpe (React, keyboard + bus, both ways) and Vane
+  (vanilla JS + worklet, bus receive → real sound), proving the `control.js`
+  pattern generalizes across architectures. Still to do: the same wiring in the
+  remaining apps; Vane UI-knob *reflection* of incoming values; and an in-app
+  control-map *editor* (rebinding, not just a default map).
 - **Vane needs discrete commands** (manifest v2) for U1's foot-switch.
 - **The screen-reader pass on live pages** (U3/U5) is the one a11y task still
   outstanding.

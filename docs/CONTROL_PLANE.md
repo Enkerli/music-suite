@@ -211,16 +211,22 @@ Design commitments:
   binding restating it), overridable per-binding (`linear`/`log`/`toggle`),
   with 7- or 14-bit resolution and `step` quantization. A CC bound to a
   *command* fires above a switch threshold.
-- **First in-app adoption — Serpe** *(shipped 2026-07-15)*. `apps/serpe/
-  control.js` wires Serpe to the plane both ways: a default keyboard map
-  (`[`/`]` rotate, `i` invert, `c` complement, `m` mutate) resolved through
-  `@enkerli/control`, and a **BroadcastChannel listener on the same
-  `enkerli-workspace` bus the workspace posts to** — so the workspace's
-  Serpe control surface (or another same-origin tab) drives the *real*
-  Serpe. `applyControlMessage(api, msg)` is a pure reducer over the app's
-  own handlers (11 tests). This is the reusable pattern: a small per-app
-  `control.js` mapping the plane's `command`/`param` messages onto existing
-  handlers, plus a keymap. The other apps follow it.
+- **In-app adoption — the `control.js` pattern** *(shipped 2026-07-15)*. A
+  small per-app `apps/<app>/control.js` maps the plane's `command`/`param`
+  messages onto the app's existing handlers and listens on the same
+  `enkerli-workspace` BroadcastChannel the workspace posts to — so the
+  workspace's control surface (or another same-origin tab) drives the *real*
+  app. Two adopters prove it generalizes across architectures:
+  - **Serpe** (React) — both ways: a default keyboard map (`[`/`]` rotate,
+    `i` invert, `c` complement, `m` mutate) via `@enkerli/control`, plus a bus
+    listener applying `command`/`param` to its handlers (`applyControlMessage`,
+    11 tests).
+  - **Vane** (vanilla JS + audio worklet) — receive-only, through a different
+    seam: `param` messages resolve manifest id → wasm id and post straight to
+    the voice's worklet (`applyVaneParam`, 8 tests), driving real sound. Lives
+    in the standalone host (`synth-main.js`), never touching the plugin UI.
+  The reducer is pure over the app's own callbacks in both, so each unit-tests
+  without audio or a browser. The remaining apps follow the same shape.
 - **[OPEN]** remaining: chords/long-press/switch-hold modeling for the
   accessibility persona (needs input *state*, which the stateless resolver
   doesn't track); MPE-vs-CC precedence; the control-map **editor UI** (Serpe

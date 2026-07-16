@@ -307,13 +307,15 @@ material (a curated preset set *is* a lesson).
     (§2.1, seven), U1–U7 use cases drafted ([USE_CASES.md](USE_CASES.md), §2.2),
     a published control-plane user guide (§2.4), and a stale-reference sweep.
     Remaining in §2: the user-testing protocol (§2.3).
-11. ✅ **First in-app adoption — Serpe** *(shipped 2026-07-15)*:
-    `apps/serpe/control.js` wires Serpe to the plane both ways — a default
-    keyboard map and a BroadcastChannel listener on the workspace bus, so the
-    workspace (or a same-origin tab) drives the real Serpe, and keys drive it
-    locally. `applyControlMessage` is a pure reducer over Serpe's own handlers
-    (11 tests). **The reusable pattern** for wiring every other app in.
-    **Next choices:** the same `control.js` pattern in the other apps; an
+11. ✅ **In-app adoption — Serpe & Vane** *(shipped 2026-07-15)*: a per-app
+    `control.js` maps the plane's messages onto each app's handlers and listens
+    on the workspace bus. **Serpe** (React) — keyboard map + `command`/`param`
+    receive, both ways (`applyControlMessage`, 11 tests). **Vane** (vanilla JS +
+    audio worklet) — `param` receive resolving manifest id → wasm id → the voice
+    (`applyVaneParam`, 8 tests), driving real sound through the standalone host
+    without touching the plugin UI. Two architectures, one pattern — it
+    generalizes. The reducer is a pure fn over the app's callbacks in both.
+    **Next choices:** the same `control.js` pattern in the remaining apps; an
     in-app control-map **editor** (rebinding, not a fixed map); the
     user-testing protocol (§2.3, start with U6/U7); the *time-varying*
     `--stream` form ([CONTROL_PLANE.md](CONTROL_PLANE.md) §7 #6); the **Apple
