@@ -93,6 +93,28 @@ export function canonicalCombo(combo: string): string {
   return [...mods, ...(key ? [key] : [])].join("+");
 }
 
+// ── Control-map editing (pure, immutable — the editor's model) ────────────────
+
+/** A fresh, empty control-map. */
+export function emptyControlMap(id: string, label?: string): ControlMap {
+  return { id, kind: "control-map", ...(label ? { label } : {}), bindings: [] };
+}
+
+/** Append a binding, returning a new map (the original is untouched). */
+export function addBinding(map: ControlMap, binding: Binding): ControlMap {
+  return { ...map, bindings: [...map.bindings, binding] };
+}
+
+/** Remove the binding at `index`, returning a new map. Out-of-range is a no-op copy. */
+export function removeBinding(map: ControlMap, index: number): ControlMap {
+  return { ...map, bindings: map.bindings.filter((_, i) => i !== index) };
+}
+
+/** Replace the binding at `index`, returning a new map. */
+export function updateBinding(map: ControlMap, index: number, binding: Binding): ControlMap {
+  return { ...map, bindings: map.bindings.map((b, i) => (i === index ? binding : b)) };
+}
+
 // ── Normalization (CC/note ↔ native param value) ─────────────────────────────
 
 const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));

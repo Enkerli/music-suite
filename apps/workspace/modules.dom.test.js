@@ -91,3 +91,66 @@ describe("summarize", () => {
     expect(summarize({ from: "serpe", to: "*", type: "pattern", body: { steps: 8, mask: 73 } })).toContain("8 steps");
   });
 });
+
+// ── bindings module (the control-map editor that runs the map) ────────────────
+
+import { MODULES } from "./modules.js";
+
+describe("bindings module", () => {
+  const mount = (state = {}) => {
+    const bus = new SuiteBus();
+    const seen = [];
+    bus.subscribe((m) => seen.push(m));
+    const body = document.createElement("div");
+    const cleanup = MODULES["bindings"].make({ bus, save() {} }, body, state);
+    return { bus, seen, body, cleanup };
+  };
+
+  it("renders the default bindings and runs them: a keystroke fires a message on the bus", () => {
+    const { seen, body, cleanup } = mount();
+    // default map binds "]" → serpe rotate
+    expect(body.querySelectorAll(".ws-param").length).toBe(3);
+    window.dispatchEvent(new KeyboardEvent("keydown", { key: "]" }));
+    expect(seen).toHaveLength(1);
+    expect(seen[0].type).toBe("command");
+    expect(seen[0].to).toBe("serpe");
+    expect(seen[0].body.name).toBe("rotate");
+    cleanup();
+  });
+
+  it("does not fire while typing in an input (the editor's own fields)", () => {
+    const { seen, body, cleanup } = mount();
+    const input = body.querySelector(".ws-text");
+    const ev = new KeyboardEvent("keydown", { key: "]", bubbles: true });
+    Object.defineProperty(ev, "target", { value: input });
+    window.dispatchEvent(ev);
+    expect(seen).toHaveLength(0);
+    cleanup();
+  });
+
+  it("removing a binding drops it and stops firing it", () => {
+    const state = {};
+    const { seen, body, cleanup } = mount(state);
+    body.querySelectorAll(".ws-param .ws-x")[2].dispatchEvent(new MouseEvent("click")); // remove "m" → mutate
+    expect(body.querySelectorAll(".ws-param").length).toBe(2);
+    window.dispatchEvent(new KeyboardEvent("keydown", { key: "m" }));
+    expect(seen).toHaveLength(0); // "m" no longer bound
+    cleanup();
+  });
+
+  it("adding a binding wires a new key to a command", () => {
+    const { seen, body, cleanup } = mount();
+    body.querySelector('[aria-label="Trigger key"]').dispatchEvent(new KeyboardEvent("keydown", { key: "i" }));
+    // default app is vane (first); switch to serpe and pick complement
+    const appSel = body.querySelector('[aria-label="Target app"]');
+    appSel.value = "serpe"; appSel.dispatchEvent(new Event("change"));
+    const actSel = body.querySelector('[aria-label="Action"]');
+    actSel.value = "cmd:complement";
+    body.querySelectorAll(".ws-btn")[0].dispatchEvent(new MouseEvent("click")); // + add
+    window.dispatchEvent(new KeyboardEvent("keydown", { key: "i" }));
+    const cmd = seen.find((m) => m.body.name === "complement");
+    expect(cmd).toBeTruthy();
+    expect(cmd.to).toBe("serpe");
+    cleanup();
+  });
+});

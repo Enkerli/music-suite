@@ -318,13 +318,21 @@ material (a curated preset set *is* a lesson).
     **Chord Dictionary** → `chord` (feeds U3), source-only, 4 tests. Every web
     app across every architecture (React · vanilla-class · worklet) and both
     message kinds (command/param · data) — the pattern fully generalized.
-    **Next choices:** Vane UI-knob reflection; an in-app control-map **editor**
-    (rebinding, not a fixed map); the user-testing protocol (§2.3, start with
-    U6/U7); the *time-varying* `--stream` form
-    ([CONTROL_PLANE.md](CONTROL_PLANE.md) §7 #6); the **Apple Shortcuts**
-    adapter; or the narrow headless remainder (DrawnQurve path;
-    PitchFold/MIDIcurator CLI verbs). Polyrhythmic Serpe stays shelved (§1.2) —
-    the `@enkerli/upi` data shape is where its multi-cycle model will live.
+12. ✅ **Control-map editor** *(shipped 2026-07-15)*: the workspace's **Bindings
+    module** edits a control-map (key → app command/param, drawn from the
+    manifests) *and runs it* via `createBindingEngine` — a keystroke in the
+    workspace fires a message on the bus and drives the real app. Built on pure
+    immutable map-edit helpers in `@enkerli/control` (add/remove/updateBinding).
+    Verified end-to-end under happy-dom (edit → key → bus → app). User-editable
+    bindings, no fixed map.
+    **Next choices:** the user-testing protocol (§2.3, start with U6/U7); the
+    *time-varying* `--stream` form ([CONTROL_PLANE.md](CONTROL_PLANE.md) §7 #6);
+    the **Apple Shortcuts** adapter; the narrow headless remainder (DrawnQurve
+    path; PitchFold/MIDIcurator CLI verbs); MIDI-CC capture + library-item save
+    in the editor; or **Vane UI-knob reflection** (deferred — needs a setter
+    hook in Vane's plugin-shared `index.html`, unverifiable without a real
+    browser here). Polyrhythmic Serpe stays shelved (§1.2) — the `@enkerli/upi`
+    data shape is where its multi-cycle model will live.
 
 *Sequence rationale: 1 and 2 are mutually reinforcing and both sit inside
 the moratorium; the spec de-risked the design so the next move is code, not

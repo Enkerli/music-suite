@@ -239,11 +239,22 @@ Design commitments:
   Every web app is now wired. The reducer/builder is a pure fn over the app's
   own state in each case, so all unit-test without audio or a browser. The
   same shape awaits the plugins (over MIDI SysEx) when they adopt it.
+- **Control-map editor — shipped** *(2026-07-15)*, as the workspace's
+  **Bindings module** (`apps/workspace`). It edits a control-map (add/remove
+  a key → app command/param, targets and actions drawn from the manifests)
+  **and runs it** via `createBindingEngine`: a keystroke in the workspace
+  fires a message on the bus and drives the real app that receives it. Built
+  on pure map-edit helpers in `@enkerli/control` (`addBinding`/`removeBinding`/
+  `updateBinding`, immutable). Verified under happy-dom (edit → keystroke →
+  bus → app). This is *user-editable* bindings, no fixed map — the Serpe/Vane
+  default keymaps remain, but a user can now build their own layout here.
 - **[OPEN]** remaining: chords/long-press/switch-hold modeling for the
   accessibility persona (needs input *state*, which the stateless resolver
-  doesn't track); MPE-vs-CC precedence; the control-map **editor UI** (Serpe
-  uses a fixed default keymap — *editing* bindings in-app is still Track B);
-  adoption in the *other* apps.
+  doesn't track); MPE-vs-CC precedence; MIDI-CC capture in the editor (keys
+  only today); saving a control-map as a library item (the `kind` is specced,
+  the editor persists to layout for now); **Vane UI-knob reflection** of an
+  incoming value (deferred — it needs a setter hook inside Vane's
+  plugin-shared `index.html`, unverifiable without a real browser here).
 
 ---
 

@@ -157,3 +157,31 @@ describe("createBindingEngine", () => {
     expect(sent).toEqual(["command"]);
   });
 });
+
+// ── Control-map editing helpers (the editor's model) ─────────────────────────
+
+import { emptyControlMap, addBinding, removeBinding, updateBinding } from "./index.js";
+
+describe("control-map editing (pure, immutable)", () => {
+  const b1 = { trigger: { kind: "key" as const, combo: "]" }, action: { app: "serpe" as const, command: "rotate", args: { by: 1 } } };
+  const b2 = { trigger: { kind: "key" as const, combo: "m" }, action: { app: "serpe" as const, command: "mutate" } };
+
+  it("emptyControlMap is a valid empty map", () => {
+    const m = emptyControlMap("cm-1", "My map");
+    expect(m).toEqual({ id: "cm-1", kind: "control-map", label: "My map", bindings: [] });
+  });
+  it("addBinding appends without mutating the original", () => {
+    const m0 = emptyControlMap("cm");
+    const m1 = addBinding(m0, b1);
+    expect(m1.bindings).toEqual([b1]);
+    expect(m0.bindings).toEqual([]); // original untouched
+  });
+  it("removeBinding drops one by index", () => {
+    const m = removeBinding(addBinding(addBinding(emptyControlMap("cm"), b1), b2), 0);
+    expect(m.bindings).toEqual([b2]);
+  });
+  it("updateBinding replaces one by index", () => {
+    const m = updateBinding(addBinding(emptyControlMap("cm"), b1), 0, b2);
+    expect(m.bindings).toEqual([b2]);
+  });
+});

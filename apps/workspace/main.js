@@ -78,6 +78,7 @@ function main() {
   if (store.modules && store.modules.length) for (const d of store.modules) addModule(d.type, d);
   else { addModule("control-surface", { app: "vane", x: 24, y: 24 });
          addModule("pattern", { x: 360, y: 24 });
+         addModule("bindings", { x: 360, y: 300 });
          addModule("monitor", { x: 24, y: 300 }); }
 }
 
