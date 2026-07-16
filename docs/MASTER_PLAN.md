@@ -303,15 +303,23 @@ material (a curated preset set *is* a lesson).
    realized with `--tonic`, or straight to SMF with `-o`; chains with `smf`).
    Both engine promotions (Serpe, ProgGenie) are now done — every core engine
    has a headless version. 52 tests moved with the engine.
-   **Next choices:** the *time-varying* `--stream` automation form
-   ([CONTROL_PLANE.md](CONTROL_PLANE.md) §7 #6); the in-app **control-map
-   editor UI** (Track B — logic shipped, surface not); the **Apple Shortcuts**
-   adapter (the last projection); the narrow headless remainder (a DrawnQurve
-   path; PitchFold/MIDIcurator CLI verbs); or — the shift the whole session
-   has deferred — the **product layer** (§2: persona reconciliation, U1–U5
-   use cases), which now has a complete plane to exercise. The polyrhythmic-
-   Serpe spec stays shelved (§1.2) — the `@enkerli/upi` data shape is where
-   its multi-cycle model will live.
+10. ✅ **Product layer** *(2026-07-15)*: personas reconciled to one authority
+    (§2.1, seven), U1–U7 use cases drafted ([USE_CASES.md](USE_CASES.md), §2.2),
+    a published control-plane user guide (§2.4), and a stale-reference sweep.
+    Remaining in §2: the user-testing protocol (§2.3).
+11. ✅ **First in-app adoption — Serpe** *(shipped 2026-07-15)*:
+    `apps/serpe/control.js` wires Serpe to the plane both ways — a default
+    keyboard map and a BroadcastChannel listener on the workspace bus, so the
+    workspace (or a same-origin tab) drives the real Serpe, and keys drive it
+    locally. `applyControlMessage` is a pure reducer over Serpe's own handlers
+    (11 tests). **The reusable pattern** for wiring every other app in.
+    **Next choices:** the same `control.js` pattern in the other apps; an
+    in-app control-map **editor** (rebinding, not a fixed map); the
+    user-testing protocol (§2.3, start with U6/U7); the *time-varying*
+    `--stream` form ([CONTROL_PLANE.md](CONTROL_PLANE.md) §7 #6); the **Apple
+    Shortcuts** adapter; or the narrow headless remainder (DrawnQurve path;
+    PitchFold/MIDIcurator CLI verbs). Polyrhythmic Serpe stays shelved (§1.2) —
+    the `@enkerli/upi` data shape is where its multi-cycle model will live.
 
 *Sequence rationale: 1 and 2 are mutually reinforcing and both sit inside
 the moratorium; the spec de-risked the design so the next move is code, not

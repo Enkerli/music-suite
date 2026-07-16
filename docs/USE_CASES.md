@@ -135,10 +135,12 @@ and recalled as *this performer's* layout — a first-class object, not settings
 buried in one app.
 **Exercises:** the binding layer (key triggers) · control-map as a library
 item · keyboard operability · the collapsible-density a11y foundation.
-**Surfaces:** the in-app **control-map editor UI** (Track B) is not shipped —
-*reality today:* the map is authored as a file and validated with `enkerli
-bind --validate`, not built inside the app. A screen-reader pass on real pages
-is still pending.
+**Surfaces:** *reality today:* **Serpe is the first app with live in-app
+control** — its keyboard shortcuts and incoming `command`/`param` messages
+work (`apps/serpe/control.js`), so a keyboard-only Serpe session is real now.
+Still Track B: an in-app control-map **editor** (Serpe uses a fixed default
+map — you can't yet *rebind* keys in the app), the same wiring in the other
+apps, and a screen-reader pass on real pages.
 
 ---
 
@@ -202,10 +204,13 @@ it is also the readiest to run as an actual test session.
 
 Reading the seven together, the recurring gaps are consistent — and small:
 
-- **In-app adoption lags the mechanism.** The binding layer, control-maps, and
-  the cross-tool messages exist and are tested; wiring them *into each app's
-  own UI* (control-map editor, per-app send/receive) is Track B, and it is
-  what U1/U2/U5 each wait on.
+- **In-app adoption lags the mechanism — but has started.** The binding
+  layer, control-maps, and cross-tool messages exist and are tested;
+  **Serpe is now the first app wired in** (keyboard shortcuts + a bus
+  listener on the workspace channel, `apps/serpe/control.js`), the reusable
+  pattern for the rest. Still to do: the same wiring in the other apps, and an
+  in-app control-map *editor* (rebinding, not just a default map) — what
+  U1/U2 still wait on.
 - **Vane needs discrete commands** (manifest v2) for U1's foot-switch.
 - **The screen-reader pass on live pages** (U3/U5) is the one a11y task still
   outstanding.

@@ -211,11 +211,21 @@ Design commitments:
   binding restating it), overridable per-binding (`linear`/`log`/`toggle`),
   with 7- or 14-bit resolution and `step` quantization. A CC bound to a
   *command* fires above a switch threshold.
+- **First in-app adoption — Serpe** *(shipped 2026-07-15)*. `apps/serpe/
+  control.js` wires Serpe to the plane both ways: a default keyboard map
+  (`[`/`]` rotate, `i` invert, `c` complement, `m` mutate) resolved through
+  `@enkerli/control`, and a **BroadcastChannel listener on the same
+  `enkerli-workspace` bus the workspace posts to** — so the workspace's
+  Serpe control surface (or another same-origin tab) drives the *real*
+  Serpe. `applyControlMessage(api, msg)` is a pure reducer over the app's
+  own handlers (11 tests). This is the reusable pattern: a small per-app
+  `control.js` mapping the plane's `command`/`param` messages onto existing
+  handlers, plus a keymap. The other apps follow it.
 - **[OPEN]** remaining: chords/long-press/switch-hold modeling for the
   accessibility persona (needs input *state*, which the stateless resolver
-  doesn't track); MPE-vs-CC precedence; the control-map **editor UI** and
-  its adoption in the apps (the logic is shipped; the in-app surface is
-  Track B).
+  doesn't track); MPE-vs-CC precedence; the control-map **editor UI** (Serpe
+  uses a fixed default keymap — *editing* bindings in-app is still Track B);
+  adoption in the *other* apps.
 
 ---
 

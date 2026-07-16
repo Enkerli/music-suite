@@ -312,7 +312,7 @@ const stageMap = {
   bindings: [
     { trigger: { kind: "midi-cc" as const, cc: 74, channel: 1 }, action: { app: "vane" as const, param: "filter-cutoff" } },
     { trigger: { kind: "key" as const, combo: "mod+shift+m" }, action: { app: "serpe" as const, command: "mutate", args: { amount: 0.3 } } },
-    { trigger: { kind: "midi-note" as const, note: 36, channel: 10 }, action: { app: "serpe" as const, command: "next-pattern" } },
+    { trigger: { kind: "midi-note" as const, note: 36, channel: 10 }, action: { app: "serpe" as const, command: "complement" } },
   ],
 };
 

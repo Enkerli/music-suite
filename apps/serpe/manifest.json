@@ -10,8 +10,6 @@
     { "name": "rotate", "label": "Rotate", "args": [ { "id": "by", "unit": "count", "min": -64, "max": 64, "default": 1 } ] },
     { "name": "invert", "label": "Invert" },
     { "name": "complement", "label": "Complement" },
-    { "name": "mutate", "label": "Mutate", "args": [ { "id": "amount", "unit": "ratio", "min": 0, "max": 1, "default": 0.5 } ] },
-    { "name": "next-pattern", "label": "Next pattern (progressive advance)" },
-    { "name": "prev-pattern", "label": "Previous pattern (progressive retreat)" }
+    { "name": "mutate", "label": "Mutate", "args": [ { "id": "amount", "unit": "ratio", "min": 0, "max": 1, "default": 0.5 } ] }
   ]
 }
