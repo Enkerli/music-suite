@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { createGlobalCluster } from "@enkerli/ui/global-cluster";
 import appIcon from "@enkerli/ui/icons/chord-dictionary.svg";
+import { broadcastChord } from "./control.js";
 import { createPitchGrid } from "@enkerli/ui/pitch-grid";
 import { chordCircleSVG } from "./chordCircle.js";
 import { FORTE_BY_DECIMAL } from "./forte.js";
@@ -154,6 +155,18 @@ export default function App() {
   );
   const [selectedKey, setSelectedKey] = useState(null);
   const activeKey = selectedKey ?? defaultKey;
+
+  // Control plane: broadcast the displayed chord as a `chord` message, so a
+  // theory-explorer session can follow it across tools (use case U3).
+  useEffect(() => {
+    const q = qualities.find((c) => c.key === activeKey);
+    if (!q) return;
+    broadcastChord({
+      pcs: q.pcs.map((pc) => (rootPc + pc) % 12),
+      root: rootPc,
+      symbol: `${root}${q.displayName ?? ""}`,
+    });
+  }, [root, rootPc, activeKey, qualities]);
 
   // Live chord-symbol / alias resolution: typing an alias selects the right row
   // (and its root, if the input named one). Substring filtering still applies.

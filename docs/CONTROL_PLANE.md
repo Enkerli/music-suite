@@ -230,10 +230,15 @@ Design commitments:
     the bus (`broadcastScale`); PitchFold routes an incoming `scale` to the
     *same* `onScale` handler its MIDI-SysEx path already uses
     (`applyScaleMessage`, 7 tests across the two) — one handler, two
-    transports. This is the "several transports, one message model" claim made
-    literal: the pair worked over SysEx; the bus is just another carrier.
-  The reducer is pure over the app's own callbacks in every case, so each
-  unit-tests without audio or a browser. The remaining apps follow the shape.
+    transports. The pair worked over SysEx; the bus is just another carrier.
+  - **exquisite-fingerings** (vanilla class app) — broadcasts the highlighted
+    fingering as a `scale`, on change (`scaleMessageFromPcs`), closing U2's
+    fingering → pitch-collection hop. **Chord Dictionary** (React) — broadcasts
+    the displayed chord as a `chord` message (`chordMessage`), so U3's "one
+    chord, many views" flows over the bus. Both source-only.
+  Every web app is now wired. The reducer/builder is a pure fn over the app's
+  own state in each case, so all unit-test without audio or a browser. The
+  same shape awaits the plugins (over MIDI SysEx) when they adopt it.
 - **[OPEN]** remaining: chords/long-press/switch-hold modeling for the
   accessibility persona (needs input *state*, which the stateless resolver
   doesn't track); MPE-vs-CC precedence; the control-map **editor UI** (Serpe

@@ -63,13 +63,11 @@ spelled consistently (leftmost = LSB mask throughout); the quantizer audibly
 folds to it.
 **Exercises:** the `scale` message type · the canonical PickPCS→PitchFold pair
 · consistent structural spelling across tools.
-**Surfaces:** *reality today:* the **PickPCS → PitchFold** pair is wired live
-over **both** transports — MIDI SysEx (needs an IAC bus) *and* the in-browser
-bus (`apps/PickPCS/src/control.js` broadcasts; `apps/pitchfold/control.js`
-receives), so PickPCS's selection quantizes PitchFold with no MIDI at all, and
-the workspace/another tab can join. The remaining gap is the *first* hop:
-sending live **from exquisite-fingerings** isn't wired yet — the fingering→scale
-step is still protocol/CLI, not one-click in the grid app.
+**Surfaces:** *reality today:* **fully wired end to end.** exquisite-fingerings
+broadcasts the highlighted fingering as a `scale` live on the bus
+(`apps/exquisite-fingerings/src/control.js`); PitchFold quantizes to it and
+PickPCS names it — all over the in-browser bus (no MIDI) *and* MIDI SysEx. The
+fingering → collection hop that was the open gap is now one continuous flow.
 
 ---
 
@@ -90,9 +88,11 @@ the `chord` message.
 between tools; a screen reader voices the chord's structure meaningfully.
 **Exercises:** chord detection (167-quality dictionary) · Roman analysis ·
 the cross-tool `chord` message · screen-reader structure.
-**Surfaces:** a VoiceOver pass on the live pages is still pending (A11Y plan
-gap) — so the "screen reader voices it" success criterion is a *test target*,
-not yet a verified fact.
+**Surfaces:** *reality today:* the Chord Dictionary now **broadcasts the
+displayed chord** as a `chord` message on the bus
+(`apps/chord-dictionary/src/control.js`), so the cross-tool hop is wired. The
+open item is the **VoiceOver pass** on the live pages (A11Y plan gap) — so the
+"screen reader voices it" success criterion is still a *test target*.
 
 ---
 
@@ -210,15 +210,14 @@ it is also the readiest to run as an actual test session.
 
 Reading the seven together, the recurring gaps are consistent — and small:
 
-- **In-app adoption lags the mechanism — but is underway.** The binding
-  layer, control-maps, and cross-tool messages exist and are tested; **four
-  apps are now wired in** — Serpe (React, keyboard + bus, both ways), Vane
-  (vanilla JS + worklet, bus receive → real sound), and the **PickPCS →
-  PitchFold** pair (a `scale` data message over the bus) — proving the
-  `control.js` pattern generalizes across architectures *and* across message
-  kinds (command/param and data). Still to do: exquisite-fingerings /
-  Chord Dictionary; Vane UI-knob *reflection* of incoming values; and an
-  in-app control-map *editor* (rebinding, not just a default map).
+- **In-app adoption — every web app is now wired.** Serpe (keyboard + bus,
+  both ways), Vane (bus → real sound), the PickPCS → PitchFold `scale` pair,
+  exquisite-fingerings (→ `scale`), and Chord Dictionary (→ `chord`). The
+  `control.js` pattern is proven across every architecture and message kind in
+  the suite. Remaining in-app work is now *refinement*, not reach: Vane UI-knob
+  *reflection* of incoming values, and an in-app control-map *editor*
+  (rebinding, not just a default map). The plugins adopt the same shape over
+  MIDI SysEx when their turn comes.
 - **Vane needs discrete commands** (manifest v2) for U1's foot-switch.
 - **The screen-reader pass on live pages** (U3/U5) is the one a11y task still
   outstanding.

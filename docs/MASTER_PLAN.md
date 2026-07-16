@@ -307,24 +307,22 @@ material (a curated preset set *is* a lesson).
     (§2.1, seven), U1–U7 use cases drafted ([USE_CASES.md](USE_CASES.md), §2.2),
     a published control-plane user guide (§2.4), and a stale-reference sweep.
     Remaining in §2: the user-testing protocol (§2.3).
-11. ✅ **In-app adoption — Serpe, Vane, PickPCS↔PitchFold** *(shipped
-    2026-07-15)*: a per-app `control.js` maps the plane's messages onto each
-    app's handlers and listens on the workspace bus. **Serpe** (React) —
-    keyboard map + `command`/`param` receive, both ways (`applyControlMessage`,
-    11 tests). **Vane** (vanilla JS + audio worklet) — `param` receive
-    resolving manifest id → wasm id → the voice (`applyVaneParam`, 8 tests),
-    real sound through the standalone host, plugin UI untouched. **PickPCS →
-    PitchFold** — the canonical pair over the bus: the first **data**-message
-    (`scale`) adoption; PitchFold routes a bus scale to the same `onScale` its
-    SysEx path uses (7 tests across the two). Three architectures and both
-    message kinds (command/param + data) — the pattern generalizes. The
-    reducer is a pure fn over the app's callbacks in every case.
-    **Next choices:** the same `control.js` pattern in the remaining apps
-    (exquisite-fingerings, Chord Dictionary); Vane UI-knob reflection; an
-    in-app control-map **editor** (rebinding, not a fixed map); the
-    user-testing protocol (§2.3, start with U6/U7); the *time-varying*
-    `--stream` form ([CONTROL_PLANE.md](CONTROL_PLANE.md) §7 #6); the **Apple
-    Shortcuts** adapter; or the narrow headless remainder (DrawnQurve path;
+11. ✅ **In-app adoption — every web app** *(shipped 2026-07-15)*: a per-app
+    `control.js` maps the plane's messages onto each app's handlers and the
+    shared bus. **Serpe** (React) — keyboard map + `command`/`param`, both ways
+    (`applyControlMessage`, 11 tests). **Vane** (vanilla + worklet) — `param`
+    receive → the voice (`applyVaneParam`, 8 tests), real sound, plugin UI
+    untouched. **PickPCS → PitchFold** — the canonical `scale` pair over the bus
+    (first data-message adoption; PitchFold reuses its SysEx `onScale`; 7
+    tests). **exquisite-fingerings** → `scale` (closes U2's fingering hop) and
+    **Chord Dictionary** → `chord` (feeds U3), source-only, 4 tests. Every web
+    app across every architecture (React · vanilla-class · worklet) and both
+    message kinds (command/param · data) — the pattern fully generalized.
+    **Next choices:** Vane UI-knob reflection; an in-app control-map **editor**
+    (rebinding, not a fixed map); the user-testing protocol (§2.3, start with
+    U6/U7); the *time-varying* `--stream` form
+    ([CONTROL_PLANE.md](CONTROL_PLANE.md) §7 #6); the **Apple Shortcuts**
+    adapter; or the narrow headless remainder (DrawnQurve path;
     PitchFold/MIDIcurator CLI verbs). Polyrhythmic Serpe stays shelved (§1.2) —
     the `@enkerli/upi` data shape is where its multi-cycle model will live.
 

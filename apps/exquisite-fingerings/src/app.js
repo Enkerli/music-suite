@@ -7,6 +7,7 @@ import '@enkerli/ui/tokens.css';
 import '@enkerli/ui/fonts.css';
 import '@enkerli/ui/components.css';
 import { initTheme } from '@enkerli/ui/theme';
+import { broadcastFingering } from './control.js';
 import { createGlobalCluster } from '@enkerli/ui/global-cluster';
 import { createLibraryBrowser } from '@enkerli/ui/library-browser';
 import { toast } from '@enkerli/ui/toast';
@@ -463,8 +464,16 @@ class ExquisFingerings {
       this.gridRenderer.setHighlightedPCs(new Set());
       this.gridRenderer.setSpelledNames(null);
     } else {
-      this.gridRenderer.setHighlightedPCs(this.getHighlightedPCs());
+      const pcs = this.getHighlightedPCs();
+      this.gridRenderer.setHighlightedPCs(pcs);
       this.gridRenderer.setSpelledNames(this.getSpelledNames());
+      // Control plane: broadcast the highlighted collection as a `scale`, on
+      // change only, so PitchFold / PickPCS / the workspace can act on it.
+      const mask = [...pcs].reduce((m, pc) => m | (1 << (pc % 12)), 0);
+      if (mask && mask !== this._lastScaleMask) {
+        this._lastScaleMask = mask;
+        broadcastFingering(pcs, `${pcs.size}-note fingering`);
+      }
     }
 
     // During handprint capture, show captured fingers or empty pattern
