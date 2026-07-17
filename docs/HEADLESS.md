@@ -47,6 +47,7 @@ wrapper over an import-testable library):
 | `msuite send --to vane --param morph=1.0 \| msuite render 69 -o out.wav --stream` | **message → sound**: render applies a control-plane `param` stream to Vane's real DSP (manifest id → wasm id), headless | control plane + Vane WASM voice |
 | `msuite bind stage.json --cc 74=40 \| msuite render 69 -o out.wav --stream` | **input → sound**: a control-map resolves a MIDI knob/key/pad through the manifests to a `param`/`command` message — the whole plane from a knob to audio, headless | `@enkerli/control` + control plane |
 | `msuite bind stage.json --validate` | check a control-map's bindings against the bundled manifests (unknown ids, out-of-range values, undeclared args) | `@enkerli/control` |
+| `msuite accompany --progression "Dm7 \| G7 \| Cmaj7 \| A7" --seed 42 -o bass.mid [--trace t.json] [--explain]` | **GloriArp slice 1**: one curated bass phrase adapted across a progression — chord-relative reharmonization, range clamp, seeded determinism, a trace that explains every note (`GLORIARP:v1 TRACE` header embedded in the SMF) | `@enkerli/accompaniment` (docs/GLORIARP_BRIEF.md, docs/GLORIARP_AUDIT.md) |
 
 ## Per tool
 

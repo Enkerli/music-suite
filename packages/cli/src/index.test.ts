@@ -390,3 +390,58 @@ describe("generateInfo (corpus progression generation, headless)", () => {
     expect(smf.bytes[0]).toBe(0x4d); // "M" — a real MIDI file
   });
 });
+
+// ── accompany (GloriArp slice 1) ─────────────────────────────────────────────
+
+import { accompany, noteNameToMidi, defaultPhrasePath } from "./index.js";
+import { readMetaTextEvents } from "@enkerli/midi";
+
+describe("noteNameToMidi", () => {
+  it("maps note names with accidentals and octaves (C4 = 60)", () => {
+    expect(noteNameToMidi("C4")).toBe(60);
+    expect(noteNameToMidi("C2")).toBe(36);
+    expect(noteNameToMidi("F#1")).toBe(30);
+    expect(noteNameToMidi("Bb3")).toBe(58);
+  });
+  it("rejects garbage", () => {
+    expect(() => noteNameToMidi("H2")).toThrow(/bad note name/);
+    expect(() => noteNameToMidi("C")).toThrow(/bad note name/);
+  });
+});
+
+describe("accompany (bar notation → adapted bass → SMF + trace)", () => {
+  it("ships its bundled source phrase", () => {
+    expect(existsSync(defaultPhrasePath())).toBe(true);
+  });
+  it("runs the acceptance pipeline deterministically", () => {
+    const run = () => accompany({ progression: "Dm7 | G7 | Cmaj7 | A7", seed: 42 });
+    const a = run();
+    expect(a.phrase.events).toHaveLength(16);
+    expect(a.frames.map((f) => f.chord.symbol)).toEqual(["Dm7", "G7", "Cmaj7", "A7"]);
+    expect(Buffer.from(a.smf).equals(Buffer.from(run().smf))).toBe(true); // byte-identical
+  });
+  it("embeds the GLORIARP:v1 TRACE header and chord markers in the SMF", () => {
+    const r = accompany({ progression: "Dm7 | G7", seed: 7 });
+    const meta = readMetaTextEvents(r.smf);
+    const trace = meta.find((e) => e.text.startsWith("GLORIARP:v1 TRACE "));
+    expect(trace).toBeDefined();
+    const embedded = JSON.parse(trace!.text.slice("GLORIARP:v1 TRACE ".length));
+    expect(embedded.header).toMatchObject({ seed: 7, engine: "@enkerli/accompaniment" });
+    expect(meta.filter((e) => e.metaType === 6).map((e) => e.text)).toEqual(["Dm7", "G7"]);
+  });
+  it("tiles the progression with --bars and splits multi-chord bars into frames", () => {
+    const r = accompany({ progression: "Dm7 G7 | Cmaj7", bars: 4, seed: 1 });
+    expect(r.frames.map((f) => f.chord.symbol)).toEqual(["Dm7", "G7", "Cmaj7", "Dm7", "G7", "Cmaj7"]);
+    expect(r.frames[0]!.end).toBe(960); // half a bar each when two chords share it
+  });
+  it("honors the range as a hard constraint", () => {
+    const r = accompany({ progression: "Dm7 | G7 | Cmaj7 | A7", seed: 3, range: { low: 48, high: 55 } });
+    for (const e of r.phrase.events) {
+      expect(e.note!).toBeGreaterThanOrEqual(48);
+      expect(e.note!).toBeLessThanOrEqual(55);
+    }
+  });
+  it("rejects an empty progression", () => {
+    expect(() => accompany({ progression: "" })).toThrow();
+  });
+});

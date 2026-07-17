@@ -26,11 +26,15 @@ import {
   patternToDecimal, patternFromDecimal,
   patternToHex, patternFromHex,
   patternToOctal, patternFromOctal,
-  parseLeadsheet, type Progression,
+  parseLeadsheet, realizeLeadsheet, type Progression,
 } from "@enkerli/theory";
-import { progressionToSMF, progressionFromSMF } from "@enkerli/midi";
+import { progressionToSMF, progressionFromSMF, createSMF, type MidiNote, type MidiMarker } from "@enkerli/midi";
 import { parseUPI, analyse } from "@enkerli/upi";
 import { generateLabels, realizeLabel } from "@enkerli/proggen";
+import {
+  parsePhrase, adaptBassPhrase, serializePhrase,
+  type AccompanimentPhrase, type HarmonicFrame, type Trace, type TraceLevel,
+} from "@enkerli/accompaniment";
 import {
   resolveEvent, validateControlMap,
   type ControlMap, type InputEvent,
@@ -314,6 +318,110 @@ export function encodeWav16(samples: Float32Array, sampleRate: number): Uint8Arr
     data.setInt16(44 + i * 2, Math.round(v * 32767), true);
   }
   return new Uint8Array(data.buffer);
+}
+
+// ── accompany (GloriArp slice 1, via @enkerli/accompaniment) ─────────────────
+// One curated phrase adapted across a progression: bar notation → canonical
+// Progression → harmonic frames → the deterministic bass adapter → SMF with
+// the trace's reproducibility header embedded (GLORIARP:v1 TRACE, the same
+// meta-text mechanism as MCURATOR:v1 PROG). docs/GLORIARP_AUDIT.md §3.
+
+/** The bundled CC0 source phrase (the committed acceptance-vector fixture). */
+export function defaultPhrasePath(): string {
+  return fileURLToPath(new URL("../../accompaniment/vectors/source-walking-bass.json", import.meta.url));
+}
+
+/** "C2", "F♯1", "Bb3" → MIDI note number (C4 = 60). */
+export function noteNameToMidi(name: string): number {
+  const m = /^([A-Ga-g])([#♯b♭]?)(-?\d+)$/.exec(name.trim());
+  if (!m) throw new Error(`bad note name "${name}" (try C2, F#1, Bb3)`);
+  const base = { c: 0, d: 2, e: 4, f: 5, g: 7, a: 9, b: 11 }[m[1]!.toLowerCase() as "c"]!;
+  const acc = m[2] === "#" || m[2] === "♯" ? 1 : m[2] === "b" || m[2] === "♭" ? -1 : 0;
+  return 12 * (Number(m[3]) + 1) + base + acc;
+}
+
+export interface AccompanyOptions {
+  /** Bar notation, e.g. "Dm7 | G7 | Cmaj7 | A7". */
+  progression: string;
+  tonic?: string;
+  mode?: "major" | "minor";
+  /** Path to an AccompanimentPhrase JSON; default = the bundled walking bass. */
+  source?: string;
+  /** Tile the progression's bars out to this many bars. */
+  bars?: number;
+  seed?: number;
+  /** MIDI note bounds, inclusive. Default C2..C4 (36..60). */
+  range?: { low: number; high: number };
+  chromaticism?: number;
+  rhythmPreservation?: number;
+  bpm?: number;
+  traceLevel?: TraceLevel;
+}
+
+export interface AccompanyResult {
+  phrase: AccompanimentPhrase;
+  trace: Trace;
+  frames: HarmonicFrame[];
+  smf: Uint8Array;
+  phraseJson: string;
+}
+
+/**
+ * Run the slice-1 pipeline. Deterministic: identical options → identical
+ * bytes (the acceptance contract; the vectors pin it in the engine's tests).
+ */
+export function accompany(opts: AccompanyOptions): AccompanyResult {
+  const source = parsePhrase(readFileSync(opts.source ?? defaultPhrasePath(), "utf8"));
+  const prog = parseLeadsheet(opts.progression, {
+    tonic: opts.tonic ?? "C",
+    mode: opts.mode ?? "major",
+  });
+  const realized = realizeLeadsheet(prog);
+  if (!realized.length || realized.every((bar) => !bar.length))
+    throw new Error("accompany: no chords parsed from the progression");
+
+  const beatsPerBar = prog.meta?.timeSig?.[0] ?? source.meter.numerator;
+  const barTicks = beatsPerBar * source.ticksPerBeat;
+  const barCount = opts.bars ?? realized.length;
+  const frames: HarmonicFrame[] = [];
+  for (let bar = 0; bar < barCount; bar++) {
+    const chords = realized[bar % realized.length]!;
+    const span = barTicks / Math.max(1, chords.length);
+    chords.forEach((c, i) => {
+      frames.push({
+        start: bar * barTicks + i * span,
+        end: bar * barTicks + (i + 1) * span,
+        chord: { symbol: c.symbol, rootPc: c.rootPc, pcs: c.pcs },
+      });
+    });
+  }
+
+  const { phrase, trace } = adaptBassPhrase(source, {
+    frames,
+    seed: opts.seed ?? 42,
+    range: opts.range ?? { low: 36, high: 60 },
+    ...(opts.chromaticism !== undefined && { chromaticism: opts.chromaticism }),
+    ...(opts.rhythmPreservation !== undefined && { rhythmPreservation: opts.rhythmPreservation }),
+    traceLevel: opts.traceLevel ?? "events",
+  });
+
+  const notes: MidiNote[] = phrase.events.map((e) => ({
+    pitch: e.note ?? 0,
+    startTick: e.onset,
+    durationTicks: e.duration,
+    velocity: e.velocity,
+  }));
+  const markers: MidiMarker[] = frames.map((f) => ({ tick: f.start, text: f.chord.symbol }));
+  const embedded = { header: trace.header, ...(trace.summary && { summary: trace.summary }) };
+  const smf = createSMF(notes, {
+    bpm: opts.bpm ?? 120,
+    ticksPerBeat: source.ticksPerBeat,
+    trackName: "GloriArp bass",
+    markers,
+    textEvents: [{ tick: 0, text: `GLORIARP:v1 TRACE ${JSON.stringify(embedded)}` }],
+  });
+
+  return { phrase, trace, frames, smf, phraseJson: serializePhrase(phrase) };
 }
 
 // ── suite messages: the control & interop plane over stdio (NDJSON) ──────────

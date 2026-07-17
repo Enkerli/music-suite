@@ -22,11 +22,13 @@
 import { readFileSync, writeFileSync } from "node:fs";
 import {
   chordInfo, patternInfo, upiInfo, generateInfo, smfFromBars, renderVane,
+  accompany, noteNameToMidi,
   sendMessage, toNdjson, parseNdjson, summarizeMessage, describeManifest,
   bundledManifestPath, MANIFEST_APPS, paramsFromStream, vaneParamIdMap,
   resolveEvent, validateControlMap, manifestsForControlMap,
   type SendOptions, type ControlMap, type InputEvent,
 } from "./index.js";
+import type { TraceLevel } from "@enkerli/accompaniment";
 import type { AppId, Destination, ParamMode } from "@enkerli/protocol";
 
 const USAGE = `msuite <command> …
@@ -36,6 +38,11 @@ const USAGE = `msuite <command> …
   generate [--mode major|minor] [--length N] [--seed N] [--method markov|markov-cadence|circle] [--tonic C] [-o out.mid]
                                         a progression from the corpus statistics → Roman bars (or realized SMF with -o)
   smf "<bars>" -o <file.mid> [--tonic C] [--mode major|minor] [--bpm N] [--beats-per-chord N]
+  accompany --progression "<bars>" [-o bass.mid] [--role bass] [--bars N] [--seed N] [--source phrase.json]
+            [--range C2:C4] [--chromaticism 0..1] [--rhythm-preservation 0..1] [--tonic C] [--mode major|minor]
+            [--bpm N] [--trace trace.json] [--phrase-out phrase.json] [--explain]
+                                        GloriArp slice 1: adapt a curated bass phrase across a progression
+                                        (deterministic by seed; trace explains every note)
   render <notes…> -o <file.wav> [--seconds N] [--breath 0..1] [--sr N] [--param id=value]… [--stream]
                                         --stream: apply a control-plane param NDJSON stream from stdin (message → sound)
   send [--from app] [--to app|*] (--param id=value… [--mode …] | --command name [--arg k=v]… | --note 60,64,67 [--velocity V] [--duration ms] [--gate on|off])
@@ -53,7 +60,7 @@ function parseArgs(argv: string[]): Args {
     const a = argv[i]!;
     if (a.startsWith("--")) {
       const name = a.slice(2);
-      const boolean = ["pcs", "notes", "help", "stream", "validate"].includes(name);
+      const boolean = ["pcs", "notes", "help", "stream", "validate", "explain"].includes(name);
       const value = boolean ? "true" : argv[++i];
       if (value === undefined) throw new Error(`--${name} needs a value`);
       if (!flags.has(name)) flags.set(name, []);
@@ -159,6 +166,63 @@ async function main(): Promise<number> {
       });
       writeFileSync(out, r.bytes);
       console.log(`wrote ${out}: ${r.chordCount} chords, ${r.bytes.length} bytes (embedded Progression included)`);
+      return 0;
+    }
+    case "accompany": {
+      const progression = one(args, "progression") ?? args.positional.join(" ");
+      if (!progression) throw new Error('accompany: --progression "<bars>" required');
+      const role = one(args, "role") ?? "bass";
+      if (role !== "bass") throw new Error(`accompany: role "${role}" not implemented yet — slice 1 is bass`);
+      const mode = one(args, "mode");
+      if (mode !== undefined && mode !== "major" && mode !== "minor")
+        throw new Error("accompany: --mode must be major or minor");
+      const rangeSpec = one(args, "range");
+      let range: { low: number; high: number } | undefined;
+      if (rangeSpec !== undefined) {
+        const [lo, hi] = rangeSpec.split(":");
+        if (!lo || !hi) throw new Error("accompany: --range wants low:high, e.g. C2:C4");
+        range = { low: noteNameToMidi(lo), high: noteNameToMidi(hi) };
+        if (range.low > range.high) throw new Error("accompany: --range low is above high");
+      }
+      const r = accompany({
+        progression,
+        ...(one(args, "tonic") !== undefined && { tonic: one(args, "tonic")! }),
+        ...(mode !== undefined && { mode }),
+        ...(one(args, "source") !== undefined && { source: one(args, "source")! }),
+        ...(one(args, "bars") !== undefined && { bars: Number(one(args, "bars")) }),
+        ...(one(args, "seed") !== undefined && { seed: Number(one(args, "seed")) }),
+        ...(range !== undefined && { range }),
+        ...(one(args, "chromaticism") !== undefined && { chromaticism: Number(one(args, "chromaticism")) }),
+        ...(one(args, "rhythm-preservation") !== undefined && { rhythmPreservation: Number(one(args, "rhythm-preservation")) }),
+        ...(one(args, "bpm") !== undefined && { bpm: Number(one(args, "bpm")) }),
+        traceLevel: (one(args, "trace-level") as TraceLevel | undefined) ?? "events",
+      });
+      const out = one(args, "out");
+      if (out) {
+        writeFileSync(out, r.smf);
+        console.log(`wrote ${out}: ${r.phrase.events.length} notes over ${r.frames.length} frames (trace header embedded)`);
+      }
+      const traceOut = one(args, "trace");
+      if (traceOut) {
+        writeFileSync(traceOut, JSON.stringify(r.trace, null, 2) + "\n");
+        console.log(`wrote ${traceOut}`);
+      }
+      const phraseOut = one(args, "phrase-out");
+      if (phraseOut) {
+        writeFileSync(phraseOut, r.phraseJson);
+        console.log(`wrote ${phraseOut}`);
+      }
+      if (args.flags.has("explain") && r.trace.events) {
+        for (const t of r.trace.events) {
+          const move = t.sourceNote !== undefined && t.chosen !== undefined ? ` ${t.sourceNote}→${t.chosen}` : "";
+          console.log(`bar ${t.bar + 1} @${t.onset}${move}  ${t.reason}${t.repairs ? `  [${t.repairs.join(", ")}]` : ""}`);
+        }
+      }
+      const s = r.trace.summary;
+      console.log(`accompany: ${r.phrase.events.length} notes · ${r.frames.map((f) => f.chord.symbol).join(" | ")} · seed ${r.trace.header.seed}`
+        + (s ? ` · ${s.chordTones} chord tones, ${s.approachesKept} approaches, ${s.repairs} repairs` : ""));
+      if (!out && !traceOut && !phraseOut && !args.flags.has("explain"))
+        console.log("(add -o bass.mid, --trace trace.json, --phrase-out phrase.json, or --explain)");
       return 0;
     }
     case "render": {

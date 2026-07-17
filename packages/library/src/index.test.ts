@@ -293,7 +293,7 @@ describe("facetValues", () => {
 describe("autocomplete", () => {
   it("completes controlled vocabularies even with no data (vocabulary order)", () => {
     const c = autocomplete([], "kind", "p");
-    expect(c.map((x) => x.value)).toEqual(["progression", "patch", "preset"]);
+    expect(c.map((x) => x.value)).toEqual(["progression", "patch", "preset", "phrase"]);
     expect(c.every((x) => x.controlled && x.count === 0)).toBe(true);
   });
   it("ranks controlled before observed, then by usage", () => {

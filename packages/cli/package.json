@@ -19,6 +19,7 @@
     "@enkerli/protocol": "*",
     "@enkerli/upi": "*",
     "@enkerli/control": "*",
-    "@enkerli/proggen": "*"
+    "@enkerli/proggen": "*",
+    "@enkerli/accompaniment": "*"
   }
 }

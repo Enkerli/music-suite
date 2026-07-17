@@ -21,6 +21,7 @@
 export const KINDS = [
   "progression", "curation-profile", "patch", "clip", "preset",
   "wavetable", "controller-profile", "qurve", "derived-table", "collection",
+  "phrase",
 ] as const;
 export type Kind = (typeof KINDS)[number];
 

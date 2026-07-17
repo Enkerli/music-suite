@@ -4,6 +4,15 @@
 before any implementation: what exists, what's reusable, what the first
 vertical slice touches. No architecture changed by this document.*
 
+> **Status: slice 1 SHIPPED (same day).** `@enkerli/accompaniment` exists per
+> §3 below — phrase schema + validation, extraction with honest inference,
+> features, the deterministic bass adapter with traces, committed acceptance
+> vectors (`vectors/`), the `phrase` library kind, and `msuite accompany`
+> (20 engine + 8 CLI tests). Implemented ends there: everything from the
+> brief's phase 4 on (empirical distributions, sessions, morphing, more
+> roles, tuning/expression adapters, MIDIcurator surfaces) remains
+> aspirational, and §1/§3 stay the plan of record for it.
+
 ## 1. Answers to the brief's ten questions
 
 **1. Which MIDIcurator modules are already Node-clean and reusable?**

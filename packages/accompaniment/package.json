@@ -1,0 +1,22 @@
+{
+  "name": "@enkerli/accompaniment",
+  "version": "0.1.0",
+  "description": "GloriArp's engine (docs/GLORIARP_BRIEF.md): canonical accompaniment phrases + the deterministic bass adapter — one curated phrase reharmonized across a progression, seed-reproducible, trace-explained. Headless by construction",
+  "license": "CC0-1.0",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": "./dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc -b",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@enkerli/theory": "*",
+    "@enkerli/midi": "*",
+    "@enkerli/upi": "*",
+    "@enkerli/proggen": "*"
+  }
+}

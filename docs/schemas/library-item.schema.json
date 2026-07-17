@@ -4,31 +4,75 @@
   "title": "Enkerli suite library item (envelope)",
   "description": "One described content item. See docs/LIBRARY_SPEC.md — the payload is an existing app format carried verbatim; the envelope describes it (identity, provenance, facets). Exactly one of payload/payloadRef is present.",
   "type": "object",
-  "required": ["envelope", "envelopeVersion", "id", "kind", "format", "formatVersion", "title", "app", "savedAt", "provenance"],
+  "required": [
+    "envelope",
+    "envelopeVersion",
+    "id",
+    "kind",
+    "format",
+    "formatVersion",
+    "title",
+    "app",
+    "savedAt",
+    "provenance"
+  ],
   "properties": {
-    "envelope": { "const": "enkerli-library-item" },
-    "envelopeVersion": { "type": "integer", "minimum": 1 },
+    "envelope": {
+      "const": "enkerli-library-item"
+    },
+    "envelopeVersion": {
+      "type": "integer",
+      "minimum": 1
+    },
     "id": {
       "type": "string",
       "minLength": 8,
       "description": "Stable unique id (UUID preferred). Never derived from title or path."
     },
     "kind": {
-      "enum": ["progression", "curation-profile", "patch", "clip", "preset", "wavetable", "controller-profile", "qurve", "derived-table", "collection"]
+      "enum": [
+        "progression",
+        "curation-profile",
+        "patch",
+        "clip",
+        "preset",
+        "wavetable",
+        "controller-profile",
+        "qurve",
+        "derived-table",
+        "collection",
+        "phrase"
+      ]
     },
     "format": {
       "type": "string",
       "description": "The payload's self-name, e.g. 'proggenie-patch', 'progression-studio-curation'."
     },
-    "formatVersion": { "type": "integer", "minimum": 1 },
-    "title": { "type": "string" },
+    "formatVersion": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "title": {
+      "type": "string"
+    },
     "creator": {
       "type": "string",
       "description": "'user', an app id, or an external creator name.",
       "default": "user"
     },
     "app": {
-      "enum": ["proggenie", "midicurator", "serpe", "vane", "drawnqurve", "pitchfold", "exquisite-fingerings", "pickpcs", "chord-dictionary", "external"]
+      "enum": [
+        "proggenie",
+        "midicurator",
+        "serpe",
+        "vane",
+        "drawnqurve",
+        "pitchfold",
+        "exquisite-fingerings",
+        "pickpcs",
+        "chord-dictionary",
+        "external"
+      ]
     },
     "savedAt": {
       "type": "string",
@@ -37,23 +81,36 @@
     },
     "provenance": {
       "type": "object",
-      "required": ["license"],
+      "required": [
+        "license"
+      ],
       "properties": {
         "generator": {
           "type": "object",
           "properties": {
-            "app": { "type": "string" },
-            "version": { "type": "string" }
+            "app": {
+              "type": "string"
+            },
+            "version": {
+              "type": "string"
+            }
           }
         },
         "derivedFrom": {
           "type": "array",
           "items": {
             "type": "object",
-            "required": ["id"],
+            "required": [
+              "id"
+            ],
             "properties": {
-              "id": { "type": "string" },
-              "role": { "type": "string", "description": "How it contributed, e.g. 'curation-profile', 'source-progression'." }
+              "id": {
+                "type": "string"
+              },
+              "role": {
+                "type": "string",
+                "description": "How it contributed, e.g. 'curation-profile', 'source-progression'."
+              }
             }
           }
         },
@@ -62,13 +119,32 @@
           "description": "External material. Pattern adopted from vane-wavetable-library sources.json.",
           "items": {
             "type": "object",
-            "required": ["name", "licenseClaim", "licenseStatus"],
+            "required": [
+              "name",
+              "licenseClaim",
+              "licenseStatus"
+            ],
             "properties": {
-              "name": { "type": "string" },
-              "url": { "type": "string" },
-              "licenseClaim": { "type": "string" },
-              "licenseStatus": { "enum": ["verified", "needs_local_verification", "unverified"] },
-              "licenseEvidence": { "type": "string", "description": "Where the evidence is kept (file, archive, screenshot)." }
+              "name": {
+                "type": "string"
+              },
+              "url": {
+                "type": "string"
+              },
+              "licenseClaim": {
+                "type": "string"
+              },
+              "licenseStatus": {
+                "enum": [
+                  "verified",
+                  "needs_local_verification",
+                  "unverified"
+                ]
+              },
+              "licenseEvidence": {
+                "type": "string",
+                "description": "Where the evidence is kept (file, archive, screenshot)."
+              }
             }
           }
         },
@@ -82,14 +158,32 @@
       "type": "object",
       "description": "Controlled, queryable classification. Musical values follow suite conventions (structural spelling; leftmost = LSB masks).",
       "properties": {
-        "key": { "type": "string", "description": "Spelled key, e.g. 'E♭ major'." },
-        "status": { "enum": ["stub", "draft", "complete", "verified"] }
+        "key": {
+          "type": "string",
+          "description": "Spelled key, e.g. 'E♭ major'."
+        },
+        "status": {
+          "enum": [
+            "stub",
+            "draft",
+            "complete",
+            "verified"
+          ]
+        }
       },
-      "additionalProperties": { "type": ["string", "number", "boolean"] }
+      "additionalProperties": {
+        "type": [
+          "string",
+          "number",
+          "boolean"
+        ]
+      }
     },
     "tags": {
       "type": "array",
-      "items": { "type": "string" },
+      "items": {
+        "type": "string"
+      },
       "description": "Free-text description in the user's own language. Not controlled — that is the point."
     },
     "payload": {
@@ -98,17 +192,46 @@
     },
     "payloadRef": {
       "type": "object",
-      "required": ["path", "sha256"],
+      "required": [
+        "path",
+        "sha256"
+      ],
       "properties": {
-        "path": { "type": "string", "description": "Relative to the library index." },
-        "mediaType": { "type": "string" },
-        "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+        "path": {
+          "type": "string",
+          "description": "Relative to the library index."
+        },
+        "mediaType": {
+          "type": "string"
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        }
       }
     }
   },
   "oneOf": [
-    { "required": ["payload"], "not": { "required": ["payloadRef"] } },
-    { "required": ["payloadRef"], "not": { "required": ["payload"] } }
+    {
+      "required": [
+        "payload"
+      ],
+      "not": {
+        "required": [
+          "payloadRef"
+        ]
+      }
+    },
+    {
+      "required": [
+        "payloadRef"
+      ],
+      "not": {
+        "required": [
+          "payload"
+        ]
+      }
+    }
   ],
   "additionalProperties": false
 }

@@ -125,7 +125,10 @@ A library on disk is: `library-index.json` (array of envelopes with
 
 - `kind`: `progression` · `curation-profile` · `patch` · `clip` ·
   `preset` · `wavetable` · `controller-profile` · `qurve` ·
-  `derived-table` · `collection`
+  `derived-table` · `collection` · `phrase` (an
+  `@enkerli/accompaniment` AccompanimentPhrase — a curated or generated
+  accompaniment fragment with chord-relative annotations; generated takes
+  carry provenance to their source phrase, seed, and engine version)
 - `app`: `proggenie` · `midicurator` · `serpe` · `vane` · `drawnqurve` ·
   `pitchfold` · `exquisite-fingerings` · `pickpcs` · `chord-dictionary` ·
   `external`
