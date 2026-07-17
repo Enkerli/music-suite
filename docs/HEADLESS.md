@@ -8,6 +8,26 @@ entry points, and the named gaps.*
 
 ## The entry point: `@enkerli/cli`
 
+### Build & run
+
+The CLI is a monorepo bin, not a globally-installed program — typing a bare
+`enkerli` won't find it. From a fresh clone:
+
+```bash
+npm install                         # builds the packages incl. the CLI → packages/cli/dist
+npx enkerli chord 60 64 67          # run it (npm resolves the workspace bin)
+# equivalently, no npx:
+node packages/cli/dist/cli.js chord 60 64 67
+# want a global `enkerli` on your PATH? link it once:
+npm link -w @enkerli/cli            # then `enkerli …` works anywhere
+```
+
+`npm install` runs the package build (`prepare`), so `dist/` exists before the
+first run; `npm run build-packages` rebuilds after changes. *(The `enkerli`
+name is provisional — see the bin field in `packages/cli/package.json`.)*
+
+### The commands
+
 `npx enkerli <command>` from the monorepo (bin: `packages/cli`, thin argv
 wrapper over an import-testable library):
 

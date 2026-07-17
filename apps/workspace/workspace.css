@@ -69,6 +69,7 @@ body {
 .ws-step { width: 14px; height: 14px; border-radius: 3px; background: var(--es-bg-sunken, #efeadf); border: 1px solid var(--es-border, #d8d2c6); }
 .ws-step.on { background: var(--es-accent, #3a6ea5); border-color: transparent; }
 
-.ws-log { font-family: var(--es-font-mono, ui-monospace, monospace); font-size: 11.5px; line-height: 1.5;
-  max-height: 220px; overflow-y: auto; display: flex; flex-direction: column; }
-.ws-logline { padding: 1px 0; border-bottom: 1px dotted var(--es-border-soft, #e7e2d8); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ws-log { font-family: var(--es-font-mono, ui-monospace, monospace); font-size: 11.5px;
+  max-height: 240px; overflow-y: auto; display: flex; flex-direction: column; gap: 2px; }
+.ws-logline { padding: 3px 0; line-height: 1.45; border-bottom: 1px dotted var(--es-border-soft, #e7e2d8);
+  white-space: pre-wrap; overflow-wrap: anywhere; word-break: break-word; }

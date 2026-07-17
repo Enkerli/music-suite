@@ -157,6 +157,11 @@ export function createGlobalCluster(host, opts = {}) {
         }
         popover.append(bar);
         anchor.append(popover);
+        // Keep the popover on-screen: it's right-anchored (opens leftward), but
+        // when the chip sits near the left edge (e.g. exquisite-fingerings) that
+        // runs off the viewport — flip it to open rightward instead.
+        const rect = popover.getBoundingClientRect?.();
+        if (rect && rect.left < 8) { popover.style.right = "auto"; popover.style.left = "0"; }
         chip.setAttribute("aria-expanded", "true");
       });
       anchor.append(chip);
