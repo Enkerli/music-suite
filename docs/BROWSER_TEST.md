@@ -52,8 +52,16 @@ also one origin — use `…/music-suite/apps/<slug>/` and skip the local build.
 - **Browser:** use **Chrome or Edge**. WebMIDI/SysEx (the MIDI transport, §7)
   is Chromium-only — Safari and Firefox will skip those; the **bus** tests
   (§1–§6) work in any modern browser.
-- **Audio needs a gesture:** Vane is silent until you click its **Start audio**
-  (or play a note) — browsers block audio until the user interacts.
+- **Audio needs a gesture:** Vane has **no start button** — audio arms on the
+  first **click/tap anywhere on its page** (browser autoplay policy; a MIDI
+  note does NOT count as a gesture). Watch its status line: *"click/tap the
+  page to enable audio"* → **"audio ready · play your controller"** is the
+  green light.
+- **Vane breathes:** it's a wind-model voice — the amp envelope follows
+  **breath (CC2) / pressure**, not noteOn. From a MIDI keyboard with no
+  breath/pressure stream it stays silent unless something supplies breath
+  (bus `note` messages supply it from velocity as of 2026-07-17; a wind/MPE
+  controller supplies it for real).
 - **Reset between runs:** the workspace remembers its layout in
   `localStorage`; its **reset** button (top bar) clears it.
 
@@ -131,8 +139,12 @@ app** over the bus.*
    synced after 2026-07-17.
 
 ### 5b. Workspace → Vane (a param changes the sound)
-1. Open **Workspace** and **Vane**. In Vane, click **Start audio** and play/hold
-   a note so you hear a tone.
+1. Open **Workspace** and **Vane**. **Click anywhere on the Vane page** until
+   its status reads *audio ready*, then get a tone sounding: easiest is a bus
+   note from the workspace side —
+   `msuite send --to vane --note 48 --duration 4000 | msuite bridge` with the
+   Bridge module connected (see §6b), or a breath/MPE controller. (A plain
+   keyboard noteOn alone is silent — Vane's envelope is breath-driven.)
 2. In the Workspace Control Surface (tool = vane), sweep **Filter Cutoff** or
    **Morph**.
    → **Vane's sound changes** in real time (brighter/darker, richer/plainer).
@@ -160,26 +172,34 @@ app** over the bus.*
 
 ## 6. Headless → sound (terminal + a player)
 
-The CLI's audio path can only be *heard*, not asserted:
+**The CLI never plays through your speakers itself** — `render` writes a WAV
+(with breath baked in: default `--breath 0.9`, so it IS audible) and you play
+the file:
 
 ```bash
 # a bright morph vs. a default render — the two files should sound different
 msuite send --to vane --param morph=1.0 | msuite render 69 -o bright.wav --stream
 msuite render 69 -o plain.wav
+afplay bright.wav && afplay plain.wav     # macOS (Linux: aplay / pw-play; or open in any player)
 # generate a progression to MIDI and open it in a DAW/player
 msuite generate --mode major --length 8 --seed 42 --tonic C -o gen.mid
 ```
 
 → `bright.wav` is audibly richer than `plain.wav`; `gen.mid` opens as a real
-8-chord progression.
+8-chord progression. (If a WAV seems silent, check `--breath` wasn't set to 0
+— Vane's envelope IS breath, headless too.) For *live* CLI sound, the speaker
+is a browser tab: §6b.
 
 ### 6b. The shell plays the browser — accompany → bridge → Vane 🎉
 
 *The pipe crossing into the browser: a bassline composed in the terminal
 sounds through the Vane tab, live.*
 
-1. In **Vane** (browser tab): click **Start audio** (the worklet must be
-   running; play one note by hand to confirm you hear the voice).
+1. In **Vane** (browser tab): **click/tap anywhere on the page** until the
+   status line reads **"audio ready"** (there is no start button; a MIDI note
+   does not satisfy the browser's gesture requirement). Don't worry about
+   confirming sound by keyboard — a keyboard noteOn without breath is silent
+   by design; the bridge's note messages carry their own breath.
 2. In the **Workspace** tab: add the **Bridge (CLI)** module from the top bar.
    Leave the URL at `http://localhost:8765`, click **connect**.
    → status shows *retrying… (is the bridge running?)* — expected, nothing is

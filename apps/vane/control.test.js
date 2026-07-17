@@ -52,12 +52,20 @@ import { applyVaneNote } from "./control.js";
 import { makeNote } from "@enkerli/protocol";
 
 describe("applyVaneNote — plays the voice", () => {
-  it("posts a noteOn per note, spread across MPE channels", () => {
+  it("posts breath (CC2) then a noteOn per note, spread across MPE channels", () => {
     const post = vi.fn();
     expect(applyVaneNote(post, makeNote("proggenie", { notes: [60, 64, 67], velocity: 90 }, { to: "vane" }))).toBe(true);
+    // Vane's amp envelope is breath-driven — without CC2 a noteOn is SILENT.
+    // Velocity stands in for breath, and it must arrive before the notes.
+    expect(post.mock.calls[0][0]).toEqual({ type: "cc", cc: 2, value: 90 / 127 });
     expect(post).toHaveBeenCalledWith({ type: "noteOn", note: 60, vel: 90, channel: 2 });
     expect(post).toHaveBeenCalledWith({ type: "noteOn", note: 64, vel: 90, channel: 3 });
     expect(post).toHaveBeenCalledWith({ type: "noteOn", note: 67, vel: 90, channel: 4 });
+  });
+  it("gate:'off' does NOT touch breath (other voices may still be sounding)", () => {
+    const post = vi.fn();
+    applyVaneNote(post, makeNote("proggenie", { notes: [60], gate: "off" }, { to: "vane" }));
+    expect(post.mock.calls.every((c) => c[0].type === "noteOff")).toBe(true);
   });
   it("gate:'off' releases the notes", () => {
     const post = vi.fn();

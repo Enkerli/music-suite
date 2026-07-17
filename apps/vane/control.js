@@ -48,6 +48,14 @@ export function applyVaneParam(post, idToWasm, msg) {
  * same path WebMIDI uses). Notes spread across channels MPE-style so a chord is
  * polyphonic. `gate:"off"` releases; a `durationMs` makes it self-releasing.
  * This is what lets a progression / gesture / clip source actually SOUND Vane.
+ *
+ * CRITICAL for audibility: Vane is a wind-model voice — the amp envelope is
+ * driven by breath (CC2) / pressure, NOT by noteOn (a noteOn with no breath is
+ * silence by design; `renderVane` headless does exactly this cc2-then-note-on
+ * dance). A bus note has no breath stream, so velocity stands in for it:
+ * CC2 = velocity/127 is posted before the noteOns, exactly like a wind player
+ * tonguing at that dynamic. A live `expr`/cc2 stream (real controller) simply
+ * overwrites it afterwards.
  */
 export function applyVaneNote(post, msg, schedule = (fn, ms) => setTimeout(fn, ms)) {
   if (!msg || (msg.to !== "vane" && msg.to !== "*") || msg.type !== "note") return false;
@@ -58,6 +66,7 @@ export function applyVaneNote(post, msg, schedule = (fn, ms) => setTimeout(fn, m
   const ch = (i) => 2 + (i % 14); // MPE-style: a channel per voice
   const off = () => notes.forEach((n, i) => post({ type: "noteOff", note: n, channel: ch(i) }));
   if (b.gate === "off") { off(); return true; }
+  post({ type: "cc", cc: 2, value: vel / 127 }); // breath — the envelope's fuel
   notes.forEach((n, i) => post({ type: "noteOn", note: n, vel, channel: ch(i) }));
   if (Number.isFinite(b.durationMs) && b.durationMs > 0) schedule(off, b.durationMs);
   return true;
