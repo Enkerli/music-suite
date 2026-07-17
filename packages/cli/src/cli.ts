@@ -70,7 +70,7 @@ function parseArgs(argv: string[]): Args {
     const a = argv[i]!;
     if (a.startsWith("--")) {
       const name = a.slice(2);
-      const boolean = ["pcs", "notes", "help", "stream", "validate", "explain", "play", "bars-only"].includes(name);
+      const boolean = ["pcs", "notes", "help", "stream", "validate", "explain", "play", "bars-only", "loop"].includes(name);
       const value = boolean ? "true" : argv[++i];
       if (value === undefined) throw new Error(`--${name} needs a value`);
       if (!flags.has(name)) flags.set(name, []);
@@ -428,6 +428,16 @@ async function main(): Promise<number> {
       throw new Error(`unknown command "${cmd}"\n${USAGE}`);
   }
 }
+
+// A downstream pipe closing early (`| head`, a bridge that never started
+// because its port was taken, Ctrl-C on the reader) makes the next
+// process.stdout.write() throw EPIPE. Node's default is an unhandled 'error'
+// event — a raw stack trace for something that isn't a bug. Exit quietly
+// instead, the way well-behaved Unix tools do; anything else still throws.
+process.stdout.on("error", (err: NodeJS.ErrnoException) => {
+  if (err.code === "EPIPE") process.exit(0);
+  throw err;
+});
 
 main().then(
   (code) => process.exit(code),
