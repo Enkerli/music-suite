@@ -47,3 +47,34 @@ describe("applyVaneParam — drives the worklet by wasm id", () => {
     expect(post).not.toHaveBeenCalled();
   });
 });
+
+import { applyVaneNote } from "./control.js";
+import { makeNote } from "@enkerli/protocol";
+
+describe("applyVaneNote — plays the voice", () => {
+  it("posts a noteOn per note, spread across MPE channels", () => {
+    const post = vi.fn();
+    expect(applyVaneNote(post, makeNote("proggenie", { notes: [60, 64, 67], velocity: 90 }, { to: "vane" }))).toBe(true);
+    expect(post).toHaveBeenCalledWith({ type: "noteOn", note: 60, vel: 90, channel: 2 });
+    expect(post).toHaveBeenCalledWith({ type: "noteOn", note: 64, vel: 90, channel: 3 });
+    expect(post).toHaveBeenCalledWith({ type: "noteOn", note: 67, vel: 90, channel: 4 });
+  });
+  it("gate:'off' releases the notes", () => {
+    const post = vi.fn();
+    applyVaneNote(post, makeNote("proggenie", { notes: [60], gate: "off" }, { to: "vane" }));
+    expect(post).toHaveBeenCalledWith({ type: "noteOff", note: 60, channel: 2 });
+  });
+  it("durationMs schedules a self-release (one-shot)", () => {
+    const post = vi.fn();
+    const scheduled = [];
+    applyVaneNote(post, makeNote("proggenie", { notes: [60], durationMs: 500 }, { to: "vane" }), (fn) => scheduled.push(fn));
+    expect(post).toHaveBeenCalledWith({ type: "noteOn", note: 60, vel: 100, channel: 2 });
+    scheduled[0](); // fire the timer
+    expect(post).toHaveBeenCalledWith({ type: "noteOff", note: 60, channel: 2 });
+  });
+  it("ignores a note for another app / a non-note message", () => {
+    const post = vi.fn();
+    expect(applyVaneNote(post, makeNote("proggenie", { notes: [60] }, { to: "serpe" }))).toBe(false);
+    expect(applyVaneNote(post, makeNote("proggenie", { notes: [60] }, { to: "*" }))).toBe(true); // broadcast ok
+  });
+});

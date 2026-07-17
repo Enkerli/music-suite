@@ -1,6 +1,6 @@
 /**
  * @enkerli/cli — headless suite tools (plan §6, Track E3), as a LIBRARY.
- * The `enkerli` bin (cli.ts) is a thin argv wrapper over these functions so
+ * The `msuite` bin (cli.ts) is a thin argv wrapper over these functions so
  * every capability is import-testable and reusable (a future daemon, a CI
  * check, another CLI) without spawning a process.
  *
@@ -146,7 +146,7 @@ export function proggenTablePath(): string {
 export interface GenerateInfo {
   mode: "major" | "minor";
   labels: string[];
-  /** Bar notation (one Roman-numeral chord per bar) — feeds `enkerli smf`. */
+  /** Bar notation (one Roman-numeral chord per bar) — feeds `msuite smf`. */
   bars: string;
   /** Realized chord symbols in the given key, when a tonic is supplied. */
   symbols?: string[];
@@ -318,11 +318,11 @@ export function encodeWav16(samples: Float32Array, sampleRate: number): Uint8Arr
 
 // ── suite messages: the control & interop plane over stdio (NDJSON) ──────────
 // docs/CONTROL_PLANE.md — one message model, several transports. Here the
-// transport is one JSON SuiteMessage per line: `enkerli send … | enkerli recv`
+// transport is one JSON SuiteMessage per line: `msuite send … | msuite recv`
 // is the message model carried over an ordinary Unix pipe (headless piping).
 
 import {
-  makeParam, makeCommand, validateMessage,
+  makeParam, makeCommand, makeNote, validateMessage,
   type SuiteMessage, type AppId, type Destination, type ParamMode, type ManifestBody,
 } from "@enkerli/protocol";
 
@@ -332,6 +332,7 @@ export interface SendOptions {
   param?: { id: string; value: number; mode?: ParamMode };
   params?: Array<{ id: string; value: number }>;
   command?: { name: string; args?: Record<string, number> };
+  note?: { notes: number[]; velocity?: number; channel?: number; gate?: "on" | "off"; durationMs?: number };
   mode?: ParamMode;
   id?: string;
   sentAt?: string;
@@ -345,7 +346,8 @@ export function sendMessage(opts: SendOptions): SuiteMessage {
   const from = opts.from ?? "external";
   const carry = { ...(opts.to !== undefined && { to: opts.to }), ...(opts.id !== undefined && { id: opts.id }), ...(opts.sentAt !== undefined && { sentAt: opts.sentAt }) };
   const isParam = opts.param !== undefined || opts.params !== undefined;
-  if (isParam && opts.command) throw new Error("send: give a param or a command, not both");
+  const kinds = [isParam, opts.command !== undefined, opts.note !== undefined].filter(Boolean).length;
+  if (kinds > 1) throw new Error("send: give one of a param, a command, or a note");
   let msg: SuiteMessage;
   if (opts.params !== undefined) {
     msg = makeParam(from, { ...(opts.mode && { mode: opts.mode }), params: opts.params }, carry);
@@ -353,8 +355,10 @@ export function sendMessage(opts: SendOptions): SuiteMessage {
     msg = makeParam(from, { mode: opts.param.mode ?? opts.mode ?? "set", id: opts.param.id, value: opts.param.value }, carry);
   } else if (opts.command !== undefined) {
     msg = makeCommand(from, opts.command, carry);
+  } else if (opts.note !== undefined) {
+    msg = makeNote(from, opts.note, carry);
   } else {
-    throw new Error("send: a --param, --params, or --command is required");
+    throw new Error("send: a --param, --command, or --note is required");
   }
   const r = validateMessage(msg);
   if (!r.ok) throw new Error(`send: invalid message — ${r.errors.join("; ")}`);
@@ -393,6 +397,10 @@ export function summarizeMessage(m: SuiteMessage): string {
       const mb = m.body as unknown as ManifestBody;
       return `manifest [${route}] ${mb.app} v${mb.v}: ${mb.params.length} params, ${mb.commands.length} commands`;
     }
+    case "note": {
+      const g = b.gate ? ` ${b.gate as string}` : (b.durationMs ? ` ${b.durationMs as number}ms` : "");
+      return `note [${route}]${g} [${(b.notes as number[]).join(" ")}]${b.velocity !== undefined ? ` v${b.velocity as number}` : ""}`;
+    }
     case "scale": return `scale [${route}] mask ${b.mask as number}${b.name ? ` (${b.name as string})` : ""}`;
     case "chord": return `chord [${route}] ${(b.symbol as string) ?? `pcs ${b.pcs as number}`}`;
     case "pattern": return `pattern [${route}] ${b.steps as number} steps, mask ${b.mask as number}${b.name ? ` (${b.name as string})` : ""}`;
@@ -403,7 +411,7 @@ export function summarizeMessage(m: SuiteMessage): string {
 
 /**
  * Apps that ship a control-plane manifest (docs/CONTROL_PLANE.md), resolvable
- * by id so `enkerli describe <app>` works without a path. Grows as apps adopt.
+ * by id so `msuite describe <app>` works without a path. Grows as apps adopt.
  */
 export const MANIFEST_APPS: Partial<Record<AppId, string>> = {
   vane: "../../../apps/vane/manifest.json",
@@ -442,7 +450,7 @@ interface EngineParamSpec { id: string; wasmId?: number }
  * The Vane manifest's `id → wasm param id` map — how a control-plane `param`
  * message (addressed by stable manifest id, e.g. "filter-cutoff") resolves to
  * the numeric engine parameter `renderVane` sets. This is the bridge that lets
- * the plane drive real audio: `enkerli send --to vane --param … | enkerli
+ * the plane drive real audio: `msuite send --to vane --param … | enkerli
  * render --stream`.
  */
 export function vaneParamIdMap(): Record<string, number> {

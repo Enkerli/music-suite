@@ -43,14 +43,24 @@ export function comboFromEvent(e) {
 
 /**
  * Apply a control-plane message to Serpe via the app's `api` callbacks.
- * Handles `command` (rotate/invert/complement/mutate) and `param`
- * (steps/tempo/swing), single or batch. Returns true if it acted — messages
+ * Handles `command` (rotate/invert/complement/mutate), `param`
+ * (steps/tempo/swing) single or batch, and `pattern` (mask + step count,
+ * leftmost = LSB → api.setPattern(steps)) — so the workspace Pattern (UPI)
+ * module's send actually lands in Serpe. Returns true if it acted — messages
  * for other apps, other types, or unknown ids are ignored (returns false),
  * never thrown.
  */
 export function applyControlMessage(api, msg) {
   if (!msg || (msg.to !== "serpe" && msg.to !== "*")) return false;
   const b = msg.body || {};
+  if (msg.type === "pattern") {
+    if (typeof api.setPattern !== "function") return false;
+    if (!Number.isInteger(b.steps) || b.steps < 1 || !Number.isFinite(b.mask)) return false;
+    // Decode by division (not >>) so patterns past 32 steps survive.
+    const steps = Array.from({ length: b.steps }, (_, i) => Math.floor(b.mask / 2 ** i) % 2);
+    api.setPattern(steps);
+    return true;
+  }
   if (msg.type === "command") {
     switch (b.name) {
       case "rotate": api.rotate(Number(b.args?.by ?? 1)); return true;

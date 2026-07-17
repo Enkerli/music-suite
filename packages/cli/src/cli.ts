@@ -1,18 +1,18 @@
 #!/usr/bin/env node
 /**
- * enkerli — the suite's headless CLI (thin argv wrapper over index.ts).
+ * msuite — the suite's headless CLI (thin argv wrapper over index.ts).
  *
- *   enkerli chord 60 64 67 71          identify a chord (MIDI notes)
- *   enkerli chord 0 4 7 --pcs          …or bare pitch classes
- *   enkerli pattern "E(3,8)"           rhythm codecs (binary/hex/octal/decimal/onsets)
- *   enkerli pattern 0x94:8             …tresillo, suite little-endian digits
- *   enkerli smf "Dm7 G7 | Cmaj7" -o out.mid [--tonic C] [--mode major] [--bpm 120]
- *   enkerli render 60 64 67 -o out.wav [--seconds 2] [--breath 0.9] [--sr 48000]
+ *   msuite chord 60 64 67 71          identify a chord (MIDI notes)
+ *   msuite chord 0 4 7 --pcs          …or bare pitch classes
+ *   msuite pattern "E(3,8)"           rhythm codecs (binary/hex/octal/decimal/onsets)
+ *   msuite pattern 0x94:8             …tresillo, suite little-endian digits
+ *   msuite smf "Dm7 G7 | Cmaj7" -o out.mid [--tonic C] [--mode major] [--bpm 120]
+ *   msuite render 60 64 67 -o out.wav [--seconds 2] [--breath 0.9] [--sr 48000]
  *                                      [--param 12=0.8]  (Vane wasm param id=value)
- *   enkerli send --to serpe --command mutate --arg amount=0.3   control-plane message → NDJSON
- *   enkerli send --to serpe --param density=0.7                 …a param set
- *   enkerli … | enkerli recv                                    read NDJSON messages from a pipe
- *   enkerli describe <manifest.json>                            validate + print a tool's surface
+ *   msuite send --to serpe --command mutate --arg amount=0.3   control-plane message → NDJSON
+ *   msuite send --to serpe --param density=0.7                 …a param set
+ *   msuite … | msuite recv                                    read NDJSON messages from a pipe
+ *   msuite describe <manifest.json>                            validate + print a tool's surface
  *
  * Everything runs from the repo with no GUI, no DAW, no plugin host — render
  * goes through the SAME vane-dsp.wasm the browser standalone plays; send/recv
@@ -29,7 +29,7 @@ import {
 } from "./index.js";
 import type { AppId, Destination, ParamMode } from "@enkerli/protocol";
 
-const USAGE = `enkerli <command> …
+const USAGE = `msuite <command> …
   chord <values…> [--pcs|--notes]
   pattern <spec>                        E(3,8) · 0x94:8 · o111:8 · d73:8 · 10010010
   upi "<notation>" [--steps N]          the full Serpe UPI language: P(3,0)+P(5,0), E(3,8);12, {100}E(3,8), Morse…
@@ -38,7 +38,7 @@ const USAGE = `enkerli <command> …
   smf "<bars>" -o <file.mid> [--tonic C] [--mode major|minor] [--bpm N] [--beats-per-chord N]
   render <notes…> -o <file.wav> [--seconds N] [--breath 0..1] [--sr N] [--param id=value]… [--stream]
                                         --stream: apply a control-plane param NDJSON stream from stdin (message → sound)
-  send [--from app] [--to app|*] (--param id=value… [--mode set|report|observe] | --command name [--arg k=v]…)
+  send [--from app] [--to app|*] (--param id=value… [--mode …] | --command name [--arg k=v]… | --note 60,64,67 [--velocity V] [--duration ms] [--gate on|off])
   recv                                  read NDJSON SuiteMessages from stdin, validate + summarize
   describe <app|manifest.json>          print a tool's parameter/command surface (app id e.g. vane, or a manifest file)
   bind <control-map.json> (--cc N=V [--channel C] | --note N [--velocity V] [--channel C] | --key "combo" | --validate)
@@ -141,7 +141,7 @@ async function main(): Promise<number> {
       }
       console.log(`bars    ${info.bars}`);
       if (info.symbols) console.log(`symbols ${info.symbols.join(" | ")}`);
-      console.log(`(${info.labels.length} chords · ${info.mode}${one(args, "seed") !== undefined ? ` · seed ${one(args, "seed")}` : ""}) — pipe the bars into 'enkerli smf' or add -o`);
+      console.log(`(${info.labels.length} chords · ${info.mode}${one(args, "seed") !== undefined ? ` · seed ${one(args, "seed")}` : ""}) — pipe the bars into 'msuite smf' or add -o`);
       return 0;
     }
     case "smf": {
@@ -175,7 +175,7 @@ async function main(): Promise<number> {
       }
       // --stream: consume a control-plane `param` NDJSON stream from stdin,
       // resolve manifest ids → Vane wasm ids, and merge (stream over --param).
-      // This is the message → sound path: `enkerli send … | enkerli render --stream`.
+      // This is the message → sound path: `msuite send … | msuite render --stream`.
       if (args.flags.has("stream")) {
         const s = paramsFromStream(readFileSync(0, "utf8"), vaneParamIdMap(), "vane");
         Object.assign(params, s.params);
@@ -221,6 +221,18 @@ async function main(): Promise<number> {
         opts.command = {
           name: commandName,
           ...(argEntries.length && { args: Object.fromEntries(argEntries.map((a) => [a.id, a.value])) }),
+        };
+      }
+      const noteSpec = one(args, "note");
+      if (noteSpec !== undefined) {
+        const notes = noteSpec.split(",").map((s) => Number(s.trim()));
+        if (!notes.length || notes.some(Number.isNaN)) throw new Error(`send: --note expects comma-separated MIDI notes, got "${noteSpec}"`);
+        opts.note = {
+          notes,
+          ...(one(args, "velocity") !== undefined && { velocity: Number(one(args, "velocity")) }),
+          ...(one(args, "channel") !== undefined && { channel: Number(one(args, "channel")) }),
+          ...(one(args, "gate") !== undefined && { gate: one(args, "gate") as "on" | "off" }),
+          ...(one(args, "duration") !== undefined && { durationMs: Number(one(args, "duration")) }),
         };
       }
       const msg = sendMessage(opts);

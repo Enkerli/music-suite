@@ -124,6 +124,11 @@ app** over the bus.*
    Control Surface **Rotate** button).
    → **Serpe's pattern visibly rotates** (the onsets shift by one step).
    Trigger **mutate** → Serpe's pattern visibly changes, same onset count.
+4. In the Workspace **Pattern (UPI)** module, type `E(3,8)` and press
+   **▶ send**. → **Serpe adopts the pattern**: its ring/lane and UPI field
+   show the 8-step tresillo (the broadcast `pattern` message lands in Serpe,
+   which rebuilds the steps from the mask, leftmost = LSB). Requires apps
+   synced after 2026-07-17.
 
 ### 5b. Workspace → Vane (a param changes the sound)
 1. Open **Workspace** and **Vane**. In Vane, click **Start audio** and play/hold
@@ -159,10 +164,10 @@ The CLI's audio path can only be *heard*, not asserted:
 
 ```bash
 # a bright morph vs. a default render — the two files should sound different
-enkerli send --to vane --param morph=1.0 | enkerli render 69 -o bright.wav --stream
-enkerli render 69 -o plain.wav
+msuite send --to vane --param morph=1.0 | msuite render 69 -o bright.wav --stream
+msuite render 69 -o plain.wav
 # generate a progression to MIDI and open it in a DAW/player
-enkerli generate --mode major --length 8 --seed 42 --tonic C -o gen.mid
+msuite generate --mode major --length 8 --seed 42 --tonic C -o gen.mid
 ```
 
 → `bright.wav` is audibly richer than `plain.wav`; `gen.mid` opens as a real

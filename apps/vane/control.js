@@ -44,6 +44,26 @@ export function applyVaneParam(post, idToWasm, msg) {
 }
 
 /**
+ * Play a `note` message on the voice: post noteOn/noteOff to the worklet (the
+ * same path WebMIDI uses). Notes spread across channels MPE-style so a chord is
+ * polyphonic. `gate:"off"` releases; a `durationMs` makes it self-releasing.
+ * This is what lets a progression / gesture / clip source actually SOUND Vane.
+ */
+export function applyVaneNote(post, msg, schedule = (fn, ms) => setTimeout(fn, ms)) {
+  if (!msg || (msg.to !== "vane" && msg.to !== "*") || msg.type !== "note") return false;
+  const b = msg.body || {};
+  const notes = Array.isArray(b.notes) ? b.notes : [];
+  if (!notes.length) return false;
+  const vel = Number.isFinite(b.velocity) ? b.velocity : 100;
+  const ch = (i) => 2 + (i % 14); // MPE-style: a channel per voice
+  const off = () => notes.forEach((n, i) => post({ type: "noteOff", note: n, channel: ch(i) }));
+  if (b.gate === "off") { off(); return true; }
+  notes.forEach((n, i) => post({ type: "noteOn", note: n, vel, channel: ch(i) }));
+  if (Number.isFinite(b.durationMs) && b.durationMs > 0) schedule(off, b.durationMs);
+  return true;
+}
+
+/**
  * Listen on the shared `enkerli-workspace` bus and drive the voice from
  * incoming param messages. `post` is Vane's worklet poster (a no-op until audio
  * starts, so early messages are safely dropped). Returns a disconnect function.
@@ -52,6 +72,9 @@ export function connectVane({ post, channelName = "enkerli-workspace" }) {
   if (typeof BroadcastChannel === "undefined") return () => {};
   const idToWasm = vaneIdToWasm();
   const channel = new BroadcastChannel(channelName);
-  channel.onmessage = (e) => { if (validateMessage(e.data).ok) applyVaneParam(post, idToWasm, e.data); };
+  channel.onmessage = (e) => {
+    if (!validateMessage(e.data).ok) return;
+    applyVaneParam(post, idToWasm, e.data) || applyVaneNote(post, e.data);
+  };
   return () => channel.close();
 }

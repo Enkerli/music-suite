@@ -140,8 +140,20 @@ describe("sendMessage / NDJSON transport", () => {
     expect(m.type).toBe("command");
     expect(m.body).toMatchObject({ name: "mutate", args: { amount: 0.3 } });
   });
-  it("refuses a param and a command at once", () => {
-    expect(() => sendMessage({ to: "serpe", param: { id: "x", value: 1 }, command: { name: "y" } })).toThrow(/not both/);
+  it("refuses more than one kind at once (param + command)", () => {
+    expect(() => sendMessage({ to: "serpe", param: { id: "x", value: 1 }, command: { name: "y" } })).toThrow(/one of/);
+  });
+  it("builds a note message that plays a chord on Vane", () => {
+    const m = sendMessage({ to: "vane", note: { notes: [60, 64, 67], velocity: 100, durationMs: 500 } });
+    expect(m.type).toBe("note");
+    expect(m.to).toBe("vane");
+    expect(m.body).toMatchObject({ notes: [60, 64, 67], velocity: 100, durationMs: 500 });
+  });
+  it("refuses a note alongside a param", () => {
+    expect(() => sendMessage({ to: "vane", note: { notes: [60] }, param: { id: "x", value: 1 } })).toThrow(/one of/);
+  });
+  it("rejects an out-of-range note (validation)", () => {
+    expect(() => sendMessage({ to: "vane", note: { notes: [200] } })).toThrow(/invalid message/);
   });
   it("refuses an empty send", () => {
     expect(() => sendMessage({ to: "serpe" })).toThrow(/required/);
@@ -164,6 +176,7 @@ describe("sendMessage / NDJSON transport", () => {
   it("summarizes each message type on one line", () => {
     expect(summarizeMessage(sendMessage({ to: "serpe", param: { id: "density", value: 0.7 } }))).toContain("density=0.7");
     expect(summarizeMessage(sendMessage({ to: "serpe", command: { name: "mutate", args: { amount: 0.3 } } }))).toContain("mutate");
+    expect(summarizeMessage(sendMessage({ to: "vane", note: { notes: [60, 64, 67], velocity: 100, durationMs: 500 } }))).toContain("note");
   });
 });
 

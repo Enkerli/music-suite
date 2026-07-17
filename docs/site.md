@@ -465,12 +465,16 @@ automate a step, wire two tools together, or build a hands-free setup.
 
 ## 1. The command line — running tools without a window
 
-The suite ships a small command, **`enkerli`**, that runs the tools' engines
-with no GUI, no DAW, and no plugin host. From the project folder:
+The suite ships a small command, **`msuite`**, that runs the tools' engines
+with no GUI, no DAW, and no plugin host. After `npm install`, run it from the
+project folder — the root script works without any global install:
 
 ```
-npx enkerli <command> …
+npm run msuite -- <command> …
 ```
+
+(Prefer a bare `msuite`? `npm link -w @enkerli/cli` puts it on your PATH. The
+examples below write just `msuite <command>` for brevity.)
 
 The commands fall into three groups.
 
@@ -478,17 +482,17 @@ The commands fall into three groups.
 
 | Command | What it does | Example |
 | --- | --- | --- |
-| `chord` | name a chord from notes or pitch classes | `enkerli chord 60 64 67 71` → `Cmaj7` |
-| `pattern` | show a rhythm in every notation | `enkerli pattern "E(3,8)"` → onsets `[0 3 6]`, `0x94`, `d73` |
-| `upi` | the full Serpe pattern language | `enkerli upi "P(3,0)+P(5,0)"` → a 15-step polygon pattern |
+| `chord` | name a chord from notes or pitch classes | `msuite chord 60 64 67 71` → `Cmaj7` |
+| `pattern` | show a rhythm in every notation | `msuite pattern "E(3,8)"` → onsets `[0 3 6]`, `0x94`, `d73` |
+| `upi` | the full Serpe pattern language | `msuite upi "P(3,0)+P(5,0)"` → a 15-step polygon pattern |
 
 **Make something** — writes a file or audio:
 
 | Command | What it does | Example |
 | --- | --- | --- |
-| `generate` | a chord progression from the corpus statistics | `enkerli generate --mode major --length 8 --seed 42` |
-| `smf` | bar notation → a Standard MIDI File | `enkerli smf "Dm7 G7 \| Cmaj7" -o out.mid` |
-| `render` | notes → audio through Vane's real sound engine | `enkerli render 60 64 67 -o out.wav --breath 0.9` |
+| `generate` | a chord progression from the corpus statistics | `msuite generate --mode major --length 8 --seed 42` |
+| `smf` | bar notation → a Standard MIDI File | `msuite smf "Dm7 G7 \| Cmaj7" -o out.mid` |
+| `render` | notes → audio through Vane's real sound engine | `msuite render 60 64 67 -o out.wav --breath 0.9` |
 
 **Connect tools** — the messaging commands (`send`, `recv`, `describe`,
 `bind`) get their own sections below.
@@ -508,10 +512,10 @@ the next one's input:
 
 ```
 # generate a progression, then hear it through Vane
-enkerli generate --length 4 --seed 3 --tonic C -o take.mid
+msuite generate --length 4 --seed 3 --tonic C -o take.mid
 
 # drive Vane's sound from a control message (see §5)
-enkerli bind stage.json --cc 74=40 | enkerli render 69 -o knob.wav --stream
+msuite bind stage.json --cc 74=40 | msuite render 69 -o knob.wav --stream
 ```
 
 That second line is the whole idea in miniature: a message goes in one end and
@@ -522,16 +526,19 @@ sound comes out the other, with no app open.
 ## 3. Sending messages between tools
 
 The tools share a small common "note" they can pass around — a **scale**, a
-**chord**, a **progression**, a **rhythm pattern**, a **parameter** change, or
-a **command**. Each message is addressed *from* one tool *to* another (or
-broadcast to all).
+**chord**, a **progression**, a **rhythm pattern**, a **parameter** change, a
+**command**, or a **note to play**. Each message is addressed *from* one tool
+*to* another (or broadcast to all).
 
-- `enkerli send --to serpe --param density=0.7` — set a parameter on a tool.
-- `enkerli send --to serpe --command mutate --arg amount=0.3` — tell a tool to
+- `msuite send --to serpe --param density=0.7` — set a parameter on a tool.
+- `msuite send --to serpe --command mutate --arg amount=0.3` — tell a tool to
   do something.
-- `enkerli recv` — read messages coming in and print them in plain language.
+- `msuite send --to vane --note 60,64,67 --duration 500` — play a chord on a
+  voice: this is what lets ProgGenie, DrawnQurve, or MIDIcurator actually
+  *sound* through Vane.
+- `msuite recv` — read messages coming in and print them in plain language.
 
-Put together, `enkerli send … | enkerli recv` shows a message making the trip.
+Put together, `msuite send … | msuite recv` shows a message making the trip.
 Inside an app or plugin the same messages ride ordinary MIDI, so a web tool and
 a plugin can talk the same way.
 
@@ -542,8 +549,8 @@ a plugin can talk the same way.
 Before you automate a tool, you can ask what it exposes:
 
 ```
-enkerli describe vane      # Vane's 36 sound parameters, with ranges and units
-enkerli describe serpe     # Serpe's steps/tempo/swing + its commands
+msuite describe vane      # Vane's 36 sound parameters, with ranges and units
+msuite describe serpe     # Serpe's steps/tempo/swing + its commands
 ```
 
 Each **parameter** has a name, a range, and a unit (Hz, ms, cents, a 0–1 ratio…);
@@ -566,9 +573,9 @@ A **control-map** connects an input — a keystroke, a MIDI knob (CC), or a pad
   ] }
 ```
 
-- **Check it** against the tools' parameters: `enkerli bind stage.json --validate`.
+- **Check it** against the tools' parameters: `msuite bind stage.json --validate`.
   It tells you if a binding points at something that doesn't exist.
-- **Try one**: `enkerli bind stage.json --cc 74=127` turns knob 74 to full and
+- **Try one**: `msuite bind stage.json --cc 74=127` turns knob 74 to full and
   prints the resulting message; pipe it onward to hear or log it.
 
 A knob's position is mapped into the parameter's own range for you, following

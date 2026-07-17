@@ -10,10 +10,10 @@ inherits every suite convention (leftmost = LSB, structural spelling,
 
 *Status: **steps 1–3 shipped 2026-07-15** (see §6) — the `manifest`/`param`/
 `command` types live in `@enkerli/protocol` with committed vectors, and the
-stdio-NDJSON transport (`enkerli send`/`recv`/`describe`) runs headless. Two
+stdio-NDJSON transport (`msuite send`/`recv`/`describe`) runs headless. Two
 real manifests exist — **Vane** (the pilot, 36 params) and **Serpe** (proving
 the pattern generalizes from an instrument to a pattern engine) — and
-`enkerli render --stream` closes the message → sound loop. The rest (the
+`msuite render --stream` closes the message → sound loop. The rest (the
 manifest-per-app rollout, the binding layer) is still design; genuinely open
 decisions are marked **[OPEN]**. Nothing ships without committed vectors,
 like every other cross-language contract here.*
@@ -120,7 +120,7 @@ already exists so the manifest can't drift from the engine.
 
 ---
 
-## 3. The two new message types
+## 3. The control message types
 
 Added to `MESSAGE_TYPES` alongside `scale`/`chord`/`progression`/`pattern`,
 with the same `validateMessage` discipline and committed vectors.
@@ -166,15 +166,39 @@ manifest, so a malformed command never reaches an engine — the same
 "never put a malformed message on the wire" rule `encodeMessage` already
 enforces.
 
+### 3.3 `note`
+
+```jsonc
+{ "type": "note",
+  "body": {
+    "notes": [60, 64, 67],    // MIDI note numbers, 0..127 (a chord = many)
+    "velocity": 100,          // 0..127, optional (default 100)
+    "channel": 1,             // 1..16, optional
+    "gate": "on",             // "on" (default) | "off" — "off" releases the notes
+    "durationMs": 500         // optional; a self-releasing note-on
+  } }
+```
+
+Where `param`/`command` shape a tool, **`note` plays one** — it's the
+performance verb. A source that produces pitches (ProgGenie's progression,
+DrawnQurve's gesture, MIDIcurator's clip) addresses a `note` message to a
+voice like Vane, and it **sounds**. Vane's `applyVaneNote`
+(`apps/vane/control.js`) spreads the notes across channels MPE-style and posts
+`noteOn`/`noteOff` to the same audio-worklet path WebMIDI uses; `gate:"off"`
+releases held notes, and `durationMs` schedules the release so a fire-and-forget
+chord rings for a set time. Headless, `msuite send --to vane --note 60,64,67
+--duration 500` emits the frame; `| msuite recv` reads it back as
+`note [external → vane] 500ms [60 64 67] v100`.
+
 ---
 
 ## 4. Bindings — keyboard & MIDI shortcuts
 
-*✅ **shipped 2026-07-15** as `@enkerli/control` (18 tests) + `enkerli bind`.
+*✅ **shipped 2026-07-15** as `@enkerli/control` (18 tests) + `msuite bind`.
 A **binding** maps an input event to a `param` or `command` on some target —
 the mechanism behind "keyboard and MIDI shortcuts… sending messages to tools
 to change patterns." The whole plane now runs from an input to sound:
-`enkerli bind stage.json --cc 74=40 | enkerli render 69 -o out.wav --stream`
+`msuite bind stage.json --cc 74=40 | msuite render 69 -o out.wav --stream`
 turns a MIDI knob into Vane audio, headless, through the control-map.*
 
 ```jsonc
@@ -219,12 +243,16 @@ Design commitments:
   app. Two adopters prove it generalizes across architectures:
   - **Serpe** (React) — both ways: a default keyboard map (`[`/`]` rotate,
     `i` invert, `c` complement, `m` mutate) via `@enkerli/control`, plus a bus
-    listener applying `command`/`param` to its handlers (`applyControlMessage`,
-    11 tests).
+    listener applying `command`/`param`/`pattern` to its handlers
+    (`applyControlMessage`, 14 tests). A broadcast `pattern` (the workspace
+    Pattern module's send) rebuilds the steps from the mask (leftmost = LSB)
+    and lands in the app — type UPI in the workspace, watch Serpe adopt it.
   - **Vane** (vanilla JS + audio worklet) — receive-only, through a different
     seam: `param` messages resolve manifest id → wasm id and post straight to
-    the voice's worklet (`applyVaneParam`, 8 tests), driving real sound. Lives
-    in the standalone host (`synth-main.js`), never touching the plugin UI.
+    the voice's worklet (`applyVaneParam`), and `note` messages play the voice
+    (`applyVaneNote` — noteOn/noteOff spread MPE-style, `durationMs`
+    self-release; 12 tests), driving real sound. Lives in the standalone host
+    (`synth-main.js`), never touching the plugin UI.
   - **PickPCS → PitchFold** (the canonical pair) — the first **data**-message
     adoption (`scale`, not param/command). PickPCS broadcasts its selection on
     the bus (`broadcastScale`); PitchFold routes an incoming `scale` to the
@@ -268,18 +296,18 @@ Design commitments:
 
 The stdio-NDJSON transport is the headless half. Concretely:
 
-- `enkerli send serpe --param density=0.7` — emit one `param` `SuiteMessage`
+- `msuite send serpe --param density=0.7` — emit one `param` `SuiteMessage`
   (to stdout as NDJSON, or to a MIDI port with `--midi <port>`).
 - `enkerli A | enkerli B` — A writes `SuiteMessage` lines; B reads them from
   stdin, acts, and (if it's a source) writes its own. **Piping is just Unix
   pipes carrying the message model.** No new IPC to invent.
-- `enkerli describe serpe` — print the manifest (drives docs, shell
+- `msuite describe serpe` — print the manifest (drives docs, shell
   completion, the binding editor's target list).
-- ✅ **`enkerli render --stream`** *(shipped 2026-07-15)* — the message →
+- ✅ **`msuite render --stream`** *(shipped 2026-07-15)* — the message →
   sound path: render reads a `param` NDJSON stream from stdin, resolves
   manifest ids → Vane wasm ids (`vaneParamIdMap`, from the pilot manifest's
-  `wasmId` fields), and renders with them. `enkerli send --to vane --param
-  morph=1.0 | enkerli render 69 -o out.wav --stream` turns a control-plane
+  `wasmId` fields), and renders with them. `msuite send --to vane --param
+  morph=1.0 | msuite render 69 -o out.wav --stream` turns a control-plane
   message into real audio, headless. Consumes only `param` messages for vane
   (or `*`); unresolved ids and foreign/other-app lines are surfaced on
   stderr, not dropped silently. This is a **static snapshot** (last value per
@@ -303,9 +331,9 @@ they become importable — do the extraction and the manifest together.
 2. ✅ **`param` + `command` types** — schema, validation, vectors,
    `makeParam`/`makeCommand` mirroring `makeMessage`. Structural validation
    only; manifest-conformance is the receiver's job (§3.1). *(shipped)*
-3. ✅ **stdio-NDJSON transport + `enkerli send`/`recv`/`describe`** — the
-   smallest end-to-end proof: `enkerli send --to serpe --param density=0.7 |
-   enkerli recv` carries the message model over an ordinary Unix pipe;
+3. ✅ **stdio-NDJSON transport + `msuite send`/`recv`/`describe`** — the
+   smallest end-to-end proof: `msuite send --to serpe --param density=0.7 |
+   msuite recv` carries the message model over an ordinary Unix pipe;
    `describe <manifest.json>` validates and prints a tool's surface.
    *(shipped; `--midi <port>` output deferred — needs a node MIDI dep)*
 4. ✅ **First real manifest on one app — Vane** *(shipped 2026-07-15)*.
@@ -313,8 +341,8 @@ they become importable — do the extraction and the manifest together.
    parameters — the surface that matters for modulation/automation —
    generated from the app's own RANGE/PARAM_MAP/defaults by
    `apps/vane/gen-manifest.mjs` (kept in sync until a derivation extracts
-   them directly). `enkerli describe vane` prints it; `enkerli send --to vane
-   --param filter-cutoff=800 | enkerli recv` routes to it. **Pilot finding:**
+   them directly). `msuite describe vane` prints it; `msuite send --to vane
+   --param filter-cutoff=800 | msuite recv` routes to it. **Pilot finding:**
    faithful representation needed a `scale: "linear"|"log"` field on
    `ParamSpec` (Vane's Cutoff/TrDecay are log) — added to the protocol with
    vectors, resolving open decision #1's cousin. Discrete mode-switches

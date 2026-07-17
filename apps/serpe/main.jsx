@@ -431,6 +431,7 @@ function SerpeApp() {
     complement: () => applyTransform(complement),
     mutate: (amount) => applyMutate(amount),
     setTempo, setSwing, setSteps: applyResize,
+    setPattern: (s) => applyTransform(() => s),
   };
   useEffect(() => connectSerpe({ getApi: () => ctlApi.current, manifests: [serpeManifest] }), []);
 

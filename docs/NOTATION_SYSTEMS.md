@@ -29,7 +29,7 @@ Every notation below inherits [CONVENTIONS.md](../CONVENTIONS.md):
 ## 1. Rhythm patterns
 
 Authority: [`packages/theory/src/rhythm.ts`](../packages/theory/src/rhythm.ts);
-headless via `enkerli pattern`; the full notation language is Serpe's **UPI**
+headless via `msuite pattern`; the full notation language is Serpe's **UPI**
 (`apps/serpe/engine/upi.js`, the `@enkerli/upi` promotion candidate).
 
 | Form | Example (tresillo, 8 steps) | Notes |
@@ -68,7 +68,7 @@ apps PickPCS and PitchFold; the `scale`/`chord` protocol bodies carry masks.
 
 Authority: [`packages/theory/src/chordDetect.ts`](../packages/theory/src/chordDetect.ts),
 `chords.ts`, `chordSymbol.ts` (the 167-quality dictionary,
-decimal-fingerprint lookup); headless via `enkerli chord`.
+decimal-fingerprint lookup); headless via `msuite chord`.
 
 | Form | Example | Notes |
 |---|---|---|

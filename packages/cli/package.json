@@ -7,7 +7,7 @@
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "bin": {
-    "enkerli": "dist/cli.js"
+    "msuite": "dist/cli.js"
   },
   "scripts": {
     "build": "tsc -b",

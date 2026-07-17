@@ -266,3 +266,28 @@ describe("vector drift guard", () => {
     });
   }
 });
+
+// ── note (performance message — play an instrument) ──────────────────────────
+
+import { makeNote } from "./index.js";
+
+describe("note validation", () => {
+  it("accepts a chord with velocity + duration", () => {
+    expect(validateMessage(makeNote("proggenie", { notes: [60, 64, 67], velocity: 100, durationMs: 500 }, { to: "vane" })).ok).toBe(true);
+  });
+  it("accepts a bare note list (defaults apply)", () => {
+    expect(validateMessage(makeNote("proggenie", { notes: [60] }, { to: "vane" })).ok).toBe(true);
+  });
+  it("accepts an explicit gate", () => {
+    expect(validateMessage(makeNote("proggenie", { notes: [60], gate: "off" }, { to: "vane" })).ok).toBe(true);
+  });
+  it("rejects an empty note list", () => {
+    expect(validateMessage(makeNote("proggenie", { notes: [] }, { to: "vane" })).ok).toBe(false);
+  });
+  it("rejects out-of-range notes / velocity / channel / gate", () => {
+    expect(validateMessage(makeNote("proggenie", { notes: [200] })).ok).toBe(false);
+    expect(validateMessage(makeNote("proggenie", { notes: [60], velocity: 200 })).ok).toBe(false);
+    expect(validateMessage(makeNote("proggenie", { notes: [60], channel: 20 })).ok).toBe(false);
+    expect(validateMessage(makeMessage("proggenie", "note", { notes: [60], gate: "hold" })).ok).toBe(false);
+  });
+});

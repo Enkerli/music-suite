@@ -2,12 +2,12 @@
 import { describe, it, expect, vi } from "vitest";
 import { applyControlMessage, SERPE_KEYMAP, comboFromEvent, connectSerpe } from "./control.js";
 import { resolveEvent } from "@enkerli/control";
-import { makeParam, makeCommand } from "@enkerli/protocol";
+import { makeParam, makeCommand, makeMessage } from "@enkerli/protocol";
 import serpeManifest from "./manifest.json";
 
 const mockApi = () => ({
   rotate: vi.fn(), invert: vi.fn(), complement: vi.fn(), mutate: vi.fn(),
-  setTempo: vi.fn(), setSwing: vi.fn(), setSteps: vi.fn(),
+  setTempo: vi.fn(), setSwing: vi.fn(), setSteps: vi.fn(), setPattern: vi.fn(),
 });
 
 describe("applyControlMessage — command routing", () => {
@@ -50,6 +50,31 @@ describe("applyControlMessage — param routing", () => {
     applyControlMessage(api, makeParam("external", { params: [{ id: "tempo", value: 90 }, { id: "swing", value: 0.1 }] }, { to: "serpe" }));
     expect(api.setTempo).toHaveBeenCalledWith(90);
     expect(api.setSwing).toHaveBeenCalledWith(0.1);
+  });
+});
+
+describe("applyControlMessage — pattern routing", () => {
+  it("decodes a pattern mask (leftmost = LSB) into a steps array", () => {
+    const api = mockApi();
+    // E(3,8): onsets at 0/3/6 → mask 73 (0b01001001, bit i = step i)
+    const m = makeMessage("external", "pattern", { steps: 8, mask: 73, name: "E(3,8)" }, { to: "*" });
+    expect(applyControlMessage(api, m)).toBe(true);
+    expect(api.setPattern).toHaveBeenCalledWith([1, 0, 0, 1, 0, 0, 1, 0]);
+  });
+  it("survives a pattern past 32 steps (no 32-bit truncation)", () => {
+    const api = mockApi();
+    const m = makeMessage("external", "pattern", { steps: 40, mask: 2 ** 39 + 1 }, { to: "serpe" });
+    expect(applyControlMessage(api, m)).toBe(true);
+    const steps = api.setPattern.mock.calls[0][0];
+    expect(steps).toHaveLength(40);
+    expect(steps[0]).toBe(1);
+    expect(steps[39]).toBe(1);
+    expect(steps.reduce((a, b) => a + b, 0)).toBe(2);
+  });
+  it("without a setPattern callback it declines (returns false)", () => {
+    const { setPattern, ...api } = mockApi();
+    const m = makeMessage("external", "pattern", { steps: 8, mask: 73 }, { to: "serpe" });
+    expect(applyControlMessage(api, m)).toBe(false);
   });
 });
 

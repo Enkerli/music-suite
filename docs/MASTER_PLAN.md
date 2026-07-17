@@ -71,9 +71,9 @@ piping, shortcuts, and modulation together.
 | Item | Existing prep | Named gap |
 |---|---|---|
 | Control/interop plane (§1.1) | `@enkerli/protocol`, `@enkerli/cli`, [HEADLESS.md](HEADLESS.md) | ✅ **shipped**: `param`/`command`/`manifest` types, NDJSON transport, Vane+Serpe manifests, `@enkerli/control` binding layer |
-| Every tool headless | [HEADLESS.md](HEADLESS.md) inventory | ✅ Serpe → `@enkerli/upi`, ProgGenie → `@enkerli/proggen` (`enkerli generate`); **remaining:** **DrawnQurve has no headless path**; CLI verbs for PitchFold / MIDIcurator |
+| Every tool headless | [HEADLESS.md](HEADLESS.md) inventory | ✅ Serpe → `@enkerli/upi`, ProgGenie → `@enkerli/proggen` (`msuite generate`); **remaining:** **DrawnQurve has no headless path**; CLI verbs for PitchFold / MIDIcurator |
 | Parameter exposure for modulation | protocol envelope | ✅ **shipped**: the parameter-manifest schema + `param` verb (Vane 36 params, Serpe) |
-| Keyboard + MIDI shortcuts | protocol routing | ✅ **shipped**: `@enkerli/control` + `enkerli bind`; **remaining:** in-app control-map editor UI (Track B) |
+| Keyboard + MIDI shortcuts | protocol routing | ✅ **shipped**: `@enkerli/control` + `msuite bind`; **remaining:** in-app control-map editor UI (Track B) |
 | Preset / pattern curation (your work) | `createLibraryBrowser` shipped ([UX_AUDIT.md](UX_AUDIT.md) §4 Q2), `@enkerli/library` model | content authoring — coding-light, see §2.4 |
 
 **Tier B — new capability (the "wait" pile; scheduled, not started):**
@@ -253,7 +253,7 @@ material (a curated preset set *is* a lesson).
    — **shipped 2026-07-15**: `manifest` + `param`/`command` types in
    `@enkerli/protocol` (schema, validation, committed vectors) and the
    stdio-NDJSON transport in `@enkerli/cli` (`send`/`recv`/`describe`).
-   `enkerli send --to serpe --param density=0.7 | enkerli recv` carries the
+   `msuite send --to serpe --param density=0.7 | msuite recv` carries the
    message model over a Unix pipe — headless piping, demonstrated, pure
    package work inside the moratorium. **Next code:** item 4 (pilot manifest).
 2. ✅ **Personas merged** (§2.1, seven) **and use cases drafted in full**
@@ -264,17 +264,17 @@ material (a curated preset set *is* a lesson).
    an at-risk artifact until it is in the repo.
 4. ✅ **Pilot manifest — Vane** *(shipped 2026-07-15)*:
    `apps/vane/manifest.json` (36 continuous params) +
-   `enkerli describe vane`; the pilot surfaced and fixed the `scale`
+   `msuite describe vane`; the pilot surfaced and fixed the `scale`
    (linear/log) gap in the manifest schema.
-5. ✅ **Message → sound** *(shipped 2026-07-15)*: `enkerli render --stream`
+5. ✅ **Message → sound** *(shipped 2026-07-15)*: `msuite render --stream`
    applies a control-plane `param` NDJSON stream to Vane's real DSP, so
-   `enkerli send --to vane --param morph=1.0 | enkerli render 69 -o out.wav
+   `msuite send --to vane --param morph=1.0 | msuite render 69 -o out.wav
    --stream` makes audio from a message, headless. The whole plane now runs
    end to end: intent → message → transport → tool → sound.
 6. ✅ **Serpe / `@enkerli/upi` promotion + manifest** *(shipped 2026-07-15)*:
    `apps/serpe/engine/{upi,rhythm,analysis,syncopation,mutate}.js` → the new
    `@enkerli/upi` package (framework-agnostic; the DOM views stay app-side);
-   `enkerli upi` speaks the full notation language headless; `apps/serpe/
+   `msuite upi` speaks the full notation language headless; `apps/serpe/
    manifest.json` (steps/tempo/swing + rotate/invert/complement/mutate)
    proves the manifest pattern generalizes from an instrument (Vane) to a
    pattern engine. The engine gained its **first tests** (14) in the move.
@@ -282,8 +282,8 @@ material (a curated preset set *is* a lesson).
    (framework-agnostic `resolveEvent` + `createBindingEngine`, 18 tests) maps
    keyboard / MIDI-CC / MIDI-note → `param`/`command`, reading the manifests
    (CC-normalization honors each param's scale automatically). A **control-map**
-   is the library-item shape (§1.1). `enkerli bind stage.json --cc 74=40 |
-   enkerli render 69 -o out.wav --stream` runs the **whole plane from a MIDI
+   is the library-item shape (§1.1). `msuite bind stage.json --cc 74=40 |
+   msuite render 69 -o out.wav --stream` runs the **whole plane from a MIDI
    knob to Vane audio, headless**. This turns the plane from pipeline into
    instrument — and it is the last core plane component, so the projections
    (§1.2 B2/B3, the workspace and Shortcuts) are now the thin adapters the
@@ -298,7 +298,7 @@ material (a curated preset set *is* a lesson).
    borne out. Verified end-to-end under happy-dom (16 tests).
 9. ✅ **ProgGenie → `@enkerli/proggen`** *(shipped 2026-07-15)*: the last
    engine promotion — `apps/progression-studio/src/{generate,curation}.js` +
-   the derived tables → `@enkerli/proggen`; `enkerli generate` is the full
+   the derived tables → `@enkerli/proggen`; `msuite generate` is the full
    **params → progression → SMF** pipeline (Roman bars reproducible by seed,
    realized with `--tonic`, or straight to SMF with `-o`; chains with `smf`).
    Both engine promotions (Serpe, ProgGenie) are now done — every core engine

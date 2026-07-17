@@ -45,6 +45,9 @@ export const MESSAGE_TYPES = [
   // of `type` values grows. A pre-plane receiver rejects these as unknown
   // types, which is correct — it cannot act on them.
   "manifest", "param", "command",
+  // performance: play notes on an instrument (e.g. a progression/gesture/clip
+  // source driving Vane). Distinct from `param` (timbre) — this is what sounds.
+  "note",
 ] as const;
 export type MessageType = (typeof MESSAGE_TYPES)[number];
 
@@ -200,6 +203,25 @@ export interface CommandBody {
   args?: Record<string, number>;
 }
 
+/**
+ * Play notes on an instrument — the performance message (a progression, gesture,
+ * or clip source driving Vane). `gate` sustains ("on"/"off"); alternatively a
+ * `durationMs` makes it a self-releasing one-shot. Notes are MIDI numbers; the
+ * receiver chooses voicing/channel allocation (Vane spreads them MPE-style).
+ */
+export interface NoteBody {
+  /** MIDI note numbers 0–127 (a chord is many). */
+  notes: number[];
+  /** 0–127, default 100. */
+  velocity?: number;
+  /** MIDI channel 1–16, default 1 (receivers may reallocate for polyphony). */
+  channel?: number;
+  /** Sustained gate: "on" starts, "off" releases. Default "on". */
+  gate?: "on" | "off";
+  /** One-shot: start, then auto-release after this many ms (overrides gate). */
+  durationMs?: number;
+}
+
 function newId(): string {
   const uuid = (globalThis as { crypto?: { randomUUID?: () => string } })
     .crypto?.randomUUID?.();
@@ -242,6 +264,11 @@ export function makeParam(from: AppId, body: ParamBody, opts: MakeOpts = {}): Su
 /** Invoke a named action (`type: "command"`). */
 export function makeCommand(from: AppId, body: CommandBody, opts: MakeOpts = {}): SuiteMessage {
   return makeMessage(from, "command", body as unknown as Record<string, unknown>, opts);
+}
+
+/** Play notes on an instrument (`type: "note"`). */
+export function makeNote(from: AppId, body: NoteBody, opts: MakeOpts = {}): SuiteMessage {
+  return makeMessage(from, "note", body as unknown as Record<string, unknown>, opts);
 }
 
 export interface ValidationResult { ok: boolean; errors: string[] }
@@ -308,6 +335,19 @@ export function validateMessage(x: unknown): ValidationResult {
           err("body.name: non-empty command name required");
         if (b.args !== undefined && !isPlainObject(b.args))
           err("body.args: object of named arguments required");
+        break;
+      case "note":
+        if (!Array.isArray(b.notes) || b.notes.length === 0 ||
+            b.notes.some((n) => !Number.isInteger(n) || (n as number) < 0 || (n as number) > 127))
+          err("body.notes: non-empty array of MIDI notes 0–127 required");
+        if (b.velocity !== undefined && !(Number.isInteger(b.velocity) && (b.velocity as number) >= 0 && (b.velocity as number) <= 127))
+          err("body.velocity: integer 0–127 required");
+        if (b.channel !== undefined && !(Number.isInteger(b.channel) && (b.channel as number) >= 1 && (b.channel as number) <= 16))
+          err("body.channel: integer 1–16 required");
+        if (b.gate !== undefined && b.gate !== "on" && b.gate !== "off")
+          err('body.gate: "on" or "off" required');
+        if (b.durationMs !== undefined && !(typeof b.durationMs === "number" && (b.durationMs as number) > 0))
+          err("body.durationMs: positive number required");
         break;
     }
   }

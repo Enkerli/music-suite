@@ -105,6 +105,15 @@ const CASES = [
       type: "command", body: { name: "mutate", args: { amount: 0.3 } },
     },
   },
+  {
+    name: "note: play a C major triad on Vane for 500ms",
+    msgId: 10,
+    message: {
+      protocol: "enkerli-suite", v: 1, id: "vec-note-cmajor",
+      from: "proggenie", to: "vane", sentAt: "2026-07-05T12:00:00Z",
+      type: "note", body: { notes: [60, 64, 67], velocity: 100, durationMs: 500 },
+    },
+  },
 ];
 
 const vectors = CASES.map((c) => ({

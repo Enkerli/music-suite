@@ -13,7 +13,8 @@
     "test": "vitest run",
     "typecheck": "npm run build-packages",
     "sync-apps": "node scripts/sync-apps.mjs",
-    "build-site": "node docs/build-site.mjs"
+    "build-site": "node docs/build-site.mjs",
+    "msuite": "node packages/cli/dist/cli.js"
   },
   "devDependencies": {
     "happy-dom": "^20.10.2",

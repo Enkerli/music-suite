@@ -24,7 +24,7 @@ timbre without touching the screen.
 **Flow**
 1. Author or recall a control-map that binds the expression pedal (a MIDI CC)
    to a Vane sound parameter — say the filter cutoff.
-2. Check it before the set: `enkerli bind stage.json --validate` confirms the
+2. Check it before the set: `msuite bind stage.json --validate` confirms the
    binding points at a real Vane parameter.
 3. In performance, the pedal sweeps the cutoff. The sweep follows the
    parameter's **own** range (the cutoff is logarithmic), so it feels musical
@@ -75,12 +75,12 @@ fingering → collection hop that was the open gap is now one continuous flow.
 **Personas:** Theory explorer/educator (primary) · Curious newcomer (secondary)
 **Trigger:** Teaching (or grasping) how a chord functions; wants every
 representation to agree.
-**Tools:** Chord Dictionary · PickPCS · Progression Studio · `enkerli chord` ·
+**Tools:** Chord Dictionary · PickPCS · Progression Studio · `msuite chord` ·
 the `chord` message.
 
 **Flow**
 1. Identify a chord from notes — in the Chord Dictionary, or headless with
-   `enkerli chord 60 64 67 71` → `Cmaj7`.
+   `msuite chord 60 64 67 71` → `Cmaj7`.
 2. Read it three ways at once: pitch-class set, chord symbol, Roman numeral.
 3. Drop it into a progression in Progression Studio and hear it in context.
 
@@ -101,7 +101,7 @@ open item is the **VoiceOver pass** on the live pages (A11Y plan gap) — so the
 **Trigger:** A DAW session's worth of clips and patterns; wants them tagged,
 findable, exported, and never lost.
 **Tools:** MIDIcurator (library, tags, ratings) · Serpe (patterns) · SMF export ·
-`@enkerli/library` · `enkerli smf` / `generate -o`.
+`@enkerli/library` · `msuite smf` / `generate -o`.
 
 **Flow**
 1. Import clips into MIDIcurator; tag and rate them.
@@ -154,10 +154,10 @@ apps, and a screen-reader pass on real pages.
 **Personas:** Curious newcomer (primary) · Theory explorer/educator (secondary)
 **Trigger:** "I want cool progressions without having to know what a seventh
 chord is."
-**Tools:** Progression Studio (generate + playback) · `enkerli generate`.
+**Tools:** Progression Studio (generate + playback) · `msuite generate`.
 
 **Flow**
-1. Generate a progression — no vocabulary required (`enkerli generate --mode
+1. Generate a progression — no vocabulary required (`msuite generate --mode
    major --length 8`, or the app's *Generate*).
 2. Hear it immediately.
 3. *Optionally*, and at their own pace, reveal **why** it works — the names,
@@ -183,13 +183,13 @@ every step predictable and inspectable — no hidden state, no surprises.
 **Tools:** the `enkerli` CLI, end to end.
 
 **Flow**
-1. Generate reproducibly: `enkerli generate --mode major --length 8 --seed 42`
+1. Generate reproducibly: `msuite generate --mode major --length 8 --seed 42`
    — the same seed always gives the same progression.
-2. Inspect before acting: `enkerli describe vane` / `serpe` shows exactly what
-   each tool exposes; `enkerli bind map.json --validate` rejects a bad mapping
+2. Inspect before acting: `msuite describe vane` / `serpe` shows exactly what
+   each tool exposes; `msuite bind map.json --validate` rejects a bad mapping
    with a **specific** reason.
-3. Build rhythms (`enkerli upi "P(3,0)+P(5,0)"`), write MIDI (`… -o out.mid`),
-   or make audio (`… | enkerli render --stream`).
+3. Build rhythms (`msuite upi "P(3,0)+P(5,0)"`), write MIDI (`… -o out.mid`),
+   or make audio (`… | msuite render --stream`).
 4. Pipe tools together with ordinary shell pipes; every intermediate is a
    plain file or line of text.
 
