@@ -22,7 +22,7 @@
 import { readFileSync, writeFileSync } from "node:fs";
 import {
   chordInfo, patternInfo, upiInfo, generateInfo, smfFromBars, renderVane,
-  accompany, noteNameToMidi,
+  accompany, noteNameToMidi, notesFromPhrase,
   sendMessage, toNdjson, parseNdjson, summarizeMessage, describeManifest,
   bundledManifestPath, MANIFEST_APPS, paramsFromStream, vaneParamIdMap,
   resolveEvent, validateControlMap, manifestsForControlMap,
@@ -35,14 +35,17 @@ const USAGE = `msuite <command> …
   chord <values…> [--pcs|--notes]
   pattern <spec>                        E(3,8) · 0x94:8 · o111:8 · d73:8 · 10010010
   upi "<notation>" [--steps N]          the full Serpe UPI language: P(3,0)+P(5,0), E(3,8);12, {100}E(3,8), Morse…
-  generate [--mode major|minor] [--length N] [--seed N] [--method markov|markov-cadence|circle] [--tonic C] [-o out.mid]
+  generate [--mode major|minor] [--length N] [--seed N] [--method markov|markov-cadence|circle] [--tonic C] [-o out.mid] [--bars-only]
                                         a progression from the corpus statistics → Roman bars (or realized SMF with -o)
+                                        piped (or --bars-only): bare bar notation, ready for | msuite accompany
   smf "<bars>" -o <file.mid> [--tonic C] [--mode major|minor] [--bpm N] [--beats-per-chord N]
-  accompany --progression "<bars>" [-o bass.mid] [--role bass] [--bars N] [--seed N] [--source phrase.json]
+  accompany [--progression "<bars>"] [-o bass.mid] [--role bass] [--bars N] [--seed N] [--source phrase.json]
             [--range C2:C4] [--chromaticism 0..1] [--rhythm-preservation 0..1] [--tonic C] [--mode major|minor]
-            [--bpm N] [--trace trace.json] [--phrase-out phrase.json] [--explain]
+            [--bpm N] [--trace trace.json] [--phrase-out phrase.json] [--explain] [--play [--to app|*]]
                                         GloriArp slice 1: adapt a curated bass phrase across a progression
-                                        (deterministic by seed; trace explains every note)
+                                        (deterministic by seed; trace explains every note); no --progression
+                                        reads bar notation from stdin (msuite generate | msuite accompany);
+                                        --play streams real-time note messages (NDJSON) — | msuite recv
   render <notes…> -o <file.wav> [--seconds N] [--breath 0..1] [--sr N] [--param id=value]… [--stream]
                                         --stream: apply a control-plane param NDJSON stream from stdin (message → sound)
   send [--from app] [--to app|*] (--param id=value… [--mode …] | --command name [--arg k=v]… | --note 60,64,67 [--velocity V] [--duration ms] [--gate on|off])
@@ -60,7 +63,7 @@ function parseArgs(argv: string[]): Args {
     const a = argv[i]!;
     if (a.startsWith("--")) {
       const name = a.slice(2);
-      const boolean = ["pcs", "notes", "help", "stream", "validate", "explain"].includes(name);
+      const boolean = ["pcs", "notes", "help", "stream", "validate", "explain", "play", "bars-only"].includes(name);
       const value = boolean ? "true" : argv[++i];
       if (value === undefined) throw new Error(`--${name} needs a value`);
       if (!flags.has(name)) flags.set(name, []);
@@ -77,6 +80,15 @@ function parseArgs(argv: string[]): Args {
 }
 
 const one = (a: Args, n: string): string | undefined => a.flags.get(n)?.[0];
+
+/** Read all of stdin. Async (not readFileSync(0)): a pipe from a slow writer
+ *  is non-blocking and readFileSync can throw EAGAIN before data arrives. */
+async function readStdin(): Promise<string> {
+  let text = "";
+  process.stdin.setEncoding("utf8");
+  for await (const chunk of process.stdin) text += chunk;
+  return text;
+}
 
 async function main(): Promise<number> {
   const [cmd, ...rest] = process.argv.slice(2);
@@ -146,6 +158,12 @@ async function main(): Promise<number> {
         console.log(`wrote ${out}: ${r.chordCount} chords from a generated ${info.mode} progression (embedded Progression included)`);
         return 0;
       }
+      if (args.flags.has("bars-only") || !process.stdout.isTTY) {
+        // Piped (or asked): bare bar notation only, so `generate | accompany`
+        // composes like ordinary Unix tools.
+        console.log(info.bars);
+        return 0;
+      }
       console.log(`bars    ${info.bars}`);
       if (info.symbols) console.log(`symbols ${info.symbols.join(" | ")}`);
       console.log(`(${info.labels.length} chords · ${info.mode}${one(args, "seed") !== undefined ? ` · seed ${one(args, "seed")}` : ""}) — pipe the bars into 'msuite smf' or add -o`);
@@ -169,8 +187,16 @@ async function main(): Promise<number> {
       return 0;
     }
     case "accompany": {
-      const progression = one(args, "progression") ?? args.positional.join(" ");
-      if (!progression) throw new Error('accompany: --progression "<bars>" required');
+      let progression = one(args, "progression") ?? args.positional.join(" ");
+      if (!progression && !process.stdin.isTTY) {
+        // The brief's pipeline: `msuite generate … | msuite accompany …` —
+        // read bar notation (Roman or symbols) from the pipe; lines become bars.
+        progression = (await readStdin()).split("\n").map((l) => l.trim()).filter(Boolean).join(" | ");
+      }
+      if (!progression) throw new Error('accompany: --progression "<bars>" required (or pipe bar notation in)');
+      const playing = args.flags.has("play");
+      // With --play, stdout is the NDJSON note stream — human chatter → stderr.
+      const log = playing ? console.error : console.log;
       const role = one(args, "role") ?? "bass";
       if (role !== "bass") throw new Error(`accompany: role "${role}" not implemented yet — slice 1 is bass`);
       const mode = one(args, "mode");
@@ -200,29 +226,45 @@ async function main(): Promise<number> {
       const out = one(args, "out");
       if (out) {
         writeFileSync(out, r.smf);
-        console.log(`wrote ${out}: ${r.phrase.events.length} notes over ${r.frames.length} frames (trace header embedded)`);
+        log(`wrote ${out}: ${r.phrase.events.length} notes over ${r.frames.length} frames (trace header embedded)`);
       }
       const traceOut = one(args, "trace");
       if (traceOut) {
         writeFileSync(traceOut, JSON.stringify(r.trace, null, 2) + "\n");
-        console.log(`wrote ${traceOut}`);
+        log(`wrote ${traceOut}`);
       }
       const phraseOut = one(args, "phrase-out");
       if (phraseOut) {
         writeFileSync(phraseOut, r.phraseJson);
-        console.log(`wrote ${phraseOut}`);
+        log(`wrote ${phraseOut}`);
       }
       if (args.flags.has("explain") && r.trace.events) {
         for (const t of r.trace.events) {
           const move = t.sourceNote !== undefined && t.chosen !== undefined ? ` ${t.sourceNote}→${t.chosen}` : "";
-          console.log(`bar ${t.bar + 1} @${t.onset}${move}  ${t.reason}${t.repairs ? `  [${t.repairs.join(", ")}]` : ""}`);
+          log(`bar ${t.bar + 1} @${t.onset}${move}  ${t.reason}${t.repairs ? `  [${t.repairs.join(", ")}]` : ""}`);
         }
       }
       const s = r.trace.summary;
-      console.log(`accompany: ${r.phrase.events.length} notes · ${r.frames.map((f) => f.chord.symbol).join(" | ")} · seed ${r.trace.header.seed}`
+      log(`accompany: ${r.phrase.events.length} notes · ${r.frames.map((f) => f.chord.symbol).join(" | ")} · seed ${r.trace.header.seed}`
         + (s ? ` · ${s.chordTones} chord tones, ${s.approachesKept} approaches, ${s.repairs} repairs` : ""));
+      if (playing) {
+        // Perform: real-time NDJSON note messages on stdout, paced by the
+        // phrase's ticks at the bpm — pipe into `msuite recv` (or any bridge).
+        const timed = notesFromPhrase(r.phrase, {
+          ...(one(args, "bpm") !== undefined && { bpm: Number(one(args, "bpm")) }),
+          ...(one(args, "to") !== undefined && { to: one(args, "to") as Destination }),
+        });
+        const t0 = Date.now();
+        for (const { atMs, msg } of timed) {
+          const wait = t0 + atMs - Date.now();
+          if (wait > 0) await new Promise((res) => setTimeout(res, wait));
+          process.stdout.write(toNdjson(msg));
+        }
+        log(`played ${timed.length} notes in real time`);
+        return 0;
+      }
       if (!out && !traceOut && !phraseOut && !args.flags.has("explain"))
-        console.log("(add -o bass.mid, --trace trace.json, --phrase-out phrase.json, or --explain)");
+        log("(add -o bass.mid, --trace trace.json, --phrase-out phrase.json, --play, or --explain)");
       return 0;
     }
     case "render": {
@@ -241,7 +283,7 @@ async function main(): Promise<number> {
       // resolve manifest ids → Vane wasm ids, and merge (stream over --param).
       // This is the message → sound path: `msuite send … | msuite render --stream`.
       if (args.flags.has("stream")) {
-        const s = paramsFromStream(readFileSync(0, "utf8"), vaneParamIdMap(), "vane");
+        const s = paramsFromStream(await readStdin(), vaneParamIdMap(), "vane");
         Object.assign(params, s.params);
         console.error(`render: applied ${s.applied.length} param(s) from stream` +
           `${s.messages ? ` (${s.messages} message${s.messages === 1 ? "" : "s"})` : ""}` +
@@ -304,7 +346,7 @@ async function main(): Promise<number> {
       return 0;
     }
     case "recv": {
-      const text = readFileSync(0, "utf8");
+      const text = await readStdin();
       let seen = 0, bad = 0;
       for (const line of text.split("\n")) {
         if (!line.trim()) continue;

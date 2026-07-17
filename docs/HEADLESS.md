@@ -48,6 +48,8 @@ wrapper over an import-testable library):
 | `msuite bind stage.json --cc 74=40 \| msuite render 69 -o out.wav --stream` | **input → sound**: a control-map resolves a MIDI knob/key/pad through the manifests to a `param`/`command` message — the whole plane from a knob to audio, headless | `@enkerli/control` + control plane |
 | `msuite bind stage.json --validate` | check a control-map's bindings against the bundled manifests (unknown ids, out-of-range values, undeclared args) | `@enkerli/control` |
 | `msuite accompany --progression "Dm7 \| G7 \| Cmaj7 \| A7" --seed 42 -o bass.mid [--trace t.json] [--explain]` | **GloriArp slice 1**: one curated bass phrase adapted across a progression — chord-relative reharmonization, range clamp, seeded determinism, a trace that explains every note (`GLORIARP:v1 TRACE` header embedded in the SMF) | `@enkerli/accompaniment` (docs/GLORIARP_BRIEF.md, docs/GLORIARP_AUDIT.md) |
+| `msuite generate --mode minor --length 8 --seed 7 \| msuite accompany --seed 9 --tonic A --mode minor -o bass.mid` | **the GloriArp pipeline** (brief §11, verbatim shape): corpus statistics generate the progression, the adapter walks a bass through it — piped `generate` emits bare bar notation (also via `--bars-only`); `accompany` with no `--progression` reads it from stdin | `@enkerli/proggen` + `@enkerli/accompaniment` |
+| `msuite accompany --progression "Dm7 \| G7" --play \| msuite recv` | **perform**: stream the adapted bassline as real-time control-plane `note` messages (NDJSON, self-releasing via durationMs, paced by `--bpm`) — human chatter goes to stderr so the pipe stays clean | control plane + `@enkerli/accompaniment` |
 
 ## Per tool
 

@@ -393,7 +393,7 @@ describe("generateInfo (corpus progression generation, headless)", () => {
 
 // ── accompany (GloriArp slice 1) ─────────────────────────────────────────────
 
-import { accompany, noteNameToMidi, defaultPhrasePath } from "./index.js";
+import { accompany, noteNameToMidi, defaultPhrasePath, notesFromPhrase } from "./index.js";
 import { readMetaTextEvents } from "@enkerli/midi";
 
 describe("noteNameToMidi", () => {
@@ -443,5 +443,30 @@ describe("accompany (bar notation → adapted bass → SMF + trace)", () => {
   });
   it("rejects an empty progression", () => {
     expect(() => accompany({ progression: "" })).toThrow();
+  });
+});
+
+describe("notesFromPhrase (accompany --play: phrase → timed note messages)", () => {
+  it("emits one validated, self-releasing note message per event, paced by bpm", () => {
+    const { phrase } = accompany({ progression: "Dm7 | G7", seed: 42 });
+    const timed = notesFromPhrase(phrase, { bpm: 120 });
+    expect(timed).toHaveLength(phrase.events.length);
+    // one beat at 120 bpm = 500 ms; quarters land a beat apart
+    expect(timed[0]).toMatchObject({ atMs: 0 });
+    expect(timed[1]!.atMs).toBe(500);
+    for (const { msg } of timed) {
+      expect(msg.type).toBe("note");
+      expect(msg.to).toBe("vane"); // default target
+      const b = msg.body as { notes: number[]; durationMs?: number };
+      expect(b.notes).toHaveLength(1); // bass is monophonic
+      expect(b.durationMs).toBe(500); // quarters self-release after one beat
+      expect(parseNdjson(toNdjson(msg))).toEqual(msg); // wire-valid
+    }
+  });
+  it("honors bpm and target overrides", () => {
+    const { phrase } = accompany({ progression: "Dm7", seed: 1 });
+    const timed = notesFromPhrase(phrase, { bpm: 240, to: "*" });
+    expect(timed[1]!.atMs).toBe(250);
+    expect(timed[0]!.msg.to).toBe("*");
   });
 });

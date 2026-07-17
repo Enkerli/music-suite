@@ -492,6 +492,7 @@ The commands fall into three groups.
 | --- | --- | --- |
 | `generate` | a chord progression from the corpus statistics | `msuite generate --mode major --length 8 --seed 42` |
 | `smf` | bar notation → a Standard MIDI File | `msuite smf "Dm7 G7 \| Cmaj7" -o out.mid` |
+| `accompany` | walk a bassline through a progression (GloriArp) | `msuite accompany --progression "Dm7 \| G7 \| Cmaj7" -o bass.mid` |
 | `render` | notes → audio through Vane's real sound engine | `msuite render 60 64 67 -o out.wav --breath 0.9` |
 
 **Connect tools** — the messaging commands (`send`, `recv`, `describe`,
@@ -514,12 +515,20 @@ the next one's input:
 # generate a progression, then hear it through Vane
 msuite generate --length 4 --seed 3 --tonic C -o take.mid
 
+# generate a progression and walk a bassline through it (GloriArp)
+msuite generate --mode minor --length 8 --seed 7 | msuite accompany --seed 9 --tonic A --mode minor -o bass.mid
+
+# perform that bassline as a live message stream
+msuite accompany --progression "Dm7 | G7 | Cmaj7 | A7" --play | msuite recv
+
 # drive Vane's sound from a control message (see §5)
 msuite bind stage.json --cc 74=40 | msuite render 69 -o knob.wav --stream
 ```
 
-That second line is the whole idea in miniature: a message goes in one end and
-sound comes out the other, with no app open.
+The middle lines are new: one tool *composes* the harmony, another *plays*
+through it — and `--play` streams the result as real-time messages any suite
+tool can listen to. The last line is the whole idea in miniature: a message
+goes in one end and sound comes out the other, with no app open.
 
 ---
 

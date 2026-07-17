@@ -478,6 +478,36 @@ export function toNdjson(msg: SuiteMessage): string {
   return JSON.stringify(msg) + "\n";
 }
 
+/** A note message scheduled at a millisecond offset from performance start. */
+export interface TimedNote {
+  atMs: number;
+  msg: SuiteMessage;
+}
+
+/**
+ * An adapted phrase as a performable stream of control-plane `note` messages
+ * (self-releasing via durationMs, so no note-offs to pair). This is how
+ * `msuite accompany --play` drives a listener — the same messages the bus
+ * carries in the browser, paced by the phrase's own ticks at the given bpm.
+ */
+export function notesFromPhrase(
+  phrase: AccompanimentPhrase,
+  opts: { bpm?: number; to?: Destination; from?: AppId } = {},
+): TimedNote[] {
+  const bpm = opts.bpm ?? 120;
+  const msPerTick = 60000 / (bpm * phrase.ticksPerBeat);
+  return phrase.events
+    .filter((e) => e.note !== undefined)
+    .map((e) => ({
+      atMs: Math.round(e.onset * msPerTick),
+      msg: makeNote(opts.from ?? "external", {
+        notes: [e.note!],
+        velocity: e.velocity,
+        durationMs: Math.max(1, Math.round(e.duration * msPerTick)),
+      }, { to: opts.to ?? "vane" }),
+    }));
+}
+
 /** Parse one NDJSON line back to a validated SuiteMessage, or null (blank / foreign / invalid). */
 export function parseNdjson(line: string): SuiteMessage | null {
   const t = line.trim();
