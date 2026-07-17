@@ -222,6 +222,29 @@ sounds through the Vane tab, live.*
    ```
    → the chord sounds in Vane. (Anything that can POST — including an Apple
    Shortcut — can now play the suite.)
+6. **Loop it** — end the step-3 command (Ctrl-C) and run instead:
+   ```bash
+   msuite accompany --progression "Dm7 | G7 | Cmaj7 | A7" --seed 42 --bpm 100 --play --loop | msuite bridge
+   ```
+   → the bassline repeats seamlessly, bar 4 flowing straight back into bar 1
+   with no gap or glitch (each pass is scheduled off one absolute clock, not
+   chained waits, so passes never drift apart). Let it go around at least
+   twice, then press **Ctrl-C** → the terminal prints *"stopping after the
+   current note…"* and the process exits cleanly within a beat — not a hard
+   kill, not a hang.
+7. **Full duplex** — re-run the exact command from step 6 (its own stdout
+   isn't piped anywhere, so it prints straight to this terminal):
+   ```bash
+   msuite accompany --progression "Dm7 | G7" --seed 42 --bpm 100 --play --loop | msuite bridge
+   ```
+   While it's looping, in the **Workspace** tab (still connected) sweep a
+   **Control Surface** slider (tool = serpe or vane) or click a command
+   button.
+   → an NDJSON line for that action appears **in this same terminal**,
+   interleaved with the bridge's own connection logging — the browser's own
+   knob turn arrived back on the shell, live, while the bassline keeps
+   looping. Confirm the round trip doesn't echo: the knob move appears
+   **once**, not repeatedly. Ctrl-C to finish.
 
 ---
 

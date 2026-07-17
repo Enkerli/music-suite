@@ -48,27 +48,49 @@ function getJson(port: number, path: string): Promise<unknown> {
   });
 }
 
-describe("startBridge (stdio-NDJSON → SSE)", () => {
+/** Collects lines written to a PassThrough as an NDJSON output sink. */
+function outputLines(stream: PassThrough): { next(): Promise<string> } {
+  let buf = "";
+  const lines: string[] = [];
+  const waiters: Array<(v: string) => void> = [];
+  stream.on("data", (chunk: Buffer) => {
+    buf += chunk.toString("utf8");
+    let i;
+    while ((i = buf.indexOf("\n")) !== -1) {
+      const line = buf.slice(0, i);
+      buf = buf.slice(i + 1);
+      if (line) (waiters.shift() ?? ((v) => lines.push(v)))(line);
+    }
+  });
+  return { next: () => (lines.length ? Promise.resolve(lines.shift()!) : new Promise<string>((res) => waiters.push(res))) };
+}
+
+describe("startBridge (stdio-NDJSON ↔ SSE, full duplex)", () => {
   let bridge: Bridge;
   const input = new PassThrough();
+  const output = new PassThrough();
+  const out = outputLines(output);
   beforeAll(async () => {
-    bridge = await startBridge({ port: 0, input, log: () => {} });
+    bridge = await startBridge({ port: 0, input, output, log: () => {} });
   });
   afterAll(async () => {
     await bridge.close();
   });
 
-  it("reports status at /", async () => {
+  it("reports status at / including the duplex counters", async () => {
     const status = await getJson(bridge.port, "/");
-    expect(status).toMatchObject({ bridge: "enkerli-suite", v: 1 });
+    expect(status).toMatchObject({ bridge: "enkerli-suite", v: 1, clients: 0, received: 0, fromBrowsers: 0 });
   });
 
-  it("fans a POST /send message out to SSE clients", async () => {
+  it("fans a POST /send message out to SSE clients AND echoes it to output (full duplex)", async () => {
     const client = sseClient(bridge.port);
     await new Promise((r) => setTimeout(r, 50)); // let the stream open
+    const before = bridge.fromBrowsers();
     const msg = sendMessage({ to: "vane", note: { notes: [60, 64, 67], durationMs: 250 } });
     expect(await post(bridge.port, "/send", JSON.stringify(msg))).toBe(204);
-    expect(JSON.parse(await client.next())).toEqual(msg);
+    expect(JSON.parse(await client.next())).toEqual(msg);       // → browsers (SSE)
+    expect(JSON.parse(await out.next())).toEqual(msg);          // → the shell pipe (stdout)
+    expect(bridge.fromBrowsers()).toBe(before + 1);
     client.close();
   });
 
@@ -77,12 +99,16 @@ describe("startBridge (stdio-NDJSON → SSE)", () => {
     expect(await post(bridge.port, "/send", JSON.stringify({ hello: "world" }))).toBe(400);
   });
 
-  it("relays NDJSON written to its input (the shell pipe)", async () => {
+  it("relays NDJSON written to its input (the shell pipe) but does NOT echo it back to output", async () => {
     const client = sseClient(bridge.port);
     await new Promise((r) => setTimeout(r, 50));
+    const before = bridge.fromBrowsers();
     const msg = sendMessage({ to: "vane", param: { id: "morph", value: 0.5 } });
     input.write(toNdjson(msg));
     expect(JSON.parse(await client.next())).toEqual(msg);
+    // A stdin-relayed message must never bounce back onto output — the shell
+    // pipeline would receive its own input, an infinite duplex loop.
+    expect(bridge.fromBrowsers()).toBe(before);
     client.close();
   });
 

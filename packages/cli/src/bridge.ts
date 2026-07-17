@@ -1,12 +1,27 @@
 /**
- * The stdio → browser bridge (docs/CONTROL_PLANE.md: "one message model,
+ * The stdio ↔ browser bridge (docs/CONTROL_PLANE.md: "one message model,
  * several transports" — this is the adapter BETWEEN two of them). A tiny
  * localhost HTTP server that fans NDJSON SuiteMessages out to browsers over
  * Server-Sent Events; the workspace's Bridge module republishes them onto the
  * `enkerli-workspace` BroadcastChannel, so a shell pipe reaches every tab:
  *
- *   msuite accompany --play | msuite bridge     (CLI side)
+ *   msuite accompany --play | msuite bridge     (CLI side, shell → browser)
  *   workspace → Bridge module → connect          (browser side)
+ *
+ * FULL DUPLEX: the same POST /send a browser uses to push a locally-
+ * originated bus message (a knob move, a click) back to the bridge is ALSO
+ * echoed to the bridge's own stdout as NDJSON — so the process sitting on the
+ * OTHER end of the pipe sees it too:
+ *
+ *   msuite accompany --play | msuite bridge | msuite recv
+ *                              ▲               ▲
+ *                    plays TO browsers   browser traffic arrives HERE
+ *
+ * `bridge` consumes stdin (things to send) and produces stdout (things
+ * received back) — one process sitting in the middle of a pipe, both
+ * directions live at once. (stdin-relayed messages are NOT echoed back to
+ * stdout — only genuinely browser/HTTP-originated ones — so a shell pipeline
+ * never gets its own input handed back to it.)
  *
  * SSE over node:http, no dependencies. CORS is wide open ON PURPOSE: the
  * bridge binds to localhost and carries validated control-plane messages —
@@ -23,6 +38,9 @@ export interface BridgeOptions {
   host?: string;
   /** NDJSON source (the pipe). Omit/null for HTTP-only operation. */
   input?: NodeJS.ReadableStream | null;
+  /** Where browser/HTTP-originated messages are echoed (full duplex — see
+   *  module docstring). Default process.stdout; injectable for tests. */
+  output?: NodeJS.WritableStream;
   /** Status/diagnostic lines (default stderr keeps stdout pipe-clean). */
   log?: (line: string) => void;
 }
@@ -30,7 +48,10 @@ export interface BridgeOptions {
 export interface Bridge {
   port: number;
   clients(): number;
+  /** Total messages accepted (from stdin OR POST /send). */
   received(): number;
+  /** Of those, how many arrived via POST /send (the browser→shell direction). */
+  fromBrowsers(): number;
   /** Validate + fan out; false if the message was rejected. */
   broadcast(msg: unknown): boolean;
   close(): Promise<void>;
@@ -44,8 +65,10 @@ const CORS = {
 
 export function startBridge(opts: BridgeOptions = {}): Promise<Bridge> {
   const log = opts.log ?? ((line: string) => process.stderr.write(line + "\n"));
+  const output = opts.output ?? process.stdout;
   const clients = new Set<ServerResponse>();
   let received = 0;
+  let fromBrowsers = 0;
 
   const broadcast = (msg: unknown): boolean => {
     if (!validateMessage(msg).ok) return false;
@@ -75,8 +98,17 @@ export function startBridge(opts: BridgeOptions = {}): Promise<Bridge> {
       let body = "";
       req.on("data", (c) => { body += c; });
       req.on("end", () => {
+        let parsed: unknown;
         let ok = false;
-        try { ok = broadcast(JSON.parse(body)); } catch { /* not JSON */ }
+        try { parsed = JSON.parse(body); ok = broadcast(parsed); } catch { /* not JSON */ }
+        if (ok) {
+          // Full duplex: a POST is browser/HTTP-originated by construction
+          // (the stdin path calls broadcast() directly, never through here),
+          // so it's exactly the traffic the OTHER end of a `| msuite bridge |`
+          // pipe wants to see. Echo it — never what stdin just fed in.
+          fromBrowsers++;
+          output.write(JSON.stringify(parsed) + "\n");
+        }
         res.writeHead(ok ? 204 : 400, CORS);
         res.end(ok ? undefined : "not a valid SuiteMessage");
       });
@@ -84,7 +116,7 @@ export function startBridge(opts: BridgeOptions = {}): Promise<Bridge> {
     }
     if (req.method === "GET" && url.pathname === "/") {
       res.writeHead(200, { ...CORS, "Content-Type": "application/json" });
-      res.end(JSON.stringify({ bridge: "enkerli-suite", v: 1, clients: clients.size, received }));
+      res.end(JSON.stringify({ bridge: "enkerli-suite", v: 1, clients: clients.size, received, fromBrowsers }));
       return;
     }
     res.writeHead(404, CORS);
@@ -116,6 +148,7 @@ export function startBridge(opts: BridgeOptions = {}): Promise<Bridge> {
         port,
         clients: () => clients.size,
         received: () => received,
+        fromBrowsers: () => fromBrowsers,
         broadcast,
         close: () => new Promise<void>((done) => {
           clearInterval(heartbeat);

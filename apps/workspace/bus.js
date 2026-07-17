@@ -9,14 +9,23 @@
  * honors their `to`/`from` routing (`*` = broadcast). Invalid messages are
  * dropped (never put a malformed message on the wire — the encodeMessage rule,
  * applied to this transport too).
+ *
+ * Delivery is deduped by message `id` over a short window: a full-duplex
+ * bridge (docs/CONTROL_PLANE.md transport 4) can hand the SAME message back
+ * to a tab that just sent it (round-tripped through a server), and two tabs
+ * bridged to the same server can each receive it independently — without this,
+ * a command like "mutate" could double-fire from one user action.
  */
 import { validateMessage } from "@enkerli/protocol";
+
+const DEDUPE_WINDOW_MS = 5000;
 
 export class SuiteBus extends EventTarget {
   /** @param {{channelName?: string}} [opts] cross-tab BroadcastChannel name. */
   constructor(opts = {}) {
     super();
     this.channel = null;
+    this._seen = new Map(); // id → deliveredAt, for the dedupe window
     if (opts.channelName && typeof BroadcastChannel !== "undefined") {
       this.channel = new BroadcastChannel(opts.channelName);
       this.channel.onmessage = (e) => this._deliver(e.data, true);
@@ -36,6 +45,13 @@ export class SuiteBus extends EventTarget {
   }
 
   _deliver(msg, remote) {
+    const id = msg && msg.id;
+    if (id) {
+      const now = Date.now();
+      if (this._seen.has(id)) return; // already delivered — drop the duplicate
+      this._seen.set(id, now);
+      if (this._seen.size > 500) for (const [k, t] of this._seen) if (now - t > DEDUPE_WINDOW_MS) this._seen.delete(k);
+    }
     this.dispatchEvent(new CustomEvent("suitemessage", { detail: { msg, remote } }));
   }
 

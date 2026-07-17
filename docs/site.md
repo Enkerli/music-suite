@@ -521,8 +521,12 @@ msuite generate --mode minor --length 8 --seed 7 | msuite accompany --seed 9 --t
 # perform that bassline as a live message stream…
 msuite accompany --progression "Dm7 | G7 | Cmaj7 | A7" --play | msuite recv
 
-# …or straight into the browser: the Vane tab plays it out loud
-msuite accompany --progression "Dm7 | G7 | Cmaj7 | A7" --play | msuite bridge
+# …or straight into the browser, looping as a continuous groove
+msuite accompany --progression "Dm7 | G7 | Cmaj7 | A7" --play --loop | msuite bridge
+
+# full duplex: the SAME command also lets the browser talk back — a knob
+# turned in the Workspace tab lands on this shell's stdout
+msuite accompany --play --loop | msuite bridge | msuite recv
 
 # drive Vane's sound from a control message (see §5)
 msuite bind stage.json --cc 74=40 | msuite render 69 -o knob.wav --stream
@@ -612,7 +616,9 @@ that you drag to arrange, all sharing one message bus:
   talk;
 - a **Bridge (CLI)** module — connects the page to a local `msuite bridge`, so
   a terminal pipeline (say, a GloriArp bassline played with `--play`) streams
-  straight onto the page's bus — and out loud through the Vane tab.
+  straight onto the page's bus — and out loud through the Vane tab. It's a
+  two-way door: this tab's own knob turns and clicks travel back through the
+  same bridge, so a terminal on the other end of the pipe can see them too.
 
 Add or remove modules from the top bar; your arrangement is remembered. Open the
 workspace in two browser windows and they share the same bus, so one window can

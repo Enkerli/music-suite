@@ -182,4 +182,50 @@ describe("bridge module (CLI pipe → bus)", () => {
     expect(body.textContent).toMatch(/no EventSource|connecting|connected/);
     off();
   });
+
+  it("shouldForwardToBridge: only this tab's own traffic, and never what the bridge just gave us", async () => {
+    const { shouldForwardToBridge } = await import("./modules.js");
+    const recent = new Map([["seen-1", Date.now()]]);
+    // Locally originated (remote:false), fresh id → forward.
+    expect(shouldForwardToBridge({ id: "fresh-1" }, { remote: false }, recent)).toBe(true);
+    // Arrived via BroadcastChannel from another tab → never forward (avoids
+    // a multi-tab echo storm — only the tab that truly originated it does).
+    expect(shouldForwardToBridge({ id: "fresh-2" }, { remote: true }, recent)).toBe(false);
+    // What the bridge just handed this tab, even though publish() marks it
+    // remote:false locally → skipped by id (the actual loop-breaker).
+    expect(shouldForwardToBridge({ id: "seen-1" }, { remote: false }, recent)).toBe(false);
+    // No id at all → nothing to dedupe against, forward it.
+    expect(shouldForwardToBridge({ to: "vane" }, { remote: false }, recent)).toBe(true);
+  });
+
+  it("full duplex: a message this tab publishes locally is POSTed to the bridge", async () => {
+    const { MODULES } = await import("./modules.js");
+    const { bus, ctxObj } = ctx();
+    const { makeCommand } = await import("@enkerli/protocol");
+    const body = document.createElement("div");
+    const posted = [];
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = (url, opts) => { posted.push({ url, body: JSON.parse(opts.body) }); return Promise.resolve(); };
+    class FakeEventSource {
+      constructor() { FakeEventSource.instance = this; }
+      close() {}
+    }
+    const originalES = globalThis.EventSource;
+    globalThis.EventSource = FakeEventSource;
+
+    const off = MODULES["bridge"].make(ctxObj, body, {});
+    body.querySelector("button").dispatchEvent(new MouseEvent("click")); // connect
+
+    const msg = makeCommand("external", { name: "mutate" }, { to: "serpe" });
+    bus.publish(msg);
+    await Promise.resolve(); // let the fetch() microtask run
+
+    expect(posted).toHaveLength(1);
+    expect(posted[0].url).toBe("http://localhost:8765/send");
+    expect(posted[0].body).toEqual(msg);
+
+    off();
+    globalThis.fetch = originalFetch;
+    globalThis.EventSource = originalES;
+  });
 });

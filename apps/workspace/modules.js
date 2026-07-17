@@ -198,11 +198,19 @@ function bindingsModule(ctx, bodyEl, state) {
   return () => window.removeEventListener("keydown", onKey);
 }
 
-// ── Bridge: the CLI pipe's landing spot in the browser ────────────────────────
+// ── Bridge: the CLI pipe's landing spot in the browser — FULL DUPLEX ─────────
 // `msuite accompany --play | msuite bridge` serves SuiteMessages over SSE on
 // localhost; this module subscribes and republishes them onto the bus — the
 // BroadcastChannel then fans them out to every tab (Vane hears note messages
 // and SOUNDS). One line of shell reaches real audio in a real browser.
+//
+// The other direction: this tab's OWN bus activity (a knob move, a click —
+// anything published locally, not something that arrived via BroadcastChannel
+// from another tab) gets POSTed back to the bridge's /send, which echoes it to
+// the bridge's stdout — so `msuite accompany --play | msuite bridge | msuite
+// recv` shows the browser's traffic arriving on the far end of the pipe.
+// A message the bridge just handed US is never re-forwarded (recentlyIn),
+// which is what keeps this from becoming an echo loop.
 
 /** Republish one SSE data payload onto the bus. Pure over the bus — the
  *  testable half; bus.publish re-validates, so garbage never propagates. */
@@ -212,18 +220,42 @@ export function republishBridgeText(bus, text) {
   return bus.publish(msg);
 }
 
+/**
+ * Should a bus message be forwarded back to the bridge? Only messages that
+ * originated in THIS tab (`!meta.remote` — not relayed in via another tab's
+ * BroadcastChannel) and that aren't something the bridge itself just handed
+ * us (tracked by id in `recentIds`, a Map of id → timestamp). Pure — the
+ * testable half of the forwarding decision.
+ */
+export function shouldForwardToBridge(msg, meta, recentIds) {
+  if (!msg || meta?.remote) return false;
+  return !(msg.id && recentIds.has(msg.id));
+}
+
 function bridgeModule(ctx, bodyEl, state) {
   const urlInput = el("input", { class: "ws-text", type: "text",
     value: state.url ?? "http://localhost:8765", "aria-label": "Bridge URL", spellcheck: "false" });
   const status = el("span", { class: "ws-readout", text: "not connected" });
   const info = el("div", { class: "ws-readout",
-    text: "run:  msuite accompany --play | msuite bridge" });
+    text: "msuite accompany --play | msuite bridge  ·  full duplex: this tab's own actions POST back" });
   let source = null;
-  let count = 0;
+  let offForward = null;
+  let inCount = 0, outCount = 0;
+  const recentlyIn = new Map(); // id → receivedAt: what the bridge just gave us
+
+  function remember(id) {
+    if (!id) return;
+    const now = Date.now();
+    recentlyIn.set(id, now);
+    for (const [k, t] of recentlyIn) if (now - t > 5000) recentlyIn.delete(k);
+  }
+  const paint = (label) => { status.textContent = `${label} · in ${inCount} · out ${outCount}`; };
 
   function disconnect() {
     source?.close();
     source = null;
+    offForward?.();
+    offForward = null;
     btn.textContent = "connect";
     status.textContent = "not connected";
   }
@@ -231,18 +263,25 @@ function bridgeModule(ctx, bodyEl, state) {
     if (typeof EventSource === "undefined") { status.textContent = "no EventSource in this browser"; return; }
     disconnect();
     state.url = urlInput.value; ctx.save();
-    count = 0;
-    source = new EventSource(`${urlInput.value.replace(/\/$/, "")}/events`);
+    inCount = 0; outCount = 0;
+    const base = urlInput.value.replace(/\/$/, "");
+    source = new EventSource(`${base}/events`);
     btn.textContent = "disconnect";
     status.textContent = "connecting…";
-    source.onopen = () => { status.textContent = `connected · ${count} msgs`; };
+    source.onopen = () => paint("connected");
     source.onerror = () => { status.textContent = "retrying… (is the bridge running?)"; };
     source.onmessage = (e) => {
-      if (republishBridgeText(ctx.bus, e.data)) {
-        count++;
-        status.textContent = `connected · ${count} msgs`;
-      }
+      let msg;
+      try { msg = JSON.parse(e.data); } catch { return; }
+      remember(msg.id);
+      if (republishBridgeText(ctx.bus, e.data)) { inCount++; paint("connected"); }
     };
+    offForward = ctx.bus.subscribe((msg, meta) => {
+      if (typeof fetch !== "function" || !shouldForwardToBridge(msg, meta, recentlyIn)) return;
+      fetch(`${base}/send`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(msg) })
+        .then(() => { outCount++; paint("connected"); })
+        .catch(() => {});
+    });
   }
   const btn = el("button", { class: "ws-btn", text: "connect",
     onclick: () => (source ? disconnect() : connect()) });

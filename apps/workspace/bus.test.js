@@ -33,6 +33,16 @@ describe("SuiteBus (the in-page transport)", () => {
     expect(serpe).toHaveLength(2);  // its own + broadcast
   });
 
+  it("dedupes by id — a round-tripped message delivers once, not twice", () => {
+    const bus = new SuiteBus();
+    const seen = [];
+    bus.subscribe((m) => seen.push(m));
+    const msg = makeParam("external", { id: "morph", value: 0.5 }, { to: "vane" });
+    bus.publish(msg);
+    bus.publish(msg); // same id — e.g. handed back by a bridge server
+    expect(seen).toHaveLength(1);
+  });
+
   it("unsubscribe stops delivery", () => {
     const bus = new SuiteBus();
     const seen = [];

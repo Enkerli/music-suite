@@ -39,12 +39,20 @@ realization:
      carries SuiteMessages between modules on one page (and across browser
      tabs via BroadcastChannel). *(shipped 2026-07-15 — the workspace
      projection.)*
-  4. **SSE bridge (localhost)** — `msuite bridge` serves stdin's NDJSON to
-     browsers over Server-Sent Events (`node:http`, no deps; POST `/send`
-     accepts one-shots from curl / Apple Shortcuts); the workspace's Bridge
-     module republishes onto transport 3, so a shell pipe reaches every tab:
-     `msuite accompany --play | msuite bridge` → Vane SOUNDS. *(shipped
-     2026-07-17 — the transport ADAPTER between 2 and 3.)*
+  4. **SSE bridge (localhost) — FULL DUPLEX** — `msuite bridge` serves
+     stdin's NDJSON to browsers over Server-Sent Events (`node:http`, no
+     deps); the workspace's Bridge module republishes onto transport 3, so a
+     shell pipe reaches every tab: `msuite accompany --play | msuite bridge`
+     → Vane SOUNDS. The other direction: a tab's own bus activity (a knob
+     move, a click — anything it originated locally, not something relayed
+     in from another tab) POSTs back to `/send`, which echoes it to the
+     bridge's OWN stdout — so `msuite A | msuite bridge | msuite B` runs both
+     directions live in one pipe. `POST /send` also takes one-shots from curl
+     / Apple Shortcuts. A short id-keyed dedupe (in `SuiteBus` and in the
+     Bridge module's own forward-filter) stops the obvious echo loop: a
+     message the bridge just handed a tab is never bounced straight back.
+     *(shipped 2026-07-15 one-way, full duplex 2026-07-17 — the transport
+     ADAPTER between 2 and 3.)*
   5. later: App-Group inbox (gated on the Apple account, per HANDOFF);
      WebSocket for full cross-device duplex.
 - **The two new verbs** turn a data-sharing protocol into a control

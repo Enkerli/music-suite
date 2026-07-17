@@ -393,7 +393,8 @@ describe("generateInfo (corpus progression generation, headless)", () => {
 
 // ── accompany (GloriArp slice 1) ─────────────────────────────────────────────
 
-import { accompany, noteNameToMidi, defaultPhrasePath, notesFromPhrase } from "./index.js";
+import { accompany, noteNameToMidi, defaultPhrasePath, notesFromPhrase, loopPeriodMs, performPhrase } from "./index.js";
+import type { SuiteMessage } from "@enkerli/protocol";
 import { readMetaTextEvents } from "@enkerli/midi";
 
 describe("noteNameToMidi", () => {
@@ -468,5 +469,67 @@ describe("notesFromPhrase (accompany --play: phrase → timed note messages)", (
     const timed = notesFromPhrase(phrase, { bpm: 240, to: "*" });
     expect(timed[1]!.atMs).toBe(250);
     expect(timed[0]!.msg.to).toBe("*");
+  });
+});
+
+describe("loopPeriodMs / performPhrase (accompany --play --loop)", () => {
+  it("loopPeriodMs is the phrase's own length in ms at a given bpm", () => {
+    const { phrase } = accompany({ progression: "Dm7", seed: 1 }); // 1 bar, 4/4 @ 480 tpb
+    expect(loopPeriodMs(phrase, 120)).toBe(2000); // 4 beats * 500ms
+    expect(loopPeriodMs(phrase, 240)).toBe(1000);
+  });
+
+  it("performPhrase yields one pass by default (loopCount omitted)", async () => {
+    const { phrase } = accompany({ progression: "Dm7 | G7", seed: 42 });
+    const got: string[] = [];
+    // A fake clock: sleep() advances it directly instead of waiting for real
+    // time, so the test is instant but still exercises the real scheduling math.
+    let clock = 0;
+    const now = () => clock;
+    const sleep = async (ms: number) => { clock += ms; };
+    for await (const msg of performPhrase(phrase, { bpm: 120, now, sleep })) {
+      got.push((msg.body as { notes: number[] }).notes.join(","));
+    }
+    expect(got).toHaveLength(phrase.events.length);
+  });
+
+  it("loopCount repeats the whole phrase that many times, back-to-back", async () => {
+    const { phrase } = accompany({ progression: "Dm7", seed: 1 });
+    let clock = 0;
+    const now = () => clock;
+    const sleep = async (ms: number) => { clock += ms; };
+    const got: number[] = [];
+    for await (const msg of performPhrase(phrase, { bpm: 120, loopCount: 3, now, sleep })) {
+      got.push(clock);
+      void msg;
+    }
+    expect(got).toHaveLength(phrase.events.length * 3);
+  });
+
+  it("isStopped ends an infinite loop early — the Ctrl-C contract", async () => {
+    const { phrase } = accompany({ progression: "Dm7", seed: 1 });
+    let clock = 0;
+    let stopped = false;
+    const now = () => clock;
+    const sleep = async (ms: number) => { clock += ms; };
+    const got: unknown[] = [];
+    for await (const msg of performPhrase(phrase, { bpm: 120, loopCount: Infinity, now, sleep, isStopped: () => stopped })) {
+      got.push(msg);
+      if (got.length === phrase.events.length + 1) stopped = true; // stop mid-second-pass
+    }
+    expect(got.length).toBe(phrase.events.length + 1);
+  });
+
+  it("performPhrase messages are the same shape notesFromPhrase produces", async () => {
+    const { phrase } = accompany({ progression: "Dm7", seed: 1 });
+    const timed = notesFromPhrase(phrase, { bpm: 120, to: "*" });
+    const got: SuiteMessage[] = [];
+    let clock = 0;
+    const now = () => clock;
+    const sleep = async (ms: number) => { clock += ms; };
+    for await (const msg of performPhrase(phrase, { bpm: 120, to: "*", now, sleep })) got.push(msg);
+    // id/sentAt are freshly minted per call (makeNote), so compare shape only.
+    const shape = (m: SuiteMessage) => ({ to: m.to, from: m.from, type: m.type, body: m.body });
+    expect(got.map(shape)).toEqual(timed.map((t) => shape(t.msg)));
   });
 });

@@ -22,7 +22,7 @@
 import { readFileSync, writeFileSync } from "node:fs";
 import {
   chordInfo, patternInfo, upiInfo, generateInfo, smfFromBars, renderVane,
-  accompany, noteNameToMidi, notesFromPhrase, startBridge,
+  accompany, noteNameToMidi, notesFromPhrase, performPhrase, startBridge,
   sendMessage, toNdjson, parseNdjson, summarizeMessage, describeManifest,
   bundledManifestPath, MANIFEST_APPS, paramsFromStream, vaneParamIdMap,
   resolveEvent, validateControlMap, manifestsForControlMap,
@@ -41,18 +41,22 @@ const USAGE = `msuite <command> …
   smf "<bars>" -o <file.mid> [--tonic C] [--mode major|minor] [--bpm N] [--beats-per-chord N]
   accompany [--progression "<bars>"] [-o bass.mid] [--role bass] [--bars N] [--seed N] [--source phrase.json]
             [--range C2:C4] [--chromaticism 0..1] [--rhythm-preservation 0..1] [--tonic C] [--mode major|minor]
-            [--bpm N] [--trace trace.json] [--phrase-out phrase.json] [--explain] [--play [--to app|*]]
+            [--bpm N] [--trace trace.json] [--phrase-out phrase.json] [--explain]
+            [--play [--to app|*] [--loop | --loop-count N]]
                                         GloriArp slice 1: adapt a curated bass phrase across a progression
                                         (deterministic by seed; trace explains every note); no --progression
                                         reads bar notation from stdin (msuite generate | msuite accompany);
-                                        --play streams real-time note messages (NDJSON) — | msuite recv
+                                        --play streams real-time note messages (NDJSON) — | msuite recv;
+                                        --loop repeats until Ctrl-C (a continuous groove); --loop-count N
+                                        repeats N times
   render <notes…> -o <file.wav> [--seconds N] [--breath 0..1] [--sr N] [--param id=value]… [--stream]
                                         --stream: apply a control-plane param NDJSON stream from stdin (message → sound)
   send [--from app] [--to app|*] (--param id=value… [--mode …] | --command name [--arg k=v]… | --note 60,64,67 [--velocity V] [--duration ms] [--gate on|off])
   recv                                  read NDJSON SuiteMessages from stdin, validate + summarize
-  bridge [--port 8765]                  serve stdin's NDJSON messages to BROWSERS over SSE (localhost)
-                                        msuite accompany --play | msuite bridge   → workspace Bridge module
-                                        also accepts POST /send (curl, Shortcuts) — HTTP one-shots onto the bus
+  bridge [--port 8765]                  FULL DUPLEX stdin ↔ browsers: stdin's NDJSON → SSE (localhost);
+                                        POST /send (a browser's own actions, curl, Shortcuts) → this
+                                        process's STDOUT — so 'msuite A | msuite bridge | msuite B' runs
+                                        both directions live. workspace Bridge module is the browser side
   describe <app|manifest.json>          print a tool's parameter/command surface (app id e.g. vane, or a manifest file)
   bind <control-map.json> (--cc N=V [--channel C] | --note N [--velocity V] [--channel C] | --key "combo" | --validate)
                                         resolve an input through a control-map → the param/command message(s) (NDJSON)`;
@@ -252,18 +256,27 @@ async function main(): Promise<number> {
         + (s ? ` · ${s.chordTones} chord tones, ${s.approachesKept} approaches, ${s.repairs} repairs` : ""));
       if (playing) {
         // Perform: real-time NDJSON note messages on stdout, paced by the
-        // phrase's ticks at the bpm — pipe into `msuite recv` (or any bridge).
-        const timed = notesFromPhrase(r.phrase, {
+        // phrase's ticks at the bpm — pipe into `msuite recv` (or a bridge).
+        // --loop repeats forever (Ctrl-C to stop, gracefully — the current
+        // note finishes); --loop-count N repeats a fixed number of times.
+        const loopCount = one(args, "loop-count") !== undefined
+          ? Math.max(1, Number(one(args, "loop-count")))
+          : args.flags.has("loop") ? Infinity : 1;
+        let stopped = false;
+        if (loopCount !== 1) {
+          process.once("SIGINT", () => { stopped = true; log("\naccompany: stopping after the current note…"); });
+        }
+        let n = 0;
+        for await (const msg of performPhrase(r.phrase, {
           ...(one(args, "bpm") !== undefined && { bpm: Number(one(args, "bpm")) }),
           ...(one(args, "to") !== undefined && { to: one(args, "to") as Destination }),
-        });
-        const t0 = Date.now();
-        for (const { atMs, msg } of timed) {
-          const wait = t0 + atMs - Date.now();
-          if (wait > 0) await new Promise((res) => setTimeout(res, wait));
+          loopCount,
+          isStopped: () => stopped,
+        })) {
           process.stdout.write(toNdjson(msg));
+          n++;
         }
-        log(`played ${timed.length} notes in real time`);
+        log(`played ${n} note${n === 1 ? "" : "s"} in real time` + (loopCount !== 1 ? ` (looped)` : ""));
         return 0;
       }
       if (!out && !traceOut && !phraseOut && !args.flags.has("explain"))

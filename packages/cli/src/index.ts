@@ -508,6 +508,59 @@ export function notesFromPhrase(
     }));
 }
 
+/** How long one pass of a phrase takes to perform, at a given bpm. */
+export function loopPeriodMs(phrase: AccompanimentPhrase, bpm = 120): number {
+  return (phrase.lengthTicks / phrase.ticksPerBeat) * (60000 / bpm);
+}
+
+export interface PerformOptions {
+  bpm?: number;
+  to?: Destination;
+  from?: AppId;
+  /** Passes over the phrase; `Infinity` performs until `isStopped()` says so. Default 1. */
+  loopCount?: number;
+  /** Polled between waits — the graceful-stop hook (e.g. a caught SIGINT). */
+  isStopped?: () => boolean;
+  /** Injectable clock/waiter, so tests can drive this without real time passing. */
+  now?: () => number;
+  sleep?: (ms: number) => Promise<void>;
+}
+
+/**
+ * Perform a phrase as a real-time stream of `note` messages — the engine
+ * behind `accompany --play [--loop]`. Each pass is scheduled off a single
+ * absolute start time (not chained `setTimeout`s), so passes never drift
+ * relative to each other. A generator rather than a callback: the caller
+ * decides what "deliver a message" means (write NDJSON, POST to a bridge, …).
+ */
+export async function* performPhrase(phrase: AccompanimentPhrase, opts: PerformOptions = {}): AsyncGenerator<SuiteMessage> {
+  const bpm = opts.bpm ?? 120;
+  const timed = notesFromPhrase(phrase, {
+    bpm, ...(opts.to !== undefined && { to: opts.to }), ...(opts.from !== undefined && { from: opts.from }),
+  });
+  const periodMs = loopPeriodMs(phrase, bpm);
+  const loopCount = opts.loopCount ?? 1;
+  const isStopped = opts.isStopped ?? (() => false);
+  const now = opts.now ?? Date.now;
+  const sleep = opts.sleep ?? ((ms: number) => new Promise<void>((res) => setTimeout(res, ms)));
+  const t0 = now();
+  for (let iter = 0; iter < loopCount && !isStopped(); iter++) {
+    for (const { atMs, msg } of timed) {
+      if (isStopped()) return;
+      const target = t0 + iter * periodMs + atMs;
+      // Wait in short slices (not one long sleep) so isStopped() is checked
+      // promptly — a real Ctrl-C shouldn't wait out an entire beat to land.
+      while (!isStopped()) {
+        const remain = target - now();
+        if (remain <= 0) break;
+        await sleep(Math.min(remain, 200));
+      }
+      if (isStopped()) return;
+      yield msg;
+    }
+  }
+}
+
 /** Parse one NDJSON line back to a validated SuiteMessage, or null (blank / foreign / invalid). */
 export function parseNdjson(line: string): SuiteMessage | null {
   const t = line.trim();
