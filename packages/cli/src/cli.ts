@@ -19,10 +19,12 @@
  * carry the @enkerli/protocol message model over an ordinary Unix pipe
  * (docs/CONTROL_PLANE.md — the headless half of the control & interop plane).
  */
-import { readFileSync, writeFileSync } from "node:fs";
+import { readFileSync, writeFileSync, createWriteStream } from "node:fs";
+import { createInterface } from "node:readline";
 import {
   chordInfo, patternInfo, upiInfo, generateInfo, smfFromBars, renderVane,
   accompany, noteNameToMidi, notesFromPhrase, performPhrase, startBridge,
+  listMidiPorts, resolveMidiPort, createMidiPlayer,
   sendMessage, toNdjson, parseNdjson, summarizeMessage, describeManifest,
   bundledManifestPath, MANIFEST_APPS, paramsFromStream, vaneParamIdMap,
   resolveEvent, validateControlMap, manifestsForControlMap,
@@ -42,16 +44,23 @@ const USAGE = `msuite <command> …
   accompany [--progression "<bars>"] [-o bass.mid] [--role bass] [--bars N] [--seed N] [--source phrase.json]
             [--range C2:C4] [--chromaticism 0..1] [--rhythm-preservation 0..1] [--tonic C] [--mode major|minor]
             [--bpm N] [--trace trace.json] [--phrase-out phrase.json] [--explain]
-            [--play [--to app|*] [--loop | --loop-count N]]
+            [--play [--to app|*] [--loop | --loop-count N] [--midi-out port [--channel N] [--breath-cc N|off]]]
                                         GloriArp slice 1: adapt a curated bass phrase across a progression
                                         (deterministic by seed; trace explains every note); no --progression
                                         reads bar notation from stdin (msuite generate | msuite accompany);
                                         --play streams real-time note messages (NDJSON) — | msuite recv;
                                         --loop repeats until Ctrl-C (a continuous groove); --loop-count N
-                                        repeats N times
+                                        repeats N times; --midi-out performs as REAL MIDI (ALSA rawmidi —
+                                        a port name substring, "virtual" for snd-virmidi, or a /dev path)
   render <notes…> -o <file.wav> [--seconds N] [--breath 0..1] [--sr N] [--param id=value]… [--stream]
                                         --stream: apply a control-plane param NDJSON stream from stdin (message → sound)
   send [--from app] [--to app|*] (--param id=value… [--mode …] | --command name [--arg k=v]… | --note 60,64,67 [--velocity V] [--duration ms] [--gate on|off])
+  play (--midi-out port [--channel N] [--breath-cc N|off] | --list)
+                                        NDJSON note stream from stdin → REAL MIDI out (Linux ALSA rawmidi):
+                                        '… --play | msuite play --midi-out virtual', then aconnect the
+                                        VirMIDI port into jalv (Vane LV2) / fluidsynth / hardware — the
+                                        Plug & Jam path (docs/JAM.md). --list enumerates ports; breath
+                                        (CC2 = velocity) precedes notes for Vane's wind-model envelope
   recv                                  read NDJSON SuiteMessages from stdin, validate + summarize
   bridge [--port 8765]                  FULL DUPLEX stdin ↔ browsers: stdin's NDJSON → SSE (localhost);
                                         POST /send (a browser's own actions, curl, Shortcuts) → this
@@ -70,7 +79,7 @@ function parseArgs(argv: string[]): Args {
     const a = argv[i]!;
     if (a.startsWith("--")) {
       const name = a.slice(2);
-      const boolean = ["pcs", "notes", "help", "stream", "validate", "explain", "play", "bars-only", "loop"].includes(name);
+      const boolean = ["pcs", "notes", "help", "stream", "validate", "explain", "play", "bars-only", "loop", "list"].includes(name);
       const value = boolean ? "true" : argv[++i];
       if (value === undefined) throw new Error(`--${name} needs a value`);
       if (!flags.has(name)) flags.set(name, []);
@@ -95,6 +104,35 @@ async function readStdin(): Promise<string> {
   process.stdin.setEncoding("utf8");
   for await (const chunk of process.stdin) text += chunk;
   return text;
+}
+
+/**
+ * Open a MIDI player from --midi-out / --channel / --breath-cc flags, or null
+ * when --midi-out is absent. `finish()` drains scheduled note-offs (briefly),
+ * silences anything still sounding (an external synth REMEMBERS hanging
+ * notes), and closes the device.
+ */
+function openMidiFromFlags(args: Args, log: (s: string) => void): { player: ReturnType<typeof createMidiPlayer>; finish: () => Promise<void> } | null {
+  const spec = one(args, "midi-out");
+  if (spec === undefined) return null;
+  const path = resolveMidiPort(spec);
+  const stream = createWriteStream(path);
+  const breathRaw = one(args, "breath-cc");
+  const player = createMidiPlayer({
+    write: (bytes) => { stream.write(Buffer.from(bytes)); },
+    ...(one(args, "channel") !== undefined && { channel: Number(one(args, "channel")) }),
+    ...(breathRaw !== undefined && { breathCc: breathRaw === "off" ? null : Number(breathRaw) }),
+  });
+  log(`midi-out: ${path}`);
+  const finish = async () => {
+    // Give self-releasing note-offs a moment to fire on their own schedule…
+    for (let i = 0; i < 20 && player.activeCount() > 0; i++) await new Promise((res) => setTimeout(res, 100));
+    // …then silence whatever remains, unconditionally.
+    player.allOff();
+    await new Promise<void>((res) => stream.end(() => res()));
+  };
+  process.once("exit", () => player.allOff());
+  return { player, finish };
 }
 
 async function main(): Promise<number> {
@@ -255,15 +293,18 @@ async function main(): Promise<number> {
       log(`accompany: ${r.phrase.events.length} notes · ${r.frames.map((f) => f.chord.symbol).join(" | ")} · seed ${r.trace.header.seed}`
         + (s ? ` · ${s.chordTones} chord tones, ${s.approachesKept} approaches, ${s.repairs} repairs` : ""));
       if (playing) {
-        // Perform: real-time NDJSON note messages on stdout, paced by the
-        // phrase's ticks at the bpm — pipe into `msuite recv` (or a bridge).
+        // Perform: real-time note messages, paced by the phrase's ticks at
+        // the bpm. Default output is NDJSON on stdout (pipe into recv / a
+        // bridge); --midi-out <port> performs as REAL MIDI instead — into a
+        // virmidi port, jalv (Vane LV2), fluidsynth, or hardware (P1).
         // --loop repeats forever (Ctrl-C to stop, gracefully — the current
         // note finishes); --loop-count N repeats a fixed number of times.
         const loopCount = one(args, "loop-count") !== undefined
           ? Math.max(1, Number(one(args, "loop-count")))
           : args.flags.has("loop") ? Infinity : 1;
+        const midi = openMidiFromFlags(args, log);
         let stopped = false;
-        if (loopCount !== 1) {
+        if (loopCount !== 1 || midi) {
           process.once("SIGINT", () => { stopped = true; log("\naccompany: stopping after the current note…"); });
         }
         let n = 0;
@@ -273,10 +314,12 @@ async function main(): Promise<number> {
           loopCount,
           isStopped: () => stopped,
         })) {
-          process.stdout.write(toNdjson(msg));
+          if (midi) midi.player.handleMessage(msg);
+          else process.stdout.write(toNdjson(msg));
           n++;
         }
-        log(`played ${n} note${n === 1 ? "" : "s"} in real time` + (loopCount !== 1 ? ` (looped)` : ""));
+        if (midi) await midi.finish();
+        log(`played ${n} note${n === 1 ? "" : "s"} in real time` + (loopCount !== 1 ? ` (looped)` : "") + (midi ? ` → MIDI` : ""));
         return 0;
       }
       if (!out && !traceOut && !phraseOut && !args.flags.has("explain"))
@@ -371,6 +414,33 @@ async function main(): Promise<number> {
       if (process.stdin.isTTY)
         console.error("bridge: no pipe on stdin — HTTP-only (POST /send still works)");
       await new Promise(() => {}); // serve until Ctrl-C
+      return 0;
+    }
+    case "play": {
+      // NDJSON note stream (stdin, arriving in real time) → real MIDI out.
+      // The generic half of P1: ANY producer (`accompany --play`, `send`,
+      // a bridge's stdout, a future Serpe player) reaches jalv / fluidsynth /
+      // hardware through one adapter: `… | msuite play --midi-out virtual`.
+      if (args.flags.has("list")) {
+        const ports = listMidiPorts();
+        if (!ports.length) { console.log("no rawmidi ports (try: sudo modprobe snd-virmidi)"); return 1; }
+        for (const p of ports) console.log(`${p.id}\tcard ${p.card} device ${p.device}\t${p.path}`);
+        return 0;
+      }
+      const args2 = args; // for the closure below
+      const midi = openMidiFromFlags(args2, (s) => console.error(s));
+      if (!midi) throw new Error("play: --midi-out <port|/dev/...|virtual> required (or --list to enumerate)");
+      let played = 0, skipped = 0;
+      let sigint = false;
+      process.once("SIGINT", async () => { sigint = true; await midi.finish(); process.exit(0); });
+      const rl = createInterface({ input: process.stdin });
+      for await (const line of rl) {
+        const m = parseNdjson(line);
+        if (!m) { if (line.trim()) skipped++; continue; }
+        if (midi.player.handleMessage(m)) played++;
+      }
+      if (!sigint) await midi.finish();
+      console.error(`play: ${played} note message(s) → MIDI${skipped ? `, ${skipped} skipped` : ""}`);
       return 0;
     }
     case "recv": {

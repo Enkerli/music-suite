@@ -62,3 +62,34 @@ describe("cli argv parsing (subprocess — the real user-facing path)", () => {
     }
   }, 15000);
 });
+
+describe("--midi-out (subprocess, captured to a file)", () => {
+  it("accompany --play --midi-out writes a real MIDI byte stream, breath first, silence last", async () => {
+    const { mkdtempSync } = await import("node:fs");
+    const { tmpdir } = await import("node:os");
+    const { join } = await import("node:path");
+    const { readFileSync } = await import("node:fs");
+    const out = join(mkdtempSync(join(tmpdir(), "midiout-e2e-")), "cap.raw");
+    const r = await run(
+      ["accompany", "--progression", "Dm7", "--seed", "1", "--bpm", "2000", "--play", "--midi-out", out],
+      5000,
+    );
+    expect(r.code).toBe(0);
+    const bytes = readFileSync(out);
+    expect(bytes.length).toBeGreaterThan(0);
+    // Breath (CC2) precedes the first note-on — Vane's wind-model contract.
+    expect([bytes[0], bytes[1]]).toEqual([0xb0, 0x02]);
+    expect(bytes[3]! & 0xf0).toBe(0x90);
+    // The stream ends silent: CC123 All Notes Off is the final message.
+    expect([...bytes.slice(-3)].map((b) => b & 0xff)).toEqual([0xb0, 123, 0]);
+    // Every note-on has a matching note-off (no hanging notes on the synth).
+    let on = 0, off = 0;
+    for (let i = 0; i < bytes.length; i += 3) {
+      const s = bytes[i]! & 0xf0;
+      if (s === 0x90 && bytes[i + 2]! > 0) on++;
+      if (s === 0x80) off++;
+    }
+    expect(on).toBeGreaterThan(0);
+    expect(off).toBe(on);
+  }, 10000);
+});

@@ -134,8 +134,8 @@ So: **no standalone docs megaproject now.** Instead:
 
 | # | Slice | Cost | Unlocks |
 |---|---|---|---|
-| 1 | `--midi-out` + `msuite play` (Linux virmidi) | S | **P1 unblocked** |
-| 2 | `docs/JAM.md` miniPC recipe | S | P1 usable by a human |
+| 1 | ✅ `--midi-out` + `msuite play` (Linux virmidi) *(shipped 2026-07-17)* | S | **P1 unblocked** |
+| 2 | ✅ `docs/JAM.md` miniPC recipe *(shipped 2026-07-17 — awaiting on-device verification)* | S | P1 usable by a human |
 | 3 | GloriArp: `--rhythm <UPI>` + source-phrase pack | S | P2 ignition, P1 better |
 | 4 | GloriArp: articulation/dynamics/silence pack | S/M | P2 |
 | 5 | Serpe Poly design note → webapp lanes slice | M | P3, P2 groove role |

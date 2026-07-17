@@ -718,3 +718,9 @@ export function describeManifest(body: unknown): { manifest: ManifestBody; lines
 
 // ── bridge: stdio-NDJSON → browsers over SSE (the transport adapter) ─────────
 export { startBridge, type Bridge, type BridgeOptions } from "./bridge.js";
+
+// ── midi out: suite messages → real MIDI bytes (ALSA rawmidi, P1 Plug & Jam) ─
+export {
+  listMidiPorts, resolveMidiPort, noteMessageToMidi, createMidiPlayer,
+  type MidiPort, type MidiPlayer, type MidiPlayerOptions, type MidiConvertOptions, type TimedMidi,
+} from "./midiout.js";
