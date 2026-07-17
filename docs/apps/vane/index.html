@@ -27,32 +27,53 @@
     F1 dot+label always, focus rings, keyboard   F2 preset name is the primary title
 -->
 <style>
-/* ── Design tokens — verbatim from wireframe-styles.css (spec §3) ─────────── */
+/* ── Design tokens — SELF-CONTAINED, values synced from @enkerli/ui ─────────
+   Vane was the paper-&-ink language's source; its --vn-* literals match the
+   shared --es-* tokens exactly (per the consistency-pass mapping). These are
+   INLINED literals, not a <link> to the real tokens.css: this file is copied
+   byte-for-byte by build.sh (sed only rewrites 2026-07-17.1201Z) into dist/ and
+   then into docs/apps/vane/ for the Pages site, at a different relative
+   depth each time — an external stylesheet link breaks silently at one of
+   those depths (found in production: the whole theme resolved to nothing,
+   because --es-* was never defined, so every --vn-* alias below it fell
+   through). Same self-contained approach as pitchfold/drawnqurve's PAPER
+   objects. If packages/ui/tokens/tokens.css changes, re-sync these literals.
+   Mapping notes:
+   · --vn-panel2 folds into --es-bg-sunken (one surface fewer, by design)
+   · --vn-muted adopts the AA-compliant --es-fg-muted value
+   · --vn-muted-2 (disabled ink) → --es-fg-faint (WCAG-exempt, disabled-only) */
 :root{
-  --vn-bg:#f5f2eb; --vn-panel:#fcfbf7; --vn-panel2:#f3eee3; --vn-field:#efebe2;
-  --vn-line:#ddd6ca; --vn-line-soft:#eae3d4; --vn-text:#2d2b27; --vn-text-2:#4b463e;
-  --vn-muted:#8b8678; --vn-muted-2:#b6b0a1;
+  --vn-bg:#f5f2eb; --vn-panel:#fcfbf7;
+  --vn-panel2:#efebe2; --vn-field:#efebe2;
+  --vn-line:#ddd6ca; --vn-line-soft:#eae3d4;
+  --vn-text:#2d2b27; --vn-text-2:#4b463e;
+  --vn-muted:#6b665b; --vn-muted-2:#b3ac9e;
   --vn-breath:#4b86c7; --vn-breath-tint:#dde8f4;
   --vn-expr:#2d9d8a;   --vn-expr-tint:#d6ebe6;
   --vn-pressure:#d28330;--vn-pressure-tint:#f4e3cf;
   --vn-slide:#a35bbf;  --vn-slide-tint:#ecdcf2;
   --vn-bend:#c39529;   --vn-bend-tint:#f1e6c3;
   --vn-vel:#7a4cff;
-  --vn-ui:"Inter",-apple-system,BlinkMacSystemFont,"SF Pro Text",system-ui,sans-serif;
-  --vn-mono:"JetBrains Mono",ui-monospace,SF Mono,monospace;
+  --vn-ui:"Inter Tight",Inter,-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",system-ui,sans-serif;
+  --vn-mono:"JetBrains Mono","SF Mono",ui-monospace,Menlo,Consolas,monospace;
   --r:20px; --r-md:14px; --r-sm:10px;
   --shadow:0 6px 22px rgba(28,25,20,.05);
   /* Density scale (B1) — bumped to ≥44pt at touch/narrow */
   --ctl-h:32px; --track-h:8px; --thumb:15px; --tap:32px; --seg-pad:7px 12px; --gap:10px;
 }
 [data-theme="dark"]{
-  --vn-bg:#1a1814; --vn-panel:#221f1a; --vn-panel2:#1d1b16; --vn-field:#14130f;
-  --vn-line:#38332b; --vn-line-soft:#2b2620; --vn-text:#e8e1d2; --vn-text-2:#cfc7b5;
-  --vn-muted:#897f6c; --vn-muted-2:#5e564a;
+  --vn-bg:#1a1814; --vn-panel:#221f1a;
+  --vn-panel2:#14130f; --vn-field:#14130f;
+  --vn-line:#38332b; --vn-line-soft:#2b2620;
+  --vn-text:#e8e1d2; --vn-text-2:#cfc7b5;
+  --vn-muted:#908672; --vn-muted-2:#5f584a;
   --shadow:0 6px 22px rgba(0,0,0,.28);
 }
 @media (max-width:860px),(pointer:coarse){
   :root{ --ctl-h:44px; --track-h:14px; --thumb:22px; --tap:44px; --seg-pad:11px 14px; --gap:12px; }
+  /* Touch targets for the native controls the density vars don't reach */
+  input[type="checkbox"]{ width:24px; height:24px; }
+  select{ min-height:32px; min-width:24px; }
 }
 *{box-sizing:border-box}
 html,body{margin:0;height:100%}
@@ -110,7 +131,7 @@ input,textarea,[contenteditable]{ -webkit-user-select:text; user-select:text; -w
 .stage{display:flex;flex-direction:column;gap:12px;min-height:0}
 .stage-head{display:flex;align-items:center;justify-content:space-between;gap:8px}
 .viewseg{display:inline-flex;background:var(--vn-field);border-radius:var(--r-md);padding:4px;gap:3px}
-.viewseg button{border:none;background:transparent;color:var(--vn-muted);font-size:12px;font-weight:600;padding:6px 12px;border-radius:10px;cursor:pointer}
+.viewseg button{border:none;background:transparent;color:var(--vn-text-2);font-size:12px;font-weight:600;padding:6px 12px;border-radius:10px;cursor:pointer}
 .viewseg button.active{background:var(--vn-panel);color:var(--vn-text);box-shadow:0 1px 4px rgba(0,0,0,.06)}
 .vis{position:relative;flex:1;min-height:140px;background:var(--vn-field);border-radius:var(--r-md);overflow:hidden}
 .vis svg{position:absolute;inset:0;width:100%;height:100%}
@@ -125,12 +146,12 @@ input,textarea,[contenteditable]{ -webkit-user-select:text; user-select:text; -w
 .meter-label{display:flex;align-items:center;gap:7px;font-weight:600;font-size:12px}
 .meter{height:8px;border-radius:999px;background:var(--vn-field);overflow:hidden}
 .meter .fill{height:100%;border-radius:999px;transition:width .04s linear}
-.meter-cc{font-size:10px;color:var(--vn-muted)}
+.meter-cc{font-size:10px;color:var(--vn-text-2)}
 
 /* ── Inspector tabs ─────────────────────────────────────────── */
 .inspector{display:flex;flex-direction:column;gap:12px;min-height:0}
 .tabs{display:flex;gap:4px;background:var(--vn-panel2);border:1px solid var(--vn-line);border-radius:999px;padding:4px;flex:none}
-.tabs button{flex:1;border:none;background:transparent;color:var(--vn-muted);font-weight:600;font-size:13px;
+.tabs button{flex:1;border:none;background:transparent;color:var(--vn-text-2);font-weight:600;font-size:13px;
   padding:9px 10px;border-radius:999px;cursor:pointer;min-height:var(--tap);max-height:40px}
 .tabs button.active{background:var(--vn-panel);color:var(--vn-text);box-shadow:0 1px 3px rgba(0,0,0,.07)}
 .tabbody{flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;container-type:inline-size}
@@ -160,7 +181,7 @@ input,textarea,[contenteditable]{ -webkit-user-select:text; user-select:text; -w
 .track:hover .thumb,.bipolar:hover .thumb{transform:translate(-50%,-50%) scale(1.1)}
 .row2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
 .seg{display:inline-flex;background:var(--vn-field);border-radius:var(--r-md);padding:4px;gap:3px;flex-wrap:wrap}
-.seg button{border:none;background:transparent;color:var(--vn-muted);font-size:12px;font-weight:600;padding:var(--seg-pad);border-radius:10px;cursor:pointer;min-height:var(--tap);max-height:38px}
+.seg button{border:none;background:transparent;color:var(--vn-text-2);font-size:12px;font-weight:600;padding:var(--seg-pad);border-radius:10px;cursor:pointer;min-height:var(--tap);max-height:38px}
 .seg button.active{background:var(--vn-panel);color:var(--vn-text);box-shadow:0 1px 4px rgba(0,0,0,.06)}
 .group{margin-bottom:18px}
 .group .eyebrow{margin-bottom:10px;display:block}
@@ -556,7 +577,8 @@ input,textarea,[contenteditable]{ -webkit-user-select:text; user-select:text; -w
     <span class="chip ghost" id="tuningChip" onclick="toggleMts()" title="MTS-ESP — click to (re)connect">MTS-ESP</span>
     <button class="icon-btn" id="monoBtn" onclick="toggleMono()" style="width:auto;max-width:none;min-width:62px;padding:0 16px">Mono</button>
     <button class="icon-btn warn" title="Panic" onclick="Bridge.send('panic')">!</button>
-    <button class="icon-btn" title="Toggle theme" onclick="toggleTheme()">◐</button>
+    <button class="icon-btn" id="theme-toggle" title="Switch theme"
+      style="width:auto;max-width:none;padding:0 12px" onclick="toggleTheme()">● Dark</button>
   </div>
 
   <!-- Preset↔profile association notice -->
@@ -630,7 +652,8 @@ const SRC_COLOR={Breath:"--vn-breath",Expression:"--vn-expr",Pressure:"--vn-pres
 AUX.forEach(a=>{ SRC_COLOR[a]="--vn-muted"; SRC_CC[a]="CC?"; });   // bound via the Controllers profile (next phase)
 SRC_COLOR["Keytrack"]="--vn-pressure"; SRC_CC["Keytrack"]="note";   // per-note pitch source (bipolar)
 const BINDABLE = {Breath:true,Expression:true};   // these sources expose a CC# binding
-const DESTS   = ["VCA","Cutoff","Reso","Pitch","Morph","PW","Fold","Noise","Inharm","Sync","Transient","Uni Detune","Vowel"];
+const DESTS   = ["VCA","Cutoff","Reso","Pitch","Morph","PW","Fold","Noise","Inharm","Sync","Transient","Uni Detune","Vowel",
+                  "Wg Embouchure","Wg Reed Stiff","Wg Aperture","Wg Damping","Wg Bell","Wg Conical","Wg Breath Noise","Wg Growl"];
 const CURVES  = ["Lin","Exp","S"];
 const NUM_SLOTS = 24;
 const METER_SRC = ["Breath","Expression","Pressure","Slide","Pitchbend","Velocity"];
@@ -659,7 +682,9 @@ const state = {
           TrGain:0.0,TrDecay:200,TrChoice:0,TrTrigger:1,TrVar:0.3,TrFilt:1,TrDyn:0.75,TrReso:0.3,TrDamp:0.5,TrMorph:12,
           Cutoff:1128,Reso:0.1,Mode:0,Output:0.8,VelVCA:0.0,
           Glide:0,GlideMode:0,GlideCurve:0,MasterTune:0,UniVox:0,UniDet:14,UniWid:0.7,UniMode:0,
-          VowelEn:0,VowelMode:0,Vowel:0.5,VowFront:0.5,VowRound:0,VowelAmt:1,VowelBite:0.5,VowelMove:0 },
+          VowelEn:0,VowelMode:0,Vowel:0.5,VowFront:0.5,VowRound:0,VowelAmt:1,VowelBite:0.5,VowelMove:0,
+          WaveguideOn:0,WgEmbouchure:0.5,WgReedStiff:0.5,WgReedAperture:0.5,WgBoreDamping:0.2,
+          WgBellBright:0.7,WgConical:0.62,WgBreathNoise:0.05,WgGrowl:0.0 },
   slots: Array.from({length:NUM_SLOTS},()=>({src:0,dst:0,amt:0,curve:0,scale:0,atk:5,rel:80,on:true,anchors:[]})),
   voices:[],   // live per-note MPE expression: [{note,hz,level,pressure,slide,bend,vel}]
   aux:[],      // controller-profile aux sources: [{label, cc}] (from controllerState)
@@ -1024,12 +1049,19 @@ const FMT={ Cutoff:v=>Math.round(v)+' Hz', Detune:v=>v.toFixed(0)+' ¢', MasterT
   TrReso:v=>Math.round(v*100)+'%', TrDamp:v=>Math.round(v*100)+'%', TrMorph:v=>Math.round(v)+' ms',
   Vowel:v=>Math.round(state.patch.VowelMode)===1?Math.round(300*Math.pow(10,clamp(v,0,1)))+' Hz':Math.round(v*100)+'%',
   VowFront:v=>Math.round(v*100)+'%', VowRound:v=>Math.round(v*100)+'%', VowelAmt:v=>Math.round(v*100)+'%',
-  VowelBite:v=>Math.round(v*100)+'%', VowelMove:v=>Math.round(v*100)+'%', default:v=>v.toFixed(2) };
+  VowelBite:v=>Math.round(v*100)+'%', VowelMove:v=>Math.round(v*100)+'%',
+  WgEmbouchure:v=>Math.round(v*100)+'%', WgReedStiff:v=>Math.round(v*100)+'%',
+  WgReedAperture:v=>Math.round(v*100)+'%', WgBoreDamping:v=>Math.round(v*100)+'%',
+  WgBellBright:v=>Math.round(v*100)+'%', WgConical:v=>Math.round(v*100)+'%',
+  WgBreathNoise:v=>Math.round(v*100)+'%', WgGrowl:v=>Math.round(v*100)+'%',
+  default:v=>v.toFixed(2) };
 const RANGE={ Morph:[0,1,.001], PW:[0.5,0.999,.001], Fold:[0,1,.01], Inharm:[0,1,.01], Sync:[1,8,.01], Noise:[0,1,.01], Detune:[-100,100,1],
               TrGain:[0,2,.01], TrDecay:[10,2000,1], TrVar:[0,1,.01], TrDyn:[0,1,.01], TrReso:[0,1,.01], TrDamp:[0,1,.01], TrMorph:[0,50,1],
   Cutoff:[20,20000,10], Reso:[0,1,.01], Output:[0,1,.01], VelVCA:[0,1,.01], Glide:[0,2000,5], MasterTune:[-100,100,1],
   UniDet:[0,50,1], UniWid:[0,1,.01],
-  Vowel:[0,1,.01], VowFront:[0,1,.01], VowRound:[0,1,.01], VowelAmt:[0,1,.01], VowelBite:[0,1,.01], VowelMove:[0,1,.01] };
+  Vowel:[0,1,.01], VowFront:[0,1,.01], VowRound:[0,1,.01], VowelAmt:[0,1,.01], VowelBite:[0,1,.01], VowelMove:[0,1,.01],
+  WgEmbouchure:[0,1,.01], WgReedStiff:[0,1,.01], WgReedAperture:[0,1,.01], WgBoreDamping:[0,1,.01],
+  WgBellBright:[0,1,.01], WgConical:[0,1,.01], WgBreathNoise:[0,1,.01], WgGrowl:[0,1,.01] };
 // Sliders that map exponentially (log) — most of the musical action is low.
 const LOGK={ Cutoff:true, TrDecay:true };
 function toNorm(key,v){ const [a,b]=RANGE[key]; if(LOGK[key]&&a>0&&v>0) return clamp(Math.log(v/a)/Math.log(b/a),0,1); return clamp((v-a)/(b-a),0,1); }
@@ -1060,9 +1092,10 @@ function renderPatch(){
   const _sc=$('#tabbody').scrollTop;
   $('#tabbody').innerHTML=`<div class="params">
     <div class="group ${collapsed['Oscillator']?'collapsed':''}" data-grp="Oscillator">${gh('Oscillator')}
+      ${Math.round(state.patch.WaveguideOn)===1 ? `<div class="pslider" style="grid-column:1/-1;padding:8px 10px;background:var(--vn-panel2);border-radius:8px;color:var(--vn-muted);font-size:12px">Wavetable is silent — <b style="color:var(--vn-text)">Waveguide mode</b> is driving the oscillator (see below).</div>` : ''}
       <div class="pslider" style="grid-column:1/-1">
         <div class="top"><span class="lbl">Wavetable</span>
-          <span class="num" id="wtFrame" style="color:var(--vn-slide)">frame —</span></div>
+          <span class="num" id="wtFrame" style="color:var(--vn-text-2)">frame —</span></div>
         <div style="display:flex;gap:4px;flex-wrap:wrap;margin:3px 0">
           <button class="btn" onclick="openLibraryBrowser()" title="Browse the factory wavetable library (CC0)">Library…</button>
           <button class="btn" onclick="useBuiltinWavetable()" title="Revert to the built-in Harmonic Stack">Built-in</button>
@@ -1076,18 +1109,29 @@ function renderPatch(){
       ${pslider('Morph','Morph','--vn-slide')}${pslider('PW','Pulse Width','--vn-slide')}
       ${pslider('Fold','Wavefold','--vn-slide')}${pslider('Inharm','Inharmonicity','--vn-slide')}
       ${pslider('Sync','Sync (transpose)','--vn-slide')}
-      <div data-standalone-hide="1" style="display:contents">
-        ${pslider('Noise','Noise','--vn-slide')}
-        <div class="pslider"><div class="top"><span class="lbl">Noise Type</span></div>
-          <div class="seg">${["White","Pink","Brown"].map((n,i)=>`<button class="${state.patch.NoiseType===i?'active':''}" onclick="setChoice('NoiseType',${i})">${n}</button>`).join('')}</div></div>
-        ${pslider('Detune','Detune','--vn-slide')}
-        <div class="pslider" style="grid-column:1/-1"><div class="top"><span class="lbl">Unison</span></div>
-          <div class="seg">${["1","2","3","4","6"].map((n,i)=>`<button class="${Math.round(state.patch.UniVox)===i?'active':''}" onclick="setChoice('UniVox',${i})">${n}</button>`).join('')}</div></div>
-        <div class="pslider" style="grid-column:1/-1"><div class="top"><span class="lbl">Voice Mode</span></div>
-          <div class="seg">${["Detune","Chord"].map((n,i)=>`<button class="${Math.round(state.patch.UniMode)===i?'active':''}" onclick="setChoice('UniMode',${i})">${n}</button>`).join('')}</div></div>
-        ${Math.round(state.patch.UniMode)===1 ? chordSeqEditorHTML() : pslider('UniDet','Uni Detune','--vn-slide')}
-        ${pslider('UniWid','Uni Width','--vn-slide')}
+      ${pslider('Noise','Noise','--vn-slide')}
+      <div class="pslider"><div class="top"><span class="lbl">Noise Type</span></div>
+        <div class="seg">${["White","Pink","Brown"].map((n,i)=>`<button class="${state.patch.NoiseType===i?'active':''}" onclick="setChoice('NoiseType',${i})">${n}</button>`).join('')}</div></div>
+      ${pslider('Detune','Detune','--vn-slide')}
+      <div class="pslider" style="grid-column:1/-1"><div class="top"><span class="lbl">Unison</span></div>
+        <div class="seg">${["1","2","3","4","6"].map((n,i)=>`<button class="${Math.round(state.patch.UniVox)===i?'active':''}" onclick="setChoice('UniVox',${i})">${n}</button>`).join('')}</div></div>
+      <div class="pslider" style="grid-column:1/-1"><div class="top"><span class="lbl">Voice Mode</span></div>
+        <div class="seg">${["Detune","Chord"].map((n,i)=>`<button class="${Math.round(state.patch.UniMode)===i?'active':''}" onclick="setChoice('UniMode',${i})">${n}</button>`).join('')}</div></div>
+      ${Math.round(state.patch.UniMode)===1 ? chordSeqEditorHTML() : pslider('UniDet','Uni Detune','--vn-slide')}
+      ${pslider('UniWid','Uni Width','--vn-slide')}
+    </div>
+    <div class="group ${collapsed['Waveguide']?'collapsed':''}" data-grp="Waveguide">${gh('Waveguide')}
+      <div class="pslider" style="grid-column:1/-1">
+        <div class="top"><span class="lbl">Reed / Bore Engine</span></div>
+        <div class="seg" style="width:100%">${["Off","On"].map((n,i)=>`<button class="${Math.round(state.patch.WaveguideOn)===i?'active':''}" onclick="setChoice('WaveguideOn',${i})" style="flex:1">${n}</button>`).join('')}</div>
+        <div class="num" style="color:var(--vn-muted);font-size:12px;padding-top:5px">Replaces the wavetable oscillator with a reed/bore model (MiniSax). Breath blows the reed directly — dynamics, subtone below the speaking threshold, and rearticulation come from the model itself; no VCA routing needed.</div>
       </div>
+      ${Math.round(state.patch.WaveguideOn)===1 ? `
+        ${pslider('WgEmbouchure','Embouchure','--vn-expr')}${pslider('WgReedStiff','Reed Stiffness','--vn-expr')}
+        ${pslider('WgReedAperture','Reed Aperture','--vn-expr')}${pslider('WgBoreDamping','Bore Damping','--vn-expr')}
+        ${pslider('WgBellBright','Bell Brightness','--vn-expr')}${pslider('WgConical','Conical Amount','--vn-expr')}
+        ${pslider('WgBreathNoise','Breath Noise','--vn-expr')}${pslider('WgGrowl','Growl','--vn-expr')}
+      ` : ''}
     </div>
     <div class="group ${collapsed['Filter']?'collapsed':''}" data-grp="Filter">${gh('Filter')}
       ${pslider('Cutoff','Cutoff','--vn-breath')}${pslider('Reso','Resonance','--vn-breath')}
@@ -1118,7 +1162,7 @@ function renderPatch(){
       </div>
       ${Math.round(state.patch.GlideCurve)===3?glideEditorHTML():''}
     </div>
-    <div class="group ${collapsed['Transient']?'collapsed':''}" data-grp="Transient" data-standalone-hide="1">${gh('Transient')}
+    <div class="group ${collapsed['Transient']?'collapsed':''}" data-grp="Transient">${gh('Transient')}
       <div class="pslider" style="grid-column:1/-1"><div class="top"><span class="lbl">Sample</span>
           <span class="val num">${(state.transients||['None'])[Math.round(state.patch.TrChoice)]||'None'}</span></div>
         <div class="seg" style="flex-wrap:wrap">${(state.transients||['None']).map((n,i)=>`<button class="${Math.round(state.patch.TrChoice)===i?'active':''}" onclick="trChoice(${i})">${n}</button>`).join('')}</div>
@@ -1144,8 +1188,11 @@ function wirePatchSlider(el){
   // drag/keyboard/fine behaviour is uniform and log params (Cutoff) feel right.
   const key=el.dataset.pk, [a,b]=RANGE[key];
   const fill=$('.fill',el), thumb=$('.thumb',el), val=$('.val',el), track=$('.track',el);
+  track.setAttribute('aria-valuemin',a); track.setAttribute('aria-valuemax',b);
   const fmt=()=>{ const v=state.patch[key]; const n=toNorm(key,v);
-    fill.style.width=(n*100)+'%'; thumb.style.left=(n*100)+'%'; val.textContent=(FMT[key]||FMT.default)(v); };
+    fill.style.width=(n*100)+'%'; thumb.style.left=(n*100)+'%';
+    const txt=(FMT[key]||FMT.default)(v); val.textContent=txt;
+    track.setAttribute('aria-valuenow',v); track.setAttribute('aria-valuetext',txt); };
   patchUpd[key]=fmt;   // param echo updates this slider in place (no rebuild → drag survives)
   const setV=v=>{ v=clamp(v,a,b); if(key==='Morph'&&morphSnap)v=snapMorph(v); state.patch[key]=v; Bridge.send('setParam',{id:key,value:v}); markDirty(); };
   const doReset=()=>{ const prev=state.patch[key]; recordUndo('reset '+key, ()=>{ setV(prev); fmt(); });
@@ -1607,9 +1654,11 @@ function slotRow(s,i){
 function wireSlot(i){
   const row=document.querySelector(`.slot[data-slot="${i}"]`); if(!row)return;
   const bip=$('.bipolar',row), fill=$('[data-bipfill]',row), thumb=$('[data-bipthumb]',row), v=$('.amt .v',row);
+  bip.setAttribute('aria-valuemin',-1); bip.setAttribute('aria-valuemax',1);
   const upd=()=>{ const a=state.slots[i].amt, pos=a>=0, mag=Math.min(1,Math.abs(a));
     fill.style.left=(pos?50:50-mag*50)+'%'; fill.style.width=(mag*50)+'%';
-    thumb.style.left=((a+1)/2*100)+'%'; v.textContent=(pos?'+':'−')+mag.toFixed(2); };
+    thumb.style.left=((a+1)/2*100)+'%'; const txt=(pos?'+':'−')+mag.toFixed(2); v.textContent=txt;
+    bip.setAttribute('aria-valuenow',a); bip.setAttribute('aria-valuetext',txt); };
   const amtReset=()=>{ const prev=state.slots[i].amt; recordUndo('reset amount', ()=>{ state.slots[i].amt=prev; pushSlot(i); markDirty(); upd(); });
     state.slots[i].amt=0; pushSlot(i); markDirty(); upd(); };
   attachDrag(bip,{get:()=>state.slots[i].amt,set:val=>{state.slots[i].amt=val; pushSlot(i); markDirty();},min:-1,max:1,step:.01,fineStep:.002,onMove:upd,
@@ -1836,7 +1885,28 @@ function applyIo(){ const t=$('#ioTxt').value.trim(); if(t){ Bridge.send('import
 // ════════════════════════════════════════════════════════════════════════
 let mono=true;
 function toggleMono(){ mono=!mono; $('#monoBtn').textContent=mono?'Mono':'Poly'; Bridge.send('setParam',{id:'monoMode',value:mono?1:0}); markDirty(); }
-function toggleTheme(){ const r=document.documentElement; r.dataset.theme=r.dataset.theme==='dark'?'light':'dark'; }
+/* Theme — the suite's ONE mechanism (shared-frame pass): [data-theme] on
+   <html>, persisted as "enkerli.theme", OS preference respected until
+   chosen. Inline (this page has no module imports) but semantics-identical
+   to @enkerli/ui/theme; the canonical label names the TARGET mode. */
+function resolvedTheme(){
+  try{ const s=localStorage.getItem('enkerli.theme'); if(s==='light'||s==='dark') return s; }catch{}
+  try{ return matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light'; }catch{}
+  return 'light';
+}
+function labelThemeToggle(){
+  const b=document.getElementById('theme-toggle'); if(!b) return;
+  b.textContent = resolvedTheme()==='dark' ? '☀︎ Light' : '● Dark';
+}
+function toggleTheme(){
+  const next = resolvedTheme()==='dark' ? 'light' : 'dark';
+  try{ localStorage.setItem('enkerli.theme', next); }catch{}
+  document.documentElement.dataset.theme = next;
+  labelThemeToggle();
+}
+/* init: apply the persisted/OS theme (the static markup says light) */
+document.documentElement.dataset.theme = resolvedTheme();
+labelThemeToggle();
 function closeMenus(){ document.querySelectorAll('.menu.open').forEach(x=>x.classList.remove('open')); }
 // Quick preset picker from the header title (F2).
 function openPresetMenu(e){ if(e)e.stopPropagation(); const m=$('#presetMenu'); const willOpen=!m.classList.contains('open');
@@ -2412,6 +2482,7 @@ if (!HAS_JUCE) {
     setMeters(m){ Object.assign(state.meters, m); tickMeters(); },
     getPatch(){ return state.patch; },   // current values, so synth-main.js can sync at boot
     getMono(){ return mono; },           // Mono/Poly toggle (declared above, defaults true)
+    getChordSeqs(){ return state.chordSeqs; },   // rotating-chord editor state (boot sync)
     onParam: null,   // synth-main.js sets this: (id, value) => …
     onSend: null,    // synth-main.js sets this: (id, payload) => … — non-param bridge
                      // sends the standalone synth also implements (tuning, panic, …)
@@ -2487,14 +2558,14 @@ setInterval(()=>{
      AudioWorklet, driven by Web MIDI). In the plugin (__JUCE__ present) this is
      skipped — the C++ engine makes the sound and synth.js is never requested. -->
 <script>
-  // Build id injected by the app build (sed-replaces 2026-07-07.0924Z); stays literal
+  // Build id injected by the app build (sed-replaces 2026-07-17.1201Z); stays literal
   // in the plugin (which never loads synth.js). Used to cache-bust synth.js
   // ITSELF (the browser caches it aggressively, and the wasm/worklet cache-bust
   // lives inside it — chicken-and-egg) and shown in the standalone GUI.
-  window.__VANE_BUILD__ = '2026-07-07.0924Z';
+  window.__VANE_BUILD__ = '2026-07-17.1201Z';
   if (typeof window.__JUCE__ === 'undefined') {
     var s = document.createElement('script');
-    s.type = 'module'; s.src = 'synth.js?v=2026-07-07.0924Z';
+    s.type = 'module'; s.src = 'synth.js?v=2026-07-17.1201Z';
     document.head.appendChild(s);
   }
 </script>

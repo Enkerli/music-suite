@@ -1,0 +1,85 @@
+{
+  "version": 1,
+  "tables": [
+    {
+      "id": "akwf_violin",
+      "file": "AKWF_violin.wav",
+      "title": "Violin",
+      "family": "strings",
+      "tags": [
+        "dark_to_bright",
+        "bowed"
+      ],
+      "morphIntent": "spectral_enrichment",
+      "frameCount": 14,
+      "frameLength": 2048,
+      "license": "CC0",
+      "source": "Adventure Kid Waveforms (AKWF)",
+      "licenseUrl": "https://adventurekid.se/akrt/waveforms/"
+    },
+    {
+      "id": "akwf_oboe",
+      "file": "AKWF_oboe.wav",
+      "title": "Oboe",
+      "family": "winds",
+      "tags": [
+        "dark_to_bright",
+        "reed"
+      ],
+      "morphIntent": "spectral_enrichment",
+      "frameCount": 13,
+      "frameLength": 2048,
+      "license": "CC0",
+      "source": "Adventure Kid Waveforms (AKWF)",
+      "licenseUrl": "https://adventurekid.se/akrt/waveforms/"
+    },
+    {
+      "id": "akwf_pluckalgo",
+      "file": "AKWF_pluckalgo.wav",
+      "title": "Pluck Algo",
+      "family": "plucked",
+      "tags": [
+        "dark_to_bright",
+        "pluck"
+      ],
+      "morphIntent": "spectral_enrichment",
+      "frameCount": 9,
+      "frameLength": 2048,
+      "license": "CC0",
+      "source": "Adventure Kid Waveforms (AKWF)",
+      "licenseUrl": "https://adventurekid.se/akrt/waveforms/"
+    },
+    {
+      "id": "akwf_stringbox",
+      "file": "AKWF_stringbox.wav",
+      "title": "String Box",
+      "family": "strings",
+      "tags": [
+        "dark_to_bright",
+        "ensemble"
+      ],
+      "morphIntent": "spectral_enrichment",
+      "frameCount": 6,
+      "frameLength": 2048,
+      "license": "CC0",
+      "source": "Adventure Kid Waveforms (AKWF)",
+      "licenseUrl": "https://adventurekid.se/akrt/waveforms/"
+    },
+    {
+      "id": "akwf_bw_perfectwaves",
+      "file": "AKWF_bw_perfectwaves.wav",
+      "title": "Perfect Waves",
+      "family": "analytic",
+      "tags": [
+        "dark_to_bright",
+        "analytic"
+      ],
+      "morphIntent": "brightness_ramp",
+      "frameCount": 4,
+      "frameLength": 2048,
+      "license": "CC0",
+      "source": "Adventure Kid Waveforms (AKWF)",
+      "licenseUrl": "https://adventurekid.se/akrt/waveforms/"
+    }
+  ]
+}
