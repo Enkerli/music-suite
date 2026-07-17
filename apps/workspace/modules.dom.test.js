@@ -154,3 +154,32 @@ describe("bindings module", () => {
     cleanup();
   });
 });
+
+describe("bridge module (CLI pipe → bus)", () => {
+  it("republishBridgeText validates and republishes onto the bus", async () => {
+    const { republishBridgeText } = await import("./modules.js");
+    const { makeNote } = await import("@enkerli/protocol");
+    const { bus, ctxObj } = ctx();
+    const seen = [];
+    bus.subscribe((m) => seen.push(m));
+    const msg = makeNote("external", { notes: [60, 64, 67], durationMs: 250 }, { to: "vane" });
+    expect(republishBridgeText(ctxObj.bus, JSON.stringify(msg))).toBe(true);
+    expect(seen).toHaveLength(1);
+    expect(seen[0].type).toBe("note");
+    expect(republishBridgeText(ctxObj.bus, "not json")).toBe(false);
+    expect(republishBridgeText(ctxObj.bus, JSON.stringify({ nope: 1 }))).toBe(false);
+    expect(seen).toHaveLength(1); // garbage never propagated
+  });
+  it("renders URL field + connect button and survives a missing EventSource", async () => {
+    const { MODULES } = await import("./modules.js");
+    const { ctxObj } = ctx();
+    const body = document.createElement("div");
+    const state = {};
+    const off = MODULES["bridge"].make(ctxObj, body, state);
+    expect(body.querySelector("input").value).toBe("http://localhost:8765");
+    const btn = body.querySelector("button");
+    btn.dispatchEvent(new MouseEvent("click")); // happy-dom has no EventSource
+    expect(body.textContent).toMatch(/no EventSource|connecting|connected/);
+    off();
+  });
+});

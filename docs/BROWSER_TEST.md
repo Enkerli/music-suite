@@ -173,6 +173,36 @@ msuite generate --mode major --length 8 --seed 42 --tonic C -o gen.mid
 → `bright.wav` is audibly richer than `plain.wav`; `gen.mid` opens as a real
 8-chord progression.
 
+### 6b. The shell plays the browser — accompany → bridge → Vane 🎉
+
+*The pipe crossing into the browser: a bassline composed in the terminal
+sounds through the Vane tab, live.*
+
+1. In **Vane** (browser tab): click **Start audio** (the worklet must be
+   running; play one note by hand to confirm you hear the voice).
+2. In the **Workspace** tab: add the **Bridge (CLI)** module from the top bar.
+   Leave the URL at `http://localhost:8765`, click **connect**.
+   → status shows *retrying… (is the bridge running?)* — expected, nothing is
+   listening yet.
+3. In a terminal:
+   ```bash
+   msuite accompany --progression "Dm7 | G7 | Cmaj7 | A7" --seed 42 --bpm 100 --play | msuite bridge
+   ```
+   → the bridge logs `browser connected (1 listening)`; the Bridge module
+   flips to *connected · N msgs* counting up **on the beat**; the **Bus
+   Monitor** prints each `note [external → vane] …ms [38] v96` as it lands;
+   and the **Vane tab plays the walking bassline out loud**, one note per
+   beat, changing chords each bar.
+4. Re-run the same command → the identical bassline (seed 42). Change
+   `--seed` → same rhythm, different optional choices.
+5. One-shot without a pipe: leave `msuite bridge` running and
+   ```bash
+   curl -s -X POST -H 'Content-Type: application/json' \
+     -d "$(msuite send --to vane --note 48,55,60 --duration 800)" http://localhost:8765/send
+   ```
+   → the chord sounds in Vane. (Anything that can POST — including an Apple
+   Shortcut — can now play the suite.)
+
 ---
 
 ## 7. MIDI SysEx transport (optional — Chromium + an IAC/loopback bus)

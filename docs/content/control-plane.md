@@ -70,8 +70,11 @@ msuite generate --length 4 --seed 3 --tonic C -o take.mid
 # generate a progression and walk a bassline through it (GloriArp)
 msuite generate --mode minor --length 8 --seed 7 | msuite accompany --seed 9 --tonic A --mode minor -o bass.mid
 
-# perform that bassline as a live message stream
+# perform that bassline as a live message stream…
 msuite accompany --progression "Dm7 | G7 | Cmaj7 | A7" --play | msuite recv
+
+# …or straight into the browser: the Vane tab plays it out loud
+msuite accompany --progression "Dm7 | G7 | Cmaj7 | A7" --play | msuite bridge
 
 # drive Vane's sound from a control message (see §5)
 msuite bind stage.json --cc 74=40 | msuite render 69 -o knob.wav --stream
@@ -158,7 +161,10 @@ that you drag to arrange, all sharing one message bus:
 - a **Pattern** module — type Serpe notation (`E(3,8)`) to draw a rhythm and put
   it on the bus; it also shows any pattern another module sends;
 - a **Bus Monitor** — the live stream of messages, so you can watch the tools
-  talk.
+  talk;
+- a **Bridge (CLI)** module — connects the page to a local `msuite bridge`, so
+  a terminal pipeline (say, a GloriArp bassline played with `--play`) streams
+  straight onto the page's bus — and out loud through the Vane tab.
 
 Add or remove modules from the top bar; your arrangement is remembered. Open the
 workspace in two browser windows and they share the same bus, so one window can

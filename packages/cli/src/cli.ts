@@ -22,7 +22,7 @@
 import { readFileSync, writeFileSync } from "node:fs";
 import {
   chordInfo, patternInfo, upiInfo, generateInfo, smfFromBars, renderVane,
-  accompany, noteNameToMidi, notesFromPhrase,
+  accompany, noteNameToMidi, notesFromPhrase, startBridge,
   sendMessage, toNdjson, parseNdjson, summarizeMessage, describeManifest,
   bundledManifestPath, MANIFEST_APPS, paramsFromStream, vaneParamIdMap,
   resolveEvent, validateControlMap, manifestsForControlMap,
@@ -50,6 +50,9 @@ const USAGE = `msuite <command> …
                                         --stream: apply a control-plane param NDJSON stream from stdin (message → sound)
   send [--from app] [--to app|*] (--param id=value… [--mode …] | --command name [--arg k=v]… | --note 60,64,67 [--velocity V] [--duration ms] [--gate on|off])
   recv                                  read NDJSON SuiteMessages from stdin, validate + summarize
+  bridge [--port 8765]                  serve stdin's NDJSON messages to BROWSERS over SSE (localhost)
+                                        msuite accompany --play | msuite bridge   → workspace Bridge module
+                                        also accepts POST /send (curl, Shortcuts) — HTTP one-shots onto the bus
   describe <app|manifest.json>          print a tool's parameter/command surface (app id e.g. vane, or a manifest file)
   bind <control-map.json> (--cc N=V [--channel C] | --note N [--velocity V] [--channel C] | --key "combo" | --validate)
                                         resolve an input through a control-map → the param/command message(s) (NDJSON)`;
@@ -343,6 +346,18 @@ async function main(): Promise<number> {
       }
       const msg = sendMessage(opts);
       process.stdout.write(toNdjson(msg));
+      return 0;
+    }
+    case "bridge": {
+      const bridge = await startBridge({
+        ...(one(args, "port") !== undefined && { port: Number(one(args, "port")) }),
+        input: process.stdin.isTTY ? null : process.stdin,
+      });
+      console.error(`bridge: listening on http://localhost:${bridge.port}` +
+        ` — SSE at /events, POST /send; workspace Bridge module connects here`);
+      if (process.stdin.isTTY)
+        console.error("bridge: no pipe on stdin — HTTP-only (POST /send still works)");
+      await new Promise(() => {}); // serve until Ctrl-C
       return 0;
     }
     case "recv": {

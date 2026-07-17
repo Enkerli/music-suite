@@ -662,3 +662,6 @@ export function describeManifest(body: unknown): { manifest: ManifestBody; lines
     lines.push(`  ${c.name}  ${c.label}` + (c.args?.length ? `  args: ${c.args.map((a) => `${a.id}[${a.min}..${a.max} ${a.unit}]`).join(", ")}` : ""));
   return { manifest: mb, lines };
 }
+
+// ── bridge: stdio-NDJSON → browsers over SSE (the transport adapter) ─────────
+export { startBridge, type Bridge, type BridgeOptions } from "./bridge.js";

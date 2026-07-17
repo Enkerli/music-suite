@@ -198,9 +198,63 @@ function bindingsModule(ctx, bodyEl, state) {
   return () => window.removeEventListener("keydown", onKey);
 }
 
+// ── Bridge: the CLI pipe's landing spot in the browser ────────────────────────
+// `msuite accompany --play | msuite bridge` serves SuiteMessages over SSE on
+// localhost; this module subscribes and republishes them onto the bus — the
+// BroadcastChannel then fans them out to every tab (Vane hears note messages
+// and SOUNDS). One line of shell reaches real audio in a real browser.
+
+/** Republish one SSE data payload onto the bus. Pure over the bus — the
+ *  testable half; bus.publish re-validates, so garbage never propagates. */
+export function republishBridgeText(bus, text) {
+  let msg;
+  try { msg = JSON.parse(text); } catch { return false; }
+  return bus.publish(msg);
+}
+
+function bridgeModule(ctx, bodyEl, state) {
+  const urlInput = el("input", { class: "ws-text", type: "text",
+    value: state.url ?? "http://localhost:8765", "aria-label": "Bridge URL", spellcheck: "false" });
+  const status = el("span", { class: "ws-readout", text: "not connected" });
+  const info = el("div", { class: "ws-readout",
+    text: "run:  msuite accompany --play | msuite bridge" });
+  let source = null;
+  let count = 0;
+
+  function disconnect() {
+    source?.close();
+    source = null;
+    btn.textContent = "connect";
+    status.textContent = "not connected";
+  }
+  function connect() {
+    if (typeof EventSource === "undefined") { status.textContent = "no EventSource in this browser"; return; }
+    disconnect();
+    state.url = urlInput.value; ctx.save();
+    count = 0;
+    source = new EventSource(`${urlInput.value.replace(/\/$/, "")}/events`);
+    btn.textContent = "disconnect";
+    status.textContent = "connecting…";
+    source.onopen = () => { status.textContent = `connected · ${count} msgs`; };
+    source.onerror = () => { status.textContent = "retrying… (is the bridge running?)"; };
+    source.onmessage = (e) => {
+      if (republishBridgeText(ctx.bus, e.data)) {
+        count++;
+        status.textContent = `connected · ${count} msgs`;
+      }
+    };
+  }
+  const btn = el("button", { class: "ws-btn", text: "connect",
+    onclick: () => (source ? disconnect() : connect()) });
+
+  bodyEl.append(el("div", { class: "ws-row" }, urlInput, btn), status, info);
+  return () => disconnect();
+}
+
 export const MODULES = {
   "control-surface": { title: "Control Surface", make: controlSurfaceModule },
   "pattern": { title: "Pattern (UPI)", make: patternModule },
   "bindings": { title: "Bindings", make: bindingsModule },
   "monitor": { title: "Bus Monitor", make: monitorModule },
+  "bridge": { title: "Bridge (CLI)", make: bridgeModule },
 };
