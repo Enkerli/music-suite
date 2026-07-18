@@ -154,22 +154,32 @@ function EngineView({ create, opts, data }) {
   return h('div', { ref: host });
 }
 
-// ── Poly lanes view (docs/SERPE_POLY.md §4) ──────────────────────────────────
-// Stacked lanes on the shared LCM grid: each lane repeats its own length
-// (polymeter — the drift and realignment IS the display), a subtle border
-// marks each wrap, and the playhead sweeps all lanes at once. Routing controls
-// (mute / note / channel) are UI state, per the design note; the offset chip
-// shows the lane's Keil number straight from the notation.
-const POLY_MAX_CELLS = 64;
-function PolyLanesPanel({ poly, playhead, laneNote, laneChan, laneMuted, setLaneUi }) {
-  const cells = Math.min(poly.lcm, POLY_MAX_CELLS);
+// ── Poly lanes view (docs/SERPE_POLY.md §4, semantics revised after field
+// testing 2026-07-18) ────────────────────────────────────────────────────────
+// Each row shows ONE cycle of its lane, stretched to the full width — so a
+// 15-step lane's cells are visibly wider than a 16-step lane's: in the
+// default cycle lock (POLYRHYTHM) that IS the timing. Per-lane playheads
+// sweep at their own rates. The lock toggle switches to step lock
+// (POLYMETER: equal steps, lanes drift); the kit menu sets note defaults
+// (a lane's own note input always wins). Routing stays UI state.
+function PolyLanesPanel({ poly, lanePh, polyLock, setPolyLock, drumKit, setDrumKit, kitNames,
+                          laneNote, laneChan, laneMuted, setLaneUi }) {
   const fmtOff = (o) => o == null ? '' : o.kind === 'ms'
     ? `@${o.ms >= 0 ? '+' : ''}${o.ms}ms` : `@${o.num >= 0 ? '+' : ''}${o.num}/${o.den}`;
   return h('div', { className: 'viz poly-lanes' },
     h('div', { className: 'viz-head' },
       h('span', { className: 'es-eyebrow' }, 'Lanes'),
+      h('div', { className: 'seg', role: 'group', 'aria-label': 'Timing lock',
+        title: 'Cycle: all lanes span the same cycle (polyrhythm — 15 against 16 is a cross-rhythm). Step: all steps equal (polymeter — lanes drift and realign).' },
+        [['cycle', 'Cycle'], ['step', 'Step']].map(([v, t]) =>
+          h('button', { key: v, 'aria-pressed': polyLock === v, onClick: () => setPolyLock(v) }, t))),
+      h('label', { className: 'poly-ctl', title: 'Drumkit note defaults by lane label; a lane’s own note input wins' }, 'kit ',
+        h('select', { className: 'es-control', value: drumKit, 'aria-label': 'Drumkit',
+          onChange: e => setDrumKit(e.target.value) },
+          kitNames.map(k => h('option', { key: k, value: k }, k)))),
       h('span', { className: 'poly-meta' },
-        `${poly.lanes.length} lanes · lcm ${poly.lcm}` + (poly.lcm > cells ? ` (showing ${cells})` : ''))),
+        polyLock === 'cycle' ? `polyrhythm · cycle = ${poly.lanes[0].steps.length} steps of lane 1`
+                             : `polymeter · realigns every ${poly.lcm} steps`)),
     poly.lanes.map((lane, i) => {
       const muted = laneMuted(lane);
       return h('div', { key: lane.label, className: 'poly-lane' + (muted ? ' muted' : '') },
@@ -190,15 +200,12 @@ function PolyLanesPanel({ poly, playhead, laneNote, laneChan, laneMuted, setLane
               onChange: e => setLaneUi(lane.label, { chan: +e.target.value }) }))),
         h('div', { className: 'poly-cells', role: 'img',
           'aria-label': `${lane.label}: ${lane.steps.join('')} over ${lane.steps.length} steps` },
-          Array.from({ length: cells }, (_, c) => {
-            const s = lane.steps[c % lane.steps.length];
-            const acc = lane.accents[c % lane.steps.length];
-            return h('span', {
+          lane.steps.map((s, c) =>
+            h('span', {
               key: c,
-              className: 'poly-cell' + (s ? ' on' : '') + (acc ? ' acc' : '')
-                + (c === playhead ? ' ph' : '') + (c > 0 && c % lane.steps.length === 0 ? ' wrap' : ''),
-            });
-          })));
+              className: 'poly-cell' + (s ? ' on' : '') + (lane.accents[c] ? ' acc' : '')
+                + (c === lanePh[i] ? ' ph' : ''),
+            }))));
     }));
 }
 
@@ -290,21 +297,42 @@ function SerpeApp() {
   // state per the design note: the notation says WHEN, this rack says WHAT.
   const [poly, setPoly] = useState(null);
   const [polyUi, setPolyUi] = useState(() => LS.get('polyUi', {}));
+  // Playback lock (user call, 2026-07-18): 'cycle' = POLYRHYTHM, the default —
+  // every lane spans the SAME cycle, so 15 against 16 is a true cross-rhythm
+  // (steps of different sizes). 'step' = POLYMETER — equal step sizes, lanes
+  // drift and realign at the lcm. The first lane defines the cycle length.
+  const [polyLock, setPolyLock] = useState(() => LS.get('polyLock', 'cycle'));
+  // Per-lane playheads (each lane cycles its own length at its own rate).
+  const [lanePh, setLanePh] = useState([]);
   const setLaneUi = (label, patch) => setPolyUi(u => {
     const next = { ...u, [label]: { ...u[label], ...patch } };
     LS.set('polyUi', next);
     return next;
   });
-  // Default drum-ish routing by label; unmatched lanes climb from C4.
-  const GM = { kick: 36, snare: 38, hat: 42, hihat: 42, clap: 39, tom: 45, ride: 51, cow: 56 };
-  const laneNote = (lane, i) => polyUi[lane.label]?.note ?? GM[lane.label.toLowerCase()] ?? 60 + i * 2;
-  const laneChan = (lane) => polyUi[lane.label]?.chan ?? (GM[lane.label.toLowerCase()] !== undefined ? 10 : midiChan);
+  // Drumkit note maps: label → MIDI note. A kit sets the DEFAULTS; a lane's
+  // own note input always wins. 'Chromatic C2' maps lanes 36, 37, 38… by index.
+  const KITS = {
+    'GM': { kick: 36, snare: 38, rim: 37, clap: 39, hat: 42, hihat: 42, openhat: 46,
+            pedal: 44, tom: 45, tomhi: 50, crash: 49, ride: 51, cow: 56, clave: 75 },
+    'Volca Beats': { kick: 36, snare: 38, tom: 43, tomhi: 50, hat: 42, hihat: 42,
+                     openhat: 46, clap: 39, clave: 75, agogo: 67, crash: 49 },
+    'Chromatic C2': null,
+  };
+  const [drumKit, setDrumKit] = useState(() => LS.get('drumKit', 'GM'));
+  const laneNote = (lane, i) => polyUi[lane.label]?.note
+    ?? (KITS[drumKit] ? KITS[drumKit][lane.label.toLowerCase()] : undefined)
+    ?? (KITS[drumKit] === null ? 36 + i : 60 + i * 2);
+  const laneChan = (lane) => polyUi[lane.label]?.chan
+    ?? (KITS[drumKit] && KITS[drumKit][lane.label.toLowerCase()] !== undefined ? 10 : midiChan);
   const laneMuted = (lane) => !!polyUi[lane.label]?.mute;
+  // Advance-on-note-in is a SPECIAL CASE, not the default (user call: an IAC
+  // echo or any incoming note shouldn't silently rotate the pattern).
+  const [midiAdvance, setMidiAdvance] = useState(() => LS.get('midiAdvance', false));
 
   const live = useRef({});
   live.current = { steps, accents, accentPattern, accText, editAccent, tempo, group, swing, waOn, waVol,
                    midiNote, accVel, unaccVel, accPitch, midiChan, midiInId, midiOutId,
-                   poly, polyUi };
+                   poly, polyUi, polyLock, drumKit, midiAdvance };
 
   // Notes we've sent out recently, so we can drop their echo when the same port
   // is routed back into our input (e.g. IAC In == Out) — otherwise each output
@@ -326,6 +354,10 @@ function SerpeApp() {
       if (i >= 0) { sentEcho.current.splice(i, 1); return; }
     }
     setMidiNote(Math.max(0, Math.min(127, e.note)));
+    // Advancing the pattern from a note-in is opt-in (Timing & output →
+    // "advance on note-in") — the special case, not the default. Without the
+    // gate, any routed-back note (IAC loops, monitoring) swirls the pattern.
+    if (!L.midiAdvance) return;
     const filled = scenes.map((s, i) => (s ? i : -1)).filter(i => i >= 0);
     if (filled.length) { const c = filled.indexOf(activeScene); sceneClick(filled[(c + 1 + filled.length) % filled.length]); }
     else progAdvance();
@@ -392,11 +424,12 @@ function SerpeApp() {
       LS.set('upi', text);
       if (cfg.host && juceAvailable()) { setParseErr('poly lanes are webapp-only for now'); return; }
       const pp = parsePolyUPI(text, { n: steps.length || 16 });
+      // Mid-edit errors KEEP the last good poly (same contract as mono, which
+      // keeps its last good steps) — typing never blanks a playing pattern.
       if (pp.ok) { setPoly(pp); setParseErr(null); }
-      else { setPoly(null); setParseErr(pp.error || 'unrecognised poly'); }
+      else setParseErr(pp.error || 'unrecognised poly');
       return;
     }
-    if (poly) setPoly(null); // leaving poly mode
     const full = fullUPI(text, acc);
     LS.set('upi', text);
     if (cfg.host && juceAvailable()) {
@@ -409,7 +442,7 @@ function SerpeApp() {
       return;
     }
     const p = parseUPI(full, { n: steps.length || 16 });
-    if (p.ok) { setParseErr(null); applyPattern(p, { syncField: false }); }
+    if (p.ok) { setParseErr(null); applyPattern(p, { syncField: false }); if (poly) setPoly(null); }
     else setParseErr(p.error || 'unrecognised');
   }
 
@@ -603,13 +636,17 @@ function SerpeApp() {
     if (s <= 0) return base * 1000;
     return base * (idx % 2 === 0 ? 1 + s : 1 - s) * 1000;
   }
-  // ── Poly playback: one common step clock, each lane cycling its own length
-  // (polymeter — E(2,3) against E(4,16) drifts and realigns at the lcm).
-  // Every hit is scheduled BASE_LAG ms out so a negative Keil offset (a push)
+  // ── Poly playback: PER-LANE clocks (SERPE_POLY.md, playback semantics
+  // decided 2026-07-18 after field testing). Default 'cycle' lock is
+  // POLYRHYTHM: every lane spans the same cycle (the first lane's natural
+  // length at the base step rate), so 15 against 16 is a steady cross-rhythm.
+  // 'step' lock is POLYMETER: equal step sizes, lanes drift and realign.
+  // Every hit is scheduled POLY_LAG ms out so a negative Keil offset (a push)
   // can genuinely sound EARLY relative to the grid — you can't play in the
   // past, but you can delay the whole band a constant everyone shares.
   const POLY_LAG_MS = 60;
   const POLY_FREQS = [220, 880, 1760, 440, 1320, 660, 2200, 330]; // audibly distinct lanes
+  const laneTimers = useRef([]);
   function polyClick(laneIdx, accent) {
     const L = live.current;
     if (!cfg.web || !L.waOn || !audioCtx.current) return;
@@ -631,6 +668,19 @@ function SerpeApp() {
     // note-value fraction of a whole note (4 beats), tempo-synced
     return (lane.offset.num / lane.offset.den) * 4 * (60000 / L.tempo);
   }
+  /** Base step in ms (mono's stepDur without swing — poly ignores swing). */
+  function polyBaseStepMs() {
+    const L = live.current; const grp = L.group || 4;
+    return ((60 / L.tempo) / grp) * 1000;
+  }
+  /** This lane's step duration under the current lock. */
+  function laneStepMs(lane) {
+    const L = live.current;
+    const base = polyBaseStepMs();
+    if (L.polyLock === 'step' || !L.poly) return base;                 // polymeter
+    const refLen = L.poly.lanes[0].steps.length || 1;                  // polyrhythm:
+    return base * (refLen / (lane.steps.length || 1));                 // same cycle for all
+  }
   function polyHit(lane, laneIdx, accent) {
     const L = live.current;
     const ui = L.polyUi[lane.label] || {};
@@ -642,22 +692,43 @@ function SerpeApp() {
         const note = Math.max(0, Math.min(127, ui.note ?? laneNote(lane, laneIdx)));
         const chan = ui.chan ?? laneChan(lane);
         sendMidiNoteOn(note, accent ? L.accVel : L.unaccVel, chan);
-        setTimeout(() => sendMidiNoteOff(note, chan), Math.max(30, stepDur(0) * 0.9));
+        // Echo guard, same as mono's midiHit: register what we sent so an
+        // IAC-style In==Out routing doesn't feed our own hits back as input
+        // (which would swirl the pattern one rotation per hit).
+        if (L.midiInId && L.midiInId === L.midiOutId) sentEcho.current.push({ n: note, c: chan, t: performance.now() });
+        setTimeout(() => sendMidiNoteOff(note, chan), Math.max(30, laneStepMs(lane) * 0.9));
       }
     }, delay);
+  }
+  // Each lane ticks on its own clock; refs keep the closures fresh across
+  // renders (the timer chain calls whatever the LATEST render defined).
+  const laneTickRef = useRef(() => {});
+  laneTickRef.current = (li) => {
+    const L = live.current;
+    if (!L.poly || !L.poly.lanes[li]) return;
+    const lane = L.poly.lanes[li];
+    setLanePh(ph => {
+      const cur = ph.slice();
+      const next = ((cur[li] ?? -1) + 1) % (lane.steps.length || 1);
+      cur[li] = next;
+      if (lane.steps[next]) polyHit(lane, li, !!lane.accents[next]);
+      return cur;
+    });
+    laneTimers.current[li] = setTimeout(() => laneTickRef.current(li), laneStepMs(lane));
+  };
+  function polyPlayStart() {
+    laneTimers.current.forEach(clearTimeout);
+    laneTimers.current = [];
+    setLanePh(live.current.poly.lanes.map(() => -1));
+    live.current.poly.lanes.forEach((_, li) => { laneTimers.current[li] = setTimeout(() => laneTickRef.current(li), 0); });
+  }
+  function polyStopTimers() {
+    laneTimers.current.forEach(clearTimeout);
+    laneTimers.current = [];
   }
   function tick() {
     setPlayhead(ph => {
       const L = live.current;
-      if (L.poly) {
-        const next = (ph + 1) % Math.max(1, L.poly.lcm);
-        L.poly.lanes.forEach((lane, i) => {
-          const s = lane.steps[next % lane.steps.length];
-          if (s) polyHit(lane, i, !!lane.accents[next % lane.steps.length]);
-        });
-        timer.current = setTimeout(tick, stepDur(next));
-        return next;
-      }
       const n = L.steps.length || 1;
       const next = (ph + 1) % n;
       // at the cycle boundary, advance the accent phase by this cycle's onset
@@ -679,14 +750,36 @@ function SerpeApp() {
     if (playing) { pause(); return; }     // webapp: Web Audio transport
     if (!audioCtx.current) { try { audioCtx.current = new (window.AudioContext || window.webkitAudioContext)(); } catch {} }
     if (audioCtx.current && audioCtx.current.state === 'suspended') audioCtx.current.resume();
-    setPlaying(true); timer.current = setTimeout(tick, stepDur(0));
+    setPlaying(true);
+    if (live.current.poly) polyPlayStart();
+    else timer.current = setTimeout(tick, stepDur(0));
   }
-  function pause() { setPlaying(false); clearTimeout(timer.current); if (live.current.midiOutId) allMidiNotesOff(live.current.midiChan); }
+  function pause() {
+    setPlaying(false); clearTimeout(timer.current); polyStopTimers();
+    const L = live.current;
+    if (L.midiOutId) {
+      allMidiNotesOff(L.midiChan);
+      // Poly lanes may route to their own channels — silence each one.
+      if (L.poly) for (const lane of L.poly.lanes) allMidiNotesOff(laneChan(lane));
+    }
+  }
   function stop() {
     if (cfg.host) { setPlaying(false); sendPlaying(false); return; }  // plugin
-    pause(); setPlayhead(-1);
+    pause(); setPlayhead(-1); setLanePh([]);
   }
-  useEffect(() => () => clearTimeout(timer.current), []);
+  useEffect(() => () => { clearTimeout(timer.current); polyStopTimers(); }, []);
+
+  // Live edits while playing: when the parsed poly changes (lanes added or
+  // removed, offsets tweaked), restart the lane clocks against the new shape;
+  // when the field goes back to mono mid-play, hand the transport to the mono
+  // tick — and vice versa. Editing never silently stops the groove.
+  useEffect(() => {
+    if (!playing || cfg.host) return;
+    clearTimeout(timer.current); polyStopTimers();
+    if (poly) polyPlayStart();
+    else timer.current = setTimeout(tick, stepDur(0));
+    // eslint-disable-next-line
+  }, [poly]);
 
   // ── JUCE bridge ──
   useEffect(() => {
@@ -866,7 +959,10 @@ function SerpeApp() {
             h('button', { key: v, className: 'upi-chip', onClick: () => applyChip(v) }, h('b', null, v), ' ' + t)))),
 
         poly
-        ? h(PolyLanesPanel, { poly, playhead, laneNote, laneChan, laneMuted, setLaneUi })
+        ? h(PolyLanesPanel, { poly, lanePh,
+            polyLock, setPolyLock: v => { setPolyLock(v); LS.set('polyLock', v); },
+            drumKit, setDrumKit: v => { setDrumKit(v); LS.set('drumKit', v); }, kitNames: Object.keys(KITS),
+            laneNote, laneChan, laneMuted, setLaneUi })
         : h('div', { className: 'viz' + (view === 'circle' ? ' solo-circle' : '') },
           h('div', { className: 'viz-head' },
             h('span', { className: 'es-eyebrow' }, 'Pattern'),
@@ -954,7 +1050,10 @@ function SerpeApp() {
           h(Slider, { label: 'Accent pitch offset', value: accPitch, min: -12, max: 12, set: v => { setAccPitch(v); if (juceAvailable()) sendParamActual('accentPitch', v); }, fmt: v => (v >= 0 ? '+' : '') + v })),
 
         // Analysis
-        h(Section, { title: 'Analysis', open: true },
+        // Analysis describes the MONO pattern; in poly mode it would show a
+        // stale pattern (and the indispensability bars overflow) — hide it
+        // until per-lane analysis lands with the parity milestone.
+        !poly && h(Section, { title: 'Analysis', open: true },
           h('div', { style: { marginBottom: 12 } },
             h('span', { className: 'balance-flag' + (a.balanced && a.k >= 2 ? ' yes' : '') },
               h('span', { className: 'led' }), h('span', null, a.k < 2 ? 'needs ≥2 onsets' : a.balanced ? 'Perfectly balanced' : 'Not balanced'))),
@@ -985,6 +1084,11 @@ function SerpeApp() {
 
         // Timing & output
         h(Section, { title: 'Timing & output' },
+          h('label', { className: 'iconbtn', style: { height: 30, fontSize: 12, gap: 6, marginBottom: 8 },
+            title: 'When on, an incoming MIDI note advances the pattern (next scene, else progressive) — the special-case behavior. Off by default so routed-back notes (IAC loops) never rotate the pattern.' },
+            h('input', { type: 'checkbox', checked: midiAdvance,
+              onChange: e => { setMidiAdvance(e.target.checked); LS.set('midiAdvance', e.target.checked); } }),
+            ' advance on note-in'),
           h(Field, { label: 'Pattern length' },
             h('select', { className: 'es-control', value: lenUnit,
               onChange: e => { const u = +e.target.value; setLenUnit(u);

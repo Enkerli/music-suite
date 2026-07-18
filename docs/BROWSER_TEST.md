@@ -278,41 +278,59 @@ verifiable here.*
 
 ## 9. Serpe Poly lanes — the Keil moment (one tab, by ear)
 
-*docs/SERPE_POLY.md §7 acceptance. Requires apps synced after 2026-07-18.*
+*docs/SERPE_POLY.md §7 acceptance, semantics revised after first field test.
+Requires apps synced after 2026-07-18 (second sync — with the polyrhythm
+default and the IAC fixes).*
 
 1. Open **Serpe**. In the UPI field type:
    ```
    kick=E(4,16) / snare=E(2,4)@+12ms / hat={10}E(8,16)
    ```
-   → the status line reads **“✓ poly · 3 lanes · lcm 16 · kick / snare / hat”**
-   and the Pattern view is replaced by the **Lanes** panel: three stacked
-   rows, each with mute (●), a note/channel pair (kick 36 / snare 38 /
-   hat 42, channel 10 — GM defaults by label), and its step cells. The hat
-   row shows alternating accent-colored cells (the `{10}` layer).
-2. Press **play** (enable the internal click if you have no MIDI device).
-   → three *distinct pitches* interlock; the playhead outline sweeps all
-   lanes in step.
-3. **Polymeter check:** change the field to `E(2,3) / E(4,16)`.
-   → status shows `lcm 48`; the 3-step lane visibly drifts against the
-   16-step lane and realigns (wrap gaps mark each lane’s cycle). You HEAR
-   the two parts phase and re-meet.
-4. **Mute:** click the snare row’s ● → the row dims and the snare falls
-   silent; the other lanes keep going. Click again to bring it back.
-5. **The Keil moment (by ear):** with
-   `kick=E(4,16) / snare=[4,12]:16@+30ms` playing, edit `+30` down to `+0`
-   then to `-30` (Enter re-parses live).
-   → the backbeat audibly *lays back* behind the kick at `+30`, sits dead
-   center at `0`, and *pushes ahead* at `-30` — same grid, different feel.
-   That difference IS participatory discrepancy.
-6. **Tempo-synced offset:** switch the snare suffix to `@+1/32` and change
-   the tempo slider. → the lag scales with tempo (a thirty-second stays a
-   thirty-second), where `@+30ms` stays constant.
-7. **Mono round-trip:** delete everything after the first lane (a plain
-   `E(4,16)`). → the classic Pattern view returns, transforms and
-   progressive work again (they are intentionally inert in poly mode).
-8. **Plugin guard (if testing the plugin build):** poly text in the plugin
-   shows *“poly lanes are webapp-only for now”* rather than reaching the
-   C++ engine.
+   → status reads **“✓ poly · 3 lanes · lcm 16 · kick / snare / hat”**; the
+   Pattern view becomes the **Lanes** panel: a **Cycle/Step** lock toggle and
+   a **kit** menu in the header, then one row per lane — mute (●), note/
+   channel (GM defaults: kick 36 / snare 38 / hat 42, ch 10), and ONE cycle
+   of cells stretched to full width. The hat row shows accent-colored cells.
+2. Press **play** (enable the internal click if no MIDI device).
+   → three distinct pitches interlock; **each row’s playhead sweeps at its
+   own rate** but all rows complete a cycle together (cycle lock).
+3. **Polyrhythm check (the default):** change the field to
+   `E(4,15) / E(4,16)`.
+   → the 15-cell row has slightly WIDER cells than the 16-cell row (that
+   width difference IS the timing); playing, you hear a steady 15-against-16
+   cross-rhythm — downbeats together every cycle, interiors weaving. No
+   flamming clusters, no “trying to catch up.”
+4. **Polymeter (the toggle):** flip the lock to **Step**.
+   → now steps are equal-duration; the two lanes drift apart and realign
+   (the meta line says how often). Flip back to **Cycle** — the change takes
+   effect within a step, mid-play.
+5. **Mute:** click the snare row’s ● → the row dims and falls silent; the
+   others keep going. Click again to restore.
+6. **The Keil moment (by ear):** with
+   `kick=E(4,16) / snare=[4,12]:16@+30ms` playing, edit `+30` → `+0` → `-30`
+   (Enter re-parses live).
+   → the backbeat lays back, sits center, then pushes — same grid, three
+   different feels. That difference IS participatory discrepancy.
+7. **Tempo-synced offset:** switch the snare suffix to `@+1/32`, move the
+   tempo slider. → the lag scales with tempo, where `@+30ms` stays constant.
+8. **Edit-while-playing:** with the groove running, type a deliberately
+   broken lane (e.g. add ` / xx(((`).
+   → the status shows the ✗ error but **the groove keeps playing the last
+   good pattern** — nothing blanks. Fix the text → the new shape takes over.
+9. **IAC loop check (the swirl fix):** set MIDI In and Out to the SAME IAC
+   bus, play a poly groove.
+   → the pattern does NOT rotate itself (outgoing hits are echo-guarded on
+   every path). Also verify in mono: incoming notes no longer advance the
+   pattern unless **Timing & output → “advance on note-in”** is checked —
+   advancing is now the special case, off by default.
+10. **Drumkits:** switch the **kit** menu (GM → Volca Beats → Chromatic C2).
+    → label-matched lanes retarget their default notes; any note you typed
+    by hand stays put (explicit wins).
+11. **Mono round-trip:** reduce to a single lane (`E(4,16)`). → the classic
+    Pattern view and Analysis section return (Analysis is hidden in poly
+    mode on purpose — it describes the mono pattern).
+12. **Plugin guard:** poly text in the plugin build shows *“poly lanes are
+    webapp-only for now”* (parity is planned — SERPE_POLY §8).
 
 ---
 

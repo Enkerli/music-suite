@@ -77,7 +77,9 @@ Sound routing (MIDI note, channel, voice) and mute state live in **UI/app
 state**, not the string. Principle: **the notation says WHEN; the instrument
 rack says WHAT.** A pattern pasted from a friend should drop onto *your*
 drum mapping, not carry theirs. (Same reason a leadsheet doesn't name the
-pianist.)
+pianist.) The rack side grew a **drumkit selector** (GM · Volca Beats ·
+Chromatic-from-C2): a kit sets label→note DEFAULTS, a lane's own note input
+always wins, and kit choice persists per browser.
 
 ### 2.5 Interactions with the existing grammar — settled by construction
 
@@ -110,6 +112,24 @@ Serialization = the notation itself (2.1–2.3); `formatPolyUPI(poly)`
 round-trips. Lanes keep their own lengths — a 3-step clave against a 16-step
 hat is the point — and the LCM is only for *drawing* them aligned.
 
+## 3b. Playback semantics — **DECIDED: cycle lock default** *(2026-07-18, field-tested)*
+
+First build shipped POLYMETER (equal step sizes, lanes drifting to the lcm);
+field listening said no: 15 against 16 clustered into near-flams around the
+realignment points — "trying to match the sync points" — instead of a steady
+cross-rhythm. Revised, per the user's call:
+
+- **Cycle lock (default) = POLYRHYTHM.** Every lane spans the SAME cycle
+  (the first lane's natural length at the base step rate defines it); a
+  lane's step duration = cycleMs / its length. 15:16 is a true cross-rhythm;
+  the display shows one cycle per row, stretched — different step SIZES,
+  which is exactly the timing.
+- **Step lock (toggle) = POLYMETER.** All steps equal; lanes drift and
+  realign at the lcm. The phasing feel, when you want it.
+
+Implementation: per-lane clocks (not one global tick); each lane reschedules
+from the live lock, so flipping the toggle takes effect within a step.
+
 ## 4. The webapp slice (M) — scope fence
 
 **In:** `parsePolyUPI`/`formatPolyUPI` in `@enkerli/upi` (pure, vectored,
@@ -119,10 +139,10 @@ slider wired to `@±ms`) · per-lane playback scheduling in the webapp
 (WebMIDI out and the existing internal preview both honor offsets) ·
 `msuite upi` printing per-lane analysis for poly input.
 
-**Out (explicitly):** C++ plugin parity (the engine stays mono until this
-notation survives real use — the webapp is the lab) · progressive/scenes
+**Out (explicitly, at slice 1):** C++ plugin parity · progressive/scenes
 per lane · transforms (rotate/mutate) targeting a single lane via the bus ·
-DAW-sync. Each is a follow-on with its own slice.
+DAW-sync. Each is a follow-on with its own slice — parity is now planned,
+see §8.
 
 **Docs rule honored:** mono notation docs stay light until `/` lands
 (the standing concern about documenting a surface about to change).
@@ -160,3 +180,26 @@ for free — one more reason the notation decision comes first.
 tempo-synced fraction unit); §2.4 stands unchallenged. Implementation began
 the same day: parser/formatter first (node-verifiable), the webapp lanes
 view next (needs the browser).*
+
+## 8. Parity milestone (plugin · standalone · webapp) — PLANNED
+
+Field testing confirmed the notation and semantics hold; full parity is now
+on the roadmap (PRIORITIES follow-on, L). The webapp stays the reference
+implementation; the order of work:
+
+1. **C++ `UPIParser` lanes** — port `splitLanes`/offset tokens (the grammar
+   is small and regular); conformance-locked against the JS vectors, the
+   same cross-language ritual as the rhythm codecs (134-vector precedent).
+2. **Engine voices** — the C++ sequencer grows per-lane clocks with the
+   cycle/step lock and the POLY_LAG + offset scheduling model; per-lane
+   note/channel as plugin parameters (automatable).
+3. **Plugin UI** — the shared index.html grows the lanes panel (same DOM,
+   same CSS — the WebView is the same file the webapp bundles).
+4. **Per-lane analysis** — the mono Analysis pane (hidden in poly mode
+   today) returns as per-lane meters + a cross-rhythm view (interference
+   pattern of lane pairs — the Keil visual).
+
+Known behaviors to carry over from webapp field fixes (2026-07-18):
+advance-on-note-in is OPT-IN everywhere (the IAC-loop swirl); outgoing hits
+register in the echo guard on every path; mid-edit parse errors keep the
+last good pattern playing.

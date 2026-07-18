@@ -291,10 +291,11 @@ select.es-control {
 .poly-off { color: var(--es-dim-pressure, #d90); }
 .poly-ctl { display: inline-flex; align-items: center; gap: 4px; color: var(--es-ink-dim, #999); }
 .poly-num { width: 4.2em; height: 26px; font-size: 12px; }
-.poly-cells { display: flex; gap: 2px; overflow-x: auto; padding-bottom: 2px; }
-.poly-cell { flex: 0 0 14px; height: 22px; border-radius: 3px; background: var(--es-well, #222);
-  border: 1px solid transparent; }
+/* One CYCLE per row, stretched full width: a 15-step lane's cells are wider
+   than a 16-step lane's — under cycle lock (polyrhythm) that IS the timing. */
+.poly-cells { display: flex; gap: 2px; padding-bottom: 2px; }
+.poly-cell { flex: 1 1 0; min-width: 4px; height: 22px; border-radius: 3px;
+  background: var(--es-well, #222); border: 1px solid transparent; }
 .poly-cell.on { background: var(--es-accent, #4a9); }
 .poly-cell.on.acc { background: var(--es-dim-pressure, #d90); }
 .poly-cell.ph { border-color: var(--es-ink, #eee); }
-.poly-cell.wrap { margin-left: 6px; }
