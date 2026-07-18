@@ -78,3 +78,33 @@ export function analyzeSyncopation(steps: Steps, stepCount: number): Syncopation
 export function mutatePattern(
   originalPattern: Steps, mutationAmount?: number, options?: Record<string, unknown>,
 ): { mutated: Steps; mutatedOnsets: number[]; [k: string]: unknown };
+
+/** A per-lane micro-timing offset (docs/SERPE_POLY.md §2.3 — the Keil number). */
+export type LaneOffset =
+  | { kind: "ms"; ms: number }
+  | { kind: "frac"; num: number; den: number };
+
+export interface PolyLane {
+  label: string;
+  steps: Steps;
+  accents: number[];
+  accentPattern: number[] | null;
+  offset: LaneOffset | null;
+  /** The lane's own UPI text as given (offset stripped). */
+  source: string;
+  /** parseUPI's normalized label for the lane's expression. */
+  parsedLabel: string;
+}
+
+export interface PolyResult {
+  ok: boolean;
+  lanes: PolyLane[];
+  /** Display-alignment grid: lcm of lane lengths. */
+  lcm: number;
+  error?: string;
+}
+
+export function splitLanes(src: string): string[];
+export function parsePolyUPI(input: string, ctx?: { n: number }): PolyResult;
+export function formatPolyUPI(poly: PolyResult): string;
+export function offsetTicks(offset: LaneOffset | null, ticksPerBeat: number, beatsPerWhole?: number): number;

@@ -1,9 +1,11 @@
-# Serpe Poly — design note (DRAFT for reaction)
+# Serpe Poly — design note (v1 — separator & offset DECIDED)
 
 *2026-07-18, PRIORITIES row 5. The notation is a **one-way door** — patterns
-people save today must parse forever — so this note exists to settle it
-before any code. Everything below is marked **DECIDE** (needs your call),
-**PROPOSED** (my recommendation, argued), or **OPEN** (safe to defer).
+people save today must parse forever — so this note settled it before code.
+§2.1/§2.3 are **DECIDED** (2026-07-18: `/` lanes, `@` offsets in ms or
+note-value fractions); remaining items are **PROPOSED** (argued defaults,
+standing unless challenged) or **OPEN** (safe to defer). We document and
+iterate — backtracking costs a migration note, not a rewrite.
 Charlie Keil is the reason this matters: groove lives in the interaction
 BETWEEN parts — participatory discrepancies, the push and drag between
 lanes — not inside any single lane.*
@@ -18,55 +20,56 @@ micro-timing — and the interplay is the music.
 
 ## 2. The notation — the one-way door
 
-### 2.1 Lane separator — **DECIDE**
-
-**PROPOSED: `&`** — "and", the parallel operator:
+### 2.1 Lane separator — **DECIDED: `/`** *(2026-07-18)*
 
 ```
-E(4,16) & E(3,8) & {10}E(2,3)
+E(4,16) / E(3,8) / {10}E(2,3)
 ```
 
-Why `&` over the alternatives:
+The slash reads as a lane separator on sight (drum-notation instinct:
+kick/snare/hat). Verified free in the UPI grammar — no production uses it;
+Morse and the shorthand names are letters-only. Known adjacency, accepted:
+the LEADSHEET language uses `/` for slash chords (`C/G`), but the two
+languages never share a string. One parsing subtlety, handled in §2.3: a
+tempo-synced offset fraction (`@+1/32`) contains a slash, so the lane
+splitter consumes `@…` offset tokens atomically before splitting.
 
-- **It pairs semantically with `+`.** `A + B` = union INTO one lane;
-  `A & B` = keep as SEPARATE lanes. One character teaches the whole
-  poly/mono distinction.
-- **`,` is already three things** in the grammar — `E(3,8,rot)` arguments,
-  `[0,3,6]:8` onset lists — so a top-level comma split must be doubly
-  depth-aware, and every error message gets murkier ("did you mean a lane or
-  a rotation?").
-- **`:` is taken** by the codecs (`0x94:8`), **`;` by quantization, `|` by
-  bar notation** in the leadsheet language next door — reusing it here would
-  overload the suite's most familiar symbol with a perpendicular meaning.
-- `&` is unused anywhere in UPI (and in Morse letters), so it's unambiguous
-  at any nesting depth, forever.
-
-Alternative if `&` feels wrong under the fingers: top-level `,` with
-paren/bracket-aware splitting. Workable; my second choice.
+*(The earlier `&` proposal is preserved in git history; we document and
+iterate — this door swings back at the cost of a migration note.)*
 
 ### 2.2 Lane labels — **PROPOSED**
 
 Optional `name=` prefix per lane (`=` is unused in the grammar; `:` is not):
 
 ```
-kick=E(4,16) & snare=[4,12]:16 & hat={10}E(8,16)
+kick=E(4,16) / snare=[4,12]:16 / hat={10}E(8,16)
 ```
 
 Labels are for humans, the mixer UI, and the bus (`pattern` messages can
 carry them in `name`); unlabeled lanes get `lane1`, `lane2`, …
 
-### 2.3 Micro-timing — the Keil suffix — **PROPOSED**
+### 2.3 Micro-timing — the Keil suffix — **DECIDED: `@`, two units** *(2026-07-18)*
 
-Per-lane offset in milliseconds, `@` suffix (`@` is unused):
+Per-lane offset, `@` suffix (`@` is unused in the grammar), at the END of a
+lane. `+` = lay back (late), `−` = push (early). **Two units**, because feel
+and notation are different regimes:
 
 ```
-kick=E(4,16) & snare=E(2,4)@+12 & hat=E(8,16)@-6
+kick=E(4,16) / snare=E(2,4)@+12ms / hat=E(8,16)@-1/64
 ```
 
-`+` = lay back (late), `−` = push (early). This puts participatory
-discrepancies **in the saved, shareable text** — a groove's feel survives
-copy-paste, which is exactly the argument for having a notation at all.
-Range clamp ±50ms (beyond that it's a different rhythm, not a feel).
+- **`@±Nms`** (bare `@±N` also = ms) — absolute milliseconds,
+  tempo-independent: how participatory discrepancies are actually measured
+  (typically 10–40ms). Clamped ±50ms.
+- **`@±num/den`** — a NOTE-VALUE fraction of a whole note, tempo-synced:
+  `@+1/32` is "a thirty-second late" at any bpm (ticks =
+  wholeNoteTicks × num/den). The music-notation equivalent for when the
+  groove must scale with tempo. Clamped ±1/8.
+
+The splitter consumes the whole `@` token atomically, so the fraction's
+slash never reads as a lane break. This puts participatory discrepancies
+**in the saved, shareable text** — a groove's feel survives copy-paste,
+which is exactly the argument for having a notation at all.
 
 ### 2.4 What stays OUT of the notation — **PROPOSED**
 
@@ -80,8 +83,8 @@ pianist.)
 
 - Each lane is a complete UPI expression: `{100}E(3,8);12@+5` is legal —
   accents, quantization, and offset per lane.
-- `+`/`-` still merge *within* a lane: `kick=E(4,16)+[2]:16 & snare=…`.
-- A single lane with no `&` parses exactly as today — **zero breaking
+- `+`/`-` still merge *within* a lane: `kick=E(4,16)+[2]:16 / snare=…`.
+- A single lane with no `/` parses exactly as today — **zero breaking
   change**; `parseUPI` untouched, `parsePolyUPI` added beside it.
 
 ## 3. Data model
@@ -91,7 +94,10 @@ interface PolyLane {
   label: string;            // "kick" or "lane1"
   steps: number[];          // leftmost = LSB, as everywhere
   accents: number[];
-  offsetMs: number;         // the Keil number; 0 default
+  offset:                   // the Keil number; absent = dead on the grid
+    | { kind: "ms"; ms: number }            // @+12ms — absolute feel
+    | { kind: "frac"; num: number; den: number } // @-1/64 — tempo-synced
+    | null;
   source: string;           // the lane's own UPI text, round-trippable
 }
 interface PolyPattern {
@@ -118,13 +124,13 @@ notation survives real use — the webapp is the lab) · progressive/scenes
 per lane · transforms (rotate/mutate) targeting a single lane via the bus ·
 DAW-sync. Each is a follow-on with its own slice.
 
-**Docs rule honored:** mono notation docs stay light until `&` lands
+**Docs rule honored:** mono notation docs stay light until `/` lands
 (the standing concern about documenting a surface about to change).
 
 ## 5. Bus & protocol — **OPEN** (audit rule applies)
 
 A poly pattern on the bus: either (a) N ordinary `pattern` messages, one per
-lane, `name` carrying `"kick@+12"` — zero protocol change, works today; or
+lane, `name` carrying `"kick@+12ms"` — zero protocol change, works today; or
 (b) a `lanes: [{steps, mask, offsetMs}]` extension to PatternBody — cleaner,
 but a protocol addition needs the GLORIARP_BRIEF §12 justification ritual.
 **Start with (a)**; adopt (b) only when a consumer actually needs atomic
@@ -140,8 +146,9 @@ for free — one more reason the notation decision comes first.
 
 ## 7. Acceptance for the first slice
 
-- `parsePolyUPI("kick=E(4,16) & snare=E(2,4)@+12")` → 2 lanes, labels,
-  offsets; single-lane input identical to `parseUPI` output (pinned).
+- `parsePolyUPI("kick=E(4,16) / snare=E(2,4)@+12ms")` → 2 lanes, labels,
+  offsets; single-lane input identical to `parseUPI` output (pinned);
+  `@+1/32` parses as a note-value offset, not a lane break.
 - Round-trip: `formatPolyUPI(parsePolyUPI(s))` normalizes stably.
 - Webapp: two lanes visibly interlocked on the LCM grid; muting one leaves
   the other sounding; dragging the offset slider audibly drags the snare
@@ -149,5 +156,7 @@ for free — one more reason the notation decision comes first.
 - Committed vectors for the parser; zero change to any existing UPI test.
 
 ---
-*React to §2.1 (the `&`), §2.3 (the `@ms` suffix), and §2.4 (routing stays
-out). Everything else follows from those three.*
+*§2.1 and §2.3 decided 2026-07-18 (user call: `/` and `@` with a
+tempo-synced fraction unit); §2.4 stands unchallenged. Implementation began
+the same day: parser/formatter first (node-verifiable), the webapp lanes
+view next (needs the browser).*

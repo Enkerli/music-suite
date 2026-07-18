@@ -554,3 +554,17 @@ describe("accompany --rhythm / bundled --source styles", () => {
     expect(() => accompany({ progression: "Dm7", rhythm: "not-a-rhythm(((" })).toThrow(/did not parse as UPI/);
   });
 });
+
+describe("polyUpiInfo (Serpe Poly notation — docs/SERPE_POLY.md)", () => {
+  it("parses lanes with per-lane analysis; offsets carried", async () => {
+    const { polyUpiInfo, isPolyUpi } = await import("./index.js");
+    const p = polyUpiInfo("kick=E(4,16) / snare=E(2,4)@+12ms / hat=E(8,16)@-1/64");
+    expect(p.ok).toBe(true);
+    expect(p.poly!.lanes.map((l) => l.label)).toEqual(["kick", "snare", "hat"]);
+    expect(p.analyses.map((a) => a.k)).toEqual([4, 2, 8]);
+    expect(p.poly!.lcm).toBe(16);
+    expect(isPolyUpi("E(3,8)")).toBe(false);
+    expect(isPolyUpi("E(3,8)@+1/32")).toBe(false); // a fraction is not a lane break
+    expect(isPolyUpi("E(3,8) / E(2,4)")).toBe(true);
+  });
+});

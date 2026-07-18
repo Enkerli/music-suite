@@ -31,3 +31,8 @@ export {
 
 export { analyzeSyncopation } from "./syncopation.js";
 export { mutatePattern } from "./mutate.js";
+
+export {
+  // poly lanes (docs/SERPE_POLY.md): / separates, name= labels, @ offsets
+  parsePolyUPI, formatPolyUPI, splitLanes, offsetTicks,
+} from "./poly.js";

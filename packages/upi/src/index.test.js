@@ -84,3 +84,84 @@ describe("mutate + syncopation run headless (no DOM)", () => {
     expect(typeof s.offBeatRatio).toBe("number");
   });
 });
+
+// ── poly lanes (docs/SERPE_POLY.md — notation decided 2026-07-18) ───────────
+
+import { parsePolyUPI, formatPolyUPI, splitLanes, offsetTicks } from "./poly.js";
+
+describe("splitLanes (the / separator, offset-atomic)", () => {
+  it("splits on top-level / only", () => {
+    expect(splitLanes("E(4,16) / E(3,8) / {10}E(2,3)")).toEqual(["E(4,16)", "E(3,8)", "{10}E(2,3)"]);
+  });
+  it("a fraction offset's slash never splits a lane", () => {
+    expect(splitLanes("kick=E(4,16)@+1/32 / snare=E(2,4)")).toEqual(["kick=E(4,16)@+1/32", "snare=E(2,4)"]);
+    expect(splitLanes("E(3,8)@-1/64")).toEqual(["E(3,8)@-1/64"]);
+  });
+  it("no top-level / means one lane (mono unchanged)", () => {
+    expect(splitLanes("{100}E(3,8);12")).toEqual(["{100}E(3,8);12"]);
+  });
+});
+
+describe("parsePolyUPI", () => {
+  it("parses lanes with labels and both offset units", () => {
+    const p = parsePolyUPI("kick=E(4,16) / snare=E(2,4)@+12ms / hat={10}E(8,16)@-1/64");
+    expect(p.ok).toBe(true);
+    expect(p.lanes.map((l) => l.label)).toEqual(["kick", "snare", "hat"]);
+    expect(p.lanes[0].offset).toBeNull();
+    expect(p.lanes[1].offset).toEqual({ kind: "ms", ms: 12 });
+    expect(p.lanes[2].offset).toEqual({ kind: "frac", num: -1, den: 64 });
+    expect(p.lanes[0].steps.length).toBe(16);
+    expect(p.lanes[1].steps.length).toBe(4);
+  });
+  it("bare @±N means milliseconds", () => {
+    const p = parsePolyUPI("E(3,8)@-6");
+    expect(p.lanes[0].offset).toEqual({ kind: "ms", ms: -6 });
+  });
+  it("a single unlabeled lane matches parseUPI exactly (zero breaking change)", () => {
+    const poly = parsePolyUPI("{100}E(3,8);12");
+    const mono = parseUPI("{100}E(3,8);12");
+    expect(poly.ok).toBe(true);
+    expect(poly.lanes).toHaveLength(1);
+    expect(poly.lanes[0].steps).toEqual(mono.steps);
+    expect(poly.lanes[0].accents).toEqual(mono.accents);
+    expect(poly.lanes[0].label).toBe("lane1");
+  });
+  it("lanes keep their own lengths; lcm is the display grid", () => {
+    const p = parsePolyUPI("E(2,3) / E(4,16)");
+    expect(p.lanes.map((l) => l.steps.length)).toEqual([3, 16]);
+    expect(p.lcm).toBe(48);
+  });
+  it("clamps the feel: >50ms and >1/8 are rejected as different rhythms", () => {
+    expect(parsePolyUPI("E(3,8)@+51ms").ok).toBe(false);
+    expect(parsePolyUPI("E(3,8)@+51ms").error).toMatch(/different rhythm/);
+    expect(parsePolyUPI("E(3,8)@+1/4").ok).toBe(false);
+  });
+  it("one bad lane fails the whole parse, named", () => {
+    const p = parsePolyUPI("kick=E(4,16) / snare=nonsense(((");
+    expect(p.ok).toBe(false);
+    expect(p.error).toMatch(/^snare:/);
+  });
+});
+
+describe("formatPolyUPI (round-trip)", () => {
+  it("normalizes stably: parse(format(parse(s))) = parse(s)", () => {
+    const s = "kick=E(4,16) / snare=E(2,4)@+12ms / hat={10}E(8,16)@-1/64";
+    const once = parsePolyUPI(s);
+    const twice = parsePolyUPI(formatPolyUPI(once));
+    expect(twice.ok).toBe(true);
+    expect(twice.lanes.map((l) => ({ label: l.label, steps: l.steps, offset: l.offset })))
+      .toEqual(once.lanes.map((l) => ({ label: l.label, steps: l.steps, offset: l.offset })));
+  });
+  it("auto lane names stay implicit in the text", () => {
+    expect(formatPolyUPI(parsePolyUPI("E(3,8) / E(2,4)"))).toBe("E(3,8) / E(2,4)");
+  });
+});
+
+describe("offsetTicks (frac → ticks; ms handled by the scheduler)", () => {
+  it("converts a note-value fraction at a tick resolution", () => {
+    expect(offsetTicks({ kind: "frac", num: 1, den: 32 }, 480)).toBe(60);   // a 32nd @480tpb
+    expect(offsetTicks({ kind: "frac", num: -1, den: 64 }, 480)).toBe(-30);
+    expect(offsetTicks({ kind: "ms", ms: 12 }, 480)).toBe(0);               // ms is not ticks
+    expect(offsetTicks(null, 480)).toBe(0);
+  });
+});

@@ -22,7 +22,7 @@
 import { readFileSync, writeFileSync, createWriteStream } from "node:fs";
 import { createInterface } from "node:readline";
 import {
-  chordInfo, patternInfo, upiInfo, generateInfo, smfFromBars, renderVane,
+  chordInfo, patternInfo, upiInfo, isPolyUpi, polyUpiInfo, generateInfo, smfFromBars, renderVane,
   accompany, noteNameToMidi, notesFromPhrase, performPhrase, startBridge,
   listMidiPorts, resolveMidiPort, createMidiPlayer,
   sendMessage, toNdjson, parseNdjson, summarizeMessage, describeManifest,
@@ -37,6 +37,8 @@ const USAGE = `msuite <command> …
   chord <values…> [--pcs|--notes]
   pattern <spec>                        E(3,8) · 0x94:8 · o111:8 · d73:8 · 10010010
   upi "<notation>" [--steps N]          the full Serpe UPI language: P(3,0)+P(5,0), E(3,8);12, {100}E(3,8), Morse…
+                                        POLY lanes (docs/SERPE_POLY.md): "kick=E(4,16) / snare=E(2,4)@+12ms"
+                                        / separates lanes; @±Nms or @±1/32 is per-lane micro-timing (Keil)
   generate [--mode major|minor] [--length N] [--seed N] [--method markov|markov-cadence|circle] [--tonic C] [-o out.mid] [--bars-only]
                                         a progression from the corpus statistics → Roman bars (or realized SMF with -o)
                                         piped (or --bars-only): bare bar notation, ready for | msuite accompany
@@ -176,8 +178,23 @@ async function main(): Promise<number> {
     }
     case "upi": {
       const notation = args.positional.join(" ");
-      if (!notation) throw new Error('upi: a UPI notation is required, e.g. "E(3,8)" or "P(3,0)+P(5,0)"');
-      const info = upiInfo(notation, one(args, "steps") !== undefined ? Number(one(args, "steps")) : 16);
+      if (!notation) throw new Error('upi: a UPI notation is required, e.g. "E(3,8)" or "kick=E(4,16) / snare=E(2,4)@+12ms"');
+      const nSteps = one(args, "steps") !== undefined ? Number(one(args, "steps")) : 16;
+      if (isPolyUpi(notation)) {
+        const p = polyUpiInfo(notation, nSteps);
+        if (!p.ok) { console.log(`no pattern (${p.error ?? "unparsed"})`); return 1; }
+        console.log(`lanes   ${p.poly!.lanes.length} · display grid lcm ${p.poly!.lcm}`);
+        p.poly!.lanes.forEach((lane, i) => {
+          const a = p.analyses[i]!;
+          const off = lane.offset == null ? ""
+            : lane.offset.kind === "ms" ? `  @${lane.offset.ms >= 0 ? "+" : ""}${lane.offset.ms}ms`
+            : `  @${lane.offset.num >= 0 ? "+" : ""}${lane.offset.num}/${lane.offset.den}`;
+          console.log(`${lane.label.padEnd(10)} ${lane.parsedLabel}${off}`);
+          console.log(`           ${a.binary}  onsets [${a.onsets.join(" ")}] (${a.k}/${a.n}, evenness ${a.evenness.toFixed(3)})`);
+        });
+        return 0;
+      }
+      const info = upiInfo(notation, nSteps);
       if (!info.ok) { console.log(`no pattern (${info.error ?? "unparsed"})`); return 1; }
       const a = info.analysis!;
       console.log(`label   ${info.label}`);

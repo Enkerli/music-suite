@@ -29,7 +29,7 @@ import {
   parseLeadsheet, realizeLeadsheet, type Progression,
 } from "@enkerli/theory";
 import { progressionToSMF, progressionFromSMF, createSMF, type MidiNote, type MidiMarker } from "@enkerli/midi";
-import { parseUPI, analyse } from "@enkerli/upi";
+import { parseUPI, analyse, parsePolyUPI, splitLanes, type PolyResult } from "@enkerli/upi";
 import { generateLabels, realizeLabel } from "@enkerli/proggen";
 import {
   parsePhrase, adaptBassPhrase, applyRhythm, articulate, serializePhrase, GATES,
@@ -138,6 +138,26 @@ export function upiInfo(notation: string, steps = 16): UpiInfo {
   const r = parseUPI(notation, { n: steps });
   if (!r.ok) return { ok: false, label: r.label ?? notation, steps: [], accents: [], analysis: null, ...(r.error !== undefined && { error: r.error }) };
   return { ok: true, label: r.label, steps: r.steps, accents: r.accents, analysis: analyse(r.steps) };
+}
+
+/** Is this notation poly (top-level `/` lanes — docs/SERPE_POLY.md)? */
+export function isPolyUpi(notation: string): boolean {
+  return splitLanes(String(notation)).length > 1;
+}
+
+export interface PolyUpiInfo {
+  ok: boolean;
+  poly: PolyResult | null;
+  /** Per-lane analysis, aligned with poly.lanes. */
+  analyses: Array<import("@enkerli/upi").Analysis>;
+  error?: string;
+}
+
+/** Parse + analyse poly notation, one analysis per lane. */
+export function polyUpiInfo(notation: string, steps = 16): PolyUpiInfo {
+  const p = parsePolyUPI(notation, { n: steps });
+  if (!p.ok) return { ok: false, poly: null, analyses: [], ...(p.error !== undefined && { error: p.error }) };
+  return { ok: true, poly: p, analyses: p.lanes.map((l) => analyse(l.steps)) };
 }
 
 // ── generate (ProgGenie's corpus generation, via @enkerli/proggen) ────────────
