@@ -44,7 +44,7 @@ The commands fall into three groups.
 | --- | --- | --- |
 | `generate` | a chord progression from the corpus statistics | `msuite generate --mode major --length 8 --seed 42` |
 | `smf` | bar notation → a Standard MIDI File | `msuite smf "Dm7 G7 \| Cmaj7" -o out.mid` |
-| `accompany` | walk a bassline through a progression (GloriArp) | `msuite accompany --progression "Dm7 \| G7 \| Cmaj7" -o bass.mid` |
+| `accompany` | walk a bassline through a progression (GloriArp) — pick a style (`--source funk-ghost`, `bossa`, `two-feel`) or put the notes on any Serpe rhythm (`--rhythm "E(3,8)"`) | `msuite accompany --progression "Dm7 \| G7 \| Cmaj7" --rhythm "E(3,8)" -o bass.mid` |
 | `render` | notes → audio through Vane's real sound engine | `msuite render 60 64 67 -o out.wav --breath 0.9` |
 
 **Connect tools** — the messaging commands (`send`, `recv`, `describe`,

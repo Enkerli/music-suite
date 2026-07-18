@@ -14,14 +14,22 @@ import { writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseLeadsheet, realizeLeadsheet } from "@enkerli/theory";
-import { extractPhrase, adaptBassPhrase, serializePhrase } from "@enkerli/accompaniment";
+import { extractPhrase, adaptBassPhrase, applyRhythm, serializePhrase } from "@enkerli/accompaniment";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 
-// The curated source: one bar of 4/4 walking bass over Dm7 —
-// D2, F2, A2 (chord tones 1-2-3) then C♯3, the classic semitone approach
-// back to the loop's downbeat D.
 const DM7 = { symbol: "Dm7", rootPc: 2, pcs: [2, 5, 9, 0] };
+const CC0 = { note: "hand-written CC0 fixture (GLORIARP_BRIEF §19 corpus)" };
+const meta = (id) => ({
+  id, role: "bass",
+  meter: { numerator: 4, denominator: 4 }, ticksPerBeat: 480, lengthTicks: 1920,
+  frame: DM7, source: CC0,
+});
+
+// ── The source-phrase pack: each committed phrase is a "style" for free ──────
+
+// Walking: D2, F2, A2 (chord tones 1-2-3) then C♯3, the classic semitone
+// approach back to the loop's downbeat D.
 const source = extractPhrase(
   [
     { pitch: 38, startTick: 0, durationTicks: 480, velocity: 96 },
@@ -29,17 +37,49 @@ const source = extractPhrase(
     { pitch: 45, startTick: 960, durationTicks: 480, velocity: 90 },
     { pitch: 49, startTick: 1440, durationTicks: 480, velocity: 92 },
   ],
-  {
-    id: "walking-bass-dm7-v1",
-    role: "bass",
-    meter: { numerator: 4, denominator: 4 },
-    ticksPerBeat: 480,
-    lengthTicks: 1920,
-    frame: DM7,
-    source: { note: "hand-written CC0 fixture (GLORIARP_BRIEF §19 corpus)" },
-  },
+  meta("walking-bass-dm7-v1"),
 );
 writeFileSync(join(HERE, "source-walking-bass.json"), serializePhrase(source));
+
+// Funk with ghosts: staccato root hits, low-velocity ghost notes in the
+// sixteenth cracks, the octave pop on 4, a seventh passing on the and-of-3 —
+// space on beat 2 (the rest IS the funk).
+const funk = extractPhrase(
+  [
+    { pitch: 38, startTick: 0, durationTicks: 200, velocity: 112 },
+    { pitch: 38, startTick: 360, durationTicks: 90, velocity: 42 },   // ghost
+    { pitch: 41, startTick: 600, durationTicks: 180, velocity: 90 },
+    { pitch: 38, startTick: 720, durationTicks: 90, velocity: 58 },   // ghost
+    { pitch: 45, startTick: 960, durationTicks: 200, velocity: 102 },
+    { pitch: 48, startTick: 1200, durationTicks: 110, velocity: 84 }, // 7th
+    { pitch: 50, startTick: 1440, durationTicks: 200, velocity: 108 },// octave
+    { pitch: 48, startTick: 1680, durationTicks: 130, velocity: 64 },
+  ],
+  meta("funk-ghost-dm7-v1"),
+);
+writeFileSync(join(HERE, "source-funk-ghost.json"), serializePhrase(funk));
+
+// Bossa: the dotted-quarter/eighth root–fifth ostinato.
+const bossa = extractPhrase(
+  [
+    { pitch: 38, startTick: 0, durationTicks: 700, velocity: 92 },
+    { pitch: 45, startTick: 720, durationTicks: 230, velocity: 76 },
+    { pitch: 38, startTick: 960, durationTicks: 700, velocity: 86 },
+    { pitch: 45, startTick: 1680, durationTicks: 230, velocity: 72 },
+  ],
+  meta("bossa-dm7-v1"),
+);
+writeFileSync(join(HERE, "source-bossa.json"), serializePhrase(bossa));
+
+// Two-feel: half-note root–fifth, the sparse jazz floor.
+const twoFeel = extractPhrase(
+  [
+    { pitch: 38, startTick: 0, durationTicks: 900, velocity: 95 },
+    { pitch: 45, startTick: 960, durationTicks: 900, velocity: 87 },
+  ],
+  meta("two-feel-dm7-v1"),
+);
+writeFileSync(join(HERE, "source-two-feel.json"), serializePhrase(twoFeel));
 
 // The acceptance progression, realized through the suite's canonical types —
 // the exact path `msuite accompany` takes.
@@ -64,5 +104,28 @@ writeFileSync(
   JSON.stringify({ phrase, trace }, null, 2) + "\n",
 );
 
+// The rhythm-replacement acceptance: the SAME walking pitch material,
+// performed on the tresillo — E(3,8), accents on the first onset — then
+// adapted across the same progression at the same seed. The committed diff
+// of this file IS the review surface for rhythm-mapping changes.
+const tresillo = applyRhythm(source, {
+  steps: [1, 0, 0, 1, 0, 0, 1, 0],
+  accents: [1, 0, 0, 0, 0, 0, 0, 0],
+  label: "E(3,8)",
+});
+const withRhythm = adaptBassPhrase(tresillo, {
+  frames,
+  seed: 42,
+  range: { low: 36, high: 60 },
+  chromaticism: 0.25,
+  rhythmPreservation: 1,
+  traceLevel: "events",
+});
+writeFileSync(
+  join(HERE, "adapted-tresillo-dm7-g7-cmaj7-a7-seed42.json"),
+  JSON.stringify(withRhythm, null, 2) + "\n",
+);
+
 console.log(`source: ${source.events.length} events; adapted: ${phrase.events.length} events over ${frames.length} bars`);
 console.log(`trace summary:`, trace.summary);
+console.log(`tresillo: ${withRhythm.phrase.events.length} events (${withRhythm.phrase.events.filter((e) => e.onset % 1920 === 0).length} downbeats)`);

@@ -206,3 +206,87 @@ describe("adaptBassPhrase — acceptance properties", () => {
     expect(parsePhrase(serializePhrase(phrase))).toEqual(phrase);
   });
 });
+
+// ── rhythm replacement (PRIORITIES §2.1 — the interop dividend) ─────────────
+
+import { applyRhythm } from "./index.js";
+
+describe("applyRhythm", () => {
+  const TRESILLO = { steps: [1, 0, 0, 1, 0, 0, 1, 0], label: "E(3,8)" };
+
+  it("maps the pattern onto the phrase's full length (leftmost = LSB)", () => {
+    const p = applyRhythm(sourcePhrase(), TRESILLO);
+    expect(p.events.map((e) => e.onset)).toEqual([0, 720, 1440]); // 1920/8 per step
+    expect(p.lengthTicks).toBe(1920);
+    expect(p.id).toContain("E(3,8)");
+    expect(p.annotations?.rhythm).toBe("E(3,8)");
+  });
+
+  it("cycles the source's pitch material in order, carrying chord relations", () => {
+    const p = applyRhythm(sourcePhrase(), TRESILLO);
+    expect(p.events.map((e) => e.note)).toEqual([38, 41, 45]); // D, F, A — contour rides along
+    expect(p.events[0]!.chordRelation).toMatchObject({ category: "chord-tone", degree: 1 });
+    // More onsets than source events → wrap around.
+    const dense = applyRhythm(sourcePhrase(), { steps: [1, 1, 1, 1, 1, 1] });
+    expect(dense.events.map((e) => e.note)).toEqual([38, 41, 45, 49, 38, 41]);
+  });
+
+  it("durations are legato to the next onset (the tied tresillo feel)", () => {
+    const p = applyRhythm(sourcePhrase(), TRESILLO);
+    expect(p.events.map((e) => e.duration)).toEqual([720, 720, 480]); // last runs to phrase end
+  });
+
+  it("accent layer boosts velocity on accented steps only", () => {
+    const p = applyRhythm(sourcePhrase(), { ...TRESILLO, accents: [1, 0, 0, 0, 0, 0, 0, 0] });
+    const plain = applyRhythm(sourcePhrase(), TRESILLO);
+    expect(p.events[0]!.velocity).toBe(plain.events[0]!.velocity + 18);
+    expect(p.events[1]!.velocity).toBe(plain.events[1]!.velocity);
+  });
+
+  it("a chromatic approach's cyclic target re-points to the next onset", () => {
+    // Force the approach (source event 3, C♯) onto onset index 1 of a 2-onset grid.
+    const p = applyRhythm(sourcePhrase(), { steps: [1, 0, 1, 0, 1, 0, 1, 0] }); // 4 onsets → material 0..3
+    const approach = p.events[3]!;
+    expect(approach.chordRelation!.category).toBe("chromatic-approach");
+    expect(approach.chordRelation!.target).toBe(0); // cyclic: resolves to the next (first) onset
+  });
+
+  it("the rhythm-applied phrase still validates and adapts deterministically", () => {
+    const p = applyRhythm(sourcePhrase(), TRESILLO);
+    expect(validatePhrase(p).ok).toBe(true);
+    const run = () => adaptBassPhrase(p, { frames: FRAMES, seed: 42, range: RANGE, traceLevel: "events" });
+    expect(JSON.stringify(run())).toBe(JSON.stringify(run()));
+    for (const e of run().phrase.events) {
+      expect(e.note!).toBeGreaterThanOrEqual(RANGE.low);
+      expect(e.note!).toBeLessThanOrEqual(RANGE.high);
+    }
+  });
+
+  it("reproduces the committed tresillo acceptance vector byte-for-byte", () => {
+    const p = applyRhythm(sourcePhrase(), { ...TRESILLO, accents: [1, 0, 0, 0, 0, 0, 0, 0] });
+    const got = adaptBassPhrase(p, { frames: FRAMES, seed: 42, range: RANGE, chromaticism: 0.25, rhythmPreservation: 1, traceLevel: "events" });
+    expect(JSON.parse(JSON.stringify(got))).toEqual(JSON.parse(vector("adapted-tresillo-dm7-g7-cmaj7-a7-seed42.json")));
+  });
+
+  it("rejects an empty rhythm and an unpitched source", () => {
+    expect(() => applyRhythm(sourcePhrase(), { steps: [0, 0, 0, 0] })).toThrow(/no onsets/);
+  });
+});
+
+describe("the source-phrase pack (each committed vector is a style)", () => {
+  for (const name of ["walking-bass", "funk-ghost", "bossa", "two-feel"]) {
+    it(`${name} validates and is playable material`, () => {
+      const p = parsePhrase(vector(`source-${name}.json`));
+      expect(validatePhrase(p).ok).toBe(true);
+      expect(p.role).toBe("bass");
+      expect(p.events.length).toBeGreaterThan(0);
+      expect(p.events.every((e) => e.note !== undefined)).toBe(true);
+    });
+  }
+  it("funk-ghost carries real dynamics (ghosts well below the accents)", () => {
+    const p = parsePhrase(vector("source-funk-ghost.json"));
+    const vels = p.events.map((e) => e.velocity);
+    expect(Math.min(...vels)).toBeLessThan(60);   // ghosts
+    expect(Math.max(...vels)).toBeGreaterThan(105); // accents
+  });
+});

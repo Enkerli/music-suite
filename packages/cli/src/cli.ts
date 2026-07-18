@@ -41,7 +41,8 @@ const USAGE = `msuite <command> …
                                         a progression from the corpus statistics → Roman bars (or realized SMF with -o)
                                         piped (or --bars-only): bare bar notation, ready for | msuite accompany
   smf "<bars>" -o <file.mid> [--tonic C] [--mode major|minor] [--bpm N] [--beats-per-chord N]
-  accompany [--progression "<bars>"] [-o bass.mid] [--role bass] [--bars N] [--seed N] [--source phrase.json]
+  accompany [--progression "<bars>"] [-o bass.mid] [--role bass] [--bars N]
+            [--source walking-bass|funk-ghost|bossa|two-feel|phrase.json] [--rhythm "<UPI>"] [--seed N]
             [--range C2:C4] [--chromaticism 0..1] [--rhythm-preservation 0..1] [--tonic C] [--mode major|minor]
             [--bpm N] [--trace trace.json] [--phrase-out phrase.json] [--explain]
             [--play [--to app|*] [--loop | --loop-count N] [--midi-out port [--channel N] [--breath-cc N|off]]]
@@ -51,7 +52,10 @@ const USAGE = `msuite <command> …
                                         --play streams real-time note messages (NDJSON) — | msuite recv;
                                         --loop repeats until Ctrl-C (a continuous groove); --loop-count N
                                         repeats N times; --midi-out performs as REAL MIDI (ALSA rawmidi —
-                                        a port name substring, "virtual" for snd-virmidi, or a /dev path)
+                                        a port name substring, "virtual" for snd-virmidi, or a /dev path);
+                                        --rhythm performs the source's pitch material on a UPI grid
+                                        (E(3,8) under a bass = instant tresillo; accents {100}E(3,8) boost);
+                                        --source picks a bundled style or your own extracted phrase
   render <notes…> -o <file.wav> [--seconds N] [--breath 0..1] [--sr N] [--param id=value]… [--stream]
                                         --stream: apply a control-plane param NDJSON stream from stdin (message → sound)
   send [--from app] [--to app|*] (--param id=value… [--mode …] | --command name [--arg k=v]… | --note 60,64,67 [--velocity V] [--duration ms] [--gate on|off])
@@ -260,6 +264,7 @@ async function main(): Promise<number> {
         ...(one(args, "tonic") !== undefined && { tonic: one(args, "tonic")! }),
         ...(mode !== undefined && { mode }),
         ...(one(args, "source") !== undefined && { source: one(args, "source")! }),
+        ...(one(args, "rhythm") !== undefined && { rhythm: one(args, "rhythm")! }),
         ...(one(args, "bars") !== undefined && { bars: Number(one(args, "bars")) }),
         ...(one(args, "seed") !== undefined && { seed: Number(one(args, "seed")) }),
         ...(range !== undefined && { range }),

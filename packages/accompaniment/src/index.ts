@@ -14,6 +14,7 @@ export {
   type HarmonicFrame, type Meter, type ProvenanceRef, type PhraseValidation,
 } from "./phrase.js";
 export { extractPhrase, chordDegreeOf, type ExtractOptions, type InputNote } from "./extract.js";
+export { applyRhythm, type RhythmSpec } from "./rhythm.js";
 export { computeFeatures, type PhraseFeatures } from "./features.js";
 export {
   adaptBassPhrase, ENGINE, ENGINE_VERSION,

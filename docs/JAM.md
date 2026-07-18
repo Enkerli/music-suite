@@ -55,6 +55,17 @@ Play over it. Change `--seed` for a different bassline over the same rhythm;
 change the `generate` seed for a whole new progression; drop `generate` and
 pass `--progression "Dm7 | G7 | Cmaj7 | A7"` for a tune you already know.
 
+Change the *feel* without changing the harmony:
+
+```bash
+--source funk-ghost                  # ghost-note funk instead of walking
+--source bossa                       # the root–fifth bossa ostinato
+--source two-feel                    # sparse half-note jazz floor
+--rhythm "E(3,8)"                    # perform the material on a tresillo
+--rhythm "{100}E(3,8)"               # …with the downbeat accented
+--rhythm "P(3,0)+P(5,0)"             # …or on a 15-step polygon composite
+```
+
 ## Details that matter
 
 - **Breath**: Vane is a wind-model voice — the amp envelope follows breath

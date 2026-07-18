@@ -533,3 +533,24 @@ describe("loopPeriodMs / performPhrase (accompany --play --loop)", () => {
     expect(got.map(shape)).toEqual(timed.map((t) => shape(t.msg)));
   });
 });
+
+describe("accompany --rhythm / bundled --source styles", () => {
+  it("performs the walking material on a tresillo grid (E(3,8))", () => {
+    const r = accompany({ progression: "Dm7 | G7", seed: 42, rhythm: "E(3,8)" });
+    expect(r.phrase.events.map((e) => e.onset % 1920).filter((o, i, a) => a.indexOf(o) === i)).toEqual([0, 720, 1440]);
+    expect(r.phrase.events).toHaveLength(6); // 3 onsets × 2 bars
+  });
+  it("accepts an accented UPI ({100}E(3,8) boosts the downbeat)", () => {
+    const plain = accompany({ progression: "Dm7", seed: 42, rhythm: "E(3,8)" });
+    const accented = accompany({ progression: "Dm7", seed: 42, rhythm: "{100}E(3,8)" });
+    expect(accented.phrase.events[0]!.velocity).toBeGreaterThan(plain.phrase.events[0]!.velocity);
+  });
+  it("bundled styles resolve by name; unknown names list the options", () => {
+    const r = accompany({ progression: "Dm7 | G7", seed: 7, source: "funk-ghost" });
+    expect(r.phrase.events.length).toBe(16); // 8 funk events × 2 bars
+    expect(() => accompany({ progression: "Dm7", source: "nope" })).toThrow(/bundled: walking-bass/);
+  });
+  it("rejects an unparseable rhythm", () => {
+    expect(() => accompany({ progression: "Dm7", rhythm: "not-a-rhythm(((" })).toThrow(/did not parse as UPI/);
+  });
+});

@@ -32,7 +32,7 @@ import { progressionToSMF, progressionFromSMF, createSMF, type MidiNote, type Mi
 import { parseUPI, analyse } from "@enkerli/upi";
 import { generateLabels, realizeLabel } from "@enkerli/proggen";
 import {
-  parsePhrase, adaptBassPhrase, serializePhrase,
+  parsePhrase, adaptBassPhrase, applyRhythm, serializePhrase,
   type AccompanimentPhrase, type HarmonicFrame, type Trace, type TraceLevel,
 } from "@enkerli/accompaniment";
 import {
@@ -326,9 +326,22 @@ export function encodeWav16(samples: Float32Array, sampleRate: number): Uint8Arr
 // the trace's reproducibility header embedded (GLORIARP:v1 TRACE, the same
 // meta-text mechanism as MCURATOR:v1 PROG). docs/GLORIARP_AUDIT.md §3.
 
+/** The bundled CC0 source phrases — each committed vector is a "style". */
+export const BUNDLED_PHRASES = ["walking-bass", "funk-ghost", "bossa", "two-feel"] as const;
+
+/** Resolve a --source spec: a path (has / or .json) passes through; a bare
+ *  name picks a bundled phrase. */
+export function phrasePath(spec?: string): string {
+  const name = spec ?? "walking-bass";
+  if (name.includes("/") || name.endsWith(".json")) return name;
+  if (!(BUNDLED_PHRASES as readonly string[]).includes(name))
+    throw new Error(`accompany: unknown source "${name}" — bundled: ${BUNDLED_PHRASES.join(", ")} (or a phrase.json path)`);
+  return fileURLToPath(new URL(`../../accompaniment/vectors/source-${name}.json`, import.meta.url));
+}
+
 /** The bundled CC0 source phrase (the committed acceptance-vector fixture). */
 export function defaultPhrasePath(): string {
-  return fileURLToPath(new URL("../../accompaniment/vectors/source-walking-bass.json", import.meta.url));
+  return phrasePath();
 }
 
 /** "C2", "F♯1", "Bb3" → MIDI note number (C4 = 60). */
@@ -345,8 +358,13 @@ export interface AccompanyOptions {
   progression: string;
   tonic?: string;
   mode?: "major" | "minor";
-  /** Path to an AccompanimentPhrase JSON; default = the bundled walking bass. */
+  /** A bundled style name (walking-bass · funk-ghost · bossa · two-feel) or
+   *  a path to an AccompanimentPhrase JSON. Default walking-bass. */
   source?: string;
+  /** UPI rhythm notation (e.g. "E(3,8)", "P(3,0)+P(5,0)", "{100}E(3,8)"):
+   *  perform the source's pitch material on THIS onset grid instead of its
+   *  own — Serpe's rhythm language as GloriArp's rhythm section. */
+  rhythm?: string;
   /** Tile the progression's bars out to this many bars. */
   bars?: number;
   seed?: number;
@@ -371,7 +389,16 @@ export interface AccompanyResult {
  * bytes (the acceptance contract; the vectors pin it in the engine's tests).
  */
 export function accompany(opts: AccompanyOptions): AccompanyResult {
-  const source = parsePhrase(readFileSync(opts.source ?? defaultPhrasePath(), "utf8"));
+  let source = parsePhrase(readFileSync(phrasePath(opts.source), "utf8"));
+  if (opts.rhythm !== undefined) {
+    const r = parseUPI(opts.rhythm, { n: 16 });
+    if (!r.ok || !r.steps.length) throw new Error(`accompany: --rhythm "${opts.rhythm}" did not parse as UPI${r.error ? ` — ${r.error}` : ""}`);
+    source = applyRhythm(source, {
+      steps: r.steps,
+      ...(r.accents.some((x: number) => x) && { accents: r.accents }),
+      label: r.label ?? opts.rhythm,
+    });
+  }
   const prog = parseLeadsheet(opts.progression, {
     tonic: opts.tonic ?? "C",
     mode: opts.mode ?? "major",

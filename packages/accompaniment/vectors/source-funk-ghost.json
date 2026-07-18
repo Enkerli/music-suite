@@ -1,0 +1,152 @@
+{
+  "v": 1,
+  "id": "funk-ghost-dm7-v1",
+  "role": "bass",
+  "lengthTicks": 1920,
+  "ticksPerBeat": 480,
+  "meter": {
+    "numerator": 4,
+    "denominator": 4
+  },
+  "source": {
+    "note": "hand-written CC0 fixture (GLORIARP_BRIEF §19 corpus)"
+  },
+  "events": [
+    {
+      "onset": 0,
+      "duration": 200,
+      "velocity": 112,
+      "note": 38,
+      "pitchClass": 2,
+      "chordRelation": {
+        "degree": 1,
+        "alteration": 0,
+        "octave": 3,
+        "category": "chord-tone",
+        "confidence": 1
+      },
+      "sourceEventId": "e0"
+    },
+    {
+      "onset": 360,
+      "duration": 90,
+      "velocity": 42,
+      "note": 38,
+      "pitchClass": 2,
+      "chordRelation": {
+        "degree": 1,
+        "alteration": 0,
+        "octave": 3,
+        "category": "chord-tone",
+        "confidence": 1
+      },
+      "sourceEventId": "e1"
+    },
+    {
+      "onset": 600,
+      "duration": 180,
+      "velocity": 90,
+      "note": 41,
+      "pitchClass": 5,
+      "chordRelation": {
+        "degree": 2,
+        "alteration": 0,
+        "octave": 3,
+        "category": "chord-tone",
+        "confidence": 1
+      },
+      "sourceEventId": "e2"
+    },
+    {
+      "onset": 720,
+      "duration": 90,
+      "velocity": 58,
+      "note": 38,
+      "pitchClass": 2,
+      "chordRelation": {
+        "degree": 1,
+        "alteration": 0,
+        "octave": 3,
+        "category": "chord-tone",
+        "confidence": 1
+      },
+      "sourceEventId": "e3"
+    },
+    {
+      "onset": 960,
+      "duration": 200,
+      "velocity": 102,
+      "note": 45,
+      "pitchClass": 9,
+      "chordRelation": {
+        "degree": 3,
+        "alteration": 0,
+        "octave": 3,
+        "category": "chord-tone",
+        "confidence": 1
+      },
+      "sourceEventId": "e4"
+    },
+    {
+      "onset": 1200,
+      "duration": 110,
+      "velocity": 84,
+      "note": 48,
+      "pitchClass": 0,
+      "chordRelation": {
+        "degree": 4,
+        "alteration": 0,
+        "octave": 4,
+        "category": "chord-tone",
+        "confidence": 1
+      },
+      "sourceEventId": "e5"
+    },
+    {
+      "onset": 1440,
+      "duration": 200,
+      "velocity": 108,
+      "note": 50,
+      "pitchClass": 2,
+      "chordRelation": {
+        "degree": 1,
+        "alteration": 0,
+        "octave": 4,
+        "category": "chord-tone",
+        "confidence": 1
+      },
+      "sourceEventId": "e6"
+    },
+    {
+      "onset": 1680,
+      "duration": 130,
+      "velocity": 64,
+      "note": 48,
+      "pitchClass": 0,
+      "chordRelation": {
+        "degree": 4,
+        "alteration": 0,
+        "octave": 4,
+        "category": "chord-tone",
+        "confidence": 1
+      },
+      "sourceEventId": "e7"
+    }
+  ],
+  "harmonicFrames": [
+    {
+      "start": 0,
+      "end": 1920,
+      "chord": {
+        "symbol": "Dm7",
+        "rootPc": 2,
+        "pcs": [
+          2,
+          5,
+          9,
+          0
+        ]
+      }
+    }
+  ]
+}
