@@ -43,6 +43,7 @@ const USAGE = `msuite <command> …
   smf "<bars>" -o <file.mid> [--tonic C] [--mode major|minor] [--bpm N] [--beats-per-chord N]
   accompany [--progression "<bars>"] [-o bass.mid] [--role bass] [--bars N]
             [--source walking-bass|funk-ghost|bossa|two-feel|phrase.json] [--rhythm "<UPI>"] [--seed N]
+            [--gate staccato|tenuto|legato|0..1+] [--dynamics 0..1] [--rests 0..1] [--anticipation 0..1]
             [--range C2:C4] [--chromaticism 0..1] [--rhythm-preservation 0..1] [--tonic C] [--mode major|minor]
             [--bpm N] [--trace trace.json] [--phrase-out phrase.json] [--explain]
             [--play [--to app|*] [--loop | --loop-count N] [--midi-out port [--channel N] [--breath-cc N|off]]]
@@ -55,7 +56,10 @@ const USAGE = `msuite <command> …
                                         a port name substring, "virtual" for snd-virmidi, or a /dev path);
                                         --rhythm performs the source's pitch material on a UPI grid
                                         (E(3,8) under a bass = instant tresillo; accents {100}E(3,8) boost);
-                                        --source picks a bundled style or your own extracted phrase
+                                        --source picks a bundled style or your own extracted phrase;
+                                        --gate shapes note lengths, --dynamics follows the metric contour,
+                                        --rests drops weak beats (never downbeats), --anticipation pushes
+                                        downbeats half a beat early — all seeded, all in the trace
   render <notes…> -o <file.wav> [--seconds N] [--breath 0..1] [--sr N] [--param id=value]… [--stream]
                                         --stream: apply a control-plane param NDJSON stream from stdin (message → sound)
   send [--from app] [--to app|*] (--param id=value… [--mode …] | --command name [--arg k=v]… | --note 60,64,67 [--velocity V] [--duration ms] [--gate on|off])
@@ -265,6 +269,10 @@ async function main(): Promise<number> {
         ...(mode !== undefined && { mode }),
         ...(one(args, "source") !== undefined && { source: one(args, "source")! }),
         ...(one(args, "rhythm") !== undefined && { rhythm: one(args, "rhythm")! }),
+        ...(one(args, "gate") !== undefined && { gate: one(args, "gate")! }),
+        ...(one(args, "dynamics") !== undefined && { dynamics: Number(one(args, "dynamics")) }),
+        ...(one(args, "rests") !== undefined && { rests: Number(one(args, "rests")) }),
+        ...(one(args, "anticipation") !== undefined && { anticipation: Number(one(args, "anticipation")) }),
         ...(one(args, "bars") !== undefined && { bars: Number(one(args, "bars")) }),
         ...(one(args, "seed") !== undefined && { seed: Number(one(args, "seed")) }),
         ...(range !== undefined && { range }),
@@ -293,6 +301,7 @@ async function main(): Promise<number> {
           const move = t.sourceNote !== undefined && t.chosen !== undefined ? ` ${t.sourceNote}→${t.chosen}` : "";
           log(`bar ${t.bar + 1} @${t.onset}${move}  ${t.reason}${t.repairs ? `  [${t.repairs.join(", ")}]` : ""}`);
         }
+        for (const c of r.articulation) log(`articulation @${c.onset}  ${c.kind}: ${c.detail}`);
       }
       const s = r.trace.summary;
       log(`accompany: ${r.phrase.events.length} notes · ${r.frames.map((f) => f.chord.symbol).join(" | ")} · seed ${r.trace.header.seed}`

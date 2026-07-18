@@ -14,7 +14,7 @@ import { writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseLeadsheet, realizeLeadsheet } from "@enkerli/theory";
-import { extractPhrase, adaptBassPhrase, applyRhythm, serializePhrase } from "@enkerli/accompaniment";
+import { extractPhrase, adaptBassPhrase, applyRhythm, articulate, serializePhrase } from "@enkerli/accompaniment";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 
@@ -126,6 +126,22 @@ writeFileSync(
   JSON.stringify(withRhythm, null, 2) + "\n",
 );
 
+// The articulation acceptance: the funk-ghost material adapted across the
+// progression, then breathed — staccato gate, full metric dynamics, weak-beat
+// rests, anticipated downbeats. Same seed everywhere; the committed diff is
+// the review surface for articulation changes.
+const funkAdapted = adaptBassPhrase(funk, {
+  frames, seed: 42, range: { low: 36, high: 60 }, chromaticism: 0.25, traceLevel: "summary",
+});
+const breathed = articulate(funkAdapted.phrase, {
+  seed: 42, gate: "staccato", dynamics: 0.8, rests: 0.4, anticipation: 0.6,
+});
+writeFileSync(
+  join(HERE, "articulated-funk-dm7-g7-cmaj7-a7-seed42.json"),
+  JSON.stringify(breathed, null, 2) + "\n",
+);
+
 console.log(`source: ${source.events.length} events; adapted: ${phrase.events.length} events over ${frames.length} bars`);
 console.log(`trace summary:`, trace.summary);
 console.log(`tresillo: ${withRhythm.phrase.events.length} events (${withRhythm.phrase.events.filter((e) => e.onset % 1920 === 0).length} downbeats)`);
+console.log(`articulated funk: ${breathed.phrase.events.length} events, ${breathed.changes.length} changes (${breathed.changes.filter((c) => c.kind === "rest").length} rests, ${breathed.changes.filter((c) => c.kind === "anticipation").length} anticipations)`);

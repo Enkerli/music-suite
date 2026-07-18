@@ -64,7 +64,15 @@ Change the *feel* without changing the harmony:
 --rhythm "E(3,8)"                    # perform the material on a tresillo
 --rhythm "{100}E(3,8)"               # …with the downbeat accented
 --rhythm "P(3,0)+P(5,0)"             # …or on a 15-step polygon composite
+--gate staccato                      # tight notes (tenuto · legato · any factor)
+--dynamics 0.7                       # velocity follows the meter: downbeats up, cracks down
+--rests 0.3                          # weak beats drop out — the space IS the groove
+--anticipation 0.5                   # downbeats may push half a beat early (the coming chord, early)
 ```
+
+These stack: `--source funk-ghost --rhythm "{100}E(3,8);16" --gate staccato
+--dynamics 0.7 --rests 0.3 --anticipation 0.5` is a different band from the
+walking default — same seed, same reproducibility, every choice in the trace.
 
 ## Details that matter
 

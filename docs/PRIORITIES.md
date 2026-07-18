@@ -137,7 +137,7 @@ So: **no standalone docs megaproject now.** Instead:
 | 1 | ✅ `--midi-out` + `msuite play` (Linux virmidi) *(shipped 2026-07-17)* | S | **P1 unblocked** |
 | 2 | ✅ `docs/JAM.md` miniPC recipe *(shipped 2026-07-17 — awaiting on-device verification)* | S | P1 usable by a human |
 | 3 | ✅ GloriArp: `--rhythm <UPI>` + source-phrase pack *(shipped 2026-07-18)* | S | P2 ignition, P1 better |
-| 4 | GloriArp: articulation/dynamics/silence pack | S/M | P2 |
+| 4 | ✅ GloriArp: articulation/dynamics/silence pack *(shipped 2026-07-18)* | S/M | P2 |
 | 5 | Serpe Poly design note → webapp lanes slice | M | P3, P2 groove role |
 | 6 | GloriArp: note variety → comping → groove roles | M each | P2 depth |
 | 7 | Docs systems iteration (glossary/object model/diagram) | M | P4 |

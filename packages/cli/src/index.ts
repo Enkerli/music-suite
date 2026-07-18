@@ -32,8 +32,8 @@ import { progressionToSMF, progressionFromSMF, createSMF, type MidiNote, type Mi
 import { parseUPI, analyse } from "@enkerli/upi";
 import { generateLabels, realizeLabel } from "@enkerli/proggen";
 import {
-  parsePhrase, adaptBassPhrase, applyRhythm, serializePhrase,
-  type AccompanimentPhrase, type HarmonicFrame, type Trace, type TraceLevel,
+  parsePhrase, adaptBassPhrase, applyRhythm, articulate, serializePhrase, GATES,
+  type AccompanimentPhrase, type HarmonicFrame, type Trace, type TraceLevel, type ArticulationChange,
 } from "@enkerli/accompaniment";
 import {
   resolveEvent, validateControlMap,
@@ -365,6 +365,14 @@ export interface AccompanyOptions {
    *  perform the source's pitch material on THIS onset grid instead of its
    *  own — Serpe's rhythm language as GloriArp's rhythm section. */
   rhythm?: string;
+  /** Duration feel: staccato · tenuto · legato, or a 0..1+ factor. */
+  gate?: string;
+  /** 0..1 — velocity follows the metric contour (downbeats up, cracks down). */
+  dynamics?: number;
+  /** 0..1 — metrically weak events drop out (never bar downbeats). */
+  rests?: number;
+  /** 0..1 — bar downbeats may sound half a beat EARLY (the push). */
+  anticipation?: number;
   /** Tile the progression's bars out to this many bars. */
   bars?: number;
   seed?: number;
@@ -382,6 +390,8 @@ export interface AccompanyResult {
   frames: HarmonicFrame[];
   smf: Uint8Array;
   phraseJson: string;
+  /** What the articulation pass did (rests dropped, downbeats anticipated). */
+  articulation: ArticulationChange[];
 }
 
 /**
@@ -423,7 +433,7 @@ export function accompany(opts: AccompanyOptions): AccompanyResult {
     });
   }
 
-  const { phrase, trace } = adaptBassPhrase(source, {
+  const adapted = adaptBassPhrase(source, {
     frames,
     seed: opts.seed ?? 42,
     range: opts.range ?? { low: 36, high: 60 },
@@ -431,6 +441,29 @@ export function accompany(opts: AccompanyOptions): AccompanyResult {
     ...(opts.rhythmPreservation !== undefined && { rhythmPreservation: opts.rhythmPreservation }),
     traceLevel: opts.traceLevel ?? "events",
   });
+  const trace = adapted.trace;
+
+  // Articulation runs AFTER the adapter (pitches resolved against frames), so
+  // an anticipated downbeat truly sounds the coming chord early.
+  let phrase = adapted.phrase;
+  let articulation: ArticulationChange[] = [];
+  if (opts.gate !== undefined || opts.dynamics || opts.rests || opts.anticipation) {
+    let gate: number | keyof typeof GATES | undefined;
+    if (opts.gate !== undefined) {
+      gate = opts.gate in GATES ? (opts.gate as keyof typeof GATES) : Number(opts.gate);
+      if (typeof gate === "number" && (!Number.isFinite(gate) || gate <= 0))
+        throw new Error(`accompany: --gate wants staccato|tenuto|legato or a factor > 0, not "${opts.gate}"`);
+    }
+    const a = articulate(phrase, {
+      seed: opts.seed ?? 42,
+      ...(gate !== undefined && { gate }),
+      ...(opts.dynamics !== undefined && { dynamics: opts.dynamics }),
+      ...(opts.rests !== undefined && { rests: opts.rests }),
+      ...(opts.anticipation !== undefined && { anticipation: opts.anticipation }),
+    });
+    phrase = a.phrase;
+    articulation = a.changes;
+  }
 
   const notes: MidiNote[] = phrase.events.map((e) => ({
     pitch: e.note ?? 0,
@@ -448,7 +481,7 @@ export function accompany(opts: AccompanyOptions): AccompanyResult {
     textEvents: [{ tick: 0, text: `GLORIARP:v1 TRACE ${JSON.stringify(embedded)}` }],
   });
 
-  return { phrase, trace, frames, smf, phraseJson: serializePhrase(phrase) };
+  return { phrase, trace, frames, smf, phraseJson: serializePhrase(phrase), articulation };
 }
 
 // ── suite messages: the control & interop plane over stdio (NDJSON) ──────────

@@ -290,3 +290,89 @@ describe("the source-phrase pack (each committed vector is a style)", () => {
     expect(Math.max(...vels)).toBeGreaterThan(105); // accents
   });
 });
+
+// ── articulation / dynamics / silence / anticipation (PRIORITIES §2.3–2.4) ──
+
+import { articulate, metricWeight, GATES } from "./index.js";
+
+describe("metricWeight", () => {
+  it("ranks positions: downbeat > mid-bar beat > other beats > offbeats > cracks", () => {
+    expect(metricWeight(0, 480, 4)).toBe(1.0);
+    expect(metricWeight(960, 480, 4)).toBe(0.75);  // beat 3 in 4/4
+    expect(metricWeight(480, 480, 4)).toBe(0.5);   // beat 2
+    expect(metricWeight(240, 480, 4)).toBe(0.3);   // the "and"
+    expect(metricWeight(120, 480, 4)).toBe(0.15);  // the crack
+    expect(metricWeight(1920, 480, 4)).toBe(1.0);  // next bar's downbeat
+  });
+});
+
+describe("articulate", () => {
+  const adapted = () => adaptBassPhrase(
+    parsePhrase(vector("source-funk-ghost.json")),
+    { frames: FRAMES, seed: 42, range: RANGE, traceLevel: "summary" },
+  ).phrase;
+
+  it("gate scales durations (named feels and raw factors)", () => {
+    const base = adapted();
+    const stac = articulate(base, { seed: 1, gate: "staccato" }).phrase;
+    base.events.forEach((e, i) => {
+      expect(stac.events[i]!.duration).toBe(Math.max(1, Math.round(e.duration * GATES.staccato)));
+    });
+    const half = articulate(base, { seed: 1, gate: 0.5 }).phrase;
+    expect(half.events[0]!.duration).toBe(Math.max(1, Math.round(base.events[0]!.duration * 0.5)));
+  });
+
+  it("dynamics push velocity toward the metric contour (downbeats up, cracks down)", () => {
+    const base = adapted();
+    const shaped = articulate(base, { seed: 1, dynamics: 1 }).phrase;
+    const at = (onset: number, evs = base.events) => evs.find((e) => e.onset === onset)!;
+    expect(at(0, shaped.events).velocity).toBeGreaterThan(at(0).velocity);          // downbeat rises
+    const crack = base.events.find((e) => metricWeight(e.onset, 480, 4) <= 0.3)!;
+    const crackShaped = shaped.events.find((e) => e.onset === crack.onset)!;
+    expect(crackShaped.velocity).toBeLessThan(crack.velocity);                       // weak spot falls
+  });
+
+  it("rests drop only weak events — bar downbeats always survive — deterministically", () => {
+    const base = adapted();
+    const a = articulate(base, { seed: 42, rests: 0.6 });
+    const b = articulate(base, { seed: 42, rests: 0.6 });
+    expect(JSON.stringify(a)).toBe(JSON.stringify(b));
+    expect(a.phrase.events.length).toBeLessThan(base.events.length);
+    for (let bar = 0; bar < 4; bar++) {
+      expect(a.phrase.events.some((e) => e.onset === bar * 1920)).toBe(true);
+    }
+    for (const c of a.changes) expect(c.kind).toBe("rest");
+  });
+
+  it("anticipation pushes a bar downbeat early, keeps its resolved pitch, and trims the neighbor", () => {
+    const base = adapted();
+    const a = articulate(base, { seed: 42, anticipation: 1 }); // force every draw
+    const pushes = a.changes.filter((c) => c.kind === "anticipation");
+    expect(pushes.length).toBe(3); // bars 2..4 (never the very first onset)
+    for (const c of pushes) {
+      const moved = a.phrase.events.find((e) => e.onset === c.onset - 240)!;
+      const original = base.events.find((e) => e.onset === c.onset)!;
+      expect(moved.note).toBe(original.note); // the COMING chord's pitch, early
+      const prev = a.phrase.events.filter((e) => e.onset < moved.onset).at(-1);
+      if (prev) expect(prev.onset + prev.duration).toBeLessThanOrEqual(moved.onset);
+    }
+  });
+
+  it("the RNG stream stays aligned: adding anticipation never changes WHICH rests drop", () => {
+    const base = adapted();
+    const restsOnly = articulate(base, { seed: 7, rests: 0.5 });
+    const both = articulate(base, { seed: 7, rests: 0.5, anticipation: 1 });
+    expect(both.changes.filter((c) => c.kind === "rest"))
+      .toEqual(restsOnly.changes.filter((c) => c.kind === "rest"));
+  });
+
+  it("reproduces the committed articulated acceptance vector byte-for-byte", () => {
+    const got = articulate(adapted(), { seed: 42, gate: "staccato", dynamics: 0.8, rests: 0.4, anticipation: 0.6 });
+    expect(JSON.parse(JSON.stringify(got))).toEqual(JSON.parse(vector("articulated-funk-dm7-g7-cmaj7-a7-seed42.json")));
+  });
+
+  it("the articulated phrase still validates", () => {
+    const got = articulate(adapted(), { seed: 42, gate: "staccato", dynamics: 0.8, rests: 0.4, anticipation: 0.6 });
+    expect(validatePhrase(got.phrase).ok).toBe(true);
+  });
+});
