@@ -334,6 +334,32 @@ default and the IAC fixes).*
 
 ---
 
+## 10. GloriArp module — the standalone accompaniment surface (two tabs)
+
+*The same engine the CLI runs, in the browser: workspace composes, Vane
+sounds. Requires apps synced after 2026-07-19.*
+
+1. Open **Workspace** and **Vane** (click the Vane page until *audio ready*).
+2. In the Workspace, **+ add module → GloriArp**. Defaults: progression
+   `Dm7 | G7 | Cmaj7 | A7`, style `walking-bass`, seed 42, bpm 100, loop on.
+3. Press **▶ play**.
+   → the status shows `▶ 16 notes · Dm7 | G7 | Cmaj7 | A7 · looping`; the
+   **Bus Monitor** prints `note [external → vane]` messages on the beat; the
+   **Vane tab walks the bassline out loud**, repeating seamlessly.
+4. **Steer it live:** switch style to `funk-ghost`, set rhythm `{100}E(3,8)`,
+   gate `staccato`, rests `0.3`, push `0.5`, press **▶ play** again.
+   → a different band: tight tresillo funk with breathing space and pushed
+   downbeats. Same seed → same take, every time.
+5. **■ stop** → silence within a note (self-releasing messages, nothing hangs).
+6. **⬇ .mid** → a `gloriarp-<style>-s<seed>.mid` downloads. Open it in a DAW
+   (or import into a plugin): identical bytes to what `msuite accompany`
+   writes for the same options — chord markers per bar, the `GLORIARP:v1
+   TRACE` reproducibility header embedded. **This is the plugin handoff.**
+7. Error honesty: type a garbage progression → the status shows `✗ …` and
+   nothing plays; fix it and play again.
+
+---
+
 ## Reporting
 
 Log results in the [A11Y_TEST_PLAN.md](A11Y_TEST_PLAN.md) reporting format so

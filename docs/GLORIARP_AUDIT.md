@@ -4,6 +4,18 @@
 before any implementation: what exists, what's reusable, what the first
 vertical slice touches. No architecture changed by this document.*
 
+> **Status update 2026-07-19 — plugins & standalones:** the pipeline
+> (rhythm → adapter → articulation → SMF) was promoted into
+> `@enkerli/accompaniment` as the isomorphic `groove()` call — the CLI is now
+> a thin file-I/O wrapper over the SAME engine a browser or a plugin WebView
+> runs (the brief's "UI and CLI must call the same engine", enforced by
+> construction). Standalone surface: the workspace **GloriArp module**
+> (style/progression/rhythm/articulation → bus notes → Vane sounds; ⬇ .mid).
+> Plugin path today: the downloaded/CLI SMF (identical bytes, trace header
+> included) imports into any DAW/plugin; the NATIVE plugin form (a C++
+> phrase player fed by the WebView engine) is a parity-milestone follow-on,
+> sequenced with Serpe's (SERPE_POLY §8 pattern).
+>
 > **Status: slice 1 SHIPPED (same day).** `@enkerli/accompaniment` exists per
 > §3 below — phrase schema + validation, extraction with honest inference,
 > features, the deterministic bass adapter with traces, committed acceptance

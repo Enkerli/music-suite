@@ -290,10 +290,140 @@ function bridgeModule(ctx, bodyEl, state) {
   return () => disconnect();
 }
 
+// ── GloriArp: the accompaniment engine as a STANDALONE surface ───────────────
+// The same isomorphic pipeline the CLI runs (@enkerli/accompaniment groove)
+// running IN the browser: pick a style, a progression, a rhythm, the
+// articulation knobs — press play and the bassline goes out as control-plane
+// `note` messages, so the Vane tab SOUNDS it. ⬇ .mid hands the identical
+// take to a DAW/plugin (same bytes the CLI writes — one engine everywhere).
+
+import { groove } from "@enkerli/accompaniment";
+import walkingBass from "../../packages/accompaniment/vectors/source-walking-bass.json";
+import funkGhost from "../../packages/accompaniment/vectors/source-funk-ghost.json";
+import bossa from "../../packages/accompaniment/vectors/source-bossa.json";
+import twoFeel from "../../packages/accompaniment/vectors/source-two-feel.json";
+import { makeNote } from "@enkerli/protocol";
+
+export const GROOVE_STYLES = {
+  "walking-bass": walkingBass, "funk-ghost": funkGhost, "bossa": bossa, "two-feel": twoFeel,
+};
+
+/**
+ * Perform a phrase as timed `note` messages on the bus. Injectable clock and
+ * timers (the testable half); scheduling is off ONE absolute start per pass,
+ * so loops never drift — the same discipline as the CLI's performPhrase.
+ */
+export function createGroovePlayer({ bus, now = () => Date.now(), schedule = (fn, ms) => setTimeout(fn, ms), clear = clearTimeout }) {
+  let timers = [];
+  let running = false;
+  const stop = () => { running = false; timers.forEach(clear); timers = []; };
+  function start(phrase, { bpm = 100, loop = false, to = "vane" } = {}) {
+    stop();
+    running = true;
+    const msPerTick = 60000 / (bpm * phrase.ticksPerBeat);
+    const periodMs = phrase.lengthTicks * msPerTick;
+    const t0 = now();
+    const schedulePass = (pass) => {
+      for (const e of phrase.events) {
+        if (e.note === undefined) continue;
+        const at = t0 + pass * periodMs + e.onset * msPerTick;
+        timers.push(schedule(() => {
+          if (!running) return;
+          bus.publish(makeNote("external", {
+            notes: [e.note], velocity: e.velocity,
+            durationMs: Math.max(1, Math.round(e.duration * msPerTick)),
+          }, { to }));
+        }, Math.max(0, at - now())));
+      }
+      if (loop) timers.push(schedule(() => { if (running) { timers = timers.filter(Boolean); schedulePass(pass + 1); } }, Math.max(0, t0 + (pass + 1) * periodMs - now())));
+    };
+    schedulePass(0);
+  }
+  return { start, stop, isRunning: () => running };
+}
+
+function gloriarpModule(ctx, bodyEl, state) {
+  const S = (k, d) => state[k] ?? d;
+  const player = createGroovePlayer({ bus: ctx.bus });
+  const status = el("div", { class: "ws-readout", text: "set a progression, press ▶" });
+
+  const progression = el("input", { class: "ws-text", type: "text", value: S("progression", "Dm7 | G7 | Cmaj7 | A7"), "aria-label": "Progression (bar notation)", spellcheck: "false" });
+  const style = el("select", { class: "ws-select", "aria-label": "Style" },
+    ...Object.keys(GROOVE_STYLES).map((s) => el("option", { value: s, text: s, ...(s === S("style", "walking-bass") ? { selected: "" } : {}) })));
+  const rhythm = el("input", { class: "ws-text", type: "text", value: S("rhythm", ""), placeholder: "rhythm UPI (E(3,8)…)", "aria-label": "Rhythm UPI", spellcheck: "false" });
+  const seed = el("input", { class: "ws-text ws-num", type: "number", value: S("seed", 42), "aria-label": "Seed" });
+  const bpm = el("input", { class: "ws-text ws-num", type: "number", min: 30, max: 300, value: S("bpm", 100), "aria-label": "BPM" });
+  const gate = el("select", { class: "ws-select", "aria-label": "Gate" },
+    ...["legato", "tenuto", "staccato"].map((g) => el("option", { value: g, text: g, ...(g === S("gate", "legato") ? { selected: "" } : {}) })));
+  const knob = (key, label, dflt) => {
+    const input = el("input", { class: "ws-text ws-num", type: "number", min: 0, max: 1, step: 0.1, value: S(key, dflt), "aria-label": label });
+    return { input, row: el("label", { class: "ws-ctl", text: label + " " }, input) };
+  };
+  const dynamics = knob("dynamics", "dynamics", 0.6);
+  const rests = knob("rests", "rests", 0);
+  const anticipation = knob("anticipation", "push", 0);
+  const loopBox = el("input", { type: "checkbox", ...(S("loop", true) ? { checked: "" } : {}), "aria-label": "Loop" });
+
+  function build() {
+    const opts = {
+      progression: progression.value,
+      seed: Number(seed.value) || 42,
+      bpm: Number(bpm.value) || 100,
+      gate: gate.value,
+      dynamics: Number(dynamics.input.value) || 0,
+      rests: Number(rests.input.value) || 0,
+      anticipation: Number(anticipation.input.value) || 0,
+      ...(rhythm.value.trim() && { rhythm: rhythm.value.trim() }),
+    };
+    Object.assign(state, opts, { style: style.value, loop: loopBox.checked });
+    ctx.save();
+    return groove(GROOVE_STYLES[style.value], opts);
+  }
+  function play() {
+    try {
+      const r = build();
+      player.start(r.phrase, { bpm: Number(bpm.value) || 100, loop: loopBox.checked });
+      const s = r.trace.summary;
+      status.textContent = `▶ ${r.phrase.events.length} notes · ${r.frames.map((f) => f.chord.symbol).join(" | ")}`
+        + (s ? ` · ${s.approachesKept} approaches` : "") + (loopBox.checked ? " · looping" : "");
+    } catch (e) { status.textContent = "✗ " + (e && e.message || e); }
+  }
+  function stop() { player.stop(); status.textContent = "stopped"; }
+  function download() {
+    try {
+      const r = build();
+      const blob = new Blob([r.smf], { type: "audio/midi" });
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = `gloriarp-${style.value}-s${seed.value}.mid`;
+      a.click();
+      URL.revokeObjectURL(a.href);
+      status.textContent = `⬇ ${a.download} — drop it in a DAW / plugin`;
+    } catch (e) { status.textContent = "✗ " + (e && e.message || e); }
+  }
+
+  bodyEl.append(
+    el("div", { class: "ws-row" }, progression),
+    el("div", { class: "ws-row", style: "flex-wrap:wrap" }, style, rhythm),
+    el("div", { class: "ws-row", style: "flex-wrap:wrap" },
+      el("label", { class: "ws-ctl", text: "seed " }, seed),
+      el("label", { class: "ws-ctl", text: "bpm " }, bpm),
+      el("label", { class: "ws-ctl", text: "gate " }, gate),
+      dynamics.row, rests.row, anticipation.row),
+    el("div", { class: "ws-row" },
+      el("button", { class: "ws-btn", text: "▶ play", onclick: play }),
+      el("button", { class: "ws-btn", text: "■ stop", onclick: stop }),
+      el("label", { class: "ws-ctl" }, loopBox, " loop"),
+      el("button", { class: "ws-btn", text: "⬇ .mid", title: "Download the identical take the CLI would write — for a DAW or plugin", onclick: download })),
+    status);
+  return () => player.stop();
+}
+
 export const MODULES = {
   "control-surface": { title: "Control Surface", make: controlSurfaceModule },
   "pattern": { title: "Pattern (UPI)", make: patternModule },
   "bindings": { title: "Bindings", make: bindingsModule },
   "monitor": { title: "Bus Monitor", make: monitorModule },
   "bridge": { title: "Bridge (CLI)", make: bridgeModule },
+  "gloriarp": { title: "GloriArp", make: gloriarpModule },
 };

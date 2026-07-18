@@ -229,3 +229,59 @@ describe("bridge module (CLI pipe → bus)", () => {
     globalThis.EventSource = originalES;
   });
 });
+
+describe("GloriArp module (the standalone accompaniment surface)", () => {
+  it("createGroovePlayer publishes timed note messages; loop schedules the next pass; stop kills all", async () => {
+    const { createGroovePlayer, GROOVE_STYLES } = await import("./modules.js");
+    const { groove } = await import("@enkerli/accompaniment");
+    const { bus, ctxObj } = ctx();
+    const seen = [];
+    bus.subscribe((m) => seen.push(m));
+
+    // Manual clock + scheduler: fire everything by hand, no real time.
+    let clock = 0;
+    const pending = [];
+    const player = createGroovePlayer({
+      bus: ctxObj.bus,
+      now: () => clock,
+      schedule: (fn, ms) => { const t = { fn, at: clock + ms, cleared: false }; pending.push(t); return t; },
+      clear: (t) => { if (t) t.cleared = true; },
+    });
+
+    const r = groove(GROOVE_STYLES["walking-bass"], { progression: "Dm7 | G7", seed: 42 });
+    player.start(r.phrase, { bpm: 120, loop: false });
+    // 8 note timers scheduled (4 events × 2 bars), quarters 500ms apart at 120bpm.
+    const noteTimers = pending.filter((t) => !t.cleared);
+    expect(noteTimers).toHaveLength(8);
+    expect(noteTimers[1].at - noteTimers[0].at).toBeCloseTo(500, 6);
+    // Fire them all → 8 validated note messages on the bus, addressed to vane.
+    for (const t of noteTimers) { clock = t.at; t.fn(); }
+    expect(seen).toHaveLength(8);
+    expect(seen.every((m) => m.type === "note" && m.to === "vane")).toBe(true);
+    expect(seen[0].body.notes).toEqual([38]); // D2 — the walking root
+
+    // Loop: starting again with loop schedules a pass-end continuation timer.
+    seen.length = 0; pending.length = 0;
+    player.start(r.phrase, { bpm: 120, loop: true });
+    expect(pending.filter((t) => !t.cleared).length).toBe(9); // 8 notes + the next-pass timer
+    // Stop: nothing fires after.
+    player.stop();
+    for (const t of pending) if (!t.cleared) { clock = t.at; t.fn(); }
+    expect(seen).toHaveLength(0);
+  });
+
+  it("renders the surface and a play press reports the take", async () => {
+    const { MODULES } = await import("./modules.js");
+    const { ctxObj } = ctx();
+    const body = document.createElement("div");
+    const state = {};
+    const off = MODULES["gloriarp"].make(ctxObj, body, state);
+    expect(body.querySelector('input[aria-label="Progression (bar notation)"]').value).toBe("Dm7 | G7 | Cmaj7 | A7");
+    expect([...body.querySelectorAll("option")].map((o) => o.value)).toContain("funk-ghost");
+    const play = [...body.querySelectorAll("button")].find((b) => b.textContent.includes("play"));
+    play.dispatchEvent(new MouseEvent("click"));
+    expect(body.textContent).toMatch(/▶ \d+ notes · Dm7/);
+    expect(state.progression).toBe("Dm7 | G7 | Cmaj7 | A7"); // persisted
+    off();
+  });
+});

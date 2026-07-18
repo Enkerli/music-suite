@@ -12,6 +12,7 @@
     "@enkerli/protocol": "*",
     "@enkerli/control": "*",
     "@enkerli/upi": "*",
+    "@enkerli/accompaniment": "*",
     "@enkerli/ui": "*"
   },
   "devDependencies": {

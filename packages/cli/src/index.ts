@@ -26,13 +26,13 @@ import {
   patternToDecimal, patternFromDecimal,
   patternToHex, patternFromHex,
   patternToOctal, patternFromOctal,
-  parseLeadsheet, realizeLeadsheet, type Progression,
+  parseLeadsheet, type Progression,
 } from "@enkerli/theory";
-import { progressionToSMF, progressionFromSMF, createSMF, type MidiNote, type MidiMarker } from "@enkerli/midi";
+import { progressionToSMF, progressionFromSMF } from "@enkerli/midi";
 import { parseUPI, analyse, parsePolyUPI, splitLanes, type PolyResult } from "@enkerli/upi";
 import { generateLabels, realizeLabel } from "@enkerli/proggen";
 import {
-  parsePhrase, adaptBassPhrase, applyRhythm, articulate, serializePhrase, GATES,
+  parsePhrase, serializePhrase, groove,
   type AccompanimentPhrase, type HarmonicFrame, type Trace, type TraceLevel, type ArticulationChange,
 } from "@enkerli/accompaniment";
 import {
@@ -419,89 +419,30 @@ export interface AccompanyResult {
  * bytes (the acceptance contract; the vectors pin it in the engine's tests).
  */
 export function accompany(opts: AccompanyOptions): AccompanyResult {
-  let source = parsePhrase(readFileSync(phrasePath(opts.source), "utf8"));
-  if (opts.rhythm !== undefined) {
-    const r = parseUPI(opts.rhythm, { n: 16 });
-    if (!r.ok || !r.steps.length) throw new Error(`accompany: --rhythm "${opts.rhythm}" did not parse as UPI${r.error ? ` — ${r.error}` : ""}`);
-    source = applyRhythm(source, {
-      steps: r.steps,
-      ...(r.accents.some((x: number) => x) && { accents: r.accents }),
-      label: r.label ?? opts.rhythm,
-    });
-  }
-  const prog = parseLeadsheet(opts.progression, {
-    tonic: opts.tonic ?? "C",
-    mode: opts.mode ?? "major",
+  // Thin over the isomorphic engine pipeline (@enkerli/accompaniment groove):
+  // the CLI's whole job is path resolution and file I/O — the same engine
+  // call a browser module or a plugin WebView makes.
+  const source = parsePhrase(readFileSync(phrasePath(opts.source), "utf8"));
+  const { progression, tonic, mode, rhythm, bars, seed, range, chromaticism,
+          rhythmPreservation, gate, dynamics, rests, anticipation, bpm, traceLevel } = opts;
+  const r = groove(source, {
+    progression,
+    ...(tonic !== undefined && { tonic }),
+    ...(mode !== undefined && { mode }),
+    ...(rhythm !== undefined && { rhythm }),
+    ...(bars !== undefined && { bars }),
+    ...(seed !== undefined && { seed }),
+    ...(range !== undefined && { range }),
+    ...(chromaticism !== undefined && { chromaticism }),
+    ...(rhythmPreservation !== undefined && { rhythmPreservation }),
+    ...(gate !== undefined && { gate }),
+    ...(dynamics !== undefined && { dynamics }),
+    ...(rests !== undefined && { rests }),
+    ...(anticipation !== undefined && { anticipation }),
+    ...(bpm !== undefined && { bpm }),
+    ...(traceLevel !== undefined && { traceLevel }),
   });
-  const realized = realizeLeadsheet(prog);
-  if (!realized.length || realized.every((bar) => !bar.length))
-    throw new Error("accompany: no chords parsed from the progression");
-
-  const beatsPerBar = prog.meta?.timeSig?.[0] ?? source.meter.numerator;
-  const barTicks = beatsPerBar * source.ticksPerBeat;
-  const barCount = opts.bars ?? realized.length;
-  const frames: HarmonicFrame[] = [];
-  for (let bar = 0; bar < barCount; bar++) {
-    const chords = realized[bar % realized.length]!;
-    const span = barTicks / Math.max(1, chords.length);
-    chords.forEach((c, i) => {
-      frames.push({
-        start: bar * barTicks + i * span,
-        end: bar * barTicks + (i + 1) * span,
-        chord: { symbol: c.symbol, rootPc: c.rootPc, pcs: c.pcs },
-      });
-    });
-  }
-
-  const adapted = adaptBassPhrase(source, {
-    frames,
-    seed: opts.seed ?? 42,
-    range: opts.range ?? { low: 36, high: 60 },
-    ...(opts.chromaticism !== undefined && { chromaticism: opts.chromaticism }),
-    ...(opts.rhythmPreservation !== undefined && { rhythmPreservation: opts.rhythmPreservation }),
-    traceLevel: opts.traceLevel ?? "events",
-  });
-  const trace = adapted.trace;
-
-  // Articulation runs AFTER the adapter (pitches resolved against frames), so
-  // an anticipated downbeat truly sounds the coming chord early.
-  let phrase = adapted.phrase;
-  let articulation: ArticulationChange[] = [];
-  if (opts.gate !== undefined || opts.dynamics || opts.rests || opts.anticipation) {
-    let gate: number | keyof typeof GATES | undefined;
-    if (opts.gate !== undefined) {
-      gate = opts.gate in GATES ? (opts.gate as keyof typeof GATES) : Number(opts.gate);
-      if (typeof gate === "number" && (!Number.isFinite(gate) || gate <= 0))
-        throw new Error(`accompany: --gate wants staccato|tenuto|legato or a factor > 0, not "${opts.gate}"`);
-    }
-    const a = articulate(phrase, {
-      seed: opts.seed ?? 42,
-      ...(gate !== undefined && { gate }),
-      ...(opts.dynamics !== undefined && { dynamics: opts.dynamics }),
-      ...(opts.rests !== undefined && { rests: opts.rests }),
-      ...(opts.anticipation !== undefined && { anticipation: opts.anticipation }),
-    });
-    phrase = a.phrase;
-    articulation = a.changes;
-  }
-
-  const notes: MidiNote[] = phrase.events.map((e) => ({
-    pitch: e.note ?? 0,
-    startTick: e.onset,
-    durationTicks: e.duration,
-    velocity: e.velocity,
-  }));
-  const markers: MidiMarker[] = frames.map((f) => ({ tick: f.start, text: f.chord.symbol }));
-  const embedded = { header: trace.header, ...(trace.summary && { summary: trace.summary }) };
-  const smf = createSMF(notes, {
-    bpm: opts.bpm ?? 120,
-    ticksPerBeat: source.ticksPerBeat,
-    trackName: "GloriArp bass",
-    markers,
-    textEvents: [{ tick: 0, text: `GLORIARP:v1 TRACE ${JSON.stringify(embedded)}` }],
-  });
-
-  return { phrase, trace, frames, smf, phraseJson: serializePhrase(phrase), articulation };
+  return { ...r, phraseJson: serializePhrase(r.phrase) };
 }
 
 // ── suite messages: the control & interop plane over stdio (NDJSON) ──────────

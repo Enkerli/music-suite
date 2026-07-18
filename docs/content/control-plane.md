@@ -170,7 +170,11 @@ that you drag to arrange, all sharing one message bus:
   a terminal pipeline (say, a GloriArp bassline played with `--play`) streams
   straight onto the page's bus — and out loud through the Vane tab. It's a
   two-way door: this tab's own knob turns and clicks travel back through the
-  same bridge, so a terminal on the other end of the pipe can see them too.
+  same bridge, so a terminal on the other end of the pipe can see them too;
+- a **GloriArp** module — the accompaniment engine itself, in the page: pick
+  a style and a progression, shape the feel (rhythm, gate, dynamics, rests,
+  push), press play — the bassline sounds through the Vane tab, and **⬇ .mid**
+  downloads the identical take for a DAW or plugin. One engine, everywhere.
 
 Add or remove modules from the top bar; your arrangement is remembered. Open the
 workspace in two browser windows and they share the same bus, so one window can

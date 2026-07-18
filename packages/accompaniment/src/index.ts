@@ -19,6 +19,10 @@ export {
   articulate, metricWeight, GATES,
   type ArticulateOptions, type ArticulateResult, type ArticulationChange,
 } from "./articulate.js";
+export {
+  groove, framesFromProgression,
+  type GrooveOptions, type GrooveResult, type FramesOptions,
+} from "./pipeline.js";
 export { computeFeatures, type PhraseFeatures } from "./features.js";
 export {
   adaptBassPhrase, ENGINE, ENGINE_VERSION,
