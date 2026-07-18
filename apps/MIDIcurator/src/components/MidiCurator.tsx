@@ -23,6 +23,8 @@ import type { createLibraryBrowser } from '@enkerli/ui/library-browser';
 import { PROGRESSIONS, transposeProgression } from '../lib/progressions';
 import type { VoicingShape } from '../lib/progressions';
 import { generateProgressionClip } from '../lib/generate-clip';
+import { generateGrooveClip } from '../lib/gloriarp-clip';
+import type { GrooveClipRequest } from '../lib/gloriarp-clip';
 import { IN_PLUGIN, IS_PLUGIN_BUILD, bridge, b64ToBytes } from '../lib/juce-bridge';
 import { esConfirm, esAlert } from '@enkerli/ui/confirm';
 import { readEmbeddedProgression, leadsheetTextFromProgression } from '../lib/progression-import';
@@ -1189,6 +1191,44 @@ export function MidiCurator() {
     selectClip(clip);
   }, [db, refreshClips, selectClip]);
 
+  // GloriArp: the engine call happens right here in the page (the same
+  // isomorphic groove() the CLI runs); the result becomes an ordinary clip,
+  // so the plugin's host-synced C++ playback and the iPad share-sheet
+  // export apply to it with no extra plumbing.
+  const handleGenerateGroove = useCallback(async (req: GrooveClipRequest) => {
+    if (!db) return;
+
+    let data;
+    try {
+      data = generateGrooveClip(req);
+    } catch (err) {
+      setImportWarnings((w) => [...w,
+        `GloriArp: ${err instanceof Error ? err.message : 'could not generate the groove'}`]);
+      return;
+    }
+    if (data.notes.length === 0) return;
+
+    const gesture = extractGesture(data.notes, data.ppq);
+    const harmonic = extractHarmonic(data.notes, gesture);
+    const leadsheet = parseLeadsheet(data.leadsheetText, gesture.num_bars);
+
+    const clip: Clip = {
+      id: crypto.randomUUID(),
+      filename: data.filename,
+      imported_at: Date.now(),
+      bpm: data.bpm,
+      gesture,
+      harmonic,
+      rating: null,
+      notes: '',
+      leadsheet,
+    };
+
+    await db.addClip(clip);
+    refreshClips();
+    selectClip(clip);
+  }, [db, refreshClips, selectClip]);
+
   const filteredClips = useMemo(() => {
     if (!filterTag) return clips;
     // Field-scoped filter: "field:value" emitted by metadata chip clicks
@@ -1525,6 +1565,10 @@ export function MidiCurator() {
           onLoadSamples={samplesAvailable ? handleLoadSamples : undefined}
           loadingSamples={loadingSamples}
           onGenerateProgression={handleGenerateProgression}
+          onGenerateGroove={handleGenerateGroove}
+          {...(selectedClip?.leadsheet?.inputText
+            ? { selectedLeadsheet: selectedClip.leadsheet.inputText }
+            : {})}
           onLoadLoopDb={handleLoadLoopDb}
           loopDbFileName={loopDbFileName}
           loopDbStatus={loopDbStatus}

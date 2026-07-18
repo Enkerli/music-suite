@@ -1107,6 +1107,56 @@ body {
   gap: 6px;
 }
 
+/* GloriArp panel — shares the progression-gen shell, adds text/number rows */
+.mc-groove-gen__text {
+  flex: 1;
+  padding: 5px 8px;
+  background: var(--mc-bg);
+  border: 1px solid var(--mc-border);
+  border-radius: 4px;
+  color: var(--mc-text);
+  font-size: 12px;
+  min-width: 0;
+}
+
+.mc-groove-gen__feel {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  color: var(--mc-text-dim, var(--mc-text));
+  min-width: 0;
+}
+
+.mc-groove-gen__num {
+  flex: 1;
+  width: 100%;
+  min-width: 0;
+  padding: 4px 6px;
+  background: var(--mc-bg);
+  border: 1px solid var(--mc-border);
+  border-radius: 4px;
+  color: var(--mc-text);
+  font-size: 12px;
+}
+
+.mc-groove-gen__from-clip {
+  flex: 1;
+  padding: 4px 8px;
+  background: transparent;
+  border: 1px dashed var(--mc-border);
+  border-radius: 4px;
+  color: var(--mc-text);
+  font-size: 11px;
+  cursor: pointer;
+  text-align: left;
+}
+.mc-groove-gen__from-clip:hover {
+  border-color: var(--mc-accent);
+  color: var(--mc-accent);
+}
+
 .mc-btn--generate {
   flex: 1;
   padding: 6px 12px;

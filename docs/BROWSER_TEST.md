@@ -360,6 +360,33 @@ sounds. Requires apps synced after 2026-07-19.*
 
 ---
 
+## 11. GloriArp in MIDIcurator — prog in, accompaniment out (one tab)
+
+*The native-host surface: the same `groove()` call, inside MIDIcurator —
+which is also the JUCE plugin's WebView, so passing here is the browser half
+of the iPad AUv3 / standalone verification.*
+
+1. Open **MIDIcurator**. In the sidebar, click **+ GloriArp groove**.
+2. Keep the defaults (`Dm7 | G7 | Cmaj7 | A7`, walking-bass, seed 42,
+   bpm 120) and press **Generate**.
+   → a new clip `gloriarp-walking-bass-s42.mid` appears in the library,
+   selected, with the progression as its leadsheet and the bassline on the
+   piano roll. **Space** plays it (WebAudio, or a Web MIDI port if selected).
+3. **Feel pass:** set style `funk-ghost`, rhythm `E(3,8)`, gate `staccato`,
+   rests `0.3`, push `0.5` → Generate. A distinct, tighter take lands as a
+   second clip. Same options + seed → the identical clip, every time.
+4. **From a curated clip:** select any clip that has a leadsheet, reopen the
+   panel, click **⤷ from selected clip** → the progression field fills with
+   that clip's changes; Generate builds an accompaniment *for that clip*.
+5. Error honesty: progression `???` → a dismissible warning banner
+   (`GloriArp: accompany: no chords parsed…`), no clip added.
+6. The generated clip is a first-class citizen: tag it, rate it, export it
+   (**D**), transform it. *In the plugin build, pressing play arms it into
+   the host-synced C++ scheduler — that step is the on-device (iPad/standalone)
+   half of this scenario.*
+
+---
+
 ## Reporting
 
 Log results in the [A11Y_TEST_PLAN.md](A11Y_TEST_PLAN.md) reporting format so

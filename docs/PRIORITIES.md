@@ -140,7 +140,8 @@ So: **no standalone docs megaproject now.** Instead:
 | 4 | ✅ GloriArp: articulation/dynamics/silence pack *(shipped 2026-07-18)* | S/M | P2 |
 | 5 | ✅ Serpe Poly webapp: notation + parser + lanes view; field-test round 2 fixed the big ones — **polyrhythm (cycle lock) is now the default**, polymeter is the toggle; IAC echo-guard on poly sends; advance-on-note-in now opt-in; last-good pattern survives live edits; drumkit selector (GM/Volca/chromatic); Analysis pane hidden in poly *(2026-07-18, BROWSER_TEST §9 re-verify)* | M | P3, P2 groove role |
 | 5b | Serpe Poly **full parity** (C++ UPIParser lanes → engine voices → plugin UI → per-lane analysis; conformance-locked vectors, SERPE_POLY §8) | L | P3 everywhere Serpe runs |
-| 6 | GloriArp: note variety → comping → groove roles | M each | P2 depth |
+| 5c | ✅ GloriArp **native hosts** — the stated requirement (iPad AUv3 + JUCE standalones): MIDIcurator sidebar panel runs `groove()` in the WebView, result lands as a Clip → host-synced playback via the existing C++ MidiClipScheduler (`bridge.setClip`), share-sheet export via `bridge.saveFile`. Zero new C++ *(shipped 2026-07-19; BROWSER_TEST §11, on-device iPad pass pending plugin WebUI rebuild)* | S | P2 on every surface |
+| 6 | GloriArp: note variety → comping → groove roles; realtime MIDI-in → accompany ("listen" mode) | M each | P2 depth |
 | 7 | Docs systems iteration (glossary/object model/diagram) | M | P4 |
 | — | `msuite jam` single-process | M | only if 1–2 prove insufficient |
 

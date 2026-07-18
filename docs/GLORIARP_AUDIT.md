@@ -16,6 +16,26 @@ vertical slice touches. No architecture changed by this document.*
 > phrase player fed by the WebView engine) is a parity-milestone follow-on,
 > sequenced with Serpe's (SERPE_POLY §8 pattern).
 >
+> **Status update 2026-07-19 (later) — the native requirement, MET:** the
+> stated requirement ("GloriArp features should work on iPad AUv3 and
+> standalone JUCE apps; one of the tools should take a prog and build an
+> accompaniment") is satisfied by **GloriArp in MIDIcurator**: a sidebar
+> panel (progression text · style · rhythm UPI · seed/bpm · gate/dynamics/
+> rests/push, plus *⤷ from selected clip* to accompany any curated clip's
+> changes) runs the SAME isomorphic `groove()` in the page and lands the
+> result as an ordinary Clip. That's the whole trick — a Clip already has
+> both native paths: in the plugin build (iPad AUv3, desktop/iPadOS
+> standalones) play arms it into the **C++ MidiClipScheduler via
+> `bridge.setClip`** (host-synced, looped, MIDI out through the host), and
+> export rides `bridge.saveFile` (share sheet on iPadOS). **No new C++ was
+> needed** — the midicurator-plugin scheduler and bridge already carry it;
+> the panel ships in the WebView bundle on the next plugin WebUI rebuild.
+> Determinism is pinned in-app: `gloriarp-clip.test.ts` asserts the clip
+> conversion reproduces the committed acceptance vector note-for-note.
+> Realtime *MIDI* input → patterns (the "listen and accompany" form)
+> remains open as a follow-on; realtime *prog leadsheet* input is the
+> panel itself.
+>
 > **Status: slice 1 SHIPPED (same day).** `@enkerli/accompaniment` exists per
 > §3 below — phrase schema + validation, extraction with honest inference,
 > features, the deterministic bass adapter with traces, committed acceptance

@@ -9,6 +9,8 @@ import { IN_PLUGIN, IS_PLUGIN_BUILD, bridge } from '../lib/juce-bridge';
 import { GlobalClusterMount, type ClusterMidi } from './SharedFrame';
 import { ClipBrowser } from './ClipBrowser';
 import { ProgressionGenerator } from './ProgressionGenerator';
+import { GrooveGenerator } from './GrooveGenerator';
+import type { GrooveClipRequest } from '../lib/gloriarp-clip';
 
 interface SidebarProps {
   clips: Clip[];
@@ -28,6 +30,10 @@ interface SidebarProps {
   onLoadSamples?: () => void;
   loadingSamples?: boolean;
   onGenerateProgression?: (progressionIndex: number, keyOffset: number, voicing: VoicingShape) => void;
+  /** GloriArp: build an accompaniment clip from a progression (bar notation). */
+  onGenerateGroove?: (req: GrooveClipRequest) => void;
+  /** Leadsheet text of the selected clip, offered as the groove's progression. */
+  selectedLeadsheet?: string;
   /** Called when the user picks a loop DB file (.db). */
   onLoadLoopDb?: (file: File) => void;
   /** Filename of the currently-loaded loop DB, or null. */
@@ -63,6 +69,8 @@ export function Sidebar({
   onLoadSamples,
   loadingSamples,
   onGenerateProgression,
+  onGenerateGroove,
+  selectedLeadsheet,
   onLoadLoopDb,
   loopDbFileName,
   loopDbStatus = 'idle',
@@ -257,6 +265,13 @@ export function Sidebar({
 
       {onGenerateProgression && (
         <ProgressionGenerator onGenerate={onGenerateProgression} />
+      )}
+
+      {onGenerateGroove && (
+        <GrooveGenerator
+          onGenerate={onGenerateGroove}
+          {...(selectedLeadsheet !== undefined && { selectedLeadsheet })}
+        />
       )}
 
       {/* Samples fetch from /samples/ — not served by the plugin's

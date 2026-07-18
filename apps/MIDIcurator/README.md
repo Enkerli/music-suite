@@ -11,6 +11,7 @@ A web-based MIDI pattern analysis and transformation tool. Import MIDI clips, de
 - **Chord Detection** — 104 chord qualities via decimal-fingerprint lookup with per-bar segmentation
 - **WebAudio Playback** — Triangle-wave synthesis with transport controls (play/pause/stop)
 - **Density Transforms** — Generate 0.5x–1.5x density variants of any pattern
+- **GloriArp Grooves** — Type a chord progression (or reuse a clip's leadsheet) and generate a seeded, style-based bass accompaniment via `@enkerli/accompaniment`; in the plugin build it plays host-synced through the C++ clip scheduler (iPad AUv3 and standalones included)
 - **Clip Library** — IndexedDB-backed local database with tagging, rating, and search
 - **Light/Dark Mode** — CSS custom property theming with toggle
 - **Keyboard Shortcuts** — Space (play/pause), D (download), V (variants), and more
