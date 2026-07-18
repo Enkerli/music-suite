@@ -24,7 +24,7 @@ import serpeCss from './styles/serpe.css';
 import { parseUPI, euclid, polygon, rotate, complement, invert,
          barlowTransform, indispensabilityWeights, onsetCount,
          analyse, analyzeSyncopation, funkyEuclidean, bellCurveRandomSteps,
-         mutatePattern } from '@enkerli/upi';
+         mutatePattern, parsePolyUPI, splitLanes } from '@enkerli/upi';
 import { createCircleView, createStepView } from './engine/render.js';
 import serpeManifest from './manifest.json';
 import { connectSerpe } from './control.js';
@@ -154,6 +154,54 @@ function EngineView({ create, opts, data }) {
   return h('div', { ref: host });
 }
 
+// ── Poly lanes view (docs/SERPE_POLY.md §4) ──────────────────────────────────
+// Stacked lanes on the shared LCM grid: each lane repeats its own length
+// (polymeter — the drift and realignment IS the display), a subtle border
+// marks each wrap, and the playhead sweeps all lanes at once. Routing controls
+// (mute / note / channel) are UI state, per the design note; the offset chip
+// shows the lane's Keil number straight from the notation.
+const POLY_MAX_CELLS = 64;
+function PolyLanesPanel({ poly, playhead, laneNote, laneChan, laneMuted, setLaneUi }) {
+  const cells = Math.min(poly.lcm, POLY_MAX_CELLS);
+  const fmtOff = (o) => o == null ? '' : o.kind === 'ms'
+    ? `@${o.ms >= 0 ? '+' : ''}${o.ms}ms` : `@${o.num >= 0 ? '+' : ''}${o.num}/${o.den}`;
+  return h('div', { className: 'viz poly-lanes' },
+    h('div', { className: 'viz-head' },
+      h('span', { className: 'es-eyebrow' }, 'Lanes'),
+      h('span', { className: 'poly-meta' },
+        `${poly.lanes.length} lanes · lcm ${poly.lcm}` + (poly.lcm > cells ? ` (showing ${cells})` : ''))),
+    poly.lanes.map((lane, i) => {
+      const muted = laneMuted(lane);
+      return h('div', { key: lane.label, className: 'poly-lane' + (muted ? ' muted' : '') },
+        h('div', { className: 'poly-lane-head' },
+          h('button', { className: 'poly-mute', 'aria-pressed': muted,
+            title: muted ? 'Unmute lane' : 'Mute lane', 'aria-label': `Mute ${lane.label}`,
+            onClick: () => setLaneUi(lane.label, { mute: !muted }) }, muted ? '◌' : '●'),
+          h('span', { className: 'poly-label' }, lane.label),
+          h('span', { className: 'poly-src es-num' }, lane.parsedLabel),
+          lane.offset && h('span', { className: 'poly-off es-num', title: 'Micro-timing (Keil) offset' }, fmtOff(lane.offset)),
+          h('label', { className: 'poly-ctl' }, 'note ',
+            h('input', { className: 'es-control poly-num', type: 'number', min: 0, max: 127,
+              value: laneNote(lane, i), 'aria-label': `${lane.label} MIDI note`,
+              onChange: e => setLaneUi(lane.label, { note: +e.target.value }) })),
+          h('label', { className: 'poly-ctl' }, 'ch ',
+            h('input', { className: 'es-control poly-num', type: 'number', min: 1, max: 16,
+              value: laneChan(lane), 'aria-label': `${lane.label} MIDI channel`,
+              onChange: e => setLaneUi(lane.label, { chan: +e.target.value }) }))),
+        h('div', { className: 'poly-cells', role: 'img',
+          'aria-label': `${lane.label}: ${lane.steps.join('')} over ${lane.steps.length} steps` },
+          Array.from({ length: cells }, (_, c) => {
+            const s = lane.steps[c % lane.steps.length];
+            const acc = lane.accents[c % lane.steps.length];
+            return h('span', {
+              key: c,
+              className: 'poly-cell' + (s ? ' on' : '') + (acc ? ' acc' : '')
+                + (c === playhead ? ' ph' : '') + (c > 0 && c % lane.steps.length === 0 ? ' wrap' : ''),
+            });
+          })));
+    }));
+}
+
 function SerpeApp() {
   const [steps, setSteps]     = useState(() => euclid(5, 8));
   // Accents are derived: the raw {…} pattern re-applied to the onsets with a
@@ -236,9 +284,27 @@ function SerpeApp() {
     : `${analyse(s).hex}:${s.length}`;
 
   // live mirror for the audio loop (avoids stale closures)
+  // ── Poly lanes (docs/SERPE_POLY.md — webapp is the lab; plugin stays mono) ──
+  // `poly` is the parsed PolyResult when the UPI field holds `/`-separated
+  // lanes, else null (mono mode, everything as before). Routing lives in UI
+  // state per the design note: the notation says WHEN, this rack says WHAT.
+  const [poly, setPoly] = useState(null);
+  const [polyUi, setPolyUi] = useState(() => LS.get('polyUi', {}));
+  const setLaneUi = (label, patch) => setPolyUi(u => {
+    const next = { ...u, [label]: { ...u[label], ...patch } };
+    LS.set('polyUi', next);
+    return next;
+  });
+  // Default drum-ish routing by label; unmatched lanes climb from C4.
+  const GM = { kick: 36, snare: 38, hat: 42, hihat: 42, clap: 39, tom: 45, ride: 51, cow: 56 };
+  const laneNote = (lane, i) => polyUi[lane.label]?.note ?? GM[lane.label.toLowerCase()] ?? 60 + i * 2;
+  const laneChan = (lane) => polyUi[lane.label]?.chan ?? (GM[lane.label.toLowerCase()] !== undefined ? 10 : midiChan);
+  const laneMuted = (lane) => !!polyUi[lane.label]?.mute;
+
   const live = useRef({});
   live.current = { steps, accents, accentPattern, accText, editAccent, tempo, group, swing, waOn, waVol,
-                   midiNote, accVel, unaccVel, accPitch, midiChan, midiInId, midiOutId };
+                   midiNote, accVel, unaccVel, accPitch, midiChan, midiInId, midiOutId,
+                   poly, polyUi };
 
   // Notes we've sent out recently, so we can drop their echo when the same port
   // is routed back into our input (e.g. IAC In == Out) — otherwise each output
@@ -319,6 +385,18 @@ function SerpeApp() {
   const ENGINE_ADVANCE_RE = /[|>]|[%+*]\s*-?\d+\s*$/;
 
   function parseField(text = upiText, acc = accText) {
+    // Poly lanes (top-level `/`): webapp-only for now — the C++ engine stays
+    // mono until the notation survives real use (SERPE_POLY.md §4). Accents
+    // are inline per lane ({…} inside each lane); the Accents field is mono's.
+    if (splitLanes(text).length > 1) {
+      LS.set('upi', text);
+      if (cfg.host && juceAvailable()) { setParseErr('poly lanes are webapp-only for now'); return; }
+      const pp = parsePolyUPI(text, { n: steps.length || 16 });
+      if (pp.ok) { setPoly(pp); setParseErr(null); }
+      else { setPoly(null); setParseErr(pp.error || 'unrecognised poly'); }
+      return;
+    }
+    if (poly) setPoly(null); // leaving poly mode
     const full = fullUPI(text, acc);
     LS.set('upi', text);
     if (cfg.host && juceAvailable()) {
@@ -379,6 +457,7 @@ function SerpeApp() {
 
   // ── transforms ──
   function applyTransform(fn) {
+    if (poly) return;     // poly slice 1: transforms are mono-only (SERPE_POLY.md §4)
     resetProgressive();   // a one-shot transform starts a fresh pattern
     // Re-attach the accent layer to the new pattern; parseField applies it and
     // sends the UPI — so accents survive transforms (inline or from the field).
@@ -393,6 +472,7 @@ function SerpeApp() {
   // Mutate: move each onset by the selected style/amount (keeps onset count).
   // amount is 0..1; defaults to the UI's mutAmount (also used by the control plane).
   function applyMutate(amount = mutAmount / 100) {
+    if (poly) return;     // mono-only in poly slice 1
     resetProgressive();
     const r = mutatePattern(steps.slice(), amount, { mutationStyle: mutStyle });
     setUpiText(accentPrefix() + patternUPI(r.mutated.map(Number)));
@@ -400,6 +480,7 @@ function SerpeApp() {
   // Resize to n steps, keeping the onset count (re-spaced Euclidean) — the
   // control plane's `steps` param. Predictable: same hits, new grid.
   function applyResize(n) {
+    if (poly) return;     // mono-only in poly slice 1
     const target = Math.max(1, Math.min(128, Math.round(n)));
     if (target === steps.length) return;
     resetProgressive();
@@ -440,6 +521,7 @@ function SerpeApp() {
   // accentPrefix, inline or field), so accents survive progressive offset AND
   // lengthening — parseField re-applies them, onset-indexed, to the new pattern.
   function progAdvance() {
+    if (poly) return;     // mono-only in poly slice 1
     // Plugin + engine notation in the field (scenes / >N / %N / *N): the C++
     // engine owns progression — re-send the same string to advance (the exact
     // semantics of Tick and MIDI-in). The local rotate below stays for the
@@ -521,9 +603,62 @@ function SerpeApp() {
     if (s <= 0) return base * 1000;
     return base * (idx % 2 === 0 ? 1 + s : 1 - s) * 1000;
   }
+  // ── Poly playback: one common step clock, each lane cycling its own length
+  // (polymeter — E(2,3) against E(4,16) drifts and realigns at the lcm).
+  // Every hit is scheduled BASE_LAG ms out so a negative Keil offset (a push)
+  // can genuinely sound EARLY relative to the grid — you can't play in the
+  // past, but you can delay the whole band a constant everyone shares.
+  const POLY_LAG_MS = 60;
+  const POLY_FREQS = [220, 880, 1760, 440, 1320, 660, 2200, 330]; // audibly distinct lanes
+  function polyClick(laneIdx, accent) {
+    const L = live.current;
+    if (!cfg.web || !L.waOn || !audioCtx.current) return;
+    const t = audioCtx.current.currentTime;
+    const o = audioCtx.current.createOscillator(), g = audioCtx.current.createGain();
+    o.frequency.value = POLY_FREQS[laneIdx % POLY_FREQS.length] * (accent ? 1.5 : 1);
+    g.gain.value = 0.0001;
+    o.connect(g); g.connect(audioCtx.current.destination);
+    const v = L.waVol * (accent ? 1 : 0.55);
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(Math.max(0.0002, v), t + 0.005);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.09);
+    o.start(t); o.stop(t + 0.1);
+  }
+  function laneOffsetMs(lane) {
+    const L = live.current;
+    if (!lane.offset) return 0;
+    if (lane.offset.kind === 'ms') return lane.offset.ms;
+    // note-value fraction of a whole note (4 beats), tempo-synced
+    return (lane.offset.num / lane.offset.den) * 4 * (60000 / L.tempo);
+  }
+  function polyHit(lane, laneIdx, accent) {
+    const L = live.current;
+    const ui = L.polyUi[lane.label] || {};
+    if (ui.mute) return;
+    const delay = Math.max(0, POLY_LAG_MS + laneOffsetMs(lane));
+    setTimeout(() => {
+      polyClick(laneIdx, accent);
+      if (L.midiOutId) {
+        const note = Math.max(0, Math.min(127, ui.note ?? laneNote(lane, laneIdx)));
+        const chan = ui.chan ?? laneChan(lane);
+        sendMidiNoteOn(note, accent ? L.accVel : L.unaccVel, chan);
+        setTimeout(() => sendMidiNoteOff(note, chan), Math.max(30, stepDur(0) * 0.9));
+      }
+    }, delay);
+  }
   function tick() {
     setPlayhead(ph => {
-      const L = live.current; const n = L.steps.length || 1;
+      const L = live.current;
+      if (L.poly) {
+        const next = (ph + 1) % Math.max(1, L.poly.lcm);
+        L.poly.lanes.forEach((lane, i) => {
+          const s = lane.steps[next % lane.steps.length];
+          if (s) polyHit(lane, i, !!lane.accents[next % lane.steps.length]);
+        });
+        timer.current = setTimeout(tick, stepDur(next));
+        return next;
+      }
+      const n = L.steps.length || 1;
       const next = (ph + 1) % n;
       // at the cycle boundary, advance the accent phase by this cycle's onset
       // count so the displayed accents precess like the engine's onset counter
@@ -718,7 +853,11 @@ function SerpeApp() {
               onKeyDown: e => { if (e.key === 'Enter') { e.preventDefault(); parseField(); } },
               'aria-label': 'Universal Pattern Input' })),
           h('div', { className: 'upi-status' }, parseErr
-            ? [h('span', { key: 'e', className: 'err' }, '✗ ' + parseErr), h('span', { key: 'd', className: 'dot' }), h('span', { key: 't' }, 'try E(5,8), 0x94, [0,3,6]:8, P(3,0)')]
+            ? [h('span', { key: 'e', className: 'err' }, '✗ ' + parseErr), h('span', { key: 'd', className: 'dot' }), h('span', { key: 't' }, 'try E(5,8), 0x94, [0,3,6]:8, P(3,0), or kick=E(4,16) / snare=E(2,4)@+12ms')]
+            : poly
+            ? [h('span', { key: 'o', className: 'ok' }, '✓ poly'), h('span', { key: 'd1', className: 'dot' }),
+               h('span', { key: 'k' }, `${poly.lanes.length} lanes · lcm ${poly.lcm}`), h('span', { key: 'd2', className: 'dot' }),
+               h('span', { key: 'l', className: 'es-num' }, poly.lanes.map(l => l.label).join(' / '))]
             : [h('span', { key: 'o', className: 'ok' }, '✓ parsed'), h('span', { key: 'd1', className: 'dot' }),
                h('span', { key: 'k' }, `${a.k} onsets in ${a.n} steps`), h('span', { key: 'd2', className: 'dot' }),
                h('span', { key: 'b', className: 'es-num' }, a.binary), h('span', { key: 'd3', className: 'dot' }),
@@ -726,7 +865,9 @@ function SerpeApp() {
           h('div', { className: 'upi-chips' }, chips.map(([v, t]) =>
             h('button', { key: v, className: 'upi-chip', onClick: () => applyChip(v) }, h('b', null, v), ' ' + t)))),
 
-        h('div', { className: 'viz' + (view === 'circle' ? ' solo-circle' : '') },
+        poly
+        ? h(PolyLanesPanel, { poly, playhead, laneNote, laneChan, laneMuted, setLaneUi })
+        : h('div', { className: 'viz' + (view === 'circle' ? ' solo-circle' : '') },
           h('div', { className: 'viz-head' },
             h('span', { className: 'es-eyebrow' }, 'Pattern'),
             h('button', { className: 'iconbtn', title: 'Accent edit: tap onsets to toggle their accent',

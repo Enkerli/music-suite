@@ -138,7 +138,7 @@ So: **no standalone docs megaproject now.** Instead:
 | 2 | ✅ `docs/JAM.md` miniPC recipe *(shipped 2026-07-17 — awaiting on-device verification)* | S | P1 usable by a human |
 | 3 | ✅ GloriArp: `--rhythm <UPI>` + source-phrase pack *(shipped 2026-07-18)* | S | P2 ignition, P1 better |
 | 4 | ✅ GloriArp: articulation/dynamics/silence pack *(shipped 2026-07-18)* | S/M | P2 |
-| 5 | 🟡 Serpe Poly: notation DECIDED (`/` lanes, `@` ms\|note-value offsets) + `parsePolyUPI`/`formatPolyUPI` + `msuite upi` poly *(2026-07-18)*; **webapp lanes view still pending** (needs the browser) | M | P3, P2 groove role |
+| 5 | ✅ Serpe Poly: notation DECIDED (`/` lanes, `@` ms\|note-value offsets) + parser + `msuite upi` poly + **webapp lanes view** (mute/note/chan per lane, offset-aware playback with the base-lag trick) *(shipped 2026-07-18 — by-ear verification pending, BROWSER_TEST §9)* | M | P3, P2 groove role |
 | 6 | GloriArp: note variety → comping → groove roles | M each | P2 depth |
 | 7 | Docs systems iteration (glossary/object model/diagram) | M | P4 |
 | — | `msuite jam` single-process | M | only if 1–2 prove insufficient |

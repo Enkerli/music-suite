@@ -276,3 +276,25 @@ select.es-control {
 @media (max-width: 540px) {
   .stage { border-radius: 0; }
 }
+
+/* ── Poly lanes (docs/SERPE_POLY.md §4) ──────────────────────────────────── */
+.poly-lanes { display: flex; flex-direction: column; gap: 10px; }
+.poly-meta { font-size: 12px; color: var(--es-ink-dim, #888); margin-left: auto; }
+.poly-lane { display: flex; flex-direction: column; gap: 4px; padding: 6px 0; border-top: 1px solid var(--es-line, #333); }
+.poly-lane.muted { opacity: 0.45; }
+.poly-lane-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 12px; }
+.poly-mute { width: 26px; height: 26px; border-radius: 50%; border: 1px solid var(--es-line, #444);
+  background: transparent; color: inherit; cursor: pointer; line-height: 1; }
+.poly-mute[aria-pressed="true"] { color: var(--es-ink-dim, #777); }
+.poly-label { font-weight: 600; min-width: 3.5em; }
+.poly-src { color: var(--es-ink-dim, #999); }
+.poly-off { color: var(--es-dim-pressure, #d90); }
+.poly-ctl { display: inline-flex; align-items: center; gap: 4px; color: var(--es-ink-dim, #999); }
+.poly-num { width: 4.2em; height: 26px; font-size: 12px; }
+.poly-cells { display: flex; gap: 2px; overflow-x: auto; padding-bottom: 2px; }
+.poly-cell { flex: 0 0 14px; height: 22px; border-radius: 3px; background: var(--es-well, #222);
+  border: 1px solid transparent; }
+.poly-cell.on { background: var(--es-accent, #4a9); }
+.poly-cell.on.acc { background: var(--es-dim-pressure, #d90); }
+.poly-cell.ph { border-color: var(--es-ink, #eee); }
+.poly-cell.wrap { margin-left: 6px; }

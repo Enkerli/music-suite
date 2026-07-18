@@ -276,6 +276,46 @@ verifiable here.*
 
 ---
 
+## 9. Serpe Poly lanes — the Keil moment (one tab, by ear)
+
+*docs/SERPE_POLY.md §7 acceptance. Requires apps synced after 2026-07-18.*
+
+1. Open **Serpe**. In the UPI field type:
+   ```
+   kick=E(4,16) / snare=E(2,4)@+12ms / hat={10}E(8,16)
+   ```
+   → the status line reads **“✓ poly · 3 lanes · lcm 16 · kick / snare / hat”**
+   and the Pattern view is replaced by the **Lanes** panel: three stacked
+   rows, each with mute (●), a note/channel pair (kick 36 / snare 38 /
+   hat 42, channel 10 — GM defaults by label), and its step cells. The hat
+   row shows alternating accent-colored cells (the `{10}` layer).
+2. Press **play** (enable the internal click if you have no MIDI device).
+   → three *distinct pitches* interlock; the playhead outline sweeps all
+   lanes in step.
+3. **Polymeter check:** change the field to `E(2,3) / E(4,16)`.
+   → status shows `lcm 48`; the 3-step lane visibly drifts against the
+   16-step lane and realigns (wrap gaps mark each lane’s cycle). You HEAR
+   the two parts phase and re-meet.
+4. **Mute:** click the snare row’s ● → the row dims and the snare falls
+   silent; the other lanes keep going. Click again to bring it back.
+5. **The Keil moment (by ear):** with
+   `kick=E(4,16) / snare=[4,12]:16@+30ms` playing, edit `+30` down to `+0`
+   then to `-30` (Enter re-parses live).
+   → the backbeat audibly *lays back* behind the kick at `+30`, sits dead
+   center at `0`, and *pushes ahead* at `-30` — same grid, different feel.
+   That difference IS participatory discrepancy.
+6. **Tempo-synced offset:** switch the snare suffix to `@+1/32` and change
+   the tempo slider. → the lag scales with tempo (a thirty-second stays a
+   thirty-second), where `@+30ms` stays constant.
+7. **Mono round-trip:** delete everything after the first lane (a plain
+   `E(4,16)`). → the classic Pattern view returns, transforms and
+   progressive work again (they are intentionally inert in poly mode).
+8. **Plugin guard (if testing the plugin build):** poly text in the plugin
+   shows *“poly lanes are webapp-only for now”* rather than reaching the
+   C++ engine.
+
+---
+
 ## Reporting
 
 Log results in the [A11Y_TEST_PLAN.md](A11Y_TEST_PLAN.md) reporting format so
