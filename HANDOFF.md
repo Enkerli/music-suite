@@ -43,6 +43,11 @@ Three principles that override habit:
 
 ## 3. Build, test, deploy
 
+**The full build/deploy guide, with real commands for every piece
+(monorepo, webapps, the seven JUCE plugin repos incl. exact `cmake`
+invocations and Xcode signing), lives in [BUILD.md](BUILD.md). Summary
+below; BUILD.md wins if the two disagree.**
+
 **Monorepo:** `npm install && npm test` (Vitest; 847 tests green as of
 2026-07-01). The TS packages must be compiled before app tests/builds can
 resolve them — `npm install` does this automatically (`prepare` runs

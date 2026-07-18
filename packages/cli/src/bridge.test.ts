@@ -82,6 +82,17 @@ describe("startBridge (stdio-NDJSON ↔ SSE, full duplex)", () => {
     expect(status).toMatchObject({ bridge: "enkerli-suite", v: 1, clients: 0, received: 0, fromBrowsers: 0 });
   });
 
+  it("answers OPTIONS with CORS + Private Network Access headers (a public https page hitting localhost)", async () => {
+    const headers = await new Promise<Record<string, string | string[] | undefined>>((resolve, reject) => {
+      const req = request({ port: bridge.port, path: "/send", method: "OPTIONS" },
+        (res) => { res.resume(); resolve(res.headers); });
+      req.on("error", reject);
+      req.end();
+    });
+    expect(headers["access-control-allow-origin"]).toBe("*");
+    expect(headers["access-control-allow-private-network"]).toBe("true");
+  });
+
   it("fans a POST /send message out to SSE clients AND echoes it to output (full duplex)", async () => {
     const client = sseClient(bridge.port);
     await new Promise((r) => setTimeout(r, 50)); // let the stream open

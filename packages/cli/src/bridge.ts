@@ -61,6 +61,12 @@ const CORS = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
   "Access-Control-Allow-Headers": "Content-Type",
+  // A public HTTPS page (e.g. the GitHub Pages workspace) fetching this
+  // localhost server is a "private network" request under Chrome's PNA
+  // check — the preflight is rejected unless the server opts in with this
+  // header, which otherwise looks like the connection just needing a
+  // manual retry after the browser's first (blocked) attempt.
+  "Access-Control-Allow-Private-Network": "true",
 };
 
 export function startBridge(opts: BridgeOptions = {}): Promise<Bridge> {

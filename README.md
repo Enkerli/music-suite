@@ -36,3 +36,8 @@ npm install
 npm test            # all workspaces
 npm run typecheck
 ```
+
+For everything else — publishing the webapps, connecting a deployed page to
+your local machine, building the JUCE plugins/standalones (exact `cmake`
+commands, Xcode signing) — see **[BUILD.md](BUILD.md)**, the one place all
+of that is kept current.
