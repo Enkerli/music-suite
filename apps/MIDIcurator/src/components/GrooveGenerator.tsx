@@ -1,6 +1,7 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { allStyleNames, importStyleFromJson } from '../lib/gloriarp-clip';
 import type { GrooveClipRequest } from '../lib/gloriarp-clip';
+import { bridge, IN_PLUGIN, b64ToBytes } from '../lib/juce-bridge';
 
 interface GrooveGeneratorProps {
   onGenerate: (req: GrooveClipRequest) => void;
@@ -43,6 +44,33 @@ export function GrooveGenerator({ onGenerate, selectedLeadsheet, onLearnStyle, h
   const [importMsg, setImportMsg] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const importJsonText = (text: string, filename: string) => {
+    const name = filename.replace(/\.json$/i, '');
+    try {
+      const kind = importStyleFromJson(text, name);
+      setStyleNames(allStyleNames());
+      setStyle(name);
+      setImportMsg(`⬆ imported "${name}" — a ${kind === 'model' ? 'style MODEL' : 'source phrase'}`);
+    } catch (err) {
+      setImportMsg(`✗ import "${filename}": ${err instanceof Error ? err.message : err}`);
+    }
+  };
+
+  // Plugin: the native picker answers bridge.openFile('*.json') with a
+  // fileOpened event ({ name, b64 }). Only .json is ours — .mid imports are
+  // handled by MidiCurator's own fileOpened listener. Hooks must sit above
+  // the collapsed-state early return (hooks order is per-render).
+  const importJsonRef = useRef(importJsonText);
+  importJsonRef.current = importJsonText;
+  useEffect(() => {
+    if (!IN_PLUGIN) return;
+    return bridge.on('fileOpened', (data) => {
+      const { name, b64 } = (data ?? {}) as { name?: string; b64?: string };
+      if (!name || !b64 || !/\.json$/i.test(name)) return;
+      importJsonRef.current(new TextDecoder().decode(b64ToBytes(b64)), name);
+    });
+  }, []);
+
   if (!expanded) {
     return (
       <button className="mc-btn--gen-toggle" onClick={() => setExpanded(true)}>
@@ -84,18 +112,7 @@ export function GrooveGenerator({ onGenerate, selectedLeadsheet, onLearnStyle, h
    *  model back, or vice versa. */
   const importFile = (file: File) => {
     const reader = new FileReader();
-    reader.onload = () => {
-      const text = String(reader.result);
-      const name = file.name.replace(/\.json$/i, '');
-      try {
-        const kind = importStyleFromJson(text, name);
-        setStyleNames(allStyleNames());
-        setStyle(name);
-        setImportMsg(`⬆ imported "${name}" — a ${kind === 'model' ? 'style MODEL' : 'source phrase'}`);
-      } catch (err) {
-        setImportMsg(`✗ import "${file.name}": ${err instanceof Error ? err.message : err}`);
-      }
-    };
+    reader.onload = () => importJsonText(String(reader.result), file.name);
     reader.readAsText(file);
   };
 
@@ -231,7 +248,12 @@ export function GrooveGenerator({ onGenerate, selectedLeadsheet, onLearnStyle, h
         <button
           className="mc-groove-gen__from-clip"
           title="Import a phrase.json or style-model.json (msuite style learn, a workspace export…)"
-          onClick={() => fileInputRef.current?.click()}
+          onClick={() => {
+            // WKWebView has no working <input type=file> — go through the
+            // native document picker in the plugin (TESTING.md trap list).
+            if (IN_PLUGIN) bridge.openFile('*.json');
+            else fileInputRef.current?.click();
+          }}
         >
           ⬆ import .json
         </button>

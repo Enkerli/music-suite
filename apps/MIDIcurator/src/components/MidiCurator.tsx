@@ -635,6 +635,7 @@ export function MidiCurator() {
     return bridge.on('fileOpened', (data) => {
       const { name, b64 } = (data ?? {}) as { name?: string; b64?: string };
       if (!name || !b64) return;
+      if (/\.json$/i.test(name)) return; // GrooveGenerator's fileOpened listener owns .json
       void (async () => {
         await importMidiBuffer(b64ToBytes(b64).buffer as ArrayBuffer, name);
         refreshClips();
