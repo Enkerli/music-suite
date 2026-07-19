@@ -18,6 +18,7 @@ import type { AccompanimentPhrase, HarmonicFrame } from "./phrase.js";
 import { adaptBassPhrase } from "./bass.js";
 import { applyRhythm } from "./rhythm.js";
 import { articulate, GATES, type ArticulationChange } from "./articulate.js";
+import { expressPhrase, type ExpressChange } from "./express.js";
 import type { Trace, TraceLevel } from "./trace.js";
 
 export interface FramesOptions {
@@ -70,11 +71,24 @@ export interface GrooveOptions {
   range?: { low: number; high: number };
   chromaticism?: number;
   rhythmPreservation?: number;
-  /** staccato · tenuto · legato, or a numeric factor as a string/number. */
+  /** staccato · tenuto · legato · mixed, or a numeric factor as a string/number.
+   *  "mixed" = per-note contextual articulation (legato into stepwise motion,
+   *  detached repeats, ghosty cracks) — the expression stage, not a factor. */
   gate?: string | number;
   dynamics?: number;
   rests?: number;
   anticipation?: number;
+  /** 0..1 — note-choice variety: octave displacement, chord-tone
+   *  reselection, passing tones on weak beats (docs/GLORIARP_NEXT.md §1). */
+  variety?: number;
+  /** 0..1 — Keil pocket: correlated push/pull timing + micro-dynamics
+   *  (docs/GLORIARP_NEXT.md §2). */
+  pocket?: number;
+  /** Loop pass index (0-based) — players hand each repeat its pass. */
+  pass?: number;
+  /** 0..1 — fraction of variety/pocket decisions re-rolled per pass, so the
+   *  take morphs over loop repeats. 0 = every pass identical. */
+  morph?: number;
   bpm?: number;
   traceLevel?: TraceLevel;
 }
@@ -85,6 +99,7 @@ export interface GrooveResult {
   frames: HarmonicFrame[];
   smf: Uint8Array;
   articulation: ArticulationChange[];
+  expression: ExpressChange[];
 }
 
 /**
@@ -125,14 +140,15 @@ export function groove(sourceIn: AccompanimentPhrase, opts: GrooveOptions): Groo
   // an anticipated downbeat truly sounds the coming chord early.
   let phrase = adapted.phrase;
   let articulation: ArticulationChange[] = [];
-  if (opts.gate !== undefined || opts.dynamics || opts.rests || opts.anticipation) {
+  const mixedGate = opts.gate === "mixed"; // per-note articulation — the expression stage's job
+  if ((opts.gate !== undefined && !mixedGate) || opts.dynamics || opts.rests || opts.anticipation) {
     let gate: number | keyof typeof GATES | undefined;
-    if (opts.gate !== undefined) {
+    if (opts.gate !== undefined && !mixedGate) {
       gate = typeof opts.gate === "string" && opts.gate in GATES
         ? (opts.gate as keyof typeof GATES)
         : Number(opts.gate);
       if (typeof gate === "number" && (!Number.isFinite(gate) || gate <= 0))
-        throw new Error(`accompany: --gate wants staccato|tenuto|legato or a factor > 0, not "${opts.gate}"`);
+        throw new Error(`accompany: --gate wants staccato|tenuto|legato|mixed or a factor > 0, not "${opts.gate}"`);
     }
     const a = articulate(phrase, {
       seed: opts.seed ?? 42,
@@ -143,6 +159,25 @@ export function groove(sourceIn: AccompanimentPhrase, opts: GrooveOptions): Groo
     });
     phrase = a.phrase;
     articulation = a.changes;
+  }
+
+  // Expression & variation (docs/GLORIARP_NEXT.md): variety, pocket, mixed
+  // gate, pass/morph — after articulation so it shapes what will actually
+  // sound. All defaults off → this stage doesn't run and earlier vectors
+  // stay byte-identical.
+  let expression: ExpressChange[] = [];
+  if (opts.variety || opts.pocket || mixedGate) {
+    const x = expressPhrase(phrase, {
+      seed: opts.seed ?? 42,
+      bpm: opts.bpm ?? 120,
+      ...(opts.pass !== undefined && { pass: opts.pass }),
+      ...(opts.morph !== undefined && { morph: opts.morph }),
+      ...(opts.variety !== undefined && { variety: opts.variety }),
+      ...(opts.pocket !== undefined && { pocket: opts.pocket }),
+      ...(mixedGate && { mixedGate: true }),
+    });
+    phrase = x.phrase;
+    expression = x.changes;
   }
 
   const notes: MidiNote[] = phrase.events.map((e) => ({
@@ -161,5 +196,5 @@ export function groove(sourceIn: AccompanimentPhrase, opts: GrooveOptions): Groo
     textEvents: [{ tick: 0, text: `GLORIARP:v1 TRACE ${JSON.stringify(embedded)}` }],
   });
 
-  return { phrase, trace, frames, smf, articulation };
+  return { phrase, trace, frames, smf, articulation, expression };
 }

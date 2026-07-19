@@ -34,6 +34,7 @@ import { generateLabels, realizeLabel } from "@enkerli/proggen";
 import {
   parsePhrase, serializePhrase, groove,
   type AccompanimentPhrase, type HarmonicFrame, type Trace, type TraceLevel, type ArticulationChange,
+  type ExpressChange,
 } from "@enkerli/accompaniment";
 import {
   resolveEvent, validateControlMap,
@@ -385,7 +386,8 @@ export interface AccompanyOptions {
    *  perform the source's pitch material on THIS onset grid instead of its
    *  own — Serpe's rhythm language as GloriArp's rhythm section. */
   rhythm?: string;
-  /** Duration feel: staccato · tenuto · legato, or a 0..1+ factor. */
+  /** Duration feel: staccato · tenuto · legato · mixed, or a 0..1+ factor.
+   *  "mixed" articulates per note from melodic context. */
   gate?: string;
   /** 0..1 — velocity follows the metric contour (downbeats up, cracks down). */
   dynamics?: number;
@@ -393,6 +395,14 @@ export interface AccompanyOptions {
   rests?: number;
   /** 0..1 — bar downbeats may sound half a beat EARLY (the push). */
   anticipation?: number;
+  /** 0..1 — passing tones, octave pops, chord-tone reselection (weak beats). */
+  variety?: number;
+  /** 0..1 — correlated push/pull micro-timing + micro-dynamics (the Keil walk). */
+  pocket?: number;
+  /** 0..1 — fraction of variety/pocket decisions re-rolled per pass. */
+  morph?: number;
+  /** Loop-pass index to render (0-based). */
+  pass?: number;
   /** Tile the progression's bars out to this many bars. */
   bars?: number;
   seed?: number;
@@ -412,6 +422,8 @@ export interface AccompanyResult {
   phraseJson: string;
   /** What the articulation pass did (rests dropped, downbeats anticipated). */
   articulation: ArticulationChange[];
+  /** What the expression stage did (passing tones, pocket leans, gates). */
+  expression: ExpressChange[];
 }
 
 /**
@@ -424,7 +436,8 @@ export function accompany(opts: AccompanyOptions): AccompanyResult {
   // call a browser module or a plugin WebView makes.
   const source = parsePhrase(readFileSync(phrasePath(opts.source), "utf8"));
   const { progression, tonic, mode, rhythm, bars, seed, range, chromaticism,
-          rhythmPreservation, gate, dynamics, rests, anticipation, bpm, traceLevel } = opts;
+          rhythmPreservation, gate, dynamics, rests, anticipation,
+          variety, pocket, morph, pass, bpm, traceLevel } = opts;
   const r = groove(source, {
     progression,
     ...(tonic !== undefined && { tonic }),
@@ -439,6 +452,10 @@ export function accompany(opts: AccompanyOptions): AccompanyResult {
     ...(dynamics !== undefined && { dynamics }),
     ...(rests !== undefined && { rests }),
     ...(anticipation !== undefined && { anticipation }),
+    ...(variety !== undefined && { variety }),
+    ...(pocket !== undefined && { pocket }),
+    ...(morph !== undefined && { morph }),
+    ...(pass !== undefined && { pass }),
     ...(bpm !== undefined && { bpm }),
     ...(traceLevel !== undefined && { traceLevel }),
   });

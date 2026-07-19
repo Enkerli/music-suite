@@ -1,0 +1,1876 @@
+{
+  "pass0": {
+    "phrase": {
+      "v": 1,
+      "id": "funk-ghost-dm7-v1-adapted-s42",
+      "role": "bass",
+      "lengthTicks": 7680,
+      "ticksPerBeat": 480,
+      "meter": {
+        "numerator": 4,
+        "denominator": 4
+      },
+      "source": {
+        "note": "adapted from funk-ghost-dm7-v1 by @enkerli/accompaniment@0.1.0 seed 42"
+      },
+      "events": [
+        {
+          "onset": 3,
+          "duration": 90,
+          "velocity": 111,
+          "note": 38,
+          "pitchClass": 2,
+          "chordRelation": {
+            "degree": 1,
+            "alteration": 0,
+            "octave": 3,
+            "category": "chord-tone"
+          },
+          "sourceEventId": "e0"
+        },
+        {
+          "onset": 356,
+          "duration": 45,
+          "velocity": 43,
+          "note": 38,
+          "pitchClass": 2,
+          "chordRelation": {
+            "degree": 1,
+            "alteration": 0,
+            "octave": 3,
+            "category": "chord-tone"
+          },
+          "sourceEventId": "e1"
+        },
+        {
+          "onset": 596,
+          "duration": 90,
+          "velocity": 91,
+          "note": 41,
+          "pitchClass": 5,
+          "chordRelation": {
+            "degree": 2,
+            "alteration": 0,
+            "octave": 3,
+            "category": "chord-tone"
+          },
+          "sourceEventId": "e2"
+        },
+        {
+          "onset": 715,
+          "duration": 45,
+          "velocity": 60,
+          "note": 38,
+          "pitchClass": 2,
+          "chordRelation": {
+            "degree": 1,
+            "alteration": 0,
+            "octave": 3,
+            "category": "chord-tone"
+          },
+          "sourceEventId": "e3"
+        },
+        {
+          "onset": 956,
+          "duration": 100,
+          "velocity": 103,
+          "note": 45,
+          "pitchClass": 9,
+          "chordRelation": {
+            "degree": 3,
+            "alteration": 0,
+            "octave": 3,
+            "category": "chord-tone"
+          },
+          "sourceEventId": "e4"
+        },
+        {
+          "onset": 1194,
+          "duration": 241,
+          "velocity": 86,
+          "note": 48,
+          "pitchClass": 0,
+          "chordRelation": {
+            "degree": 4,
+            "alteration": 0,
+            "octave": 4,
+            "category": "chord-tone"
+          },
+          "sourceEventId": "e5"
+        },
+        {
+          "onset": 1435,
+          "duration": 90,
+          "velocity": 110,
+          "note": 50,
+          "pitchClass": 2,
+          "chordRelation": {
+            "degree": 1,
+            "alteration": 0,
+            "octave": 4,
+            "category": "chord-tone"
+          },
+          "sourceEventId": "e6"
+        },
+        {
+          "onset": 1674,
+          "duration": 65,
+          "velocity": 66,
+          "note": 50,
+          "pitchClass": 2,
+          "chordRelation": {
+            "degree": 4,
+            "alteration": 0,
+            "octave": 4,
+            "category": "chord-tone"
+          },
+          "sourceEventId": "e7"
+        },
+        {
+          "onset": 1917,
+          "duration": 100,
+          "velocity": 113,
+          "note": 43,
+          "pitchClass": 7,
+          "chordRelation": {
+            "degree": 1,
+            "alteration": 0,
+            "octave": 3,
+            "category": "chord-tone"
+          },
+          "sourceEventId": "e0"
+        },
+        {
+          "onset": 2272,
+          "duration": 243,
+          "velocity": 45,
+          "note": 46,
+          "pitchClass": 10,
+          "chordRelation": {
+            "degree": 0,
+            "alteration": 0,
+            "octave": 3,
+            "category": "passing-tone"
+          },
+          "sourceEventId": "e1"
+        },
+        {
+          "onset": 2515,
+          "duration": 116,
+          "velocity": 92,
+          "note": 47,
+          "pitchClass": 11,
+          "chordRelation": {
+            "degree": 2,
+            "alteration": 0,
+            "octave": 3,
+            "category": "chord-tone"
+          },
+          "sourceEventId": "e2"
+        },
+        {
+          "onset": 2631,
+          "duration": 248,
+          "velocity": 61,
+          "note": 49,
+          "pitchClass": 1,
+          "chordRelation": {
+            "degree": 0,
+            "alteration": 0,
+            "octave": 4,
+            "category": "passing-tone"
+          },
+          "sourceEventId": "e3"
+        },
+        {
+          "onset": 2879,
+          "duration": 100,
+          "velocity": 102,
+          "note": 50,
+          "pitchClass": 2,
+          "chordRelation": {
+            "degree": 3,
+            "alteration": 0,
+            "octave": 4,
+            "category": "chord-tone"
+          },
+          "sourceEventId": "e4"
+        },
+        {
+          "onset": 3117,
+          "duration": 243,
+          "velocity": 85,
+          "note": 53,
+          "pitchClass": 5,
+          "chordRelation": {
+            "degree": 4,
+            "alteration": 0,
+            "octave": 4,
+            "category": "chord-tone"
+          },
+          "sourceEventId": "e5"
+        },
+        {
+          "onset": 3360,
+          "duration": 235,
+          "velocity": 108,
+          "note": 55,
+          "pitchClass": 7,
+          "chordRelation": {
+            "degree": 1,
+            "alteration": 0,
+            "octave": 4,
+            "category": "chord-tone"
+          },
+          "sourceEventId": "e6"
+        },
+        {
+          "onset": 3595,
+          "duration": 65,
+          "velocity": 66,
+          "note": 53,
+          "pitchClass": 5,
+          "chordRelation": {
+            "degree": 4,
+            "alteration": 0,
+            "octave": 4,
+            "category": "chord-tone"
+          },
+          "sourceEventId": "e7"
+        },
+        {
+          "onset": 3843,
+          "duration": 100,
+          "velocity": 111,
+          "note": 48,
+          "pitchClass": 0,
+          "chordRelation": {
+            "degree": 1,
+            "alteration": 0,
+            "octave": 4,
+            "category": "chord-tone"
+          },
+          "sourceEventId": "e0"
+        },
+        {
+          "onset": 4202,
+          "duration": 244,
+          "velocity": 41,
+          "note": 41,
+          "pitchClass": 5,
+          "chordRelation": {
+            "degree": 0,
+            "alteration": 0,
+            "octave": 3,
+            "category": "passing-tone"
+          },
+          "sourceEventId": "e1"
+        },
+        {
+          "onset": 4446,
+          "duration": 90,
+          "velocity": 88,
+          "note": 40,
+          "pitchClass": 4,
+          "chordRelation": {
+            "degree": 2,
+            "alteration": 0,
+            "octave": 3,
+            "category": "chord-tone"
+          },
+          "sourceEventId": "e2"
+        },
+        {
+          "onset": 4561,
+          "duration": 45,
+          "velocity": 58,
+          "note": 36,
+          "pitchClass": 0,
+          "chordRelation": {
+            "degree": 1,
+            "alteration": 0,
+            "octave": 3,
+            "category": "chord-tone"
+          },
+          "sourceEventId": "e3"
+        },
+        {
+          "onset": 4800,
+          "duration": 170,
+          "velocity": 102,
+          "note": 43,
+          "pitchClass": 7,
+          "chordRelation": {
+            "degree": 3,
+            "alteration": 0,
+            "octave": 3,
+            "category": "chord-tone"
+          },
+          "sourceEventId": "e4"
+        },
+        {
+          "onset": 5039,
+          "duration": 241,
+          "velocity": 84,
+          "note": 47,
+          "pitchClass": 11,
+          "chordRelation": {
+            "degree": 4,
+            "alteration": 0,
+            "octave": 3,
+            "category": "chord-tone"
+          },
+          "sourceEventId": "e5"
+        },
+        {
+          "onset": 5280,
+          "duration": 90,
+          "velocity": 108,
+          "note": 48,
+          "pitchClass": 0,
+          "chordRelation": {
+            "degree": 1,
+            "alteration": 0,
+            "octave": 4,
+            "category": "chord-tone"
+          },
+          "sourceEventId": "e6"
+        },
+        {
+          "onset": 5516,
+          "duration": 65,
+          "velocity": 65,
+          "note": 48,
+          "pitchClass": 0,
+          "chordRelation": {
+            "degree": 4,
+            "alteration": 0,
+            "octave": 3,
+            "category": "chord-tone"
+          },
+          "sourceEventId": "e7"
+        },
+        {
+          "onset": 5761,
+          "duration": 100,
+          "velocity": 112,
+          "note": 45,
+          "pitchClass": 9,
+          "chordRelation": {
+            "degree": 1,
+            "alteration": 0,
+            "octave": 3,
+            "category": "chord-tone"
+          },
+          "sourceEventId": "e0"
+        },
+        {
+          "onset": 6117,
+          "duration": 243,
+          "velocity": 43,
+          "note": 38,
+          "pitchClass": 2,
+          "chordRelation": {
+            "degree": 0,
+            "alteration": 0,
+            "octave": 3,
+            "category": "passing-tone"
+          },
+          "sourceEventId": "e1"
+        },
+        {
+          "onset": 6360,
+          "duration": 90,
+          "velocity": 90,
+          "note": 37,
+          "pitchClass": 1,
+          "chordRelation": {
+            "degree": 2,
+            "alteration": 0,
+            "octave": 3,
+            "category": "chord-tone"
+          },
+          "sourceEventId": "e2"
+        },
+        {
+          "onset": 6479,
+          "duration": 45,
+          "velocity": 58,
+          "note": 45,
+          "pitchClass": 9,
+          "chordRelation": {
+            "degree": 1,
+            "alteration": 0,
+            "octave": 3,
+            "category": "chord-tone"
+          },
+          "sourceEventId": "e3"
+        },
+        {
+          "onset": 6723,
+          "duration": 100,
+          "velocity": 101,
+          "note": 40,
+          "pitchClass": 4,
+          "chordRelation": {
+            "degree": 3,
+            "alteration": 0,
+            "octave": 3,
+            "category": "chord-tone"
+          },
+          "sourceEventId": "e4"
+        },
+        {
+          "onset": 6963,
+          "duration": 242,
+          "velocity": 83,
+          "note": 44,
+          "pitchClass": 8,
+          "chordRelation": {
+            "degree": 0,
+            "alteration": 0,
+            "octave": 3,
+            "category": "passing-tone"
+          },
+          "sourceEventId": "e5"
+        },
+        {
+          "onset": 7205,
+          "duration": 90,
+          "velocity": 106,
+          "note": 45,
+          "pitchClass": 9,
+          "chordRelation": {
+            "degree": 1,
+            "alteration": 0,
+            "octave": 3,
+            "category": "chord-tone"
+          },
+          "sourceEventId": "e6"
+        },
+        {
+          "onset": 7443,
+          "duration": 65,
+          "velocity": 63,
+          "note": 45,
+          "pitchClass": 9,
+          "chordRelation": {
+            "degree": 4,
+            "alteration": 0,
+            "octave": 3,
+            "category": "chord-tone"
+          },
+          "sourceEventId": "e7"
+        }
+      ],
+      "harmonicFrames": [
+        {
+          "start": 0,
+          "end": 1920,
+          "chord": {
+            "symbol": "Dm7",
+            "rootPc": 2,
+            "pcs": [
+              2,
+              5,
+              9,
+              0
+            ]
+          }
+        },
+        {
+          "start": 1920,
+          "end": 3840,
+          "chord": {
+            "symbol": "G7",
+            "rootPc": 7,
+            "pcs": [
+              7,
+              11,
+              2,
+              5
+            ]
+          }
+        },
+        {
+          "start": 3840,
+          "end": 5760,
+          "chord": {
+            "symbol": "Cmaj7",
+            "rootPc": 0,
+            "pcs": [
+              0,
+              4,
+              7,
+              11
+            ]
+          }
+        },
+        {
+          "start": 5760,
+          "end": 7680,
+          "chord": {
+            "symbol": "A7",
+            "rootPc": 9,
+            "pcs": [
+              9,
+              1,
+              4,
+              7
+            ]
+          }
+        }
+      ],
+      "annotations": {
+        "expression": "{\"seed\":42,\"pass\":0,\"morph\":0.5,\"variety\":0.6,\"pocket\":0.5,\"mixedGate\":true}"
+      }
+    },
+    "changes": [
+      {
+        "index": 7,
+        "onset": 1680,
+        "kind": "reselect",
+        "detail": "48→50 within Dm7"
+      },
+      {
+        "index": 9,
+        "onset": 2280,
+        "kind": "passing",
+        "detail": "43→46 toward 47"
+      },
+      {
+        "index": 11,
+        "onset": 2640,
+        "kind": "passing",
+        "detail": "43→49 toward 50"
+      },
+      {
+        "index": 17,
+        "onset": 4200,
+        "kind": "passing",
+        "detail": "36→41 toward 40"
+      },
+      {
+        "index": 23,
+        "onset": 5520,
+        "kind": "reselect",
+        "detail": "47→48 within Cmaj7"
+      },
+      {
+        "index": 25,
+        "onset": 6120,
+        "kind": "passing",
+        "detail": "45→38 toward 37"
+      },
+      {
+        "index": 29,
+        "onset": 6960,
+        "kind": "passing",
+        "detail": "43→44 toward 45"
+      },
+      {
+        "index": 31,
+        "onset": 7440,
+        "kind": "reselect",
+        "detail": "43→45 within A7"
+      },
+      {
+        "index": 0,
+        "onset": 0,
+        "kind": "pocket",
+        "detail": "+3.5ms (drift 1.9)"
+      },
+      {
+        "index": 1,
+        "onset": 360,
+        "kind": "pocket",
+        "detail": "-4.0ms (drift -1.5)"
+      },
+      {
+        "index": 2,
+        "onset": 600,
+        "kind": "pocket",
+        "detail": "-4.2ms (drift -4.6)"
+      },
+      {
+        "index": 3,
+        "onset": 720,
+        "kind": "pocket",
+        "detail": "-4.9ms (drift -3.4)"
+      },
+      {
+        "index": 4,
+        "onset": 960,
+        "kind": "pocket",
+        "detail": "-3.9ms (drift -5.0)"
+      },
+      {
+        "index": 5,
+        "onset": 1200,
+        "kind": "pocket",
+        "detail": "-6.7ms (drift -6.7)"
+      },
+      {
+        "index": 6,
+        "onset": 1440,
+        "kind": "pocket",
+        "detail": "-5.6ms (drift -7.0)"
+      },
+      {
+        "index": 7,
+        "onset": 1680,
+        "kind": "pocket",
+        "detail": "-6.6ms (drift -5.4)"
+      },
+      {
+        "index": 8,
+        "onset": 1920,
+        "kind": "pocket",
+        "detail": "-2.7ms (drift -4.4)"
+      },
+      {
+        "index": 9,
+        "onset": 2280,
+        "kind": "pocket",
+        "detail": "-8.1ms (drift -5.6)"
+      },
+      {
+        "index": 10,
+        "onset": 2520,
+        "kind": "pocket",
+        "detail": "-5.7ms (drift -6.0)"
+      },
+      {
+        "index": 11,
+        "onset": 2640,
+        "kind": "pocket",
+        "detail": "-9.8ms (drift -8.3)"
+      },
+      {
+        "index": 12,
+        "onset": 2880,
+        "kind": "pocket",
+        "detail": "-0.6ms (drift -1.6)"
+      },
+      {
+        "index": 13,
+        "onset": 3120,
+        "kind": "pocket",
+        "detail": "-3.3ms (drift -3.3)"
+      },
+      {
+        "index": 15,
+        "onset": 3600,
+        "kind": "pocket",
+        "detail": "-5.3ms (drift -4.1)"
+      },
+      {
+        "index": 16,
+        "onset": 3840,
+        "kind": "pocket",
+        "detail": "+3.6ms (drift 2.0)"
+      },
+      {
+        "index": 17,
+        "onset": 4200,
+        "kind": "pocket",
+        "detail": "+2.4ms (drift 4.9)"
+      },
+      {
+        "index": 18,
+        "onset": 4440,
+        "kind": "pocket",
+        "detail": "+6.0ms (drift 5.7)"
+      },
+      {
+        "index": 19,
+        "onset": 4560,
+        "kind": "pocket",
+        "detail": "+1.1ms (drift 2.6)"
+      },
+      {
+        "index": 21,
+        "onset": 5040,
+        "kind": "pocket",
+        "detail": "-0.8ms (drift -0.8)"
+      },
+      {
+        "index": 23,
+        "onset": 5520,
+        "kind": "pocket",
+        "detail": "-4.4ms (drift -3.3)"
+      },
+      {
+        "index": 24,
+        "onset": 5760,
+        "kind": "pocket",
+        "detail": "+0.6ms (drift -1.0)"
+      },
+      {
+        "index": 25,
+        "onset": 6120,
+        "kind": "pocket",
+        "detail": "-2.9ms (drift -0.4)"
+      },
+      {
+        "index": 27,
+        "onset": 6480,
+        "kind": "pocket",
+        "detail": "-1.0ms (drift 0.5)"
+      },
+      {
+        "index": 28,
+        "onset": 6720,
+        "kind": "pocket",
+        "detail": "+2.8ms (drift 1.8)"
+      },
+      {
+        "index": 29,
+        "onset": 6960,
+        "kind": "pocket",
+        "detail": "+2.7ms (drift 2.7)"
+      },
+      {
+        "index": 30,
+        "onset": 7200,
+        "kind": "pocket",
+        "detail": "+4.7ms (drift 3.3)"
+      },
+      {
+        "index": 31,
+        "onset": 7440,
+        "kind": "pocket",
+        "detail": "+3.4ms (drift 4.6)"
+      },
+      {
+        "index": 0,
+        "onset": 3,
+        "kind": "gate",
+        "detail": "detached (repeated note)"
+      },
+      {
+        "index": 1,
+        "onset": 356,
+        "kind": "gate",
+        "detail": "ghost (weak position)"
+      },
+      {
+        "index": 2,
+        "onset": 596,
+        "kind": "gate",
+        "detail": "ghost (weak position)"
+      },
+      {
+        "index": 3,
+        "onset": 715,
+        "kind": "gate",
+        "detail": "ghost (weak position)"
+      },
+      {
+        "index": 4,
+        "onset": 956,
+        "kind": "gate",
+        "detail": "ghost (weak position)"
+      },
+      {
+        "index": 5,
+        "onset": 1194,
+        "kind": "gate",
+        "detail": "legato (stepwise into next)"
+      },
+      {
+        "index": 6,
+        "onset": 1435,
+        "kind": "gate",
+        "detail": "detached (repeated note)"
+      },
+      {
+        "index": 7,
+        "onset": 1674,
+        "kind": "gate",
+        "detail": "ghost (weak position)"
+      },
+      {
+        "index": 8,
+        "onset": 1917,
+        "kind": "gate",
+        "detail": "ghost (weak position)"
+      },
+      {
+        "index": 9,
+        "onset": 2272,
+        "kind": "gate",
+        "detail": "legato (stepwise into next)"
+      },
+      {
+        "index": 10,
+        "onset": 2515,
+        "kind": "gate",
+        "detail": "legato (stepwise into next)"
+      },
+      {
+        "index": 11,
+        "onset": 2631,
+        "kind": "gate",
+        "detail": "legato (stepwise into next)"
+      },
+      {
+        "index": 12,
+        "onset": 2879,
+        "kind": "gate",
+        "detail": "ghost (weak position)"
+      },
+      {
+        "index": 13,
+        "onset": 3117,
+        "kind": "gate",
+        "detail": "legato (stepwise into next)"
+      },
+      {
+        "index": 14,
+        "onset": 3360,
+        "kind": "gate",
+        "detail": "legato (stepwise into next)"
+      },
+      {
+        "index": 15,
+        "onset": 3595,
+        "kind": "gate",
+        "detail": "ghost (weak position)"
+      },
+      {
+        "index": 16,
+        "onset": 3843,
+        "kind": "gate",
+        "detail": "ghost (weak position)"
+      },
+      {
+        "index": 17,
+        "onset": 4202,
+        "kind": "gate",
+        "detail": "legato (stepwise into next)"
+      },
+      {
+        "index": 18,
+        "onset": 4446,
+        "kind": "gate",
+        "detail": "ghost (weak position)"
+      },
+      {
+        "index": 19,
+        "onset": 4561,
+        "kind": "gate",
+        "detail": "ghost (weak position)"
+      },
+      {
+        "index": 20,
+        "onset": 4800,
+        "kind": "gate",
+        "detail": "tenuto"
+      },
+      {
+        "index": 21,
+        "onset": 5039,
+        "kind": "gate",
+        "detail": "legato (stepwise into next)"
+      },
+      {
+        "index": 22,
+        "onset": 5280,
+        "kind": "gate",
+        "detail": "detached (repeated note)"
+      },
+      {
+        "index": 23,
+        "onset": 5516,
+        "kind": "gate",
+        "detail": "ghost (weak position)"
+      },
+      {
+        "index": 24,
+        "onset": 5761,
+        "kind": "gate",
+        "detail": "ghost (weak position)"
+      },
+      {
+        "index": 25,
+        "onset": 6117,
+        "kind": "gate",
+        "detail": "legato (stepwise into next)"
+      },
+      {
+        "index": 26,
+        "onset": 6360,
+        "kind": "gate",
+        "detail": "ghost (weak position)"
+      },
+      {
+        "index": 27,
+        "onset": 6479,
+        "kind": "gate",
+        "detail": "ghost (weak position)"
+      },
+      {
+        "index": 28,
+        "onset": 6723,
+        "kind": "gate",
+        "detail": "ghost (weak position)"
+      },
+      {
+        "index": 29,
+        "onset": 6963,
+        "kind": "gate",
+        "detail": "legato (stepwise into next)"
+      },
+      {
+        "index": 30,
+        "onset": 7205,
+        "kind": "gate",
+        "detail": "detached (repeated note)"
+      },
+      {
+        "index": 31,
+        "onset": 7443,
+        "kind": "gate",
+        "detail": "ghost (weak position)"
+      }
+    ]
+  },
+  "pass3": {
+    "phrase": {
+      "v": 1,
+      "id": "funk-ghost-dm7-v1-adapted-s42",
+      "role": "bass",
+      "lengthTicks": 7680,
+      "ticksPerBeat": 480,
+      "meter": {
+        "numerator": 4,
+        "denominator": 4
+      },
+      "source": {
+        "note": "adapted from funk-ghost-dm7-v1 by @enkerli/accompaniment@0.1.0 seed 42"
+      },
+      "events": [
+        {
+          "onset": 0,
+          "duration": 90,
+          "velocity": 112,
+          "note": 38,
+          "pitchClass": 2,
+          "chordRelation": {
+            "degree": 1,
+            "alteration": 0,
+            "octave": 3,
+            "category": "chord-tone"
+          },
+          "sourceEventId": "e0"
+        },
+        {
+          "onset": 354,
+          "duration": 45,
+          "velocity": 44,
+          "note": 38,
+          "pitchClass": 2,
+          "chordRelation": {
+            "degree": 1,
+            "alteration": 0,
+            "octave": 3,
+            "category": "chord-tone"
+          },
+          "sourceEventId": "e1"
+        },
+        {
+          "onset": 596,
+          "duration": 90,
+          "velocity": 91,
+          "note": 41,
+          "pitchClass": 5,
+          "chordRelation": {
+            "degree": 2,
+            "alteration": 0,
+            "octave": 3,
+            "category": "chord-tone"
+          },
+          "sourceEventId": "e2"
+        },
+        {
+          "onset": 716,
+          "duration": 45,
+          "velocity": 59,
+          "note": 38,
+          "pitchClass": 2,
+          "chordRelation": {
+            "degree": 1,
+            "alteration": 0,
+            "octave": 3,
+            "category": "chord-tone"
+          },
+          "sourceEventId": "e3"
+        },
+        {
+          "onset": 962,
+          "duration": 100,
+          "velocity": 101,
+          "note": 45,
+          "pitchClass": 9,
+          "chordRelation": {
+            "degree": 3,
+            "alteration": 0,
+            "octave": 3,
+            "category": "chord-tone"
+          },
+          "sourceEventId": "e4"
+        },
+        {
+          "onset": 1198,
+          "duration": 240,
+          "velocity": 85,
+          "note": 48,
+          "pitchClass": 0,
+          "chordRelation": {
+            "degree": 4,
+            "alteration": 0,
+            "octave": 4,
+            "category": "chord-tone"
+          },
+          "sourceEventId": "e5"
+        },
+        {
+          "onset": 1438,
+          "duration": 100,
+          "velocity": 109,
+          "note": 50,
+          "pitchClass": 2,
+          "chordRelation": {
+            "degree": 1,
+            "alteration": 0,
+            "octave": 4,
+            "category": "chord-tone"
+          },
+          "sourceEventId": "e6"
+        },
+        {
+          "onset": 1676,
+          "duration": 242,
+          "velocity": 65,
+          "note": 44,
+          "pitchClass": 8,
+          "chordRelation": {
+            "degree": 0,
+            "alteration": 0,
+            "octave": 3,
+            "category": "passing-tone"
+          },
+          "sourceEventId": "e7"
+        },
+        {
+          "onset": 1918,
+          "duration": 355,
+          "velocity": 113,
+          "note": 43,
+          "pitchClass": 7,
+          "chordRelation": {
+            "degree": 1,
+            "alteration": 0,
+            "octave": 3,
+            "category": "chord-tone"
+          },
+          "sourceEventId": "e0"
+        },
+        {
+          "onset": 2273,
+          "duration": 45,
+          "velocity": 44,
+          "note": 41,
+          "pitchClass": 5,
+          "chordRelation": {
+            "degree": 1,
+            "alteration": 0,
+            "octave": 3,
+            "category": "chord-tone"
+          },
+          "sourceEventId": "e1"
+        },
+        {
+          "onset": 2516,
+          "duration": 116,
+          "velocity": 91,
+          "note": 47,
+          "pitchClass": 11,
+          "chordRelation": {
+            "degree": 2,
+            "alteration": 0,
+            "octave": 3,
+            "category": "chord-tone"
+          },
+          "sourceEventId": "e2"
+        },
+        {
+          "onset": 2632,
+          "duration": 248,
+          "velocity": 61,
+          "note": 49,
+          "pitchClass": 1,
+          "chordRelation": {
+            "degree": 0,
+            "alteration": 0,
+            "octave": 4,
+            "category": "passing-tone"
+          },
+          "sourceEventId": "e3"
+        },
+        {
+          "onset": 2880,
+          "duration": 170,
+          "velocity": 102,
+          "note": 50,
+          "pitchClass": 2,
+          "chordRelation": {
+            "degree": 3,
+            "alteration": 0,
+            "octave": 4,
+            "category": "chord-tone"
+          },
+          "sourceEventId": "e4"
+        },
+        {
+          "onset": 3120,
+          "duration": 242,
+          "velocity": 84,
+          "note": 53,
+          "pitchClass": 5,
+          "chordRelation": {
+            "degree": 4,
+            "alteration": 0,
+            "octave": 4,
+            "category": "chord-tone"
+          },
+          "sourceEventId": "e5"
+        },
+        {
+          "onset": 3362,
+          "duration": 235,
+          "velocity": 107,
+          "note": 55,
+          "pitchClass": 7,
+          "chordRelation": {
+            "degree": 1,
+            "alteration": 0,
+            "octave": 4,
+            "category": "chord-tone"
+          },
+          "sourceEventId": "e6"
+        },
+        {
+          "onset": 3597,
+          "duration": 65,
+          "velocity": 65,
+          "note": 53,
+          "pitchClass": 5,
+          "chordRelation": {
+            "degree": 4,
+            "alteration": 0,
+            "octave": 4,
+            "category": "chord-tone"
+          },
+          "sourceEventId": "e7"
+        },
+        {
+          "onset": 3844,
+          "duration": 100,
+          "velocity": 111,
+          "note": 48,
+          "pitchClass": 0,
+          "chordRelation": {
+            "degree": 1,
+            "alteration": 0,
+            "octave": 4,
+            "category": "chord-tone"
+          },
+          "sourceEventId": "e0"
+        },
+        {
+          "onset": 4201,
+          "duration": 241,
+          "velocity": 42,
+          "note": 41,
+          "pitchClass": 5,
+          "chordRelation": {
+            "degree": 0,
+            "alteration": 0,
+            "octave": 3,
+            "category": "passing-tone"
+          },
+          "sourceEventId": "e1"
+        },
+        {
+          "onset": 4442,
+          "duration": 90,
+          "velocity": 89,
+          "note": 40,
+          "pitchClass": 4,
+          "chordRelation": {
+            "degree": 2,
+            "alteration": 0,
+            "octave": 3,
+            "category": "chord-tone"
+          },
+          "sourceEventId": "e2"
+        },
+        {
+          "onset": 4557,
+          "duration": 45,
+          "velocity": 59,
+          "note": 36,
+          "pitchClass": 0,
+          "chordRelation": {
+            "degree": 1,
+            "alteration": 0,
+            "octave": 3,
+            "category": "chord-tone"
+          },
+          "sourceEventId": "e3"
+        },
+        {
+          "onset": 4798,
+          "duration": 100,
+          "velocity": 103,
+          "note": 43,
+          "pitchClass": 7,
+          "chordRelation": {
+            "degree": 3,
+            "alteration": 0,
+            "octave": 3,
+            "category": "chord-tone"
+          },
+          "sourceEventId": "e4"
+        },
+        {
+          "onset": 5036,
+          "duration": 242,
+          "velocity": 85,
+          "note": 47,
+          "pitchClass": 11,
+          "chordRelation": {
+            "degree": 4,
+            "alteration": 0,
+            "octave": 3,
+            "category": "chord-tone"
+          },
+          "sourceEventId": "e5"
+        },
+        {
+          "onset": 5278,
+          "duration": 236,
+          "velocity": 109,
+          "note": 48,
+          "pitchClass": 0,
+          "chordRelation": {
+            "degree": 1,
+            "alteration": 0,
+            "octave": 4,
+            "category": "chord-tone"
+          },
+          "sourceEventId": "e6"
+        },
+        {
+          "onset": 5514,
+          "duration": 249,
+          "velocity": 66,
+          "note": 47,
+          "pitchClass": 11,
+          "chordRelation": {
+            "degree": 4,
+            "alteration": 0,
+            "octave": 3,
+            "category": "chord-tone"
+          },
+          "sourceEventId": "e7"
+        },
+        {
+          "onset": 5763,
+          "duration": 100,
+          "velocity": 111,
+          "note": 45,
+          "pitchClass": 9,
+          "chordRelation": {
+            "degree": 1,
+            "alteration": 0,
+            "octave": 3,
+            "category": "chord-tone"
+          },
+          "sourceEventId": "e0"
+        },
+        {
+          "onset": 6122,
+          "duration": 242,
+          "velocity": 41,
+          "note": 38,
+          "pitchClass": 2,
+          "chordRelation": {
+            "degree": 0,
+            "alteration": 0,
+            "octave": 3,
+            "category": "passing-tone"
+          },
+          "sourceEventId": "e1"
+        },
+        {
+          "onset": 6364,
+          "duration": 90,
+          "velocity": 89,
+          "note": 37,
+          "pitchClass": 1,
+          "chordRelation": {
+            "degree": 2,
+            "alteration": 0,
+            "octave": 3,
+            "category": "chord-tone"
+          },
+          "sourceEventId": "e2"
+        },
+        {
+          "onset": 6481,
+          "duration": 45,
+          "velocity": 58,
+          "note": 45,
+          "pitchClass": 9,
+          "chordRelation": {
+            "degree": 1,
+            "alteration": 0,
+            "octave": 3,
+            "category": "chord-tone"
+          },
+          "sourceEventId": "e3"
+        },
+        {
+          "onset": 6724,
+          "duration": 100,
+          "velocity": 101,
+          "note": 40,
+          "pitchClass": 4,
+          "chordRelation": {
+            "degree": 3,
+            "alteration": 0,
+            "octave": 3,
+            "category": "chord-tone"
+          },
+          "sourceEventId": "e4"
+        },
+        {
+          "onset": 6964,
+          "duration": 242,
+          "velocity": 83,
+          "note": 44,
+          "pitchClass": 8,
+          "chordRelation": {
+            "degree": 0,
+            "alteration": 0,
+            "octave": 3,
+            "category": "passing-tone"
+          },
+          "sourceEventId": "e5"
+        },
+        {
+          "onset": 7206,
+          "duration": 90,
+          "velocity": 106,
+          "note": 43,
+          "pitchClass": 7,
+          "chordRelation": {
+            "degree": 1,
+            "alteration": 0,
+            "octave": 3,
+            "category": "chord-tone"
+          },
+          "sourceEventId": "e6"
+        },
+        {
+          "onset": 7446,
+          "duration": 65,
+          "velocity": 62,
+          "note": 43,
+          "pitchClass": 7,
+          "chordRelation": {
+            "degree": 4,
+            "alteration": 0,
+            "octave": 3,
+            "category": "chord-tone"
+          },
+          "sourceEventId": "e7"
+        }
+      ],
+      "harmonicFrames": [
+        {
+          "start": 0,
+          "end": 1920,
+          "chord": {
+            "symbol": "Dm7",
+            "rootPc": 2,
+            "pcs": [
+              2,
+              5,
+              9,
+              0
+            ]
+          }
+        },
+        {
+          "start": 1920,
+          "end": 3840,
+          "chord": {
+            "symbol": "G7",
+            "rootPc": 7,
+            "pcs": [
+              7,
+              11,
+              2,
+              5
+            ]
+          }
+        },
+        {
+          "start": 3840,
+          "end": 5760,
+          "chord": {
+            "symbol": "Cmaj7",
+            "rootPc": 0,
+            "pcs": [
+              0,
+              4,
+              7,
+              11
+            ]
+          }
+        },
+        {
+          "start": 5760,
+          "end": 7680,
+          "chord": {
+            "symbol": "A7",
+            "rootPc": 9,
+            "pcs": [
+              9,
+              1,
+              4,
+              7
+            ]
+          }
+        }
+      ],
+      "annotations": {
+        "expression": "{\"seed\":42,\"pass\":3,\"morph\":0.5,\"variety\":0.6,\"pocket\":0.5,\"mixedGate\":true}"
+      }
+    },
+    "changes": [
+      {
+        "index": 7,
+        "onset": 1680,
+        "kind": "passing",
+        "detail": "48→44 toward 43"
+      },
+      {
+        "index": 9,
+        "onset": 2280,
+        "kind": "reselect",
+        "detail": "43→41 within G7"
+      },
+      {
+        "index": 11,
+        "onset": 2640,
+        "kind": "passing",
+        "detail": "43→49 toward 50"
+      },
+      {
+        "index": 17,
+        "onset": 4200,
+        "kind": "passing",
+        "detail": "36→41 toward 40"
+      },
+      {
+        "index": 25,
+        "onset": 6120,
+        "kind": "passing",
+        "detail": "45→38 toward 37"
+      },
+      {
+        "index": 29,
+        "onset": 6960,
+        "kind": "passing",
+        "detail": "43→44 toward 45"
+      },
+      {
+        "index": 30,
+        "onset": 7200,
+        "kind": "reselect",
+        "detail": "45→43 within A7"
+      },
+      {
+        "index": 1,
+        "onset": 360,
+        "kind": "pocket",
+        "detail": "-6.6ms (drift -4.1)"
+      },
+      {
+        "index": 2,
+        "onset": 600,
+        "kind": "pocket",
+        "detail": "-4.3ms (drift -4.6)"
+      },
+      {
+        "index": 3,
+        "onset": 720,
+        "kind": "pocket",
+        "detail": "-3.8ms (drift -2.3)"
+      },
+      {
+        "index": 4,
+        "onset": 960,
+        "kind": "pocket",
+        "detail": "+1.7ms (drift 0.6)"
+      },
+      {
+        "index": 5,
+        "onset": 1200,
+        "kind": "pocket",
+        "detail": "-2.0ms (drift -2.0)"
+      },
+      {
+        "index": 6,
+        "onset": 1440,
+        "kind": "pocket",
+        "detail": "-2.5ms (drift -3.9)"
+      },
+      {
+        "index": 7,
+        "onset": 1680,
+        "kind": "pocket",
+        "detail": "-3.9ms (drift -2.8)"
+      },
+      {
+        "index": 8,
+        "onset": 1920,
+        "kind": "pocket",
+        "detail": "-1.9ms (drift -3.6)"
+      },
+      {
+        "index": 9,
+        "onset": 2280,
+        "kind": "pocket",
+        "detail": "-7.4ms (drift -4.9)"
+      },
+      {
+        "index": 10,
+        "onset": 2520,
+        "kind": "pocket",
+        "detail": "-4.0ms (drift -4.4)"
+      },
+      {
+        "index": 11,
+        "onset": 2640,
+        "kind": "pocket",
+        "detail": "-8.4ms (drift -6.9)"
+      },
+      {
+        "index": 14,
+        "onset": 3360,
+        "kind": "pocket",
+        "detail": "+2.5ms (drift 1.1)"
+      },
+      {
+        "index": 15,
+        "onset": 3600,
+        "kind": "pocket",
+        "detail": "-3.5ms (drift -2.3)"
+      },
+      {
+        "index": 16,
+        "onset": 3840,
+        "kind": "pocket",
+        "detail": "+4.2ms (drift 2.5)"
+      },
+      {
+        "index": 17,
+        "onset": 4200,
+        "kind": "pocket",
+        "detail": "+1.5ms (drift 3.9)"
+      },
+      {
+        "index": 18,
+        "onset": 4440,
+        "kind": "pocket",
+        "detail": "+2.0ms (drift 1.7)"
+      },
+      {
+        "index": 19,
+        "onset": 4560,
+        "kind": "pocket",
+        "detail": "-2.6ms (drift -1.1)"
+      },
+      {
+        "index": 20,
+        "onset": 4800,
+        "kind": "pocket",
+        "detail": "-2.1ms (drift -3.1)"
+      },
+      {
+        "index": 21,
+        "onset": 5040,
+        "kind": "pocket",
+        "detail": "-4.3ms (drift -4.3)"
+      },
+      {
+        "index": 22,
+        "onset": 5280,
+        "kind": "pocket",
+        "detail": "-1.7ms (drift -3.1)"
+      },
+      {
+        "index": 23,
+        "onset": 5520,
+        "kind": "pocket",
+        "detail": "-6.2ms (drift -5.0)"
+      },
+      {
+        "index": 24,
+        "onset": 5760,
+        "kind": "pocket",
+        "detail": "+3.1ms (drift 1.5)"
+      },
+      {
+        "index": 25,
+        "onset": 6120,
+        "kind": "pocket",
+        "detail": "+1.6ms (drift 4.1)"
+      },
+      {
+        "index": 26,
+        "onset": 6360,
+        "kind": "pocket",
+        "detail": "+3.7ms (drift 3.3)"
+      },
+      {
+        "index": 27,
+        "onset": 6480,
+        "kind": "pocket",
+        "detail": "+1.4ms (drift 2.9)"
+      },
+      {
+        "index": 28,
+        "onset": 6720,
+        "kind": "pocket",
+        "detail": "+4.3ms (drift 3.2)"
+      },
+      {
+        "index": 29,
+        "onset": 6960,
+        "kind": "pocket",
+        "detail": "+4.0ms (drift 4.0)"
+      },
+      {
+        "index": 30,
+        "onset": 7200,
+        "kind": "pocket",
+        "detail": "+5.9ms (drift 4.5)"
+      },
+      {
+        "index": 31,
+        "onset": 7440,
+        "kind": "pocket",
+        "detail": "+6.1ms (drift 7.3)"
+      },
+      {
+        "index": 0,
+        "onset": 0,
+        "kind": "gate",
+        "detail": "detached (repeated note)"
+      },
+      {
+        "index": 1,
+        "onset": 354,
+        "kind": "gate",
+        "detail": "ghost (weak position)"
+      },
+      {
+        "index": 2,
+        "onset": 596,
+        "kind": "gate",
+        "detail": "ghost (weak position)"
+      },
+      {
+        "index": 3,
+        "onset": 716,
+        "kind": "gate",
+        "detail": "ghost (weak position)"
+      },
+      {
+        "index": 4,
+        "onset": 962,
+        "kind": "gate",
+        "detail": "ghost (weak position)"
+      },
+      {
+        "index": 5,
+        "onset": 1198,
+        "kind": "gate",
+        "detail": "legato (stepwise into next)"
+      },
+      {
+        "index": 6,
+        "onset": 1438,
+        "kind": "gate",
+        "detail": "ghost (weak position)"
+      },
+      {
+        "index": 7,
+        "onset": 1676,
+        "kind": "gate",
+        "detail": "legato (stepwise into next)"
+      },
+      {
+        "index": 8,
+        "onset": 1918,
+        "kind": "gate",
+        "detail": "legato (stepwise into next)"
+      },
+      {
+        "index": 9,
+        "onset": 2273,
+        "kind": "gate",
+        "detail": "ghost (weak position)"
+      },
+      {
+        "index": 10,
+        "onset": 2516,
+        "kind": "gate",
+        "detail": "legato (stepwise into next)"
+      },
+      {
+        "index": 11,
+        "onset": 2632,
+        "kind": "gate",
+        "detail": "legato (stepwise into next)"
+      },
+      {
+        "index": 12,
+        "onset": 2880,
+        "kind": "gate",
+        "detail": "tenuto"
+      },
+      {
+        "index": 13,
+        "onset": 3120,
+        "kind": "gate",
+        "detail": "legato (stepwise into next)"
+      },
+      {
+        "index": 14,
+        "onset": 3362,
+        "kind": "gate",
+        "detail": "legato (stepwise into next)"
+      },
+      {
+        "index": 15,
+        "onset": 3597,
+        "kind": "gate",
+        "detail": "ghost (weak position)"
+      },
+      {
+        "index": 16,
+        "onset": 3844,
+        "kind": "gate",
+        "detail": "ghost (weak position)"
+      },
+      {
+        "index": 17,
+        "onset": 4201,
+        "kind": "gate",
+        "detail": "legato (stepwise into next)"
+      },
+      {
+        "index": 18,
+        "onset": 4442,
+        "kind": "gate",
+        "detail": "ghost (weak position)"
+      },
+      {
+        "index": 19,
+        "onset": 4557,
+        "kind": "gate",
+        "detail": "ghost (weak position)"
+      },
+      {
+        "index": 20,
+        "onset": 4798,
+        "kind": "gate",
+        "detail": "ghost (weak position)"
+      },
+      {
+        "index": 21,
+        "onset": 5036,
+        "kind": "gate",
+        "detail": "legato (stepwise into next)"
+      },
+      {
+        "index": 22,
+        "onset": 5278,
+        "kind": "gate",
+        "detail": "legato (stepwise into next)"
+      },
+      {
+        "index": 23,
+        "onset": 5514,
+        "kind": "gate",
+        "detail": "legato (stepwise into next)"
+      },
+      {
+        "index": 24,
+        "onset": 5763,
+        "kind": "gate",
+        "detail": "ghost (weak position)"
+      },
+      {
+        "index": 25,
+        "onset": 6122,
+        "kind": "gate",
+        "detail": "legato (stepwise into next)"
+      },
+      {
+        "index": 26,
+        "onset": 6364,
+        "kind": "gate",
+        "detail": "ghost (weak position)"
+      },
+      {
+        "index": 27,
+        "onset": 6481,
+        "kind": "gate",
+        "detail": "ghost (weak position)"
+      },
+      {
+        "index": 28,
+        "onset": 6724,
+        "kind": "gate",
+        "detail": "ghost (weak position)"
+      },
+      {
+        "index": 29,
+        "onset": 6964,
+        "kind": "gate",
+        "detail": "legato (stepwise into next)"
+      },
+      {
+        "index": 30,
+        "onset": 7206,
+        "kind": "gate",
+        "detail": "detached (repeated note)"
+      },
+      {
+        "index": 31,
+        "onset": 7446,
+        "kind": "gate",
+        "detail": "ghost (weak position)"
+      }
+    ]
+  }
+}

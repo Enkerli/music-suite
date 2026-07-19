@@ -20,6 +20,10 @@ export {
   type ArticulateOptions, type ArticulateResult, type ArticulationChange,
 } from "./articulate.js";
 export {
+  expressPhrase,
+  type ExpressOptions, type ExpressResult, type ExpressChange,
+} from "./express.js";
+export {
   groove, framesFromProgression,
   type GrooveOptions, type GrooveResult, type FramesOptions,
 } from "./pipeline.js";

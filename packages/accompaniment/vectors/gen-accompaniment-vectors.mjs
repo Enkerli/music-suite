@@ -14,7 +14,7 @@ import { writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseLeadsheet, realizeLeadsheet } from "@enkerli/theory";
-import { extractPhrase, adaptBassPhrase, applyRhythm, articulate, serializePhrase } from "@enkerli/accompaniment";
+import { extractPhrase, adaptBassPhrase, applyRhythm, articulate, expressPhrase, serializePhrase } from "@enkerli/accompaniment";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 
@@ -139,6 +139,18 @@ const breathed = articulate(funkAdapted.phrase, {
 writeFileSync(
   join(HERE, "articulated-funk-dm7-g7-cmaj7-a7-seed42.json"),
   JSON.stringify(breathed, null, 2) + "\n",
+);
+
+// The expression acceptance (docs/GLORIARP_NEXT.md): the funk material at
+// pass 0 AND pass 3 under morph — variety (passing tones, reselection),
+// pocket (correlated push/pull + micro-dynamics), mixed gate. Committing two
+// passes pins BOTH determinism-per-pass and the morph behavior itself.
+const expressed = [0, 3].map((pass) => expressPhrase(funkAdapted.phrase, {
+  seed: 42, pass, morph: 0.5, variety: 0.6, pocket: 0.5, mixedGate: true, bpm: 120,
+}));
+writeFileSync(
+  join(HERE, "expressed-funk-dm7-g7-cmaj7-a7-seed42.json"),
+  JSON.stringify({ pass0: expressed[0], pass3: expressed[1] }, null, 2) + "\n",
 );
 
 console.log(`source: ${source.events.length} events; adapted: ${phrase.events.length} events over ${frames.length} bars`);
