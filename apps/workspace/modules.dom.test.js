@@ -280,8 +280,64 @@ describe("GloriArp module (the standalone accompaniment surface)", () => {
     expect([...body.querySelectorAll("option")].map((o) => o.value)).toContain("funk-ghost");
     const play = [...body.querySelectorAll("button")].find((b) => b.textContent.includes("play"));
     play.dispatchEvent(new MouseEvent("click"));
-    expect(body.textContent).toMatch(/▶ \d+ notes · Dm7/);
+    expect(body.textContent).toMatch(/▶ pass 1 · \d+ notes · Dm7/);
     expect(state.progression).toBe("Dm7 | G7 | Cmaj7 | A7"); // persisted
+    off();
+  });
+
+  it("live loops: the pass function is re-called at each boundary, so edits land next pass", async () => {
+    const { createGroovePlayer } = await import("./modules.js");
+    const { ctxObj } = ctx();
+    const seen = [];
+    ctxObj.bus.subscribe((m) => seen.push(m));
+    let clock = 0;
+    const pending = [];
+    const player = createGroovePlayer({
+      bus: ctxObj.bus,
+      now: () => clock,
+      schedule: (fn, ms) => { const t = { fn, at: clock + ms, cleared: false }; pending.push(t); return t; },
+      clear: (t) => { if (t) t.cleared = true; },
+    });
+    // A tiny 1-bar phrase whose pitch is the pass number — regeneration visible.
+    const mkPhrase = (note) => ({
+      ticksPerBeat: 480, lengthTicks: 1920, meter: { numerator: 4, denominator: 4 },
+      events: [{ onset: 0, duration: 480, velocity: 96, note }],
+    });
+    const passes = [];
+    player.start((pass) => { passes.push(pass); return mkPhrase(60 + pass); }, { bpm: 120, loop: true });
+    expect(passes).toEqual([0]); // built lazily, one pass at a time
+    // Run pass 0's timers (1 note + the boundary timer). Thresholds carry a
+    // float tolerance: periodMs = 1920 × (60000/57600) ≈ 2000.0000000000002.
+    const fire = (until) => {
+      for (const t of [...pending])
+        if (!t.cleared && !t.fired && t.at <= until) { t.fired = true; clock = Math.max(clock, t.at); t.fn(); }
+    };
+    fire(2000.5);
+    expect(passes).toEqual([0, 1]);           // boundary rebuilt with pass 1
+    expect(seen.map((m) => m.body.notes[0])).toEqual([60]);
+    fire(4000.5);
+    expect(seen.map((m) => m.body.notes[0])).toEqual([60, 61]); // pass 1's regenerated pitch sounded
+    // A throwing rebuild keeps the last good take (never silences the groove).
+    player.stop();
+  });
+
+  it("adopts a progression message off the bus into the field", async () => {
+    const { MODULES } = await import("./modules.js");
+    const { makeMessage } = await import("@enkerli/protocol");
+    const { parseLeadsheet } = await import("@enkerli/theory");
+    const { ctxObj } = ctx();
+    const body = document.createElement("div");
+    const state = {};
+    const off = MODULES["gloriarp"].make(ctxObj, body, state);
+    const field = body.querySelector('input[aria-label="Progression (bar notation)"]');
+    expect(field.value).toBe("Dm7 | G7 | Cmaj7 | A7");
+    // Round-trip through the real parser so the message body is a genuine
+    // Progression (ProgGenie's actual shape), not a hand-rolled guess.
+    const prog = parseLeadsheet("Gm7 | C7 | Fmaj7", { tonic: "F", mode: "major" });
+    ctxObj.bus.publish(makeMessage("proggenie", "progression", { prog }));
+    expect(field.value).toContain("Gm7");
+    expect(state.progression).toContain("Gm7");
+    expect(body.textContent).toMatch(/progression from proggenie/);
     off();
   });
 });

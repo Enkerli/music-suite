@@ -2,7 +2,8 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import table from "@enkerli/proggen/data/transitions.json";
 import trigrams from "@enkerli/proggen/data/trigrams.json";
 import { BEATS_PER_BAR, chordCompletions, chordSlots, divideBar, generateLabels, generateSections, labelMass, nextChordSuggestions, realizeLabel, rhythmBeats, rhythmPlan, startLabel, voiceChord, voiceProgression, voicingSuggestions } from "@enkerli/proggen";
-import { chordStartBeats, exportProgression, voicingsToClip } from "./exportMidi.js";
+import { chordStartBeats, exportProgression, voicingsToClip, progressionFromVoicings } from "./exportMidi.js";
+import { publishProgression } from "./suite-bus.js";
 import { loadLibrary, saveLibrary, newId } from "./library.js";
 import { progressionFromSMF } from "@enkerli/midi";
 import { createBridge } from "./juceBridge.js";
@@ -1486,6 +1487,14 @@ export default function App() {
           </label>}
           {showLocalPlay && <button className="es-btn es-primary" onClick={() => (playing ? stop() : play(voicings, bpm))}>{playing ? "Stop" : "Play"}</button>}
           <button className="es-btn" onClick={() => navigator.clipboard?.writeText(chords.map((c) => c.symbol).join(" | "))}>Copy chords</button>
+          <button className="es-btn" title="Publish this progression on the suite bus — a looping GloriArp groove in the Workspace tab adopts it at its next pass"
+            onClick={() => {
+              const prog = progressionFromVoicings(voicings, { tonic, mode });
+              if (publishProgression(prog)) toast({ text: "Progression on the suite bus — GloriArp in the Workspace picks it up" });
+              else toast({ text: "Nothing to publish yet (or no BroadcastChannel here)" });
+            }}>
+            → Workspace
+          </button>
           {/* Where the document travels — name the destination, not the file
               format (Step 06). Both routes write the same SMF (it embeds the
               canonical Progression), through the one native save/share path. */}

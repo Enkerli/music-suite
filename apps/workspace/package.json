@@ -13,6 +13,7 @@
     "@enkerli/control": "*",
     "@enkerli/upi": "*",
     "@enkerli/accompaniment": "*",
+    "@enkerli/theory": "*",
     "@enkerli/ui": "*"
   },
   "devDependencies": {

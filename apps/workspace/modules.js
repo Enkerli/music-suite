@@ -298,6 +298,7 @@ function bridgeModule(ctx, bodyEl, state) {
 // take to a DAW/plugin (same bytes the CLI writes — one engine everywhere).
 
 import { groove } from "@enkerli/accompaniment";
+import { formatLeadsheet } from "@enkerli/theory";
 import walkingBass from "../../packages/accompaniment/vectors/source-walking-bass.json";
 import funkGhost from "../../packages/accompaniment/vectors/source-funk-ghost.json";
 import bossa from "../../packages/accompaniment/vectors/source-bossa.json";
@@ -312,21 +313,35 @@ export const GROOVE_STYLES = {
  * Perform a phrase as timed `note` messages on the bus. Injectable clock and
  * timers (the testable half); scheduling is off ONE absolute start per pass,
  * so loops never drift — the same discipline as the CLI's performPhrase.
+ *
+ * LIVE LOOPS (docs/GLORIARP_NEXT.md, slice B): `start` also accepts a
+ * FUNCTION (pass → phrase). It's called fresh at every pass boundary, so
+ * knob changes, a new progression off the bus, and per-pass morphing all
+ * take effect at the end of the current loop — no stop/regenerate. A pass
+ * whose regeneration throws keeps the previous phrase sounding (mid-edit
+ * errors never silence a groove — the Serpe rule, applied here).
  */
 export function createGroovePlayer({ bus, now = () => Date.now(), schedule = (fn, ms) => setTimeout(fn, ms), clear = clearTimeout }) {
   let timers = [];
   let running = false;
   const stop = () => { running = false; timers.forEach(clear); timers = []; };
-  function start(phrase, { bpm = 100, loop = false, to = "vane" } = {}) {
+  function start(phraseOrFn, { bpm = 100, loop = false, to = "vane", onPass } = {}) {
     stop();
     running = true;
-    const msPerTick = 60000 / (bpm * phrase.ticksPerBeat);
-    const periodMs = phrase.lengthTicks * msPerTick;
+    const build = typeof phraseOrFn === "function" ? phraseOrFn : () => phraseOrFn;
     const t0 = now();
-    const schedulePass = (pass) => {
+    let lastPhrase = null;
+    const schedulePass = (pass, startAt) => {
+      let phrase;
+      try { phrase = build(pass); } catch (e) { phrase = lastPhrase; if (onPass) onPass(pass, null, e); }
+      if (!phrase) { running = false; return; }
+      lastPhrase = phrase;
+      const msPerTick = 60000 / (bpm * phrase.ticksPerBeat);
+      const periodMs = phrase.lengthTicks * msPerTick;
+      if (onPass && phrase !== null) onPass(pass, phrase, null);
       for (const e of phrase.events) {
         if (e.note === undefined) continue;
-        const at = t0 + pass * periodMs + e.onset * msPerTick;
+        const at = startAt + e.onset * msPerTick;
         timers.push(schedule(() => {
           if (!running) return;
           bus.publish(makeNote("external", {
@@ -335,9 +350,9 @@ export function createGroovePlayer({ bus, now = () => Date.now(), schedule = (fn
           }, { to }));
         }, Math.max(0, at - now())));
       }
-      if (loop) timers.push(schedule(() => { if (running) { timers = timers.filter(Boolean); schedulePass(pass + 1); } }, Math.max(0, t0 + (pass + 1) * periodMs - now())));
+      if (loop) timers.push(schedule(() => { if (running) { timers = timers.filter(Boolean); schedulePass(pass + 1, startAt + periodMs); } }, Math.max(0, startAt + periodMs - now())));
     };
-    schedulePass(0);
+    schedulePass(0, t0);
   }
   return { start, stop, isRunning: () => running };
 }
@@ -354,7 +369,7 @@ function gloriarpModule(ctx, bodyEl, state) {
   const seed = el("input", { class: "ws-text ws-num", type: "number", value: S("seed", 42), "aria-label": "Seed" });
   const bpm = el("input", { class: "ws-text ws-num", type: "number", min: 30, max: 300, value: S("bpm", 100), "aria-label": "BPM" });
   const gate = el("select", { class: "ws-select", "aria-label": "Gate" },
-    ...["legato", "tenuto", "staccato"].map((g) => el("option", { value: g, text: g, ...(g === S("gate", "legato") ? { selected: "" } : {}) })));
+    ...["legato", "tenuto", "staccato", "mixed"].map((g) => el("option", { value: g, text: g, ...(g === S("gate", "legato") ? { selected: "" } : {}) })));
   const knob = (key, label, dflt) => {
     const input = el("input", { class: "ws-text ws-num", type: "number", min: 0, max: 1, step: 0.1, value: S(key, dflt), "aria-label": label });
     return { input, row: el("label", { class: "ws-ctl", text: label + " " }, input) };
@@ -362,9 +377,14 @@ function gloriarpModule(ctx, bodyEl, state) {
   const dynamics = knob("dynamics", "dynamics", 0.6);
   const rests = knob("rests", "rests", 0);
   const anticipation = knob("anticipation", "push", 0);
+  const variety = knob("variety", "variety", 0);
+  const pocket = knob("pocket", "pocket", 0);
+  const morph = knob("morph", "morph", 0);
   const loopBox = el("input", { type: "checkbox", ...(S("loop", true) ? { checked: "" } : {}), "aria-label": "Loop" });
 
-  function build() {
+  function build(pass = 0) {
+    // Read every control LIVE: this runs at each pass boundary, so a knob
+    // turned (or a progression received off the bus) lands on the next loop.
     const opts = {
       progression: progression.value,
       seed: Number(seed.value) || 42,
@@ -373,6 +393,10 @@ function gloriarpModule(ctx, bodyEl, state) {
       dynamics: Number(dynamics.input.value) || 0,
       rests: Number(rests.input.value) || 0,
       anticipation: Number(anticipation.input.value) || 0,
+      variety: Number(variety.input.value) || 0,
+      pocket: Number(pocket.input.value) || 0,
+      morph: Number(morph.input.value) || 0,
+      pass,
       ...(rhythm.value.trim() && { rhythm: rhythm.value.trim() }),
     };
     Object.assign(state, opts, { style: style.value, loop: loopBox.checked });
@@ -381,14 +405,34 @@ function gloriarpModule(ctx, bodyEl, state) {
   }
   function play() {
     try {
-      const r = build();
-      player.start(r.phrase, { bpm: Number(bpm.value) || 100, loop: loopBox.checked });
-      const s = r.trace.summary;
-      status.textContent = `▶ ${r.phrase.events.length} notes · ${r.frames.map((f) => f.chord.symbol).join(" | ")}`
-        + (s ? ` · ${s.approachesKept} approaches` : "") + (loopBox.checked ? " · looping" : "");
+      build(0); // validate now so an immediate error is immediate
+      player.start((pass) => build(pass).phrase, {
+        bpm: Number(bpm.value) || 100, loop: loopBox.checked,
+        onPass: (pass, phrase, err) => {
+          if (err) { status.textContent = `✗ pass ${pass + 1}: ${err.message || err} — keeping last good take`; return; }
+          status.textContent = `▶ pass ${pass + 1} · ${phrase.events.length} notes · ${progression.value}`
+            + (Number(morph.input.value) > 0 ? " · morphing" : "") + (loopBox.checked ? " · looping (tweaks land next pass)" : "");
+        },
+      });
     } catch (e) { status.textContent = "✗ " + (e && e.message || e); }
   }
   function stop() { player.stop(); status.textContent = "stopped"; }
+
+  // ProgGenie (or anything) → this module: a `progression` message on the bus
+  // carries the canonical Progression; adopt it as the bar-notation text. If
+  // we're looping, it simply takes effect at the next pass — live handoff.
+  const offProg = ctx.bus.subscribe((msg) => {
+    if (msg.type !== "progression" || !msg.body || !msg.body.prog) return;
+    try {
+      const text = formatLeadsheet(msg.body.prog);
+      if (!text.trim()) return;
+      progression.value = text;
+      state.progression = text; ctx.save();
+      status.textContent = player.isRunning()
+        ? `♪ progression from ${msg.from} — lands at the next pass`
+        : `♪ progression from ${msg.from} — press ▶`;
+    } catch { /* not a formattable progression — leave the field alone */ }
+  });
   function download() {
     try {
       const r = build();
@@ -410,13 +454,15 @@ function gloriarpModule(ctx, bodyEl, state) {
       el("label", { class: "ws-ctl", text: "bpm " }, bpm),
       el("label", { class: "ws-ctl", text: "gate " }, gate),
       dynamics.row, rests.row, anticipation.row),
+    el("div", { class: "ws-row", style: "flex-wrap:wrap" },
+      variety.row, pocket.row, morph.row),
     el("div", { class: "ws-row" },
       el("button", { class: "ws-btn", text: "▶ play", onclick: play }),
       el("button", { class: "ws-btn", text: "■ stop", onclick: stop }),
       el("label", { class: "ws-ctl" }, loopBox, " loop"),
       el("button", { class: "ws-btn", text: "⬇ .mid", title: "Download the identical take the CLI would write — for a DAW or plugin", onclick: download })),
     status);
-  return () => player.stop();
+  return () => { player.stop(); offProg && offProg(); };
 }
 
 export const MODULES = {
