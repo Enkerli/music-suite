@@ -96,6 +96,31 @@ C++ → JS:
 - App Group shared container on iPadOS (standalone and AUv3 keep separate
   localStorage, same as MIDIcurator's documented state).
 
+## 5b. Field notes — 2026-07-19 (Alex, queued for the next plugin pass)
+
+- **DAW sync.** The plugin should follow host transport (tempo + play
+  state) the way ProgGenie does — GloriArp/player loops locked to the
+  host beat, not a free-running clock. The foundation's
+  `TransportSnapshot` is the carrier.
+- **Keep playing with the GUI closed.** Today the bus and the module
+  logic live in the WebView, so closing the editor stops the music. The
+  playback-critical state (active loop, scheduler feed) must move to the
+  processor side (C++ owns the loop; the WebView is a *view* of it) —
+  the same lesson as MIDIcurator's file-backed library: the WebView is
+  not a place to keep running state.
+- **Control Surface should control Vane** — the module's gestures out as
+  bus/MIDI the Vane instance (plugin or tab) responds to; pairs with the
+  §5 "control-surface manifests driving other plugins" item, but the
+  Vane pairing is the concrete first target.
+- **Recorder saves the tape as a MIDI file** — the captured bus
+  performance exports as an SMF through the native save path (browser
+  download / share sheet), like GloriArp's ⬇ .mid.
+- **Workspace webapp MIDI edges:** real **MIDI out** (route bus notes to
+  a hardware/virtual port for further processing) and **MIDI in**
+  (controllers and note input — including feeding **GloriArp's learn
+  mode** from a keyboard) via `@enkerli/webmidi`, standalone-gated as
+  in Serpe/PitchFold.
+
 ## 6. Verification here vs. by a human
 
 Buildable and testable in this environment: the webapp plugin-mode logic
