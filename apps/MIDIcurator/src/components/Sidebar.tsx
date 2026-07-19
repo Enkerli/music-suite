@@ -32,6 +32,8 @@ interface SidebarProps {
   onGenerateProgression?: (progressionIndex: number, keyOffset: number, voicing: VoicingShape) => void;
   /** GloriArp: build an accompaniment clip from a progression (bar notation). */
   onGenerateGroove?: (req: GrooveClipRequest) => void;
+  /** Learn the selected clip as a GloriArp style; returns the saved name. */
+  onLearnGrooveStyle?: (name: string) => string;
   /** Leadsheet text of the selected clip, offered as the groove's progression. */
   selectedLeadsheet?: string;
   /** Called when the user picks a loop DB file (.db). */
@@ -70,6 +72,7 @@ export function Sidebar({
   loadingSamples,
   onGenerateProgression,
   onGenerateGroove,
+  onLearnGrooveStyle,
   selectedLeadsheet,
   onLoadLoopDb,
   loopDbFileName,
@@ -271,6 +274,8 @@ export function Sidebar({
         <GrooveGenerator
           onGenerate={onGenerateGroove}
           {...(selectedLeadsheet !== undefined && { selectedLeadsheet })}
+          {...(onLearnGrooveStyle !== undefined && { onLearnStyle: onLearnGrooveStyle })}
+          hasSelectedClip={selectedClipId !== null}
         />
       )}
 

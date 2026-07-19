@@ -23,7 +23,7 @@ import type { createLibraryBrowser } from '@enkerli/ui/library-browser';
 import { PROGRESSIONS, transposeProgression } from '../lib/progressions';
 import type { VoicingShape } from '../lib/progressions';
 import { generateProgressionClip } from '../lib/generate-clip';
-import { generateGrooveClip } from '../lib/gloriarp-clip';
+import { generateGrooveClip, learnStyleFromClip } from '../lib/gloriarp-clip';
 import type { GrooveClipRequest } from '../lib/gloriarp-clip';
 import { IN_PLUGIN, IS_PLUGIN_BUILD, bridge, b64ToBytes } from '../lib/juce-bridge';
 import { esConfirm, esAlert } from '@enkerli/ui/confirm';
@@ -1229,6 +1229,16 @@ export function MidiCurator() {
     selectClip(clip);
   }, [db, refreshClips, selectClip]);
 
+  // Learn (docs/GLORIARP_NEXT.md slice C): the selected clip becomes a
+  // GloriArp style — extraction with honest chord-relative inference, saved
+  // locally, immediately offered in the panel's style list. Throws with a
+  // human-readable reason (no notes, no chord) for the panel to display.
+  const handleLearnGrooveStyle = useCallback((name: string): string => {
+    if (!selectedClip) throw new Error('select a clip to learn from');
+    learnStyleFromClip(selectedClip, name);
+    return name;
+  }, [selectedClip]);
+
   const filteredClips = useMemo(() => {
     if (!filterTag) return clips;
     // Field-scoped filter: "field:value" emitted by metadata chip clicks
@@ -1566,6 +1576,7 @@ export function MidiCurator() {
           loadingSamples={loadingSamples}
           onGenerateProgression={handleGenerateProgression}
           onGenerateGroove={handleGenerateGroove}
+          onLearnGrooveStyle={handleLearnGrooveStyle}
           {...(selectedClip?.leadsheet?.inputText
             ? { selectedLeadsheet: selectedClip.leadsheet.inputText }
             : {})}

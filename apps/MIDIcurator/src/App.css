@@ -1156,6 +1156,15 @@ body {
   border-color: var(--mc-accent);
   color: var(--mc-accent);
 }
+.mc-groove-gen__from-clip:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.mc-groove-gen__msg {
+  font-size: 11px;
+  color: var(--mc-text-dim, var(--mc-text));
+}
 
 .mc-btn--generate {
   flex: 1;

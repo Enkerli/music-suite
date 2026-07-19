@@ -1,5 +1,9 @@
 import { describe, it, expect } from 'vitest';
-import { generateGrooveClip, GROOVE_STYLE_NAMES } from '../gloriarp-clip';
+import {
+  generateGrooveClip, GROOVE_STYLE_NAMES,
+  learnStyleFromClip, listUserStyles, allStyleNames,
+} from '../gloriarp-clip';
+import type { Clip } from '../../types/clip';
 import adaptedVector from '../../../../../packages/accompaniment/vectors/adapted-dm7-g7-cmaj7-a7-seed42.json';
 
 const CANON = { progression: 'Dm7 | G7 | Cmaj7 | A7', style: 'walking-bass' as const, seed: 42, bpm: 120 };
@@ -56,5 +60,73 @@ describe('generateGrooveClip', () => {
       .toThrow(/no chords parsed/);
     expect(() => generateGrooveClip({ ...CANON, rhythm: '(((' }))
       .toThrow(/did not parse as UPI/);
+  });
+
+  it('expression knobs reach the engine: takes (pass+morph) differ, base take matches', () => {
+    const base = generateGrooveClip(CANON);
+    const take0 = generateGrooveClip({ ...CANON, variety: 0.7, pocket: 0.6, morph: 1 });
+    const take2 = generateGrooveClip({ ...CANON, variety: 0.7, pocket: 0.6, morph: 1, pass: 2 });
+    expect(take0.notes).not.toEqual(base.notes);
+    expect(take2.notes).not.toEqual(take0.notes);
+    expect(take2.filename).toBe('gloriarp-walking-bass-s42-p2.mid');
+  });
+});
+
+describe('learned styles (curated capture, docs/GLORIARP_NEXT.md slice C)', () => {
+  /** In-memory stand-in for localStorage. */
+  const kv = () => {
+    const m = new Map<string, string>();
+    return { getItem: (k: string) => m.get(k) ?? null, setItem: (k: string, v: string) => { m.set(k, v); } };
+  };
+
+  /** A minimal one-bar Dm7 bass clip (D2 F2 A2 C3, quarters). */
+  const dm7Clip = (): Clip => ({
+    id: 'c1', filename: 'my-groove.mid', imported_at: 0, bpm: 120, rating: null, notes: '',
+    gesture: {
+      onsets: [0, 480, 960, 1440], durations: [400, 400, 400, 400], velocities: [96, 88, 90, 84],
+      density: 1, syncopation_score: 0, avg_velocity: 90, velocity_variance: 0, avg_duration: 400,
+      num_bars: 1, ticks_per_bar: 1920, ticks_per_beat: 480,
+    },
+    harmonic: {
+      pitches: [38, 41, 45, 48], pitchClasses: [2, 5, 9, 0],
+      detectedChord: {
+        root: 2, rootName: 'D', qualityKey: 'min7', symbol: 'Dm7', qualityName: 'minor seventh',
+        templatePcs: [0, 2, 5, 9],
+      },
+    },
+  });
+
+  it('learns a clip as a style, lists it, and generates from it', () => {
+    const s = kv();
+    const phrase = learnStyleFromClip(dm7Clip(), 'my-funk', s);
+    expect(phrase.role).toBe('bass');           // register heuristic: avg pitch < E3
+    expect(phrase.events).toHaveLength(4);
+    expect(phrase.events[0]!.chordRelation?.category).toBe('chord-tone');
+    expect(listUserStyles(s).map((e) => e.name)).toEqual(['my-funk']);
+    expect(allStyleNames(s)).toContain('my-funk');
+
+    const clip = generateGrooveClip({ ...CANON, style: 'my-funk' }, s);
+    expect(clip.notes.length).toBeGreaterThan(0);
+    // Deterministic like any bundled style.
+    expect(generateGrooveClip({ ...CANON, style: 'my-funk' }, s)).toEqual(clip);
+  });
+
+  it('same-name learning replaces, storage corruption is dropped not thrown', () => {
+    const s = kv();
+    learnStyleFromClip(dm7Clip(), 'take', s);
+    learnStyleFromClip(dm7Clip(), 'take', s);
+    expect(listUserStyles(s)).toHaveLength(1);
+    s.setItem('midicurator.gloriarp-styles', '[{"name":"broken","phrase":{"nope":1}}, not even json');
+    expect(listUserStyles(s)).toEqual([]);
+  });
+
+  it('refuses honestly: no chord → a message naming the fix', () => {
+    const clip = dm7Clip();
+    clip.harmonic.detectedChord = null;
+    expect(() => learnStyleFromClip(clip, 'x', kv())).toThrow(/needs a chord/);
+  });
+
+  it('unknown style names fail with the available list', () => {
+    expect(() => generateGrooveClip({ ...CANON, style: 'nope' }, kv())).toThrow(/unknown style "nope"/);
   });
 });
