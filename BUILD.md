@@ -95,15 +95,35 @@ This starts a small local server on `http://localhost:8765`.
 add the **Bridge (CLI)** module, leave the URL as `http://localhost:8765`,
 click **connect**.
 
-**Known rough edge:** the first connection attempt from an `https://` page
-to `http://localhost` can be silently dropped by the browser's Private
-Network Access check — clicking **connect** a second time (after the
-browser has resolved that check) is what "fixes" it. This build includes
-the server-side header (`Access-Control-Allow-Private-Network`) that should
-remove the need for that second click; **rebuild the CLI to pick it up**
-(`npm run build-packages`, or a fresh `npm install`) before relying on it.
-If reconnecting is still ever needed, it's a one-click fix, not a broken
-pipe — the bridge process itself keeps running.
+**Known rough edge — browser-dependent, not fully solved:** an `https://`
+page fetching `http://localhost` crosses both a scheme boundary (mixed
+content) and, in Chromium, a Private Network Access check — and browsers
+disagree on how to handle that:
+
+- **Chrome**: the bridge sends `Access-Control-Allow-Private-Network: true`
+  on its CORS responses (added 2026-07-19) specifically to satisfy PNA's
+  preflight opt-in — reasoned from the spec, not yet confirmed against a
+  real repro.
+- **Brave** (2026-07-20 field report): **the same header did not remove
+  the need to reconnect.** Brave is Chromium-based but its Shields layer
+  makes its own calls about local-network requests from a public page —
+  the PNA header alone isn't sufficient there. Unresolved; treat "click
+  connect twice" as the working answer on Brave for now.
+- **Safari** (2026-07-20 field report): **the bridge module doesn't work
+  at all.** Expected, not a bug to chase with a header: WebKit's
+  mixed-content model treats `https://` → `http://` as blocked
+  subresource loading, a scheme-level policy no CORS or PNA header can
+  override (PNA itself is a Chromium-only proposal WebKit hasn't adopted).
+
+**The one fix that would actually cover all three** is removing the
+scheme mismatch: serve the bridge over `https://` (a locally-trusted
+self-signed certificate, e.g. via `mkcert`) instead of plain `http://`.
+Not done yet — it's a real setup change (generating and trusting a local
+cert differs by OS), not a one-line patch, so it's queued as a decision to
+make rather than something silently attempted. Until then: the bridge
+process itself keeps running fine across all of this — it's specifically
+the browser's cross-scheme connection that's fragile, and Chrome is the
+most reliable browser for this workflow today.
 
 ---
 
