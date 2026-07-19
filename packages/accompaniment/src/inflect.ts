@@ -73,7 +73,16 @@ const clamp01 = (v: number) => Math.max(0, Math.min(1, v));
 
 /** Slur membership: consecutive notes join a slur when they are CONNECTED
  *  (gap under an eighth of a beat) and CONJUNCT (within 4 semitones) — the
- *  finger-slide/lip-slur territory; a leap gets its own tongue stroke. */
+ *  finger-slide/lip-slur territory; a leap gets its own tongue stroke.
+ *
+ *  POLYPHONY guard: a slur is a MELODIC relationship — two notes in the same
+ *  voice line, one genuinely following the other. Without this, two
+ *  simultaneous chord tones (comping) can look "joined" (their gap, being
+ *  negative — they overlap — trivially clears the threshold) and get
+ *  fused into a false slur across what's actually one struck chord. Require
+ *  real forward motion (b starts after a starts) and — when either carries
+ *  a voice id — that they're the SAME voice; different voices never slur
+ *  into each other even if adjacent in the sorted event list. */
 function slurGroups(phrase: AccompanimentPhrase): number[][] {
   const evs = phrase.events;
   const groups: number[][] = [];
@@ -81,6 +90,8 @@ function slurGroups(phrase: AccompanimentPhrase): number[][] {
   const joined = (i: number) => {
     const a = evs[i]!, b = evs[i + 1]!;
     if (a.note === undefined || b.note === undefined) return false;
+    if (b.onset <= a.onset) return false;
+    if ((a.voice ?? 0) !== (b.voice ?? 0)) return false;
     const gap = b.onset - (a.onset + a.duration);
     return gap <= phrase.ticksPerBeat / 8 && Math.abs(b.note - a.note) <= 4 && b.note !== a.note;
   };

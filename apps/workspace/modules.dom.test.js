@@ -285,6 +285,49 @@ describe("GloriArp module (the standalone accompaniment surface)", () => {
     off();
   });
 
+  it("imports a phrase.json and a model.json, adding each to the style list and using it", async () => {
+    const { MODULES } = await import("./modules.js");
+    const { extractPhrase, learnStyleModel, serializePhrase, serializeModel } = await import("@enkerli/accompaniment");
+    const { ctxObj } = ctx();
+    const body = document.createElement("div");
+    const state = {};
+    const off = MODULES["gloriarp"].make(ctxObj, body, state);
+
+    const DM7 = { symbol: "Dm7", rootPc: 2, pcs: [2, 5, 9, 0] };
+    const base = [{ pitch: 38, startTick: 0, durationTicks: 480, velocity: 96 },
+                  { pitch: 41, startTick: 480, durationTicks: 480, velocity: 88 }];
+    const mk = (id) => extractPhrase(base, { id, role: "bass", meter: { numerator: 4, denominator: 4 },
+      ticksPerBeat: 480, lengthTicks: 1920, frame: DM7 });
+    const phraseJson = serializePhrase(mk("imported-phrase"));
+    const modelJson = serializeModel(learnStyleModel([mk("t0"), mk("t1")], { id: "imported-model" }));
+
+    const importFile = async (text, filename) => {
+      const input = body.querySelector('input[type="file"]');
+      const file = new File([text], filename, { type: "application/json" });
+      Object.defineProperty(input, "files", { value: [file], configurable: true });
+      input.dispatchEvent(new Event("change"));
+      for (let i = 0; i < 20 && !body.textContent.includes(filename.replace(/\.json$/, "")); i++)
+        await new Promise((r) => setTimeout(r, 5));
+    };
+
+    await importFile(phraseJson, "my-phrase.json");
+    expect(body.textContent).toMatch(/imported "my-phrase" — a source phrase/);
+    const opts = [...body.querySelectorAll("option")].map((o) => o.value);
+    expect(opts).toContain("my-phrase");
+    const style = body.querySelector('select[aria-label="Style"]');
+    expect(style.value).toBe("my-phrase"); // auto-selected
+
+    await importFile(modelJson, "my-model.json");
+    expect(body.textContent).toMatch(/imported "my-model" — a style MODEL \(2 takes/);
+    expect(style.value).toBe("my-model");
+
+    // The imported MODEL actually drives play (samples per pass, not a crash).
+    const play = [...body.querySelectorAll("button")].find((b) => b.textContent.includes("play"));
+    play.dispatchEvent(new MouseEvent("click"));
+    expect(body.textContent).toMatch(/▶ pass 1 · \d+ notes/);
+    off();
+  });
+
   it("live loops: the pass function is re-called at each boundary, so edits land next pass", async () => {
     const { createGroovePlayer } = await import("./modules.js");
     const { ctxObj } = ctx();

@@ -1,16 +1,23 @@
 /**
  * The deterministic bass adapter — GloriArp slice 1 (GLORIARP_BRIEF §17):
- * ONE curated monophonic bass phrase, tiled across a harmonic timeline and
- * reharmonized per frame through its chord-relative annotations. Stage-0
- * "learning" — pure transforms, no model — but it establishes every contract
- * the later stages must honor: deterministic by seed (proggen's mulberry32),
- * range-clamped, chromatic approaches resolve to declared targets, and every
- * choice lands in the trace.
+ * ONE curated phrase, tiled across a harmonic timeline and reharmonized per
+ * frame through its chord-relative annotations. Stage-0 "learning" — pure
+ * transforms, no model — but it establishes every contract the later stages
+ * must honor: deterministic by seed (proggen's mulberry32), range-clamped,
+ * chromatic approaches resolve to declared targets, and every choice lands
+ * in the trace.
  *
  * Two passes: structural events (chord tones / unclassified) resolve first
  * against their own frame; approaches then resolve ±1 semitone against the
  * pitch their (cyclic) target actually got — so an approach at a bar's end
  * leads INTO the next chord, the essential walking-bass move.
+ *
+ * POLYPHONY (EP comping etc.): a source's simultaneous chord tones carry a
+ * `voice` id (extract.ts); the leap-guard continuity that keeps a line from
+ * jumping octaves is tracked PER VOICE, so each note in a stack reharmonizes
+ * and voice-leads independently — the chord moves as a chord, not as one
+ * fused line. A voiceless (monophonic) source shares one implicit voice, the
+ * exact behavior this had before comping existed.
  */
 
 import { mulberry32 } from "@enkerli/proggen";
@@ -141,7 +148,12 @@ export function adaptBassPhrase(source: AccompanimentPhrase, opts: BassAdaptOpti
   const chosen: (number | null)[] = new Array(tiled.length).fill(null);
   const traceEvents: TraceEvent[] = [];
   const isApproach = (t: Tiled) => t.ev.chordRelation?.category === "chromatic-approach";
-  let prevOut: number | null = null;
+  // Leap-guard continuity is per VOICE — a comping phrase's simultaneous
+  // chord tones each keep their own line (voice leading), not one shared
+  // "previous note" across the whole stack. Monophonic sources have no
+  // `voice` on any event, so every event shares key 0 — identical to the
+  // single-scalar behavior this replaces.
+  const prevOutByVoice = new Map<number, number>();
 
   const resolveStructural = (t: Tiled, i: number) => {
     const frame = frameAt(opts.frames, t.onset);
@@ -163,7 +175,9 @@ export function adaptBassPhrase(source: AccompanimentPhrase, opts: BassAdaptOpti
       reason = `nearest chord tone of ${frame.chord.symbol} (source ${rel?.category ?? "unrelated"})`;
     }
     pitch = clampToRange(pitch, opts.range, repairs);
-    if (prevOut !== null && Math.abs(pitch - prevOut) > 12) {
+    const voiceKey = t.ev.voice ?? 0;
+    const prevOut = prevOutByVoice.get(voiceKey);
+    if (prevOut !== undefined && Math.abs(pitch - prevOut) > 12) {
       const pulled = clampToRange(nearestWithPc(mod12(pitch), prevOut), opts.range, []);
       if (Math.abs(pulled - prevOut) < Math.abs(pitch - prevOut)) {
         repairs.push(`leap-guard:${pitch}→${pulled}`);
@@ -171,7 +185,7 @@ export function adaptBassPhrase(source: AccompanimentPhrase, opts: BassAdaptOpti
       }
     }
     chosen[i] = pitch;
-    prevOut = pitch;
+    prevOutByVoice.set(voiceKey, pitch);
     return { frame, ideal, pitch, reason, repairs, srcNote };
   };
 
@@ -269,13 +283,14 @@ export function adaptBassPhrase(source: AccompanimentPhrase, opts: BassAdaptOpti
         category: degree > 0 ? "chord-tone" : "chromatic-approach",
       },
       ...(t.ev.sourceEventId !== undefined && { sourceEventId: t.ev.sourceEventId }),
+      ...(t.ev.voice !== undefined && { voice: t.ev.voice }),
     });
   });
 
   const phrase: AccompanimentPhrase = {
     v: PHRASE_SCHEMA_V,
     id: `${source.id}-adapted-s${opts.seed}`,
-    role: "bass",
+    role: source.role,
     lengthTicks: totalTicks,
     ticksPerBeat: source.ticksPerBeat,
     meter: source.meter,

@@ -321,7 +321,7 @@ function bridgeModule(ctx, bodyEl, state) {
 // `note` messages, so the Vane tab SOUNDS it. ⬇ .mid hands the identical
 // take to a DAW/plugin (same bytes the CLI writes — one engine everywhere).
 
-import { groove } from "@enkerli/accompaniment";
+import { groove, looksLikeModel, parseModel, parsePhrase, samplePhrase } from "@enkerli/accompaniment";
 import { formatLeadsheet } from "@enkerli/theory";
 import { juceAvailable, saveFileNative } from "./juce-bridge.js";
 import walkingBass from "../../packages/accompaniment/vectors/source-walking-bass.json";
@@ -395,9 +395,50 @@ function gloriarpModule(ctx, bodyEl, state) {
   const player = createGroovePlayer({ bus: ctx.bus });
   const status = el("div", { class: "ws-readout", text: "set a progression, press ▶" });
 
+  // Imported sources (phrase.json OR model.json — msuite style learn output,
+  // a MIDIcurator export, anything honoring the contracts): session-local,
+  // added to the same style list the bundled CC0 vectors live in. A MODEL
+  // samples a fresh take per pass (parity with the CLI's `accompany
+  // --source` dispatch); a PHRASE is used exactly like a bundled style.
+  const imported = new Map(); // name → { kind: "phrase"|"model", value }
+
   const progression = el("input", { class: "ws-text", type: "text", value: S("progression", "Dm7 | G7 | Cmaj7 | A7"), "aria-label": "Progression (bar notation)", spellcheck: "false" });
   const style = el("select", { class: "ws-select", "aria-label": "Style" },
     ...Object.keys(GROOVE_STYLES).map((s) => el("option", { value: s, text: s, ...(s === S("style", "walking-bass") ? { selected: "" } : {}) })));
+  const addStyleOption = (name, select = true) => {
+    style.append(el("option", { value: name, text: name, ...(select ? { selected: "" } : {}) }));
+    if (select) style.value = name;
+  };
+  const fileInput = el("input", { type: "file", accept: ".json,application/json", style: "display:none", onchange: (e) => {
+    const file = e.target.files && e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      const text = String(reader.result);
+      let name = file.name.replace(/\.json$/i, "");
+      try {
+        let parsed;
+        try { parsed = JSON.parse(text); } catch { throw new Error("not JSON"); }
+        if (looksLikeModel(parsed)) {
+          const model = parseModel(text);
+          imported.set(name, { kind: "model", value: model });
+          status.textContent = `imported "${name}" — a style MODEL (${model.takes} takes against ${model.frame.symbol}); every pass samples a fresh take`;
+        } else {
+          const phrase = parsePhrase(text);
+          imported.set(name, { kind: "phrase", value: phrase });
+          status.textContent = `imported "${name}" — a source phrase (${phrase.events.length} events, ${phrase.role})`;
+        }
+        const exists = [...style.options].some((o) => o.value === name);
+        if (!exists) addStyleOption(name); else style.value = name;
+      } catch (err) {
+        status.textContent = `✗ import "${file.name}": ${(err && err.message) || err}`;
+      }
+    };
+    reader.readAsText(file);
+    fileInput.value = ""; // allow re-importing the same filename later
+  } });
+  const importBtn = el("button", { class: "ws-btn ghost", text: "⬆ import .json", title: "Import a phrase.json or style-model.json (msuite style learn, MIDIcurator export…)",
+    onclick: () => fileInput.click() });
   const rhythm = el("input", { class: "ws-text", type: "text", value: S("rhythm", ""), placeholder: "rhythm UPI (E(3,8)…)", "aria-label": "Rhythm UPI", spellcheck: "false" });
   const seed = el("input", { class: "ws-text ws-num", type: "number", value: S("seed", 42), "aria-label": "Seed" });
   const bpm = el("input", { class: "ws-text ws-num", type: "number", min: 30, max: 300, value: S("bpm", 100), "aria-label": "BPM" });
@@ -436,7 +477,12 @@ function gloriarpModule(ctx, bodyEl, state) {
     };
     Object.assign(state, opts, { style: style.value, loop: loopBox.checked });
     ctx.save();
-    return groove(GROOVE_STYLES[style.value], opts);
+    const im = imported.get(style.value);
+    const source = !im ? GROOVE_STYLES[style.value]
+      : im.kind === "model" ? samplePhrase(im.value, { seed: opts.seed, pass })
+      : im.value;
+    if (!source) throw new Error(`unknown style "${style.value}"`);
+    return groove(source, opts);
   }
   function play() {
     try {
@@ -471,7 +517,8 @@ function gloriarpModule(ctx, bodyEl, state) {
   function download() {
     try {
       const r = build();
-      const name = `gloriarp-${style.value}-s${seed.value}.mid`;
+      const safeStyle = style.value.replace(/[^A-Za-z0-9_-]+/g, "-");
+      const name = `gloriarp-${safeStyle}-s${seed.value}.mid`;
       // Plugin: a blob: anchor kills the page under the juce:// scheme
       // (TESTING.md) — the bytes go over the bridge to a native save
       // (FileChooser on desktop, share sheet on iPadOS) instead.
@@ -491,7 +538,7 @@ function gloriarpModule(ctx, bodyEl, state) {
 
   bodyEl.append(
     el("div", { class: "ws-row" }, progression),
-    el("div", { class: "ws-row", style: "flex-wrap:wrap" }, style, rhythm),
+    el("div", { class: "ws-row", style: "flex-wrap:wrap" }, style, rhythm, importBtn, fileInput),
     el("div", { class: "ws-row", style: "flex-wrap:wrap" },
       el("label", { class: "ws-ctl", text: "seed " }, seed),
       el("label", { class: "ws-ctl", text: "bpm " }, bpm),

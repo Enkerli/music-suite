@@ -8,6 +8,19 @@
  * "unclassified" (confidence 0) rather than being forced into a bucket.
  * "Next" is CYCLIC — a bar-end approach targets the loop's first event, which
  * is exactly the chord-change behavior the bass adapter needs when tiling.
+ *
+ * POLYPHONY (EP comping etc.): notes that start within `simultaneityTicks`
+ * of each other are one HIT (a chord stab); within a hit, notes are numbered
+ * bottom-to-top as VOICES (0 = lowest). Voice numbering is POSITIONAL, not
+ * tracked note-by-note across hits — a good-enough heuristic for a steady
+ * voicing, honest about its limit (a voicing that adds/drops a note can
+ * relabel which physical line is "voice 1"), same spirit as the rest of this
+ * module. "Next" for chromatic-approach detection then follows each voice's
+ * OWN temporal chain (cyclic within that voice), not raw array adjacency —
+ * two simultaneous chord tones are harmony, never an "approach" to each
+ * other. A phrase with no polyphony (every hit is one note) takes the exact
+ * legacy path — single global chain, no `voice` field — so mono output is
+ * byte-identical to before this existed.
  */
 
 import type {
@@ -22,6 +35,9 @@ export interface InputNote {
   startTick: number;
   durationTicks: number;
   velocity?: number;
+  /** Explicit voice id (bypasses onset-clustering — used when the caller
+   *  already knows voice identity, e.g. StyleModel sampling). */
+  voice?: number;
 }
 
 export interface ExtractOptions {
@@ -33,6 +49,9 @@ export interface ExtractOptions {
   /** The single chord the source phrase was played against (slice 1: one frame). */
   frame: FrameChord;
   source?: ProvenanceRef;
+  /** Notes starting within this many ticks of each other are one "hit" for
+   *  voice detection. Default: ticksPerBeat/32 (a 128th note). */
+  simultaneityTicks?: number;
 }
 
 const mod12 = (n: number) => ((n % 12) + 12) % 12;
@@ -65,11 +84,59 @@ function relate(note: number, next: number | undefined, chord: FrameChord, targe
   return { degree: 0, alteration: 0, octave, category: "unclassified", confidence: 0 };
 }
 
+/** Assign a voice index to each (already time/pitch-sorted) note. Returns
+ *  null if the input is monophonic (every hit is a single note) — the
+ *  signal to take the legacy no-voice path untouched. */
+function detectVoices(sorted: InputNote[], simultaneityTicks: number): number[] | null {
+  // Explicit voice ids win outright (StyleModel sampling passes them).
+  if (sorted.some((n) => n.voice !== undefined)) return sorted.map((n) => n.voice ?? 0);
+
+  const hits: number[][] = []; // groups of indices into `sorted`
+  let hitStart = -Infinity;
+  let current: number[] = [];
+  sorted.forEach((n, i) => {
+    if (i === 0 || n.startTick - hitStart > simultaneityTicks) {
+      if (current.length) hits.push(current);
+      current = [i];
+      hitStart = n.startTick;
+    } else {
+      current.push(i);
+    }
+  });
+  if (current.length) hits.push(current);
+
+  if (hits.every((h) => h.length === 1)) return null; // purely monophonic
+
+  const voices = new Array<number>(sorted.length).fill(0);
+  for (const hit of hits) {
+    const byPitch = [...hit].sort((a, b) => sorted[a]!.pitch - sorted[b]!.pitch);
+    byPitch.forEach((idx, v) => { voices[idx] = v; });
+  }
+  return voices;
+}
+
 /** Notes + one harmonic frame → a validated-shape AccompanimentPhrase. */
 export function extractPhrase(notes: InputNote[], opts: ExtractOptions): AccompanimentPhrase {
   const sorted = [...notes].sort((a, b) => a.startTick - b.startTick || a.pitch - b.pitch);
+  const tolerance = opts.simultaneityTicks ?? Math.max(1, Math.round(opts.ticksPerBeat / 32));
+  const voices = detectVoices(sorted, tolerance);
+
+  // Per-voice (or, when `voices` is null, one global) temporal chains:
+  // chain[v] lists indices into `sorted`, in time order, for cyclic "next".
+  const chains = new Map<number, number[]>();
+  sorted.forEach((_, i) => {
+    const v = voices ? voices[i]! : 0;
+    if (!chains.has(v)) chains.set(v, []);
+    chains.get(v)!.push(i);
+  });
+  // next-in-chain lookup: index i → the following index in ITS chain (cyclic).
+  const nextOf = new Map<number, number>();
+  for (const chain of chains.values()) {
+    chain.forEach((idx, pos) => nextOf.set(idx, chain[(pos + 1) % chain.length]!));
+  }
+
   const events: PhraseEvent[] = sorted.map((n, i) => {
-    const nextIndex = (i + 1) % sorted.length;
+    const nextIndex = nextOf.get(i)!;
     const next = sorted.length > 1 ? sorted[nextIndex]!.pitch : undefined;
     return {
       onset: n.startTick,
@@ -79,6 +146,7 @@ export function extractPhrase(notes: InputNote[], opts: ExtractOptions): Accompa
       pitchClass: mod12(n.pitch),
       chordRelation: relate(n.pitch, next, opts.frame, nextIndex),
       sourceEventId: `e${i}`,
+      ...(voices && { voice: voices[i] }),
     };
   });
   return {

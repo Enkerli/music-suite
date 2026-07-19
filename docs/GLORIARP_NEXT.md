@@ -108,6 +108,55 @@ per note, not just breath + transient); StyleModel capture of articulation
 statistics (learn the corpus's slur/ghost habits, not just velocity);
 MIDIcurator UI for style-model learning (currently CLI-only).
 
+## 3d. Shipped 2026-07-20 — polyphonic MIDI (EP comping), JSON import, parity
+
+- **Polyphony through the whole engine**: `extract.ts` clusters simultaneous
+  notes into "hits" and tags each with a `voice` id (bottom-to-top,
+  positional — honest about its limit: a voicing that adds/drops a note can
+  relabel which line is "voice 1"); chromatic-approach detection follows
+  each voice's OWN temporal chain, so simultaneous chord tones are never
+  misread as approaching each other. `bass.ts`'s leap-guard continuity is
+  now keyed PER VOICE (a `Map`, not one scalar), so a comping phrase's
+  stack reharmonizes and voice-leads as independent lines — root stays
+  root, 3rd stays 3rd, register never merges — and the adapter preserves
+  the source's own `role` instead of hardcoding "bass". `inflect.ts`'s slur
+  detection now requires real forward motion AND same-voice continuity
+  (the old check trivially "joined" simultaneous notes since their gap is
+  negative) — chord stabs never get a false legato across voices.
+  `model.ts`'s StyleModel learns a PER-VOICE vocabulary per slot (`SlotStats
+  .voices`) and samples a full chord per hit, not one pooled note. Every
+  change is purely additive: a voiceless (monophonic) phrase/model takes
+  the exact legacy code path, confirmed byte-identical against the
+  committed vectors (regenerated, zero diff) — comping cost nothing for
+  bass. New `packages/accompaniment/src/comping.test.ts` (12 tests) covers
+  extraction, adaptation, inflect, and StyleModel learn/sample over a
+  synthetic EP-comping corpus; verified again end-to-end via the CLI
+  against two real polyphonic .mid clips (three-note Dm7 stabs) — the
+  sampled/adapted take holds a 3-note chord at every hit, voice-led
+  correctly across Dm7 | G7 | Cmaj7 | A7, with per-note articulation and
+  zero false slurs.
+- **JSON import**, closing the last one-way door: the workspace GloriArp
+  module and MIDIcurator's GrooveGenerator panel both gained "⬆ import
+  .json" — a phrase.json or style-model.json (CLI output, another
+  surface's export) drops straight into the style list and samples/plays
+  like anything bundled (`looksLikeModel` dispatch, same as the CLI's
+  `accompany --source`). MIDIcurator's import is durable (localStorage,
+  alongside learned styles) and paired with `exportStyleJson` for the
+  round trip; the workspace's is session-local (documented tradeoff).
+  MIDIcurator also gained `learnStyleModelFromClips` (several clips → one
+  StyleModel, refusing a chord mismatch by name) and `importStyleFromJson`
+  /`exportStyleJson`, and `learnStyleFromClip` now tags a polyphonic clip's
+  role "comping" outright (polyphony beats the register heuristic).
+- **Parity confirmed**: `--inflect` and StyleModel sampling now reach
+  MIDIcurator's `generateGrooveClip` (previously CLI/workspace-only gaps).
+  Vane's breath envelope doesn't ride MIDIcurator's `Note[]` clip format
+  yet (no CC/envelope field) — `inflect`'s duration/gate shaping does
+  (audible via plain note durations), noted honestly rather than silently
+  dropped. Plugin shells (workspace-plugin) need no changes at all: they
+  esbuild `apps/workspace` at build time, so this arc reaches them on the
+  next rebuild — confirmed nothing in `plugin-shells/` hardcodes a feature
+  list.
+
 ## 3b. Next session queue (prep, 2026-07-20)
 
 By-ear verification first — everything below shipped agent-verified only

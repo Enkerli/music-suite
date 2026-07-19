@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { allStyleNames } from '../lib/gloriarp-clip';
+import { useRef, useState } from 'react';
+import { allStyleNames, importStyleFromJson } from '../lib/gloriarp-clip';
 import type { GrooveClipRequest } from '../lib/gloriarp-clip';
 
 interface GrooveGeneratorProps {
@@ -36,9 +36,12 @@ export function GrooveGenerator({ onGenerate, selectedLeadsheet, onLearnStyle, h
   const [anticipation, setAnticipation] = useState(0);
   const [variety, setVariety] = useState(0);
   const [pocket, setPocket] = useState(0);
+  const [inflect, setInflect] = useState(0);
   const [pass, setPass] = useState(0);
   const [learnName, setLearnName] = useState('');
   const [learnMsg, setLearnMsg] = useState('');
+  const [importMsg, setImportMsg] = useState('');
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   if (!expanded) {
     return (
@@ -72,6 +75,28 @@ export function GrooveGenerator({ onGenerate, selectedLeadsheet, onLearnStyle, h
     } catch (err) {
       setLearnMsg(err instanceof Error ? err.message : 'could not learn from this clip');
     }
+  };
+
+  /** Import a phrase.json or style-model.json (msuite style learn / accompany
+   *  --phrase-out, a workspace export, another MIDIcurator's export…) — the
+   *  same contracts every GloriArp surface reads and writes, so this closes
+   *  the loop: capture here, learn on the CLI from a whole corpus, bring the
+   *  model back, or vice versa. */
+  const importFile = (file: File) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const text = String(reader.result);
+      const name = file.name.replace(/\.json$/i, '');
+      try {
+        const kind = importStyleFromJson(text, name);
+        setStyleNames(allStyleNames());
+        setStyle(name);
+        setImportMsg(`⬆ imported "${name}" — a ${kind === 'model' ? 'style MODEL' : 'source phrase'}`);
+      } catch (err) {
+        setImportMsg(`✗ import "${file.name}": ${err instanceof Error ? err.message : err}`);
+      }
+    };
+    reader.readAsText(file);
   };
 
   return (
@@ -163,6 +188,7 @@ export function GrooveGenerator({ onGenerate, selectedLeadsheet, onLearnStyle, h
       <div className="mc-progression-gen__row">
         {feelNum('vary', variety, setVariety)}
         {feelNum('pocket', pocket, setPocket)}
+        {feelNum('inflect', inflect, setInflect)}
       </div>
       <div className="mc-progression-gen__row mc-progression-gen__actions">
         <button
@@ -179,6 +205,7 @@ export function GrooveGenerator({ onGenerate, selectedLeadsheet, onLearnStyle, h
             ...(anticipation ? { anticipation } : {}),
             ...(variety ? { variety } : {}),
             ...(pocket ? { pocket } : {}),
+            ...(inflect ? { inflect } : {}),
             // A nonzero take only differs when something re-rolls per pass.
             ...(pass ? { pass, morph: 1 } : {}),
           })}
@@ -189,6 +216,27 @@ export function GrooveGenerator({ onGenerate, selectedLeadsheet, onLearnStyle, h
           Cancel
         </button>
       </div>
+      <div className="mc-progression-gen__row">
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept=".json,application/json"
+          style={{ display: 'none' }}
+          onChange={e => {
+            const file = e.target.files?.[0];
+            if (file) importFile(file);
+            e.target.value = ''; // allow re-importing the same filename later
+          }}
+        />
+        <button
+          className="mc-groove-gen__from-clip"
+          title="Import a phrase.json or style-model.json (msuite style learn, a workspace export…)"
+          onClick={() => fileInputRef.current?.click()}
+        >
+          ⬆ import .json
+        </button>
+      </div>
+      {importMsg && <div className="mc-progression-gen__row mc-groove-gen__msg">{importMsg}</div>}
       {onLearnStyle && (
         <div className="mc-progression-gen__row">
           <input

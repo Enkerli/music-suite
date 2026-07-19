@@ -18,6 +18,16 @@
  * continuously, feed takes in, the model keeps absorbing. Serialization is
  * versioned JSON: statistics only, NEVER the source clips (the brief's
  * no-corpus-publication rule holds by construction).
+ *
+ * POLYPHONY (EP comping etc.): a slot's AGGREGATE stats (top-level fields)
+ * pool every simultaneous note, same as always — a coarse but harmless
+ * summary. When the corpus actually plays chords, each slot ALSO keeps
+ * per-VOICE stats (`voices`, extract.ts's voice ids), so sampling can draw
+ * a whole chord — each voice its own onset/note/velocity/timing, sharing
+ * the slot's `covered` denominator (a voice absent from half the takes
+ * naturally gets half the onset probability). A monophonic corpus never
+ * populates `voices` at all, so its models are byte-identical to before
+ * comping existed.
  */
 
 import { mulberry32 } from "@enkerli/proggen";
@@ -25,6 +35,18 @@ import type { AccompanimentPhrase, AccompanimentRole, FrameChord, Meter, Provena
 import { extractPhrase, type InputNote } from "./extract.js";
 
 export const MODEL_SCHEMA_V = 1;
+
+/** One (slot, voice) line's distribution — the same shape a slot itself
+ *  keeps in aggregate, minus `covered` (voices share the parent slot's). */
+export interface VoiceStats {
+  count: number;
+  velSum: number;
+  velSqSum: number;
+  durSum: number;
+  devSum: number;
+  devSqSum: number;
+  notes: Record<string, number>;
+}
 
 export interface SlotStats {
   /** Takes whose length covered this slot (the onset-probability denominator). */
@@ -39,6 +61,8 @@ export interface SlotStats {
   devSqSum: number;
   /** Absolute MIDI note → count (the note-choice vocabulary at this slot). */
   notes: Record<string, number>;
+  /** Per-voice stats — present only once the corpus shows polyphony. */
+  voices?: Record<string, VoiceStats>;
 }
 
 export interface StyleModel {
@@ -59,6 +83,9 @@ export interface StyleModel {
   source?: ProvenanceRef;
 }
 
+const emptyVoiceStats = (): VoiceStats => ({
+  count: 0, velSum: 0, velSqSum: 0, durSum: 0, devSum: 0, devSqSum: 0, notes: {},
+});
 const emptySlot = (): SlotStats => ({
   covered: 0, count: 0, velSum: 0, velSqSum: 0, durSum: 0, devSum: 0, devSqSum: 0, notes: {},
 });
@@ -113,6 +140,19 @@ export function addTake(model: StyleModel, phrase: AccompanimentPhrase): StyleMo
     s.devSum += dev;
     s.devSqSum += dev * dev;
     s.notes[String(e.note)] = (s.notes[String(e.note)] ?? 0) + 1;
+
+    if (e.voice !== undefined) {
+      s.voices ??= {};
+      const key = String(e.voice);
+      const v = (s.voices[key] ??= emptyVoiceStats());
+      v.count++;
+      v.velSum += e.velocity;
+      v.velSqSum += e.velocity * e.velocity;
+      v.durSum += e.duration;
+      v.devSum += dev;
+      v.devSqSum += dev * dev;
+      v.notes[String(e.note)] = (v.notes[String(e.note)] ?? 0) + 1;
+    }
   }
   model.takes++;
   return model;
@@ -181,32 +221,53 @@ export function samplePhrase(model: StyleModel, opts: SampleOptions): Accompanim
   const slotTicks = model.ticksPerBeat / model.grid;
   const notes: InputNote[] = [];
 
-  for (let i = 0; i < model.slots.length; i++) {
-    const s = model.slots[i]!;
-    // Fixed draw budget per slot (the aligned-streams discipline): onset,
-    // note-choice, velocity gaussian (2 draws), timing gaussian (2 draws).
+  // One (slot, stats) → an InputNote, or null if this draw doesn't fire.
+  // `covered` is always the PARENT SLOT's — voices share it as their onset-
+  // probability denominator (a voice present in half the takes naturally
+  // draws at half the rate, no separate bookkeeping needed).
+  const draw = (stats: VoiceStats | SlotStats, covered: number, slotIndex: number, voice?: number): InputNote | null => {
     const dOn = rng();
     const dNote = rng();
     const gVel = gaussian(rng);
     const gDev = gaussian(rng);
-    if (!s.covered || !s.count) continue;
-    const p = Math.min(1, (s.count / s.covered) * density);
-    if (dOn >= p) continue;
+    if (!covered || !stats.count) return null;
+    const p = Math.min(1, (stats.count / covered) * density);
+    if (dOn >= p) return null;
 
-    // Note choice: weighted by the learned vocabulary at this slot.
-    const entries = Object.entries(s.notes);
+    const entries = Object.entries(stats.notes);
     const total = entries.reduce((a, [, c]) => a + c, 0);
     let pick = dNote * total;
     let note = Number(entries[0]![0]);
     for (const [n, c] of entries) { pick -= c; if (pick <= 0) { note = Number(n); break; } }
 
-    const velMean = s.velSum / s.count;
-    const velocity = Math.max(1, Math.min(127, Math.round(velMean + gVel * sd(s.velSum, s.velSqSum, s.count) * humanize)));
-    const devMean = s.devSum / s.count;
-    const dev = Math.round(devMean + gDev * sd(s.devSum, s.devSqSum, s.count) * humanize);
-    const onset = Math.max(0, i * slotTicks + Math.max(-slotTicks / 2, Math.min(slotTicks / 2, dev)));
-    const duration = Math.max(10, Math.round(s.durSum / s.count));
-    notes.push({ pitch: note, startTick: Math.round(onset), durationTicks: duration, velocity });
+    const velMean = stats.velSum / stats.count;
+    const velocity = Math.max(1, Math.min(127, Math.round(velMean + gVel * sd(stats.velSum, stats.velSqSum, stats.count) * humanize)));
+    const devMean = stats.devSum / stats.count;
+    const dev = Math.round(devMean + gDev * sd(stats.devSum, stats.devSqSum, stats.count) * humanize);
+    const onset = Math.max(0, slotIndex * slotTicks + Math.max(-slotTicks / 2, Math.min(slotTicks / 2, dev)));
+    const duration = Math.max(10, Math.round(stats.durSum / stats.count));
+    return { pitch: note, startTick: Math.round(onset), durationTicks: duration, velocity, ...(voice !== undefined && { voice }) };
+  };
+
+  for (let i = 0; i < model.slots.length; i++) {
+    const s = model.slots[i]!;
+    // Fixed draw budget per slot (the aligned-streams discipline) — always
+    // consumed, even when a polyphonic slot's actual note comes from its
+    // per-voice draws below: a model's draw sequence never depends on
+    // whether ITS OWN corpus happened to be polyphonic.
+    const aggregate = draw(s, s.covered, i);
+    if (!s.voices) {
+      if (aggregate) notes.push(aggregate);
+      continue;
+    }
+    // Polyphonic slot: sample EACH voice independently, in a fixed
+    // (ascending numeric) key order — object key order is not a
+    // reproducibility guarantee, an explicit sort is.
+    const voiceKeys = Object.keys(s.voices).map(Number).sort((a, b) => a - b);
+    for (const vk of voiceKeys) {
+      const one = draw(s.voices[String(vk)]!, s.covered, i, vk);
+      if (one) notes.push(one);
+    }
   }
 
   // A silent take is not a take: fall back to the single most-played slot.
@@ -221,9 +282,22 @@ export function samplePhrase(model: StyleModel, opts: SampleOptions): Accompanim
     }
   }
   notes.sort((a, b) => a.startTick - b.startTick);
-  // Monophonic guard for the bass role: never two onsets on the same tick.
-  for (let i = 1; i < notes.length; i++)
-    if (notes[i]!.startTick <= notes[i - 1]!.startTick) notes[i]!.startTick = notes[i - 1]!.startTick + 1;
+  // Anti-collision guard, PER VOICE: a voice is monophonic by definition, so
+  // two of ITS onsets can't share a tick — but different voices sounding
+  // together is exactly a chord, and must be left alone. A voiceless
+  // (monophonic) take has everything in one implicit group, the exact
+  // behavior this had before polyphonic sampling existed.
+  const byVoice = new Map<number, InputNote[]>();
+  for (const n of notes) {
+    const key = n.voice ?? 0;
+    if (!byVoice.has(key)) byVoice.set(key, []);
+    byVoice.get(key)!.push(n);
+  }
+  for (const group of byVoice.values()) {
+    group.sort((a, b) => a.startTick - b.startTick);
+    for (let i = 1; i < group.length; i++)
+      if (group[i]!.startTick <= group[i - 1]!.startTick) group[i]!.startTick = group[i - 1]!.startTick + 1;
+  }
 
   return extractPhrase(notes, {
     id: `${model.id}-take-s${opts.seed}p${pass}`,

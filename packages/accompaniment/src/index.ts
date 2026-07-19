@@ -36,7 +36,7 @@ export { computeFeatures, type PhraseFeatures } from "./features.js";
 export {
   createStyleModel, addTake, learnStyleModel, samplePhrase,
   serializeModel, parseModel, validateModel, looksLikeModel, MODEL_SCHEMA_V,
-  type StyleModel, type SlotStats, type LearnOptions, type SampleOptions,
+  type StyleModel, type SlotStats, type VoiceStats, type LearnOptions, type SampleOptions,
 } from "./model.js";
 export {
   adaptBassPhrase, ENGINE, ENGINE_VERSION,
