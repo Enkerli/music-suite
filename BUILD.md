@@ -188,8 +188,14 @@ cmake --build build-macos -j 8      # AU + VST3 + Standalone
 cmake -B build-ios -G Xcode -DCMAKE_SYSTEM_NAME=iOS -DCMAKE_OSX_DEPLOYMENT_TARGET=16.0
 open build-ios/MIDIcurator.xcodeproj   # build MIDIcurator_Standalone, then MIDIcurator_AUv3, to a device
 ```
-`WebUI/index.html` is committed, so skip the `node WebUI/build.mjs` step if
-you haven't changed `apps/MIDIcurator`. `auval -v aumi Mcur Enke` validates.
+`WebUI/index.html` is **committed and does not track the monorepo** — it
+is exactly as old as the last time someone ran `node WebUI/build.mjs`.
+**Run that step whenever the monorepo's `apps/MIDIcurator` has moved**
+(check: `git -C <plugin> log -1 --format=%ad -- WebUI/index.html` vs
+`git -C <music-suite> log -1 --format=%ad -- apps/MIDIcurator`). This bit
+twice in July 2026: the plugin shipped without GloriArp for two weeks
+(ProgGenie's bundle was a month stale the same day). Same rule for
+Progression Studio below. `auval -v aumi Mcur Enke` validates.
 
 ### Progression Studio (ProgGenie)
 
