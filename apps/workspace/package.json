@@ -4,9 +4,10 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "npx esbuild main.js --bundle --conditions=source --loader:.css=text --loader:.svg=dataurl --define:process.env.NODE_ENV=\\\"production\\\" --minify --outfile=dist/bundle.js && cp index.html dist/index.html && mkdir -p dist/fonts && cp ../../packages/ui/fonts/*.woff2 dist/fonts/",
-    "dev": "npx esbuild main.js --bundle --conditions=source --loader:.css=text --loader:.svg=dataurl --sourcemap --outfile=dist/bundle.js && cp index.html dist/index.html && mkdir -p dist/fonts && cp ../../packages/ui/fonts/*.woff2 dist/fonts/",
-    "test": "vitest run"
+    "build": "npx esbuild main.js --bundle --conditions=source --loader:.css=text --loader:.svg=dataurl --loader:.txt=text --loader:.wasm=binary --define:process.env.NODE_ENV=\\\"production\\\" --minify --outfile=dist/bundle.js && cp index.html dist/index.html && mkdir -p dist/fonts && cp ../../packages/ui/fonts/*.woff2 dist/fonts/",
+    "dev": "npx esbuild main.js --bundle --conditions=source --loader:.css=text --loader:.svg=dataurl --loader:.txt=text --loader:.wasm=binary --sourcemap --outfile=dist/bundle.js && cp index.html dist/index.html && mkdir -p dist/fonts && cp ../../packages/ui/fonts/*.woff2 dist/fonts/",
+    "test": "vitest run",
+    "sync-worklet": "cp ../vane/synth/worklet.js vane-worklet.txt"
   },
   "dependencies": {
     "@enkerli/protocol": "*",

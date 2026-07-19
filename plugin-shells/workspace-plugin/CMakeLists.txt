@@ -56,6 +56,7 @@ if(NPXCMD)
         COMMAND "${NPXCMD}" esbuild "${WEBUI_DIR}/main.js"
                     --bundle --conditions=source
                     --loader:.css=text --loader:.svg=dataurl
+                    --loader:.txt=text --loader:.wasm=binary
                     "--define:process.env.NODE_ENV=\"production\"" --minify
                     "--outfile=${WEBUI_BUILD}/bundle.js"
         DEPENDS ${WEBUI_SRC}

@@ -530,3 +530,102 @@ describe("the bento six (progression · keys · player · analysis · namer · r
     off();
   });
 });
+
+describe("vane synth · transforms · library", () => {
+  it("the bundled worklet copy matches its source (drift guard)", async () => {
+    const { readFileSync, existsSync } = await import("node:fs");
+    const { resolve } = await import("node:path");
+    // jsdom rewrites import.meta.url to an http: URL, so anchor on cwd instead
+    // (works from both the monorepo root and apps/workspace).
+    const here = existsSync(resolve("vane-worklet.txt")) ? "." : "apps/workspace";
+    const a = readFileSync(resolve(here, "vane-worklet.txt"), "utf8");
+    const b = readFileSync(resolve(here, "../vane/synth/worklet.js"), "utf8");
+    expect(a).toBe(b); // stale? run: npm run sync-worklet -w workspace-webui
+  });
+
+  it("wireVaneBus routes bus messages into the voice: breath before notes, params to wasm ids", async () => {
+    const { wireVaneBus } = await import("./modules.js");
+    const { makeNote, makeParam } = await import("@enkerli/protocol");
+    const { ctxObj } = ctx();
+    const posted = [];
+    const off = wireVaneBus(ctxObj.bus, (m) => posted.push(m));
+
+    ctxObj.bus.publish(makeNote("external", { notes: [60, 64], velocity: 100, durationMs: 10 }, { to: "vane" }));
+    // The wind-model contract: CC2 breath FIRST, then the noteOns.
+    expect(posted[0]).toMatchObject({ type: "cc", cc: 2 });
+    expect(posted[1]).toMatchObject({ type: "noteOn", note: 60 });
+    expect(posted[2]).toMatchObject({ type: "noteOn", note: 64 });
+
+    posted.length = 0;
+    ctxObj.bus.publish(makeParam("external", { id: "filter-cutoff", value: 1200 }, { to: "vane" }));
+    expect(posted).toHaveLength(1);
+    expect(posted[0]).toMatchObject({ type: "param", value: 1200 });
+    expect(typeof posted[0].id).toBe("number"); // resolved to the wasm param id
+    off();
+  });
+
+  it("vane synth module fails honestly where Web Audio is absent", async () => {
+    const { MODULES } = await import("./modules.js");
+    const { ctxObj } = ctx();
+    const body = document.createElement("div");
+    const off = MODULES["vane-synth"].make(ctxObj, body, {});
+    [...body.querySelectorAll("button")].find((b) => b.textContent.includes("power"))
+      .dispatchEvent(new MouseEvent("click"));
+    await new Promise((r) => setTimeout(r, 0));
+    expect(body.textContent).toMatch(/✗ audio:/); // happy-dom has no AudioContext — say so
+    off();
+  });
+
+  it("transforms rework the bus pattern and republish (analysis follows)", async () => {
+    const { MODULES } = await import("./modules.js");
+    const { makeMessage } = await import("@enkerli/protocol");
+    const { ctxObj } = ctx();
+    const seen = [];
+    ctxObj.bus.subscribe((m) => { if (m.type === "pattern") seen.push(m); });
+    const tBody = document.createElement("div");
+    const tOff = MODULES["transforms"].make(ctxObj, tBody, {});
+    const aBody = document.createElement("div");
+    const aOff = MODULES["rhythm-analysis"].make(ctxObj, aBody, {});
+
+    ctxObj.bus.publish(makeMessage("serpe", "pattern", { steps: 8, mask: 73, name: "tresillo" }));
+    const btn = (t) => [...tBody.querySelectorAll("button")].find((b) => b.getAttribute("title")?.includes(t));
+    btn("Rotate one step later").dispatchEvent(new MouseEvent("click"));
+    const rot = seen[seen.length - 1];
+    expect(rot.body.steps).toBe(8);
+    expect(rot.body.mask).toBe(146); // tresillo rotated one step later: 01001001₂(LSB-left) = 146
+    expect(aBody.textContent).toMatch(/rot\+1/);
+
+    btn("Complement").dispatchEvent(new MouseEvent("click"));
+    expect(seen[seen.length - 1].body.mask).toBe(255 - 146); // onsets ↔ rests
+    tOff(); aOff();
+  });
+
+  it("library captures bus items, survives reload, replays re-identified", async () => {
+    const { MODULES } = await import("./modules.js");
+    const { makeMessage } = await import("@enkerli/protocol");
+    localStorage.removeItem("enkerli.workspace.library");
+    const { ctxObj } = ctx();
+    const body = document.createElement("div");
+    const off = MODULES["library"].make(ctxObj, body, {});
+
+    ctxObj.bus.publish(makeMessage("serpe", "pattern", { steps: 8, mask: 73, name: "tresillo" }));
+    [...body.querySelectorAll("button")].find((b) => b.textContent.includes("+ pattern"))
+      .dispatchEvent(new MouseEvent("click"));
+    expect(body.textContent).toMatch(/tresillo/);
+    off();
+
+    // "Reload": a fresh module instance reads the same shelf.
+    const body2 = document.createElement("div");
+    const { ctxObj: ctx2 } = ctx();
+    const seen = [];
+    ctx2.bus.subscribe((m) => seen.push(m));
+    const off2 = MODULES["library"].make(ctx2, body2, {});
+    expect(body2.textContent).toMatch(/tresillo/);
+    body2.querySelector('button[aria-label^="Load"]').dispatchEvent(new MouseEvent("click"));
+    expect(seen).toHaveLength(1);
+    expect(seen[0].type).toBe("pattern");
+    expect(seen[0].body.mask).toBe(73); // the saved tresillo came back — new id, same music
+    off2();
+    localStorage.removeItem("enkerli.workspace.library");
+  });
+});

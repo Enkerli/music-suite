@@ -8,7 +8,7 @@
  */
 import { sliderToNative, nativeToSlider, paramSet, commandInvoke, formatValue } from "./model.js";
 import { makeMessage, makeNote } from "@enkerli/protocol";
-import { parseUPI, analyse, analyzeSyncopation } from "@enkerli/upi";
+import { parseUPI, analyse, analyzeSyncopation, rotate, invert, complement, barlowTransform, mutatePattern } from "@enkerli/upi";
 import { createBindingEngine, addBinding, removeBinding } from "@enkerli/control";
 import { parseLeadsheet, detectChord, rootName } from "@enkerli/theory";
 import { generateLabels, realizeLabel } from "@enkerli/proggen";
@@ -738,9 +738,177 @@ export function recorderModule(ctx, bodyEl, state) {
   return () => { playing = false; recording = false; timers.forEach(clearTimeout); off(); };
 }
 
+// ── Vane Synth: the SYNTH ITSELF in the page — the plugin's real DSP
+// (vane-dsp.wasm, the same voice the C++ ships) in an audio worklet, fed by
+// the bus. No second tab: notes and control-surface knob turns sound HERE.
+// The worklet source and wasm are bundled (text/binary loaders), so this
+// works from any origin — file://, juce://, GitHub Pages alike.
+
+import workletText from "./vane-worklet.txt";
+import { applyVaneParam, applyVaneNote, vaneIdToWasm } from "../vane/control.js";
+
+/** Subscribe a bus to a Vane voice's post fn (exported for tests: the same
+ *  param-or-note routing the Vane TAB uses, minus the BroadcastChannel). */
+export function wireVaneBus(bus, post) {
+  const idToWasm = vaneIdToWasm();
+  return bus.subscribe((m) => { applyVaneParam(post, idToWasm, m) || applyVaneNote(post, m); });
+}
+
+export function vaneSynthModule(ctx, bodyEl) {
+  let audioCtx = null, node = null, offBus = null;
+  const status = el("div", { class: "ws-readout", text: "⏻ power on, then play the bus (Keys, GloriArp, Player…)" });
+  const post = (msg) => { if (node) node.port.postMessage(msg); };
+
+  // The hard-won Vane lesson (apps/vane/synth-main.js): building once is not
+  // enough — a suspended AudioContext must be resumed on a USER GESTURE, and
+  // the status must stay honest (never claim ready while suspended).
+  async function power() {
+    try {
+      if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        audioCtx.onstatechange = paint;
+        const url = URL.createObjectURL(new Blob([workletText], { type: "text/javascript" }));
+        await audioCtx.audioWorklet.addModule(url);
+        URL.revokeObjectURL(url);
+        node = new AudioWorkletNode(audioCtx, "vane-voice", { numberOfInputs: 0, outputChannelCount: [2] });
+        node.connect(audioCtx.destination);
+        // Dynamic import: esbuild inlines the wasm bytes into the bundle
+        // (binary loader); environments without Web Audio never reach here,
+        // and vitest's vite (which can't parse wasm imports) never sees it.
+        const { default: vaneDspWasm } = await import("../vane/synth/vane-dsp.wasm");
+        node.port.postMessage({ type: "wasm", bytes: vaneDspWasm.buffer ?? vaneDspWasm });
+        offBus = wireVaneBus(ctx.bus, post);
+      }
+      if (audioCtx.state !== "running") await audioCtx.resume();
+      paint();
+    } catch (e) { status.textContent = "✗ audio: " + (e && e.message || e); }
+  }
+  function paint() {
+    if (!audioCtx) return;
+    status.textContent = audioCtx.state === "running"
+      ? "● voice live — bus notes and Vane knobs sound here"
+      : "⏻ tap power again (audio suspended until a user gesture)";
+  }
+
+  bodyEl.append(
+    el("div", { class: "ws-row" },
+      el("button", { class: "ws-btn", text: "⏻ power", onclick: power }),
+      el("button", { class: "ws-btn ghost", text: "silence", title: "All notes off",
+        onclick: () => post({ type: "allOff" }) })),
+    status,
+    el("div", { class: "ws-readout", text: "the plugin's own DSP (wasm) — one voice, everywhere" }));
+  return () => { offBus && offBus(); try { audioCtx && audioCtx.close(); } catch { /* already gone */ } };
+}
+
+// ── Pattern Transforms: Serpe's verbs on whatever pattern the bus carries —
+// rotate, invert, complement, Barlow dilute/concentrate, mutate. Each result
+// is republished, so Pattern redraws, Analysis re-reads, Player re-plays.
+export function transformsModule(ctx, bodyEl) {
+  let steps = null, name = "—";
+  const status = el("div", { class: "ws-readout", text: "waiting for a pattern on the bus…" });
+  const off = ctx.bus.subscribe((m) => {
+    if (m.type !== "pattern" || !m.body || m.from === FROM + ":transforms") return;
+    steps = Array.from({ length: m.body.steps }, (_, i) => Math.floor(m.body.mask / 2 ** i) % 2);
+    name = m.body.name || `${m.body.steps} steps`;
+    status.textContent = `pattern: ${name}`;
+  });
+  function publish(next, label) {
+    steps = next; name = label;
+    const mask = next.reduce((acc, s, i) => acc + (s ? 2 ** i : 0), 0); // leftmost = LSB
+    ctx.bus.publish(makeMessage(FROM, "pattern", { steps: next.length, mask, name: label }));
+    status.textContent = `→ ${label}`;
+  }
+  const need = () => { if (!steps) status.textContent = "no pattern yet — send one first"; return !!steps; };
+  const btn = (text, title, fn) => el("button", { class: "ws-btn", text, title,
+    onclick: () => { if (need()) fn(); } });
+  const k = () => steps.reduce((a, s) => a + s, 0);
+
+  bodyEl.append(
+    el("div", { class: "ws-row", style: "flex-wrap:wrap" },
+      btn("⟲", "Rotate one step earlier", () => publish(rotate(steps, -1), `rot−1 ${name}`)),
+      btn("⟳", "Rotate one step later", () => publish(rotate(steps, 1), `rot+1 ${name}`)),
+      btn("¬", "Complement (onsets ↔ rests)", () => publish(complement(steps), `comp ${name}`)),
+      btn("↔", "Reverse (retrograde)", () => publish(invert(steps), `rev ${name}`)),
+      btn("−1", "Barlow dilute: drop the most dispensable onset", () => {
+        if (k() > 1) publish(barlowTransform(steps, k() - 1), `dilute ${name}`);
+      }),
+      btn("+1", "Barlow concentrate: add at the most indispensable rest", () => {
+        if (k() < steps.length) publish(barlowTransform(steps, k() + 1), `concen ${name}`);
+      }),
+      btn("⚄", "Mutate (balanced, 30%)", () => publish(mutatePattern(steps, 0.3), `mut ${name}`))),
+    status);
+  return () => off();
+}
+
+// ── Library: the session's memory — capture what crosses the bus
+// (progressions, patterns) as @enkerli/library-kind items, keep them across
+// reloads, put them back on the bus later. Saved bindings live with the
+// bindings module; this shelf holds the musical objects.
+const LIB_KEY = "enkerli.workspace.library";
+
+export function libraryModule(ctx, bodyEl) {
+  let last = { progression: null, pattern: null };
+  const load = () => { try { return JSON.parse(localStorage.getItem(LIB_KEY)) || []; } catch { return []; } };
+  const store = (items) => { try { localStorage.setItem(LIB_KEY, JSON.stringify(items)); } catch { /* private mode */ } };
+  let items = load();
+
+  const list = el("div", { class: "ws-controls" });
+  const status = el("div", { class: "ws-readout", text: items.length ? `${items.length} saved` : "capture something off the bus" });
+
+  const off = ctx.bus.subscribe((m) => {
+    if (m.type === "progression" && m.body?.prog) last.progression = m;
+    else if (m.type === "pattern" && m.body) last.pattern = m;
+  });
+
+  function titleOf(m) {
+    if (m.type === "pattern") return m.body.name || `${m.body.steps}-step pattern`;
+    try {
+      const bars = m.body.prog.sections.flatMap((s) => s.bars);
+      const first = bars[0]?.chords?.map((c) => (c.symbol ? c.symbol.root + c.symbol.suffix : c.degree?.numeral)).join(" ");
+      return `${first ?? "progression"} … (${bars.length} bars)`;
+    } catch { return "progression"; }
+  }
+  function save(kind) {
+    const m = last[kind];
+    if (!m) { status.textContent = `no ${kind} heard on the bus yet`; return; }
+    items.push({ id: `ws-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`,
+      kind, title: titleOf(m), savedAt: new Date().toISOString(), msg: m });
+    store(items); render();
+    status.textContent = `saved: ${items[items.length - 1].title}`;
+  }
+  function replay(item) {
+    // Re-identify: the bus dedupes by id — a shelf item must return as new.
+    ctx.bus.publish({ ...item.msg, id: `lib-${Math.random().toString(36).slice(2)}`,
+      sentAt: new Date().toISOString().replace(/\.\d{3}Z$/, "Z") });
+    status.textContent = `▶ ${item.title}`;
+  }
+  function remove(id) {
+    items = items.filter((x) => x.id !== id);
+    store(items); render();
+  }
+  function render() {
+    list.replaceChildren(...items.map((item) => el("div", { class: "ws-param" },
+      el("span", { class: "ws-param-name", text: `${item.kind === "pattern" ? "▦" : "♪"} ${item.title}` }),
+      el("button", { class: "ws-btn", text: "▶", title: "Put it back on the bus", "aria-label": `Load ${item.title}`,
+        onclick: () => replay(item) }),
+      el("button", { class: "ws-x", text: "✕", title: "Delete", "aria-label": `Delete ${item.title}`,
+        onclick: () => remove(item.id) }))));
+  }
+  render();
+
+  bodyEl.append(
+    el("div", { class: "ws-row" },
+      el("button", { class: "ws-btn", text: "+ progression", title: "Save the last progression heard on the bus", onclick: () => save("progression") }),
+      el("button", { class: "ws-btn", text: "+ pattern", title: "Save the last pattern heard on the bus", onclick: () => save("pattern") })),
+    list, status);
+  return () => off();
+}
+
 export const MODULES = {
   "control-surface": { title: "Control Surface", make: controlSurfaceModule },
+  "vane-synth": { title: "Vane Synth", make: vaneSynthModule },
   "pattern": { title: "Pattern (UPI)", make: patternModule },
+  "transforms": { title: "Pattern Transforms", make: transformsModule },
   "player": { title: "Pattern Player", make: playerModule },
   "rhythm-analysis": { title: "Rhythm Analysis", make: rhythmAnalysisModule },
   "progression": { title: "Progression", make: progressionModule },
@@ -748,6 +916,7 @@ export const MODULES = {
   "keys": { title: "Keys", make: keysModule },
   "chord-namer": { title: "Chord Namer", make: chordNamerModule },
   "recorder": { title: "Recorder", make: recorderModule },
+  "library": { title: "Library", make: libraryModule },
   "bindings": { title: "Bindings", make: bindingsModule },
   "monitor": { title: "Bus Monitor", make: monitorModule },
   "bridge": { title: "Bridge (CLI)", make: bridgeModule },

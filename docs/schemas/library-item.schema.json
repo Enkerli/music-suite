@@ -41,7 +41,9 @@
         "qurve",
         "derived-table",
         "collection",
-        "phrase"
+        "phrase",
+        "pattern",
+        "control-map"
       ]
     },
     "format": {
