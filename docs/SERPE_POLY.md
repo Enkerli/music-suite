@@ -207,12 +207,49 @@ the order of work:
    plugin doesn't schedule multiple lanes, so a poly UPI string sets up
    correctly-parsed lanes that the engine still can't play back as more
    than one voice.
-2. **Engine voices — NOT STARTED, scoped below for the next session.**
+2. ✅ **Engine voices** *(shipped 2026-07-20, `rhythm_pattern_explorer`
+   commit ac9e95c)* — **poly lanes actually sound now.** User decisions this
+   round: **6** lane slots (not the drafted 4), the base lag is an
+   **automatable parameter** (`polyLagMs`, not a fixed constant), and
+   scenes/progressive had to compose with poly immediately rather than
+   waiting. 6× (note, channel, mute) params + `polyLagMs`, always declared.
+   `parseAndApplyUPI` gains one dispatch check at its very top
+   (`PolyParser::splitLanes(...).size() > 1`) that routes to the new poly
+   path and returns — every existing call site (typing a pattern, the tick
+   button, MIDI-in triggers, scene advancement) gets poly for free, and a
+   plain UPI string never reaches a line of the new code, so mono is
+   unaffected by construction. `processBlock` drives each active lane's own
+   cycle-lock clock (§3b's model, ported: every lane spans the same shared
+   cycle, a lane's step duration = cycleLengthInBeats / its own step count);
+   the Keil `@ms`/`@frac` offset plus `polyLagMs` resolve to a sample delay
+   (clamped into the current buffer — true cross-buffer scheduling is a
+   known v1 gap, not attempted). Progressive `@initial#step` syntax is
+   genuinely per-lane: `PolyParser::parse` grew an optional per-lane
+   callback that (re)binds `UPIParser`'s single global progressive-engine
+   pointer to that lane's own `PatternEngine` right before parsing it, so
+   each lane's rotation state is independent. Scene cycling composes for
+   free (a scene string is just handed to the same dispatch check); scene-
+   level progressive offset/lengthening rotation is a **known, narrower
+   gap** — that specific legacy mechanism still only rotates the mono
+   engine, so a scene that is BOTH poly AND uses that decoration won't
+   rotate correctly yet (a poly scene without it works fine).
+   **Verified without a DAW** (none reachable in this environment, same as
+   always): `Source/Core/PolyClock.h` pulls the cycle-lock step math and
+   the offset→samples conversion out as pure, JUCE-free functions so they
+   could be unit-tested directly — hand-computed cases (a 3-against-4
+   cross-rhythm lands on the exact expected steps; cycle wrap-around;
+   no-retrigger-on-same-step) caught a real bug (float-precision truncation
+   silently dropping a sample) before any host would have. The full plugin
+   (`Serpe`, LV2+Standalone) was built clean end-to-end locally, and both
+   `ctest` targets pass. **What's still unverified is the only thing that
+   ever needed a human anyway: does it sound right, in a real host, on a
+   real device** — that step is yours, same as every other plugin milestone
+   in this project.
 3. **Plugin UI** — the shared `index.html` grows the lanes panel (same DOM,
    same CSS — the WebView is the same file the webapp bundles). Largely
    free once the app source is rebuilt into the plugin's WebUI bundle,
-   since the React lanes panel already exists in `apps/serpe`; needs
-   verification once step 2 gives it something real to talk to.
+   since the React lanes panel already exists in `apps/serpe`; the panel
+   now has something real to talk to (step 2 shipped) — next up.
 4. **Per-lane analysis** — the mono Analysis pane (hidden in poly mode
    today) returns as per-lane meters + a cross-rhythm view (interference
    pattern of lane pairs — the Keil visual).
@@ -222,7 +259,14 @@ advance-on-note-in is OPT-IN everywhere (the IAC-loop swirl); outgoing hits
 register in the echo guard on every path; mid-edit parse errors keep the
 last good pattern playing.
 
-### 8.1 Milestone 2 draft — engine voices (scope for the next session)
+### 8.1 Milestone 2 draft — superseded by the shipped version above
+
+Kept as historical record of the pre-decision draft. Actual outcome:
+**6** lane slots (not 4), `polyLagMs` shipped as an **automatable
+parameter** (not a fixed constant), and scenes/progressive compose with
+poly now (not deferred) — see item 2 above for what's actually in the
+repo, including the one known narrower gap (scene-level progressive
+rotation on a poly scene).
 
 Read from `rhythm_pattern_explorer/Source/Platform/PluginProcessor.h` on
 2026-07-20: today there is exactly **one** `PatternEngine patternEngine`
