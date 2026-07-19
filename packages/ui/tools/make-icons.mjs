@@ -97,6 +97,22 @@ ${dot(688, 690, 56, INK, INK, 0)}`),
   <line x1="312" y1="720" x2="600" y2="720" stroke="${BORDER}" stroke-width="14"/>
   <text x="512" y="500" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-size="300" fill="${INK}">C<tspan fill="${ACCENT.vel}">∆</tspan></text>`),
 
+  // Workspace — movable module tiles wired to one bus. (Glyph is a first
+  // pass in the family grammar; flag for the design pass.)
+  workspace: tile(`
+  <g stroke="${INK}" stroke-width="16">
+    <line x1="496" y1="332" x2="560" y2="332"/>
+    <line x1="332" y1="432" x2="332" y2="496"/>
+    <line x1="676" y1="552" x2="676" y2="616"/>
+    <line x1="432" y1="704" x2="496" y2="704"/>
+  </g>
+  <g stroke="${INK}" stroke-width="16">
+    <rect x="232" y="232" width="264" height="200" rx="40" fill="${RAISED}"/>
+    <rect x="560" y="232" width="232" height="320" rx="40" fill="${RAISED}"/>
+    <rect x="232" y="496" width="200" height="296" rx="40" fill="${ACCENT.breath}"/>
+    <rect x="496" y="616" width="296" height="176" rx="40" fill="${RAISED}"/>
+  </g>`),
+
   // Style gallery — the palette itself.
   "style-gallery": tile(`
   <g stroke="${INK}" stroke-width="14">
