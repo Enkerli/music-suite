@@ -181,20 +181,38 @@ tempo-synced fraction unit); §2.4 stands unchallenged. Implementation began
 the same day: parser/formatter first (node-verifiable), the webapp lanes
 view next (needs the browser).*
 
-## 8. Parity milestone (plugin · standalone · webapp) — PLANNED
+## 8. Parity milestone (plugin · standalone · webapp) — IN PROGRESS
 
 Field testing confirmed the notation and semantics hold; full parity is now
-on the roadmap (PRIORITIES follow-on, L). The webapp stays the reference
-implementation; the order of work:
+on the roadmap (PRIORITIES follow-on, L). **User report 2026-07-20**: poly
+lanes had been requested before and were still absent from the actual
+plugin — re-flagged as a **blocker**, not a nice-to-have, since a feature
+that only exists in one of four runtimes (webapp/plugin/standalone/AUv3) is
+a parity gap, not a preview. The webapp stays the reference implementation;
+the order of work:
 
-1. **C++ `UPIParser` lanes** — port `splitLanes`/offset tokens (the grammar
-   is small and regular); conformance-locked against the JS vectors, the
-   same cross-language ritual as the rhythm codecs (134-vector precedent).
-2. **Engine voices** — the C++ sequencer grows per-lane clocks with the
-   cycle/step lock and the POLY_LAG + offset scheduling model; per-lane
-   note/channel as plugin parameters (automatable).
-3. **Plugin UI** — the shared index.html grows the lanes panel (same DOM,
-   same CSS — the WebView is the same file the webapp bundles).
+1. ✅ **C++ `UPIParser` lanes** *(shipped 2026-07-20,
+   `rhythm_pattern_explorer` commit f572d9e)* — `Source/Core/PolyParser.h/
+   .cpp`, ported term-for-term from `packages/upi/src/poly.js`
+   (`splitLanes`/`parseOffset`/`parsePolyUPI`): top-level `/` splitting
+   (depth-aware), atomic `@` offset-token consumption, `name=` labels,
+   both offset units with their clamps, lcm. Each lane's body still goes
+   through the existing `UPIParser::parse`, so the whole mono grammar is
+   available per lane for free. Conformance-locked the same way as the
+   rhythm codecs: `packages/upi/vectors/poly.json` (this repo, generated
+   from `parsePolyUPI`) → vendored as `WebApp/tests/poly-vectors.json` →
+   embedded `PolyConformanceVectors.h` → the `serpe_poly_conformance`
+   console app + `ctest` target. 11/11 vectors matched byte-for-byte on
+   the first local build. **Parsing only — no audible change yet**: the
+   plugin doesn't schedule multiple lanes, so a poly UPI string sets up
+   correctly-parsed lanes that the engine still can't play back as more
+   than one voice.
+2. **Engine voices — NOT STARTED, scoped below for the next session.**
+3. **Plugin UI** — the shared `index.html` grows the lanes panel (same DOM,
+   same CSS — the WebView is the same file the webapp bundles). Largely
+   free once the app source is rebuilt into the plugin's WebUI bundle,
+   since the React lanes panel already exists in `apps/serpe`; needs
+   verification once step 2 gives it something real to talk to.
 4. **Per-lane analysis** — the mono Analysis pane (hidden in poly mode
    today) returns as per-lane meters + a cross-rhythm view (interference
    pattern of lane pairs — the Keil visual).
@@ -203,3 +221,51 @@ Known behaviors to carry over from webapp field fixes (2026-07-18):
 advance-on-note-in is OPT-IN everywhere (the IAC-loop swirl); outgoing hits
 register in the echo guard on every path; mid-edit parse errors keep the
 last good pattern playing.
+
+### 8.1 Milestone 2 draft — engine voices (scope for the next session)
+
+Read from `rhythm_pattern_explorer/Source/Platform/PluginProcessor.h` on
+2026-07-20: today there is exactly **one** `PatternEngine patternEngine`
+member, one `midiNoteParam` (`AudioParameterInt`), and one APVTS layout —
+genuinely single-voice throughout. Making this poly means:
+
+- **Fixed-slot lanes, not a dynamic vector.** JUCE plugin parameters must be
+  declared once in `createParameterLayout()` for host automation/session
+  recall to work at all — so the design is a **fixed maximum lane count**
+  (propose **4**, matching the webapp's practical lane counts so far) with
+  per-slot `AudioParameterInt` note + channel + a `AudioParameterBool` mute,
+  always present; a poly UPI with fewer lanes than the max just leaves the
+  extra slots unused (silently, not erroring). `PatternEngine` becomes
+  `std::array<PatternEngine, kMaxLanes>` (or a small owning struct per
+  slot), populated from `PolyParser::parse()`'s lane list on `setUPIInput`.
+- **Per-lane clocks in `processBlock`**, porting the webapp's cycle-lock
+  model (§3b): cycle lock (default) makes every lane span the SAME cycle
+  (lane 1's natural length defines it; a lane's step duration =
+  cycleSamples / itsLength) — POLYRHYTHM. Step lock (fewer steps drift to
+  the lcm) is the toggle. `PolyOffset` (ms or note-value fraction) applies
+  as a **sample offset added at schedule time**, with the same
+  `POLY_LAG_MS`-style base lag the webapp uses (60ms) so a negative offset
+  has room to push early without going before the previous scheduled
+  sample — this needs to become a **plugin parameter or a fixed constant
+  decided up front**, since "how much lag" changes the audible feel.
+  AudioPlayHead-driven transport sync (host tempo/position) replaces the
+  webapp's own clock — the harder, JUCE-specific part; no existing suite
+  precedent to lean on directly (the mono engine already does this for one
+  lane, so the pattern is proven, just needs replicating N times with
+  independent per-lane phase).
+- **Bridge/UI additions**: `SerpeEditor`'s JS↔C++ contract needs a poly
+  variant of `setUPI` (or the existing one just also carries per-lane
+  target params) and a way for the WebView lanes panel to read/write the
+  new per-slot note/channel/mute parameters — mirrors the mono
+  `sendParamActual`/`paramChange` pattern already in place.
+- **Open questions to settle before coding** (one-way-door risk — same
+  discipline as the notation decision): (a) 4 lanes enough, or does the
+  webapp's practical use suggest more/fewer? (b) is the lag constant fixed
+  suite-wide or a new automatable parameter? (c) do unused lane slots need
+  to be hideable in the plugin UI, or is "shows 4 always, blank if unused"
+  acceptable for v1? (d) scenes/progressive-manager: do they need to
+  understand multiple lanes immediately, or can poly patterns be scene-
+  incompatible for v1 (documented limitation) while mono keeps working?
+- **Estimate**: still **L** — this is a real processBlock/parameter-layout
+  redesign, not a port. Milestone 1 (this session) was the tractable,
+  low-risk slice; milestone 2 is where the schedule actually gets spent.
