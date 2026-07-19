@@ -1,0 +1,10 @@
+# Per-machine WebUI source override — copy to `webui.local.cmake` (gitignored).
+#
+# The Workspace's UI source lives in the music-suite monorepo (apps/workspace),
+# shared with the browser webapp. CMake defaults to a sibling checkout:
+#   ${CMAKE_SOURCE_DIR}/../music-suite/apps/workspace
+#
+# If your music-suite checkout is elsewhere, point WORKSPACE_WEBUI_DIR at its
+# apps/workspace directory here. The monorepo must be `npm install`ed so
+# esbuild and the @enkerli/* packages resolve from its hoisted node_modules.
+set(WORKSPACE_WEBUI_DIR "/path/to/music-suite/apps/workspace" CACHE PATH "" FORCE)

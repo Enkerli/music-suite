@@ -262,6 +262,32 @@ needs this manual nudge the first time a target is selected).
 
 ---
 
+### Suite Workspace (staged — repo pending)
+
+The Workspace plugin's C++ shell is **staged at
+`plugin-shells/workspace-plugin/` in this repo** (the build session
+couldn't create its GitHub repo — see `plugin-shells/README.md` for the
+one-time promotion steps: create `Enkerli/workspace-plugin`, copy, add the
+`enkerli-juce` submodule, push). Once promoted:
+
+```bash
+git clone --recurse-submodules https://github.com/Enkerli/workspace-plugin
+cd workspace-plugin
+# music-suite as an npm-installed sibling (WebUI builds from apps/workspace
+# at cmake time; override the path via webui.local.cmake)
+cmake -B build-macos -DCMAKE_BUILD_TYPE=Release && cmake --build build-macos -j 8
+auval -v aumi Wksp Enke
+cmake -B build-ios -G Xcode -DCMAKE_SYSTEM_NAME=iOS -DCMAKE_OSX_DEPLOYMENT_TARGET=16.0
+open build-ios/Workspace.xcodeproj   # run Workspace_Standalone to an iPad once, then Workspace_AUv3
+```
+
+Until then, the same commands work from the staged directory with a
+symlinked/`-DENKERLI_JUCE_DIR`-style foundation checkout (`ln -s
+/path/to/enkerli-juce plugin-shells/workspace-plugin/enkerli-juce`).
+Verified on Linux (LV2/Standalone/CLAP configure+build clean, WebUI
+bundled from `apps/workspace`) on 2026-07-20; the Apple formats and
+devices are the usual human half.
+
 ## 5. If something doesn't match this file
 
 This file is the one meant to stay current — if a plugin repo's own README
