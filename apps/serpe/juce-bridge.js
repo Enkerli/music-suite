@@ -48,6 +48,17 @@ export const PARAM_MAP = [
   ['midiNote',     'midiNote'],
   ['subdivision',  'subdivision'],
   ['hostTransport','useHostTransport'],
+  // Poly lanes (docs/SERPE_POLY.md §8 milestone 3): 6 fixed lane slots +
+  // the base lag, always declared on the C++ side. reactField === paramId
+  // here, so these entries are really just documentation — sendParamActual
+  // already falls back to the field name when PARAM_MAP has no entry — but
+  // listing them keeps this file the one place that names every bridged param.
+  ['polyLagMs', 'polyLagMs'],
+  ...[0, 1, 2, 3, 4, 5].flatMap(i => [
+    [`laneNote${i}`,    `laneNote${i}`],
+    [`laneChannel${i}`, `laneChannel${i}`],
+    [`laneMute${i}`,    `laneMute${i}`],
+  ]),
 ];
 
 // ── Initialisers / senders ────────────────────────────────────────────────────
