@@ -245,11 +245,28 @@ the order of work:
    ever needed a human anyway: does it sound right, in a real host, on a
    real device** — that step is yours, same as every other plugin milestone
    in this project.
-3. **Plugin UI** — the shared `index.html` grows the lanes panel (same DOM,
-   same CSS — the WebView is the same file the webapp bundles). Largely
-   free once the app source is rebuilt into the plugin's WebUI bundle,
-   since the React lanes panel already exists in `apps/serpe`; the panel
-   now has something real to talk to (step 2 shipped) — next up.
+3. ✅ **Plugin UI** *(shipped 2026-07-20, `music-suite` commit ba80ba0 +
+   `rhythm_pattern_explorer` commit a341aa2)* — the gate that made the
+   webapp refuse to send poly patterns to the plugin ("poly lanes are
+   webapp-only for now") is gone; a poly UPI string now reaches the C++
+   engine the same way mono does. The panel's note/channel/mute controls
+   read and write the plugin's real automatable parameters (via a new
+   index-keyed `hostLaneParams` state synced through `stateSnapshot` on
+   load and `paramChange` on host automation) instead of pure local state —
+   so the routing shown in the plugin is the actual host session, not a
+   look-alike. A `polyLagMs` control (0–200ms) appears in the panel header
+   when running in the plugin (the webapp preview keeps its fixed
+   constant, having no host automation to expose). The per-lane playhead
+   (`lanePh`) now animates from a new `polyState` bridge event carrying the
+   C++ engine's real per-lane step indices, since the webapp's own JS
+   scheduler never runs inside the plugin. **Verified**: esbuild bundles
+   the changed webapp clean, and the full plugin (LV2+Standalone) builds
+   end-to-end through the exact pipeline that embeds this source; both
+   `ctest` targets still pass. **Not verified**: this project's own
+   TESTING.md already flags that jsdom/happy-dom aren't faithful WebView
+   substitutes, and no real WKWebView is reachable here — whether the
+   panel actually renders and drives sound correctly on a real device is
+   the next human step, same as milestone 2.
 4. **Per-lane analysis** — the mono Analysis pane (hidden in poly mode
    today) returns as per-lane meters + a cross-rhythm view (interference
    pattern of lane pairs — the Keil visual).
