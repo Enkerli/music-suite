@@ -343,20 +343,36 @@ sounds. Requires apps synced after 2026-07-19.*
 2. In the Workspace, **+ add module → GloriArp**. Defaults: progression
    `Dm7 | G7 | Cmaj7 | A7`, style `walking-bass`, seed 42, bpm 100, loop on.
 3. Press **▶ play**.
-   → the status shows `▶ 16 notes · Dm7 | G7 | Cmaj7 | A7 · looping`; the
-   **Bus Monitor** prints `note [external → vane]` messages on the beat; the
-   **Vane tab walks the bassline out loud**, repeating seamlessly.
-4. **Steer it live:** switch style to `funk-ghost`, set rhythm `{100}E(3,8)`,
-   gate `staccato`, rests `0.3`, push `0.5`, press **▶ play** again.
-   → a different band: tight tresillo funk with breathing space and pushed
-   downbeats. Same seed → same take, every time.
-5. **■ stop** → silence within a note (self-releasing messages, nothing hangs).
-6. **⬇ .mid** → a `gloriarp-<style>-s<seed>.mid` downloads. Open it in a DAW
+   → the status shows `▶ pass 1 · 16 notes · Dm7 | G7 | Cmaj7 | A7 ·
+   looping (tweaks land next pass)`; the **Bus Monitor** prints
+   `note [external → vane]` messages on the beat; the **Vane tab walks the
+   bassline out loud**, repeating seamlessly, the pass count climbing.
+4. **Steer it live — WITHOUT pressing play again:** while it loops, switch
+   style to `funk-ghost`, set rhythm `{100}E(3,8)`, gate `mixed`,
+   rests `0.3`, push `0.5`.
+   → at the next pass boundary the band changes under your hands: tresillo
+   funk, per-note articulation (legato runs, detached repeats, ghosty
+   cracks). Editing never stops the groove; a mid-edit garbage progression
+   keeps the last good take (status says so) until you fix it.
+5. **The living take:** set `variety 0.6`, `pocket 0.4`, `morph 0.5`.
+   → passing tones and octave pops appear on weak beats (downbeats stay
+   anchored); the line leans against the grid — push and pull, heavier when
+   it digs in — and each pass re-rolls half its decisions, so the groove
+   EVOLVES over repeats without losing its identity. `morph 0` freezes it;
+   the same seed still reproduces everything.
+6. **ProgGenie handoff:** open the **Progression Studio** app in a third
+   tab, generate a progression, press **→ Workspace**.
+   → the GloriArp module's progression field adopts it (status:
+   `♪ progression from proggenie — lands at the next pass`) and the looping
+   bassline follows the new changes one pass later. Compose in one tab,
+   hear the accompaniment track it in the other.
+7. **■ stop** → silence within a note (self-releasing messages, nothing hangs).
+8. **⬇ .mid** → a `gloriarp-<style>-s<seed>.mid` downloads. Open it in a DAW
    (or import into a plugin): identical bytes to what `msuite accompany`
    writes for the same options — chord markers per bar, the `GLORIARP:v1
    TRACE` reproducibility header embedded. **This is the plugin handoff.**
-7. Error honesty: type a garbage progression → the status shows `✗ …` and
-   nothing plays; fix it and play again.
+9. Error honesty: type a garbage progression before pressing play → the
+   status shows `✗ …` and nothing plays; fix it and play again.
 
 ---
 
@@ -378,9 +394,22 @@ of the iPad AUv3 / standalone verification.*
 4. **From a curated clip:** select any clip that has a leadsheet, reopen the
    panel, click **⤷ from selected clip** → the progression field fills with
    that clip's changes; Generate builds an accompaniment *for that clip*.
-5. Error honesty: progression `???` → a dismissible warning banner
+5. **Takes:** set `vary 0.6`, `pocket 0.4`, then bump **take** 0 → 1 → 2,
+   Generate each time. Three siblings land (`…-p1.mid`, `…-p2.mid`): same
+   groove, different decisions — passing tones move, the lean shifts. This
+   is the cheap variant axis; the density-variant machinery still applies
+   on top of any of them.
+6. **Learn a style:** import (or pick) a bass clip with a chord — a
+   leadsheet entry or a detected chord both work. Select it, type a name in
+   the panel's "new style name…" field, press **☆ learn clip as style**.
+   → `☆ learned "<name>"` and the style dropdown now offers it. Generate
+   with it over any progression: the accompaniment carries the source
+   clip's rhythm and contour, reharmonized. A clip with no chord refuses
+   with a message naming the fix (that's honesty, not failure). Learned
+   styles survive reload (local storage).
+7. Error honesty: progression `???` → a dismissible warning banner
    (`GloriArp: accompany: no chords parsed…`), no clip added.
-6. The generated clip is a first-class citizen: tag it, rate it, export it
+8. The generated clip is a first-class citizen: tag it, rate it, export it
    (**D**), transform it. *In the plugin build, pressing play arms it into
    the host-synced C++ scheduler — that step is the on-device (iPad/standalone)
    half of this scenario.*

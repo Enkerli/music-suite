@@ -61,19 +61,53 @@ walk can be *coupled* to it then (shared drift term). That is the road to
 
 ## 3. Slices
 
-- **A — engine (`express.ts`)**: variety · passing tones · mixed gate ·
-  pocket · pass/morph, as one seeded post-articulation stage. New committed
-  vector + tests; all defaults off → existing vectors byte-identical.
-- **B — live players**: Workspace groove player regenerates per pass
-  (knob changes and bus-received progressions apply at the loop boundary);
-  ProgGenie gains "→ suite bus" publish of the current progression.
-- **C — MIDIcurator capture & library**: "learn this clip as a style"
-  (extractPhrase), persistent local style list in the GloriArp panel,
-  export/import as phrase JSON.
+- ✅ **A — engine (`express.ts`)** *(shipped 2026-07-20)*: variety · passing
+  tones · mixed gate · pocket · pass/morph, as one seeded post-articulation
+  stage; `groove()` and `msuite accompany` grew the matching options/flags.
+  Committed vector pins pass 0 AND pass 3 under morph. All defaults off →
+  every prior vector regenerates byte-identically (verified).
+- ✅ **B — live players** *(shipped 2026-07-20)*: the Workspace groove
+  player takes a pass→phrase function, rebuilt from live knob state at
+  every loop boundary (a throwing rebuild keeps the last good take);
+  ProgGenie's "→ Workspace" button publishes the canonical `progression`
+  message on the cross-tab bus, and the GloriArp module adopts it —
+  mid-loop, next pass.
+- ✅ **C — MIDIcurator capture & library** *(shipped 2026-07-20)*: "☆ learn
+  clip as style" (extractPhrase over the clip + its leadsheet/detected
+  chord), persistent local style list resolved alongside the bundled four,
+  the expression knobs + a "take" (pass) number in the panel. Import of
+  external phrase JSON: `msuite accompany --source path.json` today;
+  file-drop into the panel is queued below.
 - **Later (recorded, not started)**: statistical learning over a corpus of
   captured phrases (the brief's phase 4+ — distributions, morphing between
   styles); CC-ramp expression during held notes for Vane; coupled-walk
   multi-part pocket; MIDIcurator realtime MIDI-in → accompany.
+
+## 3b. Next session queue (prep, 2026-07-20)
+
+By-ear verification first — everything below shipped agent-verified only
+(tests + vectors + builds; no ears here):
+
+1. **BROWSER_TEST §10/§11 re-run** with the new knobs: does `pocket` 0.4
+   actually feel like push/pull rather than sloppiness? Does `morph` 0.5
+   over a looping funk-ghost evolve without losing the plot? Does the
+   ProgGenie "→ Workspace" handoff land mid-loop? Does a learned clip
+   style generate something that sounds like its source's feel?
+2. **Tune the pocket constants by ear** — walk step (±7ms·pocket), anchor
+   decay (0.7/0.4/0.15), accent-lean gain, the ±18ms cap: all chosen by
+   reasoning, all in one place (`express.ts`), all awaiting a listener.
+   Same for variety's probability split (0.4 passing / 0.25 octave / 0.3
+   reselect).
+3. **Style-pack growth**: generate candidate source phrases with local
+   models against §4's contract; validate via `msuite accompany --source`;
+   the keepers join `vectors/` (CC0) or the local library. A file-drop
+   import in MIDIcurator's panel would smooth this (small slice).
+4. **Comping role next** (PRIORITIES §2.6): the first polyphonic role —
+   the EP-comping ask lands here; `voice` is already in the event schema.
+5. **Vane CC-ramp expression**: swells during held notes (player-side CC2
+   ramps in the workspace player + `--play`'s MIDI path).
+6. **Coupled pocket**: when the groove/drum role or Serpe poly lanes join,
+   share the walk term across parts — the real Keil interaction.
 
 ## 4. Source-phrase JSON, for humans and local models
 
