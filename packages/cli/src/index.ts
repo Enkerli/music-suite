@@ -26,15 +26,16 @@ import {
   patternToDecimal, patternFromDecimal,
   patternToHex, patternFromHex,
   patternToOctal, patternFromOctal,
-  parseLeadsheet, type Progression,
+  parseLeadsheet, realizeLeadsheet, type Progression,
 } from "@enkerli/theory";
-import { progressionToSMF, progressionFromSMF } from "@enkerli/midi";
+import { progressionToSMF, progressionFromSMF, readSmfNotes } from "@enkerli/midi";
 import { parseUPI, analyse, parsePolyUPI, splitLanes, type PolyResult } from "@enkerli/upi";
 import { generateLabels, realizeLabel } from "@enkerli/proggen";
 import {
-  parsePhrase, serializePhrase, groove,
+  parsePhrase, serializePhrase, groove, extractPhrase,
+  learnStyleModel, samplePhrase, serializeModel, parseModel, looksLikeModel,
   type AccompanimentPhrase, type HarmonicFrame, type Trace, type TraceLevel, type ArticulationChange,
-  type ExpressChange,
+  type ExpressChange, type StyleModel, type InputNote,
 } from "@enkerli/accompaniment";
 import {
   resolveEvent, validateControlMap,
@@ -365,6 +366,83 @@ export function defaultPhrasePath(): string {
   return phrasePath();
 }
 
+// ── style learn: MIDI clips + one chord → a StyleModel (statistics only) ─────
+
+export interface LearnStyleOptions {
+  /** Paths to .mid files — the corpus, all played against `chord`. */
+  files: string[];
+  /** The shared chord (e.g. "Bb7"): the harmonic frame relations infer against. */
+  chord: string;
+  id: string;
+  role?: "bass" | "comping" | "groove" | "arp" | "melodic-fill" | "unknown";
+  /** Grid slots per beat (default 4 = sixteenths). */
+  grid?: number;
+  tonic?: string;
+  mode?: "major" | "minor";
+}
+
+export interface LearnStyleResult {
+  model: StyleModel;
+  modelJson: string;
+  /** Per-file take summaries, for the report. */
+  takes: { file: string; events: number; bars: number }[];
+}
+
+/**
+ * Learn a style model from MIDI clips (docs/GLORIARP_NEXT.md: curated
+ * capture → statistics). Each clip's notes are extracted against the shared
+ * chord with the honest relation inference, then folded into per-slot
+ * distributions. The output is STATISTICS ONLY — the clips never enter the
+ * artifact (the brief's no-corpus-publication rule, held by construction).
+ */
+export function learnStyle(opts: LearnStyleOptions): LearnStyleResult {
+  if (!opts.files.length) throw new Error("style learn: at least one .mid file required");
+  // Resolve the chord through the canonical leadsheet path (one bar).
+  const prog = parseLeadsheet(opts.chord, { tonic: opts.tonic ?? "C", mode: opts.mode ?? "major" });
+  const realized = realizeLeadsheet(prog);
+  const c = realized[0]?.[0];
+  if (!c) throw new Error(`style learn: could not parse chord "${opts.chord}"`);
+  const frame = { symbol: c.symbol, rootPc: c.rootPc, pcs: c.pcs };
+
+  const takes: { file: string; events: number; bars: number }[] = [];
+  const phrases: AccompanimentPhrase[] = [];
+  for (const file of opts.files) {
+    const { ticksPerBeat, notes } = readSmfNotes(readFileSync(file));
+    if (!notes.length) { takes.push({ file, events: 0, bars: 0 }); continue; }
+    // Normalize to 480 tpb so mixed-PPQ corpora fold onto one grid.
+    const scale = 480 / ticksPerBeat;
+    const t0 = notes[0]!.startTick; // clip-relative: a pickup-less clip starts at 0
+    const input: InputNote[] = notes.map((n) => ({
+      pitch: n.pitch,
+      startTick: Math.round((n.startTick - t0) * scale),
+      durationTicks: Math.max(1, Math.round(n.durationTicks * scale)),
+      ...(n.velocity !== undefined && { velocity: n.velocity }),
+    }));
+    const lastEnd = Math.max(...input.map((n) => n.startTick + n.durationTicks));
+    const barTicks = 4 * 480;
+    const bars = Math.max(1, Math.ceil(lastEnd / barTicks));
+    phrases.push(extractPhrase(input, {
+      id: `${opts.id}-${takes.length}`,
+      role: opts.role ?? "bass",
+      meter: { numerator: 4, denominator: 4 },
+      ticksPerBeat: 480,
+      lengthTicks: bars * barTicks,
+      frame,
+      source: { note: `extracted from local clip (statistics only leave this machine)` },
+    }));
+    takes.push({ file, events: input.length, bars });
+  }
+  if (!phrases.length) throw new Error("style learn: no notes found in any file");
+
+  const model = learnStyleModel(phrases, {
+    id: opts.id,
+    ...(opts.role !== undefined && { role: opts.role }),
+    ...(opts.grid !== undefined && { grid: opts.grid }),
+    source: { note: `learned from ${phrases.length} local clips against ${frame.symbol}` },
+  });
+  return { model, modelJson: serializeModel(model), takes };
+}
+
 /** "C2", "F♯1", "Bb3" → MIDI note number (C4 = 60). */
 export function noteNameToMidi(name: string): number {
   const m = /^([A-Ga-g])([#♯b♭]?)(-?\d+)$/.exec(name.trim());
@@ -434,7 +512,16 @@ export function accompany(opts: AccompanyOptions): AccompanyResult {
   // Thin over the isomorphic engine pipeline (@enkerli/accompaniment groove):
   // the CLI's whole job is path resolution and file I/O — the same engine
   // call a browser module or a plugin WebView makes.
-  const source = parsePhrase(readFileSync(phrasePath(opts.source), "utf8"));
+  //
+  // --source accepts a PHRASE json (a single curated take) or a STYLE MODEL
+  // json (`msuite style learn` output): a model is sampled per (seed, pass)
+  // — every pass a fresh take, the learned variability of performance.
+  const raw = readFileSync(phrasePath(opts.source), "utf8");
+  let parsed: unknown;
+  try { parsed = JSON.parse(raw); } catch { parsed = null; }
+  const source = looksLikeModel(parsed)
+    ? samplePhrase(parseModel(raw), { seed: opts.seed ?? 42, ...(opts.pass !== undefined && { pass: opts.pass }) })
+    : parsePhrase(raw);
   const { progression, tonic, mode, rhythm, bars, seed, range, chromaticism,
           rhythmPreservation, gate, dynamics, rests, anticipation,
           variety, pocket, morph, pass, bpm, traceLevel } = opts;

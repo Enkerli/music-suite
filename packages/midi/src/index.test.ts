@@ -4,6 +4,7 @@ import {
   createSMF,
   encodeTextMeta,
   encodeVariableLength,
+  readSmfNotes,
 } from "./index.js";
 
 describe("variable-length quantities (SMF spec)", () => {
@@ -67,5 +68,23 @@ describe("createSMF", () => {
     const offIdx = bytes.findIndex((_, i) => bytes[i] === 0x80 && bytes[i + 1] === 60);
     const onIdx = bytes.findIndex((_, i) => bytes[i] === 0x90 && bytes[i + 1] === 62);
     expect(offIdx).toBeLessThan(onIdx);
+  });
+});
+
+describe("readSmfNotes (the ingestion half of the codec)", () => {
+  it("round-trips createSMF's notes: pitch, onset, duration, velocity", () => {
+    const notes = [
+      { pitch: 46, startTick: 0, durationTicks: 180, velocity: 112 },
+      { pitch: 46, startTick: 360, durationTicks: 90, velocity: 44 },
+      { pitch: 53, startTick: 720, durationTicks: 170, velocity: 92 },
+    ];
+    const back = readSmfNotes(createSMF(notes, { ticksPerBeat: 480 }));
+    expect(back.ticksPerBeat).toBe(480);
+    expect(back.notes.map(({ pitch, startTick, durationTicks, velocity }) =>
+      ({ pitch, startTick, durationTicks, velocity }))).toEqual(notes);
+  });
+
+  it("tolerates garbage without throwing", () => {
+    expect(readSmfNotes(new Uint8Array([1, 2, 3])).notes).toEqual([]);
   });
 });

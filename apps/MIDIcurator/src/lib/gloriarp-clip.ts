@@ -21,6 +21,7 @@
 
 import { groove, extractPhrase, validatePhrase } from '@enkerli/accompaniment';
 import type { AccompanimentPhrase, AccompanimentRole, FrameChord, InputNote } from '@enkerli/accompaniment';
+import { findQualityByKey } from '@enkerli/theory';
 import type { Clip, Note } from '../types/clip';
 import { getEffectiveBarChords } from './gesture';
 
@@ -102,7 +103,15 @@ export function learnStyleFromClip(clip: Clip, name: string, kv?: KV): Accompani
   const lead = clip.leadsheet?.bars?.[0]?.chords?.[0]?.chord ?? null;
   const detected = lead ?? barChords?.find((b) => b.chord)?.chord ?? clip.harmonic.detectedChord ?? null;
   if (!detected) throw new Error('clip needs a chord (add a leadsheet, or let detection find one) so the phrase knows its harmony');
-  const pcs = detected.templatePcs ?? detected.observedPcs ?? [];
+  // A DETECTED chord carries its pcs; a LEADSHEET-parsed chord carries only
+  // root + qualityKey (the "chord C7 carries no pitch classes" bug, 2026-07-20)
+  // — derive them from the dictionary quality, absolute against the root.
+  let pcs = detected.templatePcs ?? detected.observedPcs ?? [];
+  if (!pcs.length && detected.qualityKey) {
+    const q = findQualityByKey(detected.qualityKey);
+    if (q) pcs = q.pcs.map((p) => (((detected.root + p) % 12) + 12) % 12);
+  }
+  if (!pcs.length) pcs = [...new Set(pitches.map((p) => ((p % 12) + 12) % 12))]; // last resort: the notes themselves
   if (!pcs.length) throw new Error(`chord ${detected.symbol} carries no pitch classes to relate against`);
   const frame: FrameChord = { symbol: detected.symbol, rootPc: detected.root, pcs };
 

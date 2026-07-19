@@ -126,6 +126,25 @@ describe('learned styles (curated capture, docs/GLORIARP_NEXT.md slice C)', () =
     expect(() => learnStyleFromClip(clip, 'x', kv())).toThrow(/needs a chord/);
   });
 
+  it('learns from a LEADSHEET chord (root + qualityKey only — the "C7 carries no pitch classes" bug)', () => {
+    const s = kv();
+    const clip = dm7Clip();
+    // The exact shape parseChordSymbol produces for a typed leadsheet entry:
+    // no templatePcs, no observedPcs — just root + qualityKey + names.
+    clip.harmonic.detectedChord = null;
+    clip.leadsheet = {
+      inputText: 'C7',
+      bars: [{ bar: 0, isRepeat: false, chords: [{
+        chord: { root: 0, rootName: 'C', qualityKey: '7', symbol: 'C7', qualityName: 'dominant seventh' },
+        inputText: 'C7', position: 0, totalInBar: 1,
+      }] }],
+    };
+    const phrase = learnStyleFromClip(clip, 'from-leadsheet', s);
+    expect(phrase.harmonicFrames![0]!.chord.symbol).toBe('C7');
+    expect(phrase.harmonicFrames![0]!.chord.pcs.sort((a, b) => a - b)).toEqual([0, 4, 7, 10]); // C E G B♭ from the dictionary
+    expect(generateGrooveClip({ ...CANON, style: 'from-leadsheet' }, s).notes.length).toBeGreaterThan(0);
+  });
+
   it('unknown style names fail with the available list', () => {
     expect(() => generateGrooveClip({ ...CANON, style: 'nope' }, kv())).toThrow(/unknown style "nope"/);
   });

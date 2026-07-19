@@ -19,11 +19,12 @@
  * carry the @enkerli/protocol message model over an ordinary Unix pipe
  * (docs/CONTROL_PLANE.md — the headless half of the control & interop plane).
  */
-import { readFileSync, writeFileSync, createWriteStream } from "node:fs";
+import { readFileSync, writeFileSync, createWriteStream, readdirSync, statSync } from "node:fs";
+import { join } from "node:path";
 import { createInterface } from "node:readline";
 import {
   chordInfo, patternInfo, upiInfo, isPolyUpi, polyUpiInfo, generateInfo, smfFromBars, renderVane,
-  accompany, noteNameToMidi, notesFromPhrase, performPhrase, startBridge,
+  accompany, learnStyle, noteNameToMidi, notesFromPhrase, performPhrase, startBridge,
   listMidiPorts, resolveMidiPort, createMidiPlayer,
   sendMessage, toNdjson, parseNdjson, summarizeMessage, describeManifest,
   bundledManifestPath, MANIFEST_APPS, paramsFromStream, vaneParamIdMap,
@@ -43,6 +44,12 @@ const USAGE = `msuite <command> …
                                         a progression from the corpus statistics → Roman bars (or realized SMF with -o)
                                         piped (or --bars-only): bare bar notation, ready for | msuite accompany
   smf "<bars>" -o <file.mid> [--tonic C] [--mode major|minor] [--bpm N] [--beats-per-chord N]
+  style learn <files-or-dir…> --chord <sym> --id <name> -o model.json [--role bass] [--grid 4]
+                                        learn a STYLE MODEL from your own MIDI clips, all played
+                                        against one chord: per-slot onset/velocity/duration/
+                                        micro-timing distributions + note vocabulary. Statistics
+                                        only — the clips never leave your machine. The model then
+                                        feeds accompany --source; every --pass is a fresh take
   accompany [--progression "<bars>"] [-o bass.mid] [--role bass] [--bars N]
             [--source walking-bass|funk-ghost|bossa|two-feel|phrase.json] [--rhythm "<UPI>"] [--seed N]
             [--gate staccato|tenuto|legato|mixed|0..1+] [--dynamics 0..1] [--rests 0..1] [--anticipation 0..1]
@@ -259,6 +266,41 @@ async function main(): Promise<number> {
       });
       writeFileSync(out, r.bytes);
       console.log(`wrote ${out}: ${r.chordCount} chords, ${r.bytes.length} bytes (embedded Progression included)`);
+      return 0;
+    }
+    case "style": {
+      // msuite style learn <files-or-dir…> --chord Bb7 --id name -o model.json
+      const sub = args.positional[0];
+      if (sub !== "learn")
+        throw new Error('style: the verb is `style learn <files-or-dir…> --chord <sym> --id <name> -o model.json`');
+      const inputs = args.positional.slice(1);
+      if (!inputs.length) throw new Error("style learn: give it .mid files or a directory of them");
+      const files: string[] = [];
+      for (const inp of inputs) {
+        if (statSync(inp).isDirectory())
+          files.push(...readdirSync(inp).filter((f) => f.toLowerCase().endsWith(".mid")).sort().map((f) => join(inp, f)));
+        else files.push(inp);
+      }
+      const chord = one(args, "chord");
+      if (!chord) throw new Error('style learn: --chord is required (the one chord the clips were played against, e.g. --chord "Bb7")');
+      const id = one(args, "id") ?? "learned-style";
+      const r = learnStyle({
+        files, chord, id,
+        ...(one(args, "role") !== undefined && { role: one(args, "role") as "bass" }),
+        ...(one(args, "grid") !== undefined && { grid: Number(one(args, "grid")) }),
+        ...(one(args, "tonic") !== undefined && { tonic: one(args, "tonic")! }),
+        ...(one(args, "mode") !== undefined && { mode: one(args, "mode") as "major" | "minor" }),
+      });
+      for (const t of r.takes)
+        console.log(`  ${t.file}: ${t.events} notes over ${t.bars} bar(s)${t.events ? "" : " — skipped"}`);
+      const covered = r.model.slots.filter((s) => s.count > 0).length;
+      console.log(`style learn: ${r.model.takes} takes against ${r.model.frame.symbol} → ${r.model.slots.length} slots (${covered} played), ${r.model.bars} bar(s)`);
+      const out = one(args, "out");
+      if (out) {
+        writeFileSync(out, r.modelJson);
+        console.log(`wrote ${out} — statistics only, the clips stay on this machine.`);
+        console.log(`try: msuite accompany --source ${out} --progression "Dm7 | G7 | C7 | Bb7" --pass 0 (then --pass 1, 2… — every pass a fresh take)`);
+      }
       return 0;
     }
     case "accompany": {

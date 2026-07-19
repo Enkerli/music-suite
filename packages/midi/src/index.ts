@@ -202,4 +202,100 @@ export function readMetaTextEvents(bytes: Uint8Array): MetaTextEvent[] {
   return out;
 }
 
+/** A note read back from an SMF, with its channel (readSmfNotes). */
+export interface SmfNote extends MidiNote {
+  channel: number;
+}
+
+export interface SmfNotesResult {
+  /** The file's division (ticks per quarter note). */
+  ticksPerBeat: number;
+  /** All notes across all tracks, onset-ordered. */
+  notes: SmfNote[];
+}
+
+/**
+ * Read every note (on/off paired, running status honored) out of a Standard
+ * MIDI File — the ingestion half of the codec (createSMF is the writing
+ * half). Enough for corpus work: `msuite style learn` feeds clips through
+ * this into extractPhrase/learnStyleModel. Unclosed notes get a beat's
+ * duration rather than being dropped (real-world clips end mid-note).
+ */
+export function readSmfNotes(bytes: Uint8Array): SmfNotesResult {
+  const notes: SmfNote[] = [];
+  let p = 0;
+  const u16 = () => ((bytes[p++]! << 8) | bytes[p++]!) >>> 0;
+  const u32 = () => ((bytes[p++]! << 24) | (bytes[p++]! << 16) | (bytes[p++]! << 8) | bytes[p++]!) >>> 0;
+
+  if (bytes.length < 14) return { ticksPerBeat: 480, notes };
+  p = 8; // past "MThd" + length
+  /* format */ u16();
+  /* tracks */ u16();
+  const division = u16();
+  const ticksPerBeat = (division & 0x8000) ? 480 : (division || 480); // SMPTE division: bail to 480
+
+  while (p + 8 <= bytes.length) {
+    const chunkId = String.fromCharCode(bytes[p]!, bytes[p + 1]!, bytes[p + 2]!, bytes[p + 3]!);
+    p += 4;
+    const len = u32();
+    const end = p + len;
+    if (chunkId !== "MTrk") { p = end; continue; }
+
+    let tick = 0;
+    let lastStatus = 0;
+    // key = channel<<8 | pitch → { startTick, velocity } for open notes
+    const open = new Map<number, { startTick: number; velocity: number }>();
+    while (p < end) {
+      let delta = 0;
+      let b: number;
+      do { b = bytes[p++]!; delta = (delta << 7) | (b & 0x7f); } while (b & 0x80);
+      tick += delta;
+
+      let status = bytes[p]!;
+      if (status & 0x80) p++; else status = lastStatus; // running status
+      if (status !== 0xff && status !== 0xf0 && status !== 0xf7) lastStatus = status;
+
+      if (status === 0xff) {
+        const metaType = bytes[p++]!;
+        let mlen = 0;
+        do { b = bytes[p++]!; mlen = (mlen << 7) | (b & 0x7f); } while (b & 0x80);
+        p += mlen;
+        if (metaType === 0x2f) break; // end of track
+      } else if (status === 0xf0 || status === 0xf7) {
+        let slen = 0;
+        do { b = bytes[p++]!; slen = (slen << 7) | (b & 0x7f); } while (b & 0x80);
+        p += slen;
+      } else {
+        const hi = status & 0xf0;
+        const channel = (status & 0x0f) + 1;
+        if (hi === 0x90 || hi === 0x80) {
+          const pitch = bytes[p++]!;
+          const velocity = bytes[p++]!;
+          const key = (channel << 8) | pitch;
+          if (hi === 0x90 && velocity > 0) {
+            open.set(key, { startTick: tick, velocity });
+          } else {
+            const o = open.get(key);
+            if (o) {
+              open.delete(key);
+              notes.push({ pitch, startTick: o.startTick, velocity: o.velocity,
+                durationTicks: Math.max(1, tick - o.startTick), channel });
+            }
+          }
+        } else {
+          p += (hi === 0xc0 || hi === 0xd0) ? 1 : 2;
+        }
+      }
+    }
+    // Unclosed notes: give them a beat rather than dropping them.
+    for (const [key, o] of open) {
+      notes.push({ pitch: key & 0xff, startTick: o.startTick, velocity: o.velocity,
+        durationTicks: ticksPerBeat, channel: key >> 8 });
+    }
+    p = end;
+  }
+  notes.sort((a, b) => a.startTick - b.startTick || a.pitch - b.pitch);
+  return { ticksPerBeat, notes };
+}
+
 export * from "./leadsheet-smf.js";
