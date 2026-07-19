@@ -35,7 +35,7 @@ import {
   parsePhrase, serializePhrase, groove, extractPhrase,
   learnStyleModel, samplePhrase, serializeModel, parseModel, looksLikeModel,
   type AccompanimentPhrase, type HarmonicFrame, type Trace, type TraceLevel, type ArticulationChange,
-  type ExpressChange, type StyleModel, type InputNote,
+  type ExpressChange, type StyleModel, type InputNote, type NoteInflection,
 } from "@enkerli/accompaniment";
 import {
   resolveEvent, validateControlMap,
@@ -479,6 +479,9 @@ export interface AccompanyOptions {
   pocket?: number;
   /** 0..1 — fraction of variety/pocket decisions re-rolled per pass. */
   morph?: number;
+  /** 0..1 — per-note wind articulation: sforzando/staccato/legato/marcato…,
+   *  each note with its own breath envelope (CC2 curves in the .mid). */
+  inflect?: number;
   /** Loop-pass index to render (0-based). */
   pass?: number;
   /** Tile the progression's bars out to this many bars. */
@@ -502,6 +505,8 @@ export interface AccompanyResult {
   articulation: ArticulationChange[];
   /** What the expression stage did (passing tones, pocket leans, gates). */
   expression: ExpressChange[];
+  /** Per-note articulations + breath envelopes (empty unless inflect). */
+  inflections: NoteInflection[];
 }
 
 /**
@@ -524,7 +529,7 @@ export function accompany(opts: AccompanyOptions): AccompanyResult {
     : parsePhrase(raw);
   const { progression, tonic, mode, rhythm, bars, seed, range, chromaticism,
           rhythmPreservation, gate, dynamics, rests, anticipation,
-          variety, pocket, morph, pass, bpm, traceLevel } = opts;
+          variety, pocket, morph, inflect, pass, bpm, traceLevel } = opts;
   const r = groove(source, {
     progression,
     ...(tonic !== undefined && { tonic }),
@@ -542,6 +547,7 @@ export function accompany(opts: AccompanyOptions): AccompanyResult {
     ...(variety !== undefined && { variety }),
     ...(pocket !== undefined && { pocket }),
     ...(morph !== undefined && { morph }),
+    ...(inflect !== undefined && { inflect }),
     ...(pass !== undefined && { pass }),
     ...(bpm !== undefined && { bpm }),
     ...(traceLevel !== undefined && { traceLevel }),
@@ -617,18 +623,29 @@ export interface TimedNote {
  */
 export function notesFromPhrase(
   phrase: AccompanimentPhrase,
-  opts: { bpm?: number; to?: Destination; from?: AppId } = {},
+  opts: { bpm?: number; to?: Destination; from?: AppId; inflections?: NoteInflection[] } = {},
 ): TimedNote[] {
   const bpm = opts.bpm ?? 120;
   const msPerTick = 60000 / (bpm * phrase.ticksPerBeat);
+  const infByIndex = new Map((opts.inflections ?? []).map((n) => [n.index, n]));
   return phrase.events
-    .filter((e) => e.note !== undefined)
-    .map((e) => ({
+    .map((e, i) => ({ e, inf: infByIndex.get(i) }))
+    .filter(({ e }) => e.note !== undefined)
+    .map(({ e, inf }) => ({
       atMs: Math.round(e.onset * msPerTick),
       msg: makeNote(opts.from ?? "external", {
         notes: [e.note!],
         velocity: e.velocity,
         durationMs: Math.max(1, Math.round(e.duration * msPerTick)),
+        // Per-note wind articulation (inflect stage): the breath envelope and
+        // tonguing hint ride the note message — consumers that understand
+        // them (Vane's worklet, the rawmidi player) render the curve; others
+        // ignore the extra fields (the protocol's open-body rule).
+        ...(inf && {
+          articulation: inf.articulation,
+          env: inf.envelope,
+          attack: inf.attack,
+        }),
       }, { to: opts.to ?? "vane" }),
     }));
 }
@@ -642,6 +659,8 @@ export interface PerformOptions {
   bpm?: number;
   to?: Destination;
   from?: AppId;
+  /** Per-note articulations (inflect stage) — envelopes ride the messages. */
+  inflections?: NoteInflection[];
   /** Passes over the phrase; `Infinity` performs until `isStopped()` says so. Default 1. */
   loopCount?: number;
   /** Polled between waits — the graceful-stop hook (e.g. a caught SIGINT). */
@@ -662,6 +681,7 @@ export async function* performPhrase(phrase: AccompanimentPhrase, opts: PerformO
   const bpm = opts.bpm ?? 120;
   const timed = notesFromPhrase(phrase, {
     bpm, ...(opts.to !== undefined && { to: opts.to }), ...(opts.from !== undefined && { from: opts.from }),
+    ...(opts.inflections !== undefined && { inflections: opts.inflections }),
   });
   const periodMs = loopPeriodMs(phrase, bpm);
   const loopCount = opts.loopCount ?? 1;

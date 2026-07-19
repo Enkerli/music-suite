@@ -321,6 +321,33 @@ describe("GloriArp module (the standalone accompaniment surface)", () => {
     player.stop();
   });
 
+  it("inflect: a groove result's per-note envelopes ride the note messages to Vane", async () => {
+    const { createGroovePlayer, GROOVE_STYLES } = await import("./modules.js");
+    const { groove } = await import("@enkerli/accompaniment");
+    const { ctxObj } = ctx();
+    const seen = [];
+    ctxObj.bus.subscribe((m) => seen.push(m));
+    let clock = 0;
+    const pending = [];
+    const player = createGroovePlayer({
+      bus: ctxObj.bus,
+      now: () => clock,
+      schedule: (fn, ms) => { const t = { fn, at: clock + ms, cleared: false }; pending.push(t); return t; },
+      clear: (t) => { if (t) t.cleared = true; },
+    });
+    const r = groove(GROOVE_STYLES["walking-bass"], { progression: "Dm7 | G7", seed: 42, inflect: 1 });
+    expect(r.inflections.length).toBeGreaterThan(0);
+    player.start(r, { bpm: 120, loop: false }); // the FULL result, not just the phrase
+    for (const t of [...pending]) if (!t.cleared) { clock = t.at; t.fn(); }
+    expect(seen.length).toBeGreaterThan(0);
+    for (const m of seen) {
+      expect(Array.isArray(m.body.env)).toBe(true); // every note carries its curve
+      expect(typeof m.body.articulation).toBe("string");
+      expect(typeof m.body.attack).toBe("number");
+    }
+    player.stop();
+  });
+
   it("adopts a progression message off the bus into the field", async () => {
     const { MODULES } = await import("./modules.js");
     const { makeMessage } = await import("@enkerli/protocol");

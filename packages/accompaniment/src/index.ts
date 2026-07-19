@@ -24,6 +24,11 @@ export {
   type ExpressOptions, type ExpressResult, type ExpressChange,
 } from "./express.js";
 export {
+  inflectPhrase, ARTICULATION_NAMES,
+  type InflectOptions, type InflectResult, type NoteInflection,
+  type ArticulationName, type EnvPoint,
+} from "./inflect.js";
+export {
   groove, framesFromProgression,
   type GrooveOptions, type GrooveResult, type FramesOptions,
 } from "./pipeline.js";

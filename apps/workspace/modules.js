@@ -354,26 +354,35 @@ export function createGroovePlayer({ bus, now = () => Date.now(), schedule = (fn
     running = true;
     const build = typeof phraseOrFn === "function" ? phraseOrFn : () => phraseOrFn;
     const t0 = now();
-    let lastPhrase = null;
+    let lastTake = null;
     const schedulePass = (pass, startAt) => {
-      let phrase;
-      try { phrase = build(pass); } catch (e) { phrase = lastPhrase; if (onPass) onPass(pass, null, e); }
-      if (!phrase) { running = false; return; }
-      lastPhrase = phrase;
+      let take;
+      try {
+        const built = build(pass);
+        // A build may return a bare phrase or a full groove result — with
+        // inflections, each note ships its own articulation envelope.
+        take = built && built.phrase ? built : { phrase: built };
+      } catch (e) { take = lastTake; if (onPass) onPass(pass, null, e); }
+      if (!take || !take.phrase) { running = false; return; }
+      lastTake = take;
+      const phrase = take.phrase;
+      const infByIndex = new Map((take.inflections || []).map((n) => [n.index, n]));
       const msPerTick = 60000 / (bpm * phrase.ticksPerBeat);
       const periodMs = phrase.lengthTicks * msPerTick;
-      if (onPass && phrase !== null) onPass(pass, phrase, null);
-      for (const e of phrase.events) {
-        if (e.note === undefined) continue;
+      if (onPass) onPass(pass, phrase, null);
+      phrase.events.forEach((e, i) => {
+        if (e.note === undefined) return;
         const at = startAt + e.onset * msPerTick;
+        const inf = infByIndex.get(i);
         timers.push(schedule(() => {
           if (!running) return;
           bus.publish(makeNote("external", {
             notes: [e.note], velocity: e.velocity,
             durationMs: Math.max(1, Math.round(e.duration * msPerTick)),
+            ...(inf && { articulation: inf.articulation, env: inf.envelope, attack: inf.attack }),
           }, { to }));
         }, Math.max(0, at - now())));
-      }
+      });
       if (loop) timers.push(schedule(() => { if (running) { timers = timers.filter(Boolean); schedulePass(pass + 1, startAt + periodMs); } }, Math.max(0, startAt + periodMs - now())));
     };
     schedulePass(0, t0);
@@ -404,6 +413,7 @@ function gloriarpModule(ctx, bodyEl, state) {
   const variety = knob("variety", "variety", 0);
   const pocket = knob("pocket", "pocket", 0);
   const morph = knob("morph", "morph", 0);
+  const inflect = knob("inflect", "inflect", 0);
   const loopBox = el("input", { type: "checkbox", ...(S("loop", true) ? { checked: "" } : {}), "aria-label": "Loop" });
 
   function build(pass = 0) {
@@ -420,6 +430,7 @@ function gloriarpModule(ctx, bodyEl, state) {
       variety: Number(variety.input.value) || 0,
       pocket: Number(pocket.input.value) || 0,
       morph: Number(morph.input.value) || 0,
+      inflect: Number(inflect.input.value) || 0,
       pass,
       ...(rhythm.value.trim() && { rhythm: rhythm.value.trim() }),
     };
@@ -430,7 +441,7 @@ function gloriarpModule(ctx, bodyEl, state) {
   function play() {
     try {
       build(0); // validate now so an immediate error is immediate
-      player.start((pass) => build(pass).phrase, {
+      player.start((pass) => build(pass), {
         bpm: Number(bpm.value) || 100, loop: loopBox.checked,
         onPass: (pass, phrase, err) => {
           if (err) { status.textContent = `✗ pass ${pass + 1}: ${err.message || err} — keeping last good take`; return; }
@@ -487,7 +498,7 @@ function gloriarpModule(ctx, bodyEl, state) {
       el("label", { class: "ws-ctl", text: "gate " }, gate),
       dynamics.row, rests.row, anticipation.row),
     el("div", { class: "ws-row", style: "flex-wrap:wrap" },
-      variety.row, pocket.row, morph.row),
+      variety.row, pocket.row, morph.row, inflect.row),
     el("div", { class: "ws-row" },
       el("button", { class: "ws-btn", text: "▶ play", onclick: play }),
       el("button", { class: "ws-btn", text: "■ stop", onclick: stop }),

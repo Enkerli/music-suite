@@ -220,6 +220,16 @@ export interface NoteBody {
   gate?: "on" | "off";
   /** One-shot: start, then auto-release after this many ms (overrides gate). */
   durationMs?: number;
+  /** Wind articulation name (GloriArp's inflect stage) — informational. */
+  articulation?: string;
+  /** Per-note breath envelope: breakpoints over the note's life
+   *  (`at` = 0..1 of durationMs, `value` = 0..1 breath). Receivers with a
+   *  breath axis (Vane's CC2, a rawmidi breath CC) render the curve; others
+   *  ignore it. Meaningful only with durationMs. */
+  env?: Array<{ at: number; value: number }>;
+  /** Tonguing transient hint, native Vane transient-gain units (0..2).
+   *  0 = slurred (no re-tonguing — what makes a legato slur a slur). */
+  attack?: number;
 }
 
 function newId(): string {
@@ -348,6 +358,10 @@ export function validateMessage(x: unknown): ValidationResult {
           err('body.gate: "on" or "off" required');
         if (b.durationMs !== undefined && !(typeof b.durationMs === "number" && (b.durationMs as number) > 0))
           err("body.durationMs: positive number required");
+        if (b.env !== undefined && !(Array.isArray(b.env) && (b.env as unknown[]).every((p) =>
+          typeof p === "object" && p !== null &&
+          typeof (p as { at?: unknown }).at === "number" && typeof (p as { value?: unknown }).value === "number")))
+          err("body.env: array of {at, value} numbers required");
         break;
     }
   }

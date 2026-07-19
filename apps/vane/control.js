@@ -43,6 +43,9 @@ export function applyVaneParam(post, idToWasm, msg) {
   return false;
 }
 
+/** The tonguing param (wasm id from the manifest, like every other binding). */
+const TRANSIENT_GAIN = vaneIdToWasm()["transient-gain"] ?? 44;
+
 /**
  * Play a `note` message on the voice: post noteOn/noteOff to the worklet (the
  * same path WebMIDI uses). Notes spread across channels MPE-style so a chord is
@@ -66,9 +69,25 @@ export function applyVaneNote(post, msg, schedule = (fn, ms) => setTimeout(fn, m
   const ch = (i) => 2 + (i % 14); // MPE-style: a channel per voice
   const off = () => notes.forEach((n, i) => post({ type: "noteOff", note: n, channel: ch(i) }));
   if (b.gate === "off") { off(); return true; }
-  post({ type: "cc", cc: 2, value: vel / 127 }); // breath — the envelope's fuel
+  const hasDuration = Number.isFinite(b.durationMs) && b.durationMs > 0;
+  const env = Array.isArray(b.env) && b.env.length && hasDuration ? b.env : null;
+  // Per-note articulation (GloriArp's inflect stage): `attack` retongues (or
+  // doesn't — 0 inside a slur) via transient-gain, and the breath ENVELOPE
+  // plays out over the note's life — a sforzando bites and swells, a staccato
+  // puffs, a marcato releases clean. Vane's amp envelope IS breath, so this
+  // is per-note dynamics for real, not just a louder noteOn.
+  if (Number.isFinite(b.attack)) post({ type: "param", id: TRANSIENT_GAIN, value: b.attack });
+  if (env) {
+    for (const p of env) {
+      const value = Math.max(0, Math.min(1, p.value));
+      if (p.at <= 0) post({ type: "cc", cc: 2, value });
+      else schedule(() => post({ type: "cc", cc: 2, value }), p.at * b.durationMs);
+    }
+  } else {
+    post({ type: "cc", cc: 2, value: vel / 127 }); // breath — the envelope's fuel
+  }
   notes.forEach((n, i) => post({ type: "noteOn", note: n, vel, channel: ch(i) }));
-  if (Number.isFinite(b.durationMs) && b.durationMs > 0) schedule(off, b.durationMs);
+  if (hasDuration) schedule(off, b.durationMs);
   return true;
 }
 

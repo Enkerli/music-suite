@@ -103,7 +103,10 @@ export interface TimedMidi {
  */
 export function noteMessageToMidi(msg: SuiteMessage, opts: MidiConvertOptions = {}): TimedMidi[] {
   if (msg.type !== "note") return [];
-  const b = msg.body as { notes?: number[]; velocity?: number; channel?: number; gate?: string; durationMs?: number };
+  const b = msg.body as {
+    notes?: number[]; velocity?: number; channel?: number; gate?: string; durationMs?: number;
+    env?: Array<{ at: number; value: number }>;
+  };
   const notes = Array.isArray(b.notes) ? b.notes : [];
   if (!notes.length) return [];
   const ch = ((b.channel ?? opts.channel ?? 1) - 1) & 0x0f;
@@ -113,10 +116,22 @@ export function noteMessageToMidi(msg: SuiteMessage, opts: MidiConvertOptions = 
   const vel = clamp7(b.velocity ?? 100);
   const out: TimedMidi[] = [];
   const breathCc = opts.breathCc === undefined ? 2 : opts.breathCc;
-  if (breathCc !== null) out.push({ afterMs: 0, bytes: [0xb0 | ch, breathCc & 0x7f, vel] });
+  const durationMs = Number.isFinite(b.durationMs) && b.durationMs! > 0 ? b.durationMs! : null;
+  const env = Array.isArray(b.env) && b.env.length ? b.env : null;
+  if (breathCc !== null) {
+    if (env && durationMs) {
+      // A per-note breath ENVELOPE (inflect stage): the whole articulation —
+      // sfz bite-and-swell, staccato puff, slur hold — as a timed CC curve.
+      // The at=0 point replaces the velocity stand-in and still precedes the
+      // note-ons (the wind-model contract).
+      for (const p of env) out.push({ afterMs: p.at * durationMs, bytes: [0xb0 | ch, breathCc & 0x7f, clamp7(p.value * 127)] });
+    } else {
+      out.push({ afterMs: 0, bytes: [0xb0 | ch, breathCc & 0x7f, vel] });
+    }
+  }
   for (const n of notes) out.push({ afterMs: 0, bytes: [0x90 | ch, clamp7(n), vel] });
-  if (Number.isFinite(b.durationMs) && b.durationMs! > 0) {
-    for (const n of notes) out.push({ afterMs: b.durationMs!, bytes: [0x80 | ch, clamp7(n), 0] });
+  if (durationMs) {
+    for (const n of notes) out.push({ afterMs: durationMs, bytes: [0x80 | ch, clamp7(n), 0] });
   }
   return out;
 }

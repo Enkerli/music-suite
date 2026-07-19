@@ -53,7 +53,7 @@ const USAGE = `msuite <command> …
   accompany [--progression "<bars>"] [-o bass.mid] [--role bass] [--bars N]
             [--source walking-bass|funk-ghost|bossa|two-feel|phrase.json] [--rhythm "<UPI>"] [--seed N]
             [--gate staccato|tenuto|legato|mixed|0..1+] [--dynamics 0..1] [--rests 0..1] [--anticipation 0..1]
-            [--variety 0..1] [--pocket 0..1] [--morph 0..1] [--pass N]
+            [--variety 0..1] [--pocket 0..1] [--morph 0..1] [--inflect 0..1] [--pass N]
             [--range C2:C4] [--chromaticism 0..1] [--rhythm-preservation 0..1] [--tonic C] [--mode major|minor]
             [--bpm N] [--trace trace.json] [--phrase-out phrase.json] [--explain]
             [--play [--to app|*] [--loop | --loop-count N] [--midi-out port [--channel N] [--breath-cc N|off]]]
@@ -73,7 +73,10 @@ const USAGE = `msuite <command> …
                                         --variety adds passing tones / octave pops / chord-tone reselection,
                                         --pocket adds correlated push-pull micro-timing (the Keil walk),
                                         --gate mixed articulates per note (legato into steps, detached repeats),
-                                        --pass N renders loop-pass N, --morph 0..1 re-rolls that much per pass
+                                        --pass N renders loop-pass N, --morph 0..1 re-rolls that much per pass;
+                                        --inflect gives EVERY note its own wind articulation + breath envelope
+                                        (sforzando, staccato, legato slurs, marcato…) — CC2 curves in the .mid,
+                                        live breath curves over --midi-out, per-note envelopes into Vane
   render <notes…> -o <file.wav> [--seconds N] [--breath 0..1] [--sr N] [--param id=value]… [--stream]
                                         --stream: apply a control-plane param NDJSON stream from stdin (message → sound)
   send [--from app] [--to app|*] (--param id=value… [--mode …] | --command name [--arg k=v]… | --note 60,64,67 [--velocity V] [--duration ms] [--gate on|off])
@@ -340,6 +343,7 @@ async function main(): Promise<number> {
         ...(one(args, "variety") !== undefined && { variety: Number(one(args, "variety")) }),
         ...(one(args, "pocket") !== undefined && { pocket: Number(one(args, "pocket")) }),
         ...(one(args, "morph") !== undefined && { morph: Number(one(args, "morph")) }),
+        ...(one(args, "inflect") !== undefined && { inflect: Number(one(args, "inflect")) }),
         ...(one(args, "pass") !== undefined && { pass: Number(one(args, "pass")) }),
         ...(one(args, "bars") !== undefined && { bars: Number(one(args, "bars")) }),
         ...(one(args, "seed") !== undefined && { seed: Number(one(args, "seed")) }),
@@ -371,6 +375,8 @@ async function main(): Promise<number> {
         }
         for (const c of r.articulation) log(`articulation @${c.onset}  ${c.kind}: ${c.detail}`);
         for (const c of r.expression) log(`expression @${c.onset}  ${c.kind}: ${c.detail}`);
+        for (const n of r.inflections)
+          log(`inflect @${n.onset}  ${n.articulation}${n.attack ? ` (attack ${n.attack.toFixed(2)})` : " (slurred)"}`);
       }
       const s = r.trace.summary;
       log(`accompany: ${r.phrase.events.length} notes · ${r.frames.map((f) => f.chord.symbol).join(" | ")} · seed ${r.trace.header.seed}`
@@ -394,6 +400,7 @@ async function main(): Promise<number> {
         for await (const msg of performPhrase(r.phrase, {
           ...(one(args, "bpm") !== undefined && { bpm: Number(one(args, "bpm")) }),
           ...(one(args, "to") !== undefined && { to: one(args, "to") as Destination }),
+          ...(r.inflections.length && { inflections: r.inflections }),
           loopCount,
           isStopped: () => stopped,
         })) {

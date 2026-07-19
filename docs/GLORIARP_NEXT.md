@@ -83,6 +83,31 @@ walk can be *coupled* to it then (shared drift term). That is the road to
   styles); CC-ramp expression during held notes for Vane; coupled-walk
   multi-part pocket; MIDIcurator realtime MIDI-in → accompany.
 
+## 3c. Shipped 2026-07-19 — learning + wind articulation
+
+- **StyleModel** (`model.ts`): per-slot statistics learned from any number
+  of takes against one chord — incremental (`addTake` is O(events), the
+  co-learning path: keep playing, keep teaching), sampled per (seed, pass),
+  statistics-only serialization (source clips never leave the machine).
+  `msuite style learn <clips…> --chord Bb7 -o model.json`; `accompany
+  --source model.json` samples a fresh take per `--pass`. `readSmfNotes`
+  (midi pkg) ingests real clips from any DAW. Verified against the
+  14-clip Funkastic B♭7 corpus.
+- **Inflect stage** (`inflect.ts`, `--inflect 0..1`, workspace knob): every
+  note gets its own articulation + breath envelope — sforzando bite/swell,
+  staccato puff, legato slurs (conjunct+connected joins; attack 0 inside =
+  no re-tonguing via Vane transient-gain), phrase-final marcato, ghosts.
+  Envelopes travel as CC2 curves in the .mid, timed CC over --midi-out,
+  and `env`/`attack` fields on bus note messages that `applyVaneNote`
+  renders into the worklet (this supersedes queue item 5 below).
+- MIDIcurator "learn clip as style" bug fixed (leadsheet chords carry no
+  pcs arrays; now derived from the quality dictionary).
+
+Next after this: per-articulation Vane COLOR (bite/growl/embouchure nudges
+per note, not just breath + transient); StyleModel capture of articulation
+statistics (learn the corpus's slur/ghost habits, not just velocity);
+MIDIcurator UI for style-model learning (currently CLI-only).
+
 ## 3b. Next session queue (prep, 2026-07-20)
 
 By-ear verification first — everything below shipped agent-verified only

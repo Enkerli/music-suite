@@ -12,13 +12,14 @@
  *   articulation (optional) → SMF with the GLORIARP:v1 TRACE header.
  */
 import { parseLeadsheet, realizeLeadsheet } from "@enkerli/theory";
-import { createSMF, type MidiNote, type MidiMarker } from "@enkerli/midi";
+import { createSMF, type MidiNote, type MidiMarker, type MidiController } from "@enkerli/midi";
 import { parseUPI } from "@enkerli/upi";
 import type { AccompanimentPhrase, HarmonicFrame } from "./phrase.js";
 import { adaptBassPhrase } from "./bass.js";
 import { applyRhythm } from "./rhythm.js";
 import { articulate, GATES, type ArticulationChange } from "./articulate.js";
 import { expressPhrase, type ExpressChange } from "./express.js";
+import { inflectPhrase, type NoteInflection } from "./inflect.js";
 import type { Trace, TraceLevel } from "./trace.js";
 
 export interface FramesOptions {
@@ -89,6 +90,10 @@ export interface GrooveOptions {
   /** 0..1 — fraction of variety/pocket decisions re-rolled per pass, so the
    *  take morphs over loop repeats. 0 = every pass identical. */
   morph?: number;
+  /** 0..1 — per-note wind articulation (inflect stage): every note gets its
+   *  own articulation and breath envelope — sforzando, staccato, legato
+   *  slurs, marcato… 0/undefined = off. */
+  inflect?: number;
   bpm?: number;
   traceLevel?: TraceLevel;
 }
@@ -100,6 +105,8 @@ export interface GrooveResult {
   smf: Uint8Array;
   articulation: ArticulationChange[];
   expression: ExpressChange[];
+  /** Per-note articulations + breath envelopes (empty unless opts.inflect). */
+  inflections: NoteInflection[];
 }
 
 /**
@@ -180,6 +187,15 @@ export function groove(sourceIn: AccompanimentPhrase, opts: GrooveOptions): Groo
     expression = x.changes;
   }
 
+  // Per-note articulation LAST: it shapes the notes that will actually sound
+  // (post-variety pitches, post-pocket onsets), giving each its own envelope.
+  let inflections: NoteInflection[] = [];
+  if (opts.inflect) {
+    const inf = inflectPhrase(phrase, { seed: opts.seed ?? 42, intensity: opts.inflect });
+    phrase = inf.phrase;
+    inflections = inf.notes;
+  }
+
   const notes: MidiNote[] = phrase.events.map((e) => ({
     pitch: e.note ?? 0,
     startTick: e.onset,
@@ -187,14 +203,23 @@ export function groove(sourceIn: AccompanimentPhrase, opts: GrooveOptions): Groo
     velocity: e.velocity,
   }));
   const markers: MidiMarker[] = frames.map((f) => ({ tick: f.start, text: f.chord.symbol }));
+  // Each note's breath envelope becomes a CC2 curve in the file — a DAW (or
+  // Vane behind one) replays the exact wind articulation the engine chose.
+  const controllers: MidiController[] = [];
+  for (const inf of inflections) {
+    const e = phrase.events[inf.index]!;
+    for (const p of inf.envelope)
+      controllers.push({ tick: e.onset + Math.round(p.at * e.duration), controller: 2, value: Math.round(p.value * 127) });
+  }
   const embedded = { header: trace.header, ...(trace.summary && { summary: trace.summary }) };
   const smf = createSMF(notes, {
     bpm: opts.bpm ?? 120,
     ticksPerBeat: source.ticksPerBeat,
     trackName: "GloriArp bass",
     markers,
+    ...(controllers.length && { controllers }),
     textEvents: [{ tick: 0, text: `GLORIARP:v1 TRACE ${JSON.stringify(embedded)}` }],
   });
 
-  return { phrase, trace, frames, smf, articulation, expression };
+  return { phrase, trace, frames, smf, articulation, expression, inflections };
 }

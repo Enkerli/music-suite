@@ -61,6 +61,16 @@ export interface MidiMarker {
   text: string;
 }
 
+export interface MidiController {
+  tick: number;
+  /** Controller number 0–127 (e.g. 2 = breath). */
+  controller: number;
+  /** 0–127. */
+  value: number;
+  /** 0–15, default 0. */
+  channel?: number;
+}
+
 export interface SmfOptions {
   bpm?: number;
   ticksPerBeat?: number;
@@ -69,11 +79,15 @@ export interface SmfOptions {
   markers?: MidiMarker[];
   /** Text meta events (0x01; e.g. embedded MCURATOR JSON payloads). */
   textEvents?: MidiMarker[];
+  /** Control-change events (e.g. CC2 breath curves — wind articulation).
+   *  At equal ticks they land after note-offs, before note-ons, so breath
+   *  precedes the note it fuels (Vane's wind-model contract). */
+  controllers?: MidiController[];
 }
 
 /** Build a single-track (format 0) Standard MIDI File. */
 export function createSMF(notes: MidiNote[], options: SmfOptions = {}): Uint8Array {
-  const { bpm = 120, ticksPerBeat = 480, trackName, markers = [], textEvents = [] } = options;
+  const { bpm = 120, ticksPerBeat = 480, trackName, markers = [], textEvents = [], controllers = [] } = options;
 
   const allEvents: Array<{ tick: number; order: number; data: number[] }> = [];
 
@@ -94,6 +108,13 @@ export function createSMF(notes: MidiNote[], options: SmfOptions = {}): Uint8Arr
   }
   for (const marker of markers) {
     allEvents.push({ tick: marker.tick, order: 2, data: encodeTextMeta(0x06, marker.text) });
+  }
+  for (const cc of controllers) {
+    allEvents.push({
+      tick: cc.tick,
+      order: 3.5, // after note-offs, before note-ons: breath precedes its note
+      data: [0xb0 | ((cc.channel ?? 0) & 0x0f), cc.controller & 0x7f, Math.max(0, Math.min(127, Math.round(cc.value)))],
+    });
   }
 
   for (const note of notes) {

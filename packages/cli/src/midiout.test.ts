@@ -40,6 +40,22 @@ describe("noteMessageToMidi", () => {
   it("non-note messages produce nothing", () => {
     expect(noteMessageToMidi(sendMessage({ to: "serpe", command: { name: "mutate" } }))).toEqual([]);
   });
+  it("a breath envelope becomes a timed CC curve (per-note wind articulation)", () => {
+    const evs = noteMessageToMidi(noteMsg({
+      notes: [46], velocity: 118, durationMs: 400,
+      env: [{ at: 0, value: 1 }, { at: 0.15, value: 0.45 }, { at: 1, value: 0.65 }],
+    }));
+    // The at=0 point replaces the velocity stand-in, still before the note-on.
+    expect(evs[0]).toEqual({ afterMs: 0, bytes: [0xb0, 2, 127] });
+    expect(evs[3]!.bytes).toEqual([0x90, 46, 118]);
+    // The rest of the curve rides the note's life.
+    expect(evs[1]).toEqual({ afterMs: 60, bytes: [0xb0, 2, Math.round(0.45 * 127)] });
+    expect(evs[2]).toEqual({ afterMs: 400, bytes: [0xb0, 2, Math.round(0.65 * 127)] });
+  });
+  it("an envelope without durationMs falls back to the velocity stand-in", () => {
+    const evs = noteMessageToMidi(noteMsg({ notes: [46], velocity: 90, durationMs: undefined, env: [{ at: 0, value: 1 }] }));
+    expect(evs[0]).toEqual({ afterMs: 0, bytes: [0xb0, 2, 90] });
+  });
 });
 
 describe("createMidiPlayer", () => {

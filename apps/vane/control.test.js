@@ -85,4 +85,35 @@ describe("applyVaneNote — plays the voice", () => {
     expect(applyVaneNote(post, makeNote("proggenie", { notes: [60] }, { to: "serpe" }))).toBe(false);
     expect(applyVaneNote(post, makeNote("proggenie", { notes: [60] }, { to: "*" }))).toBe(true); // broadcast ok
   });
+  it("a breath ENVELOPE plays out over the note (per-note articulation)", () => {
+    const post = vi.fn();
+    const scheduled = [];
+    applyVaneNote(post,
+      makeNote("external", {
+        notes: [46], velocity: 118, durationMs: 400, articulation: "sforzando", attack: 1.6,
+        env: [{ at: 0, value: 1 }, { at: 0.15, value: 0.45 }, { at: 0.65, value: 0.93 }, { at: 1, value: 0.65 }],
+      }, { to: "vane" }),
+      (fn, ms) => scheduled.push({ fn, ms }));
+    // Tonguing first (transient-gain), then the at=0 breath, then the noteOn.
+    expect(post.mock.calls[0][0]).toEqual({ type: "param", id: 44, value: 1.6 });
+    expect(post.mock.calls[1][0]).toEqual({ type: "cc", cc: 2, value: 1 });
+    expect(post.mock.calls[2][0]).toEqual({ type: "noteOn", note: 46, vel: 118, channel: 2 });
+    // The bite→swell→release points are scheduled along the note's life.
+    const envTimers = scheduled.filter((s) => s.ms < 400);
+    expect(envTimers.map((s) => s.ms)).toEqual([0.15 * 400, 0.65 * 400]);
+    envTimers.forEach((s) => s.fn());
+    expect(post).toHaveBeenCalledWith({ type: "cc", cc: 2, value: 0.45 });
+    expect(post).toHaveBeenCalledWith({ type: "cc", cc: 2, value: 0.93 });
+    // …and the at=1 release point rides at durationMs, with the noteOff.
+    expect(scheduled.some((s) => s.ms === 400)).toBe(true);
+  });
+  it("attack 0 = slurred: no re-tonguing, envelope still breathes", () => {
+    const post = vi.fn();
+    applyVaneNote(post, makeNote("external", {
+      notes: [52], velocity: 96, durationMs: 240, articulation: "legato-inside", attack: 0,
+      env: [{ at: 0, value: 0.64 }, { at: 1, value: 0.68 }],
+    }, { to: "vane" }), () => {});
+    expect(post.mock.calls[0][0]).toEqual({ type: "param", id: 44, value: 0 });
+    expect(post.mock.calls[1][0]).toEqual({ type: "cc", cc: 2, value: 0.64 });
+  });
 });
