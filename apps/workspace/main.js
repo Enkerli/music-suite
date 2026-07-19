@@ -9,6 +9,7 @@
  */
 import { SuiteBus } from "./bus.js";
 import { MODULES, el } from "./modules.js";
+import { juceAvailable, juceEmit, juceOn, sendNoteOut, sendState } from "./juce-bridge.js";
 import tokensCss from "@enkerli/ui/tokens.css";
 import componentsCss from "@enkerli/ui/components.css";
 import workspaceCss from "./workspace.css";
@@ -24,6 +25,20 @@ function injectStyles() {
 function main() {
   injectStyles();
   const bus = new SuiteBus({ channelName: "enkerli-workspace" }); // cross-tab too
+
+  // ── Plugin mode (docs/WORKSPACE_PLUGIN.md): the bus's edges swap ──────────
+  // Browser: notes reach the Vane TAB over BroadcastChannel. Plugin: every
+  // bus `note` ALSO exits as real MIDI through the host — the GloriArp
+  // module needs zero changes to drive any synth on the next track.
+  if (juceAvailable()) {
+    bus.subscribe((msg) => { if (msg.type === "note" && msg.body) sendNoteOut(msg.body); });
+    // Host MIDI in → a page event the bindings module feeds to its engine
+    // (@enkerli/control already speaks midi-cc/midi-note — the workspace
+    // just never had a MIDI source until the plugin supplied one).
+    juceOn("midiIn", (e) => {
+      try { window.dispatchEvent(new CustomEvent("enkerli-midi", { detail: e })); } catch { /* page teardown */ }
+    });
+  }
   const canvas = el("div", { class: "ws-canvas" });
   const store = loadStore();
   let seq = store.seq ?? 0;
@@ -31,7 +46,13 @@ function main() {
   const live = new Map(); // id → { def, cleanup, panel }
   const ctx = { bus, save };
 
-  function save() { persist({ seq, modules: [...live.values()].map((v) => v.def) }); }
+  function save() {
+    const state = { seq, modules: [...live.values()].map((v) => v.def) };
+    persist(state);
+    // Plugin: mirror into the DAW session too (getStateInformation stores it),
+    // so a saved project reopens with this exact layout on any machine.
+    if (juceAvailable()) { try { sendState(JSON.stringify(state)); } catch { /* bridge gone */ } }
+  }
 
   function addModule(type, def = {}) {
     const meta = MODULES[type];
@@ -66,20 +87,52 @@ function main() {
     el("option", { value: "", text: "+ add module" }),
     ...Object.entries(MODULES).map(([k, v]) => el("option", { value: k, text: v.title })));
 
+  // Host transport chip (plugin only): bpm + play state from the C++ side.
+  const hostChip = juceAvailable() ? el("span", { class: "ws-readout", text: "host —" }) : null;
+  if (hostChip) juceOn("transport", (t) => {
+    if (!t) return;
+    hostChip.textContent = `host ${Math.round(t.bpm || 0)} bpm ${t.playing ? "▶" : "■"}`;
+  });
+
   document.body.append(
     el("header", { class: "ws-topbar" },
       el("span", { class: "ws-brand", text: "Suite Workspace" }),
       el("span", { class: "ws-tagline", text: "modules on one bus — drag to arrange" }),
+      ...(hostChip ? [hostChip] : []),
       adder,
       el("button", { class: "ws-btn ghost", text: "reset", title: "Clear layout",
         onclick: () => { localStorage.removeItem(STORE_KEY); location.reload(); } })),
     canvas);
 
-  if (store.modules && store.modules.length) for (const d of store.modules) addModule(d.type, d);
-  else { addModule("control-surface", { app: "vane", x: 24, y: 24 });
-         addModule("pattern", { x: 360, y: 24 });
-         addModule("bindings", { x: 360, y: 300 });
-         addModule("monitor", { x: 24, y: 300 }); }
+  function boot(fromStore) {
+    if (fromStore.modules && fromStore.modules.length) {
+      seq = fromStore.seq ?? seq;
+      for (const d of fromStore.modules) addModule(d.type, d);
+    }
+    else { addModule("control-surface", { app: "vane", x: 24, y: 24 });
+           addModule("pattern", { x: 360, y: 24 });
+           addModule("bindings", { x: 360, y: 300 });
+           addModule("monitor", { x: 24, y: 300 }); }
+  }
+
+  if (juceAvailable()) {
+    // The DAW session's saved layout wins over the container's localStorage;
+    // wait briefly for it after the uiReady handshake, then fall back — a
+    // fresh session (no state yet) must never hang the page.
+    let booted = false;
+    const bootOnce = (fromStore) => { if (!booted) { booted = true; boot(fromStore); } };
+    juceOn("state", (s) => {
+      try {
+        const parsed = typeof s?.json === "string" ? JSON.parse(s.json) : s;
+        if (parsed && parsed.modules) { bootOnce(parsed); return; }
+      } catch { /* malformed session state — fall through to local */ }
+      bootOnce(store);
+    });
+    setTimeout(() => bootOnce(store), 400);
+    juceEmit("uiReady", {});
+  } else {
+    boot(store);
+  }
 }
 
 function makeDraggable(panel, handle, def, save) {

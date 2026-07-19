@@ -341,3 +341,70 @@ describe("GloriArp module (the standalone accompaniment surface)", () => {
     off();
   });
 });
+
+describe("plugin mode (docs/WORKSPACE_PLUGIN.md — fake __JUCE__ backend)", () => {
+  /** Install a fake JUCE backend; returns emitted events + a teardown. */
+  const fakeJuce = () => {
+    const emitted = [];
+    const listeners = new Map();
+    window.__JUCE__ = {
+      backend: {
+        emitEvent: (id, payload) => emitted.push({ id, payload }),
+        addEventListener: (id, cb) => listeners.set(id, cb),
+      },
+    };
+    return { emitted, listeners, off: () => { delete window.__JUCE__; } };
+  };
+
+  it("bridge (CLI) module declares itself browser-only in the plugin", async () => {
+    const { MODULES } = await import("./modules.js");
+    const j = fakeJuce();
+    const { ctxObj } = ctx();
+    const body = document.createElement("div");
+    const off = MODULES["bridge"].make(ctxObj, body, {});
+    expect(body.textContent).toMatch(/browser-only/);
+    expect(body.querySelector("input")).toBeNull(); // no URL field, no connect
+    off();
+    j.off();
+  });
+
+  it("GloriArp ⬇ .mid goes over the bridge (native save), never a blob anchor", async () => {
+    const { MODULES } = await import("./modules.js");
+    const j = fakeJuce();
+    const { ctxObj } = ctx();
+    const body = document.createElement("div");
+    const state = {};
+    const off = MODULES["gloriarp"].make(ctxObj, body, state);
+    const dl = [...body.querySelectorAll("button")].find((b) => b.textContent.includes(".mid"));
+    dl.dispatchEvent(new MouseEvent("click"));
+    const save = j.emitted.find((e) => e.id === "enkerliSaveFile");
+    expect(save).toBeDefined();
+    expect(save.payload.name).toMatch(/^gloriarp-.*\.mid$/);
+    expect(typeof save.payload.b64).toBe("string");
+    expect(save.payload.b64.length).toBeGreaterThan(0);
+    expect(body.textContent).toMatch(/native save/);
+    off();
+    j.off();
+  });
+
+  it("host MIDI in (enkerli-midi events) drives a midi-cc binding through the engine", async () => {
+    const { MODULES } = await import("./modules.js");
+    const j = fakeJuce();
+    const { bus, ctxObj } = ctx();
+    const seen = [];
+    bus.subscribe((m) => seen.push(m));
+    const body = document.createElement("div");
+    // A control-map with a real MIDI trigger: CC 74 → Vane filter-cutoff.
+    const state = { map: { id: "t", kind: "control-map", label: "t", bindings: [
+      { trigger: { kind: "midi-cc", cc: 74 }, action: { app: "vane", param: "filter-cutoff" } },
+    ] } };
+    const off = MODULES["bindings"].make(ctxObj, body, state);
+    window.dispatchEvent(new CustomEvent("enkerli-midi", { detail: { kind: "cc", cc: 74, channel: 1, value: 127 } }));
+    expect(seen.length).toBeGreaterThan(0);
+    expect(seen[0].type).toBe("param");
+    expect(seen[0].to).toBe("vane");
+    expect(seen[0].body.id).toBe("filter-cutoff");
+    off();
+    j.off();
+  });
+});

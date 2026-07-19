@@ -149,6 +149,16 @@ function bindingsModule(ctx, bodyEl, state) {
   const manifests = Object.values(MANIFESTS);
   const engine = createBindingEngine({ map, manifests, send: (m) => ctx.bus.publish(m) });
 
+  // Plugin mode: host MIDI in arrives as `enkerli-midi` page events
+  // (main.js relays the bridge's midiIn) — feed the SAME engine that key
+  // triggers use. The control-map layer finally gets real hardware MIDI.
+  const onMidi = (ev) => {
+    const d = ev.detail || {};
+    if (d.kind === "cc") engine.handle({ kind: "midi-cc", cc: d.cc | 0, channel: d.channel | 0 || 1, value: d.value | 0 });
+    else if (d.kind === "note" && d.velocity > 0) engine.handle({ kind: "midi-note", note: d.note | 0, channel: d.channel | 0 || 1, velocity: d.velocity | 0 });
+  };
+  if (typeof window !== "undefined") window.addEventListener("enkerli-midi", onMidi);
+
   const list = el("div", { class: "ws-controls" });
   const captured = { combo: "" };
   const keyInput = el("input", { class: "ws-text", type: "text", readonly: "", placeholder: "press a key…", "aria-label": "Trigger key" });
@@ -195,7 +205,10 @@ function bindingsModule(ctx, bodyEl, state) {
 
   const onKey = (e) => { if (isTyping(e.target)) return; engine.handle({ kind: "key", combo: comboFromKeyEvent(e) }); };
   window.addEventListener("keydown", onKey);
-  return () => window.removeEventListener("keydown", onKey);
+  return () => {
+    window.removeEventListener("keydown", onKey);
+    if (typeof window !== "undefined") window.removeEventListener("enkerli-midi", onMidi);
+  };
 }
 
 // ── Bridge: the CLI pipe's landing spot in the browser — FULL DUPLEX ─────────
@@ -233,6 +246,14 @@ export function shouldForwardToBridge(msg, meta, recentIds) {
 }
 
 function bridgeModule(ctx, bodyEl, state) {
+  // Plugin mode: an SSE fetch from the juce:// scheme to http://localhost is
+  // exactly the kind of cross-scheme WebView behavior TESTING.md says never
+  // to assume — and the plugin already IS a bridge (bus notes → host MIDI).
+  if (juceAvailable()) {
+    bodyEl.append(el("div", { class: "ws-readout",
+      text: "browser-only — in the plugin, the host is the bridge: bus notes go out as MIDI, host MIDI feeds the bindings" }));
+    return () => {};
+  }
   const urlInput = el("input", { class: "ws-text", type: "text",
     value: state.url ?? "http://localhost:8765", "aria-label": "Bridge URL", spellcheck: "false" });
   const status = el("span", { class: "ws-readout", text: "not connected" });
@@ -299,6 +320,7 @@ function bridgeModule(ctx, bodyEl, state) {
 
 import { groove } from "@enkerli/accompaniment";
 import { formatLeadsheet } from "@enkerli/theory";
+import { juceAvailable, saveFileNative } from "./juce-bridge.js";
 import walkingBass from "../../packages/accompaniment/vectors/source-walking-bass.json";
 import funkGhost from "../../packages/accompaniment/vectors/source-funk-ghost.json";
 import bossa from "../../packages/accompaniment/vectors/source-bossa.json";
@@ -436,10 +458,18 @@ function gloriarpModule(ctx, bodyEl, state) {
   function download() {
     try {
       const r = build();
+      const name = `gloriarp-${style.value}-s${seed.value}.mid`;
+      // Plugin: a blob: anchor kills the page under the juce:// scheme
+      // (TESTING.md) — the bytes go over the bridge to a native save
+      // (FileChooser on desktop, share sheet on iPadOS) instead.
+      if (saveFileNative(name, r.smf)) {
+        status.textContent = `⬇ ${name} — native save (share sheet on iPad)`;
+        return;
+      }
       const blob = new Blob([r.smf], { type: "audio/midi" });
       const a = document.createElement("a");
       a.href = URL.createObjectURL(blob);
-      a.download = `gloriarp-${style.value}-s${seed.value}.mid`;
+      a.download = name;
       a.click();
       URL.revokeObjectURL(a.href);
       status.textContent = `⬇ ${a.download} — drop it in a DAW / plugin`;
