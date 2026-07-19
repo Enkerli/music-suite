@@ -7,9 +7,12 @@
  * monitor — all talking SuiteMessages over the shared bus.
  */
 import { sliderToNative, nativeToSlider, paramSet, commandInvoke, formatValue } from "./model.js";
-import { makeMessage } from "@enkerli/protocol";
-import { parseUPI, analyse } from "@enkerli/upi";
+import { makeMessage, makeNote } from "@enkerli/protocol";
+import { parseUPI, analyse, analyzeSyncopation } from "@enkerli/upi";
 import { createBindingEngine, addBinding, removeBinding } from "@enkerli/control";
+import { parseLeadsheet, detectChord, rootName } from "@enkerli/theory";
+import { generateLabels, realizeLabel } from "@enkerli/proggen";
+import transitionTables from "@enkerli/proggen/data/transitions.json";
 import vaneManifest from "../vane/manifest.json";
 import serpeManifest from "../serpe/manifest.json";
 
@@ -325,7 +328,6 @@ import walkingBass from "../../packages/accompaniment/vectors/source-walking-bas
 import funkGhost from "../../packages/accompaniment/vectors/source-funk-ghost.json";
 import bossa from "../../packages/accompaniment/vectors/source-bossa.json";
 import twoFeel from "../../packages/accompaniment/vectors/source-two-feel.json";
-import { makeNote } from "@enkerli/protocol";
 
 export const GROOVE_STYLES = {
   "walking-bass": walkingBass, "funk-ghost": funkGhost, "bossa": bossa, "two-feel": twoFeel,
@@ -495,11 +497,258 @@ function gloriarpModule(ctx, bodyEl, state) {
   return () => { player.stop(); offProg && offProg(); };
 }
 
+// ── Progression: ProgGenie-lite — generate or type changes, put them on the
+// bus. The GloriArp module (and anything else) adopts `progression` messages,
+// so the compose→accompany loop closes INSIDE the workspace.
+export function progressionModule(ctx, bodyEl, state) {
+  const S = (k, d) => state[k] ?? d;
+  const text = el("input", { class: "ws-text", type: "text", value: S("text", ""),
+    placeholder: "Dm7 | G7 | Cmaj7  (or generate →)", "aria-label": "Progression (bar notation)", spellcheck: "false" });
+  const tonic = el("select", { class: "ws-select", "aria-label": "Tonic" },
+    ...["C", "D♭", "D", "E♭", "E", "F", "F♯", "G", "A♭", "A", "B♭", "B"].map((t) =>
+      el("option", { value: t, text: t, ...(t === S("tonic", "C") ? { selected: "" } : {}) })));
+  const mode = el("select", { class: "ws-select", "aria-label": "Mode" },
+    ...["major", "minor"].map((m) => el("option", { value: m, text: m, ...(m === S("mode", "major") ? { selected: "" } : {}) })));
+  const len = el("input", { class: "ws-text ws-num", type: "number", min: 2, max: 32, value: S("len", 4), "aria-label": "Length (bars)" });
+  const seed = el("input", { class: "ws-text ws-num", type: "number", value: S("seed", 1), "aria-label": "Seed" });
+  const status = el("div", { class: "ws-readout", text: "type changes, or generate from the corpus statistics" });
+
+  function persist() {
+    Object.assign(state, { text: text.value, tonic: tonic.value, mode: mode.value,
+      len: Number(len.value) || 4, seed: Number(seed.value) || 1 });
+    ctx.save();
+  }
+  function generate() {
+    try {
+      const labels = generateLabels(transitionTables[mode.value], mode.value,
+        { length: Number(len.value) || 4, seed: Number(seed.value) || 1 });
+      const key = { tonic: tonic.value, mode: mode.value };
+      text.value = labels.map((l) => realizeLabel(l, key)?.symbol ?? l).join(" | ");
+      persist();
+      status.textContent = `generated (seed ${seed.value}) — same seed, same changes`;
+    } catch (e) { status.textContent = "✗ " + (e && e.message || e); }
+  }
+  function publish() {
+    try {
+      const prog = parseLeadsheet(text.value, { tonic: tonic.value, mode: mode.value });
+      if (!prog.sections.some((s) => s.bars.length)) { status.textContent = "✗ no bars parsed"; return; }
+      persist();
+      ctx.bus.publish(makeMessage(FROM, "progression", { prog }));
+      status.textContent = "♪ on the bus — GloriArp (and friends) pick it up";
+    } catch (e) { status.textContent = "✗ " + (e && e.message || e); }
+  }
+
+  bodyEl.append(
+    el("div", { class: "ws-row" }, text),
+    el("div", { class: "ws-row", style: "flex-wrap:wrap" },
+      el("label", { class: "ws-ctl", text: "tonic " }, tonic),
+      el("label", { class: "ws-ctl", text: "mode " }, mode),
+      el("label", { class: "ws-ctl", text: "bars " }, len),
+      el("label", { class: "ws-ctl", text: "seed " }, seed)),
+    el("div", { class: "ws-row" },
+      el("button", { class: "ws-btn", text: "⚄ generate", onclick: generate }),
+      el("button", { class: "ws-btn", text: "→ bus", title: "Publish as a progression message", onclick: publish })),
+    status);
+}
+
+// ── Keys: a playable surface — clicks/taps become bus `note` messages
+// (Vane tab in the browser; real host MIDI in the plugin, for free).
+export function keysModule(ctx, bodyEl, state) {
+  const S = (k, d) => state[k] ?? d;
+  const NAMES = ["C", "C♯", "D", "D♯", "E", "F", "F♯", "G", "G♯", "A", "A♯", "B"];
+  const octave = el("input", { class: "ws-text ws-num", type: "number", min: 0, max: 8, value: S("octave", 4), "aria-label": "Octave" });
+  const vel = el("input", { class: "ws-text ws-num", type: "number", min: 1, max: 127, value: S("vel", 96), "aria-label": "Velocity" });
+  const dur = el("input", { class: "ws-text ws-num", type: "number", min: 30, max: 4000, value: S("dur", 300), "aria-label": "Duration (ms)" });
+  const to = el("select", { class: "ws-select", "aria-label": "Send to" },
+    ...[["vane", "vane"], ["*", "all"]].map(([v, t]) => el("option", { value: v, text: t, ...(v === S("to", "vane") ? { selected: "" } : {}) })));
+  const keys = el("div", { class: "ws-keys", role: "group", "aria-label": "Keyboard" });
+
+  function playPc(pc) {
+    const note = Math.max(0, Math.min(127, (Number(octave.value) + 1) * 12 + pc));
+    Object.assign(state, { octave: Number(octave.value), vel: Number(vel.value), dur: Number(dur.value), to: to.value });
+    ctx.save();
+    ctx.bus.publish(makeNote(FROM, {
+      notes: [note], velocity: Number(vel.value) || 96,
+      durationMs: Number(dur.value) || 300,
+    }, { to: to.value }));
+  }
+  NAMES.forEach((n, pc) => keys.append(
+    el("button", { class: "ws-key" + (n.includes("♯") ? " black" : ""), text: n,
+      "aria-label": `Play ${n}`, onclick: () => playPc(pc) })));
+
+  bodyEl.append(
+    keys,
+    el("div", { class: "ws-row", style: "flex-wrap:wrap" },
+      el("label", { class: "ws-ctl", text: "oct " }, octave),
+      el("label", { class: "ws-ctl", text: "vel " }, vel),
+      el("label", { class: "ws-ctl", text: "ms " }, dur),
+      el("label", { class: "ws-ctl", text: "to " }, to)));
+}
+
+// ── Pattern Player: makes the Pattern module AUDIBLE — the latest `pattern`
+// message on the bus, played as a looping voice (16ths at the bpm). In the
+// plugin the notes exit as host MIDI: an instant metronome/drum lane.
+export function playerModule(ctx, bodyEl, state) {
+  const S = (k, d) => state[k] ?? d;
+  let steps = null, label = "—";
+  let timer = null, idx = -1, running = false;
+  const bpm = el("input", { class: "ws-text ws-num", type: "number", min: 30, max: 300, value: S("bpm", 120), "aria-label": "BPM" });
+  const note = el("input", { class: "ws-text ws-num", type: "number", min: 0, max: 127, value: S("note", 37), "aria-label": "MIDI note" });
+  const to = el("select", { class: "ws-select", "aria-label": "Send to" },
+    ...[["vane", "vane"], ["*", "all"]].map(([v, t]) => el("option", { value: v, text: t, ...(v === S("to", "vane") ? { selected: "" } : {}) })));
+  const status = el("div", { class: "ws-readout", text: "waiting for a pattern on the bus…" });
+
+  const off = ctx.bus.subscribe((m) => {
+    if (m.type !== "pattern" || !m.body) return;
+    const n = m.body.steps;
+    steps = Array.from({ length: n }, (_, i) => Math.floor(m.body.mask / 2 ** i) % 2); // leftmost = LSB
+    label = m.body.name || `${n} steps`;
+    if (!running) status.textContent = `pattern: ${label} — press ▶`;
+  });
+
+  function tick(at) {
+    if (!running || !steps) return;
+    idx = (idx + 1) % steps.length;
+    if (steps[idx]) {
+      Object.assign(state, { bpm: Number(bpm.value), note: Number(note.value), to: to.value }); ctx.save();
+      ctx.bus.publish(makeNote(FROM, {
+        notes: [Number(note.value) || 37], velocity: 100,
+        durationMs: Math.max(20, Math.round(stepMs() * 0.9)),
+      }, { to: to.value }));
+    }
+    status.textContent = `▶ ${label} · step ${idx + 1}/${steps.length}`;
+    const next = at + stepMs();
+    timer = setTimeout(() => tick(next), Math.max(0, next - Date.now()));
+  }
+  const stepMs = () => 60000 / (Number(bpm.value) || 120) / 4; // 16ths
+  function play() {
+    if (!steps) { status.textContent = "no pattern yet — send one from the Pattern module"; return; }
+    stop(); running = true; idx = -1; tick(Date.now());
+  }
+  function stop() { running = false; clearTimeout(timer); }
+
+  bodyEl.append(
+    el("div", { class: "ws-row", style: "flex-wrap:wrap" },
+      el("label", { class: "ws-ctl", text: "bpm " }, bpm),
+      el("label", { class: "ws-ctl", text: "note " }, note),
+      el("label", { class: "ws-ctl", text: "to " }, to)),
+    el("div", { class: "ws-row" },
+      el("button", { class: "ws-btn", text: "▶ play", onclick: play }),
+      el("button", { class: "ws-btn", text: "■ stop", onclick: () => { stop(); status.textContent = "stopped"; } })),
+    status);
+  return () => { stop(); off(); };
+}
+
+// ── Rhythm Analysis: the UPI lens on whatever pattern crosses the bus —
+// evenness, balance, syncopation, notations. Analysis as a bus citizen.
+export function rhythmAnalysisModule(ctx, bodyEl) {
+  const out = el("div", { class: "ws-readout", text: "waiting for a pattern on the bus…" });
+  const detail = el("div", { class: "ws-readout" });
+  const off = ctx.bus.subscribe((m) => {
+    if (m.type !== "pattern" || !m.body) return;
+    const n = m.body.steps;
+    const steps = Array.from({ length: n }, (_, i) => Math.floor(m.body.mask / 2 ** i) % 2);
+    const a = analyse(steps);
+    const s = analyzeSyncopation(steps, n);
+    out.textContent = `${m.body.name || "pattern"} · ${a.k}/${n} onsets · ${a.hex} · dec ${a.decimal}`;
+    detail.textContent = `evenness ${a.evenness.toFixed(3)} · balanced ${a.balanced}`
+      + ` · syncopation ${typeof s?.overallSyncopation === "number" ? s.overallSyncopation.toFixed(3) : "—"}${s?.level ? ` (${s.level})` : ""}`
+      + ` · intervals ${a.intervals.join(" ")}`;
+  });
+  bodyEl.append(out, detail);
+  return () => off();
+}
+
+// ── Chord Namer: names what flows by — `note` and `chord` messages get the
+// theory dictionary's verdict (the MIDIsplainer instinct, as a module).
+export function chordNamerModule(ctx, bodyEl) {
+  const out = el("div", { class: "ws-readout ws-chordname", text: "—" });
+  const info = el("div", { class: "ws-readout", text: "plays a chord on the bus (Keys, GloriArp…) and I name it" });
+  const off = ctx.bus.subscribe((m) => {
+    let pitches = null;
+    if (m.type === "note" && Array.isArray(m.body?.notes)) pitches = m.body.notes;
+    else if (m.type === "chord" && Array.isArray(m.body?.notes)) pitches = m.body.notes;
+    if (!pitches || !pitches.length) return;
+    const match = detectChord(pitches);
+    const names = pitches.map((p) => `${rootName(((p % 12) + 12) % 12)}${Math.floor(p / 12) - 1}`).join(" ");
+    out.textContent = match ? match.symbol : (pitches.length === 1 ? names : "?");
+    info.textContent = names;
+  });
+  bodyEl.append(out, info);
+  return () => off();
+}
+
+// ── Recorder: a message looper — capture bus traffic with its timing, play
+// it back (re-identified so the bus dedupe never eats it), loop it. Knob
+// rides, notes, whole scenes: if it crossed the bus, it can come back.
+export function recorderModule(ctx, bodyEl, state) {
+  let tape = state.tape ?? [];   // { atMs, msg }
+  let recording = false, recT0 = 0, playing = false;
+  let timers = [];
+  const status = el("div", { class: "ws-readout", text: tape.length ? `${tape.length} messages on tape` : "empty tape" });
+  const loopBox = el("input", { type: "checkbox", ...(state.loop ? { checked: "" } : {}), "aria-label": "Loop" });
+
+  const off = ctx.bus.subscribe((m) => {
+    if (!recording || playing) return;
+    if (m.type === "manifest") return; // chatter, not performance
+    tape.push({ atMs: Date.now() - recT0, msg: m });
+    status.textContent = `● ${tape.length} messages…`;
+  });
+
+  function record() {
+    playing = false; timers.forEach(clearTimeout); timers = [];
+    tape = []; recording = true; recT0 = Date.now();
+    status.textContent = "● recording the bus…";
+  }
+  function stopAll() {
+    recording = false; playing = false;
+    timers.forEach(clearTimeout); timers = [];
+    state.tape = tape; state.loop = loopBox.checked; ctx.save();
+    status.textContent = tape.length ? `${tape.length} messages on tape` : "empty tape";
+  }
+  function play() {
+    if (!tape.length) { status.textContent = "empty tape — record something first"; return; }
+    recording = false; playing = true;
+    timers.forEach(clearTimeout); timers = [];
+    const t0 = Date.now();
+    const span = Math.max(tape[tape.length - 1].atMs + 50, 100);
+    const schedulePass = (passStart) => {
+      for (const { atMs, msg } of tape) {
+        timers.push(setTimeout(() => {
+          if (!playing) return;
+          // Re-identify: the bus dedupes by id, so a replay must be a NEW message.
+          ctx.bus.publish({ ...msg, id: `rec-${Math.random().toString(36).slice(2)}`,
+            sentAt: new Date().toISOString().replace(/\.\d{3}Z$/, "Z") });
+        }, Math.max(0, passStart + atMs - Date.now())));
+      }
+      if (loopBox.checked) timers.push(setTimeout(() => { if (playing) schedulePass(passStart + span); },
+        Math.max(0, passStart + span - Date.now())));
+    };
+    schedulePass(t0);
+    status.textContent = `▶ replaying ${tape.length} messages${loopBox.checked ? " · looping" : ""}`;
+  }
+
+  bodyEl.append(
+    el("div", { class: "ws-row" },
+      el("button", { class: "ws-btn", text: "● rec", onclick: record }),
+      el("button", { class: "ws-btn", text: "▶ play", onclick: play }),
+      el("button", { class: "ws-btn", text: "■ stop", onclick: stopAll }),
+      el("label", { class: "ws-ctl" }, loopBox, " loop")),
+    status);
+  return () => { playing = false; recording = false; timers.forEach(clearTimeout); off(); };
+}
+
 export const MODULES = {
   "control-surface": { title: "Control Surface", make: controlSurfaceModule },
   "pattern": { title: "Pattern (UPI)", make: patternModule },
+  "player": { title: "Pattern Player", make: playerModule },
+  "rhythm-analysis": { title: "Rhythm Analysis", make: rhythmAnalysisModule },
+  "progression": { title: "Progression", make: progressionModule },
+  "gloriarp": { title: "GloriArp", make: gloriarpModule },
+  "keys": { title: "Keys", make: keysModule },
+  "chord-namer": { title: "Chord Namer", make: chordNamerModule },
+  "recorder": { title: "Recorder", make: recorderModule },
   "bindings": { title: "Bindings", make: bindingsModule },
   "monitor": { title: "Bus Monitor", make: monitorModule },
   "bridge": { title: "Bridge (CLI)", make: bridgeModule },
-  "gloriarp": { title: "GloriArp", make: gloriarpModule },
 };

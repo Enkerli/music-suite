@@ -416,6 +416,35 @@ of the iPad AUv3 / standalone verification.*
 
 ---
 
+## 12. The bento workspace — twelve modules, one bus (one tab + Vane)
+
+*Requires apps synced after 2026-07-20. The canvas is now a packed grid —
+aligned by construction, overlap impossible; free drag is gone.*
+
+1. Open **Workspace** (and **Vane** for sound). Old layouts migrate: your
+   saved modules reappear in reading order, snapped to the grid.
+2. **Bento controls:** in any module's header, **◀ ▶** move it through the
+   grid, **⤢** cycles its size (1×1 → wide → tall → large) — the grid
+   re-packs densely each time, no gaps, no overlap. Reload → layout kept.
+3. **The in-page band:** add **Pattern**, **Pattern Player**, **Rhythm
+   Analysis**. Type `E(3,8)` in Pattern → Analysis instantly reads
+   `3/8 onsets · 0x94 · dec 73`, evenness, syncopation; press ▶ on Player
+   → the tresillo ticks through Vane at your bpm/note.
+4. **Compose → accompany, one page:** add **Progression** and **GloriArp**.
+   Generate (seed N — regenerate: identical), **→ bus** → GloriArp's field
+   adopts the changes; if its loop is running, the bassline follows at the
+   next pass. No ProgGenie tab needed (though that still works too).
+5. **Keys + Chord Namer:** add both; tap C, E, G, B on Keys → the namer
+   says `C∆` and Vane sounds the notes.
+6. **Recorder:** press ● rec, play some keys and turn a Control Surface
+   knob, press ▶ with loop on → the whole scene replays with its timing,
+   again and again. ■ stop ends it.
+7. A11y spot-check: every header control is a real button with an
+   aria-label; reorder and resize are fully keyboard-operable (no drag
+   required — that's the point of the buttons).
+
+---
+
 ## Reporting
 
 Log results in the [A11Y_TEST_PLAN.md](A11Y_TEST_PLAN.md) reporting format so

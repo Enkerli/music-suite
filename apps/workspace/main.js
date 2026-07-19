@@ -43,33 +43,66 @@ function main() {
   const store = loadStore();
   let seq = store.seq ?? 0;
 
+  // Bento layout (no free drag, no overlap — the grid aligns by
+  // construction): modules are an ORDERED list; each has a span (s=1×1,
+  // w=wide, t=tall, l=large). ◀/▶ reorder, ⤢ cycles the span. `dense`
+  // grid flow back-fills, so mixed spans tile like a bento box.
+  const order = []; // ids, in grid order
   const live = new Map(); // id → { def, cleanup, panel }
   const ctx = { bus, save };
+  const SPANS = ["s", "w", "t", "l"];
+  const SPAN_LABEL = { s: "1×1", w: "wide", t: "tall", l: "large" };
 
   function save() {
-    const state = { seq, modules: [...live.values()].map((v) => v.def) };
+    const state = { seq, modules: order.map((id) => live.get(id)?.def).filter(Boolean) };
     persist(state);
     // Plugin: mirror into the DAW session too (getStateInformation stores it),
     // so a saved project reopens with this exact layout on any machine.
     if (juceAvailable()) { try { sendState(JSON.stringify(state)); } catch { /* bridge gone */ } }
   }
 
+  function applySpan(panel, span) {
+    panel.classList.remove("ws-span-w", "ws-span-t", "ws-span-l");
+    if (span && span !== "s") panel.classList.add(`ws-span-${span}`);
+  }
+  function reflow() {
+    for (const id of order) { const v = live.get(id); if (v) canvas.append(v.panel); }
+  }
+  function move(id, delta) {
+    const i = order.indexOf(id);
+    const j = i + delta;
+    if (i < 0 || j < 0 || j >= order.length) return;
+    [order[i], order[j]] = [order[j], order[i]];
+    reflow(); save();
+  }
+
   function addModule(type, def = {}) {
     const meta = MODULES[type];
     if (!meta) return;
     const id = def.id ?? `m${++seq}`;
-    const d = { id, type, app: def.app, upi: def.upi,
-      x: def.x ?? 24 + (live.size * 28) % 240, y: def.y ?? 24 + (live.size * 24) % 200 };
+    const d = { id, type, app: def.app, upi: def.upi, span: SPANS.includes(def.span) ? def.span : "s" };
     const body = el("div", { class: "ws-body" });
-    const panel = el("section", { class: "ws-module", style: `left:${d.x}px; top:${d.y}px`, "aria-label": meta.title },
+    const spanBtn = el("button", { class: "ws-order", text: "⤢", title: `Size: ${SPAN_LABEL[d.span]} — click to cycle`,
+      "aria-label": `Resize ${meta.title}`, onclick: () => {
+        d.span = SPANS[(SPANS.indexOf(d.span) + 1) % SPANS.length];
+        spanBtn.title = `Size: ${SPAN_LABEL[d.span]} — click to cycle`;
+        applySpan(panel, d.span); save();
+      } });
+    const panel = el("section", { class: "ws-module", "aria-label": meta.title },
       el("header", { class: "ws-head" },
         el("span", { class: "ws-title", text: meta.title }),
+        el("button", { class: "ws-order", text: "◀", title: "Move earlier", "aria-label": `Move ${meta.title} earlier`,
+          onclick: () => move(id, -1) }),
+        el("button", { class: "ws-order", text: "▶", title: "Move later", "aria-label": `Move ${meta.title} later`,
+          onclick: () => move(id, +1) }),
+        spanBtn,
         el("button", { class: "ws-x", text: "✕", title: "Remove", "aria-label": `Remove ${meta.title}`,
           onclick: () => removeModule(id) })),
       body);
+    applySpan(panel, d.span);
     canvas.append(panel);
-    makeDraggable(panel, panel.querySelector(".ws-head"), d, save);
     const cleanup = meta.make(ctx, body, d);
+    order.push(id);
     live.set(id, { def: d, cleanup, panel });
     save();
   }
@@ -79,6 +112,8 @@ function main() {
     if (typeof v.cleanup === "function") v.cleanup();
     v.panel.remove();
     live.delete(id);
+    const i = order.indexOf(id);
+    if (i >= 0) order.splice(i, 1);
     save();
   }
 
@@ -97,7 +132,7 @@ function main() {
   document.body.append(
     el("header", { class: "ws-topbar" },
       el("span", { class: "ws-brand", text: "Suite Workspace" }),
-      el("span", { class: "ws-tagline", text: "modules on one bus — drag to arrange" }),
+      el("span", { class: "ws-tagline", text: "modules on one bus — a bento grid: ◀ ▶ to reorder, ⤢ to resize" }),
       ...(hostChip ? [hostChip] : []),
       adder,
       el("button", { class: "ws-btn ghost", text: "reset", title: "Clear layout",
@@ -107,12 +142,17 @@ function main() {
   function boot(fromStore) {
     if (fromStore.modules && fromStore.modules.length) {
       seq = fromStore.seq ?? seq;
-      for (const d of fromStore.modules) addModule(d.type, d);
+      // Layouts saved before the bento grid carried x/y — order stood in
+      // reading order (top-left first), so sort once and drop the coords.
+      const defs = [...fromStore.modules];
+      if (defs.some((d) => d.x !== undefined || d.y !== undefined))
+        defs.sort((a, b) => (a.y ?? 0) - (b.y ?? 0) || (a.x ?? 0) - (b.x ?? 0));
+      for (const d of defs) addModule(d.type, d);
     }
-    else { addModule("control-surface", { app: "vane", x: 24, y: 24 });
-           addModule("pattern", { x: 360, y: 24 });
-           addModule("bindings", { x: 360, y: 300 });
-           addModule("monitor", { x: 24, y: 300 }); }
+    else { addModule("control-surface", { app: "vane", span: "t" });
+           addModule("pattern", {});
+           addModule("bindings", {});
+           addModule("monitor", {}); }
   }
 
   if (juceAvailable()) {
@@ -133,26 +173,6 @@ function main() {
   } else {
     boot(store);
   }
-}
-
-function makeDraggable(panel, handle, def, save) {
-  let sx = 0, sy = 0, ox = 0, oy = 0, dragging = false;
-  handle.style.cursor = "grab";
-  handle.addEventListener("pointerdown", (e) => {
-    if (e.target.closest(".ws-x")) return;
-    dragging = true; sx = e.clientX; sy = e.clientY; ox = def.x; oy = def.y;
-    handle.setPointerCapture?.(e.pointerId);
-    handle.style.cursor = "grabbing"; panel.classList.add("dragging");
-  });
-  handle.addEventListener("pointermove", (e) => {
-    if (!dragging) return;
-    def.x = Math.max(0, ox + (e.clientX - sx));
-    def.y = Math.max(0, oy + (e.clientY - sy));
-    panel.style.left = def.x + "px"; panel.style.top = def.y + "px";
-  });
-  const end = () => { if (dragging) { dragging = false; handle.style.cursor = "grab"; panel.classList.remove("dragging"); save(); } };
-  handle.addEventListener("pointerup", end);
-  handle.addEventListener("pointercancel", end);
 }
 
 function loadStore() {

@@ -157,24 +157,46 @@ not settings buried in one app.
 
 ## 6. The Workspace — several tools on one page
 
-The **Suite Workspace** puts tools side by side as **modules on a single page**
-that you drag to arrange, all sharing one message bus:
+The **Suite Workspace** puts tools side by side as **modules in a bento
+grid** — aligned tiles, no overlap: **◀ ▶** reorder a module, **⤢** cycles
+its size (1×1, wide, tall, large), and the grid packs itself. All modules
+share one message bus:
 
 - a **Control Surface** — sliders and buttons built automatically from a tool's
   parameter list (Vane or Serpe), sending changes onto the bus;
 - a **Pattern** module — type Serpe notation (`E(3,8)`) to draw a rhythm and put
   it on the bus; it also shows any pattern another module sends;
+- a **Pattern Player** — makes whatever pattern is on the bus *audible*: a
+  looping voice at your bpm and MIDI note. Send `E(3,8)` from the Pattern
+  module, press play, and the tresillo ticks through the Vane tab;
+- **Rhythm Analysis** — the same pattern, read instead of played: onsets,
+  evenness, balance, syncopation, and every notation, updated live as
+  patterns cross the bus;
+- a **Progression** module — type changes in bar notation or generate them
+  from the corpus statistics (same seed, same changes), then put them on
+  the bus — where GloriArp picks them up. The compose-then-accompany loop,
+  closed inside one page;
+- a **GloriArp** module — the accompaniment engine itself, in the page: pick
+  a style and a progression, shape the feel (rhythm, gate, dynamics, rests,
+  push, variety, pocket, morph), press play — the bassline sounds through
+  the Vane tab, and **⬇ .mid** downloads the identical take. One engine,
+  everywhere;
+- a **Keys** module — a tappable octave (with velocity, length, and octave
+  controls) that plays notes onto the bus: audition Vane, feed the Chord
+  Namer, or just noodle;
+- a **Chord Namer** — names whatever chord flows by, using the suite's
+  167-quality dictionary. Tap C-E-G-B on the Keys module and it says `C∆`;
+- a **Recorder** — a message looper: record everything that crosses the bus
+  (notes, knob rides, whole scenes) with its timing, then replay or loop it;
+- a **Bindings** module — the control-map editor: a key (or, in the plugin,
+  a hardware MIDI knob or pad) drives any module's parameters and commands;
 - a **Bus Monitor** — the live stream of messages, so you can watch the tools
   talk;
 - a **Bridge (CLI)** module — connects the page to a local `msuite bridge`, so
   a terminal pipeline (say, a GloriArp bassline played with `--play`) streams
   straight onto the page's bus — and out loud through the Vane tab. It's a
   two-way door: this tab's own knob turns and clicks travel back through the
-  same bridge, so a terminal on the other end of the pipe can see them too;
-- a **GloriArp** module — the accompaniment engine itself, in the page: pick
-  a style and a progression, shape the feel (rhythm, gate, dynamics, rests,
-  push), press play — the bassline sounds through the Vane tab, and **⬇ .mid**
-  downloads the identical take for a DAW or plugin. One engine, everywhere.
+  same bridge, so a terminal on the other end of the pipe can see them too.
 
 Add or remove modules from the top bar; your arrangement is remembered. Open the
 workspace in two browser windows and they share the same bus, so one window can

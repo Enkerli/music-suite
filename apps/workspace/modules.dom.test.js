@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { SuiteBus } from "./bus.js";
 import { controlSurfaceModule, patternModule, monitorModule, summarize } from "./modules.js";
 
@@ -406,5 +406,127 @@ describe("plugin mode (docs/WORKSPACE_PLUGIN.md — fake __JUCE__ backend)", () 
     expect(seen[0].body.id).toBe("filter-cutoff");
     off();
     j.off();
+  });
+});
+
+describe("the bento six (progression · keys · player · analysis · namer · recorder)", () => {
+  it("progression: generate fills the field deterministically; → bus publishes; GloriArp adopts", async () => {
+    const { MODULES } = await import("./modules.js");
+    const { ctxObj } = ctx();
+    const seen = [];
+    ctxObj.bus.subscribe((m) => seen.push(m));
+    const body = document.createElement("div");
+    const state = {};
+    MODULES["progression"].make(ctxObj, body, state);
+
+    const gen = [...body.querySelectorAll("button")].find((b) => b.textContent.includes("generate"));
+    gen.dispatchEvent(new MouseEvent("click"));
+    const field = body.querySelector('input[aria-label="Progression (bar notation)"]');
+    const first = field.value;
+    expect(first).toMatch(/\|/); // bar notation with real bars
+    gen.dispatchEvent(new MouseEvent("click"));
+    expect(field.value).toBe(first); // same seed → same changes
+
+    const pub = [...body.querySelectorAll("button")].find((b) => b.textContent.includes("bus"));
+    pub.dispatchEvent(new MouseEvent("click"));
+    const msg = seen.find((m) => m.type === "progression");
+    expect(msg).toBeDefined();
+    expect(msg.body.prog.sections[0].bars.length).toBeGreaterThan(1);
+
+    // The loop closes in-workspace: GloriArp adopts it.
+    const gBody = document.createElement("div");
+    const gOff = MODULES["gloriarp"].make(ctxObj, gBody, {});
+    pub.dispatchEvent(new MouseEvent("click"));
+    // formatLeadsheet normalizes accidentals to Unicode (♭) on the way back —
+    // same changes, suite display convention.
+    const adopted = gBody.querySelector('input[aria-label="Progression (bar notation)"]').value;
+    expect(adopted.replace(/♭/g, "b").replace(/♯/g, "#")).toBe(first.replace(/♭/g, "b").replace(/♯/g, "#"));
+    gOff();
+  });
+
+  it("keys: a tap publishes a note message with the module's velocity/duration", async () => {
+    const { MODULES } = await import("./modules.js");
+    const { ctxObj } = ctx();
+    const seen = [];
+    ctxObj.bus.subscribe((m) => seen.push(m));
+    const body = document.createElement("div");
+    MODULES["keys"].make(ctxObj, body, { octave: 4, vel: 80, dur: 150 });
+    body.querySelector('button[aria-label="Play D"]').dispatchEvent(new MouseEvent("click"));
+    expect(seen).toHaveLength(1);
+    expect(seen[0].type).toBe("note");
+    expect(seen[0].body.notes).toEqual([62]); // D4
+    expect(seen[0].body.velocity).toBe(80);
+    expect(seen[0].body.durationMs).toBe(150);
+  });
+
+  it("player: latest bus pattern becomes an audible looping voice; analysis reads the same message", async () => {
+    const { MODULES } = await import("./modules.js");
+    const { makeMessage } = await import("@enkerli/protocol");
+    const { ctxObj } = ctx();
+    const seen = [];
+    ctxObj.bus.subscribe((m) => { if (m.type === "note") seen.push(m); });
+    const pBody = document.createElement("div");
+    const pOff = MODULES["player"].make(ctxObj, pBody, { bpm: 120, note: 37 });
+    const aBody = document.createElement("div");
+    const aOff = MODULES["rhythm-analysis"].make(ctxObj, aBody, {});
+
+    // Tresillo over 8 (leftmost = LSB): mask 73.
+    ctxObj.bus.publish(makeMessage("serpe", "pattern", { steps: 8, mask: 73, name: "tresillo" }));
+    expect(pBody.textContent).toMatch(/tresillo — press ▶/);
+    expect(aBody.textContent).toMatch(/tresillo · 3\/8 onsets/);
+    expect(aBody.textContent).toMatch(/0x94/);
+
+    vi.useFakeTimers();
+    try {
+      [...pBody.querySelectorAll("button")].find((b) => b.textContent.includes("play"))
+        .dispatchEvent(new MouseEvent("click"));
+      // 8 steps of 16ths at 120bpm = 125ms/step; one full cycle:
+      vi.advanceTimersByTime(8 * 125 - 5); // one full cycle, not a step into the next
+      expect(seen.length).toBe(3); // three onsets of the tresillo
+      expect(seen.every((m) => m.body.notes[0] === 37)).toBe(true);
+      [...pBody.querySelectorAll("button")].find((b) => b.textContent.includes("stop"))
+        .dispatchEvent(new MouseEvent("click"));
+    } finally { vi.useRealTimers(); }
+    pOff(); aOff();
+  });
+
+  it("chord namer names note messages crossing the bus", async () => {
+    const { MODULES } = await import("./modules.js");
+    const { makeNote } = await import("@enkerli/protocol");
+    const { ctxObj } = ctx();
+    const body = document.createElement("div");
+    const off = MODULES["chord-namer"].make(ctxObj, body, {});
+    ctxObj.bus.publish(makeNote("external", { notes: [60, 64, 67, 71] }));
+    expect(body.textContent).toMatch(/C∆/); // the dictionary's display symbol for Cmaj7
+    off();
+  });
+
+  it("recorder: captures bus traffic and replays it re-identified (dedupe-proof), looping", async () => {
+    const { MODULES } = await import("./modules.js");
+    const { makeNote } = await import("@enkerli/protocol");
+    const { ctxObj } = ctx();
+    const body = document.createElement("div");
+    const state = {};
+    const off = MODULES["recorder"].make(ctxObj, body, state);
+    const btn = (t) => [...body.querySelectorAll("button")].find((b) => b.textContent.includes(t));
+
+    vi.useFakeTimers();
+    try {
+      btn("rec").dispatchEvent(new MouseEvent("click"));
+      ctxObj.bus.publish(makeNote("external", { notes: [60] }));
+      vi.advanceTimersByTime(100);
+      ctxObj.bus.publish(makeNote("external", { notes: [64] }));
+      expect(body.textContent).toMatch(/● 2 messages/);
+
+      const replayed = [];
+      ctxObj.bus.subscribe((m) => { if (m.type === "note") replayed.push(m); });
+      btn("play").dispatchEvent(new MouseEvent("click"));
+      vi.advanceTimersByTime(200);
+      expect(replayed.length).toBe(2); // both came back — new ids beat the dedupe
+      expect(replayed.map((m) => m.body.notes[0])).toEqual([60, 64]);
+      btn("stop").dispatchEvent(new MouseEvent("click"));
+      expect(state.tape.length).toBe(2); // tape persisted to module state
+    } finally { vi.useRealTimers(); }
+    off();
   });
 });
