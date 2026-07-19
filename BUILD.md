@@ -129,7 +129,15 @@ pipe — the bridge process itself keeps running.
   pick your Apple Developer team. Xcode fills in your machine's default
   account automatically; only override it if you need a specific team (some
   repos support `signing.local.cmake` — see their example file — using the
-  10-character team ID from Xcode ▸ Settings ▸ Accounts).
+  10-character team ID from Xcode ▸ Settings ▸ Accounts). **Do this per
+  target, not once** — Standalone and AUv3 each carry their own signing
+  settings, and on a fresh clone (2026-07-20 field report) Xcode can show a
+  stale/missing certificate until you've opened Signing & Capabilities and
+  confirmed your team on EACH one — an existing, already-signed clone
+  doesn't show this. If a scheme doesn't appear in the scheme picker after
+  opening the project, use Xcode's **Manage Schemes → Autocreate schemes**
+  (or Product ▸ Scheme ▸ New Scheme) to add the missing one — several
+  repos needed this by hand on a fresh clone (2026-07-20 field report).
 - **First AUv3 install ritual**: build and run the `..._Standalone` scheme
   to a real iPad once (Simulator doesn't register app extensions reliably).
   After that single run, the AUv3 shows up in a host's MIDI-effect picker
@@ -220,6 +228,17 @@ open build-ios/DrawnCurve.xcodeproj   # run DrawnCurve_Standalone, then DrawnCur
 DrawnQurve is iPad-only (AUv3 + Standalone, no desktop AU/VST3 build). The
 Xcode project target is named `DrawnCurve` (no "Q") — a historical rename
 that would break too many references to undo.
+
+**Signing note (confirmed cause of a real "wrong team" build failure):**
+`CMakeLists.txt` hardcodes the maintainer's own team id
+(`XCODE_ATTRIBUTE_DEVELOPMENT_TEAM "P8W7XXJN6C"`) on both the
+`DrawnCurve_Standalone` and `DrawnCurve_AUv3` targets — anyone else's
+build will show that team and fail signing until you fix it by hand. For
+BOTH targets: Signing & Capabilities tab → confirm **your own** Team is
+selected (not the hardcoded one) → confirm "Automatically manage signing"
+is checked. Do this after every `cmake -B build-ios -G Xcode` regeneration
+(Xcode re-evaluates provisioning lazily, so even a correct CMake value
+needs this manual nudge the first time a target is selected).
 
 ---
 
