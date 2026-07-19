@@ -135,9 +135,13 @@ most reliable browser for this workflow today.
 - **JUCE 8.0.13 is fetched automatically** by `cmake` if you don't have a
   local copy — no manual JUCE clone needed, despite what some READMEs say.
   (Speed-up, optional: `ln -s /Applications/JUCE JUCE` inside the plugin repo.)
-- Four repos vendor `enkerli-juce` as a **git submodule** — clone those with
-  `--recurse-submodules` (or `git submodule update --init` after a plain
-  clone). Vane and DrawnQurve don't use the submodule and need neither.
+- Five repos vendor `enkerli-juce` as a **git submodule** (MIDIcurator,
+  ProgGenie, PitchFold, Serpe, workspace-plugin). `--recurse-submodules`
+  at clone time is nice but **no longer required**: since 2026-07-19,
+  `cmake` initializes the submodule itself when it's empty (a plain clone
+  used to die with a cryptic `Unknown CMake command "enkerli_resolve_juce"`
+  — the probable cause of the "fresh clone wouldn't build" reports). Vane
+  and DrawnQurve don't use the submodule.
 - Five repos (Serpe, PitchFold, Vane, DrawnQurve, workspace-plugin) build
   their WebView UI **from this monorepo's `apps/<slug>`** — check out
   `music-suite` and `npm install` it. CMake finds it automatically in any
