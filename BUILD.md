@@ -307,3 +307,28 @@ This file is the one meant to stay current — if a plugin repo's own README
 says something different, trust this file and fix that README (or flag it).
 Everything above was read from each repo's actual `CMakeLists.txt` on
 2026-07-19, not reconstructed from memory.
+
+---
+
+## 6. Verified build matrix — 2026-07-19 (Mac, Apple Silicon)
+
+Run via `enkerli-juce/tools/validate.sh` (macOS AU/VST3/Standalone build →
+iOS unsigned compile → `auval` → pluginval s8), after the day's fixes
+(WebUI layout probing, submodule auto-init, workspace wasm loaders):
+
+| Plugin | Result |
+|---|---|
+| MIDIcurator (`aumi Mcur`) | **PASS** — full ladder |
+| ProgGenie (`aumi Prst`) | **PASS** — full ladder |
+| PitchFold (`aumi Pqf1`) | **PASS** — full ladder |
+| Serpe (`aumi RPEd`) | **PASS** — full ladder |
+| Vane (`aumu VAne`) | **PASS** — full ladder |
+| Suite Workspace (`aumi Wksp`) | **PASS** — full ladder (after the wasm-loader fix; first run caught it) |
+| DrawnQurve | **PASS** — iOS unsigned compile (iPad-only by design) |
+
+Fresh-clone checks the same day: MIDIcurator iOS **BUILD SUCCEEDED** from a
+virgin clone; a submodule-less plain clone now self-heals at `cmake` time.
+Still human/device territory: signed installs (per-target Signing &
+Capabilities), AUv3 registration on iPads, and the Linux legs on the miniPC
+(the nested-checkout layout that failed there is now auto-detected — re-run
+`git pull` in each plugin repo first).
