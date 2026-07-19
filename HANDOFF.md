@@ -38,7 +38,7 @@ Three principles that override habit:
 | **PitchFold** | github.com/Enkerli/PitchFold (local: `~/Desktop/PitchFold`) | PCS quantizer; the WebView-pattern pathfinder |
 | **progression-studio-plugin** (ProgGenie) | github.com/Enkerli/progression-studio-plugin | Thin shell (~1.1k LOC) over `apps/progression-studio` |
 | **midicurator-plugin** | github.com/Enkerli/midicurator-plugin | Thin shell (~1.1k LOC) over `apps/MIDIcurator` |
-| **workspace-plugin** | **staged at `plugin-shells/workspace-plugin/` in this repo** — promote to github.com/Enkerli/workspace-plugin (see `plugin-shells/README.md`) | Thin shell (~450 LOC) over `apps/workspace`: the bus's edges become host MIDI (docs/WORKSPACE_PLUGIN.md) |
+| **workspace-plugin** | github.com/Enkerli/workspace-plugin (local: `~/Desktop/workspace-plugin`) | Thin shell (~450 LOC) over `apps/workspace`: the bus's edges become host MIDI (docs/WORKSPACE_PLUGIN.md). Promoted from staging 2026-07-19 |
 | manifold, vane-wavetable-library, JazzPatterns | GitHub (Enkerli) | Data repos: controller capabilities (YAML), wavetable bank + provenance metadata, melodic vocabulary (ODbL — keep the notice) |
 | **Jazz Progs and Gen** | **local only, no remote — by design** | See §5. The planning document of record lives here |
 

@@ -138,12 +138,18 @@ most reliable browser for this workflow today.
 - Four repos vendor `enkerli-juce` as a **git submodule** — clone those with
   `--recurse-submodules` (or `git submodule update --init` after a plain
   clone). Vane and DrawnQurve don't use the submodule and need neither.
-- Four repos (Serpe, PitchFold, Vane, DrawnQurve) build their WebView UI
-  **from this monorepo's `apps/<slug>`** — clone `music-suite` as a
-  **sibling directory** of the plugin repo (e.g. both under `~/code/`) and
-  `npm install` it there; that's the default CMake looks for. Point
-  elsewhere by copying that plugin's `webui.local.cmake.example` to
-  `webui.local.cmake` and editing the path.
+- Five repos (Serpe, PitchFold, Vane, DrawnQurve, workspace-plugin) build
+  their WebView UI **from this monorepo's `apps/<slug>`** — check out
+  `music-suite` and `npm install` it. CMake finds it automatically in any
+  of three layouts (added 2026-07-19 after a real Linux failure):
+  1. **sibling** — plugin repo next to `music-suite` (e.g. both under
+     `~/code/`); the default;
+  2. **nested** — plugin repo checked out *inside* the `music-suite`
+     directory (e.g. `~/Coding/music-suite/Vane`);
+  3. **`MUSIC_SUITE` env var** — `export MUSIC_SUITE=/path/to/music-suite`
+     before running `cmake`.
+  A gitignored `webui.local.cmake` (copy the `.example`) overrides all
+  three. The error message lists exactly what was probed.
 - iOS/AUv3 signing: open the generated Xcode project, select the
   `..._Standalone` (and `..._AUv3`) target → **Signing & Capabilities** →
   pick your Apple Developer team. Xcode fills in your machine's default
@@ -218,7 +224,17 @@ open build-ios/Vane.xcodeproj    # run Vane_Standalone, then Vane_AUv3, to an iP
 ```
 On Linux, `cmake -S . -B build-linux` configures an **LV2 + Standalone**
 build instead (no Xcode step) — the headless-synth path (see `docs/JAM.md`
-in music-suite).
+in music-suite). Full Linux sequence, valid for any of the three checkout
+layouts above (this exact nested case — `~/Coding/music-suite/Vane` with
+the monorepo at `~/Coding/music-suite` — failed before 2026-07-19; now
+auto-detected):
+
+```bash
+cd ~/Coding/music-suite && npm install     # WebUI deps for the cmake esbuild step
+cd Vane
+cmake -S . -B build-linux
+cmake --build build-linux -j$(nproc)
+```
 
 ### Serpe
 
@@ -262,31 +278,24 @@ needs this manual nudge the first time a target is selected).
 
 ---
 
-### Suite Workspace (staged — repo pending)
+### Suite Workspace
 
-The Workspace plugin's C++ shell is **staged at
-`plugin-shells/workspace-plugin/` in this repo** (the build session
-couldn't create its GitHub repo — see `plugin-shells/README.md` for the
-one-time promotion steps: create `Enkerli/workspace-plugin`, copy, add the
-`enkerli-juce` submodule, push). Once promoted:
+Promoted to its own repo 2026-07-19 (the `plugin-shells/` staging copy in
+this repo has been removed — the repo is the source of truth now):
 
 ```bash
 git clone --recurse-submodules https://github.com/Enkerli/workspace-plugin
 cd workspace-plugin
-# music-suite as an npm-installed sibling (WebUI builds from apps/workspace
-# at cmake time; override the path via webui.local.cmake)
+# music-suite checked out + npm-installed in any of the three layouts above
+# (sibling / nested / MUSIC_SUITE env; webui.local.cmake overrides)
 cmake -B build-macos -DCMAKE_BUILD_TYPE=Release && cmake --build build-macos -j 8
 auval -v aumi Wksp Enke
 cmake -B build-ios -G Xcode -DCMAKE_SYSTEM_NAME=iOS -DCMAKE_OSX_DEPLOYMENT_TARGET=16.0
 open build-ios/Workspace.xcodeproj   # run Workspace_Standalone to an iPad once, then Workspace_AUv3
 ```
 
-Until then, the same commands work from the staged directory with a
-symlinked/`-DENKERLI_JUCE_DIR`-style foundation checkout (`ln -s
-/path/to/enkerli-juce plugin-shells/workspace-plugin/enkerli-juce`).
-Verified on Linux (LV2/Standalone/CLAP configure+build clean, WebUI
-bundled from `apps/workspace`) on 2026-07-20; the Apple formats and
-devices are the usual human half.
+Linux configures LV2/Standalone/CLAP (verified 2026-07-20 from the staged
+copy, same source).
 
 ## 5. If something doesn't match this file
 
