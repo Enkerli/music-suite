@@ -477,8 +477,20 @@ export interface AccompanyOptions {
   variety?: number;
   /** 0..1 — correlated push/pull micro-timing + micro-dynamics (the Keil walk). */
   pocket?: number;
-  /** 0..1 — fraction of variety/pocket decisions re-rolled per pass. */
+  /** 0..1 — blanket fraction of variety/pocket/rests decisions re-rolled
+   *  per pass. Alias for morphNotes/morphPocket/morphRests when the
+   *  per-dimension ones aren't given (continuous mutation, one dimension
+   *  at a time — docs/KNOWLEDGE_TRANSFER.md item 5). */
   morph?: number;
+  /** 0..1 — note-choice (variety) re-roll rate per pass, independent of
+   *  morphPocket/morphRests. */
+  morphNotes?: number;
+  /** 0..1 — pocket (timing/dynamics walk) re-roll rate per pass,
+   *  independent of morphNotes/morphRests. */
+  morphPocket?: number;
+  /** 0..1 — rests (skip-step) re-roll rate per pass: WHICH steps drop
+   *  wanders across loop repeats, independent of morphNotes/morphPocket. */
+  morphRests?: number;
   /** 0..1 — per-note wind articulation: sforzando/staccato/legato/marcato…,
    *  each note with its own breath envelope (CC2 curves in the .mid). */
   inflect?: number;
@@ -529,7 +541,8 @@ export function accompany(opts: AccompanyOptions): AccompanyResult {
     : parsePhrase(raw);
   const { progression, tonic, mode, rhythm, bars, seed, range, chromaticism,
           rhythmPreservation, gate, dynamics, rests, anticipation,
-          variety, pocket, morph, inflect, pass, bpm, traceLevel } = opts;
+          variety, pocket, morph, morphNotes, morphPocket, morphRests,
+          inflect, pass, bpm, traceLevel } = opts;
   const r = groove(source, {
     progression,
     ...(tonic !== undefined && { tonic }),
@@ -547,6 +560,9 @@ export function accompany(opts: AccompanyOptions): AccompanyResult {
     ...(variety !== undefined && { variety }),
     ...(pocket !== undefined && { pocket }),
     ...(morph !== undefined && { morph }),
+    ...(morphNotes !== undefined && { morphNotes }),
+    ...(morphPocket !== undefined && { morphPocket }),
+    ...(morphRests !== undefined && { morphRests }),
     ...(inflect !== undefined && { inflect }),
     ...(pass !== undefined && { pass }),
     ...(bpm !== undefined && { bpm }),

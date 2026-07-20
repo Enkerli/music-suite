@@ -161,7 +161,40 @@ Design the data flow first (a variant is a clip; `extractPhrase`
 already eats clips), and keep `phrase.json`/`style-model.json` as the
 interchange (CLI `msuite style learn` reads/writes the same contracts).
 
-## 5. Continuous morphing accompaniment (L–XL · ★★★)
+## 5. Continuous morphing accompaniment (L–XL · ★★★) — PARTIAL, 2026-07-20
+
+Two of the four named dimensions shipped for real, engine + CLI:
+`express.ts`'s single blanket `morph` split into independent
+`morphNotes`/`morphPocket` (note order / timing-dynamics wander
+separately now — `morph` stays as a blanket alias, byte-identical to
+before when used alone), and `articulate.ts`'s `rests` gained pass-
+awareness it never had at all (`morphRests` + `pass` — WHICH steps skip
+now wanders across loop repeats; previously the same steps dropped every
+single pass, full stop, a real gap since `groove()` never even passed
+`pass` into `articulate()`). Both use the shared `passSeed` three-stream
+discipline (now exported from express.ts). Reaches `groove()`,
+`msuite accompany` (`--morph-notes`/`--morph-pocket`/`--morph-rests`,
+CLI-smoke-tested for real), and MIDIcurator's `GrooveClipRequest` (data
+layer). 6 new engine tests + 2 MIDIcurator tests, 1373/1373 monorepo,
+vectors regenerated with zero diff. Full writeup:
+docs/GLORIARP_NEXT.md §3e.
+
+**NOT done, on purpose**: no UI knobs added anywhere (this item's own
+"design-pass involvement for the UI" note — the existing single `morph`
+knob in the workspace module / MIDIcurator stays as the only UI surface,
+now correctly aliasing all three engine dimensions, until a design pass
+decides the actual layout). **NOT started**: "accents" (a wandering
+emphasis pattern — inflect.ts's sforzando/marcato articulation NAMES
+exist but inflect has no `pass` awareness at all, so which notes get
+which articulation is exactly as static across passes as rests used to
+be) and "slides" (portamento/glide — needs a real new field on
+PhraseEvent, pitch-bend/CC encoding in the MIDI writer, and Vane's
+`glide-time` wired from the bus; not a knob addition, a small feature).
+The original brief below claimed slides/accents "already exist as
+express/inflect dimensions" — true only in the loose sense that
+legato/marcato articulation NAMES exist, not that either morphs per pass.
+
+Original brief, for reference:
 
 The direction Alex described: Bram Bos Troublemaker / Rozeta Bassline
 feel — a loop that *mutates continuously* with per-dimension

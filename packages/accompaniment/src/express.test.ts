@@ -28,6 +28,36 @@ describe("expressPhrase", () => {
     expect(at(0, 0.8)).not.toEqual(at(5, 0.8));
   });
 
+  it("morphNotes/morphPocket morph INDEPENDENTLY (KNOWLEDGE_TRANSFER item 5)", () => {
+    const at = (pass: number, morphNotes: number, morphPocket: number) =>
+      groove(source(), { progression: PROG, seed: 7, variety: 0.7, pocket: 0.6, pass, morphNotes, morphPocket }).phrase.events;
+    // Notes wander, pocket stays fixed: onsets identical across passes,
+    // pitches differ (variety's octave/reselect/passing choices moved).
+    const a0 = at(0, 1, 0), a5 = at(5, 1, 0);
+    expect(a0.map((e) => e.onset)).toEqual(a5.map((e) => e.onset));
+    expect(a0.map((e) => e.note)).not.toEqual(a5.map((e) => e.note));
+
+    // Pocket wanders, notes stay fixed: pitches identical, onsets differ.
+    const b0 = at(0, 0, 1), b5 = at(5, 0, 1);
+    expect(b0.map((e) => e.note)).toEqual(b5.map((e) => e.note));
+    expect(b0.map((e) => e.onset)).not.toEqual(b5.map((e) => e.onset));
+  });
+
+  it("morphRests reaches through the full groove() pipeline (skip-step wanders per pass)", () => {
+    const at = (pass: number) =>
+      groove(funk(), { progression: PROG, seed: 6, rests: 0.6, pass, morphRests: 1 }).phrase.events.map((e) => e.onset);
+    const p0 = at(0);
+    let anyDiffer = false;
+    for (let pass = 1; pass < 8; pass++) if (JSON.stringify(at(pass)) !== JSON.stringify(p0)) { anyDiffer = true; break; }
+    expect(anyDiffer).toBe(true);
+  });
+
+  it("morph is a blanket alias: morphNotes=morphPocket=morph reproduces the old single-rate result", () => {
+    const viaMorph = groove(source(), { progression: PROG, seed: 9, variety: 0.6, pocket: 0.5, pass: 4, morph: 0.6 }).phrase.events;
+    const viaSplit = groove(source(), { progression: PROG, seed: 9, variety: 0.6, pocket: 0.5, pass: 4, morphNotes: 0.6, morphPocket: 0.6 }).phrase.events;
+    expect(viaSplit).toEqual(viaMorph);
+  });
+
   it("all knobs off → the stage doesn't run (earlier vectors stay byte-identical)", () => {
     const base = groove(source(), { progression: PROG, seed: 42 });
     const adapted = JSON.parse(readFileSync(join(HERE, "..", "vectors", "adapted-dm7-g7-cmaj7-a7-seed42.json"), "utf8"));

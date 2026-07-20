@@ -53,7 +53,8 @@ const USAGE = `msuite <command> …
   accompany [--progression "<bars>"] [-o bass.mid] [--role bass] [--bars N]
             [--source walking-bass|funk-ghost|bossa|two-feel|phrase.json] [--rhythm "<UPI>"] [--seed N]
             [--gate staccato|tenuto|legato|mixed|0..1+] [--dynamics 0..1] [--rests 0..1] [--anticipation 0..1]
-            [--variety 0..1] [--pocket 0..1] [--morph 0..1] [--inflect 0..1] [--pass N]
+            [--variety 0..1] [--pocket 0..1] [--morph 0..1] [--morph-notes 0..1] [--morph-pocket 0..1]
+            [--morph-rests 0..1] [--inflect 0..1] [--pass N]
             [--range C2:C4] [--chromaticism 0..1] [--rhythm-preservation 0..1] [--tonic C] [--mode major|minor]
             [--bpm N] [--trace trace.json] [--phrase-out phrase.json] [--explain]
             [--play [--to app|*] [--loop | --loop-count N] [--midi-out port [--channel N] [--breath-cc N|off]]]
@@ -73,7 +74,11 @@ const USAGE = `msuite <command> …
                                         --variety adds passing tones / octave pops / chord-tone reselection,
                                         --pocket adds correlated push-pull micro-timing (the Keil walk),
                                         --gate mixed articulates per note (legato into steps, detached repeats),
-                                        --pass N renders loop-pass N, --morph 0..1 re-rolls that much per pass;
+                                        --pass N renders loop-pass N, --morph 0..1 re-rolls that much per pass
+                                        (continuous mutation, Troublemaker/Rozeta-style: --morph-notes,
+                                        --morph-pocket, --morph-rests re-roll variety/timing/skip-step
+                                        INDEPENDENTLY — hold the rhythm steady while notes wander, or the
+                                        reverse; --morph sets all three at once when given alone);
                                         --inflect gives EVERY note its own wind articulation + breath envelope
                                         (sforzando, staccato, legato slurs, marcato…) — CC2 curves in the .mid,
                                         live breath curves over --midi-out, per-note envelopes into Vane
@@ -343,6 +348,9 @@ async function main(): Promise<number> {
         ...(one(args, "variety") !== undefined && { variety: Number(one(args, "variety")) }),
         ...(one(args, "pocket") !== undefined && { pocket: Number(one(args, "pocket")) }),
         ...(one(args, "morph") !== undefined && { morph: Number(one(args, "morph")) }),
+        ...(one(args, "morph-notes") !== undefined && { morphNotes: Number(one(args, "morph-notes")) }),
+        ...(one(args, "morph-pocket") !== undefined && { morphPocket: Number(one(args, "morph-pocket")) }),
+        ...(one(args, "morph-rests") !== undefined && { morphRests: Number(one(args, "morph-rests")) }),
         ...(one(args, "inflect") !== undefined && { inflect: Number(one(args, "inflect")) }),
         ...(one(args, "pass") !== undefined && { pass: Number(one(args, "pass")) }),
         ...(one(args, "bars") !== undefined && { bars: Number(one(args, "bars")) }),

@@ -334,8 +334,15 @@ export interface GrooveClipRequest {
   variety?: number;
   pocket?: number;
   /** morph + pass: render loop-pass N with that much per-pass re-roll —
-   *  also the cheap "variant" axis: same seed, pass 0,1,2… are takes. */
+   *  also the cheap "variant" axis: same seed, pass 0,1,2… are takes.
+   *  Blanket alias for morphNotes/morphPocket/morphRests (docs/
+   *  KNOWLEDGE_TRANSFER.md item 5 — continuous mutation, one dimension at
+   *  a time; no UI knob for the split yet, pending the design pass, but
+   *  the data layer accepts it like every other engine-isomorphic field). */
   morph?: number;
+  morphNotes?: number;
+  morphPocket?: number;
+  morphRests?: number;
   pass?: number;
   /** 0..1 — per-note wind articulation (sforzando/staccato/legato/marcato…).
    *  Duration/gate shaping is audible via plain note durations; the breath
@@ -386,6 +393,9 @@ export function generateGrooveClip(req: GrooveClipRequest, kv?: KV): GrooveClipD
     ...(req.variety ? { variety: req.variety } : {}),
     ...(req.pocket ? { pocket: req.pocket } : {}),
     ...(req.morph ? { morph: req.morph } : {}),
+    ...(req.morphNotes !== undefined ? { morphNotes: req.morphNotes } : {}),
+    ...(req.morphPocket !== undefined ? { morphPocket: req.morphPocket } : {}),
+    ...(req.morphRests !== undefined ? { morphRests: req.morphRests } : {}),
     ...(req.pass ? { pass: req.pass } : {}),
     ...(req.inflect ? { inflect: req.inflect } : {}),
   });

@@ -87,9 +87,23 @@ export interface GrooveOptions {
   pocket?: number;
   /** Loop pass index (0-based) — players hand each repeat its pass. */
   pass?: number;
-  /** 0..1 — fraction of variety/pocket decisions re-rolled per pass, so the
-   *  take morphs over loop repeats. 0 = every pass identical. */
+  /** 0..1 — blanket fraction of variety/pocket/rests decisions re-rolled
+   *  per pass, so the take morphs over loop repeats. 0 = every pass
+   *  identical. Alias: sets morphNotes/morphPocket/morphRests when the
+   *  per-dimension ones aren't given (docs/KNOWLEDGE_TRANSFER.md item 5 —
+   *  Troublemaker/Rozeta-style continuous mutation, one dimension at a
+   *  time instead of a wholesale re-roll). */
   morph?: number;
+  /** 0..1 — note-choice (variety) re-roll rate per pass, independent of
+   *  morphPocket/morphRests. */
+  morphNotes?: number;
+  /** 0..1 — pocket (timing/dynamics walk) re-roll rate per pass,
+   *  independent of morphNotes/morphRests. */
+  morphPocket?: number;
+  /** 0..1 — rests (skip-step) re-roll rate per pass: WHICH steps drop
+   *  wanders across loop repeats instead of staying fixed, independent of
+   *  morphNotes/morphPocket. */
+  morphRests?: number;
   /** 0..1 — per-note wind articulation (inflect stage): every note gets its
    *  own articulation and breath envelope — sforzando, staccato, legato
    *  slurs, marcato… 0/undefined = off. */
@@ -163,6 +177,8 @@ export function groove(sourceIn: AccompanimentPhrase, opts: GrooveOptions): Groo
       ...(opts.dynamics !== undefined && { dynamics: opts.dynamics }),
       ...(opts.rests !== undefined && { rests: opts.rests }),
       ...(opts.anticipation !== undefined && { anticipation: opts.anticipation }),
+      ...(opts.pass !== undefined && { pass: opts.pass }),
+      ...((opts.morphRests ?? opts.morph) !== undefined && { morphRests: opts.morphRests ?? opts.morph }),
     });
     phrase = a.phrase;
     articulation = a.changes;
@@ -179,6 +195,8 @@ export function groove(sourceIn: AccompanimentPhrase, opts: GrooveOptions): Groo
       bpm: opts.bpm ?? 120,
       ...(opts.pass !== undefined && { pass: opts.pass }),
       ...(opts.morph !== undefined && { morph: opts.morph }),
+      ...(opts.morphNotes !== undefined && { morphNotes: opts.morphNotes }),
+      ...(opts.morphPocket !== undefined && { morphPocket: opts.morphPocket }),
       ...(opts.variety !== undefined && { variety: opts.variety }),
       ...(opts.pocket !== undefined && { pocket: opts.pocket }),
       ...(mixedGate && { mixedGate: true }),

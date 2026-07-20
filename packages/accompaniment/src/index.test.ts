@@ -366,6 +366,43 @@ describe("articulate", () => {
       .toEqual(restsOnly.changes.filter((c) => c.kind === "rest"));
   });
 
+  it("morphRests off (or no pass) reproduces today's rests exactly — pass-invariant by default", () => {
+    const base = adapted();
+    const noPass = articulate(base, { seed: 5, rests: 0.5 });
+    const withPassNoMorph = articulate(base, { seed: 5, rests: 0.5, pass: 3 });
+    expect(withPassNoMorph.changes.filter((c) => c.kind === "rest"))
+      .toEqual(noPass.changes.filter((c) => c.kind === "rest"));
+    // Same steps drop on every pass when morphRests is 0 — no skip-step wander.
+    const p0 = articulate(base, { seed: 5, rests: 0.5, pass: 0, morphRests: 0 });
+    const p5 = articulate(base, { seed: 5, rests: 0.5, pass: 5, morphRests: 0 });
+    expect(p5.changes.filter((c) => c.kind === "rest")).toEqual(p0.changes.filter((c) => c.kind === "rest"));
+  });
+
+  it("morphRests (skip-step) makes WHICH steps drop wander across passes", () => {
+    const base = adapted();
+    const at = (pass: number) => articulate(base, { seed: 5, rests: 0.5, pass, morphRests: 1 })
+      .changes.filter((c) => c.kind === "rest").map((c) => c.onset);
+    const p0 = at(0);
+    let anyDiffer = false;
+    for (let pass = 1; pass < 8; pass++) if (JSON.stringify(at(pass)) !== JSON.stringify(p0)) { anyDiffer = true; break; }
+    expect(anyDiffer).toBe(true);
+    // Bar downbeats are STILL never dropped, no matter which pass.
+    for (let pass = 0; pass < 8; pass++) {
+      const r = articulate(base, { seed: 5, rests: 0.5, pass, morphRests: 1 });
+      for (let bar = 0; bar < 4; bar++) expect(r.phrase.events.some((e) => e.onset === bar * 1920)).toBe(true);
+    }
+  });
+
+  it("morphRests is deterministic per (seed, pass) and independent of anticipation's stream", () => {
+    const base = adapted();
+    const a = articulate(base, { seed: 8, rests: 0.5, pass: 2, morphRests: 0.7 });
+    const b = articulate(base, { seed: 8, rests: 0.5, pass: 2, morphRests: 0.7 });
+    expect(JSON.stringify(a)).toBe(JSON.stringify(b));
+    const restsOnly = articulate(base, { seed: 8, rests: 0.5, pass: 2, morphRests: 0.7 });
+    const both = articulate(base, { seed: 8, rests: 0.5, pass: 2, morphRests: 0.7, anticipation: 1 });
+    expect(both.changes.filter((c) => c.kind === "rest")).toEqual(restsOnly.changes.filter((c) => c.kind === "rest"));
+  });
+
   it("reproduces the committed articulated acceptance vector byte-for-byte", () => {
     const got = articulate(adapted(), { seed: 42, gate: "staccato", dynamics: 0.8, rests: 0.4, anticipation: 0.6 });
     expect(JSON.parse(JSON.stringify(got))).toEqual(JSON.parse(vector("articulated-funk-dm7-g7-cmaj7-a7-seed42.json")));

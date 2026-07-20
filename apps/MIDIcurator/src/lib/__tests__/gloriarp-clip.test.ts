@@ -74,6 +74,25 @@ describe('generateGrooveClip', () => {
     expect(take2.notes).not.toEqual(take0.notes);
     expect(take2.filename).toBe('gloriarp-walking-bass-s42-p2.mid');
   });
+
+  it('per-dimension morph reaches the engine (docs/KNOWLEDGE_TRANSFER.md item 5): morphRests wanders skip-step across passes', () => {
+    const at = (pass: number) => generateGrooveClip({
+      ...CANON, style: 'funk-ghost', rests: 0.6, morphRests: 1, pass,
+    }).notes.map((n) => n.ticks);
+    const p0 = at(0);
+    let anyDiffer = false;
+    for (let pass = 1; pass < 8; pass++) if (JSON.stringify(at(pass)) !== JSON.stringify(p0)) { anyDiffer = true; break; }
+    expect(anyDiffer).toBe(true);
+  });
+
+  it('morphNotes/morphPocket reach the engine independently', () => {
+    const at = (pass: number) => generateGrooveClip({
+      ...CANON, variety: 0.7, pocket: 0.6, morphNotes: 1, morphPocket: 0, pass,
+    }).notes;
+    const p0 = at(0), p5 = at(5);
+    expect(p0.map((n) => n.ticks)).toEqual(p5.map((n) => n.ticks)); // pocket held → onsets fixed
+    expect(p0.map((n) => n.midi)).not.toEqual(p5.map((n) => n.midi)); // notes wander
+  });
 });
 
 describe('learned styles (curated capture, docs/GLORIARP_NEXT.md slice C)', () => {

@@ -157,6 +157,48 @@ MIDIcurator UI for style-model learning (currently CLI-only).
   next rebuild — confirmed nothing in `plugin-shells/` hardcodes a feature
   list.
 
+## 3e. Shipped 2026-07-20 — per-dimension morph (continuous mutation, item 5)
+
+The Troublemaker/Rozeta Bassline ask (docs/KNOWLEDGE_TRANSFER.md item 5):
+a loop that mutates continuously along INDEPENDENT dimensions instead of
+regenerating wholesale. Two real gaps closed:
+
+- **`morph` was one blanket rate** for both variety (note choice) and
+  pocket (timing/dynamics) — no way to hold one steady while the other
+  wanders. `express.ts`'s `draw()` now takes the rate PER CALL SITE;
+  `morphNotes`/`morphPocket` set it independently, `morph` remains a
+  blanket alias (sets both when the specific ones aren't given) — byte-
+  identical to the old behavior whenever only `morph` is used (a dedicated
+  test pins `morphNotes=morphPocket=morph` against `morph` alone).
+- **`rests` (skip-step) was completely pass-invariant** — `articulate()`
+  never received `pass` at all, so the SAME steps dropped on every single
+  loop repeat regardless of anything else morphing. New `morphRests` (+
+  `pass`) makes WHICH steps drop wander across passes, using the exact
+  three-stream discipline (stable/per-pass/gate) express.ts already
+  established, sharing its `passSeed` helper (now exported). `morphRests`
+  0/undefined reproduces today's stable rests exactly — purely additive,
+  confirmed against the committed vectors (zero diff) and by explicit
+  byte-identity tests.
+
+Both reach `groove()` (`GrooveOptions` gained `morphNotes`/`morphPocket`/
+`morphRests`, `pass` now actually flows into `articulate()` — it didn't
+before), `msuite accompany` (`--morph-notes`/`--morph-pocket`/
+`--morph-rests`, smoke-tested against the real CLI), and MIDIcurator's
+`GrooveClipRequest`/`generateGrooveClip` (data layer only). 6 new engine
+tests (express.test.ts, index.test.ts) + 2 MIDIcurator integration tests —
+1373/1373 monorepo.
+
+**Deliberately NOT done**: no new UI knobs in the workspace module or
+MIDIcurator's GrooveGenerator — this item's own KT entry says "design-pass
+involvement for the UI," so the existing single `morph` knob stays as the
+UI surface (now correctly an alias for all three dimensions) rather than
+me inventing a three-knob layout unreviewed. Also not started: "accents"
+(wandering emphasis) and "slides" (portamento/glide) — the KT doc's other
+two named dimensions. Slides in particular need new infrastructure (a
+glide field on PhraseEvent, pitch-bend/CC encoding in the MIDI writer,
+Vane's `glide-time` param wired from the bus) — a separate slice, not a
+knob addition.
+
 ## 3b. Next session queue (prep, 2026-07-20)
 
 By-ear verification first — everything below shipped agent-verified only

@@ -6,10 +6,17 @@
  *    displacement, chord-tone reselection, and PASSING TONES (the schema's
  *    passing-tone category, generated at last). Bar downbeats are anchors:
  *    never varied.
- *  - pass/morph: the stage takes a loop-pass index; `morph` is the fraction
- *    of decisions re-rolled per pass. Three aligned RNG streams (stable,
- *    per-pass, gate) drawn unconditionally per decision, so (seed, pass,
- *    morph) → byte-identical output, and morph 0 → every pass identical.
+ *  - pass/morph: the stage takes a loop-pass index; morph is the fraction
+ *    of decisions re-rolled per pass — PER DIMENSION now (docs/
+ *    KNOWLEDGE_TRANSFER.md item 5, the Troublemaker/Rozeta-style
+ *    continuous-mutation ask): `morphNotes` for variety's note choices,
+ *    `morphPocket` for the timing/dynamics walk, independently, so a loop
+ *    can hold its rhythm rock-steady while note choices wander, or the
+ *    reverse. `morph` is a blanket alias — sets both when the specific
+ *    ones aren't given, so existing single-knob callers are unaffected.
+ *    Three aligned RNG streams (stable, per-pass, gate) drawn
+ *    unconditionally per decision, so (seed, pass, rate) → byte-identical
+ *    output, and rate 0 → every pass identical.
  *  - pocket: the Keil correction (GLORIARP_NEXT §2). Not i.i.d. jitter and
  *    not a fixed grid offset: a CORRELATED walk (push accumulates, then
  *    resolves), anchored hard at strong beats, coupled to accents — dug-in
@@ -29,8 +36,15 @@ export interface ExpressOptions {
   seed: number;
   /** Loop pass index, 0-based. Players hand each repeat its pass number. */
   pass?: number;
-  /** 0..1 — fraction of variety/pocket decisions re-rolled per pass. */
+  /** 0..1 — blanket fraction of variety/pocket decisions re-rolled per
+   *  pass. Alias: sets morphNotes/morphPocket when they aren't given. */
   morph?: number;
+  /** 0..1 — fraction of NOTE-CHOICE decisions (variety: octave/reselect/
+   *  passing) re-rolled per pass, independent of morphPocket. */
+  morphNotes?: number;
+  /** 0..1 — fraction of TIMING/DYNAMICS decisions (the pocket walk)
+   *  re-rolled per pass, independent of morphNotes. */
+  morphPocket?: number;
   /** 0..1 — note-choice variety (octave / reselect / passing tones). */
   variety?: number;
   /** 0..1 — pocket depth (max ~±18ms of correlated push/pull at 1). */
@@ -56,8 +70,9 @@ export interface ExpressResult {
 const mod12 = (n: number) => ((n % 12) + 12) % 12;
 const clamp127 = (v: number) => Math.max(1, Math.min(127, Math.round(v)));
 
-/** Per-pass seed: a distinct, deterministic stream per (seed, pass). */
-function passSeed(seed: number, pass: number): number {
+/** Per-pass seed: a distinct, deterministic stream per (seed, pass) — shared
+ *  with articulate.ts's own pass-morphing (rests/skip-step). */
+export function passSeed(seed: number, pass: number): number {
   return (((seed >>> 0) * 2654435761) ^ ((pass + 1) * 40503)) >>> 0;
 }
 
@@ -71,6 +86,8 @@ export function expressPhrase(phrase: AccompanimentPhrase, opts: ExpressOptions)
   const variety = opts.variety ?? 0;
   const pocket = opts.pocket ?? 0;
   const morph = opts.morph ?? 0;
+  const morphNotes = opts.morphNotes ?? morph;
+  const morphPocket = opts.morphPocket ?? morph;
   const pass = opts.pass ?? 0;
   const tpb = phrase.ticksPerBeat;
   const bpb = phrase.meter.numerator;
@@ -80,15 +97,19 @@ export function expressPhrase(phrase: AccompanimentPhrase, opts: ExpressOptions)
   // option changes never shift the stream). `gateRng` decides WHICH stream a
   // decision reads; it is keyed by seed only, so the SET of morphing
   // decisions is stable across passes — the take breathes in the same
-  // places, rather than scrambling wholesale.
+  // places, rather than scrambling wholesale. `rate` is supplied PER CALL
+  // SITE (morphNotes for variety, morphPocket for the pocket walk) so the
+  // two dimensions morph independently while sharing the same three
+  // underlying streams — when morphNotes === morphPocket (the `morph`
+  // alias case) this reproduces the old single-rate behavior byte-for-byte.
   const stableRng = mulberry32(opts.seed ^ 0x9e3779b9);
   const perPassRng = mulberry32(passSeed(opts.seed, pass));
   const gateRng = mulberry32(opts.seed ^ 0x51ab_cd0f);
-  const draw = (): number => {
+  const draw = (rate: number): number => {
     const s = stableRng();
     const p = perPassRng();
     const g = gateRng();
-    return g < morph ? p : s;
+    return g < rate ? p : s;
   };
 
   const events: PhraseEvent[] = phrase.events.map((e) => ({ ...e }));
@@ -103,7 +124,7 @@ export function expressPhrase(phrase: AccompanimentPhrase, opts: ExpressOptions)
     const prev = i > 0 ? events[i - 1] : undefined;
     const next = i < events.length - 1 ? events[i + 1] : undefined;
     // Fixed draw budget per event: three draws, always.
-    const dOct = draw(), dSel = draw(), dPass = draw();
+    const dOct = draw(morphNotes), dSel = draw(morphNotes), dPass = draw(morphNotes);
     if (!variety || e.note === undefined || w >= 1) continue; // downbeats are anchors
 
     // Passing tone first (the most idiomatic): on a weak beat (2 and 4 — where
@@ -162,7 +183,7 @@ export function expressPhrase(phrase: AccompanimentPhrase, opts: ExpressOptions)
       const e = events[i]!;
       const w = metricWeight(e.onset, tpb, bpb);
       const anchor = w >= 1 ? 0.7 : w >= 0.5 ? 0.4 : 0.15; // strong beats pull the walk home
-      const step = (draw() * 2 - 1) * 7 * pocket;            // correlated: added to carried drift
+      const step = (draw(morphPocket) * 2 - 1) * 7 * pocket;  // correlated: added to carried drift
       driftMs = driftMs * (1 - anchor) + step;
       const lean = ((e.velocity - 84) / 43) * 5 * pocket;    // dug-in notes lean late
       const deltaMs = Math.max(-18, Math.min(18, driftMs + lean));
@@ -215,7 +236,10 @@ export function expressPhrase(phrase: AccompanimentPhrase, opts: ExpressOptions)
         ...phrase.annotations,
         expression: JSON.stringify({
           seed: opts.seed, pass,
-          ...(morph && { morph }), ...(variety && { variety }),
+          ...(morph && { morph }),
+          ...(morphNotes !== morph && { morphNotes }),
+          ...(morphPocket !== morph && { morphPocket }),
+          ...(variety && { variety }),
           ...(pocket && { pocket }), ...(opts.mixedGate && { mixedGate: true }),
         }),
       },

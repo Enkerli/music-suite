@@ -16,10 +16,19 @@
  * 0.15. Dynamics push velocity TOWARD that contour; rests remove events with
  * probability proportional to their weakness (a bar downbeat is never
  * dropped); anticipation steals half a beat from the previous bar.
+ *
+ * skip-step (docs/KNOWLEDGE_TRANSFER.md item 5, the Troublemaker/Rozeta-
+ * style continuous-mutation ask): `rests` alone is pass-invariant — the
+ * SAME steps drop every single loop repeat. `morphRests` (+ `pass`) makes
+ * WHICH steps drop wander across passes, using the exact three-stream
+ * discipline express.ts's morphNotes/morphPocket already established —
+ * same shared `passSeed`. 0/undefined (or no `pass`) reproduces today's
+ * stable behavior byte-for-byte: this is purely additive.
  */
 
 import { mulberry32 } from "@enkerli/proggen";
 import type { AccompanimentPhrase, PhraseEvent } from "./phrase.js";
+import { passSeed } from "./express.js";
 
 export const GATES = { staccato: 0.4, tenuto: 0.85, legato: 1.0 } as const;
 
@@ -32,6 +41,12 @@ export interface ArticulateOptions {
   /** 0..1 — probability scale for dropping metrically WEAK events.
    *  Bar downbeats are never dropped. 0 = off. */
   rests?: number;
+  /** Loop pass index, 0-based — needed only alongside morphRests. */
+  pass?: number;
+  /** 0..1 — fraction of rest (skip-step) decisions re-rolled per pass, so
+   *  WHICH steps drop wanders across loop repeats instead of staying fixed.
+   *  0/undefined = every pass drops the same steps (today's behavior). */
+  morphRests?: number;
   /** 0..1 — probability a bar-downbeat event is pushed EARLY (sounding the
    *  coming chord before the barline). 0 = off. */
   anticipation?: number;
@@ -73,10 +88,26 @@ export function articulate(phrase: AccompanimentPhrase, opts: ArticulateOptions)
   const gate = typeof opts.gate === "string" ? GATES[opts.gate] : opts.gate;
   const changes: ArticulationChange[] = [];
 
+  // Rest draws: `rng` IS `stableRng` — a seed-only stream, unmodified from
+  // before morphRests existed, so morphRests=0 (or no `pass`) reproduces
+  // today's single-stream sequence byte-for-byte. perPassRng/gateRng are
+  // separate generator instances that only get CONSULTED when morphRests
+  // is nonzero; they never advance stableRng's own position.
+  const morphRests = opts.morphRests ?? 0;
+  const pass = opts.pass ?? 0;
+  const perPassRng = mulberry32(passSeed(opts.seed, pass) ^ 0x5eed_1234);
+  const gateRng = mulberry32((opts.seed ^ 0x9a3c_1075) >>> 0);
+  const restDraw = (): number => {
+    const s = rng();
+    const p = perPassRng();
+    const g = gateRng();
+    return g < morphRests ? p : s;
+  };
+
   // Pass 1 — rests: one draw per event in onset order (fixed RNG budget).
   // Drop probability = rests × (1 − weight); a weight-1.0 downbeat never drops.
   const kept: boolean[] = phrase.events.map((e, i) => {
-    const draw = rng(); // drawn unconditionally: the stream stays aligned across option changes
+    const draw = restDraw(); // drawn unconditionally: the stream stays aligned across option changes
     if (!opts.rests) return true;
     const w = metricWeight(e.onset, tpb, bpb);
     if (w >= 1) return true;
@@ -144,6 +175,7 @@ export function articulate(phrase: AccompanimentPhrase, opts: ArticulateOptions)
           ...(gate !== undefined && { gate }),
           ...(opts.dynamics && { dynamics: opts.dynamics }),
           ...(opts.rests && { rests: opts.rests }),
+          ...(opts.rests && morphRests && { morphRests, pass }),
           ...(opts.anticipation && { anticipation: opts.anticipation }),
           seed: opts.seed,
         }),
