@@ -1,0 +1,20 @@
+{
+  "name": "@enkerli/voice-routing",
+  "version": "0.1.0",
+  "description": "Round-robin voice/channel distribution — the Voice Split primitive, extracted from PitchFold's engine (docs/PITCHFOLD_AUDIT.md, KNOWLEDGE_TRANSFER.md item 8) for reuse across the suite (Workspace, Vane poly).",
+  "license": "CC0-1.0",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -b",
+    "test": "vitest run"
+  }
+}

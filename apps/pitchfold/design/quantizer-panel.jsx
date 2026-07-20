@@ -1,5 +1,4 @@
-// quantizer-panel.jsx — Snap direction, output range.
-// Strength is hidden (reserved for future probability/histogram features).
+// quantizer-panel.jsx — Snap direction, output range, snap strength.
 
 const NOTE_NAMES = ['C','C♯','D','D♯','E','F','F♯','G','G♯','A','A♯','B'];
 function noteName(n) {
@@ -21,6 +20,7 @@ export function QuantizerPanel({ state, sendParam, paper = window.PAPER }) {
     quantDir = 0,
     outputLo = 0,
     outputHi = 127,
+    quantStrength = 1.0,
   } = state;
 
   return (
@@ -38,6 +38,23 @@ export function QuantizerPanel({ state, sendParam, paper = window.PAPER }) {
             </button>
           ))}
         </div>
+      </div>
+
+      {/* Snap strength — 1.0 = full snap (the historical default and only
+          behavior before this was wired up); lower values blend toward the
+          original pitch instead of snapping fully (docs/PITCHFOLD_AUDIT.md). */}
+      <div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 3 }}>
+          <Label paper={paper}>Snap strength</Label>
+          <span style={{ fontSize: 11, color: paper?.ink70 || '#574E44',
+            fontFamily: 'InterTight, system-ui' }}>
+            {Math.round(quantStrength * 100)}%
+          </span>
+        </div>
+        <input type="range" min={0} max={1} step={0.01} value={quantStrength}
+          aria-label="Snap strength"
+          onChange={e => sendParam('quantStrength', parseFloat(e.target.value))}
+          style={{ width: '100%', accentColor: paper?.ink || '#2D2620' }} />
       </div>
 
       {/* Output range — single drag control */}

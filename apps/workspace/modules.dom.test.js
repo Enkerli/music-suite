@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import { describe, it, expect, vi } from "vitest";
 import { SuiteBus } from "./bus.js";
-import { controlSurfaceModule, patternModule, monitorModule, summarize } from "./modules.js";
+import { controlSurfaceModule, patternModule, monitorModule, summarize, pcsPadsModule, voiceSplitModule } from "./modules.js";
 
 const ctx = () => {
   const bus = new SuiteBus();
@@ -737,5 +737,112 @@ describe("vane synth · transforms · library", () => {
     expect(seen[0].body.mask).toBe(73); // the saved tresillo came back — new id, same music
     off2();
     localStorage.removeItem("enkerli.workspace.library");
+  });
+});
+
+describe("PCS Pads module (docs/PITCHFOLD_AUDIT.md follow-up)", () => {
+  it("renders 8 pads and broadcasts a scale message when one is tapped", () => {
+    const { bus, ctxObj } = ctx();
+    const seen = [];
+    bus.subscribe((m) => seen.push(m));
+    const body = document.createElement("div");
+    const state = {};
+    pcsPadsModule(ctxObj, body, state);
+
+    expect(body.querySelectorAll(".ws-pad").length).toBe(8);
+    body.querySelectorAll(".ws-pad-main")[1].dispatchEvent(new MouseEvent("click")); // Dorian
+    const scale = seen.find((m) => m.type === "scale");
+    expect(scale.body).toMatchObject({ mask: 0x06AD, root: 0, name: "Dorian" });
+    expect(body.querySelectorAll(".ws-pad")[1].className).toMatch(/active/);
+    expect(state.selected).toBe(1);
+  });
+
+  it("learn grabs the last scale heard on the bus into the tapped pad", () => {
+    const { bus, ctxObj } = ctx();
+    const body = document.createElement("div");
+    const state = {};
+    pcsPadsModule(ctxObj, body, state);
+
+    // nothing heard yet — learn is a no-op, doesn't touch the pad
+    body.querySelectorAll(".ws-pad-learn")[0].dispatchEvent(new MouseEvent("click"));
+    expect(state.pads[0].label).toBe("Ionian");
+
+    bus.publish({ protocol: "enkerli-suite", v: 1, id: "scale-msg-1", from: "pickpcs", to: "*",
+      sentAt: "2026-07-20T00:00:00Z", type: "scale", body: { mask: 0x0555, root: 3, name: "Whole Tone" } });
+    body.querySelectorAll(".ws-pad-learn")[0].dispatchEvent(new MouseEvent("click"));
+    expect(state.pads[0]).toMatchObject({ mask: 0x0555, root: 3, label: "Whole Tone" });
+    // pad 1's own broadcast now carries the learned scale, not the old default
+    body.querySelectorAll(".ws-pad-main")[0].dispatchEvent(new MouseEvent("click"));
+  });
+
+  it("a fresh module instance restores pads from saved state (no re-seed)", () => {
+    const { ctxObj } = ctx();
+    const body = document.createElement("div");
+    const saved = { pads: [{ mask: 0x0001, root: 0, label: "Custom" }, ...Array.from({ length: 7 }, () => ({ mask: 0, root: 0, label: "x" }))] };
+    pcsPadsModule(ctxObj, body, saved);
+    expect(body.querySelectorAll(".ws-pad-name")[0].textContent).toBe("Custom");
+  });
+});
+
+describe("Voice Split module (docs/PITCHFOLD_AUDIT.md — @enkerli/voice-routing)", () => {
+  const note = (from, notes, over = {}) => ({
+    protocol: "enkerli-suite", v: 1, id: `n-${Math.random()}`, from, to: "*",
+    sentAt: "2026-07-20T00:00:00Z", type: "note", body: { notes, ...over },
+  });
+
+  it("re-publishes incoming notes round-robinned across the configured channel span", () => {
+    const { bus, ctxObj } = ctx();
+    const seen = [];
+    bus.subscribe((m) => { if (m.type === "note") seen.push(m); });
+    const body = document.createElement("div");
+    voiceSplitModule(ctxObj, body, { baseChannel: 3, channelSpan: 2, sendTo: "vane" });
+
+    bus.publish(note("proggenie", [60]));
+    bus.publish(note("proggenie", [62]));
+    bus.publish(note("proggenie", [64]));
+
+    const outs = seen.filter((m) => m.from === "external");
+    expect(outs.map((m) => m.body.channel)).toEqual([3, 4, 3]);
+    expect(outs.every((m) => m.to === "vane")).toBe(true);
+  });
+
+  it("never re-processes its own output (loop guard)", () => {
+    const { bus, ctxObj } = ctx();
+    const seen = [];
+    bus.subscribe((m) => { if (m.type === "note") seen.push(m); });
+    const body = document.createElement("div");
+    voiceSplitModule(ctxObj, body, { baseChannel: 1, channelSpan: 4, sendTo: "vane" });
+
+    bus.publish(note("external", [60])); // as if we'd somehow heard our own message
+    expect(seen.filter((m) => m.from === "external" && m.to === "vane").length).toBe(0);
+  });
+
+  it("the 'from' filter ignores notes from apps other than the chosen source", () => {
+    const { bus, ctxObj } = ctx();
+    const seen = [];
+    bus.subscribe((m) => { if (m.type === "note") seen.push(m); });
+    const body = document.createElement("div");
+    voiceSplitModule(ctxObj, body, { listenFrom: "proggenie", baseChannel: 1, channelSpan: 4, sendTo: "vane" });
+
+    bus.publish(note("midicurator", [60])); // wrong source, ignored
+    bus.publish(note("proggenie", [62]));   // right source, split
+    const outs = seen.filter((m) => m.from === "external");
+    expect(outs.length).toBe(1);
+    expect(outs[0].body.notes).toEqual([62]);
+  });
+
+  it("reset restarts the rotation from the base channel", () => {
+    const { bus, ctxObj } = ctx();
+    const seen = [];
+    bus.subscribe((m) => { if (m.type === "note") seen.push(m); });
+    const body = document.createElement("div");
+    voiceSplitModule(ctxObj, body, { baseChannel: 1, channelSpan: 3, sendTo: "vane" });
+
+    bus.publish(note("proggenie", [60])); // ch 1
+    bus.publish(note("proggenie", [61])); // ch 2
+    [...body.querySelectorAll("button")].find((b) => b.textContent.includes("reset")).dispatchEvent(new MouseEvent("click"));
+    bus.publish(note("proggenie", [62])); // back to ch 1
+    const outs = seen.filter((m) => m.from === "external");
+    expect(outs.map((m) => m.body.channel)).toEqual([1, 2, 1]);
   });
 });

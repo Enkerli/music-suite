@@ -8,6 +8,8 @@
  */
 import { sliderToNative, nativeToSlider, paramSet, commandInvoke, formatValue } from "./model.js";
 import { makeMessage, makeNote } from "@enkerli/protocol";
+import { VoiceSplitter } from "@enkerli/voice-routing";
+import { APPS } from "@enkerli/library";
 import { parseUPI, analyse, analyzeSyncopation, rotate, invert, complement, barlowTransform, mutatePattern } from "@enkerli/upi";
 import { createBindingEngine, addBinding, removeBinding } from "@enkerli/control";
 import { parseLeadsheet, detectChord, rootName } from "@enkerli/theory";
@@ -109,6 +111,143 @@ export function patternModule(ctx, bodyEl, state) {
   });
   send();
   return off;
+}
+
+// ── PCS Pads: a compact chord/scale pad bank, Workspace-native, that
+// broadcasts `scale` bus messages — the SAME contract PickPCS already sends
+// (apps/PickPCS/src/control.js) and PitchFold already listens for
+// (apps/pitchfold/control.js). Zero changes needed on either side: this
+// interoperates today. Follow-up to docs/PITCHFOLD_AUDIT.md /
+// KNOWLEDGE_TRANSFER.md item 8 ("might fit well in… the Workspace").
+//
+// Rather than reimplementing PitchFold's own pad-mask editor (a real UI
+// investment — ChordPadBank + a wheel/lattice), pads here are populated by
+// "learn": grab the last `scale` message heard on the bus (from PickPCS,
+// PitchFold, another Workspace instance…) and store it. The bus IS the
+// scale-editing surface already; this just gives it a memory.
+const PCS_PAD_DEFAULTS = [
+  { mask: 0x0AB5, root: 0, label: "Ionian" }, { mask: 0x06AD, root: 0, label: "Dorian" },
+  { mask: 0x05AB, root: 0, label: "Phrygian" }, { mask: 0x0AD5, root: 0, label: "Lydian" },
+  { mask: 0x06B5, root: 0, label: "Mixolydian" }, { mask: 0x05AD, root: 0, label: "Aeolian" },
+  { mask: 0x056B, root: 0, label: "Locrian" }, { mask: 0x0091, root: 0, label: "Maj Triad" },
+];
+const PC_NAMES = ["C", "C♯", "D", "D♯", "E", "F", "F♯", "G", "G♯", "A", "A♯", "B"];
+const countBits = (m) => { let n = 0; for (let i = 0; i < 12; i++) n += (m >> i) & 1; return n; };
+
+export function pcsPadsModule(ctx, bodyEl, state) {
+  if (!Array.isArray(state.pads) || state.pads.length !== PCS_PAD_DEFAULTS.length) {
+    state.pads = PCS_PAD_DEFAULTS.map((p) => ({ ...p }));
+    ctx.save();
+  }
+  if (typeof state.selected !== "number") state.selected = -1;
+  let lastHeard = null; // { mask, root, name } — most recent `scale` seen on the bus
+
+  const grid = el("div", { class: "ws-pads" });
+  const status = el("div", { class: "ws-readout", text: "tap a pad to broadcast · ↓ learns the last scale heard on the bus" });
+
+  function broadcast(pad) {
+    ctx.bus.publish(makeMessage(FROM, "scale", { mask: pad.mask, root: pad.root, name: pad.label }, { to: "*" }));
+  }
+
+  function render() {
+    grid.replaceChildren(...state.pads.map((pad, i) => el("div", { class: "ws-pad" + (state.selected === i ? " active" : "") },
+      el("button", { class: "ws-pad-main", title: "Broadcast this scale",
+        onclick: () => {
+          state.selected = i; ctx.save();
+          broadcast(pad);
+          status.textContent = `sent ${pad.label} (root ${PC_NAMES[((pad.root % 12) + 12) % 12]})`;
+          render();
+        } },
+        el("div", { class: "ws-pad-name", text: pad.label }),
+        el("div", { class: "ws-pad-sub", text: `${PC_NAMES[((pad.root % 12) + 12) % 12]} · ${countBits(pad.mask)} notes` })),
+      el("button", { class: "ws-pad-learn", text: "↓", title: "Learn: store the last scale heard on the bus into this pad",
+        onclick: () => {
+          if (!lastHeard) { status.textContent = "nothing heard on the bus yet"; return; }
+          state.pads[i] = { mask: lastHeard.mask, root: lastHeard.root ?? 0, label: lastHeard.name || "Custom" };
+          ctx.save();
+          status.textContent = `pad ${i + 1} learned ${state.pads[i].label}`;
+          render();
+        } }))));
+  }
+
+  bodyEl.append(grid, status);
+  render();
+
+  const off = ctx.bus.subscribe((m) => {
+    if (m.type !== "scale" || !m.body || typeof m.body.mask !== "number") return;
+    lastHeard = m.body;
+    status.textContent = `heard ${m.body.name || "a scale"} from ${m.from} — tap ↓ on a pad to learn it`;
+  });
+  return () => off();
+}
+
+// ── Voice Split: round-robin channel distribution over the bus, using
+// @enkerli/voice-routing — the shared VoiceSplitter extracted from
+// PitchFold's VoiceProcessor (docs/PITCHFOLD_AUDIT.md singled this mode out
+// as the one voice-routing feature with clean, genuinely reusable logic).
+// Listens for `note` messages from a chosen source (or any app), and
+// republishes each on the next channel in the rotation, addressed to a
+// chosen destination — e.g. spread a melody across 4 channels feeding a
+// multi-timbral synth. Splits per BUS MESSAGE (a message can already carry
+// a whole chord in `notes[]`); it doesn't fragment one message's chord
+// across channels, which would need a different, chord-aware design.
+export function voiceSplitModule(ctx, bodyEl, state) {
+  const splitter = new VoiceSplitter();
+  // The full suite app vocabulary (@enkerli/library), not just the 2 apps
+  // with manifests loaded here — this is a bus router, it needs to name any
+  // app as a source or destination, not only the ones with a Control
+  // Surface. "external" excluded: that's the Workspace's own outbound
+  // identity, not a musical source/destination.
+  const appIds = APPS.filter((a) => a !== "external");
+
+  const fromSel = el("select", { class: "ws-select", "aria-label": "Split notes from" },
+    el("option", { value: "*", text: "any app" }),
+    ...appIds.map((a) => el("option", { value: a, text: a })));
+  const toSel = el("select", { class: "ws-select", "aria-label": "Send split notes to" },
+    ...appIds.map((a) => el("option", { value: a, text: a })));
+  const baseCh = el("input", { class: "ws-text ws-num", type: "number", min: 1, max: 16, "aria-label": "Base channel" });
+  const spanInput = el("input", { class: "ws-text ws-num", type: "number", min: 1, max: 16, "aria-label": "Span" });
+  const status = el("div", { class: "ws-readout", text: "waiting for notes…" });
+
+  fromSel.value = state.listenFrom ?? "*";
+  toSel.value = state.sendTo ?? appIds[0];
+  baseCh.value = state.baseChannel ?? 1;
+  // NOT `state.span` — the module-slot object already reserves that key for
+  // panel layout size ("s"/"m"/"l", set by main.js's addModule). Collided
+  // with it here once (the string "s" landed in a type=number input, which
+  // silently renders blank) — channelSpan avoids it for good.
+  spanInput.value = state.channelSpan ?? 4;
+
+  function persist() {
+    Object.assign(state, {
+      listenFrom: fromSel.value, sendTo: toSel.value,
+      baseChannel: Number(baseCh.value) || 1, channelSpan: Number(spanInput.value) || 1,
+    });
+    ctx.save();
+  }
+  for (const input of [fromSel, toSel, baseCh, spanInput]) input.addEventListener("change", persist);
+
+  bodyEl.append(
+    el("div", { class: "ws-row", style: "flex-wrap:wrap" },
+      el("label", { class: "ws-ctl", text: "from " }, fromSel),
+      el("label", { class: "ws-ctl", text: "to " }, toSel)),
+    el("div", { class: "ws-row" },
+      el("label", { class: "ws-ctl", text: "base ch " }, baseCh),
+      el("label", { class: "ws-ctl", text: "span " }, spanInput),
+      el("button", { class: "ws-btn ghost", text: "⟲ reset", title: "Restart the rotation",
+        onclick: () => { splitter.reset(); status.textContent = "rotation reset"; } })),
+    status);
+
+  const off = ctx.bus.subscribe((m) => {
+    if (m.type !== "note" || !m.body || !Array.isArray(m.body.notes)) return;
+    if (m.from === FROM) return; // never re-process our own output — loop guard
+    const want = fromSel.value;
+    if (want !== "*" && m.from !== want) return;
+    const channel = splitter.next(Number(baseCh.value) || 1, Number(spanInput.value) || 1);
+    ctx.bus.publish(makeNote(FROM, { ...m.body, channel }, { to: toSel.value }));
+    status.textContent = `${m.from} → ch ${channel} → ${toSel.value} (${m.body.notes.join(",")})`;
+  });
+  return () => off();
 }
 
 export function monitorModule(ctx, bodyEl) {
@@ -976,6 +1115,8 @@ export const MODULES = {
   "control-surface": { title: "Control Surface", make: controlSurfaceModule },
   "vane-synth": { title: "Vane Synth", make: vaneSynthModule },
   "pattern": { title: "Pattern (UPI)", make: patternModule },
+  "pcs-pads": { title: "PCS Pads", make: pcsPadsModule },
+  "voice-split": { title: "Voice Split", make: voiceSplitModule },
   "transforms": { title: "Pattern Transforms", make: transformsModule },
   "player": { title: "Pattern Player", make: playerModule },
   "rhythm-analysis": { title: "Rhythm Analysis", make: rhythmAnalysisModule },

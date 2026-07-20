@@ -212,3 +212,99 @@ IDE noise. Safe to delete whenever someone's next in that area.
 | MIDI-triggered pad switching (`setTriggerNote`/`padForNote`) | **Drop** — dead code, or finish it as a real feature |
 | `Source/UI/{ChromaticWheel,IconFactory,PCSPreview,ScaleLattice}.h` | **Drop** — ~1,517 lines, compiled into nothing |
 | `PCSEngine.h` header comment (bit order) | **Fix** — one-line comment correction, no behavior change |
+
+## Follow-up, same day: shipped + the rest of the roadmap
+
+Alex's call: don't leave these on paper — implement what's cheap, roadmap
+what isn't. The hunch ("shouldn't be too difficult") held for about half
+the list and didn't for the other half; both outcomes are below, honestly.
+
+### Shipped
+
+- **Pad-override in the standalone webapp** — fixed. `apps/pitchfold/engine/
+  pads.js` is a small, unit-tested JS port of `ChordPadBank::activeMask/
+  activeRoot`; `main.jsx`'s `handleNote()` now resolves through it before
+  quantizing. This was correctly sized as small — one pure function, no
+  design decision needed, the C++ side already specified the exact
+  behavior to copy.
+- **`quantStrength` ("Snap Strength")** — wired end-to-end. A visible slider
+  in `quantizer-panel.jsx`, threaded through `main.jsx`'s `quantize()` call,
+  and the matching one-line fix in `PluginProcessor.cpp` (`Enkerli/
+  PitchFold`, not build-verified — no JUCE/Xcode here, but it's the same
+  two-line shape as the already-correct call sites around it). Also
+  correctly sized as small.
+- **`Source/UI/{ChromaticWheel,IconFactory,PCSPreview,ScaleLattice}.h`** —
+  deleted (~1,517 lines), `CMakeLists.txt` updated. Zero risk, confirmed
+  nothing referenced them.
+- **`PCSEngine.h`'s stale bit-order comment** — fixed to match the code and
+  its sibling file.
+- **Voice Split promoted** to `packages/voice-routing`
+  (`@enkerli/voice-routing`, `VoiceSplitter` — round-robin channel
+  distribution, 8 tests). PitchFold's own JS engine now imports it instead
+  of carrying its own copy (`apps/pitchfold/engine/voices.js`) — proof the
+  extraction is real, not just a package that sits unused. Also gave
+  `engine/pcs.js`/`voices.js` their first-ever test coverage (37 tests) —
+  a gap the original audit didn't even flag, found while touching the file.
+- **Workspace modules**, the "might fit well in… the Workspace" ask
+  (`apps/workspace/modules.js`, `MODULES["pcs-pads"]`/`["voice-split"]`):
+  - **PCS Pads** — a Workspace-native pad bank that broadcasts `scale` bus
+    messages, the *exact* contract `apps/PickPCS` already sends and
+    `apps/pitchfold/control.js` already listens for. Zero changes needed on
+    either side — this interoperates with PitchFold today. Pads are
+    populated by "learn" (grab the last `scale` heard on the bus) rather
+    than reimplementing PitchFold's own mask editor from scratch — the bus
+    already IS the scale-editing surface; this just gives it a memory.
+  - **Voice Split** — subscribes to `note` messages from a chosen source (or
+    any app) and republishes each on the next channel in the rotation to a
+    chosen destination, using the same shared `VoiceSplitter`. Verified
+    over the REAL cross-tab transport (BroadcastChannel), not just
+    in-memory: injected notes as if from an external `proggenie` instance,
+    confirmed correct channel rotation landed on the Bus Monitor.
+  - **Found and fixed while building it**: the module-slot state object
+    `main.js`'s `addModule()` hands every module already reserves `state.
+    span` for panel layout size ("s"/"m"/"l"). Voice Split's own channel-span
+    field collided with it — the string `"s"` landed silently in a
+    `type=number` input, which renders blank rather than erroring. Renamed
+    to `channelSpan`. Worth remembering for the NEXT module that wants a
+    field named `span`, `app`, `upi`, `id`, or `type` — those five are the
+    module-slot's own reserved keys.
+  - **Known scoping limit, not a bug**: every Workspace-originated message
+    (Pattern Player, GloriArp, Recorder, and now Voice Split's own output)
+    publishes with the same `from: "external"` identity — there's no
+    per-module address. Voice Split's loop-guard (never re-process a
+    message it sent itself) is therefore also, incidentally, a wall against
+    ever reacting to another *same-workspace* module's notes — it only sees
+    genuinely external sources (a real PitchFold/ProgGenie instance, the CLI
+    bridge). Chaining Voice Split after e.g. the Pattern Player, in the same
+    canvas, doesn't work today. Fixing that needs per-module addressing on
+    the bus — a real design question, not this session's to decide
+    unilaterally; flagged for whoever picks up KT item 6 (shared library /
+    bus architecture).
+  - 6 new render/module tests (`pcsPadsModule`, `voiceSplitModule`),
+    verified live via Playwright against real dev builds of both
+    `apps/pitchfold` and `apps/workspace`.
+
+1442/1442 monorepo tests after all of the above (up from 1373 at session
+start; +69 across `voice-routing`, `pitchfold/engine/{pcs,voices,pads}`,
+and the two new Workspace modules).
+
+### Still on the roadmap — sized honestly
+
+| Item | Size | Why |
+|---|---|---|
+| **Mono Merge** — implement real note-stealing + `monoSelect` priority (Last/Lowest/Highest/First) | **M**, both engines | The spec already exists and is unambiguous (standard mono-synth priority modes) — genuinely not a product-taste question, just real work: track currently-held input notes, decide the sounding note on every on/off using the priority rule, and correctly re-trigger the next-priority note when the current one releases. That note-off interaction is the part that isn't "small" — it's real, if bounded, DSP-adjacent logic in two engines. **Alternative, cheaper**: drop the mode and its 4 sub-buttons entirely (S). Needs a call either way before touching code — this is the one item where "shouldn't be too difficult" doesn't fully hold if "implement it for real" is the choice. |
+| **Swing**, real triplet-swing offset in `TimeQuantizer::applyGrid()` | **S–M**, plugin only | Bounded and well-understood (push every other grid-aligned event late by `swing × offset`), but it's C++ DSP-timing code this container can't build or hear — real risk of a subtle off-by-one in the grid math going unverified. Correctly sized as small in the original audit; the *verification* gap, not the implementation, is what makes this not a same-session task. |
+| **Time engine, JS port for the standalone webapp** | **L** | The audit's biggest surprise, and the one place the "shouldn't be too difficult" hunch is wrong. `TimeQuantizer` is sample-accurate, block-based DSP (`applyGrid()` reasons in samples-per-block against a host PPQ clock); the webapp has no audio block callback at all — its note path is direct WebMIDI send-now. A port isn't a mechanical translation like `pcs.js`/`voices.js` were; it needs an actual scheduling model (something `setTimeout`-based, reasoning in wall-clock ms against a locally-tracked tempo instead of PPQ) — closer to designing a new subsystem than porting one. Recommend treating this as its own slice, not a quick fix, and deciding first whether the standalone even needs full DSP-grade timing or a simpler ms-based approximation is enough. |
+| **MIDI-triggered pad switching** (`ChordPadBank::setTriggerNote`/`padForNote`) | **S**, plugin only, if wanted | The dead code already has the right shape (`padForNote(midiNote)` → pad index); wiring it is a few lines in `PluginProcessor.cpp`'s note-on handler PLUS one product decision: should a trigger note also sound (quantized/routed normally) or only silently select the pad? That decision, not the code, is what's actually open. |
+| **Pad editor** — reuse the Scale tab's wheel/lattice instead of the 3-button shortcut | **M**, webapp UI | Real UI work (extracting `ChromaticWheelSVG`/`NeutralLattice` from `scale-editor.jsx` into something both panels can mount), not a quick win — correctly flagged as "not urgent" in the original audit. |
+| **PickPCS embedded explorer** — fold the duplicated logic into a shared package | **M**, ties to KT item 6 | Not urgent on its own; bundle it with whatever shared-library work KT item 6 does, rather than a standalone slice. |
+
+Net read on the hunch: pure "wire an existing, unambiguous engine value
+through to where it's already read" (pad-override, Snap Strength) and pure
+cleanup (dead headers, stale comment, promoting an already-clean
+algorithm) really were cheap — that's most of what's now shipped. What
+wasn't cheap were the two places where the JS twin was never just a port
+in the first place: Mono Merge (needs new stateful logic, not present in
+either engine) and the Time engine (needs a different SCHEDULING MODEL,
+not a translation). Both are real, scoped, buildable — just not
+same-session-cheap.

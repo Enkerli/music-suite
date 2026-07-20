@@ -7,6 +7,7 @@ import { startWebMidi, selectMidiInput, selectMidiOutput, sendMidiNoteOn, sendMi
 import { connectPitchFold } from './control.js';
 import { quantize } from './engine/pcs.js';
 import { VoiceProcessor } from './engine/voices.js';
+import { activePcs } from './engine/pads.js';
 import './design/tokens.jsx';              // window.PAPER, SCALES, SCALE_FAMILIES, PITCH_*
 import { initTheme, resolvedTheme } from '@enkerli/ui/theme';
 import { createGlobalCluster } from '@enkerli/ui/global-cluster';
@@ -101,8 +102,12 @@ function PitchFoldApp() {
           : e.note < lastInRef.current ? 'down' : 'nearest';
     else dir = s.quantDir === 2 ? 'up' : s.quantDir === 3 ? 'down' : 'nearest';
     lastInRef.current = e.note;
-    const q = quantize(e.note, s.pcsMask, s.pcsRoot, dir, s.outputLo, s.outputHi);
-    const cfg = { mode: s.voiceMode, chordMask: s.pcsMask, chordRoot: s.pcsRoot,
+    const { mask: activeMask, root: activeRoot } = activePcs(s);
+    // quantStrength (docs/PITCHFOLD_AUDIT.md): was registered as an
+    // automatable param but never actually reached this call site (defaulted
+    // to full-strength 1 always). Now threaded through for real.
+    const q = quantize(e.note, activeMask, activeRoot, dir, s.outputLo, s.outputHi, s.quantStrength);
+    const cfg = { mode: s.voiceMode, chordMask: activeMask, chordRoot: activeRoot,
                   splitVoices: s.splitVoices, splitChannel: s.splitChannel,
                   loNote: s.outputLo, hiNote: s.outputHi };
     const outs = voicesRef.current.processNoteOn(q, e.channel, cfg);

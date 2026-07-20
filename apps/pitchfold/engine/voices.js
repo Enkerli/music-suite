@@ -6,13 +6,14 @@
  * round-robin index.
  */
 import { buildChord, harmonize } from "./pcs.js";
+import { VoiceSplitter } from "@enkerli/voice-routing";
 
 export const VoiceMode = { Through: 0, MonoMerge: 1, PolySpread: 2, VoiceSplit: 3, Chordize: 4 };
 const MAX_CHORD_VOICES = 8;
 
 export class VoiceProcessor {
-  constructor() { this._splitIndex = 0; }
-  reset() { this._splitIndex = 0; }
+  constructor() { this._splitter = new VoiceSplitter(); }
+  reset() { this._splitter.reset(); }
 
   /** Returns an array of { note, channel } to emit for this Note-On. */
   processNoteOn(note, channel, cfg) {
@@ -25,12 +26,11 @@ export class VoiceProcessor {
         return harmonize(note, cfg.chordMask, MAX_CHORD_VOICES, cfg.loNote, cfg.hiNote)
           .map((n) => ({ note: n, channel: 1 }));
 
-      case VoiceMode.VoiceSplit: {
-        const span = Math.max(1, cfg.splitVoices);
-        const ch = Math.min(16, Math.max(1, cfg.splitChannel + (this._splitIndex % span)));
-        this._splitIndex = (this._splitIndex + 1) % span;
-        return [{ note, channel: ch }];
-      }
+      case VoiceMode.VoiceSplit:
+        // Promoted to @enkerli/voice-routing (docs/PITCHFOLD_AUDIT.md) — the
+        // one voice mode the audit found genuinely clean, now shared instead
+        // of duplicated per app.
+        return [{ note, channel: this._splitter.next(cfg.splitChannel, cfg.splitVoices) }];
 
       case VoiceMode.MonoMerge:
       case VoiceMode.Through:

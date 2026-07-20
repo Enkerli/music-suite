@@ -11,11 +11,13 @@
   },
   "dependencies": {
     "@enkerli/protocol": "*",
+    "@enkerli/library": "*",
     "@enkerli/control": "*",
     "@enkerli/upi": "*",
     "@enkerli/accompaniment": "*",
     "@enkerli/theory": "*",
-    "@enkerli/ui": "*"
+    "@enkerli/ui": "*",
+    "@enkerli/voice-routing": "*"
   },
   "devDependencies": {
     "esbuild": "^0.24.0"

@@ -270,6 +270,24 @@ a stale bit-order doc comment in `PCSEngine.h`, and fully dead
 MIDI-pad-trigger code in `ChordPadBank`. Full keep/promote/drop table
 in the audit doc — no code changed, per the brief.
 
+**Follow-up, same day** (audit doc's own "Follow-up" section has the
+full detail): the cheap findings actually got implemented, not just
+roadmapped — pad-override fixed in the standalone webapp
+(`apps/pitchfold/engine/pads.js`, tested), `quantStrength` wired
+end-to-end (webapp + `Enkerli/PitchFold` C++, not build-verified),
+Voice Split promoted to `packages/voice-routing`
+(`@enkerli/voice-routing`, PitchFold's own engine now uses it), the
+dead C++ headers deleted, the stale comment fixed. New: two Workspace
+modules (`pcs-pads`, `voice-split`) — PCS Pads broadcasts `scale` bus
+messages on the SAME contract PickPCS/PitchFold already share (zero
+changes needed either side); Voice Split reuses the shared package to
+re-route `note` messages round-robin, verified over the real cross-tab
+bus. Mono Merge and a standalone Time-engine port stayed on the
+roadmap — both turned out to need real new logic (mono note-stealing;
+a wall-clock scheduling model instead of TimeQuantizer's block-based
+one), not a mechanical port, so "shouldn't be too difficult" didn't
+fully hold there. 1442/1442 monorepo.
+
 ## 9. Serpe concentric circles (M–L · ★★) — DONE, 2026-07-20
 
 Nested-rings renderer for the poly lane data model shipped, webapp-only.

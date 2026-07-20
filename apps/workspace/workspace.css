@@ -90,6 +90,18 @@ body {
 .ws-step { width: 14px; height: 14px; border-radius: 3px; background: var(--es-bg-sunken, #efeadf); border: 1px solid var(--es-border, #d8d2c6); }
 .ws-step.on { background: var(--es-accent, #3a6ea5); border-color: transparent; }
 
+.ws-pads { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 6px; }
+.ws-pad { display: flex; align-items: stretch; border: 1px solid var(--es-border, #d8d2c6); border-radius: 6px; overflow: hidden; }
+.ws-pad.active { border-color: var(--es-accent, #3a6ea5); }
+.ws-pad-main { text-align: left; padding: 5px 8px; background: var(--es-bg-sunken, #efeadf); border: 0; cursor: pointer; min-width: 76px; }
+.ws-pad.active .ws-pad-main { background: var(--es-accent, #3a6ea5); }
+.ws-pad.active .ws-pad-name, .ws-pad.active .ws-pad-sub { color: var(--es-accent-fg, #fff); }
+.ws-pad-name { font-size: 12px; font-weight: 600; color: var(--es-fg, #26231d); }
+.ws-pad-sub { font-size: 10px; color: var(--es-fg-muted, #6b6559); }
+.ws-pad-learn { border: 0; border-left: 1px solid var(--es-border, #d8d2c6); background: var(--es-bg-raised, #fff);
+  color: var(--es-fg-muted, #6b6559); cursor: pointer; padding: 0 8px; font-size: 12px; }
+.ws-pad-learn:hover { color: var(--es-fg, #26231d); }
+
 .ws-log { font-family: var(--es-font-mono, ui-monospace, monospace); font-size: 11.5px;
   max-height: 240px; overflow-y: auto; display: flex; flex-direction: column; gap: 2px; }
 .ws-logline { padding: 3px 0; line-height: 1.45; border-bottom: 1px dotted var(--es-border-soft, #e7e2d8);
