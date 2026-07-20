@@ -15,7 +15,10 @@ actually reaches), and an explicit limitations section (a real
 color-contrast bug found and fixed, and a gap found and closed same day:
 Serpe's JUCE plugin used to only ever play polyrhythm, never polymeter —
 now both are real there, see item 9). Read it before this doc if you
-want the "what actually happened" view rather than the per-item plan.*
+want the "what actually happened" view rather than the per-item plan.
+`docs/DESIGN_AGENT_QUESTIONS.md` — five short questions for whoever
+picks up the design pass, topped by the Serpe rings' resemblance to
+Lascabettes's Rhythmic Circle.*
 
 ## 0. Read order, then rules
 
