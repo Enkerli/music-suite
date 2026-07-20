@@ -33,8 +33,8 @@
 <script type="importmap">
 { "imports": { "@enkerli/theory": "../../packages/theory/dist/index.js" } }
 </script>
-  <script type="module" crossorigin src="./assets/index-DlCTWwC1.js"></script>
-  <link rel="stylesheet" crossorigin href="./assets/index-yePcdp0T.css">
+  <script type="module" crossorigin src="./assets/index-Bxl474DC.js"></script>
+  <link rel="stylesheet" crossorigin href="./assets/index-BT9sg_Np.css">
 </head>
 <body class="es-app">
 
@@ -43,7 +43,9 @@
     <div class="es-eyebrow">@enkerli/ui · paper &amp; ink</div>
     <h1>Style gallery</h1>
   </div>
-  <button class="es-btn" id="theme-toggle" aria-label="Toggle color theme">◐ theme</button>
+  <!-- The shared frame's global-controls cluster — the gallery adopts it
+       first, as the living spec. theme · MIDI · density · Library. -->
+  <div id="cluster-host"></div>
 </header>
 
 <section class="es-panel">
@@ -82,6 +84,19 @@
     Controls use <code>--es-border-strong</code> (≥3:1); panels keep the decorative border.
     The select wears an ink chevron (theme-aware) instead of OS chrome.
     Tab through to see the focus ring.
+  </p>
+</section>
+
+<section class="es-panel">
+  <h2>The shared frame <span style="color:var(--es-fg-muted);font-size:var(--es-text-sm)">(one cluster, same slots in all ten apps)</span></h2>
+  <p style="color:var(--es-fg-muted); font-size:var(--es-text-sm); margin-top:0">
+    The live cluster is in this page's header ↑ — <b>theme · MIDI · density · Library</b>, in that
+    order, always top-right (or rail-header). Stable ids: <code>#theme-toggle</code>
+    <code>#midi-chip</code> <code>#density-toggle</code> <code>#library-toggle</code>. The theme
+    label names the <em>target</em> mode; the MIDI chip's LED always rides with a word; density
+    toggles <code>.es-dense</code> on the whole page; Library opens the LibraryBrowser
+    (below — the two design efforts converged on that one surface). Apps without MIDI simply
+    omit slot 2 — nothing reflows.
   </p>
 </section>
 
@@ -157,6 +172,13 @@
     <div id="leadsheet"></div>
     <p class="readout" id="leadsheet-text" style="font-family:var(--es-font-mono); color:var(--es-fg-2)"></p>
   </div>
+</section>
+
+<section>
+  <h2>Library browser <span class="es-eyebrow" style="text-transform:none">— the one pattern (Design pass · Q2), config-driven over @enkerli/library</span></h2>
+  <div class="es-eyebrow">300 synthetic presets. Facets · search + autocomplete · chips · sort · row actions · delete-with-undo (Q4). Toggle below to see it scale down to a first-run library.</div>
+  <label style="display:inline-flex; gap:6px; align-items:center; margin:6px 0"><input type="checkbox" id="lib-sparse"> sparse (first-run — 3 items, facet rail hides)</label>
+  <div id="library" style="height:560px; border:1px solid var(--es-border); border-radius:var(--es-radius-md); overflow:hidden; background:var(--es-bg)"></div>
 </section>
 
 </body>

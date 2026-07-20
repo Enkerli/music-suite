@@ -2,7 +2,8 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+  <!-- Zoom stays enabled (WCAG 1.4.4). -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>PitchFold</title>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -15,6 +16,13 @@
     }
     /* Prevent iOS rubber-band scroll inside the plugin UI */
     body { overscroll-behavior: none; touch-action: none; }
+    /* Touch targets (house rule ≥44px on coarse pointers): the inline PAPER
+       buttons/selects size 19-23px tall by padding; min-height wins over
+       inline height, so this scales them without touching call sites. */
+    @media (pointer: coarse) {
+      button, select { min-height: 44px; }
+      input[type="text"] { min-height: 44px; }
+    }
   </style>
 </head>
 <body>

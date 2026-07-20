@@ -6,15 +6,22 @@
   <link rel="icon" type="image/svg+xml" href="./assets/icon-uIQNECiF.svg" />
   <title>Exquisite Fingerings - Exquis Controller Explorer</title>
   <meta name="description" content="Interactive fingering explorer for Intuitive Instruments Exquis hex grid controller" />
-  <script type="module" crossorigin src="./assets/main-DAYclrkE.js"></script>
-  <link rel="stylesheet" crossorigin href="./assets/main-CGM3c8nL.css">
+  <script type="module" crossorigin src="./assets/main-BERGx8md.js"></script>
+  <link rel="stylesheet" crossorigin href="./assets/main-B7Ujuwci.css">
 </head>
 <body>
   <aside>
     <div class="topbar">
       <h2>Exquis Fingerings</h2>
-      <button id="themeToggle" class="es-btn es-small" aria-label="Toggle color theme">● Dark</button>
+      <!-- The shared frame's global cluster — theme · MIDI · density ·
+           Library, same slots as every suite app (archetype A: rail header). -->
+      <div id="clusterHost"></div>
     </div>
+
+    <!-- The Library — patterns · handprints · chord fingerings, one surface
+         (Design pass · Q2's LibraryBrowser, compact for this rail). Toggled
+         by the cluster's Library button; hidden until opened. -->
+    <div id="libraryHost" style="display:none; margin-bottom: 12px;"></div>
 
     <!-- ══ Card 1 — Chord & scale (one source of truth) ══ -->
     <details class="es-section" open>
@@ -163,14 +170,9 @@
               </div>
             </div>
 
-            <details style="margin-top:12px;">
-              <summary class="es-eyebrow" style="cursor:pointer;">Saved chord fingerings</summary>
-              <div id="savedChordFingerings" style="margin-top:8px;">
-                <div id="chordFingeringList" style="font-size:0.85em; opacity:0.7;">No chord fingerings captured yet.</div>
-                <button id="exportChordFingerings" class="es-btn" style="width:100%; margin-top:8px; display:none;">Export All</button>
-                <button id="clearChordFingerings" class="es-btn danger" style="width:100%; margin-top:4px; display:none;">Clear All</button>
-              </div>
-            </details>
+            <!-- Saved chord fingerings live in the Library (cluster, top) —
+                 file export stays here as the sharing path. -->
+            <button id="exportChordFingerings" class="es-btn" style="width:100%; margin-top:12px; display:none;">Export All Chord Fingerings</button>
           </div>
         </details>
 
@@ -188,14 +190,9 @@
             <button id="startHandprintCapture" class="es-btn es-primary" style="width:100%; margin-top:8px;">Start Capture</button>
             <div id="handprintCaptureStatus" style="margin-top:8px;"></div>
 
-            <details style="margin-top:12px;">
-              <summary class="es-eyebrow" style="cursor:pointer;">Saved handprints</summary>
-              <div id="savedHandprints" style="margin-top:8px;">
-                <div id="handprintList" style="font-size:0.85em; opacity:0.7;">No handprints captured yet.</div>
-                <button id="exportHandprints" class="es-btn" style="width:100%; margin-top:8px; display:none;">Export All Handprints</button>
-                <button id="clearHandprints" class="es-btn danger" style="width:100%; margin-top:4px; display:none;">Clear All Handprints</button>
-              </div>
-            </details>
+            <!-- Saved handprints live in the Library (cluster, top) —
+                 file export stays here as the sharing path. -->
+            <button id="exportHandprints" class="es-btn" style="width:100%; margin-top:12px; display:none;">Export All Handprints</button>
 
             <details style="margin-top:12px;">
               <summary class="es-eyebrow" style="cursor:pointer;">AI suggestions</summary>
@@ -264,16 +261,11 @@
     <details class="es-section">
       <summary>Patterns</summary>
       <div class="es-section-body">
+        <!-- Save/load/delete moved to the Library (cluster, top) — the name
+             field seeds the Library save and the file export. -->
         <label>Pattern Name
           <input type="text" id="patternName" class="es-control" placeholder="e.g., C7 Root Position" />
         </label>
-        <button id="savePattern" class="es-btn es-primary" style="width:100%;">Save Pattern</button>
-        <label>Load Pattern
-          <select id="loadPattern" class="es-control">
-            <option value="">-- Select Pattern --</option>
-          </select>
-        </label>
-        <button id="deletePattern" class="es-btn danger" style="width:100%;">Delete Selected</button>
 
         <div style="margin-top:12px;">
           <button id="exportPattern" class="es-btn" style="width:100%;">Export to JSON</button>
@@ -320,14 +312,8 @@
         <details class="es-section" style="margin-top:14px;">
           <summary>MIDI I/O</summary>
           <div class="es-section-body">
-            <div id="midiStatus" class="warning-box">MIDI not available (use Chrome/Brave/Edge)</div>
-            <button id="enableMidi" class="es-btn es-primary" style="width:100%;">Enable MIDI</button>
-            <label>MIDI Device
-              <select id="midiDevice" class="es-control" disabled>
-                <option value="">-- No devices --</option>
-              </select>
-            </label>
-
+            <!-- Device selection + status moved to the cluster's MIDI chip
+                 (slot 2, top) — this section keeps the behaviour controls. -->
             <div class="control-row">
               <label style="flex:2;">Hold Duration
                 <input type="range" id="midiHoldDuration" min="100" max="10000" step="100" value="1000" />

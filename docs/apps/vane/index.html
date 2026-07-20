@@ -31,7 +31,7 @@
    Vane was the paper-&-ink language's source; its --vn-* literals match the
    shared --es-* tokens exactly (per the consistency-pass mapping). These are
    INLINED literals, not a <link> to the real tokens.css: this file is copied
-   byte-for-byte by build.sh (sed only rewrites 2026-07-17.1523Z) into dist/ and
+   byte-for-byte by build.sh (sed only rewrites 2026-07-20.1122Z) into dist/ and
    then into docs/apps/vane/ for the Pages site, at a different relative
    depth each time — an external stylesheet link breaks silently at one of
    those depths (found in production: the whole theme resolved to nothing,
@@ -2558,14 +2558,14 @@ setInterval(()=>{
      AudioWorklet, driven by Web MIDI). In the plugin (__JUCE__ present) this is
      skipped — the C++ engine makes the sound and synth.js is never requested. -->
 <script>
-  // Build id injected by the app build (sed-replaces 2026-07-17.1523Z); stays literal
+  // Build id injected by the app build (sed-replaces 2026-07-20.1122Z); stays literal
   // in the plugin (which never loads synth.js). Used to cache-bust synth.js
   // ITSELF (the browser caches it aggressively, and the wasm/worklet cache-bust
   // lives inside it — chicken-and-egg) and shown in the standalone GUI.
-  window.__VANE_BUILD__ = '2026-07-17.1523Z';
+  window.__VANE_BUILD__ = '2026-07-20.1122Z';
   if (typeof window.__JUCE__ === 'undefined') {
     var s = document.createElement('script');
-    s.type = 'module'; s.src = 'synth.js?v=2026-07-17.1523Z';
+    s.type = 'module'; s.src = 'synth.js?v=2026-07-20.1122Z';
     document.head.appendChild(s);
   }
 </script>

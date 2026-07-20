@@ -97,6 +97,7 @@ footer a { text-decoration: underline; }
 .prose h3 { font-size: 17px; margin: 26px 0 6px; font-family: var(--sans); }
 .prose p, .prose li { font-size: 16px; }
 .prose ul, .prose ol { padding-left: 22px; }
+.prose img { max-width: 100%; height: auto; border: 1px solid var(--border); border-radius: 10px; box-shadow: 0 6px 22px rgba(28,25,20,.06); }
 .prose blockquote { margin: 16px 0; padding: 2px 16px; border-left: 3px solid var(--accent); color: var(--ink2); background: var(--sunken); border-radius: 0 8px 8px 0; }
 .prose table { width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 14px; }
 .prose th, .prose td { text-align: left; padding: 8px 12px; border-bottom: 1px solid var(--border); vertical-align: top; }

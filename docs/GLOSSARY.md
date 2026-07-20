@@ -7,6 +7,36 @@ without reverse-engineering the vocabulary. Grouped, not alphabetized, so
 related terms sit together; a term's authority (the file or doc that owns
 it) is named where one exists. Living document.*
 
+## Plain-language basics (the words the [user guide](USER_GUIDE.md) leans on)
+
+- **MIDI** — the common language musical devices and programs use to say
+  "play this note now, this hard" or "turn this knob." It carries
+  instructions, not sound.
+- **MIDI file (SMF)** — those instructions saved as a `.mid` file any
+  music program can open. Suite exports embed the full chord information
+  so other suite tools can read the *meaning* back, not just the notes.
+- **WebMIDI** — the browser feature that lets a web page talk MIDI to
+  your hardware. Chromium browsers (Chrome, Edge, Brave) have it; Safari
+  and Firefox don't — suite apps then show "No Web MIDI" and everything
+  except talking to gear still works.
+- **DAW** — digital audio workstation: a music-making program
+  (GarageBand, Logic, Live, Reaper, AUM…). Hosts plugins.
+- **Plugin** — a tool that runs *inside* a DAW, synced to its tempo and
+  transport. Seven suite tools ship as plugins. A **standalone** is the
+  same tool as its own app, no DAW needed.
+- **Chord** — a group of notes sounded together. A **chord progression**
+  is a sequence of chords — the harmonic skeleton most music hangs on.
+- **Scale** — a set of notes that sound like they belong together; the
+  pool a melody draws from.
+- **Pattern** — a rhythm as a loop of steps; steps that sound are
+  **onsets**. See UPI below for the notation.
+- **Groove** — a rhythmic accompaniment figure (a bassline, a comping
+  pattern); in the suite, GloriArp makes these.
+- **Tempo / BPM** — speed, in beats per minute.
+- **Bus** — the Workspace's shared message channel: modules publish
+  chords/patterns/scales and any module (or another tab) can react.
+  The machinery behind it is the control plane, below.
+
 ## The apps (the `@enkerli/library` `AppId` vocabulary)
 
 The controlled list is `APPS` in `@enkerli/library` — the one authority for
@@ -124,6 +154,6 @@ Authority: [CONTROL_PLANE.md](CONTROL_PLANE.md); code in
   **CLAP** are the headless-capable Linux/desktop paths (MODEP, headless
   Ardour, `clap-validator`).
 - **MODEP / Patchbox OS / Ubuntu Studio** — the headless Linux targets.
-- **Persona** — a named design target the suite builds for; five in
-  [personas.md](personas.md) (with a second, tool-scoped set in MIDIcurator's
-  design docs — reconciliation is [MASTER_PLAN.md](MASTER_PLAN.md) §2.1).
+- **Persona** — a named design target the suite builds for; **seven** in
+  [personas.md](personas.md) (reconciled 2026-07-15 — the earlier five plus
+  the curious newcomer and the systematic maker).
