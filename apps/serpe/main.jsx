@@ -26,6 +26,7 @@ import { parseUPI, euclid, polygon, rotate, complement, invert,
          analyse, analyzeSyncopation, funkyEuclidean, bellCurveRandomSteps,
          mutatePattern, parsePolyUPI, splitLanes } from '@enkerli/upi';
 import { createCircleView, createStepView, createPolyCircleView } from './engine/render.js';
+import { laneStepMs as computeLaneStepMs, laneOffsetMs as computeLaneOffsetMs } from './engine/poly-clock.js';
 import serpeManifest from './manifest.json';
 import { connectSerpe } from './control.js';
 import { initJuceBridge, sendParamActual, sendUPI, sendPlaying, sendBPM, sendToggleAccent, juceAvailable } from './juce-bridge.js';
@@ -722,25 +723,19 @@ function SerpeApp() {
     g.gain.exponentialRampToValueAtTime(0.0001, t + 0.09);
     o.start(t); o.stop(t + 0.1);
   }
-  function laneOffsetMs(lane) {
-    const L = live.current;
-    if (!lane.offset) return 0;
-    if (lane.offset.kind === 'ms') return lane.offset.ms;
-    // note-value fraction of a whole note (4 beats), tempo-synced
-    return (lane.offset.num / lane.offset.den) * 4 * (60000 / L.tempo);
-  }
-  /** Base step in ms (mono's stepDur without swing — poly ignores swing). */
-  function polyBaseStepMs() {
-    const L = live.current; const grp = L.group || 4;
-    return ((60 / L.tempo) / grp) * 1000;
-  }
-  /** This lane's step duration under the current lock. */
+  // Math lives in engine/poly-clock.js (pulled out and unit-tested with
+  // coprime step counts — 8-vs-16-style fixtures realign too fast to prove
+  // anything about the two lock modes actually differing). These wrappers
+  // just adapt the pure functions to the live React state.
+  function laneOffsetMs(lane) { return computeLaneOffsetMs(lane, live.current.tempo); }
   function laneStepMs(lane) {
     const L = live.current;
-    const base = polyBaseStepMs();
-    if (L.polyLock === 'step' || !L.poly) return base;                 // polymeter
-    const refLen = L.poly.lanes[0].steps.length || 1;                  // polyrhythm:
-    return base * (refLen / (lane.steps.length || 1));                 // same cycle for all
+    return computeLaneStepMs({
+      lane,
+      refSteps: L.poly ? L.poly.lanes[0].steps.length : undefined,
+      polyLock: (!L.poly || L.polyLock === 'step') ? 'step' : 'cycle',
+      tempo: L.tempo, group: L.group,
+    });
   }
   function polyHit(lane, laneIdx, accent) {
     const L = live.current;
