@@ -8,6 +8,20 @@ import { connectPitchFold } from './control.js';
 import { quantize } from './engine/pcs.js';
 import { VoiceProcessor } from './engine/voices.js';
 import './design/tokens.jsx';              // window.PAPER, SCALES, SCALE_FAMILIES, PITCH_*
+import { initTheme, resolvedTheme } from '@enkerli/ui/theme';
+import { createGlobalCluster } from '@enkerli/ui/global-cluster';
+import { toast } from '@enkerli/ui/toast';
+import esTokensCss from '@enkerli/ui/tokens.css';
+import esComponentsCss from '@enkerli/ui/components.css';
+
+// Shared-frame CSS (tokens are :root vars only; components are .es-*-scoped —
+// neither touches PitchFold's inline PAPER styling) + the ONE theme mechanism.
+for (const css of [esTokensCss, esComponentsCss]) {
+  const s = document.createElement('style');
+  s.textContent = css;
+  document.head.appendChild(s);
+}
+initTheme();
 import { ScaleEditor }    from './design/scale-editor.jsx';
 import { PCSExplorer }    from './design/pcs-explorer.jsx';
 import { QuantizerPanel } from './design/quantizer-panel.jsx';
@@ -44,23 +58,11 @@ function PitchFoldApp() {
   const paper = window.PAPER || {};
   const [state, setState] = React.useState(DEFAULT_STATE);
   const [tab,   setTab]   = React.useState('scale');   // 'scale' | 'time' | 'voice' | 'pads'
-  // Theme — the suite's ONE mechanism (shared-frame pass): [data-theme] on
-  // <html>, persisted as "enkerli.theme", OS preference until chosen. The
-  // PAPER swap keys off the same resolved value, so SVG attrs and any
-  // --es-* CSS agree.
-  const resolvedDark = () => {
-    try { const s = localStorage.getItem('enkerli.theme'); if (s === 'light' || s === 'dark') return s === 'dark'; } catch { /* fine */ }
-    try { return matchMedia('(prefers-color-scheme: dark)').matches; } catch { return false; }
-  };
-  const [dark, setDark] = React.useState(resolvedDark);
-  React.useEffect(() => {
-    document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
-  }, [dark]);
-  const toggleTheme = () => {
-    const next = !dark;
-    try { localStorage.setItem('enkerli.theme', next ? 'dark' : 'light'); } catch { /* fine */ }
-    setDark(next);
-  };
+  // Theme — @enkerli/ui/theme owns [data-theme] + the "enkerli.theme" key
+  // (this file used to carry the third private copy of that logic — design
+  // audit 2026-07-19 F4). React only mirrors the resolved value so the PAPER
+  // swap keys off the same truth; the cluster's toggle drives changes.
+  const [dark, setDark] = React.useState(() => resolvedTheme() === 'dark');
 
   const activePaper = dark ? (window.PAPER_DARK || paper) : paper;
 
@@ -74,7 +76,6 @@ function PitchFoldApp() {
   const [midiInId,  setMidiInId]  = React.useState('');
   const [midiOutId, setMidiOutId] = React.useState('');
   const [midiErr,   setMidiErr]   = React.useState('');
-  const [scaleFlash, setScaleFlash] = React.useState('');   // "scale received" notice
 
   const liveRef    = React.useRef(state); liveRef.current = state;
   const outIdRef   = React.useRef(midiOutId); outIdRef.current = midiOutId;
@@ -125,8 +126,9 @@ function PitchFoldApp() {
       if (cancelled) return;
       send('pcsMask', body.mask & 0xFFF);
       if (Number.isInteger(body.root)) send('pcsRoot', body.root);
-      setScaleFlash(`↧ ${body.name || 'scale'} · from ${from}`);
-      window.setTimeout(() => setScaleFlash(''), 4000);
+      // Transient notice → the suite's toast idiom (was an inline device-bar
+      // flash; that bar is gone — the cluster popover owns devices now).
+      toast(`↧ ${body.name || 'scale'} · from ${from}`);
     };
     startWebMidi({
       onDevices: p => { if (!cancelled) setMidiPorts(p); },
@@ -167,6 +169,21 @@ function PitchFoldApp() {
     sendParam(field, value);
   };
 
+  // ── Shared frame: cluster MIDI state ───────────────────────────────────────
+  // Standalone: real Web MIDI ports in the cluster popover (replacing the old
+  // DeviceSel bar). Plugin/JUCE-standalone: MIDI is native — the honest chip.
+  const clusterMidi = React.useMemo(() => {
+    if (!standalone) return { native: true };
+    if (!midiSupported() || midiErr) return { unavailable: true };
+    return {
+      inputs:  midiPorts.inputs.map(p => ({ id: p.id, name: p.name })),
+      outputs: midiPorts.outputs.map(p => ({ id: p.id, name: p.name })),
+      selectedInId: midiInId, selectedOutId: midiOutId,
+      onSelectIn: setMidiInId, onSelectOut: setMidiOutId,
+      badge: 'Standalone',
+    };
+  }, [standalone, midiErr, midiPorts, midiInId, midiOutId]);
+
   // ── Tabs ───────────────────────────────────────────────────────────────────
 
   const TABS = [
@@ -201,30 +218,16 @@ function PitchFoldApp() {
         </span>
 
         <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-          {/* Tab bar */}
-          {TABS.map(t => (
-            <button key={t.id}
-              onClick={() => setTab(t.id)}
-              style={{
-                padding: '4px 12px', fontSize: 11, borderRadius: 5, cursor: 'pointer',
-                border: `1px solid ${tab === t.id ? (activePaper.ink || '#2D2620') : (activePaper.rule || '#D4CAB8')}`,
-                background: tab === t.id ? (activePaper.ink || '#2D2620') : 'transparent',
-                color: tab === t.id ? (activePaper.card || '#FAF8F4') : (activePaper.ink || '#2D2620'),
-                transition: 'background 100ms',
-              }}>
-              {t.label}
-            </button>
-          ))}
-
-          {/* Theme — canonical suite control: names the TARGET mode */}
-          <button id="theme-toggle" onClick={toggleTheme} title="Switch theme"
-            aria-pressed={dark} style={{
-            padding: '4px 8px', fontSize: 12, borderRadius: 5, cursor: 'pointer',
-            border: `1px solid ${activePaper.rule || '#ddd6ca'}`,
-            background: 'transparent', color: activePaper.ink70 || '#4b463e',
-          }}>
-            {dark ? '☀︎ Light' : '● Dark'}
-          </button>
+          {/* Tab bar — the shared .es-tabs recipe (design audit F10) */}
+          <div className="es-tabs" role="tablist" aria-label="Sections">
+            {TABS.map(t => (
+              <button key={t.id} className="es-tab" role="tab"
+                aria-selected={tab === t.id}
+                onClick={() => setTab(t.id)}>
+                {t.label}
+              </button>
+            ))}
+          </div>
 
           {/* Panic */}
           <button onClick={panic} title="All Notes Off" style={{
@@ -234,27 +237,13 @@ function PitchFoldApp() {
           }}>
             ✕ Panic
           </button>
+
+          {/* Shared frame: theme · MIDI (popover replaces the old DeviceSel
+              bar) · density. The cluster's toggle carries #theme-toggle. */}
+          <ClusterMount midi={clusterMidi}
+            onThemeChange={(t) => setDark(t === 'dark')} />
         </div>
       </div>
-
-      {/* Standalone MIDI device routing (a plugin host owns this otherwise) */}
-      {standalone && (
-        <div style={{
-          display: 'flex', gap: 16, alignItems: 'center', padding: '6px 16px',
-          borderBottom: `1px solid ${activePaper.rule || '#D4CAB8'}`,
-          background: activePaper.card || '#FAF8F4', flexShrink: 0, fontSize: 11,
-          fontFamily: 'InterTight, system-ui',
-        }}>
-          <span style={{ textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 600, color: activePaper.ink50 || '#6B5E55' }}>MIDI</span>
-          {midiErr
-            ? <span style={{ color: activePaper.ink50 || '#6B5E55' }}>{midiErr}</span>
-            : <>
-                <DeviceSel label="In"  paper={activePaper} ports={midiPorts.inputs}  value={midiInId}  onChange={setMidiInId} />
-                <DeviceSel label="Out" paper={activePaper} ports={midiPorts.outputs} value={midiOutId} onChange={setMidiOutId} />
-              </>}
-          {scaleFlash && <span style={{ color: activePaper.accent || '#B05E2E', fontWeight: 600 }}>{scaleFlash}</span>}
-        </div>
-      )}
 
       {/* Content */}
       <div style={{ flex: 1, overflow: 'auto', padding: 16 }}>
@@ -319,19 +308,18 @@ function PitchFoldApp() {
   );
 }
 
-function DeviceSel({ label, paper, ports, value, onChange }) {
-  return (
-    <label style={{ display: 'inline-flex', gap: 6, alignItems: 'center', color: paper?.ink70 || '#574E44' }}>
-      <span>{label}</span>
-      <select value={value} onChange={e => onChange(e.target.value)} aria-label={`MIDI ${label}`} style={{
-        fontSize: 11, padding: '3px 6px', borderRadius: 5,
-        border: `1px solid ${paper?.rule || '#D4CAB8'}`, background: 'transparent', color: paper?.ink || '#2D2620',
-      }}>
-        <option value="">{ports.length ? 'None' : 'No devices'}</option>
-        {ports.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-      </select>
-    </label>
-  );
+/** Shared-frame mount (theme · MIDI popover · density), React-wrapped the
+ *  same way ProgGenie/PickPCS/Serpe do it. Replaces the old DeviceSel bar. */
+function ClusterMount({ midi, onThemeChange }) {
+  const host = React.useRef(null), cluster = React.useRef(null);
+  React.useEffect(() => {
+    cluster.current = createGlobalCluster(host.current,
+      { midi, densityTarget: document.body, onThemeChange });
+    return () => cluster.current.destroy();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- mounts once
+  }, []);
+  React.useEffect(() => { cluster.current?.update({ midi }); }, [midi]);
+  return <div ref={host} style={{ display: 'inline-flex' }} />;
 }
 
 function SectionTitle({ paper, children }) {

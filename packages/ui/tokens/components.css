@@ -919,3 +919,18 @@ select.es-control option { background: var(--es-bg-raised); color: var(--es-fg);
 .lib-filters > summary:focus-visible { outline: var(--es-focus-ring); outline-offset: -2px; border-radius: 6px; }
 .lib-filters-body { padding: 2px 10px 10px; }
 .lib-filters-body .facet-search-hint { display: none; }
+
+/* ── Tabs — the ONE tab idiom (design audit 2026-07-19 · F10) ─────────────────
+   Ink-filled active tab, quiet outline otherwise; CSS-only (bring your own
+   state). First adopter: PitchFold; Vane's segmented bar converges at its
+   next UI touch. */
+.es-tabs{display:inline-flex;gap:6px}
+.es-tabs .es-tab{
+  padding:4px 12px;font-size:11px;border-radius:5px;cursor:pointer;
+  font-family:inherit;transition:background 100ms;
+  border:1px solid var(--es-border);background:transparent;color:var(--es-fg);
+}
+.es-tabs .es-tab[aria-selected="true"]{
+  background:var(--es-fg);color:var(--es-bg-raised);border-color:var(--es-fg);
+}
+.es-tabs .es-tab:focus-visible{outline:var(--es-focus-ring);outline-offset:2px}
