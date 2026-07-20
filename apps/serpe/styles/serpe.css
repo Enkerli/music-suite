@@ -135,7 +135,15 @@ body {
 
 /* ── Visualiser ─────────────────────────────────────────────────────── */
 .viz { background: var(--es-bg-raised); border: 1px solid var(--es-border); border-radius: var(--es-radius-md); box-shadow: var(--es-shadow); overflow: hidden; }
-.viz-head { display: flex; align-items: center; gap: 8px; padding: 9px 12px; border-bottom: 1px solid var(--es-border-soft); }
+/* flex-wrap: the poly-lanes header packs two seg groups + a kit select +
+   (host-only) a lag control + meta text into one row — on a narrow window,
+   an iPad portrait runtime, or an embedded panel, that doesn't fit. Without
+   wrap, flex items shrink to fit instead, and .seg's own `overflow: hidden`
+   (there to round its corners) then silently clips button LABELS — "Step"
+   rendering as "St", "Rows" as "ws". Wrapping to a second line is the fix;
+   flex-shrink: 0 below on .seg/.poly-ctl is what makes wrapping actually
+   trigger instead of every child quietly shrinking first. */
+.viz-head { display: flex; align-items: center; gap: 8px; padding: 9px 12px; border-bottom: 1px solid var(--es-border-soft); flex-wrap: wrap; }
 .viz-head .es-eyebrow { flex: 1 1 auto; white-space: nowrap; }
 .viz-head label.iconbtn { white-space: nowrap; }
 .viz-body { padding: 16px; display: flex; flex-direction: column; gap: 16px; }
@@ -245,8 +253,10 @@ select.es-control {
 /* hidden-by-runtime */
 [hidden] { display: none !important; }
 
-/* segmented (view switch inside app) */
-.seg { display: inline-flex; border: 1px solid var(--es-border-strong); border-radius: var(--es-radius-sm); overflow: hidden; }
+/* segmented (view switch inside app) — flex-shrink: 0 so a squeeze wraps
+   the row (.viz-head above) instead of shrinking the pills and letting
+   `overflow: hidden` clip their labels. */
+.seg { display: inline-flex; flex-shrink: 0; border: 1px solid var(--es-border-strong); border-radius: var(--es-radius-sm); overflow: hidden; }
 .seg button { border: 0; background: var(--es-bg-raised); color: var(--es-fg-2); font-family: var(--es-font-sans); font-size: 12px; padding: 5px 10px; cursor: pointer; min-height: 30px; }
 .seg button + button { border-left: 1px solid var(--es-border); }
 .seg button[aria-pressed="true"] { background: var(--es-accent); color: var(--es-accent-fg); }
@@ -292,7 +302,7 @@ select.es-control {
 .poly-label { font-weight: 600; min-width: 3.5em; }
 .poly-src { color: var(--es-ink-dim, #999); }
 .poly-off { color: var(--es-dim-pressure, #d90); }
-.poly-ctl { display: inline-flex; align-items: center; gap: 4px; color: var(--es-ink-dim, #999); }
+.poly-ctl { display: inline-flex; align-items: center; gap: 4px; flex-shrink: 0; color: var(--es-ink-dim, #999); }
 .poly-num { width: 4.2em; height: 26px; font-size: 12px; }
 /* One CYCLE per row, stretched full width: a 15-step lane's cells are wider
    than a 16-step lane's — under cycle lock (polyrhythm) that IS the timing. */
