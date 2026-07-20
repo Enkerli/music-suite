@@ -57,3 +57,16 @@ Monorepo tests after implementation: **1348/1348** (+1 build-chip test).
 Workspace plugin: full ladder green with the framed UI. The audit's
 "sequenced handoff" cheap tier is complete; the medium tier is queued
 with its findings preserved above and in the archived audit.
+
+## Medium tier — implemented 2026-07-20 (second pass)
+
+| Item | Outcome |
+|---|---|
+| **F1/F8 — MIDIcurator delete migration** | The browser-list path already used undo-toast; the detail-pane Delete's confirm carve-out is retired — both paths share `deleteClipFromLibrary`. "Clear all" keeps its confirm (D1's reserved case, re-verified live). Browser round-trip verified (delete → toast+Undo → restored, no dialog); 358 tests; plugin rebundled, ladder green. F8's vocabulary ask was already satisfied (the clip list rides `createLibraryBrowser` since 07-10/07-19). |
+| **F4/F10 — PitchFold chrome** | `theme.js` replaces the third private resolvedTheme copy; the global cluster (theme · MIDI popover · density) replaces the hand toggle and the DeviceSel bar (plugin shows "MIDI · native"); scale-received flash became a toast; new `.es-tabs` recipe in components.css adopted for the five tabs (visually identical — PAPER was already es-verbatim). CSS loaders added to both esbuild invocations. Browser-verified end to end; ladder green. **Deferred:** pad banks as library items — APVTS-owned state needs bridge plumbing designed first (audit step 8's arc). |
+| **F6 step 1 — DrawnQurve** | **Verified already satisfied** (stale audit row): PAPER/PAPER_DARK are es-verbatim and `enkerli.theme` (with `dq-theme` migration) already shipped. |
+| **D4 generalized** | The sync check now covers all three inlined copies (Vane · PitchFold · DrawnQurve; 67 comparisons) as `inline-token-sync.mjs`. Its first version passed **vacuously** (a parser bug emptied the light map, skipping every light comparison) — rewritten with a zero-declarations guard (exit 2) and negative-tested (one perturbed token → three DRIFTs, exit 1). A useful reminder that a green check is only as good as its failure path. |
+
+Still queued from the audit: step 8 (design-gated — qurves as Library
+`payloadRef` content; Vane Presets tab onto the browser API), per-app
+build-id stamping (slot exists), and the F9 i18n arc.
