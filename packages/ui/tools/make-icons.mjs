@@ -97,6 +97,14 @@ ${dot(688, 690, 56, INK, INK, 0)}`),
   <line x1="312" y1="720" x2="600" y2="720" stroke="${BORDER}" stroke-width="14"/>
   <text x="512" y="500" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-size="300" fill="${INK}">C<tspan fill="${ACCENT.vel}">∆</tspan></text>`),
 
+  // DrawnQurve — a drawn gesture curve: ink stroke, fingertip at the live
+  // end. (First pass in the family grammar; flag for the design pass.)
+  drawnqurve: tile(`
+  <path d="M 216 736 C 340 736 330 420 470 420 C 610 420 570 620 700 560 C 762 531 790 452 800 372"
+        fill="none" stroke="${INK}" stroke-width="34" stroke-linecap="round"/>
+${dot(216, 736, 40, RAISED)}
+${dot(800, 372, 58, ACCENT.slide)}`),
+
   // Workspace — movable module tiles wired to one bus. (Glyph is a first
   // pass in the family grammar; flag for the design pass.)
   workspace: tile(`

@@ -271,9 +271,12 @@ cd DrawnQurve
 cmake -S . -B build-ios -G Xcode -DCMAKE_SYSTEM_NAME=iOS -DCMAKE_OSX_DEPLOYMENT_TARGET=16.0
 open build-ios/DrawnCurve.xcodeproj   # run DrawnCurve_Standalone, then DrawnCurve_AUv3, to an iPad
 ```
-DrawnQurve is iPad-only (AUv3 + Standalone, no desktop AU/VST3 build). The
-Xcode project target is named `DrawnCurve` (no "Q") — a historical rename
-that would break too many references to undo.
+DrawnQurve is **cross-platform** (an older claim of iPad-only was wrong —
+corrected 2026-07-19 against CMakeLists): macOS builds AU/AUv3/VST3/
+Standalone (`cmake -B build-mac && cmake --build build-mac`, verified),
+Linux builds VST3/LV2/Standalone (`cmake -B build-linux`). The Xcode
+project target is named `DrawnCurve` (no "Q") — a historical rename that
+would break too many references to undo.
 
 **Signing note (confirmed cause of a real "wrong team" build failure):**
 `CMakeLists.txt` hardcodes the maintainer's own team id
