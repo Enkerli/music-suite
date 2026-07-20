@@ -1,8 +1,9 @@
 /**
- * Serpe — visualisers. Two framework-agnostic SVG views over a pattern:
- *   createCircleView(el, opts)  → ring + onset polygon + playhead + CoG
- *   createStepView(el, opts)    → linear step lane, beat grouping, playhead
- * Both expose .update({ steps, accents, playhead, ... }) and theme via tokens.
+ * Serpe — visualisers. Three framework-agnostic SVG views over a pattern:
+ *   createCircleView(el, opts)     → ring + onset polygon + playhead + CoG
+ *   createStepView(el, opts)       → linear step lane, beat grouping, playhead
+ *   createPolyCircleView(el, opts) → nested rings, one per poly lane (KT item 9)
+ * All expose .update({ ... }) and theme via tokens.
  */
 import { centerOfGravity } from "@enkerli/upi";
 
@@ -16,6 +17,14 @@ const el = (n, a = {}) => {
 // step 0 at top (12 o'clock), clockwise
 const ang = (i, n) => (TAU * i) / n - Math.PI / 2;
 const pol = (cx, cy, r, a) => [cx + r * Math.cos(a), cy + r * Math.sin(a)];
+
+// Shared 4-color lane palette (the poly-lanes rows use the same one via CSS).
+// Cycles for a 5th+ lane rather than erroring — an edge case, not a wall.
+const LANE_PALETTE = ["ink", "rose", "moss", "plum"];
+const laneColor = (lane) => ({
+  ink: "var(--es-accent)", rose: "var(--es-dim-pressure)",
+  moss: "var(--es-dim-expr)", plum: "var(--es-dim-slide)",
+}[lane] || "var(--es-accent)");
 
 export function createCircleView(host, opts = {}) {
   const state = { steps: [], accents: [], playhead: -1, showCog: true, showLabels: false, lane: "ink", ...opts };
@@ -45,11 +54,6 @@ export function createCircleView(host, opts = {}) {
     hits.replaceChildren(...els);
     hitN = n;
   }
-
-  const laneColor = (lane) => ({
-    ink: "var(--es-accent)", rose: "var(--es-dim-pressure)",
-    moss: "var(--es-dim-expr)", plum: "var(--es-dim-slide)",
-  }[lane] || "var(--es-accent)");
 
   function render() {
     if (state.onToggle && (state.steps.length || 1) !== hitN) buildHits(state.steps.length || 1);
@@ -198,4 +202,79 @@ export function createStepView(host, opts = {}) {
   }
   render();
   return { update(next) { Object.assign(state, next); render(); }, el: wrap };
+}
+
+/**
+ * Nested rings, one per poly lane (docs/KNOWLEDGE_TRANSFER.md item 9;
+ * SERPE_POLY.md §3b for the lock semantics). CYCLE LOCK ONLY: each ring is
+ * a full 360° divided by that lane's OWN step count, so a 15-step ring's
+ * cells sit visibly wider than a 16-step ring's — same "one cycle,
+ * stretched" idea as the linear poly-lanes rows, just polar. Step lock
+ * (polymeter) doesn't have a static-ring reading — lanes drift and only
+ * realign at the lcm — so it stays on the linear rows; this view is
+ * cycle-lock's companion, not a replacement.
+ *
+ * Rings nest OUTER→INNER in lane declaration order (lane 0 outermost —
+ * the drum-notation instinct: kick outer, hat inner). Deliberately
+ * restrained: guide ring + downbeat tick + step dots per lane, no onset
+ * polygon or center-of-gravity (legible for one ring, noisy across three
+ * or four). Labels/mute/routing stay in the existing per-lane rows —
+ * this view is the shape, not the controls.
+ */
+export function createPolyCircleView(host, opts = {}) {
+  const state = { lanes: [], lanePh: [], muted: [], ...opts };
+  const svg = el("svg", { viewBox: "0 0 340 340", role: "img" });
+  svg.setAttribute("aria-label", "Poly lane rings");
+  svg.style.width = "100%";
+  svg.style.height = "auto";
+  svg.style.display = "block";
+  const visuals = el("g");
+  svg.append(visuals);
+  host.replaceChildren(svg);
+
+  function render() {
+    const { lanes, lanePh, muted } = state;
+    const cx = 170, cy = 170;
+    const R_OUTER = 150, R_INNER = 46;
+    const ringGap = lanes.length > 1 ? (R_OUTER - R_INNER) / (lanes.length - 1) : 0;
+    const kids = [];
+    lanes.forEach((lane, li) => {
+      const R = lanes.length > 1 ? R_OUTER - li * ringGap : R_OUTER;
+      const n = lane.steps.length || 1;
+      const color = laneColor(LANE_PALETTE[li % LANE_PALETTE.length]);
+      const ring = [];
+      // guide ring
+      ring.push(el("circle", { cx, cy, r: R, fill: "none", stroke: color, "stroke-width": 1.25, "stroke-opacity": 0.3 }));
+      // downbeat tick — anchors step 0 across all rings at 12 o'clock
+      const a0 = ang(0, n);
+      const [tx0, ty0] = pol(cx, cy, R - 6, a0);
+      const [tx1, ty1] = pol(cx, cy, R + 6, a0);
+      ring.push(el("line", { x1: tx0.toFixed(1), y1: ty0.toFixed(1), x2: tx1.toFixed(1), y2: ty1.toFixed(1), stroke: color, "stroke-width": 1.5 }));
+      // step dots
+      const accentAmber = "var(--es-dim-pressure)";
+      for (let i = 0; i < n; i++) {
+        const [x, y] = pol(cx, cy, R, ang(i, n));
+        const on = !!lane.steps[i];
+        const acc = !!lane.accents[i];
+        const here = i === lanePh[li];
+        const r = on ? (acc ? 8.5 : 6.5) : 3.5;
+        const onColor = acc ? accentAmber : color;
+        if (acc && on) {
+          ring.push(el("circle", { cx: x, cy: y, r: r + 2.5, fill: "none", stroke: onColor, "stroke-width": 1.25 }));
+        }
+        ring.push(el("circle", {
+          cx: x, cy: y, r,
+          fill: on ? onColor : "var(--es-bg-raised)",
+          stroke: here ? "var(--es-fg)" : on ? "var(--es-fg)" : "var(--es-border-strong)",
+          "stroke-width": here ? 2.75 : on ? 1.25 : 1,
+        }));
+      }
+      const g = el("g", { opacity: muted[li] ? 0.35 : 1 });
+      g.append(...ring);
+      kids.push(g);
+    });
+    visuals.replaceChildren(...kids);
+  }
+  render();
+  return { update(next) { Object.assign(state, next); render(); }, el: svg };
 }

@@ -25,7 +25,7 @@ import { parseUPI, euclid, polygon, rotate, complement, invert,
          barlowTransform, indispensabilityWeights, onsetCount,
          analyse, analyzeSyncopation, funkyEuclidean, bellCurveRandomSteps,
          mutatePattern, parsePolyUPI, splitLanes } from '@enkerli/upi';
-import { createCircleView, createStepView } from './engine/render.js';
+import { createCircleView, createStepView, createPolyCircleView } from './engine/render.js';
 import serpeManifest from './manifest.json';
 import { connectSerpe } from './control.js';
 import { initJuceBridge, sendParamActual, sendUPI, sendPlaying, sendBPM, sendToggleAccent, juceAvailable } from './juce-bridge.js';
@@ -162,10 +162,19 @@ function EngineView({ create, opts, data }) {
 // sweep at their own rates. The lock toggle switches to step lock
 // (POLYMETER: equal steps, lanes drift); the kit menu sets note defaults
 // (a lane's own note input always wins). Routing stays UI state.
-function PolyLanesPanel({ poly, lanePh, polyLock, setPolyLock, drumKit, setDrumKit, kitNames,
+//
+// Rows/Circle (KT item 9): a second, purely visual reading of the SAME
+// lanes as nested rings (engine/render.js createPolyCircleView) — cycle
+// lock only (step lock's drift-and-realign has no static-ring reading, so
+// Circle is disabled while step-locked). Per-lane controls (mute/note/
+// chan/offset) stay in the rows either way; Circle only swaps out the
+// flat cell-strip for one shared ring graphic above them.
+function PolyLanesPanel({ poly, lanePh, polyLock, setPolyLock, polyView, setPolyView, drumKit, setDrumKit, kitNames,
                           laneNote, laneChan, laneMuted, setLaneUi, isHost, polyLagMs, setPolyLagMs }) {
   const fmtOff = (o) => o == null ? '' : o.kind === 'ms'
     ? `@${o.ms >= 0 ? '+' : ''}${o.ms}ms` : `@${o.num >= 0 ? '+' : ''}${o.num}/${o.den}`;
+  const circleOk = polyLock === 'cycle';
+  const showCircle = polyView === 'circle' && circleOk;
   return h('div', { className: 'viz poly-lanes' },
     h('div', { className: 'viz-head' },
       h('span', { className: 'es-eyebrow' }, 'Lanes'),
@@ -173,6 +182,12 @@ function PolyLanesPanel({ poly, lanePh, polyLock, setPolyLock, drumKit, setDrumK
         title: 'Cycle: all lanes span the same cycle (polyrhythm — 15 against 16 is a cross-rhythm). Step: all steps equal (polymeter — lanes drift and realign).' },
         [['cycle', 'Cycle'], ['step', 'Step']].map(([v, t]) =>
           h('button', { key: v, 'aria-pressed': polyLock === v, onClick: () => setPolyLock(v) }, t))),
+      h('div', { className: 'seg', role: 'group', 'aria-label': 'Lane view',
+        title: circleOk ? 'Rows: stacked step lanes. Circle: the same lanes as nested rings.'
+                        : 'Circle needs Cycle lock — step lock has no static-ring reading' },
+        [['rows', 'Rows'], ['circle', 'Circle']].map(([v, t]) =>
+          h('button', { key: v, 'aria-pressed': polyView === v, disabled: v === 'circle' && !circleOk,
+            onClick: () => setPolyView(v) }, t))),
       h('label', { className: 'poly-ctl', title: 'Drumkit note defaults by lane label; a lane’s own note input wins' }, 'kit ',
         h('select', { className: 'es-control', value: drumKit, 'aria-label': 'Drumkit',
           onChange: e => setDrumKit(e.target.value) },
@@ -188,6 +203,9 @@ function PolyLanesPanel({ poly, lanePh, polyLock, setPolyLock, drumKit, setDrumK
       h('span', { className: 'poly-meta' },
         polyLock === 'cycle' ? `polyrhythm · cycle = ${poly.lanes[0].steps.length} steps of lane 1`
                              : `polymeter · realigns every ${poly.lcm} steps`)),
+    showCircle && h('div', { className: 'poly-rings' },
+      h(EngineView, { create: createPolyCircleView, opts: {},
+        data: { lanes: poly.lanes, lanePh, muted: poly.lanes.map((l, i) => laneMuted(l, i)) } })),
     poly.lanes.map((lane, i) => {
       const muted = laneMuted(lane, i);
       return h('div', { key: lane.label, className: 'poly-lane' + (muted ? ' muted' : '') },
@@ -206,7 +224,7 @@ function PolyLanesPanel({ poly, lanePh, polyLock, setPolyLock, drumKit, setDrumK
             h('input', { className: 'es-control poly-num', type: 'number', min: 1, max: 16,
               value: laneChan(lane, i), 'aria-label': `${lane.label} MIDI channel`,
               onChange: e => setLaneUi(lane.label, i, { chan: +e.target.value }) }))),
-        h('div', { className: 'poly-cells', role: 'img',
+        !showCircle && h('div', { className: 'poly-cells', role: 'img',
           'aria-label': `${lane.label}: ${lane.steps.join('')} over ${lane.steps.length} steps` },
           lane.steps.map((s, c) =>
             h('span', {
@@ -311,6 +329,12 @@ function SerpeApp() {
   // (steps of different sizes). 'step' = POLYMETER — equal step sizes, lanes
   // drift and realign at the lcm. The first lane defines the cycle length.
   const [polyLock, setPolyLock] = useState(() => LS.get('polyLock', 'cycle'));
+  // Lane VISUALIZATION mode (KT item 9): 'rows' (default, stacked strips) or
+  // 'circle' (nested rings, cycle-lock only — see PolyLanesPanel). Falls back
+  // to rows if the lock leaves cycle while circle is showing, so the view
+  // never claims a ring reading step lock doesn't have.
+  const [polyView, setPolyView] = useState(() => LS.get('polyView', 'rows'));
+  useEffect(() => { if (polyLock !== 'cycle' && polyView === 'circle') { setPolyView('rows'); LS.set('polyView', 'rows'); } }, [polyLock]); // eslint-disable-line react-hooks/exhaustive-deps
   // Per-lane playheads (each lane cycles its own length at its own rate). In
   // the plugin these come from the C++ engine (the 'polyState' bridge event,
   // real playback); in the webapp the JS scheduler (polyPlayStart) drives them.
@@ -1037,6 +1061,7 @@ function SerpeApp() {
         poly
         ? h(PolyLanesPanel, { poly, lanePh,
             polyLock, setPolyLock: v => { setPolyLock(v); LS.set('polyLock', v); },
+            polyView, setPolyView: v => { setPolyView(v); LS.set('polyView', v); },
             drumKit, setDrumKit: v => { setDrumKit(v); LS.set('drumKit', v); }, kitNames: Object.keys(KITS),
             laneNote, laneChan, laneMuted, setLaneUi,
             isHost: cfg.host, polyLagMs,

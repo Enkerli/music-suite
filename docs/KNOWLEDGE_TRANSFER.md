@@ -260,18 +260,57 @@ promoted, consider it a shared module (other tools want voice routing —
 Vane poly, Workspace). Known open wart: pad-override is unresolved in
 the standalone (pad→active-mask happens in C++ only).
 
-## 9. Serpe concentric circles (M–L · ★★)
+## 9. Serpe concentric circles (M–L · ★★) — DONE, 2026-07-20
 
-Polymeter lanes rendered as nested rings. The data model shipped
-2026-07-18 ("Serpe Poly: webapp lanes view — polymeter playback with
-Keil offsets") — this item is a *renderer* for it. Seam:
-`apps/serpe/engine/render.js` (SVG views via refs; the existing circle
-view is single-ring). Geometry is the design decision (ring per lane,
-shared angular origin, accents as the existing amber) — flag for the
-design pass before polishing. Reminder: display must mirror the
-engine's accent branch exactly (`Documentation/FEATURE_PARITY.md` tail
-notes tell that whole story — read them before touching Serpe display
-code).
+Nested-rings renderer for the poly lane data model shipped, webapp-only.
+New `createPolyCircleView(host, opts)` in `apps/serpe/engine/render.js`
+(same imperative `.update()` shape as `createCircleView`/`createStepView`
+— framework-agnostic, reusable by the plugin WebView). Wired into
+`PolyLanesPanel` as a **Rows/Circle** view toggle (`main.jsx`), sitting
+beside the existing Cycle/Step lock toggle; the per-lane control rows
+(mute, note, channel, offset badge) stay exactly as they were either way
+— Circle only swaps the flat `.poly-cells` strip for one shared ring
+graphic above them.
+
+Geometry calls made (all reversible, flagged for the actual design pass
+before polishing, per this item's own note):
+- **Cycle lock only.** Each ring is a full 360° divided by that lane's
+  own step count (a 15-step ring's cells sit visibly wider than a
+  16-step ring's — the linear rows' "one cycle, stretched" idea, made
+  polar). Step lock (polymeter) has no static-ring reading — lanes drift
+  and only realign at the lcm — so Circle is disabled whenever lock
+  isn't 'cycle', with an automatic fallback to Rows if the lock changes
+  out from under an open Circle view (confirmed via Playwright: toggling
+  to Step lock greys the Circle button and switches the panel back).
+- **Rings nest outer→inner in lane DECLARATION order** (lane 0 outermost
+  — kick outer, hat inner, the drum-notation instinct). Arbitrary, easy
+  to flip later.
+- **Restrained**: guide ring + a bold downbeat tick (anchors step 0 at
+  12 o'clock, the SAME angular origin as the mono circle view, so the
+  ticks visibly line up in a column across rings) + step dots, sized/
+  haloed exactly like the mono view's accent treatment. No onset polygon
+  or center-of-gravity per ring (fine for one ring, noisy across three
+  or four).
+- **Per-lane color** cycles the same 4-token palette the mono view
+  already exposes (`ink`/`rose`/`moss`/`plum`) — a step up from the
+  linear rows, which don't color-differentiate lanes at all. Known minor
+  wart: the `rose` token IS the accent-amber color
+  (`--es-dim-pressure`), so an accented onset on that specific ring
+  (every 4th lane) loses its color contrast against its own unaccented
+  onsets — the halo ring still disambiguates it, so it's not broken, just
+  not as crisp as the other three lanes. Left for the design pass rather
+  than inventing a 5th color unreviewed.
+- Accents are read straight from `poly.lanes[i].accents` — the SAME
+  array the existing linear rows already render (`lane.accents[c]`), no
+  new accent derivation, so there's no C++ engine-parity risk here (this
+  item's reminder about `Documentation/FEATURE_PARITY.md` applies to
+  code that COMPUTES accents; this is a pure renderer over the data
+  that's already computed elsewhere and already trusted).
+
+7 new render.js tests + a Playwright click-through against a real dev
+build (typed a 3-lane poly pattern, confirmed 3 ring groups render,
+confirmed the Rows↔Circle toggle swaps the DOM correctly, confirmed the
+Step-lock disable/fallback). 1398/1398 monorepo.
 
 ## Loose threads that are NOT plan items (don't drop them)
 
