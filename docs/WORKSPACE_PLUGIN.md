@@ -55,6 +55,10 @@ JS → C++:
   localStorage), stored via getStateInformation → DAW session.
 - `enkerliSaveFile { name, b64 }` — GloriArp's ⬇ .mid via native save
   (blob downloads kill WKWebView — TESTING.md).
+- `enkerliOpenFile { patterns }` — GloriArp's ⬆ import .json via native
+  open (`<input type="file">` is as unreliable under WKWebView as blob
+  downloads — enkerli-juce FileImport.h; the same trap MIDIcurator hit
+  first). Answered by `fileOpened` below; nothing fires on cancel.
 - `log` — console mirror.
 
 C++ → JS:
@@ -65,6 +69,9 @@ C++ → JS:
   enkerli-juce's MidiInputCollector carries notes only; the plugin carries
   an extended collector (notes + CC) locally — upstreaming it to the
   foundation is noted as a follow-on, not done under this slice.
+- `fileOpened { name, b64 }` — the chosen file, base64. GloriArp's import
+  filters to `.json` (another module could claim `.mid` on the same
+  channel later, MIDIcurator-style).
 
 ## 4. Webapp changes (monorepo, plugin mode)
 
@@ -80,6 +87,11 @@ C++ → JS:
   WKWebView fetch to localhost from the juce:// scheme is exactly the
   kind of thing TESTING.md says never to assume — not attempted).
 - GloriArp ⬇ .mid → bridge saveFile when in plugin.
+- GloriArp ⬆ import .json → bridge openFile when in plugin (falls back to
+  `<input type="file">` in the browser); `juceOn` now fans one real backend
+  subscription per event id out to any number of JS callbacks and returns
+  an unsubscribe function, so a module torn down and rebuilt (a bento
+  resize) doesn't stack duplicate listeners.
 - State: save() keeps writing localStorage AND mirrors to `enkerliState`;
   at startup in plugin mode, module creation waits briefly (400 ms cap)
   for the session `state` event — DAW session wins over the container's

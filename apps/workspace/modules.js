@@ -323,7 +323,7 @@ function bridgeModule(ctx, bodyEl, state) {
 
 import { groove, looksLikeModel, parseModel, parsePhrase, samplePhrase } from "@enkerli/accompaniment";
 import { formatLeadsheet } from "@enkerli/theory";
-import { juceAvailable, saveFileNative } from "./juce-bridge.js";
+import { juceAvailable, saveFileNative, openFileNative, juceOn, b64ToBytes } from "./juce-bridge.js";
 import walkingBass from "../../packages/accompaniment/vectors/source-walking-bass.json";
 import funkGhost from "../../packages/accompaniment/vectors/source-funk-ghost.json";
 import bossa from "../../packages/accompaniment/vectors/source-bossa.json";
@@ -409,36 +409,46 @@ function gloriarpModule(ctx, bodyEl, state) {
     style.append(el("option", { value: name, text: name, ...(select ? { selected: "" } : {}) }));
     if (select) style.value = name;
   };
+  function importJsonText(text, filename) {
+    const name = filename.replace(/\.json$/i, "");
+    try {
+      let parsed;
+      try { parsed = JSON.parse(text); } catch { throw new Error("not JSON"); }
+      if (looksLikeModel(parsed)) {
+        const model = parseModel(text);
+        imported.set(name, { kind: "model", value: model });
+        status.textContent = `imported "${name}" — a style MODEL (${model.takes} takes against ${model.frame.symbol}); every pass samples a fresh take`;
+      } else {
+        const phrase = parsePhrase(text);
+        imported.set(name, { kind: "phrase", value: phrase });
+        status.textContent = `imported "${name}" — a source phrase (${phrase.events.length} events, ${phrase.role})`;
+      }
+      const exists = [...style.options].some((o) => o.value === name);
+      if (!exists) addStyleOption(name); else style.value = name;
+    } catch (err) {
+      status.textContent = `✗ import "${filename}": ${(err && err.message) || err}`;
+    }
+  }
+  // Plugin: <input type="file"> doesn't work under WKWebView (enkerli-juce
+  // FileImport.h) — the native picker answers "enkerliOpenFile" with a
+  // fileOpened event ({name, b64}). Only .json is ours (another module could
+  // own .mid on the same channel later). Browser: the input element, as
+  // always.
+  const offFileOpened = juceOn("fileOpened", (data) => {
+    const name = data && data.name, b64 = data && data.b64;
+    if (!name || !b64 || !/\.json$/i.test(name)) return;
+    importJsonText(new TextDecoder().decode(b64ToBytes(b64)), name);
+  });
   const fileInput = el("input", { type: "file", accept: ".json,application/json", style: "display:none", onchange: (e) => {
     const file = e.target.files && e.target.files[0];
     if (!file) return;
     const reader = new FileReader();
-    reader.onload = () => {
-      const text = String(reader.result);
-      let name = file.name.replace(/\.json$/i, "");
-      try {
-        let parsed;
-        try { parsed = JSON.parse(text); } catch { throw new Error("not JSON"); }
-        if (looksLikeModel(parsed)) {
-          const model = parseModel(text);
-          imported.set(name, { kind: "model", value: model });
-          status.textContent = `imported "${name}" — a style MODEL (${model.takes} takes against ${model.frame.symbol}); every pass samples a fresh take`;
-        } else {
-          const phrase = parsePhrase(text);
-          imported.set(name, { kind: "phrase", value: phrase });
-          status.textContent = `imported "${name}" — a source phrase (${phrase.events.length} events, ${phrase.role})`;
-        }
-        const exists = [...style.options].some((o) => o.value === name);
-        if (!exists) addStyleOption(name); else style.value = name;
-      } catch (err) {
-        status.textContent = `✗ import "${file.name}": ${(err && err.message) || err}`;
-      }
-    };
+    reader.onload = () => importJsonText(String(reader.result), file.name);
     reader.readAsText(file);
     fileInput.value = ""; // allow re-importing the same filename later
   } });
   const importBtn = el("button", { class: "ws-btn ghost", text: "⬆ import .json", title: "Import a phrase.json or style-model.json (msuite style learn, MIDIcurator export…)",
-    onclick: () => fileInput.click() });
+    onclick: () => { if (!openFileNative("*.json")) fileInput.click(); } });
   const rhythm = el("input", { class: "ws-text", type: "text", value: S("rhythm", ""), placeholder: "rhythm UPI (E(3,8)…)", "aria-label": "Rhythm UPI", spellcheck: "false" });
   const seed = el("input", { class: "ws-text ws-num", type: "number", value: S("seed", 42), "aria-label": "Seed" });
   const bpm = el("input", { class: "ws-text ws-num", type: "number", min: 30, max: 300, value: S("bpm", 100), "aria-label": "BPM" });
@@ -552,7 +562,7 @@ function gloriarpModule(ctx, bodyEl, state) {
       el("label", { class: "ws-ctl" }, loopBox, " loop"),
       el("button", { class: "ws-btn", text: "⬇ .mid", title: "Download the identical take the CLI would write — for a DAW or plugin", onclick: download })),
     status);
-  return () => { player.stop(); offProg && offProg(); };
+  return () => { player.stop(); offProg && offProg(); offFileOpened(); };
 }
 
 // ── Progression: ProgGenie-lite — generate or type changes, put them on the

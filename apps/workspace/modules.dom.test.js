@@ -328,6 +328,46 @@ describe("GloriArp module (the standalone accompaniment surface)", () => {
     off();
   });
 
+  it("import in the PLUGIN: the button asks the native bridge instead of <input type=file>, and fileOpened lands it", async () => {
+    // <input type="file"> doesn't work under WKWebView (docs/WORKSPACE_PLUGIN.md
+    // §3) — this is the trap MIDIcurator hit first; the import button must
+    // route through the bridge whenever a __JUCE__ backend is present.
+    const emitted = [];
+    let fileOpenedCb = null;
+    window.__JUCE__ = {
+      backend: {
+        emitEvent: (id, payload) => emitted.push({ id, payload }),
+        addEventListener: (id, cb) => { if (id === "fileOpened") fileOpenedCb = cb; },
+      },
+    };
+    try {
+      const { MODULES } = await import("./modules.js");
+      const { extractPhrase, serializePhrase } = await import("@enkerli/accompaniment");
+      const { ctxObj } = ctx();
+      const body = document.createElement("div");
+      const off = MODULES["gloriarp"].make(ctxObj, body, {});
+
+      const importBtn = [...body.querySelectorAll("button")].find((b) => b.textContent.includes("import"));
+      importBtn.dispatchEvent(new MouseEvent("click"));
+      expect(emitted).toContainEqual({ id: "enkerliOpenFile", payload: { patterns: "*.json" } });
+      expect(fileOpenedCb).toBeTypeOf("function"); // the module subscribed
+
+      const DM7 = { symbol: "Dm7", rootPc: 2, pcs: [2, 5, 9, 0] };
+      const phrase = extractPhrase(
+        [{ pitch: 38, startTick: 0, durationTicks: 480, velocity: 96 }],
+        { id: "p", role: "bass", meter: { numerator: 4, denominator: 4 }, ticksPerBeat: 480, lengthTicks: 480, frame: DM7 });
+      const b64 = btoa(serializePhrase(phrase));
+      fileOpenedCb({ name: "plugin-import.json", b64 });
+      expect(body.textContent).toMatch(/imported "plugin-import" — a source phrase/);
+      // A .mid on the same channel is NOT ours — ignored, no crash, no false import.
+      fileOpenedCb({ name: "clip.mid", b64: btoa("whatever") });
+      expect(body.textContent).not.toMatch(/import "clip"/);
+      off();
+    } finally {
+      delete window.__JUCE__;
+    }
+  });
+
   it("live loops: the pass function is re-called at each boundary, so edits land next pass", async () => {
     const { createGroovePlayer } = await import("./modules.js");
     const { ctxObj } = ctx();

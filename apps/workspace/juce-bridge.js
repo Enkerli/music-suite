@@ -15,8 +15,23 @@ export function juceEmit(eventId, data) {
   if (juceAvailable()) window.__JUCE__.backend.emitEvent(eventId, data ?? {});
 }
 
+// One real backend subscription per event id, fanned out to any number of JS
+// callbacks (a module can be torn down and rebuilt — e.g. a bento resize —
+// and each instance calling juceOn("fileOpened", …) must not stack duplicate
+// backend listeners). Returns an unsubscribe function; the backend
+// subscription itself is never removed (JUCE's bridge has no removeListener),
+// it just stops reaching JS callbacks once every one has unsubscribed.
+const juceListeners = new Map(); // eventId -> Set<cb>
 export function juceOn(eventId, cb) {
-  if (juceAvailable()) window.__JUCE__.backend.addEventListener(eventId, cb);
+  if (!juceAvailable()) return () => {};
+  if (!juceListeners.has(eventId)) {
+    juceListeners.set(eventId, new Set());
+    window.__JUCE__.backend.addEventListener(eventId, (data) => {
+      for (const fn of juceListeners.get(eventId)) fn(data);
+    });
+  }
+  juceListeners.get(eventId).add(cb);
+  return () => { juceListeners.get(eventId)?.delete(cb); };
 }
 
 // Mirror console to C++ stderr (the only way to see JS logs in WKWebView).
@@ -64,4 +79,26 @@ export function saveFileNative(filename, bytes) {
   }
   juceEmit("enkerliSaveFile", { name: filename, b64: btoa(bin) });
   return true;
+}
+
+/**
+ * Native open, the counterpart of saveFileNative — <input type="file"> is as
+ * unreliable under WKWebView as blob downloads are (enkerli-juce
+ * FileImport.h). Triggers the native picker (FileChooser on desktop,
+ * UIDocumentPickerViewController on iPadOS); the chosen file arrives via a
+ * "fileOpened" event ({name, b64}) — nothing fires on cancel. Returns false
+ * outside the plugin so callers fall back to a browser <input type="file">.
+ */
+export function openFileNative(patterns = "*") {
+  if (!juceAvailable()) return false;
+  juceEmit("enkerliOpenFile", { patterns });
+  return true;
+}
+
+/** Decode a bridge base64 payload into bytes (the fileOpened event's b64). */
+export function b64ToBytes(b64) {
+  const bin = atob(b64);
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  return bytes;
 }
