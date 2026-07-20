@@ -130,6 +130,27 @@ cross-rhythm. Revised, per the user's call:
 Implementation: per-lane clocks (not one global tick); each lane reschedules
 from the live lock, so flipping the toggle takes effect within a step.
 
+**Gap found 2026-07-20 (not previously documented): step lock is
+webapp-only.** `rhythm_pattern_explorer`'s `Source/Core/PolyClock.h` — the
+plugin's real audio-thread scheduler — implements ONLY the cycle-lock
+model (its own doc comment: "the field-tested webapp default, ported as
+IS"); there is no `polyLock`/step-lock concept anywhere in the C++ source
+(grepped the whole plugin repo, zero hits) and the webapp's `setPolyLock`
+never sends anything across the JUCE bridge — it's local React state +
+localStorage only, in every runtime. The Cycle/Step toggle in
+`PolyLanesPanel` is also not gated by `isHost` the way `polyLagMs` is, so
+it renders and is clickable inside the real plugin too — but tapping
+"Step" there changes neither the audio (the C++ engine always schedules
+cycle-lock) nor the displayed playhead (`lanePh` arrives via the
+`polyState` bridge event, itself computed by the same cycle-lock-only
+engine). Net effect: **inside the plugin, Step lock is a fully inert
+toggle** — same "looks real, does nothing" pattern the PitchFold audit
+(docs/PITCHFOLD_AUDIT.md) found repeatedly there. Only the standalone
+webapp's own JS scheduler (`apps/serpe/engine/poly-clock.js`) genuinely
+implements polymeter. Not fixed here — flagging it is the first step;
+porting `PolyClock.h` to support both modes is real C++ engine work in a
+different repo, sized on its own.
+
 ## 4. The webapp slice (M) — scope fence
 
 **In:** `parsePolyUPI`/`formatPolyUPI` in `@enkerli/upi` (pure, vectored,

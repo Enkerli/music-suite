@@ -8,6 +8,15 @@ this doc carries the session knowledge that makes each item executable:
 where the seams are, what was already verified, and which traps are
 already paid for.*
 
+*Cross-cutting status as of 2026-07-20: `docs/KT_SUMMARY.md` — what
+shipped across items 2/4/5/8/9, a feature-availability matrix (which
+surface — webapp, plugin, CLI, MIDIcurator, Workspace — each feature
+actually reaches), and an explicit limitations section (a real
+color-contrast bug found and fixed, and a newly-discovered gap: Serpe's
+JUCE plugin only ever plays polyrhythm, never polymeter). Read it before
+this doc if you want the "what actually happened" view rather than the
+per-item plan.*
+
 ## 0. Read order, then rules
 
 Read first: [`HANDOFF.md`](../HANDOFF.md) (repo map — repos, remotes,
