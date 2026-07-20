@@ -170,6 +170,14 @@ material:
   `docs/apps/` (chord-dictionary, drawnqurve, exquisite, midicurator,
   pickpcs, pitchfold, proggenie, serpe, style-gallery, vane).
 
+## 7b. Picking up the 2026-07-19 triage plan?
+
+Read **[docs/KNOWLEDGE_TRANSFER.md](docs/KNOWLEDGE_TRANSFER.md)** — the
+agent-to-agent handoff for the nine ranked items in the private plan
+doc's §9: per-item code seams, first steps, verified state, and the
+trap index. Written at that session's end specifically for a successor
+agent.
+
 ## 8. If you only read one thing
 
 Read `SUITE_AUDIT_AND_PLAN.md` in the private repo (§2 architecture, §6
