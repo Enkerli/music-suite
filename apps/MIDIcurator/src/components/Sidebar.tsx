@@ -34,6 +34,14 @@ interface SidebarProps {
   onGenerateGroove?: (req: GrooveClipRequest) => void;
   /** Learn the selected clip as a GloriArp style; returns the saved name. */
   onLearnGrooveStyle?: (name: string) => string;
+  /** Learn the selected clip's WHOLE variant family as one style model;
+   *  returns the saved name (docs/KNOWLEDGE_TRANSFER.md item 4). */
+  onLearnFamilyStyle?: (name: string) => string;
+  /** Size of the selected clip's variant family (1 = no siblings yet). */
+  familySize?: number;
+  /** Generate a density family from a style model, saved as sibling clips;
+   *  resolves to a summary, throws with a reason (e.g. not a model). */
+  onGenerateGrooveVariants?: (req: GrooveClipRequest) => Promise<string>;
   /** Leadsheet text of the selected clip, offered as the groove's progression. */
   selectedLeadsheet?: string;
   /** Called when the user picks a loop DB file (.db). */
@@ -73,6 +81,9 @@ export function Sidebar({
   onGenerateProgression,
   onGenerateGroove,
   onLearnGrooveStyle,
+  onLearnFamilyStyle,
+  familySize,
+  onGenerateGrooveVariants,
   selectedLeadsheet,
   onLoadLoopDb,
   loopDbFileName,
@@ -275,6 +286,9 @@ export function Sidebar({
           onGenerate={onGenerateGroove}
           {...(selectedLeadsheet !== undefined && { selectedLeadsheet })}
           {...(onLearnGrooveStyle !== undefined && { onLearnStyle: onLearnGrooveStyle })}
+          {...(onLearnFamilyStyle !== undefined && { onLearnFamilyStyle })}
+          {...(onGenerateGrooveVariants !== undefined && { onGenerateVariants: onGenerateGrooveVariants })}
+          familySize={familySize ?? 0}
           hasSelectedClip={selectedClipId !== null}
         />
       )}

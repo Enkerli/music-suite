@@ -115,7 +115,32 @@ choose:
   `@enkerli/*` (unaffected), and the copy-tone rule (MIDIsplainer is a
   joke name — check it against the plain/humble register with Alex).
 
-## 4. MIDIcurator variants × GloriArp (M–L · ★★★)
+## 4. MIDIcurator variants × GloriArp (M–L · ★★★) — DONE 2026-07-20
+
+The core loop shipped: `clipFamily(clip, allClips)` in `gloriarp-clip.ts`
+generalizes MIDIcurator's existing `source`/`sourceFilename` variant
+linking (VP intensity siblings, density/quantize transforms, GloriArp
+alike — `vpSiblings` in MidiCurator.tsx was the VP-only special case,
+this is the general one). `learnStyleModelFromFamily` folds a clip's WHOLE
+family into ONE style model (statistics across the ladder, not one
+throwaway single-take model per rung); `generateDensityFamily` (+
+`GrooveClipRequest.density`, threaded to `samplePhrase`) generates a
+×¼…×1½ family from a model in one call, refusing a plain-phrase style with
+a named reason. Both save through the EXACT same variant idiom (tagged
+sibling clips) so they sit in the UI exactly like any other variant.
+GrooveGenerator.tsx: "learn family (N) as style" beside the existing
+per-clip learn button, "generate variant family" beside Generate. 10 new
+tests in `gloriarp-clip.test.ts` (368/368 MIDIcurator, 1365/1365 monorepo);
+webapp build + bundle-string checks confirmed, not click-tested in a
+browser or the plugin.
+
+Remaining/open: per-density custom UI (currently the fixed ladder only,
+though `generateDensityFamily` itself takes any preset list); by-ear check
+that a family-learned model's sampled variants actually feel like their
+source ladder, not mush (untested — no ears here, docs/GLORIARP_NEXT.md
+§3b's own open question for the whole statistics arc).
+
+Original brief, for reference:
 
 Both live in `apps/MIDIcurator`. The GloriArp side:
 `src/lib/gloriarp-clip.ts` (styles, `importStyleFromJson`,

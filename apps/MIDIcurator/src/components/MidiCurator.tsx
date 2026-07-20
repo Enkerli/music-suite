@@ -23,7 +23,10 @@ import type { createLibraryBrowser } from '@enkerli/ui/library-browser';
 import { PROGRESSIONS, transposeProgression } from '../lib/progressions';
 import type { VoicingShape } from '../lib/progressions';
 import { generateProgressionClip } from '../lib/generate-clip';
-import { generateGrooveClip, learnStyleFromClip } from '../lib/gloriarp-clip';
+import {
+  generateGrooveClip, learnStyleFromClip,
+  clipFamily, learnStyleModelFromFamily, generateDensityFamily,
+} from '../lib/gloriarp-clip';
 import type { GrooveClipRequest } from '../lib/gloriarp-clip';
 import { IN_PLUGIN, IS_PLUGIN_BUILD, bridge, b64ToBytes } from '../lib/juce-bridge';
 import { esConfirm, esAlert } from '@enkerli/ui/confirm';
@@ -1234,6 +1237,55 @@ export function MidiCurator() {
     return name;
   }, [selectedClip]);
 
+  // Variants as style sources (docs/KNOWLEDGE_TRANSFER.md item 4): the
+  // selected clip's WHOLE variant family (VP intensity siblings, density/
+  // quantize variants, anything linked via source/sourceFilename — the
+  // same idiom vpSiblings already reads) becomes ONE style model, so
+  // sampling it back at a chosen density recovers a rung from the family's
+  // OWN learned variability instead of a fresh rule-based synthesis.
+  const handleLearnFamilyStyle = useCallback((name: string): string => {
+    if (!selectedClip) throw new Error('select a clip to learn from');
+    learnStyleModelFromFamily(selectedClip, clips, name);
+    return name;
+  }, [selectedClip, clips]);
+
+  const familySize = useMemo(
+    () => (selectedClip ? clipFamily(selectedClip, clips).length : 0),
+    [selectedClip, clips],
+  );
+
+  // The other half: generate a density FAMILY from a learned/imported style
+  // model in one action, saved as ordinary sibling clips — same tags-and-
+  // grouping UI as any other variant, GloriArp underneath. Mirrors
+  // handleSynthesizeAllIntensities's "several at once" shape.
+  const handleGenerateGrooveVariants = useCallback(async (req: GrooveClipRequest): Promise<string> => {
+    if (!db) throw new Error('database not ready');
+    const family = generateDensityFamily(req);
+    for (const { label, density, data } of family) {
+      if (data.notes.length === 0) continue;
+      const gesture = extractGesture(data.notes, data.ppq);
+      const harmonic = extractHarmonic(data.notes, gesture);
+      const leadsheet = parseLeadsheet(data.leadsheetText, gesture.num_bars);
+      const clip: Clip = {
+        id: crypto.randomUUID(),
+        filename: data.filename,
+        imported_at: Date.now(),
+        bpm: data.bpm,
+        gesture,
+        harmonic,
+        rating: null,
+        notes: `GloriArp density variant ${label} (×${density}) of style "${req.style}".`,
+        leadsheet,
+        ...(selectedClip && { source: selectedClip.id, sourceFilename: selectedClip.filename }),
+      };
+      await db.addClip(clip);
+      await db.addTag(clip.id, 'gloriarp-variant');
+      await db.addTag(clip.id, `gloriarp-density:${density}`);
+    }
+    refreshClips();
+    return `generated ${family.length} variants (${family.map((f) => f.label).join(' ')})`;
+  }, [db, selectedClip, refreshClips]);
+
   const filteredClips = useMemo(() => {
     if (!filterTag) return clips;
     // Field-scoped filter: "field:value" emitted by metadata chip clicks
@@ -1572,6 +1624,9 @@ export function MidiCurator() {
           onGenerateProgression={handleGenerateProgression}
           onGenerateGroove={handleGenerateGroove}
           onLearnGrooveStyle={handleLearnGrooveStyle}
+          onLearnFamilyStyle={handleLearnFamilyStyle}
+          familySize={familySize}
+          onGenerateGrooveVariants={handleGenerateGrooveVariants}
           {...(selectedClip?.leadsheet?.inputText
             ? { selectedLeadsheet: selectedClip.leadsheet.inputText }
             : {})}

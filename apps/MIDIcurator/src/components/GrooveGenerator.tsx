@@ -10,6 +10,16 @@ interface GrooveGeneratorProps {
   /** Learn the selected clip as a style under the given name; returns the
    *  saved name on success, throws with a human-readable reason otherwise. */
   onLearnStyle?: (name: string) => string;
+  /** Learn the selected clip's WHOLE variant family (VP intensity siblings,
+   *  density/quantize variants…) as one style MODEL — statistics across the
+   *  family instead of one throwaway single-take model per clip. */
+  onLearnFamilyStyle?: (name: string) => string;
+  /** Size of the selected clip's variant family (1 = no siblings yet). */
+  familySize?: number;
+  /** Generate a density family (×¼…×1½) from a style MODEL in one action,
+   *  saved as sibling clips; resolves to a summary, throws if the chosen
+   *  style is a single phrase (nothing to resample density from). */
+  onGenerateVariants?: (req: GrooveClipRequest) => Promise<string>;
   /** Whether a clip is selected (enables the learn action). */
   hasSelectedClip?: boolean;
 }
@@ -23,7 +33,10 @@ interface GrooveGeneratorProps {
  * style — curated capture through extractPhrase, persisted locally, offered
  * in the same dropdown as the bundled styles.
  */
-export function GrooveGenerator({ onGenerate, selectedLeadsheet, onLearnStyle, hasSelectedClip }: GrooveGeneratorProps) {
+export function GrooveGenerator({
+  onGenerate, selectedLeadsheet, onLearnStyle, onLearnFamilyStyle, familySize = 0,
+  onGenerateVariants, hasSelectedClip,
+}: GrooveGeneratorProps) {
   const [expanded, setExpanded] = useState(false);
   const [progression, setProgression] = useState('Dm7 | G7 | Cmaj7 | A7');
   const [styleNames, setStyleNames] = useState<string[]>(() => allStyleNames());
@@ -42,6 +55,8 @@ export function GrooveGenerator({ onGenerate, selectedLeadsheet, onLearnStyle, h
   const [learnName, setLearnName] = useState('');
   const [learnMsg, setLearnMsg] = useState('');
   const [importMsg, setImportMsg] = useState('');
+  const [variantsMsg, setVariantsMsg] = useState('');
+  const [variantsBusy, setVariantsBusy] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const importJsonText = (text: string, filename: string) => {
@@ -90,18 +105,44 @@ export function GrooveGenerator({ onGenerate, selectedLeadsheet, onLearnStyle, h
     </label>
   );
 
-  const learn = () => {
-    if (!onLearnStyle) return;
+  const learn = (fn: ((name: string) => string) | undefined, kind: 'clip' | 'family') => {
+    if (!fn) return;
     const name = learnName.trim().toLowerCase().replace(/[^a-z0-9-]+/g, '-').replace(/^-+|-+$/g, '');
     if (!name) { setLearnMsg('give the style a name first'); return; }
     try {
-      const saved = onLearnStyle(name);
+      const saved = fn(name);
       setStyleNames(allStyleNames());
       setStyle(saved);
       setLearnName('');
-      setLearnMsg(`☆ learned "${saved}" — it's in the style list now`);
+      setLearnMsg(kind === 'family'
+        ? `☆ learned "${saved}" from the whole variant family (${familySize} clips) — a style MODEL, sampled fresh per pass`
+        : `☆ learned "${saved}" — it's in the style list now`);
     } catch (err) {
       setLearnMsg(err instanceof Error ? err.message : 'could not learn from this clip');
+    }
+  };
+
+  const generateVariants = async () => {
+    if (!onGenerateVariants) return;
+    setVariantsBusy(true);
+    setVariantsMsg('');
+    try {
+      const summary = await onGenerateVariants({
+        progression, style, seed, bpm,
+        ...(rhythm.trim() ? { rhythm: rhythm.trim() } : {}),
+        ...(gate ? { gate } : {}),
+        ...(dynamics ? { dynamics } : {}),
+        ...(rests ? { rests } : {}),
+        ...(anticipation ? { anticipation } : {}),
+        ...(variety ? { variety } : {}),
+        ...(pocket ? { pocket } : {}),
+        ...(inflect ? { inflect } : {}),
+      });
+      setVariantsMsg(`✓ ${summary}`);
+    } catch (err) {
+      setVariantsMsg(`✗ ${err instanceof Error ? err.message : 'could not generate variants'}`);
+    } finally {
+      setVariantsBusy(false);
     }
   };
 
@@ -233,6 +274,19 @@ export function GrooveGenerator({ onGenerate, selectedLeadsheet, onLearnStyle, h
           Cancel
         </button>
       </div>
+      {onGenerateVariants && (
+        <div className="mc-progression-gen__row">
+          <button
+            className="mc-groove-gen__from-clip"
+            disabled={variantsBusy}
+            title="Generate a density family (×¼ ×½ ×¾ ×1 ×1½) from the chosen style in one action — needs a style MODEL, not a single phrase"
+            onClick={generateVariants}
+          >
+            {variantsBusy ? '… generating' : '⚡ generate variant family'}
+          </button>
+        </div>
+      )}
+      {variantsMsg && <div className="mc-progression-gen__row mc-groove-gen__msg">{variantsMsg}</div>}
       <div className="mc-progression-gen__row">
         <input
           ref={fileInputRef}
@@ -275,10 +329,22 @@ export function GrooveGenerator({ onGenerate, selectedLeadsheet, onLearnStyle, h
             title={hasSelectedClip
               ? 'Capture the selected clip as a GloriArp style (it needs a chord — leadsheet or detected)'
               : 'Select a clip first'}
-            onClick={learn}
+            onClick={() => learn(onLearnStyle, 'clip')}
           >
             ☆ learn clip as style
           </button>
+          {onLearnFamilyStyle && (
+            <button
+              className="mc-groove-gen__from-clip"
+              disabled={!hasSelectedClip}
+              title={hasSelectedClip
+                ? `Learn a style MODEL from the selected clip's whole variant family (${familySize} clip${familySize === 1 ? '' : 's'} — VP intensity siblings, density variants…), not just this one clip`
+                : 'Select a clip first'}
+              onClick={() => learn(onLearnFamilyStyle, 'family')}
+            >
+              ☆ learn family ({familySize}) as style
+            </button>
+          )}
         </div>
       )}
       {learnMsg && <div className="mc-progression-gen__row mc-groove-gen__msg">{learnMsg}</div>}

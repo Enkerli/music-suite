@@ -4,6 +4,8 @@ import {
   learnStyleFromClip, listUserStyles, allStyleNames,
   learnStyleModelFromClips, listUserModels,
   importStyleFromJson, exportStyleJson,
+  styleKind, clipFamily, learnStyleModelFromFamily,
+  DENSITY_PRESETS, generateDensityFamily,
 } from '../gloriarp-clip';
 import type { Clip } from '../../types/clip';
 import adaptedVector from '../../../../../packages/accompaniment/vectors/adapted-dm7-g7-cmaj7-a7-seed42.json';
@@ -256,5 +258,132 @@ describe('polyphonic MIDI (EP comping) and style models', () => {
     const { kind, json } = exportStyleJson('roundtrip', s);
     expect(kind).toBe('phrase');
     expect(importStyleFromJson(json, 'roundtrip-2', s)).toBe('phrase');
+  });
+});
+
+describe('variants as style sources (docs/KNOWLEDGE_TRANSFER.md item 4)', () => {
+  const kv = () => {
+    const m = new Map<string, string>();
+    return { getItem: (k: string) => m.get(k) ?? null, setItem: (k: string, v: string) => { m.set(k, v); } };
+  };
+
+  /** A Dm7 clip, variant N: same shape as the "learned styles" dm7Clip, but
+   *  parameterized so a family's takes differ a little (root + b3 always,
+   *  the 5th sometimes present) — enough for a model to learn a real
+   *  vocabulary, not a single frozen value. */
+  const familyClip = (id: string, source?: string): Clip => ({
+    id, filename: `${id}.mid`, imported_at: 0, bpm: 120, rating: null, notes: '',
+    ...(source && { source, sourceFilename: `${source}.mid` }),
+    gesture: {
+      onsets: [0, 480, 960], durations: [400, 400, 400], velocities: [96, 88, 90],
+      density: 1, syncopation_score: 0, avg_velocity: 90, velocity_variance: 0, avg_duration: 400,
+      num_bars: 1, ticks_per_bar: 1920, ticks_per_beat: 480,
+    },
+    harmonic: {
+      pitches: [38, 41, id.length % 2 ? 57 : 45], pitchClasses: [2, 5, id.length % 2 ? 9 : 9],
+      detectedChord: {
+        root: 2, rootName: 'D', qualityKey: 'min7', symbol: 'Dm7', qualityName: 'minor seventh',
+        templatePcs: [0, 2, 5, 9],
+      },
+    },
+  });
+
+  describe('clipFamily', () => {
+    it('a clip with no source is its own family of one', () => {
+      const root = familyClip('root');
+      expect(clipFamily(root, [root])).toEqual([root]);
+    });
+
+    it('collects root + direct children', () => {
+      const root = familyClip('root');
+      const c1 = familyClip('c1', 'root');
+      const c2 = familyClip('c2', 'root');
+      const unrelated = familyClip('other');
+      const all = [root, c1, c2, unrelated];
+      expect(clipFamily(c1, all).map((c) => c.id).sort()).toEqual(['c1', 'c2', 'root']);
+      expect(clipFamily(root, all).map((c) => c.id).sort()).toEqual(['c1', 'c2', 'root']);
+    });
+
+    it('reaches transitively (a grandchild counts, from any member)', () => {
+      const root = familyClip('root');
+      const child = familyClip('child', 'root');
+      const grandchild = familyClip('grandchild', 'child');
+      const unrelated = familyClip('other');
+      const all = [root, child, grandchild, unrelated];
+      expect(clipFamily(grandchild, all).map((c) => c.id).sort()).toEqual(['child', 'grandchild', 'root']);
+      expect(clipFamily(root, all).map((c) => c.id).sort()).toEqual(['child', 'grandchild', 'root']);
+    });
+
+    it('never includes an unrelated clip, even one with its own source chain', () => {
+      const root = familyClip('root');
+      const child = familyClip('child', 'root');
+      const otherRoot = familyClip('other-root');
+      const otherChild = familyClip('other-child', 'other-root');
+      const family = clipFamily(child, [root, child, otherRoot, otherChild]);
+      expect(family.map((c) => c.id).sort()).toEqual(['child', 'root']);
+    });
+  });
+
+  describe('learnStyleModelFromFamily', () => {
+    it('learns from the whole family, matching manual clipFamily + learnStyleModelFromClips', () => {
+      const root = familyClip('root');
+      const c1 = familyClip('c1', 'root');
+      const c2 = familyClip('c2', 'root');
+      const s1 = kv(), s2 = kv();
+      const viaFamily = learnStyleModelFromFamily(c1, [root, c1, c2], 'fam', s1);
+      const viaManual = learnStyleModelFromClips(clipFamily(c1, [root, c1, c2]), 'fam', s2);
+      expect(viaFamily).toEqual(viaManual);
+      expect(viaFamily.takes).toBe(3);
+    });
+
+    it('a lone clip (no siblings yet) still learns — a valid single-take model', () => {
+      const root = familyClip('root');
+      const model = learnStyleModelFromFamily(root, [root], 'solo', kv());
+      expect(model.takes).toBe(1);
+    });
+  });
+
+  describe('styleKind', () => {
+    it('identifies bundled and learned phrases, and models; null for unknown', () => {
+      const s = kv();
+      learnStyleFromClip(familyClip('p'), 'my-phrase', s);
+      learnStyleModelFromClips([familyClip('a'), familyClip('b')], 'my-model', s);
+      expect(styleKind('walking-bass', s)).toBe('phrase');
+      expect(styleKind('my-phrase', s)).toBe('phrase');
+      expect(styleKind('my-model', s)).toBe('model');
+      expect(styleKind('nope', s)).toBeNull();
+    });
+  });
+
+  describe('generateDensityFamily', () => {
+    it('refuses a plain-phrase style with a clear reason (nothing to resample)', () => {
+      const s = kv();
+      learnStyleFromClip(familyClip('p'), 'just-a-phrase', s);
+      expect(() => generateDensityFamily({ ...CANON, style: 'just-a-phrase' }, DENSITY_PRESETS, s))
+        .toThrow(/is a single phrase, not a style MODEL/);
+    });
+
+    it('generates one clip per preset, labeled and densities threaded through, unique filenames', () => {
+      const s = kv();
+      learnStyleModelFromClips(
+        [familyClip('a'), familyClip('b'), familyClip('c'), familyClip('d')],
+        'fam-model', s,
+      );
+      const family = generateDensityFamily({ ...CANON, style: 'fam-model' }, DENSITY_PRESETS, s);
+      expect(family).toHaveLength(DENSITY_PRESETS.length);
+      expect(family.map((f) => f.label)).toEqual(DENSITY_PRESETS.map((p) => p.label));
+      expect(family.map((f) => f.density)).toEqual(DENSITY_PRESETS.map((p) => p.density));
+      for (const f of family) expect(f.data.notes.length).toBeGreaterThan(0);
+      const filenames = family.map((f) => f.data.filename);
+      expect(new Set(filenames).size).toBe(filenames.length); // no collisions
+    });
+
+    it('a custom preset list is honored (not hardcoded to the default ladder)', () => {
+      const s = kv();
+      learnStyleModelFromClips([familyClip('a'), familyClip('b')], 'fam-model2', s);
+      const custom = [{ label: 'sparse', density: 0.1 }, { label: 'dense', density: 2 }];
+      const family = generateDensityFamily({ ...CANON, style: 'fam-model2' }, custom, s);
+      expect(family.map((f) => f.label)).toEqual(['sparse', 'dense']);
+    });
   });
 });

@@ -127,6 +127,13 @@ function resolveStyle(name: string, kv?: KV): ResolvedStyle {
   throw new Error(`unknown style "${name}" — bundled: ${GROOVE_STYLE_NAMES.join(', ')}`);
 }
 
+/** 'phrase' | 'model' for a style name, or null if it doesn't exist —
+ *  lets the UI gate density-family generation on a model without having to
+ *  catch resolveStyle's throw. */
+export function styleKind(name: string, kv?: KV): 'phrase' | 'model' | null {
+  try { return resolveStyle(name, kv).kind; } catch { return null; }
+}
+
 /**
  * Import an externally-produced phrase.json or style-model.json (msuite
  * style learn / accompany --phrase-out, a workspace export, another
@@ -250,6 +257,63 @@ export function learnStyleModelFromClips(clips: Clip[], name: string, kv?: KV): 
   return model;
 }
 
+// ── Variants as style sources (docs/KNOWLEDGE_TRANSFER.md item 4) ───────────
+//
+// MIDIcurator already has a "variant" idiom, established by VP intensity
+// synthesis and the density/quantize transforms: a variant is an ordinary
+// Clip whose `source`/`sourceFilename` point at the clip it was derived
+// from, so the UI can group siblings (see `vpSiblings` in MidiCurator.tsx).
+// GloriArp plugs into the SAME idiom both directions:
+//   · a variant FAMILY (a clip + everything derived from its root, or its
+//     root + everything derived from THAT) is a ready-made corpus — learn
+//     ONE style model from the whole ladder (clipFamily + the existing
+//     learnStyleModelFromClips) instead of one style per clip, so sampling
+//     back a chosen density recovers a specific rung from the LEARNED
+//     variability, not a fresh rule-based synthesis;
+//   · a learned model generates ITS OWN density family in one call
+//     (generateDensityFamily), saved as ordinary sibling clips exactly like
+//     any other variant — same tags-and-grouping UI, different engine.
+
+/**
+ * Every clip in the same variant family as `clip`: its root ancestor (walk
+ * `source` up until the chain ends or loops) and everything in `allClips`
+ * whose ancestor chain reaches that root. Works for ANY variant mechanism
+ * (VP intensity, density/quantize transforms, GloriArp) since they all use
+ * the same `source` linking — not GloriArp-specific despite living here.
+ */
+export function clipFamily(clip: Clip, allClips: Clip[]): Clip[] {
+  const byId = new Map(allClips.map((c) => [c.id, c]));
+  let root = clip;
+  const upSeen = new Set([clip.id]);
+  while (root.source && byId.has(root.source) && !upSeen.has(root.source)) {
+    root = byId.get(root.source)!;
+    upSeen.add(root.id);
+  }
+  const reachesRoot = (c: Clip): boolean => {
+    let cur: Clip | undefined = c;
+    const seen = new Set<string>();
+    while (cur) {
+      if (cur.id === root.id) return true;
+      if (!cur.source || seen.has(cur.id)) return false;
+      seen.add(cur.id);
+      cur = byId.get(cur.source);
+    }
+    return false;
+  };
+  return allClips.filter((c) => c.id === root.id || reachesRoot(c));
+}
+
+/**
+ * Learn a style model from a clip's WHOLE variant family (clipFamily) —
+ * the "learn a style per variant" idea, done as one corpus rather than one
+ * throwaway single-take model per rung: the model's own `density` then
+ * recovers a specific intensity from what the family actually taught it,
+ * instead of a fresh rule-based synthesis per level.
+ */
+export function learnStyleModelFromFamily(clip: Clip, allClips: Clip[], name: string, kv?: KV): StyleModel {
+  return learnStyleModelFromClips(clipFamily(clip, allClips), name, kv);
+}
+
 // ── Generate ────────────────────────────────────────────────────────────────
 
 export interface GrooveClipRequest {
@@ -277,6 +341,12 @@ export interface GrooveClipRequest {
    *  Duration/gate shaping is audible via plain note durations; the breath
    *  envelope itself doesn't ride the Note[] clip format yet. */
   inflect?: number;
+  /** Onset-probability scale for a STYLE MODEL source (1 = as learned; <1
+   *  sparser, >1 denser) — the "intensity" axis for a learned family (see
+   *  DENSITY_PRESETS / generateDensityFamily below). No effect on a plain
+   *  phrase source: a curated take's event list is fixed, nothing to
+   *  resample. */
+  density?: number;
 }
 
 export interface GrooveClipData {
@@ -298,7 +368,11 @@ export function generateGrooveClip(req: GrooveClipRequest, kv?: KV): GrooveClipD
   // of performance; a PHRASE is used exactly as before (parity with the
   // CLI's `accompany --source` and the workspace module's dispatch).
   const source = resolved.kind === 'model'
-    ? samplePhrase(resolved.model, { seed: req.seed, ...(req.pass ? { pass: req.pass } : {}) })
+    ? samplePhrase(resolved.model, {
+        seed: req.seed,
+        ...(req.pass ? { pass: req.pass } : {}),
+        ...(req.density !== undefined ? { density: req.density } : {}),
+      })
     : resolved.phrase;
   const { phrase } = groove(source, {
     progression: req.progression,
@@ -326,11 +400,48 @@ export function generateGrooveClip(req: GrooveClipRequest, kv?: KV): GrooveClipD
     }));
 
   const passTag = req.pass ? `-p${req.pass}` : '';
+  const densityTag = req.density !== undefined ? `-d${req.density}` : '';
   return {
     notes,
     leadsheetText: req.progression,
-    filename: `gloriarp-${req.style}-s${req.seed}${passTag}.mid`,
+    filename: `gloriarp-${req.style}-s${req.seed}${passTag}${densityTag}.mid`,
     ppq: phrase.ticksPerBeat,
     bpm: req.bpm,
   };
+}
+
+/** The intensity ladder for a GENERATED family — same ratios and labels as
+ *  intensity-synthesis.ts's INTENSITY_PRESETS, so a GloriArp-generated
+ *  family reads the same way as a rule-based one. */
+export interface DensityPreset {
+  label: string;
+  density: number;
+}
+export const DENSITY_PRESETS: readonly DensityPreset[] = [
+  { label: '×¼', density: 0.25 },
+  { label: '×½', density: 0.50 },
+  { label: '×¾', density: 0.75 },
+  { label: '×1', density: 1.00 },
+  { label: '×1½', density: 1.50 },
+];
+
+/**
+ * Generate a whole density FAMILY from one style in a single call — the
+ * "generate variants from a style" half of item 4. Only meaningful for a
+ * STYLE MODEL (a phrase's event list is fixed; density has nothing to
+ * resample), so this refuses a plain-phrase style with a clear reason
+ * rather than silently returning identical takes at every preset.
+ */
+export function generateDensityFamily(
+  req: Omit<GrooveClipRequest, 'density'>,
+  presets: readonly DensityPreset[] = DENSITY_PRESETS,
+  kv?: KV,
+): { label: string; density: number; data: GrooveClipData }[] {
+  if (styleKind(req.style, kv) !== 'model')
+    throw new Error(`generateDensityFamily: "${req.style}" is a single phrase, not a style MODEL — learn one from a variant family first (density has nothing to resample on a fixed take)`);
+  return presets.map((p) => ({
+    label: p.label,
+    density: p.density,
+    data: generateGrooveClip({ ...req, density: p.density }, kv),
+  }));
 }
