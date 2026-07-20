@@ -12,7 +12,7 @@ import { VoiceSplitter } from "@enkerli/voice-routing";
 import { APPS } from "@enkerli/library";
 import { parseUPI, analyse, analyzeSyncopation, rotate, invert, complement, barlowTransform, mutatePattern } from "@enkerli/upi";
 import { createBindingEngine, addBinding, removeBinding } from "@enkerli/control";
-import { parseLeadsheet, detectChord, rootName } from "@enkerli/theory";
+import { parseLeadsheet, detectChord, rootName, realizeLeadsheet } from "@enkerli/theory";
 import { generateLabels, realizeLabel } from "@enkerli/proggen";
 import transitionTables from "@enkerli/proggen/data/transitions.json";
 import vaneManifest from "../vane/manifest.json";
@@ -125,6 +125,12 @@ export function patternModule(ctx, bodyEl, state) {
 // "learn": grab the last `scale` message heard on the bus (from PickPCS,
 // PitchFold, another Workspace instance…) and store it. The bus IS the
 // scale-editing surface already; this just gives it a memory.
+//
+// Progression-to-pads (2026-07-20): a `progression` message (ProgGenie)
+// loads its chords straight onto the pad bank, pad 1 = first chord, in
+// order — a progression already IS a sequence of chords, so this is a
+// direct sequence-to-sequence load, not "which chord is playing right
+// now" (no transport/playhead tracking involved, deliberately simpler).
 const PCS_PAD_DEFAULTS = [
   { mask: 0x0AB5, root: 0, label: "Ionian" }, { mask: 0x06AD, root: 0, label: "Dorian" },
   { mask: 0x05AB, root: 0, label: "Phrygian" }, { mask: 0x0AD5, root: 0, label: "Lydian" },
@@ -133,6 +139,23 @@ const PCS_PAD_DEFAULTS = [
 ];
 const PC_NAMES = ["C", "C♯", "D", "D♯", "E", "F", "F♯", "G", "G♯", "A", "A♯", "B"];
 const countBits = (m) => { let n = 0; for (let i = 0; i < 12; i++) n += (m >> i) & 1; return n; };
+
+/** Flatten a Progression (bars of chords) into pad-shaped entries, in
+ *  order — the progression-to-pads story: a progression IS a sequence of
+ *  chords, so populating a sequence of pads from it is direct, not a
+ *  "which chord is playing right now" problem. `realizeChord`'s absolute
+ *  `pcs` becomes a root-relative mask (the suite's own convention). */
+function chordsFromProgression(prog) {
+  const bars = realizeLeadsheet(prog);
+  const out = [];
+  for (const bar of bars) {
+    for (const chord of bar) {
+      const mask = chord.pcs.reduce((m, pc) => m | (1 << (((pc - chord.rootPc) % 12 + 12) % 12)), 0);
+      out.push({ mask, root: chord.rootPc, label: chord.symbol });
+    }
+  }
+  return out;
+}
 
 export function pcsPadsModule(ctx, bodyEl, state) {
   if (!Array.isArray(state.pads) || state.pads.length !== PCS_PAD_DEFAULTS.length) {
@@ -143,7 +166,7 @@ export function pcsPadsModule(ctx, bodyEl, state) {
   let lastHeard = null; // { mask, root, name } — most recent `scale` seen on the bus
 
   const grid = el("div", { class: "ws-pads" });
-  const status = el("div", { class: "ws-readout", text: "tap a pad to broadcast · ↓ learns the last scale heard on the bus" });
+  const status = el("div", { class: "ws-readout", text: "tap a pad to broadcast · ↓ learns the last scale heard · a progression on the bus loads its chords" });
 
   function broadcast(pad) {
     ctx.bus.publish(makeMessage(FROM, "scale", { mask: pad.mask, root: pad.root, name: pad.label }, { to: "*" }));
@@ -174,9 +197,32 @@ export function pcsPadsModule(ctx, bodyEl, state) {
   render();
 
   const off = ctx.bus.subscribe((m) => {
-    if (m.type !== "scale" || !m.body || typeof m.body.mask !== "number") return;
-    lastHeard = m.body;
-    status.textContent = `heard ${m.body.name || "a scale"} from ${m.from} — tap ↓ on a pad to learn it`;
+    if (m.type === "scale" && m.body && typeof m.body.mask === "number") {
+      lastHeard = m.body;
+      status.textContent = `heard ${m.body.name || "a scale"} from ${m.from} — tap ↓ on a pad to learn it`;
+      return;
+    }
+    // Progression-to-pads: a progression IS a sequence of chords, so a
+    // `progression` message (ProgGenie) populates the pad bank directly —
+    // pad 1 = first chord, pad 2 = second, in order. Not "which chord is
+    // sounding right now" (that would need transport/playhead tracking);
+    // this is a one-shot "load this progression's chords onto pads" action.
+    if (m.type === "progression" && m.body?.prog) {
+      try {
+        const chords = chordsFromProgression(m.body.prog);
+        if (!chords.length) { status.textContent = `${m.from}'s progression has no chords to load`; return; }
+        const n = Math.min(chords.length, state.pads.length);
+        for (let i = 0; i < n; i++) state.pads[i] = chords[i];
+        state.selected = -1;
+        ctx.save();
+        const overflow = chords.length - n;
+        status.textContent = `loaded ${n} pad${n === 1 ? "" : "s"} from ${m.from}'s progression`
+          + (overflow > 0 ? ` (${overflow} more chord${overflow === 1 ? "" : "s"} didn't fit)` : "");
+        render();
+      } catch (err) {
+        status.textContent = `couldn't read ${m.from}'s progression: ${err instanceof Error ? err.message : err}`;
+      }
+    }
   });
   return () => off();
 }

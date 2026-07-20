@@ -782,6 +782,93 @@ describe("PCS Pads module (docs/PITCHFOLD_AUDIT.md follow-up)", () => {
     pcsPadsModule(ctxObj, body, saved);
     expect(body.querySelectorAll(".ws-pad-name")[0].textContent).toBe("Custom");
   });
+
+  describe("progression-to-pads", () => {
+    const progMsg = (prog, from = "proggenie") => ({
+      protocol: "enkerli-suite", v: 1, id: "prog-msg-00001", from, to: "*",
+      sentAt: "2026-07-20T00:00:00Z", type: "progression", body: { prog },
+    });
+
+    it("loads a progression's chords onto pads in order — pad 1 = first chord", async () => {
+      const { parseLeadsheet } = await import("@enkerli/theory");
+      const C = { tonic: "C", mode: "major" };
+      const prog = parseLeadsheet("Dm7 G7 | Cmaj7 A7", C);
+      const { bus, ctxObj } = ctx();
+      const body = document.createElement("div");
+      const state = {};
+      pcsPadsModule(ctxObj, body, state);
+
+      bus.publish(progMsg(prog));
+      const names = body.querySelectorAll(".ws-pad-name");
+      expect(names[0].textContent).toBe("Dm7");
+      expect(names[1].textContent).toBe("G7");
+      expect(names[2].textContent).toBe("Cmaj7");
+      expect(names[3].textContent).toBe("A7");
+      // untouched beyond the 4 chords — still the Mixolydian default (pad 5)
+      expect(names[4].textContent).toBe("Mixolydian");
+      expect(body.querySelector(".ws-readout").textContent).toMatch(/loaded 4 pads? from proggenie/);
+    });
+
+    it("truncates and reports overflow when a progression has more chords than pads", async () => {
+      const { parseLeadsheet } = await import("@enkerli/theory");
+      const C = { tonic: "C", mode: "major" };
+      // 9 chords, one more than the 8 pads
+      const prog = parseLeadsheet("C | Dm | Em | F | G | Am | Bdim | C | Dm", C);
+      const { bus, ctxObj } = ctx();
+      const body = document.createElement("div");
+      pcsPadsModule(ctxObj, body, {});
+
+      bus.publish(progMsg(prog));
+      expect(body.querySelectorAll(".ws-pad-name")[7].textContent).toBe("C"); // 8th pad = 8th chord
+      expect(body.querySelector(".ws-readout").textContent).toMatch(/1 more chord didn't fit/);
+    });
+
+    it("a progression shorter than the pad bank leaves the remaining pads untouched", async () => {
+      const { parseLeadsheet } = await import("@enkerli/theory");
+      const C = { tonic: "C", mode: "major" };
+      const prog = parseLeadsheet("C", C);
+      const { bus, ctxObj } = ctx();
+      const body = document.createElement("div");
+      pcsPadsModule(ctxObj, body, {});
+
+      bus.publish(progMsg(prog));
+      expect(body.querySelectorAll(".ws-pad-name")[0].textContent).toBe("C");
+      expect(body.querySelectorAll(".ws-pad-name")[1].textContent).toBe("Dorian"); // default, untouched
+    });
+
+    it("converts absolute pitch classes to a root-relative mask (the suite's own convention)", async () => {
+      const { parseLeadsheet } = await import("@enkerli/theory");
+      const C = { tonic: "C", mode: "major" };
+      const prog = parseLeadsheet("Dm7", C); // D=2, F=5, A=9, C=0 -> root-relative 0,3,7,10
+      const { bus, ctxObj } = ctx();
+      const body = document.createElement("div");
+      const state = {};
+      pcsPadsModule(ctxObj, body, state);
+
+      bus.publish(progMsg(prog));
+      expect(state.pads[0]).toMatchObject({ root: 2, mask: (1 << 0) | (1 << 3) | (1 << 7) | (1 << 10) });
+    });
+
+    it("a message with no chords reports it, doesn't touch the pads", async () => {
+      const { bus, ctxObj } = ctx();
+      const body = document.createElement("div");
+      const state = {};
+      pcsPadsModule(ctxObj, body, state);
+      const before = JSON.stringify(state.pads);
+
+      bus.publish(progMsg({ key: { tonic: "C", mode: "major" }, sections: [] }));
+      expect(JSON.stringify(state.pads)).toBe(before);
+      expect(body.querySelector(".ws-readout").textContent).toMatch(/no chords to load/);
+    });
+
+    it("a malformed progression fails gracefully — no throw, a readable status message", () => {
+      const { bus, ctxObj } = ctx();
+      const body = document.createElement("div");
+      pcsPadsModule(ctxObj, body, {});
+      expect(() => bus.publish(progMsg({ nonsense: true }))).not.toThrow();
+      expect(body.querySelector(".ws-readout").textContent).toMatch(/couldn't read/);
+    });
+  });
 });
 
 describe("Voice Split module (docs/PITCHFOLD_AUDIT.md — @enkerli/voice-routing)", () => {

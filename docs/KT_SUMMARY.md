@@ -125,19 +125,21 @@ findings, not these). Sizing and the reasoning for why these specifically
 resisted a quick fix are in `docs/PITCHFOLD_AUDIT.md`'s "Follow-up"
 section.
 
-**4. ProgGenie does not populate PitchFold's chord pads — checked, and
-the answer is a clean no, not a maybe.** Traced the actual message
-types: ProgGenie (`apps/progression-studio`) only ever sends
-`type: "progression"` (a full chord-progression object) on the bus.
-PitchFold's pad system, and the new Workspace PCS Pads module, both only
-listen for `type: "scale"` (a single pitch-class set) — and even a heard
-`scale` message only updates PitchFold's *main* scale, never a specific
-pad (pads are UI-edited only). Different vocabularies, no adapter exists
-anywhere in the codebase (grepped for any `progression`→`scale`/`chord`
-bridge — none). Not a bug: nothing ever claimed this worked. A real
-adapter — "extract the currently-sounding chord from a progression
-message and re-broadcast it as `scale`/`chord`" — is a legitimate future
-slice, not attempted here.
+**4. ProgGenie → chord pads: checked, was a clean no, now shipped for the
+Workspace pad bank.** Originally traced and reported as a no: ProgGenie
+(`apps/progression-studio`) only ever sends `type: "progression"` (a full
+chord-progression object); PitchFold's pad system and the new Workspace
+PCS Pads module both only listened for `type: "scale"`. Corrected on
+review: this isn't "extract the currently-sounding chord" (which would
+need transport/playhead tracking, real complexity) — a progression
+already IS a sequence of chords, so populating a sequence of pads from
+it is direct. `pcsPadsModule` now also listens for `progression`
+messages and loads pad 1 = first chord, pad 2 = second, in order,
+truncating/leaving the rest untouched as needed — verified live over
+the real cross-tab bus. **Still not connected**: PitchFold's own,
+separate pad bank (its C++ `ChordPadBank`) has no such listener; this
+shipped for the Workspace pad bank only, which is the newer, JS-native,
+bus-connected one.
 
 **5. Concentric circles are exactly as portable as a UI feature can
 be — which is to say, not very, and that's fine.** They reach the Serpe
