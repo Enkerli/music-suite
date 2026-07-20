@@ -130,9 +130,16 @@ a named reason. Both save through the EXACT same variant idiom (tagged
 sibling clips) so they sit in the UI exactly like any other variant.
 GrooveGenerator.tsx: "learn family (N) as style" beside the existing
 per-clip learn button, "generate variant family" beside Generate. 10 new
-tests in `gloriarp-clip.test.ts` (368/368 MIDIcurator, 1365/1365 monorepo);
-webapp build + bundle-string checks confirmed, not click-tested in a
-browser or the plugin.
+tests in `gloriarp-clip.test.ts` (368/368 MIDIcurator, 1365/1365 monorepo).
+Click-tested for real: `npm run dev` + Playwright/Chromium against the
+actual running webapp (a real browser, not a component test) — imported a
+clip, learned its family (size 1) as a model, generated the ×¼…×1½ family
+from it, confirmed the message/dropdown/tags, then confirmed the ORIGINAL
+clip's family count correctly grows 1→6 once its five generated variants
+link back via source/sourceFilename. One real bug this caught and fixed:
+"1 clips" grammar in the learn-family message (not caught by any unit
+test — nobody asserted the exact string with a family of exactly one).
+Not tested in the actual JUCE plugin (no toolchain in this environment).
 
 Remaining/open: per-density custom UI (currently the fixed ladder only,
 though `generateDensityFamily` itself takes any preset list); by-ear check
