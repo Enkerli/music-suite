@@ -2,7 +2,7 @@
 
 *Written 2026-07-19 at session end, for a coding agent (Sonnet 5, Opus
 4.8, or any successor) picking up the ranked plan in
-`SUITE_AUDIT_AND_PLAN.md` §9 (private repo — see below) with no access
+`SUITE_AUDIT_AND_PLAN.md` §10 (private repo — see below) with no access
 to the session that produced it. The plan says WHAT and in what order;
 this doc carries the session knowledge that makes each item executable:
 where the seams are, what was already verified, and which traps are

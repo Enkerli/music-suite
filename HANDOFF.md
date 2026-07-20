@@ -174,7 +174,7 @@ material:
 
 Read **[docs/KNOWLEDGE_TRANSFER.md](docs/KNOWLEDGE_TRANSFER.md)** — the
 agent-to-agent handoff for the nine ranked items in the private plan
-doc's §9: per-item code seams, first steps, verified state, and the
+doc's §10: per-item code seams, first steps, verified state, and the
 trap index. Written at that session's end specifically for a successor
 agent.
 
