@@ -858,6 +858,7 @@ function SerpeApp() {
         // real APVTS values on load, so the panel shows automation-recalled
         // state rather than defaults for the first render.
         if (s.polyLagMs != null) setPolyLagMs(Math.round(s.polyLagMs));
+        if (s.polyLock != null) setPolyLock(s.polyLock > 0.5 ? 'step' : 'cycle');
         setHostLaneParams(prev => {
           const next = prev.slice();
           for (let i = 0; i < 6; i++) {
@@ -903,6 +904,8 @@ function SerpeApp() {
           });
         } else if (ev.id === 'polyLagMs') {
           setPolyLagMs(Math.round(ev.value));
+        } else if (ev.id === 'polyLock') {
+          setPolyLock(ev.value > 0.5 ? 'step' : 'cycle');
         }
       }
     });
@@ -1054,7 +1057,10 @@ function SerpeApp() {
 
         poly
         ? h(PolyLanesPanel, { poly, lanePh,
-            polyLock, setPolyLock: v => { setPolyLock(v); LS.set('polyLock', v); },
+            polyLock, setPolyLock: v => {
+              setPolyLock(v); LS.set('polyLock', v);
+              if (cfg.host && juceAvailable()) sendParamActual('polyLock', v === 'step' ? 1 : 0);
+            },
             polyView, setPolyView: v => { setPolyView(v); LS.set('polyView', v); },
             drumKit, setDrumKit: v => { setDrumKit(v); LS.set('drumKit', v); }, kitNames: Object.keys(KITS),
             laneNote, laneChan, laneMuted, setLaneUi,

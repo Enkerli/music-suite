@@ -12,10 +12,10 @@ already paid for.*
 shipped across items 2/4/5/8/9, a feature-availability matrix (which
 surface — webapp, plugin, CLI, MIDIcurator, Workspace — each feature
 actually reaches), and an explicit limitations section (a real
-color-contrast bug found and fixed, and a newly-discovered gap: Serpe's
-JUCE plugin only ever plays polyrhythm, never polymeter). Read it before
-this doc if you want the "what actually happened" view rather than the
-per-item plan.*
+color-contrast bug found and fixed, and a gap found and closed same day:
+Serpe's JUCE plugin used to only ever play polyrhythm, never polymeter —
+now both are real there, see item 9). Read it before this doc if you
+want the "what actually happened" view rather than the per-item plan.*
 
 ## 0. Read order, then rules
 
@@ -385,6 +385,23 @@ flagged warts.
   day) just spent a whole doc criticizing.
 
 9 render.js tests total, 1400/1400 monorepo.
+
+**Polymeter in the real plugin, DONE 2026-07-20 (same day as the
+directive naming it "the most important" item).** Separate from the ring
+work above but discovered while doing it: `rhythm_pattern_explorer`'s
+`Source/Core/PolyClock.h` (the plugin's own audio-thread scheduler, not
+the webapp's `apps/serpe/engine/poly-clock.js`) only ever implemented
+cycle lock — polymeter (step lock) was real in the webapp alone. Closed
+same day: `PolyClock.h` gained `computePolyLaneStepPolymeter` (additive,
+not a refactor of the hand-verified `computePolyLaneStep`), a new
+`polyLock` `AudioParameterChoice` param, `processPolyLanes()` branches on
+it, and the webapp's Cycle/Step toggle now actually reaches the plugin
+(`sendParamActual('polyLock', ...)` in `main.jsx`, `PARAM_MAP` entry in
+`juce-bridge.js`) instead of being a fully inert control there. New
+coprime-step-count (7 vs 11, lcm 77) conformance tests added to
+`PolyConformanceTests.cpp`. Full account, including the "not
+build-verified — no JUCE/Xcode here" caveat that applies to every C++
+change made in this environment: `docs/SERPE_POLY.md` §3b.
 
 ## Loose threads that are NOT plan items (don't drop them)
 

@@ -130,26 +130,30 @@ cross-rhythm. Revised, per the user's call:
 Implementation: per-lane clocks (not one global tick); each lane reschedules
 from the live lock, so flipping the toggle takes effect within a step.
 
-**Gap found 2026-07-20 (not previously documented): step lock is
-webapp-only.** `rhythm_pattern_explorer`'s `Source/Core/PolyClock.h` — the
-plugin's real audio-thread scheduler — implements ONLY the cycle-lock
-model (its own doc comment: "the field-tested webapp default, ported as
-IS"); there is no `polyLock`/step-lock concept anywhere in the C++ source
-(grepped the whole plugin repo, zero hits) and the webapp's `setPolyLock`
-never sends anything across the JUCE bridge — it's local React state +
-localStorage only, in every runtime. The Cycle/Step toggle in
-`PolyLanesPanel` is also not gated by `isHost` the way `polyLagMs` is, so
-it renders and is clickable inside the real plugin too — but tapping
-"Step" there changes neither the audio (the C++ engine always schedules
-cycle-lock) nor the displayed playhead (`lanePh` arrives via the
-`polyState` bridge event, itself computed by the same cycle-lock-only
-engine). Net effect: **inside the plugin, Step lock is a fully inert
-toggle** — same "looks real, does nothing" pattern the PitchFold audit
-(docs/PITCHFOLD_AUDIT.md) found repeatedly there. Only the standalone
-webapp's own JS scheduler (`apps/serpe/engine/poly-clock.js`) genuinely
-implements polymeter. Not fixed here — flagging it is the first step;
-porting `PolyClock.h` to support both modes is real C++ engine work in a
-different repo, sized on its own.
+**Gap found 2026-07-20, closed same day: step lock now real in the
+plugin.** `rhythm_pattern_explorer`'s `Source/Core/PolyClock.h` — the
+plugin's real audio-thread scheduler — used to implement ONLY the
+cycle-lock model (its old doc comment: "the field-tested webapp default,
+ported as-is"); there was no `polyLock`/step-lock concept anywhere in the
+C++ source, and the webapp's `setPolyLock` never sent anything across the
+JUCE bridge. Fixed: `PolyClock.h` gained `computePolyLaneStepPolymeter`
+(a separate function, not a refactor of the existing hand-verified
+`computePolyLaneStep` — no JUCE/Xcode toolchain in the environment that
+made this change, so additive-only was the safer move), a new
+`polyLock` `AudioParameterChoice` (`Cycle`/`Step`, APVTS-registered,
+generic `setParamActual`/`parameterChanged` bridge — no bespoke C++
+plumbing needed beyond registration + one `stateSnapshot` line),
+`processPolyLanes()` now branches on it, and the webapp's `setPolyLock`
+sends `sendParamActual('polyLock', ...)` when hosted (`apps/serpe/
+main.jsx`, `juce-bridge.js`'s `PARAM_MAP`). New coprime-step-count
+conformance tests (7 vs 11, lcm 77) in `PolyConformanceTests.cpp` mirror
+`poly-clock.test.js`'s proof that the drift-then-realign behavior is
+correct, not just plausible. **Not build-verified** — no JUCE/Xcode
+toolchain in this environment, so this needs a real compile + a DAW pass
+before it ships. Only the standalone webapp's own JS scheduler
+(`apps/serpe/engine/poly-clock.js`) had a from-scratch node-test pass;
+the ported C++ leans on the hand-computed-vector pattern the rest of this
+test file already uses.
 
 ## 4. The webapp slice (M) — scope fence
 

@@ -20,10 +20,11 @@ own engine, a Workspace module, the CLI) — plus PitchFold's C++ engine
 has its own equivalent implementation, since a JS package can't cross
 into C++ — and two Workspace modules turned the audit into working
 cross-app plumbing. What's still open is honestly scoped, not hidden:
-Mono Merge and a standalone Time-engine port for PitchFold, and — newly
-discovered while addressing the request that prompted this doc —
-**Serpe's real JUCE plugin only ever plays polyrhythm; polymeter (step
-lock) exists in the webapp alone.**
+Mono Merge and a standalone Time-engine port for PitchFold. The other
+open item — Serpe's real JUCE plugin only ever playing polyrhythm, with
+polymeter (step lock) existing in the webapp alone — was found and
+closed the same day, once it was named the top priority: both lock modes
+are now real in the plugin's own C++ scheduler, not just the webapp's.
 
 ## What shipped, by KT item
 
@@ -71,7 +72,7 @@ filesystem move, 3 needs Alex's call, 6/7 weren't requested this round.
 | PitchFold Swing | ❌ still theater (plugin engine never reads it) | ❌ same | n/a | n/a | n/a |
 | PitchFold Time engine (grid/humanize) | ❌ no JS twin exists at all | ✅ real | n/a | n/a | n/a |
 | Serpe concentric rings | ✅ | ✅ reaches automatically — the plugin's CMakeLists esbuilds `apps/serpe` directly, no vendoring step | — (no visual surface) | — | — |
-| Serpe step lock (polymeter) | ✅ real, now proven with coprime step counts (`engine/poly-clock.js`, 7-vs-11 tests) | ❌ **engine only implements cycle lock** — see Limitations | n/a (poly playback is a UI/scheduling concern, not a CLI concept) | — | — |
+| Serpe step lock (polymeter) | ✅ real, proven with coprime step counts (`engine/poly-clock.js`, 7-vs-11 tests) | ✅ real now — `computePolyLaneStepPolymeter` + `polyLock` param, same 7-vs-11 conformance proof ported to C++; **not build-verified**, no JUCE/Xcode here — see Limitations | n/a (poly playback is a UI/scheduling concern, not a CLI concept) | — | — |
 
 **Vane, named explicitly in the original KT item 8 note as a reasonable
 Voice Split adopter alongside Workspace, has not adopted it.** Nothing
@@ -94,29 +95,34 @@ codebase needs to explicitly exclude whatever token means "accented" or
 "active" elsewhere**, since the suite's palette reuses `--es-dim-pressure`
 for both a lane identity and a state signal.
 
-**2. Polymetric/polyrhythmic patterns: complete in the webapp, absent
-in the real plugin.** This is the headline limitation, found while
-building the coprime-step-count tests this doc's request specifically
-asked for. `apps/serpe/engine/poly-clock.js` (webapp) genuinely
-implements both lock modes — proven, not assumed, with tests using 7-vs-11
-(coprime, lcm 77) rather than the multiples-of-8 examples every prior
-test/screenshot happened to use (which realign so fast they don't prove
-anything about drift). But `rhythm_pattern_explorer`'s
-`Source/Core/PolyClock.h` — the real plugin's audio-thread scheduler —
-implements **only** cycle-lock; its own doc comment says so ("the
-field-tested webapp default, ported as-is"), and there is no
-`polyLock`/step-lock concept anywhere in that C++ source (grepped the
-whole repo, zero hits). The webapp's `setPolyLock` never sends anything
-across the JUCE bridge in any runtime — pure local state. Worse: the
-Cycle/Step toggle in `PolyLanesPanel` isn't gated by `isHost` the way
-`polyLagMs` is, so **it renders and is clickable inside the real plugin,
-and does nothing there** — not to the audio, not even to the displayed
-playhead (which arrives via a `polyState` bridge event computed by the
-same cycle-lock-only engine). Same "looks real, does nothing" pattern
-the PitchFold audit found repeatedly, this time in Serpe's own plugin.
-Documented in `docs/SERPE_POLY.md` §3b. Not fixed here — porting
-`PolyClock.h` to support both modes is real C++ engine work in a
-different repo, its own slice.
+**2. Polymetric/polyrhythmic patterns: was complete in the webapp,
+absent in the real plugin — now closed, same day, once named the top
+priority.** Found while building the coprime-step-count tests an earlier
+pass of this doc's request specifically asked for.
+`apps/serpe/engine/poly-clock.js` (webapp) genuinely implements both
+lock modes — proven, not assumed, with tests using 7-vs-11 (coprime, lcm
+77) rather than the multiples-of-8 examples every prior test/screenshot
+happened to use (which realign so fast they don't prove anything about
+drift). `rhythm_pattern_explorer`'s `Source/Core/PolyClock.h` — the real
+plugin's audio-thread scheduler — used to implement only cycle-lock, with
+the Cycle/Step toggle in `PolyLanesPanel` rendering and clickable inside
+the real plugin (not gated by `isHost` the way `polyLagMs` is) while
+doing nothing there — the PitchFold audit's "looks real, does nothing"
+pattern, found again in Serpe's own plugin.
+
+Closed: `PolyClock.h` gained `computePolyLaneStepPolymeter` as a fully
+separate function (not a refactor of the existing hand-verified
+`computePolyLaneStep` — no JUCE/Xcode toolchain here to re-verify a
+refactor against, so additive was the lower-risk move), a new `polyLock`
+`AudioParameterChoice` APVTS param, `processPolyLanes()` now branches on
+lock mode, and `apps/serpe/main.jsx`'s `setPolyLock` calls
+`sendParamActual('polyLock', ...)` when hosted — the toggle now actually
+reaches the audio and the displayed playhead in the plugin, not just the
+webapp. New coprime-step-count conformance tests (7 vs 11, lcm 77) added
+to `PolyConformanceTests.cpp`, mirroring the JS-side proof. **Not
+build-verified** — same caveat as every C++ change made in this
+environment: no JUCE/Xcode toolchain here, so this needs a real compile
+and a DAW pass before it ships. Documented in `docs/SERPE_POLY.md` §3b.
 
 **3. PitchFold: Mono Merge and Swing are still theater; the Time engine
 still doesn't exist in the webapp.** Carried over from the audit,

@@ -54,6 +54,7 @@ export const PARAM_MAP = [
   // already falls back to the field name when PARAM_MAP has no entry — but
   // listing them keeps this file the one place that names every bridged param.
   ['polyLagMs', 'polyLagMs'],
+  ['polyLock', 'polyLock'],
   ...[0, 1, 2, 3, 4, 5].flatMap(i => [
     [`laneNote${i}`,    `laneNote${i}`],
     [`laneChannel${i}`, `laneChannel${i}`],
