@@ -73,7 +73,19 @@ The build system is already location-flexible — three probed layouts
 5. Prove it: one archetype plugin (`workspace-plugin` is smallest) and
    Vane must configure with no `webui.local.cmake` and no fetch.
 
-## 2. One build script (M · ★★★)
+## 2. One build script (M · ★★★) — DONE 2026-07-20
+
+`enkerli-juce/tools/suite-build` shipped (enkerli-juce commit "tools/
+suite-build: one command for any (or all) of the seven plugin repos";
+`BUILD.md` updated with a "Quick:" line per repo). Wraps `validate.sh`
+unchanged; adds the Linux leg; `all` skips a repo that isn't checked out
+yet instead of dying. **Not run-verified** — built and dry-run-traced
+without a JUCE/Xcode toolchain (Linux container); a real `--ladder` pass on
+Mac is the remaining check before trusting it fully. `--formats` target-
+name guessing (`<Product>_VST3` etc.) is best-effort, flagged as such in
+its own `--help`.
+
+Original brief, for reference:
 
 `BUILD.md` is the human spec; make an executable one. Seed from
 `enkerli-juce/tools/validate.sh` (already: macOS build → hollow-bundle
