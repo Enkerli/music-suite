@@ -1141,6 +1141,24 @@ body {
   font-size: 12px;
 }
 
+/* Morph sliders (continuous mutation) — same feel-row shell, a range input
+   instead of a number box, plus a compact percentage readout. */
+.mc-groove-gen__feel--slider {
+  flex-wrap: wrap;
+}
+.mc-groove-gen__slider {
+  flex: 1;
+  min-width: 40px;
+  accent-color: var(--mc-accent);
+}
+.mc-groove-gen__slider-val {
+  flex: 0 0 auto;
+  font-size: 10px;
+  color: var(--mc-text-dim, var(--mc-text));
+  min-width: 2.4em;
+  text-align: right;
+}
+
 .mc-groove-gen__from-clip {
   flex: 1;
   padding: 4px 8px;

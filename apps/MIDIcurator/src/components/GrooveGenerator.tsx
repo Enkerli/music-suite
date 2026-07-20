@@ -52,6 +52,17 @@ export function GrooveGenerator({
   const [pocket, setPocket] = useState(0);
   const [inflect, setInflect] = useState(0);
   const [pass, setPass] = useState(0);
+  // Continuous mutation (docs/GLORIARP_NEXT.md §3e/§3f) — independent
+  // per-pass re-roll of each dimension, plus slide promotion. Collapsed by
+  // default (morphExpanded): 6 more controls would clutter the common path,
+  // and none of them matter until `pass` is actually stepping through takes.
+  const [morphExpanded, setMorphExpanded] = useState(false);
+  const [morphNotes, setMorphNotes] = useState(0);
+  const [morphPocket, setMorphPocket] = useState(0);
+  const [morphRests, setMorphRests] = useState(0);
+  const [morphAccents, setMorphAccents] = useState(0);
+  const [slide, setSlide] = useState(0);
+  const [glideMs, setGlideMs] = useState(120);
   const [learnName, setLearnName] = useState('');
   const [learnMsg, setLearnMsg] = useState('');
   const [importMsg, setImportMsg] = useState('');
@@ -105,6 +116,35 @@ export function GrooveGenerator({
     </label>
   );
 
+  const morphSlider = (label: string, value: number, set: (v: number) => void, title?: string) => (
+    <label className="mc-groove-gen__feel mc-groove-gen__feel--slider" title={title}>
+      {label}
+      <input
+        type="range" min={0} max={1} step={0.01} value={value}
+        onChange={e => set(Number(e.target.value))}
+        className="mc-groove-gen__slider"
+        aria-label={title ?? label}
+      />
+      <span className="mc-groove-gen__slider-val">{Math.round(value * 100)}%</span>
+    </label>
+  );
+
+  /** The morph/slide fields, only included when nonzero — same
+   *  spreading discipline as the rest of this component's request
+   *  builders, and matches the engine's own "0/undefined = off" contract. */
+  const morphFields = () => ({
+    ...(morphNotes ? { morphNotes } : {}),
+    ...(morphPocket ? { morphPocket } : {}),
+    ...(morphRests ? { morphRests } : {}),
+    ...(morphAccents ? { morphAccents } : {}),
+    ...(slide ? { slide, glideMs } : {}),
+  });
+  /** Whether any of the blanket-aliased trio (notes/pocket/rests) was set —
+   *  when it hasn't, and a take is requested, default to morph:1 so "take N"
+   *  alone still visibly differs per pass (the original, pre-slider
+   *  behavior); an explicit slider value always overrides that default. */
+  const anyAliasableMorph = () => !!(morphNotes || morphPocket || morphRests);
+
   const learn = (fn: ((name: string) => string) | undefined, kind: 'clip' | 'family') => {
     if (!fn) return;
     const name = learnName.trim().toLowerCase().replace(/[^a-z0-9-]+/g, '-').replace(/^-+|-+$/g, '');
@@ -137,6 +177,7 @@ export function GrooveGenerator({
         ...(variety ? { variety } : {}),
         ...(pocket ? { pocket } : {}),
         ...(inflect ? { inflect } : {}),
+        ...morphFields(),
       });
       setVariantsMsg(`✓ ${summary}`);
     } catch (err) {
@@ -248,6 +289,37 @@ export function GrooveGenerator({
         {feelNum('pocket', pocket, setPocket)}
         {feelNum('inflect', inflect, setInflect)}
       </div>
+      <div className="mc-progression-gen__row">
+        <button
+          className="mc-groove-gen__from-clip"
+          onClick={() => setMorphExpanded(v => !v)}
+          aria-expanded={morphExpanded}
+          title="Continuous mutation: re-roll each dimension independently per take, instead of a wholesale regenerate"
+        >
+          {morphExpanded ? '▾' : '▸'} morph (per-take mutation)
+        </button>
+      </div>
+      {morphExpanded && (
+        <>
+          <div className="mc-progression-gen__row">
+            {morphSlider('notes', morphNotes, setMorphNotes, 'Re-roll note choice (passing tones, octave pops, chord-tone reselection) this much per take')}
+            {morphSlider('pocket', morphPocket, setMorphPocket, 'Re-roll timing/dynamics micro-variation this much per take')}
+            {morphSlider('rests', morphRests, setMorphRests, 'Re-roll WHICH steps drop this much per take')}
+          </div>
+          <div className="mc-progression-gen__row">
+            {morphSlider('accents', morphAccents, setMorphAccents, "Re-roll inflect's own articulation choices (sforzando/marcato, staccato/tenuto) and slide promotion this much per take — needs inflect > 0")}
+            {morphSlider('slide', slide, setSlide, 'Probability an eligible legato transition becomes an audible portamento glide instead of an instant pitch join — needs inflect > 0')}
+            <label className="mc-groove-gen__feel" title="Portamento time (ms) for a promoted slide">
+              glide ms
+              <input
+                type="number" min={0} max={2000} step={10} value={glideMs}
+                onChange={e => setGlideMs(Math.min(2000, Math.max(0, Math.round(Number(e.target.value) || 0))))}
+                className="mc-groove-gen__num"
+              />
+            </label>
+          </div>
+        </>
+      )}
       <div className="mc-progression-gen__row mc-progression-gen__actions">
         <button
           className="mc-btn--generate"
@@ -264,8 +336,11 @@ export function GrooveGenerator({
             ...(variety ? { variety } : {}),
             ...(pocket ? { pocket } : {}),
             ...(inflect ? { inflect } : {}),
-            // A nonzero take only differs when something re-rolls per pass.
-            ...(pass ? { pass, morph: 1 } : {}),
+            // A nonzero take only differs when something re-rolls per pass —
+            // default to morph:1 unless a specific dimension slider is set,
+            // which always wins over that default.
+            ...(pass ? { pass, ...(anyAliasableMorph() ? {} : { morph: 1 }) } : {}),
+            ...morphFields(),
           })}
         >
           Generate
