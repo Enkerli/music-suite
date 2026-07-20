@@ -248,17 +248,27 @@ the hardware's pad palette is already canon in the suite
 (`packages/ui/components/pitch-class-colors.js` — derived from Alex's
 Exquis layout file).
 
-## 8. PitchFold feature evaluation (M · ★★)
+## 8. PitchFold feature evaluation (M · ★★) — DONE, 2026-07-20
 
-Alex's words: features "thrown together haphazardly"; **voice
-splitting** is the named promotion candidate. Engine: plugin repo
-`Source/PCS/PCSEngine.h` with a JS twin in
-`apps/pitchfold/engine/{pcs,voices}.js` (VoiceProcessor modes — read
-these first). Deliverable is an audit doc (what each feature does, used
-or vestigial, keep/promote/drop), not code. If voice splitting gets
-promoted, consider it a shared module (other tools want voice routing —
-Vane poly, Workspace). Known open wart: pad-override is unresolved in
-the standalone (pad→active-mask happens in C++ only).
+Audit doc: `docs/PITCHFOLD_AUDIT.md`. Read the webapp fully and
+cross-referenced every parameter against the real plugin's C++ source
+(`Enkerli/PitchFold`, added to the session for this). Headline: **Voice
+Split earns its promotion** (clean, correct, C++/JS parity, genuinely
+engine-agnostic) — recommend extracting it as a shared module (Vane
+poly, Workspace). Three parameters turned out to be pure theater —
+automatable/UI-visible but provably zero-effect in both engines: **Mono
+Merge** (a whole voice mode + 4 sub-modes), **Swing**, **Snap Strength**
+(`quantStrength`, host-automatable, no UI at all). The known
+pad-override wart is real and worse than "unresolved" — pad selection
+in the standalone webapp is 100% cosmetic (the quantizer never resolves
+through the selected pad's mask/root; works correctly in the real
+plugin). New finding not previously flagged: **the whole Time tab is
+inert in the standalone webapp** — no JS time-quantizer twin exists at
+all, only pitch + voice were ported. Also found: ~1,517 lines of dead
+native-UI C++ pre-dating the WebView migration (compiled into nothing),
+a stale bit-order doc comment in `PCSEngine.h`, and fully dead
+MIDI-pad-trigger code in `ChordPadBank`. Full keep/promote/drop table
+in the audit doc — no code changed, per the brief.
 
 ## 9. Serpe concentric circles (M–L · ★★) — DONE, 2026-07-20
 
