@@ -180,6 +180,47 @@ describe("sendMessage / NDJSON transport", () => {
   });
 });
 
+import { applyVoiceSplit } from "./index.js";
+import { VoiceSplitter } from "@enkerli/voice-routing";
+
+describe("applyVoiceSplit — msuite voice-split, @enkerli/voice-routing", () => {
+  const note = (over: object = {}) => sendMessage({ to: "vane", note: { notes: [60], ...over } });
+
+  it("round-robins successive note messages across the channel span", () => {
+    const s = new VoiceSplitter();
+    const opts = { baseChannel: 3, span: 3 };
+    expect(applyVoiceSplit(note(), s, opts).body).toMatchObject({ channel: 3 });
+    expect(applyVoiceSplit(note(), s, opts).body).toMatchObject({ channel: 4 });
+    expect(applyVoiceSplit(note(), s, opts).body).toMatchObject({ channel: 5 });
+    expect(applyVoiceSplit(note(), s, opts).body).toMatchObject({ channel: 3 }); // wraps
+  });
+  it("defaults to base channel 1, span 4 (matches the Workspace module's own default)", () => {
+    const s = new VoiceSplitter();
+    expect(applyVoiceSplit(note(), s, {}).body).toMatchObject({ channel: 1 });
+  });
+  it("passes non-note messages through completely unchanged", () => {
+    const s = new VoiceSplitter();
+    const cmd = sendMessage({ to: "serpe", command: { name: "mutate" } });
+    expect(applyVoiceSplit(cmd, s, { baseChannel: 5, span: 2 })).toBe(cmd);
+  });
+  it("preserves the rest of the note body (velocity, durationMs…) — only channel changes", () => {
+    const s = new VoiceSplitter();
+    const out = applyVoiceSplit(note({ velocity: 90, durationMs: 250 }), s, { baseChannel: 1, span: 4 });
+    expect(out.body).toMatchObject({ notes: [60], velocity: 90, durationMs: 250, channel: 1 });
+  });
+  it("re-addresses to a new destination when --to is given; otherwise keeps the original", () => {
+    const s = new VoiceSplitter();
+    expect(applyVoiceSplit(note(), s, { to: "serpe" }).to).toBe("serpe");
+    expect(applyVoiceSplit(note(), s, {}).to).toBe("vane"); // kept from the incoming message
+  });
+  it("produces a validated message (channel always in range for any span)", () => {
+    const s = new VoiceSplitter();
+    const out = applyVoiceSplit(note(), s, { baseChannel: 15, span: 4 });
+    expect((out.body as { channel: number }).channel).toBeGreaterThanOrEqual(1);
+    expect((out.body as { channel: number }).channel).toBeLessThanOrEqual(16);
+  });
+});
+
 describe("describeManifest", () => {
   const manifest = {
     app: "serpe", v: 1,

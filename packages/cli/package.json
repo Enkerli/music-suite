@@ -20,6 +20,7 @@
     "@enkerli/upi": "*",
     "@enkerli/control": "*",
     "@enkerli/proggen": "*",
-    "@enkerli/accompaniment": "*"
+    "@enkerli/accompaniment": "*",
+    "@enkerli/voice-routing": "*"
   }
 }

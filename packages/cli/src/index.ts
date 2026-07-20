@@ -589,8 +589,9 @@ export function accompany(opts: AccompanyOptions): AccompanyResult {
 
 import {
   makeParam, makeCommand, makeNote, validateMessage,
-  type SuiteMessage, type AppId, type Destination, type ParamMode, type ManifestBody,
+  type SuiteMessage, type AppId, type Destination, type ParamMode, type ManifestBody, type NoteBody,
 } from "@enkerli/protocol";
+import { VoiceSplitter } from "@enkerli/voice-routing";
 
 export interface SendOptions {
   from?: AppId;
@@ -634,6 +635,27 @@ export function sendMessage(opts: SendOptions): SuiteMessage {
 /** Serialize a message as one NDJSON line (the stdio transport frame). */
 export function toNdjson(msg: SuiteMessage): string {
   return JSON.stringify(msg) + "\n";
+}
+
+/**
+ * Voice Split as an NDJSON pipe filter (`msuite voice-split`) — the CLI's
+ * share of `@enkerli/voice-routing` (docs/PITCHFOLD_AUDIT.md: the one
+ * voice-routing mode the audit found genuinely clean, now reused rather
+ * than reimplemented per surface — PitchFold's own engine, the Workspace
+ * `voice-split` module, and this). Round-robins `note` messages across
+ * `baseChannel..baseChannel+span-1`; any other message type passes through
+ * unchanged. `to`, when given, re-addresses split notes to a new
+ * destination (matching the Workspace module's own `to` option); omitted,
+ * the incoming message's own `to` is kept.
+ */
+export function applyVoiceSplit(
+  msg: SuiteMessage,
+  splitter: VoiceSplitter,
+  opts: { baseChannel?: number; span?: number; to?: Destination } = {},
+): SuiteMessage {
+  if (msg.type !== "note") return msg;
+  const channel = splitter.next(opts.baseChannel ?? 1, opts.span ?? 4);
+  return makeNote(msg.from, { ...(msg.body as unknown as NoteBody), channel }, { to: opts.to ?? msg.to, id: msg.id, sentAt: msg.sentAt });
 }
 
 /** A note message scheduled at a millisecond offset from performance start. */

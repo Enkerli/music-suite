@@ -28,9 +28,10 @@ import {
   listMidiPorts, resolveMidiPort, createMidiPlayer,
   sendMessage, toNdjson, parseNdjson, summarizeMessage, describeManifest,
   bundledManifestPath, MANIFEST_APPS, paramsFromStream, vaneParamIdMap,
-  resolveEvent, validateControlMap, manifestsForControlMap,
+  resolveEvent, validateControlMap, manifestsForControlMap, applyVoiceSplit,
   type SendOptions, type ControlMap, type InputEvent,
 } from "./index.js";
+import { VoiceSplitter } from "@enkerli/voice-routing";
 import type { TraceLevel } from "@enkerli/accompaniment";
 import type { AppId, Destination, ParamMode } from "@enkerli/protocol";
 
@@ -91,6 +92,12 @@ const USAGE = `msuite <command> …
   render <notes…> -o <file.wav> [--seconds N] [--breath 0..1] [--sr N] [--param id=value]… [--stream]
                                         --stream: apply a control-plane param NDJSON stream from stdin (message → sound)
   send [--from app] [--to app|*] (--param id=value… [--mode …] | --command name [--arg k=v]… | --note 60,64,67 [--velocity V] [--duration ms] [--gate on|off])
+  voice-split [--base-channel N] [--span N] [--to app|*]
+                                        NDJSON pipe filter: round-robins each note message across
+                                        base-channel..base-channel+span-1 (default 1..4) — @enkerli/voice-routing,
+                                        the same primitive PitchFold's Voice Split mode and the Workspace
+                                        voice-split module use. Non-note messages pass through unchanged.
+                                        '… --play | msuite voice-split --span 4 | msuite play --midi-out virtual'
   play (--midi-out port [--channel N] [--breath-cc N|off] | --list)
                                         NDJSON note stream from stdin → REAL MIDI out (Linux ALSA rawmidi):
                                         '… --play | msuite play --midi-out virtual', then aconnect the
@@ -509,6 +516,25 @@ async function main(): Promise<number> {
       }
       const msg = sendMessage(opts);
       process.stdout.write(toNdjson(msg));
+      return 0;
+    }
+    case "voice-split": {
+      const splitter = new VoiceSplitter();
+      const splitOpts = {
+        ...(one(args, "base-channel") !== undefined && { baseChannel: Number(one(args, "base-channel")) }),
+        ...(one(args, "span") !== undefined && { span: Number(one(args, "span")) }),
+        ...(one(args, "to") !== undefined && { to: one(args, "to") as Destination }),
+      };
+      let split = 0, passed = 0, skipped = 0;
+      const rl = createInterface({ input: process.stdin });
+      for await (const line of rl) {
+        const m = parseNdjson(line);
+        if (!m) { if (line.trim()) skipped++; continue; }
+        const out = applyVoiceSplit(m, splitter, splitOpts);
+        if (out !== m) split++; else passed++;
+        process.stdout.write(toNdjson(out));
+      }
+      console.error(`voice-split: ${split} note message(s) split, ${passed} passed through${skipped ? `, ${skipped} skipped` : ""}`);
       return 0;
     }
     case "bridge": {
