@@ -164,17 +164,19 @@ function EngineView({ create, opts, data }) {
 // (a lane's own note input always wins). Routing stays UI state.
 //
 // Rows/Circle (KT item 9): a second, purely visual reading of the SAME
-// lanes as nested rings (engine/render.js createPolyCircleView) — cycle
-// lock only (step lock's drift-and-realign has no static-ring reading, so
-// Circle is disabled while step-locked). Per-lane controls (mute/note/
-// chan/offset) stay in the rows either way; Circle only swaps out the
-// flat cell-strip for one shared ring graphic above them.
+// lanes as nested rings (engine/render.js createPolyCircleView). Works
+// under EITHER lock — the ring geometry comes from the parsed pattern
+// (lane.steps/accents), not from how it's scheduled, so it's just as valid
+// under step lock as cycle lock (v2: the earlier cycle-lock-only gate is
+// gone — see the doc comment on createPolyCircleView for why it was never
+// actually needed). Per-lane controls (mute/note/chan/offset) stay in the
+// rows either way; Circle only swaps out the flat cell-strip for one
+// shared ring graphic above them.
 function PolyLanesPanel({ poly, lanePh, polyLock, setPolyLock, polyView, setPolyView, drumKit, setDrumKit, kitNames,
                           laneNote, laneChan, laneMuted, setLaneUi, isHost, polyLagMs, setPolyLagMs }) {
   const fmtOff = (o) => o == null ? '' : o.kind === 'ms'
     ? `@${o.ms >= 0 ? '+' : ''}${o.ms}ms` : `@${o.num >= 0 ? '+' : ''}${o.num}/${o.den}`;
-  const circleOk = polyLock === 'cycle';
-  const showCircle = polyView === 'circle' && circleOk;
+  const showCircle = polyView === 'circle';
   return h('div', { className: 'viz poly-lanes' },
     h('div', { className: 'viz-head' },
       h('span', { className: 'es-eyebrow' }, 'Lanes'),
@@ -183,10 +185,9 @@ function PolyLanesPanel({ poly, lanePh, polyLock, setPolyLock, polyView, setPoly
         [['cycle', 'Cycle'], ['step', 'Step']].map(([v, t]) =>
           h('button', { key: v, 'aria-pressed': polyLock === v, onClick: () => setPolyLock(v) }, t))),
       h('div', { className: 'seg', role: 'group', 'aria-label': 'Lane view',
-        title: circleOk ? 'Rows: stacked step lanes. Circle: the same lanes as nested rings.'
-                        : 'Circle needs Cycle lock — step lock has no static-ring reading' },
+        title: 'Rows: stacked step lanes. Circle: the same lanes as nested rings — under Step lock the rings still draw correctly, they just won’t stay lined up between realignments.' },
         [['rows', 'Rows'], ['circle', 'Circle']].map(([v, t]) =>
-          h('button', { key: v, 'aria-pressed': polyView === v, disabled: v === 'circle' && !circleOk,
+          h('button', { key: v, 'aria-pressed': polyView === v,
             onClick: () => setPolyView(v) }, t))),
       h('label', { className: 'poly-ctl', title: 'Drumkit note defaults by lane label; a lane’s own note input wins' }, 'kit ',
         h('select', { className: 'es-control', value: drumKit, 'aria-label': 'Drumkit',
@@ -330,11 +331,9 @@ function SerpeApp() {
   // drift and realign at the lcm. The first lane defines the cycle length.
   const [polyLock, setPolyLock] = useState(() => LS.get('polyLock', 'cycle'));
   // Lane VISUALIZATION mode (KT item 9): 'rows' (default, stacked strips) or
-  // 'circle' (nested rings, cycle-lock only — see PolyLanesPanel). Falls back
-  // to rows if the lock leaves cycle while circle is showing, so the view
-  // never claims a ring reading step lock doesn't have.
+  // 'circle' (nested rings — see PolyLanesPanel). Works under either timing
+  // lock; no fallback needed (v2 dropped the earlier cycle-lock-only gate).
   const [polyView, setPolyView] = useState(() => LS.get('polyView', 'rows'));
-  useEffect(() => { if (polyLock !== 'cycle' && polyView === 'circle') { setPolyView('rows'); LS.set('polyView', 'rows'); } }, [polyLock]); // eslint-disable-line react-hooks/exhaustive-deps
   // Per-lane playheads (each lane cycles its own length at its own rate). In
   // the plugin these come from the C++ engine (the 'polyState' bridge event,
   // real playback); in the webapp the JS scheduler (polyPlayStart) drives them.

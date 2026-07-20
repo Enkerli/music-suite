@@ -250,7 +250,6 @@ select.es-control {
 .seg button { border: 0; background: var(--es-bg-raised); color: var(--es-fg-2); font-family: var(--es-font-sans); font-size: 12px; padding: 5px 10px; cursor: pointer; min-height: 30px; }
 .seg button + button { border-left: 1px solid var(--es-border); }
 .seg button[aria-pressed="true"] { background: var(--es-accent); color: var(--es-accent-fg); }
-.seg button:disabled { opacity: 0.4; cursor: not-allowed; }
 
 /* ── Runtime: iPad portrait (narrow AUv3) ───────────────────────────── */
 [data-runtime="ipad-p"] .serpe-body { grid-template-columns: 1fr; }

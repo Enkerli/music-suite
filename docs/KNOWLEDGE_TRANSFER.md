@@ -284,14 +284,6 @@ graphic above them.
 
 Geometry calls made (all reversible, flagged for the actual design pass
 before polishing, per this item's own note):
-- **Cycle lock only.** Each ring is a full 360° divided by that lane's
-  own step count (a 15-step ring's cells sit visibly wider than a
-  16-step ring's — the linear rows' "one cycle, stretched" idea, made
-  polar). Step lock (polymeter) has no static-ring reading — lanes drift
-  and only realign at the lcm — so Circle is disabled whenever lock
-  isn't 'cycle', with an automatic fallback to Rows if the lock changes
-  out from under an open Circle view (confirmed via Playwright: toggling
-  to Step lock greys the Circle button and switches the panel back).
 - **Rings nest outer→inner in lane DECLARATION order** (lane 0 outermost
   — kick outer, hat inner, the drum-notation instinct). Arbitrary, easy
   to flip later.
@@ -301,26 +293,50 @@ before polishing, per this item's own note):
   haloed exactly like the mono view's accent treatment. No onset polygon
   or center-of-gravity per ring (fine for one ring, noisy across three
   or four).
-- **Per-lane color** cycles the same 4-token palette the mono view
-  already exposes (`ink`/`rose`/`moss`/`plum`) — a step up from the
-  linear rows, which don't color-differentiate lanes at all. Known minor
-  wart: the `rose` token IS the accent-amber color
-  (`--es-dim-pressure`), so an accented onset on that specific ring
-  (every 4th lane) loses its color contrast against its own unaccented
-  onsets — the halo ring still disambiguates it, so it's not broken, just
-  not as crisp as the other three lanes. Left for the design pass rather
-  than inventing a 5th color unreviewed.
-- Accents are read straight from `poly.lanes[i].accents` — the SAME
-  array the existing linear rows already render (`lane.accents[c]`), no
-  new accent derivation, so there's no C++ engine-parity risk here (this
-  item's reminder about `Documentation/FEATURE_PARITY.md` applies to
-  code that COMPUTES accents; this is a pure renderer over the data
-  that's already computed elsewhere and already trusted).
 
 7 new render.js tests + a Playwright click-through against a real dev
 build (typed a 3-lane poly pattern, confirmed 3 ring groups render,
-confirmed the Rows↔Circle toggle swaps the DOM correctly, confirmed the
-Step-lock disable/fallback). 1398/1398 monorepo.
+confirmed the Rows↔Circle toggle swaps the DOM correctly). 1398/1398
+monorepo.
+
+**v2, same day**: two follow-ups, both requested rather than left as
+flagged warts.
+
+- **Contrast fix.** v1's per-lane color cycled the mono view's full
+  4-token palette (`ink`/`rose`/`moss`/`plum`); `rose` IS the
+  accent-amber token (`--es-dim-pressure`), so a lane landing on it had
+  its own accented onsets rendering the same fill as its unaccented
+  ones (the halo ring still disambiguated, but the color signal that
+  works for every other lane silently didn't). Fixed by giving
+  `createPolyCircleView`'s automatic rotation its own 3-color subset
+  (`ink`/`moss`/`plum`) that excludes `rose` entirely — `laneColor()`
+  itself still accepts `rose` as an explicit, deliberate choice (e.g. a
+  mono ring a caller colors on purpose), only the AUTOMATIC per-lane
+  cycling avoids it now. Zero possible collision for any lane count.
+  2 new regression tests (guide-stroke never equals the accent token;
+  an accented dot's fill differs from its own ring's unaccented dots,
+  checked across all 4 rotation slots).
+- **Step lock support (v2).** The v1 "cycle lock only" restriction
+  turned out to be an overcautious call, not a real constraint:
+  `lane.steps`/`lane.accents` are properties of the PARSED pattern, not
+  of how it's scheduled, so the ring geometry (radius, step count,
+  downbeat position) is identical either way — `createPolyCircleView`
+  never actually referenced `polyLock` at all. What genuinely differs
+  between the two locks is only the ANIMATED playhead: under cycle lock
+  every ring's downbeat returns to 12 o'clock in wall-clock sync (the
+  "lines across lanes" read); under step lock each ring's `lanePh[i]`
+  still highlights correctly (same mechanism, already lock-agnostic),
+  it just won't stay lined up between lcm realignment points. Both are
+  legitimate static readings of the same division of 360°. Removed the
+  `circleOk`/disabled-button gate and the polyLock→polyView fallback
+  effect entirely — Circle is now available under both locks, verified
+  via Playwright (ring count and rendering identical switching Cycle →
+  Step). Also removed the now-dead `.seg button:disabled` CSS rule that
+  existed only for that gate — didn't want to ship the exact "looks
+  wired, nothing calls it" pattern the PitchFold audit (item 8, same
+  day) just spent a whole doc criticizing.
+
+9 render.js tests total, 1400/1400 monorepo.
 
 ## Loose threads that are NOT plan items (don't drop them)
 

@@ -78,4 +78,43 @@ describe("createPolyCircleView — nested rings for poly lanes (KT item 9)", () 
     const dots = host.querySelectorAll("svg > g > g > circle:not(:first-child)");
     expect(Number(dots[3].getAttribute("stroke-width"))).toBeGreaterThan(Number(dots[0].getAttribute("stroke-width")));
   });
+
+  it("no lane's base ring color collides with the accent-amber highlight (contrast regression)", () => {
+    const host = document.createElement("div");
+    const view = createPolyCircleView(host, {});
+    // 4 lanes cycles the full rotation at least once; none of them — including
+    // what used to be the 2nd lane's 'rose' — may resolve to --es-dim-pressure,
+    // the same token accented onsets use, or an accent on that ring would be
+    // invisible (fill color unchanged from its own unaccented onsets).
+    view.update({
+      lanes: [lane([1, 0]), lane([1, 0]), lane([1, 0]), lane([1, 0])],
+      lanePh: [-1, -1, -1, -1], muted: [false, false, false, false],
+    });
+    const groups = host.querySelectorAll("svg > g > g");
+    for (const g of groups) {
+      const guideStroke = g.querySelector("circle").getAttribute("stroke");
+      expect(guideStroke).not.toBe("var(--es-dim-pressure)");
+    }
+  });
+
+  it("an accented onset's fill differs from its own ring's unaccented onsets, on every lane in the rotation", () => {
+    const host = document.createElement("div");
+    const view = createPolyCircleView(host, {});
+    // Regression for the specific bug: lane index 1 used to be 'rose', which
+    // IS --es-dim-pressure — an accented dot there had the same fill as an
+    // unaccented one, losing the only color signal (the halo ring still drew,
+    // but the fill swap that works for every other lane silently didn't).
+    view.update({
+      lanes: [0, 1, 2, 3].map(() => ({ steps: [1, 1], accents: [1, 0] })),
+      lanePh: [-1, -1, -1, -1], muted: [false, false, false, false],
+    });
+    const groups = host.querySelectorAll("svg > g > g");
+    for (const g of groups) {
+      const dots = g.querySelectorAll("circle:not(:first-child)");
+      // dots[0] is the accented on-step's outer dot (halo is dots[0], fill dot is dots[1]).
+      const accentedFill = dots[1].getAttribute("fill");
+      const unaccentedFill = dots[2].getAttribute("fill");
+      expect(accentedFill).not.toBe(unaccentedFill);
+    }
+  });
 });

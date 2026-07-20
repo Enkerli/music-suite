@@ -18,9 +18,17 @@ const el = (n, a = {}) => {
 const ang = (i, n) => (TAU * i) / n - Math.PI / 2;
 const pol = (cx, cy, r, a) => [cx + r * Math.cos(a), cy + r * Math.sin(a)];
 
-// Shared 4-color lane palette (the poly-lanes rows use the same one via CSS).
-// Cycles for a 5th+ lane rather than erroring — an edge case, not a wall.
-const LANE_PALETTE = ["ink", "rose", "moss", "plum"];
+// laneColor() accepts any of the suite's 4 tokens (a caller may still ask for
+// 'rose' explicitly, e.g. a mono ring deliberately colored to match another
+// view). POLY_RING_COLORS below is the AUTOMATIC per-lane rotation used by
+// createPolyCircleView, and deliberately excludes 'rose': it resolves to the
+// exact same token as accentAmber (--es-dim-pressure, "this onset is
+// accented" everywhere else in the app — mono ring, poly rows). Rotating
+// through it as a lane's own base color made that lane's accented onsets
+// indistinguishable from its unaccented ones — real lost contrast, not a
+// cosmetic nit. 3 colors is enough to keep adjacent rings visually distinct;
+// a 5th+ lane repeats the cycle, same as before.
+const POLY_RING_COLORS = ["ink", "moss", "plum"];
 const laneColor = (lane) => ({
   ink: "var(--es-accent)", rose: "var(--es-dim-pressure)",
   moss: "var(--es-dim-expr)", plum: "var(--es-dim-slide)",
@@ -206,13 +214,21 @@ export function createStepView(host, opts = {}) {
 
 /**
  * Nested rings, one per poly lane (docs/KNOWLEDGE_TRANSFER.md item 9;
- * SERPE_POLY.md §3b for the lock semantics). CYCLE LOCK ONLY: each ring is
- * a full 360° divided by that lane's OWN step count, so a 15-step ring's
- * cells sit visibly wider than a 16-step ring's — same "one cycle,
- * stretched" idea as the linear poly-lanes rows, just polar. Step lock
- * (polymeter) doesn't have a static-ring reading — lanes drift and only
- * realign at the lcm — so it stays on the linear rows; this view is
- * cycle-lock's companion, not a replacement.
+ * SERPE_POLY.md §3b for the lock semantics). Each ring is always a full
+ * 360° divided by that lane's OWN step count — a 15-step ring's cells sit
+ * visibly wider than a 16-step ring's — same "one cycle, stretched" idea as
+ * the linear poly-lanes rows, just polar. This geometry doesn't depend on
+ * the playback lock at all: `lane.steps`/`lane.accents` are properties of
+ * the PARSED pattern, not of how it's scheduled, so the shape is equally
+ * valid under cycle lock (POLYRHYTHM) or step lock (POLYMETER) — v2, KT
+ * item 9. What the lock mode actually changes is only the ANIMATED
+ * playhead: under cycle lock every ring's downbeat tick returns to 12
+ * o'clock in wall-clock sync (the "lines across lanes" read), so the
+ * highlighted dots visibly line up each cycle; under step lock each ring's
+ * `lanePh[i]` still highlights correctly (it's driven the same way either
+ * mode), it just won't stay in that lockstep column between the lcm
+ * realignment points. Both are legitimate readings of the SAME division of
+ * 360° — this view doesn't need to special-case either one.
  *
  * Rings nest OUTER→INNER in lane declaration order (lane 0 outermost —
  * the drum-notation instinct: kick outer, hat inner). Deliberately
@@ -241,7 +257,7 @@ export function createPolyCircleView(host, opts = {}) {
     lanes.forEach((lane, li) => {
       const R = lanes.length > 1 ? R_OUTER - li * ringGap : R_OUTER;
       const n = lane.steps.length || 1;
-      const color = laneColor(LANE_PALETTE[li % LANE_PALETTE.length]);
+      const color = laneColor(POLY_RING_COLORS[li % POLY_RING_COLORS.length]);
       const ring = [];
       // guide ring
       ring.push(el("circle", { cx, cy, r: R, fill: "none", stroke: color, "stroke-width": 1.25, "stroke-opacity": 0.3 }));
