@@ -115,7 +115,7 @@ export function GrooveGenerator({
       setStyle(saved);
       setLearnName('');
       setLearnMsg(kind === 'family'
-        ? `☆ learned "${saved}" from the whole variant family (${familySize} clips) — a style MODEL, sampled fresh per pass`
+        ? `☆ learned "${saved}" from the whole variant family (${familySize} clip${familySize === 1 ? '' : 's'}) — a style MODEL, sampled fresh per pass`
         : `☆ learned "${saved}" — it's in the style list now`);
     } catch (err) {
       setLearnMsg(err instanceof Error ? err.message : 'could not learn from this clip');
