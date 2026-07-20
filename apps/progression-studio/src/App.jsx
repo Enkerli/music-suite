@@ -1245,6 +1245,10 @@ export default function App() {
   // a hidden control.
   const clusterMidi = useMemo(() => {
     if (!showLocalPlay) return null;
+    // JUCE standalone (iPad/desktop): MIDI is native — the C++ side owns
+    // routing (the wrapper's audio/MIDI settings), so "No Web MIDI" would
+    // be false. WebMIDI only ever applies in a browser.
+    if (IN_PLUGIN) return { native: true, badge: isStandalone ? "Standalone" : undefined };
     if (!midiOut.midiSupported() || midiOutUi.error) return { unavailable: true };
     return {
       outputs: midiOutUi.outputs.map((p) => ({ id: p.id, name: p.name })),

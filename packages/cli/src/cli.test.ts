@@ -13,13 +13,28 @@ import { fileURLToPath } from "node:url";
 
 const CLI = fileURLToPath(new URL("../dist/cli.js", import.meta.url));
 
-function run(args: string[], killAfterMs: number): Promise<{ code: number | null; signal: NodeJS.Signals | null; stdout: string; stderr: string }> {
+function run(
+  args: string[],
+  killAfterMs: number,
+  { killOnFirstOutput = false } = {},
+): Promise<{ code: number | null; signal: NodeJS.Signals | null; stdout: string; stderr: string }> {
   return new Promise((resolve) => {
     const child = spawn(process.execPath, [CLI, ...args]);
     let stdout = "", stderr = "";
-    child.stdout.on("data", (c: Buffer) => { stdout += c.toString(); });
+    // A fixed pre-kill delay is a hardware assumption: on a slow machine
+    // (Linux miniPC, 2026-07-19) 400 ms wasn't enough for the CLI to emit a
+    // line OR register its SIGINT handler, so both --loop tests flaked.
+    // killOnFirstOutput waits for the first stdout chunk — by then the loop
+    // is provably running — then sends SIGINT shortly after; killAfterMs
+    // becomes the outer safety net.
+    let killed = false;
+    const kill = () => { if (!killed) { killed = true; child.kill("SIGINT"); } };
+    const timer = setTimeout(kill, killAfterMs);
+    child.stdout.on("data", (c: Buffer) => {
+      stdout += c.toString();
+      if (killOnFirstOutput) setTimeout(kill, 60);
+    });
     child.stderr.on("data", (c: Buffer) => { stderr += c.toString(); });
-    const timer = setTimeout(() => child.kill("SIGINT"), killAfterMs);
     child.on("close", (code, signal) => { clearTimeout(timer); resolve({ code, signal, stdout, stderr }); });
   });
 }
@@ -32,22 +47,24 @@ describe("cli argv parsing (subprocess — the real user-facing path)", () => {
     // needs a value" before a single note was ever written.
     const r = await run(
       ["accompany", "--progression", "Dm7", "--seed", "1", "--bpm", "6000", "--play", "--loop"],
-      400,
+      8000,
+      { killOnFirstOutput: true },
     );
     expect(r.stderr).not.toMatch(/needs a value/);
     const lines = r.stdout.split("\n").filter(Boolean);
     expect(lines.length).toBeGreaterThan(0);
     for (const line of lines) expect(() => JSON.parse(line)).not.toThrow();
-  }, 5000);
+  }, 20000);
 
   it("SIGINT during --loop stops gracefully (clean exit, not a signal kill)", async () => {
     const r = await run(
       ["accompany", "--progression", "Dm7", "--seed", "1", "--bpm", "6000", "--play", "--loop"],
-      400,
+      8000,
+      { killOnFirstOutput: true },
     );
     expect(r.code).toBe(0);
     expect(r.signal).toBeNull();
-  }, 5000);
+  }, 20000);
 
   it("every flag actually checked with .flags.has(...) is registered as boolean", async () => {
     // A flag read with .has() but not in the boolean list silently becomes

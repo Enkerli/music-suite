@@ -75,7 +75,10 @@ function endpoint({ label, kind, ports, selectedId, sysex, noneOption, onSelect 
  * @param {object} opts
  * @param {(theme:"light"|"dark")=>void} [opts.onThemeChange] app hook after the shared toggle runs
  * @param {object|null} [opts.midi] omit/null to skip slot 2 (apps with no MIDI).
- *   { unavailable?:boolean, sysex?:boolean,
+ *   { unavailable?:boolean, native?:boolean, sysex?:boolean,
+ *     // native: MIDI is handled by the app/host itself (JUCE standalone,
+ *     // plugin) — the chip reads "MIDI · native" instead of the misleading
+ *     // "No Web MIDI", and the popover says where routing actually lives.
  *     inputs?:{id,name}[]|null, outputs?:{id,name}[]|null,   // null = app has no such direction
  *     selectedInId?, selectedOutId?, noneOption?:string,     // e.g. "Internal (Web Audio)"
  *     onSelectIn?, onSelectOut?, badge?:string }             // e.g. "Standalone"
@@ -124,7 +127,7 @@ export function createGlobalCluster(host, opts = {}) {
       const m = state.midi;
       const ins = m.inputs ?? null, outs = m.outputs ?? null;
       const n = (ins?.length ?? 0) + (outs?.length ?? 0);
-      const chipState = m.unavailable ? "unavailable" : n > 0 ? "connected" : "none";
+      const chipState = m.native ? "connected" : m.unavailable ? "unavailable" : n > 0 ? "connected" : "none";
       const anchor = el("div", "pop-anchor");
       const chip = el("button", "es-btn es-small midi-chip");
       chip.id = "midi-chip";
@@ -133,7 +136,7 @@ export function createGlobalCluster(host, opts = {}) {
       chip.setAttribute("aria-haspopup", "dialog");
       chip.setAttribute("aria-expanded", "false");
       chip.innerHTML = `<span class="midi-led"></span>${DIN5_SVG}${
-        m.unavailable ? "No Web MIDI" : `MIDI · ${n}`}`;
+        m.native ? "MIDI · native" : m.unavailable ? "No Web MIDI" : `MIDI · ${n}`}`;
       chip.addEventListener("click", () => {
         if (popover) { closePopover(); chip.setAttribute("aria-expanded", "false"); return; }
         popover = el("div", "es-popover");
@@ -144,7 +147,10 @@ export function createGlobalCluster(host, opts = {}) {
         if (m.badge) head.append(el("span", "feat-badge standalone", m.badge));
         popover.append(head);
         const bar = el("div", "es-device-bar");
-        if (m.unavailable) {
+        if (m.native) {
+          bar.append(el("div", "es-device-empty",
+            "MIDI is handled by the app itself — choose devices in its audio/MIDI settings (standalone) or route in the host (plugin)."));
+        } else if (m.unavailable) {
           const empty = el("div", "es-device-empty", "MIDI unavailable — use Chrome, Edge or Brave");
           empty.style.borderColor = "var(--es-danger)";
           bar.append(empty);

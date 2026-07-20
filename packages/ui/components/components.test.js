@@ -251,6 +251,19 @@ describe("global cluster (the shared frame)", () => {
     expect(el.querySelector("#midi-chip").dataset.state).toBe("unavailable");
   });
 
+  it("MIDI chip native state: JUCE standalone/plugin reads 'native', never 'No Web MIDI'", () => {
+    const el = document.createElement("div");
+    document.body.appendChild(el);
+    createGlobalCluster(el, { midi: { native: true, badge: "Standalone" } });
+    const chip = el.querySelector("#midi-chip");
+    expect(chip.textContent).toContain("MIDI · native");
+    expect(chip.textContent).not.toContain("No Web MIDI");
+    expect(chip.dataset.state).toBe("connected");
+    chip.click();
+    expect(document.body.textContent).toContain("MIDI is handled by the app itself");
+    el.remove();
+  });
+
   it("chip opens the device panel; only provided directions render", () => {
     const el = document.createElement("div");
     document.body.appendChild(el);
