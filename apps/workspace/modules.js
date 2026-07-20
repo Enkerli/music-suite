@@ -379,7 +379,7 @@ export function createGroovePlayer({ bus, now = () => Date.now(), schedule = (fn
           bus.publish(makeNote("external", {
             notes: [e.note], velocity: e.velocity,
             durationMs: Math.max(1, Math.round(e.duration * msPerTick)),
-            ...(inf && { articulation: inf.articulation, env: inf.envelope, attack: inf.attack }),
+            ...(inf && { articulation: inf.articulation, env: inf.envelope, attack: inf.attack, glideMs: inf.glideMs ?? 0 }),
           }, { to }));
         }, Math.max(0, at - now())));
       });

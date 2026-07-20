@@ -108,6 +108,17 @@ export interface GrooveOptions {
    *  own articulation and breath envelope — sforzando, staccato, legato
    *  slurs, marcato… 0/undefined = off. */
   inflect?: number;
+  /** 0..1 — fraction of ACCENT decisions (inflect's sforzando/marcato,
+   *  staccato/tenuto, and slide promotion) re-rolled per pass, independent
+   *  of morphNotes/morphPocket/morphRests. Needs opts.inflect to matter. */
+  morphAccents?: number;
+  /** 0..1 — probability an eligible legato transition (inflect stage) is
+   *  promoted to an audible SLIDE (Vane glide-time, or CC5+CC65 portamento
+   *  in the .mid) instead of an instant pitch join. 0/undefined = off.
+   *  Needs opts.inflect to matter. */
+  slide?: number;
+  /** Portamento time (ms) for a promoted slide. Default 120. */
+  glideMs?: number;
   bpm?: number;
   traceLevel?: TraceLevel;
 }
@@ -209,7 +220,13 @@ export function groove(sourceIn: AccompanimentPhrase, opts: GrooveOptions): Groo
   // (post-variety pitches, post-pocket onsets), giving each its own envelope.
   let inflections: NoteInflection[] = [];
   if (opts.inflect) {
-    const inf = inflectPhrase(phrase, { seed: opts.seed ?? 42, intensity: opts.inflect });
+    const inf = inflectPhrase(phrase, {
+      seed: opts.seed ?? 42, intensity: opts.inflect,
+      ...(opts.pass !== undefined && { pass: opts.pass }),
+      ...(opts.morphAccents !== undefined && { morphAccents: opts.morphAccents }),
+      ...(opts.slide !== undefined && { slide: opts.slide }),
+      ...(opts.glideMs !== undefined && { glideMs: opts.glideMs }),
+    });
     phrase = inf.phrase;
     inflections = inf.notes;
   }
@@ -224,10 +241,25 @@ export function groove(sourceIn: AccompanimentPhrase, opts: GrooveOptions): Groo
   // Each note's breath envelope becomes a CC2 curve in the file — a DAW (or
   // Vane behind one) replays the exact wind articulation the engine chose.
   const controllers: MidiController[] = [];
-  for (const inf of inflections) {
+  for (let k = 0; k < inflections.length; k++) {
+    const inf = inflections[k]!;
     const e = phrase.events[inf.index]!;
     for (const p of inf.envelope)
       controllers.push({ tick: e.onset + Math.round(p.at * e.duration), controller: 2, value: Math.round(p.value * 127) });
+    // Slides: standard MIDI portamento (CC5 time, CC65 on/off) — on + time
+    // right before the glide note's own onset (glides INTO it); switched
+    // back off before the next note UNLESS that one is also promoted (two
+    // glides in a row just re-assert on, harmlessly). Vane's own glide
+    // (glide-time, wasmId 10) is driven the same way over the bus/rawmidi
+    // path, not through these CCs — see apps/vane/control.js.
+    if (inf.glideMs !== undefined) {
+      controllers.push({ tick: e.onset, controller: 65, value: 127 });
+      controllers.push({ tick: e.onset, controller: 5, value: Math.max(0, Math.min(127, Math.round((inf.glideMs / 2000) * 127))) });
+      const next = inflections[k + 1];
+      if (next && next.glideMs === undefined) {
+        controllers.push({ tick: phrase.events[next.index]!.onset, controller: 65, value: 0 });
+      }
+    }
   }
   const embedded = { header: trace.header, ...(trace.summary && { summary: trace.summary }) };
   const smf = createSMF(notes, {

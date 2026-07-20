@@ -188,16 +188,67 @@ before), `msuite accompany` (`--morph-notes`/`--morph-pocket`/
 tests (express.test.ts, index.test.ts) + 2 MIDIcurator integration tests —
 1373/1373 monorepo.
 
-**Deliberately NOT done**: no new UI knobs in the workspace module or
-MIDIcurator's GrooveGenerator — this item's own KT entry says "design-pass
-involvement for the UI," so the existing single `morph` knob stays as the
-UI surface (now correctly an alias for all three dimensions) rather than
-me inventing a three-knob layout unreviewed. Also not started: "accents"
-(wandering emphasis) and "slides" (portamento/glide) — the KT doc's other
-two named dimensions. Slides in particular need new infrastructure (a
-glide field on PhraseEvent, pitch-bend/CC encoding in the MIDI writer,
-Vane's `glide-time` param wired from the bus) — a separate slice, not a
-knob addition.
+**Deliberately NOT done** (at the time): no new UI knobs in the workspace
+module or MIDIcurator's GrooveGenerator — this item's own KT entry says
+"design-pass involvement for the UI," so the existing single `morph` knob
+stays as the UI surface (now correctly an alias for all three dimensions)
+rather than me inventing a three-knob layout unreviewed. "accents" and
+"slides", the KT doc's other two named dimensions, were deferred to a
+separate slice — see §3f, now shipped.
+
+## 3f. Shipped 2026-07-20 — accents + slides (item 5, the last two dimensions)
+
+The remaining two Troublemaker/Rozeta-style dimensions from item 5.
+Neither needed a new concept from scratch — both reuse machinery
+`inflect.ts` already had:
+
+- **Accents** = pass-aware wandering of inflect's own EXISTING discretionary
+  articulation choices (sforzando-vs-marcato above metric weight 0.75,
+  staccato-vs-tenuto below it), not a separate "accent" model. New
+  `morphAccents` (0..1) re-rolls those choices — and slide promotion (below)
+  — per pass, using the same three-stream (stable/per-pass/gate) discipline
+  as `morphNotes`/`morphPocket`/`morphRests`, keyed off the same exported
+  `passSeed`. `morphAccents` 0/undefined reproduces the exact stable choices
+  — byte-identical, confirmed against the committed vectors (zero diff).
+- **Slides** turned out not to need pitch-bend curve math at all: reading
+  Vane's actual DSP (`vane-dsp.cpp`) showed it already glides automatically
+  on any note-change that arrives while the previous note's breath is still
+  flowing (a connected/legato transition) — the ONLY missing piece was ever
+  posting a nonzero `glide-time` (wasmId 10, 0..2000ms). So the whole feature
+  is: mark which legato transitions get promoted (new `slide` 0..1 = the
+  probability an eligible `legato-inside`/`legato-end` transition carries a
+  `glideMs`, default 120ms), then post that value through every consumer:
+  Vane's bus params (`apps/vane/control.js`), the `.mid` writer via standard
+  MIDI portamento CC5 (time)/CC65 (on/off) (`pipeline.ts`), and CLI rawmidi
+  the same way (`midiout.ts`). `NoteInflection` gained `glideMs?`,
+  `NoteBody` (protocol) gained validated `glideMs?`.
+- **Stateless-per-note discipline**, applied everywhere glide is posted:
+  never trust a receiver's persistent portamento state to carry over
+  correctly between notes — always explicitly (re)set it per note,
+  including an explicit OFF/0 for non-slide notes, so a slide never leaks
+  into an unrelated later transition. Vane's `glide-time` is a persistent
+  synth param, so `control.js` posts it even when 0; the `.mid`/rawmidi
+  writers emit CC65=0 explicitly whenever a slide note is followed by a
+  non-slide note.
+
+Reaches `groove()` (`GrooveOptions` gained `morphAccents`/`slide`/
+`glideMs`), `msuite accompany` (`--morph-accents`/`--slide`/`--glide-ms`,
+smoke-tested against the real built CLI: generated a take with `--slide 0.7`
+and confirmed real CC5/CC65 bytes in the `.mid`; generated the same take at
+`--pass 0` vs `--pass 1` with `--morph-accents 1` and confirmed the MIDI
+differs; confirmed `--pass` alone with no `morphAccents` still reproduces
+byte-identical output — backward compat holds), and MIDIcurator's
+`GrooveClipRequest`/`generateGrooveClip` (data layer only, same boundary as
+`inflect` itself — glide time doesn't ride the `Note[]` clip format yet).
+11 new engine tests (inflect.test.ts, incl. 2 groove()-level CC5/CC65
+tests), 3 new `apps/vane/control.test.js` tests, 3 new `midiout.test.ts`
+tests — 1391/1391 monorepo, zero vector diff.
+
+**Deliberately NOT done**: no new UI knobs (same design-pass deferral as
+§3e — `morphAccents`/`slide`/`glideMs` are data-layer only). Vane's actual
+glide behavior is untested by ear/real audio — this container has no audio
+device; the CC5/CC65/glide-time wiring is verified structurally (bytes
+posted, correct order, correct values) but never heard.
 
 ## 3b. Next session queue (prep, 2026-07-20)
 

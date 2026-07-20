@@ -290,4 +290,11 @@ describe("note validation", () => {
     expect(validateMessage(makeNote("proggenie", { notes: [60], channel: 20 })).ok).toBe(false);
     expect(validateMessage(makeMessage("proggenie", "note", { notes: [60], gate: "hold" })).ok).toBe(false);
   });
+  it("accepts glideMs (GloriArp's slide dimension — Vane glide-time)", () => {
+    expect(validateMessage(makeNote("proggenie", { notes: [60], durationMs: 300, glideMs: 120 }, { to: "vane" })).ok).toBe(true);
+    expect(validateMessage(makeNote("proggenie", { notes: [60], glideMs: 0 }, { to: "vane" })).ok).toBe(true);
+  });
+  it("rejects a negative glideMs", () => {
+    expect(validateMessage(makeNote("proggenie", { notes: [60], glideMs: -5 })).ok).toBe(false);
+  });
 });

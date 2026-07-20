@@ -54,7 +54,7 @@ const USAGE = `msuite <command> …
             [--source walking-bass|funk-ghost|bossa|two-feel|phrase.json] [--rhythm "<UPI>"] [--seed N]
             [--gate staccato|tenuto|legato|mixed|0..1+] [--dynamics 0..1] [--rests 0..1] [--anticipation 0..1]
             [--variety 0..1] [--pocket 0..1] [--morph 0..1] [--morph-notes 0..1] [--morph-pocket 0..1]
-            [--morph-rests 0..1] [--inflect 0..1] [--pass N]
+            [--morph-rests 0..1] [--inflect 0..1] [--morph-accents 0..1] [--slide 0..1] [--glide-ms N] [--pass N]
             [--range C2:C4] [--chromaticism 0..1] [--rhythm-preservation 0..1] [--tonic C] [--mode major|minor]
             [--bpm N] [--trace trace.json] [--phrase-out phrase.json] [--explain]
             [--play [--to app|*] [--loop | --loop-count N] [--midi-out port [--channel N] [--breath-cc N|off]]]
@@ -81,7 +81,13 @@ const USAGE = `msuite <command> …
                                         reverse; --morph sets all three at once when given alone);
                                         --inflect gives EVERY note its own wind articulation + breath envelope
                                         (sforzando, staccato, legato slurs, marcato…) — CC2 curves in the .mid,
-                                        live breath curves over --midi-out, per-note envelopes into Vane
+                                        live breath curves over --midi-out, per-note envelopes into Vane;
+                                        --morph-accents re-rolls inflect's own discretionary choices per pass
+                                        (sforzando/marcato, staccato/tenuto, AND slide promotion — needs
+                                        --inflect); --slide 0..1 promotes that fraction of eligible legato
+                                        transitions to an audible portamento glide (--glide-ms sets the time,
+                                        default 120) — standard MIDI CC5/CC65 in the .mid and live, Vane
+                                        glides natively via its own legato detection once glide-time > 0
   render <notes…> -o <file.wav> [--seconds N] [--breath 0..1] [--sr N] [--param id=value]… [--stream]
                                         --stream: apply a control-plane param NDJSON stream from stdin (message → sound)
   send [--from app] [--to app|*] (--param id=value… [--mode …] | --command name [--arg k=v]… | --note 60,64,67 [--velocity V] [--duration ms] [--gate on|off])
@@ -351,6 +357,9 @@ async function main(): Promise<number> {
         ...(one(args, "morph-notes") !== undefined && { morphNotes: Number(one(args, "morph-notes")) }),
         ...(one(args, "morph-pocket") !== undefined && { morphPocket: Number(one(args, "morph-pocket")) }),
         ...(one(args, "morph-rests") !== undefined && { morphRests: Number(one(args, "morph-rests")) }),
+        ...(one(args, "morph-accents") !== undefined && { morphAccents: Number(one(args, "morph-accents")) }),
+        ...(one(args, "slide") !== undefined && { slide: Number(one(args, "slide")) }),
+        ...(one(args, "glide-ms") !== undefined && { glideMs: Number(one(args, "glide-ms")) }),
         ...(one(args, "inflect") !== undefined && { inflect: Number(one(args, "inflect")) }),
         ...(one(args, "pass") !== undefined && { pass: Number(one(args, "pass")) }),
         ...(one(args, "bars") !== undefined && { bars: Number(one(args, "bars")) }),

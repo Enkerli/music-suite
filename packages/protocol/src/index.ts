@@ -230,6 +230,10 @@ export interface NoteBody {
   /** Tonguing transient hint, native Vane transient-gain units (0..2).
    *  0 = slurred (no re-tonguing — what makes a legato slur a slur). */
   attack?: number;
+  /** Portamento time in ms for THIS note's arrival (GloriArp's inflect
+   *  `slide`; Vane's glide-time, native 0..2000ms). Absent/0 = instant —
+   *  still legato-connected if articulation says so, just no audible glide. */
+  glideMs?: number;
 }
 
 function newId(): string {
@@ -362,6 +366,8 @@ export function validateMessage(x: unknown): ValidationResult {
           typeof p === "object" && p !== null &&
           typeof (p as { at?: unknown }).at === "number" && typeof (p as { value?: unknown }).value === "number")))
           err("body.env: array of {at, value} numbers required");
+        if (b.glideMs !== undefined && !(typeof b.glideMs === "number" && (b.glideMs as number) >= 0))
+          err("body.glideMs: non-negative number required");
         break;
     }
   }

@@ -8,18 +8,36 @@
  * clean. Vane is a wind model — breath (CC2) IS its amplitude envelope — so
  * these curves are not decoration: they are the note's actual dynamic life.
  *
- * Pure and seeded like every other stage: one RNG draw per event in onset
- * order (fixed budget — option changes never de-align the stream), identical
- * (phrase, options) → identical inflections on every platform. The output is
- * explicit data (GLORIARP_BRIEF §14): consumers render the envelopes as CC2
- * breakpoints (SMF, rawmidi) or as scheduled breath posts into the worklet;
- * `attack` is a per-note tonguing hint (Vane's transient-gain, native 0..2 —
- * 0 on the inside of a slur: no re-tonguing is what MAKES it a slur).
+ * Pure and seeded like every other stage: fixed RNG draw budget per event
+ * (option changes never de-align the stream), identical (phrase, options)
+ * → identical inflections on every platform. The output is explicit data
+ * (GLORIARP_BRIEF §14): consumers render the envelopes as CC2 breakpoints
+ * (SMF, rawmidi) or as scheduled breath posts into the worklet; `attack` is
+ * a per-note tonguing hint (Vane's transient-gain, native 0..2 — 0 on the
+ * inside of a slur: no re-tonguing is what MAKES it a slur).
+ *
+ * ACCENTS + SLIDES (docs/KNOWLEDGE_TRANSFER.md item 5, the two dimensions
+ * left over from the morph split — GLORIARP_NEXT.md §3e):
+ *  - accents: which notes land sforzando/marcato vs. plain tenuto, and
+ *    which legato transitions get promoted to slides, are seeded choices
+ *    like everything else — `morphAccents` (+ `pass`) makes THOSE choices
+ *    wander across loop passes, sharing express.ts's three-stream
+ *    discipline via its exported `passSeed`. 0/no pass = today's fixed
+ *    per-seed choices, unchanged.
+ *  - slides: Vane glides automatically whenever a note-change arrives
+ *    while the previous note's breath is still flowing (its own legato
+ *    detection) — legato-inside/-end transitions ALREADY connect that way.
+ *    What was missing is TIME: `glide-time` (wasmId 10) never gets set, so
+ *    every legato transition glides in 0ms — an instant pitch jump, not an
+ *    audible slide. `slide` (0..1) promotes a probability of eligible
+ *    legato transitions to carry a real `glideMs` (default `glideMs`
+ *    option, 120ms); everything else stays a plain (instant) legato join.
  */
 
 import { mulberry32 } from "@enkerli/proggen";
 import type { AccompanimentPhrase } from "./phrase.js";
 import { metricWeight } from "./articulate.js";
+import { passSeed } from "./express.js";
 
 export const ARTICULATION_NAMES = [
   "sforzando", "marcato", "staccato", "tenuto",
@@ -41,6 +59,11 @@ export interface NoteInflection {
   /** Tonguing transient, native Vane transient-gain units 0..2. 0 = slurred. */
   attack: number;
   envelope: EnvPoint[];
+  /** Portamento time in ms for THIS note's arrival (Vane glide-time, wasmId
+   *  10) — present only on a legato transition promoted by `slide`. 0/absent
+   *  = instant (today's behavior; still legato-connected if articulation
+   *  says so, just no audible glide). */
+  glideMs?: number;
 }
 
 export interface InflectOptions {
@@ -48,6 +71,19 @@ export interface InflectOptions {
   /** 0..1 — how far articulations depart from a neutral sustained note.
    *  0 = stage is inert (flat envelopes, unit gates). Default 1. */
   intensity?: number;
+  /** Loop pass index, 0-based — needed only alongside morphAccents. */
+  pass?: number;
+  /** 0..1 — fraction of ACCENT decisions (sforzando-vs-marcato,
+   *  staccato-vs-tenuto, and slide promotion) re-rolled per pass, so which
+   *  notes carry the emphasis wanders across loop repeats instead of
+   *  staying fixed. 0/undefined = every pass chooses the same way. */
+  morphAccents?: number;
+  /** 0..1 — probability an eligible legato transition (legato-inside/-end)
+   *  is promoted to an audible SLIDE (a real glideMs instead of 0/instant).
+   *  0/undefined = off — legato stays legato, never glides. */
+  slide?: number;
+  /** Portamento time (ms) applied to a promoted slide. Default 120. */
+  glideMs?: number;
 }
 
 export interface InflectResult {
@@ -111,6 +147,37 @@ export function inflectPhrase(phrase: AccompanimentPhrase, opts: InflectOptions)
   const tpb = phrase.ticksPerBeat;
   const bpb = phrase.meter.numerator;
 
+  // Accents: the articulation-choice draw becomes pass-aware exactly like
+  // articulate.ts's rests did — `rng` IS the stable stream, unmodified, so
+  // morphAccents=0 (or no pass) reproduces today's fixed per-seed choices
+  // byte-for-byte. perPass/gate are separate generators that only ever get
+  // CONSULTED when morphAccents is nonzero; they never advance `rng` itself.
+  const morphAccents = opts.morphAccents ?? 0;
+  const pass = opts.pass ?? 0;
+  const accentPerPassRng = mulberry32(passSeed(opts.seed, pass) ^ 0x1acce_112);
+  const accentGateRng = mulberry32((opts.seed ^ 0x1ac0_5eed) >>> 0);
+  const accentDraw = (): number => {
+    const s = rng();
+    const p = accentPerPassRng();
+    const g = accentGateRng();
+    return g < morphAccents ? p : s;
+  };
+
+  // Slides: a fully independent draw (own generators, seeded off `opts.seed`
+  // but never sharing rng's own sequence) so slide=0 leaves EVERYTHING else
+  // byte-identical, including when morphAccents/pass are also in play.
+  const slide = opts.slide ?? 0;
+  const glideMsOpt = opts.glideMs ?? 120;
+  const slideStableRng = mulberry32(opts.seed ^ 0x5117e_beef);
+  const slidePerPassRng = mulberry32(passSeed(opts.seed, pass) ^ 0x5117e_1234);
+  const slideGateRng = mulberry32((opts.seed ^ 0x5117e_9a3c) >>> 0);
+  const slideDraw = (): number => {
+    const s = slideStableRng();
+    const p = slidePerPassRng();
+    const g = slideGateRng();
+    return g < morphAccents ? p : s;
+  };
+
   // Slur positions first (no RNG — pure structure).
   const slurPos = new Map<number, ArticulationName>();
   for (const g of slurGroups(phrase)) {
@@ -122,7 +189,8 @@ export function inflectPhrase(phrase: AccompanimentPhrase, opts: InflectOptions)
   const notes: NoteInflection[] = [];
   for (let i = 0; i < events.length; i++) {
     const e = events[i]!;
-    const draw = rng(); // one draw per event, always — the stream stays aligned
+    const draw = accentDraw(); // one draw per event, always — the stream stays aligned
+    const slideRoll = slideDraw(); // ditto, its own independent stream
     const w = metricWeight(e.onset, tpb, bpb);
     const isLast = i === events.length - 1;
 
@@ -150,7 +218,14 @@ export function inflectPhrase(phrase: AccompanimentPhrase, opts: InflectOptions)
       at,
       value: clamp01(breath + (breath * mult - breath) * intensity),
     }));
-    notes.push({ index: i, onset: e.onset, articulation: name, gate, attack: shape.attack * intensity, envelope });
+    // Slide promotion: only a note ARRIVING via a slur (legato-inside/-end —
+    // legato-start has no prior connected note to glide FROM) is eligible.
+    const eligible = name === "legato-inside" || name === "legato-end";
+    const glideMs = eligible && slideRoll < slide ? glideMsOpt : undefined;
+    notes.push({
+      index: i, onset: e.onset, articulation: name, gate, attack: shape.attack * intensity, envelope,
+      ...(glideMs !== undefined && { glideMs }),
+    });
   }
 
   return {
@@ -159,7 +234,11 @@ export function inflectPhrase(phrase: AccompanimentPhrase, opts: InflectOptions)
       events,
       annotations: {
         ...phrase.annotations,
-        inflect: JSON.stringify({ seed: opts.seed, intensity }),
+        inflect: JSON.stringify({
+          seed: opts.seed, intensity,
+          ...(morphAccents && { morphAccents, pass }),
+          ...(slide && { slide, glideMs: glideMsOpt }),
+        }),
       },
     },
     notes,

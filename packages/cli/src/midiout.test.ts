@@ -56,6 +56,22 @@ describe("noteMessageToMidi", () => {
     const evs = noteMessageToMidi(noteMsg({ notes: [46], velocity: 90, durationMs: undefined, env: [{ at: 0, value: 1 }] }));
     expect(evs[0]).toEqual({ afterMs: 0, bytes: [0xb0, 2, 90] });
   });
+  it("glideMs writes standard MIDI portamento (CC65 on, CC5 time), all before the note-on", () => {
+    const evs = noteMessageToMidi(noteMsg({ notes: [46], velocity: 100, glideMs: 300 }));
+    expect(evs[0]!.bytes).toEqual([0xb0, 2, 100]); // breath stand-in
+    expect(evs[1]).toEqual({ afterMs: 0, bytes: [0xb0, 65, 127] });
+    expect(evs[2]).toEqual({ afterMs: 0, bytes: [0xb0, 5, Math.round((300 / 2000) * 127)] });
+    expect(evs[3]!.bytes[0]).toBe(0x90);
+  });
+  it("glideMs 0 writes portamento OFF explicitly (resets a previous note's slide) — no CC5", () => {
+    const evs = noteMessageToMidi(noteMsg({ notes: [46], velocity: 100, glideMs: 0 }));
+    expect(evs.some((e) => e.bytes[1] === 65 && e.bytes[2] === 0)).toBe(true);
+    expect(evs.some((e) => e.bytes[1] === 5)).toBe(false);
+  });
+  it("no glideMs at all → no portamento CCs (not even off) — unrelated to a non-inflected take", () => {
+    const evs = noteMessageToMidi(noteMsg({ notes: [46], velocity: 100 }));
+    expect(evs.some((e) => e.bytes[1] === 65 || e.bytes[1] === 5)).toBe(false);
+  });
 });
 
 describe("createMidiPlayer", () => {

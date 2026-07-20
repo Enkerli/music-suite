@@ -494,6 +494,14 @@ export interface AccompanyOptions {
   /** 0..1 — per-note wind articulation: sforzando/staccato/legato/marcato…,
    *  each note with its own breath envelope (CC2 curves in the .mid). */
   inflect?: number;
+  /** 0..1 — accent decisions (inflect's sforzando/marcato, staccato/tenuto,
+   *  slide promotion) re-roll rate per pass. Needs inflect to matter. */
+  morphAccents?: number;
+  /** 0..1 — probability an eligible legato transition becomes an audible
+   *  SLIDE (portamento) instead of an instant pitch join. Needs inflect. */
+  slide?: number;
+  /** Portamento time (ms) for a promoted slide. Default 120. */
+  glideMs?: number;
   /** Loop-pass index to render (0-based). */
   pass?: number;
   /** Tile the progression's bars out to this many bars. */
@@ -542,7 +550,7 @@ export function accompany(opts: AccompanyOptions): AccompanyResult {
   const { progression, tonic, mode, rhythm, bars, seed, range, chromaticism,
           rhythmPreservation, gate, dynamics, rests, anticipation,
           variety, pocket, morph, morphNotes, morphPocket, morphRests,
-          inflect, pass, bpm, traceLevel } = opts;
+          inflect, morphAccents, slide, glideMs, pass, bpm, traceLevel } = opts;
   const r = groove(source, {
     progression,
     ...(tonic !== undefined && { tonic }),
@@ -564,6 +572,9 @@ export function accompany(opts: AccompanyOptions): AccompanyResult {
     ...(morphPocket !== undefined && { morphPocket }),
     ...(morphRests !== undefined && { morphRests }),
     ...(inflect !== undefined && { inflect }),
+    ...(morphAccents !== undefined && { morphAccents }),
+    ...(slide !== undefined && { slide }),
+    ...(glideMs !== undefined && { glideMs }),
     ...(pass !== undefined && { pass }),
     ...(bpm !== undefined && { bpm }),
     ...(traceLevel !== undefined && { traceLevel }),
@@ -661,6 +672,10 @@ export function notesFromPhrase(
           articulation: inf.articulation,
           env: inf.envelope,
           attack: inf.attack,
+          // Always explicit (0 default), never conditionally omitted: a
+          // receiver's glide-time is a PERSISTENT param — a stale nonzero
+          // value from a previous slide must not leak into this note.
+          glideMs: inf.glideMs ?? 0,
         }),
       }, { to: opts.to ?? "vane" }),
     }));

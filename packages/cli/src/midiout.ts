@@ -105,7 +105,7 @@ export function noteMessageToMidi(msg: SuiteMessage, opts: MidiConvertOptions = 
   if (msg.type !== "note") return [];
   const b = msg.body as {
     notes?: number[]; velocity?: number; channel?: number; gate?: string; durationMs?: number;
-    env?: Array<{ at: number; value: number }>;
+    env?: Array<{ at: number; value: number }>; glideMs?: number;
   };
   const notes = Array.isArray(b.notes) ? b.notes : [];
   if (!notes.length) return [];
@@ -128,6 +128,15 @@ export function noteMessageToMidi(msg: SuiteMessage, opts: MidiConvertOptions = 
     } else {
       out.push({ afterMs: 0, bytes: [0xb0 | ch, breathCc & 0x7f, vel] });
     }
+  }
+  // Slides: standard MIDI portamento (CC5 time, CC65 on/off) — explicit
+  // every time glideMs rides the message at all (0 included), so a rawmidi
+  // synth's persistent portamento state never inherits a stale value from a
+  // previous note (same discipline as the .mid writer — pipeline.ts).
+  if (Number.isFinite(b.glideMs)) {
+    const glideMs = b.glideMs!;
+    out.push({ afterMs: 0, bytes: [0xb0 | ch, 65, glideMs > 0 ? 127 : 0] });
+    if (glideMs > 0) out.push({ afterMs: 0, bytes: [0xb0 | ch, 5, clamp7((glideMs / 2000) * 127)] });
   }
   for (const n of notes) out.push({ afterMs: 0, bytes: [0x90 | ch, clamp7(n), vel] });
   if (durationMs) {

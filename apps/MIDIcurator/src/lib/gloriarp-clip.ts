@@ -348,6 +348,17 @@ export interface GrooveClipRequest {
    *  Duration/gate shaping is audible via plain note durations; the breath
    *  envelope itself doesn't ride the Note[] clip format yet. */
   inflect?: number;
+  /** 0..1 — re-roll rate for inflect's own discretionary choices (sforzando/
+   *  marcato, staccato/tenuto, slide promotion) per pass. Needs inflect.
+   *  Duration IS audible here (gate shaping follows the chosen articulation);
+   *  no UI knob yet, pending the design pass. */
+  morphAccents?: number;
+  /** 0..1 — probability an eligible legato transition is promoted to a
+   *  portamento glide. Needs inflect. Glide time itself doesn't ride the
+   *  Note[] clip format yet (same boundary as inflect's breath envelope). */
+  slide?: number;
+  /** Portamento time (ms) for a promoted slide. Default 120 (engine-side). */
+  glideMs?: number;
   /** Onset-probability scale for a STYLE MODEL source (1 = as learned; <1
    *  sparser, >1 denser) — the "intensity" axis for a learned family (see
    *  DENSITY_PRESETS / generateDensityFamily below). No effect on a plain
@@ -398,6 +409,9 @@ export function generateGrooveClip(req: GrooveClipRequest, kv?: KV): GrooveClipD
     ...(req.morphRests !== undefined ? { morphRests: req.morphRests } : {}),
     ...(req.pass ? { pass: req.pass } : {}),
     ...(req.inflect ? { inflect: req.inflect } : {}),
+    ...(req.morphAccents !== undefined ? { morphAccents: req.morphAccents } : {}),
+    ...(req.slide !== undefined ? { slide: req.slide } : {}),
+    ...(req.glideMs !== undefined ? { glideMs: req.glideMs } : {}),
   });
 
   const notes: Note[] = phrase.events

@@ -45,6 +45,10 @@ export function applyVaneParam(post, idToWasm, msg) {
 
 /** The tonguing param (wasm id from the manifest, like every other binding). */
 const TRANSIENT_GAIN = vaneIdToWasm()["transient-gain"] ?? 44;
+/** Portamento time (GloriArp's `slide` — Vane glides automatically on any
+ *  connected note-change; this is the ONLY thing missing to make it audible
+ *  instead of instant). */
+const GLIDE_TIME = vaneIdToWasm()["glide-time"] ?? 10;
 
 /**
  * Play a `note` message on the voice: post noteOn/noteOff to the worklet (the
@@ -77,6 +81,13 @@ export function applyVaneNote(post, msg, schedule = (fn, ms) => setTimeout(fn, m
   // puffs, a marcato releases clean. Vane's amp envelope IS breath, so this
   // is per-note dynamics for real, not just a louder noteOn.
   if (Number.isFinite(b.attack)) post({ type: "param", id: TRANSIENT_GAIN, value: b.attack });
+  // Slides: Vane glides automatically on any connected note-change (breath
+  // still flowing) — glide-time is the ONLY thing that decides whether that
+  // transition is instant or an audible portamento. Posted EXPLICITLY on
+  // every inflected note (never just when promoted): glide-time is a
+  // persistent synth param, so a stale nonzero value from a PREVIOUS slide
+  // would otherwise leak into a later, unrelated connected transition.
+  if (Number.isFinite(b.glideMs)) post({ type: "param", id: GLIDE_TIME, value: b.glideMs });
   if (env) {
     for (const p of env) {
       const value = Math.max(0, Math.min(1, p.value));

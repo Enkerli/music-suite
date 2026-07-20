@@ -161,38 +161,43 @@ Design the data flow first (a variant is a clip; `extractPhrase`
 already eats clips), and keep `phrase.json`/`style-model.json` as the
 interchange (CLI `msuite style learn` reads/writes the same contracts).
 
-## 5. Continuous morphing accompaniment (L–XL · ★★★) — PARTIAL, 2026-07-20
+## 5. Continuous morphing accompaniment (L–XL · ★★★) — DONE, 2026-07-20
 
-Two of the four named dimensions shipped for real, engine + CLI:
+All four named dimensions now shipped for real, engine + CLI:
 `express.ts`'s single blanket `morph` split into independent
 `morphNotes`/`morphPocket` (note order / timing-dynamics wander
 separately now — `morph` stays as a blanket alias, byte-identical to
-before when used alone), and `articulate.ts`'s `rests` gained pass-
+before when used alone), `articulate.ts`'s `rests` gained pass-
 awareness it never had at all (`morphRests` + `pass` — WHICH steps skip
 now wanders across loop repeats; previously the same steps dropped every
-single pass, full stop, a real gap since `groove()` never even passed
-`pass` into `articulate()`). Both use the shared `passSeed` three-stream
-discipline (now exported from express.ts). Reaches `groove()`,
-`msuite accompany` (`--morph-notes`/`--morph-pocket`/`--morph-rests`,
-CLI-smoke-tested for real), and MIDIcurator's `GrooveClipRequest` (data
-layer). 6 new engine tests + 2 MIDIcurator tests, 1373/1373 monorepo,
-vectors regenerated with zero diff. Full writeup:
-docs/GLORIARP_NEXT.md §3e.
+single pass, full stop), and `inflect.ts` gained both **accents**
+(`morphAccents` — pass-aware wandering of its own EXISTING sforzando/
+marcato and staccato/tenuto choices) and **slides** (`slide` + `glideMs`
+— eligible legato transitions promoted to an audible portamento glide;
+Vane already auto-glides on connected note-changes, so the whole feature
+was posting a nonzero `glide-time`, plus standard MIDI CC5/CC65
+portamento in the `.mid`/rawmidi writers). All four dimensions share the
+same `passSeed` three-stream (stable/per-pass/gate) discipline, now
+exported from express.ts. Reaches `groove()`, `msuite accompany`
+(`--morph-notes`/`--morph-pocket`/`--morph-rests`/`--morph-accents`/
+`--slide`/`--glide-ms`, CLI-smoke-tested for real — including a real
+`.mid` byte scan confirming CC5/CC65 land, and a pass-0-vs-pass-1 diff
+confirming `morphAccents` actually wanders while `pass` alone changes
+nothing), and MIDIcurator's `GrooveClipRequest` (data layer). 17 new
+engine tests + 3 Vane control tests + 3 midiout tests + MIDIcurator
+coverage, 1391/1391 monorepo, vectors regenerated with zero diff both
+times. Full writeup: docs/GLORIARP_NEXT.md §3e (notes/pocket/rests) and
+§3f (accents/slides).
 
 **NOT done, on purpose**: no UI knobs added anywhere (this item's own
 "design-pass involvement for the UI" note — the existing single `morph`
 knob in the workspace module / MIDIcurator stays as the only UI surface,
-now correctly aliasing all three engine dimensions, until a design pass
-decides the actual layout). **NOT started**: "accents" (a wandering
-emphasis pattern — inflect.ts's sforzando/marcato articulation NAMES
-exist but inflect has no `pass` awareness at all, so which notes get
-which articulation is exactly as static across passes as rests used to
-be) and "slides" (portamento/glide — needs a real new field on
-PhraseEvent, pitch-bend/CC encoding in the MIDI writer, and Vane's
-`glide-time` wired from the bus; not a knob addition, a small feature).
-The original brief below claimed slides/accents "already exist as
-express/inflect dimensions" — true only in the loose sense that
-legato/marcato articulation NAMES exist, not that either morphs per pass.
+now correctly aliasing all four engine dimensions, until a design pass
+decides the actual layout — including whether `morphAccents`/`slide`
+deserve their own knobs or stay folded into `morph`). Vane's glide is
+untested by ear/real audio — this environment has no audio device; it's
+verified structurally only (correct bytes, correct order, correct
+values).
 
 Original brief, for reference:
 

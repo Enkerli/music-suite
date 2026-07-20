@@ -116,4 +116,25 @@ describe("applyVaneNote — plays the voice", () => {
     expect(post.mock.calls[0][0]).toEqual({ type: "param", id: 44, value: 0 });
     expect(post.mock.calls[1][0]).toEqual({ type: "cc", cc: 2, value: 0.64 });
   });
+  it("a promoted slide posts glide-time (wasmId 10) before the noteOn — Vane's own legato detection does the rest", () => {
+    const post = vi.fn();
+    applyVaneNote(post, makeNote("external", {
+      notes: [53], velocity: 96, durationMs: 240, articulation: "legato-inside", attack: 0, glideMs: 300,
+    }, { to: "vane" }), () => {});
+    expect(post.mock.calls[0][0]).toEqual({ type: "param", id: 44, value: 0 }); // attack (transient-gain)
+    expect(post.mock.calls[1][0]).toEqual({ type: "param", id: 10, value: 300 }); // glide-time
+    expect(post.mock.calls[2][0]).toEqual({ type: "cc", cc: 2, value: 96 / 127 }); // breath (no env here)
+  });
+  it("glideMs 0 is posted explicitly (not skipped) — resets a PREVIOUS note's slide instead of leaking into this one", () => {
+    const post = vi.fn();
+    applyVaneNote(post, makeNote("external", {
+      notes: [55], velocity: 96, durationMs: 240, articulation: "tenuto", attack: 0.5, glideMs: 0,
+    }, { to: "vane" }), () => {});
+    expect(post).toHaveBeenCalledWith({ type: "param", id: 10, value: 0 });
+  });
+  it("no glideMs at all (not an inflected take) → glide-time is never touched", () => {
+    const post = vi.fn();
+    applyVaneNote(post, makeNote("external", { notes: [60], velocity: 100 }, { to: "vane" }), () => {});
+    expect(post.mock.calls.some((c) => c[0].type === "param" && c[0].id === 10)).toBe(false);
+  });
 });
