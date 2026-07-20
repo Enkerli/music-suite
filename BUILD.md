@@ -176,8 +176,22 @@ most reliable browser for this workflow today.
   <aumi|aumu> <4-char-plugin-code>` runs the whole automatable ladder
   (macOS build → iOS compile check → `auval`). Optional but catches most
   problems before a device does.
+- **One command for any (or all) of the seven repos**: `enkerli-juce/tools/
+  suite-build <alias|all> [--ladder] [--fresh] [--ios] [--formats
+  au,vst3,clap,lv2]` — added 2026-07-20 so you don't have to remember which
+  repo needs which directory/plugin-code/product-name combination (`suite-
+  build --list` shows the manifest). It wraps `validate.sh` unchanged for
+  the macOS ladder and adds the Linux LV2/Standalone/CLAP leg validate.sh
+  doesn't cover; `all` keeps going past a repo you haven't checked out yet
+  and prints a pass/fail summary. It does NOT replace the Xcode
+  signing/scheme/device-install steps below — those stay manual. Per-repo
+  quick invocations are noted under each heading; the full manual commands
+  remain underneath for anything the script doesn't cover.
 
 ### MIDIcurator
+
+Quick: `suite-build midicurator --ladder` (add `--fresh` after a stale-bundle
+scare). Manual:
 
 ```bash
 git clone --recurse-submodules https://github.com/Enkerli/midicurator-plugin
@@ -199,6 +213,8 @@ Progression Studio below. `auval -v aumi Mcur Enke` validates.
 
 ### Progression Studio (ProgGenie)
 
+Quick: `suite-build proggenie --ladder`. Manual:
+
 ```bash
 git clone --recurse-submodules https://github.com/Enkerli/progression-studio-plugin
 cd progression-studio-plugin
@@ -210,6 +226,9 @@ open build-ios/ProgressionStudio.xcodeproj   # run ProgressionStudio_Standalone 
 ```
 
 ### PitchFold
+
+Quick: `suite-build pitchfold --ladder` (or `--formats standalone,au,vst3`).
+Manual:
 
 ```bash
 git clone --recurse-submodules https://github.com/Enkerli/PitchFold
@@ -223,6 +242,10 @@ open build-ios/PitchFold.xcodeproj
 ```
 
 ### Vane
+
+Quick: `suite-build vane --ladder` (macOS), `suite-build vane` on Linux
+(LV2/Standalone). Manual — note this uses its own `build-mac` dir name,
+independent of the script's `build`:
 
 ```bash
 git clone https://github.com/Enkerli/Vane
@@ -248,6 +271,8 @@ cmake --build build-linux -j$(nproc)
 
 ### Serpe
 
+Quick: `suite-build serpe --ladder`. Manual:
+
 ```bash
 git clone --recurse-submodules https://github.com/Enkerli/rhythm_pattern_explorer
 cd rhythm_pattern_explorer
@@ -263,6 +288,10 @@ To pin a specific Apple team instead of Xcode's default, copy
 `signing.local.cmake.example` to `signing.local.cmake` first.
 
 ### DrawnQurve
+
+Quick: `suite-build drawnqurve --ladder` (macOS), `suite-build drawnqurve` on
+Linux. The signing-team fix below still needs doing by hand either way.
+Manual:
 
 ```bash
 git clone https://github.com/Enkerli/DrawnQurve
@@ -294,7 +323,10 @@ needs this manual nudge the first time a target is selected).
 ### Suite Workspace
 
 Promoted to its own repo 2026-07-19 (the `plugin-shells/` staging copy in
-this repo has been removed — the repo is the source of truth now):
+this repo has been removed — the repo is the source of truth now).
+
+Quick: `suite-build workspace --ladder` (macOS), `suite-build workspace` on
+Linux (LV2/Standalone/CLAP). Manual:
 
 ```bash
 git clone --recurse-submodules https://github.com/Enkerli/workspace-plugin
