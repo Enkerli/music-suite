@@ -308,3 +308,22 @@ in the first place: Mono Merge (needs new stateful logic, not present in
 either engine) and the Time engine (needs a different SCHEDULING MODEL,
 not a translation). Both are real, scoped, buildable — just not
 same-session-cheap.
+
+### Reprioritized, 2026-07-20: roadmap, not this pass
+
+Alex's call: Mono Merge, Swing, and the Time engine made sense as
+priorities at the time — part of the original brief's inspiration was
+PageFail's "Cality" AUv3, which leans on exactly this kind of
+mono/timing-feel shaping. But with how the rest of the suite has
+unfolded since (Workspace becoming the cross-app integration surface —
+`voice-split`/`pcs-pads` modules, the bus-native "learn from whatever's
+playing" pattern), these three specific PitchFold-internal engine
+features may not be the highest-value use of the next slice of effort.
+Staying on the roadmap, explicitly not descoped — just not assumed to
+be next. Worth reconsidering **as Workspace features** instead of (or
+before) PitchFold-internal ones when someone does pick this up: e.g. a
+Workspace-level "hold to mono" note-router (the same shared-module
+instinct that produced `voice-split`) might deliver Mono Merge's actual
+value — priority-based note selection — to every app on the bus at
+once, rather than rebuilding it twice inside one plugin's two engines
+for PitchFold alone.

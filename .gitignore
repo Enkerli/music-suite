@@ -12,3 +12,8 @@ coverage/
 
 # Per-machine external-app source paths for scripts/sync-apps.mjs
 scripts/apps.local.json
+
+# Third-party manufacturer documentation — reference the original, don't
+# redistribute a copy (docs/KNOWLEDGE_TRANSFER.md item 7). Dualo's Exquis
+# Developer Mode MIDI spec: download from https://dualo.com/en/support
+apps/exquisite-fingerings/Exquis_Dev_Mode_EN.pdf

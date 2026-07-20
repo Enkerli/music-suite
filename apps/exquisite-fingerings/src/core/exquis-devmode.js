@@ -1,7 +1,10 @@
 /**
  * Exquis Developer Mode Module
  * Handles SysEx commands for LED control and pad event monitoring
- * Spec: Exquis Developer Mode MIDI specification
+ *
+ * Spec: Dualo's "Exquis Developer Mode" MIDI implementation document.
+ * Not redistributed here (third-party manufacturer doc) — download the
+ * current version from Dualo directly: https://dualo.com/en/support
  */
 
 import { ROW_START_CHROMATIC, ROW_START_INTERVALS, ROW_COUNT, getRowLength } from './grid.js';

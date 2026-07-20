@@ -55,32 +55,27 @@ same day (BUILD.md §6 matrix). A one-time scheduled task fires
 2026-07-20 02:05 EDT (design-audit implementation + user guide) and
 **references the current repo paths** — relevant to item 1 below.
 
-## 1. Centralize checkouts + env exports (S–M · ★★★)
+## 1. Centralize checkouts + env exports (S–M · ★★★) — DONE, 2026-07-20
 
-Alex is consolidating all repos under `~/Documents/Coding` (Mac) /
-`~/Coding` (Linux), each plugin repo a **sibling** of `music-suite`.
-The build system is already location-flexible — three probed layouts
-(sibling / nested-inside-monorepo / `MUSIC_SUITE` env) plus a
-`JUCE_PATH` env probe before any JUCE fetch — so the move is mechanics:
+The 2026-07-20 02:05 scheduled task this item was gated on never
+actually fired (confirmed: no trigger for it exists), and Alex ran
+through the centralization independently, later, by hand — the physical
+move (repos under `~/Documents/Coding`/`~/Coding`, shell profile
+`MUSIC_SUITE`/`JUCE_PATH` exports, deleting the stray duplicate
+`~/music-suite` checkout) happened on Alex's own machines, outside any
+agent session's reach.
 
-1. **Do not move anything before the 2026-07-20 02:05 scheduled task
-   has run** (its prompt hardcodes `~/Desktop/music-suite` etc.), or
-   update that task's prompt first (`update_scheduled_task`).
-2. Move the repos. Current Mac locations are in HANDOFF.md's repo map
-   (note the strays: `~/Vane`, `~/DrawnQurve`, and a second monorepo
-   checkout at `~/music-suite` that exists only as their sibling —
-   after centralizing, delete that duplicate checkout).
-3. Update or delete the per-repo gitignored `webui.local.cmake` files
-   (with true siblings the default just works), `scripts/apps.local.json`
-   (sync-apps paths), and `.claude/launch.json` in the private repo
-   (dev-server paths).
-4. Add to shell profiles on BOTH machines:
-   `export MUSIC_SUITE=$HOME/Documents/Coding/music-suite` (adjust per
-   OS) and `export JUCE_PATH=<local JUCE clone>` (Linux especially —
-   no `/Applications/JUCE` there, so this is what stops per-repo
-   fetches).
-5. Prove it: one archetype plugin (`workspace-plugin` is smallest) and
-   Vane must configure with no `webui.local.cmake` and no fetch.
+Checked what's left reachable from *this* repo: nothing. `webui.local.cmake`
+files are per-plugin-repo and gitignored — a fresh sibling checkout
+never has one, so there's nothing to update or delete from here.
+`scripts/apps.local.json` doesn't exist in this checkout either (also
+gitignored, also just an override with a working default — confirmed
+`sync-apps.mjs` already degrades gracefully with per-slug skip-and-warn
+when a path isn't found, exactly as its own doc comment claims).
+`.claude/launch.json` lives in the private planning repo, out of scope
+by design. The "prove it: one archetype plugin configures with no
+override and no fetch" step needs a real JUCE toolchain on Alex's own
+machine — not verifiable from a JUCE-less container either way.
 
 ## 2. One build script (M · ★★★) — DONE 2026-07-20
 
@@ -107,22 +102,27 @@ repos share it via the submodule; BUILD.md then documents *the script*
 per repo instead of per-repo incantations. Don't break `validate.sh`'s
 CI users (midicurator/proggenie CI call it via reusable workflows).
 
-## 3. Names (S mechanics + Alex's decision · ★★)
+## 3. Names (S mechanics + Alex's decision · ★★) — DECIDED, 2026-07-20
 
-Two separate decisions, both Alex's — prepare a short NAMES memo, don't
-choose:
-- **ProgGenie official**: product strings already say ProgGenie. The
-  mechanical rename is the repo (`progression-studio-plugin` →
-  `proggenie-plugin`; GitHub redirects old URLs) and doc references.
-  **Never touch** plugin code `Prst` or bundle id — plugin identity
-  breaks host sessions (plugin-codes-are-forever, enkerli-juce docs).
-- **Suite name**: candidates Alex likes are **MIDIsplainer** and
-  **MTILT** ("Music Technology: Inclusive Learning & Teaching") vs the
-  current music-suite. Real costs to enumerate: the Pages URL
-  (`enkerli.github.io/music-suite/...` appears in HANDOFF, BUILD,
-  A11Y_TEST_PLAN, the scheduled user guide, plugin READMEs), npm scope
-  `@enkerli/*` (unaffected), and the copy-tone rule (MIDIsplainer is a
-  joke name — check it against the plain/humble register with Alex).
+Both calls made:
+- **ProgGenie official** — confirmed, no change from today's reality
+  (product strings already say ProgGenie). Mechanics still open, not yet
+  executed: rename the repo (`progression-studio-plugin` →
+  `proggenie-plugin`; GitHub redirects old URLs) and update doc
+  references. **Never touch** plugin code `Prst` or bundle id — plugin
+  identity breaks host sessions (plugin-codes-are-forever, enkerli-juce
+  docs). Deliberately not done in this pass: the doc says its own real
+  cost is "enumerate the Pages URL across HANDOFF/BUILD/
+  A11Y_TEST_PLAN/scheduled user guide/plugin READMEs" — that's real
+  surface, worth its own dedicated pass rather than a rushed partial
+  rename that leaves stale references somewhere.
+- **Suite name: MTILT.** Not the current `music-suite` and not
+  MIDIsplainer — MTILT is the suite's name going forward. Same
+  mechanics gap as above (Pages URL, doc references, plugin READMEs) —
+  not executed here; noting the decision so it's not re-litigated, and
+  the rename itself can be batched with ProgGenie's for one clean pass
+  rather than two separate churns through the same doc set. npm scope
+  `@enkerli/*` is unaffected either way.
 
 ## 4. MIDIcurator variants × GloriArp (M–L · ★★★) — DONE 2026-07-20
 
@@ -241,21 +241,33 @@ The iPadOS cross-app dream needs the App Group
 (`group.com.enkerli.suite`) — gated on Apple-account provisioning,
 steps written in the private plan doc §6 backlog.
 
-## 7. Exquisite Fingerings as plugin/standalone, Exquis dev mode (L · ★★★, spike M first)
+## 7. Exquisite Fingerings as plugin/standalone, Exquis dev mode (L · ★★★, spike M first) — roadmap, 2026-07-20
+
+Alex's call: stays on the roadmap. Main advantage of the plugin path is
+working from an iPad rather than only a desktop browser — worth keeping
+in mind when this gets picked up, since it argues for the plugin/AUv3
+route over standalone-app-first if the two end up close on effort.
 
 The AUv3 shell is cheap — the consolidation recipe is proven five times
 (move nothing; plugin repo embeds `apps/exquisite-fingerings` via the
 same CMake probing; aumi archetype; ~1.1k LOC shell like
 MIDIcurator/ProgGenie). The UNKNOWN is **Exquis developer mode**: SysEx
 control of pad LEDs/layout from the app (the reverse of today's
-fingering *display*). Spike first: find the Exquis dev-mode SysEx spec
-(Intuitive Instruments publishes one; `manifold/controllers/mpe-surface/
-exquis.yaml` is the capability record and should GAIN whatever the
-spike learns), then prove one pad-LED write over `@enkerli/webmidi`
-from the webapp. Only then decide plugin vs standalone-app-first. Note:
-the hardware's pad palette is already canon in the suite
-(`packages/ui/components/pitch-class-colors.js` — derived from Alex's
-Exquis layout file).
+fingering *display*). The dev-mode SysEx spec had already been shared
+and turned out to be sitting in the repo as a committed PDF
+(`apps/exquisite-fingerings/Exquis_Dev_Mode_EN.pdf`) — third-party
+manufacturer documentation (Dualo's; the PDF's own embedded metadata
+points to `dualo.com/en/support`), not something this repo should
+redistribute. **Fixed 2026-07-20**: gitignored, untracked (`git rm
+--cached`, kept on disk locally), and `exquis-devmode.js`'s header
+comment now points at the original source instead of implying an
+in-repo spec. `manifold/controllers/mpe-surface/exquis.yaml` (a
+separate repo) is the capability record and should GAIN whatever a dev-
+mode spike learns. Spike first: prove one pad-LED write over
+`@enkerli/webmidi` from the webapp using that spec. Only then decide
+plugin vs standalone-app-first. Note: the hardware's pad palette is
+already canon in the suite (`packages/ui/components/pitch-class-colors.js`
+— derived from Alex's Exquis layout file).
 
 ## 8. PitchFold feature evaluation (M · ★★) — DONE, 2026-07-20
 
@@ -296,6 +308,15 @@ roadmap — both turned out to need real new logic (mono note-stealing;
 a wall-clock scheduling model instead of TimeQuantizer's block-based
 one), not a mechanical port, so "shouldn't be too difficult" didn't
 fully hold there. 1442/1442 monorepo.
+
+**Reprioritized, same day**: Alex's call — Mono Merge/Swing/Time-engine
+made sense given the original brief's PageFail "Cality" inspiration, but
+given how Workspace has become the suite's actual cross-app integration
+surface since, these may be better spent as Workspace features (a
+shared note-router module, the same instinct behind `voice-split`) than
+rebuilt twice inside PitchFold's own two engines. Staying on the
+roadmap, not descoped — see `docs/PITCHFOLD_AUDIT.md`'s "Reprioritized"
+note.
 
 ## 9. Serpe concentric circles (M–L · ★★) — DONE, 2026-07-20
 
