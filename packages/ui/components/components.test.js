@@ -251,6 +251,17 @@ describe("global cluster (the shared frame)", () => {
     expect(el.querySelector("#midi-chip").dataset.state).toBe("unavailable");
   });
 
+  it("build-id slot: non-interactive rightmost chip, only when configured", () => {
+    const el = document.createElement("div");
+    const c = createGlobalCluster(el, { build: "web·1a2b3c" });
+    const chip = el.querySelector("#build-chip");
+    expect(chip.textContent).toBe("web·1a2b3c");
+    expect(chip.tagName).toBe("SPAN"); // not a button — nothing to press
+    expect([...el.querySelectorAll(".es-cluster > *")].at(-1).id).toBe("build-chip");
+    c.update({ build: null });
+    expect(el.querySelector("#build-chip")).toBeNull();
+  });
+
   it("MIDI chip native state: JUCE standalone/plugin reads 'native', never 'No Web MIDI'", () => {
     const el = document.createElement("div");
     document.body.appendChild(el);

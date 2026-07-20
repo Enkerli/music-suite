@@ -10,9 +10,15 @@
 import { SuiteBus } from "./bus.js";
 import { MODULES, el } from "./modules.js";
 import { juceAvailable, juceEmit, juceOn, sendNoteOut, sendState } from "./juce-bridge.js";
+import { initTheme } from "@enkerli/ui/theme";
+import { createGlobalCluster } from "@enkerli/ui/global-cluster";
 import tokensCss from "@enkerli/ui/tokens.css";
 import componentsCss from "@enkerli/ui/components.css";
 import workspaceCss from "./workspace.css";
+
+// Shared frame: the ONE theme mechanism (`enkerli.theme` + [data-theme])
+// stamps before first paint; the global cluster below carries the toggle.
+initTheme();
 
 const STORE_KEY = "enkerli.workspace.v1";
 
@@ -129,6 +135,12 @@ function main() {
     hostChip.textContent = `host ${Math.round(t.bpm || 0)} bpm ${t.playing ? "▶" : "■"}`;
   });
 
+  // Shared frame, slot-for-slot with the other apps: theme toggle + density.
+  // MIDI and Library stay per-module here (the bus and the Library module own
+  // them) — the cluster's own slots would duplicate, not unify.
+  const clusterHost = el("span", { class: "ws-cluster" });
+  createGlobalCluster(clusterHost, { densityTarget: document.body });
+
   document.body.append(
     el("header", { class: "ws-topbar" },
       el("span", { class: "ws-brand", text: "Suite Workspace" }),
@@ -136,7 +148,8 @@ function main() {
       ...(hostChip ? [hostChip] : []),
       adder,
       el("button", { class: "ws-btn ghost", text: "reset", title: "Clear layout",
-        onclick: () => { localStorage.removeItem(STORE_KEY); location.reload(); } })),
+        onclick: () => { localStorage.removeItem(STORE_KEY); location.reload(); } }),
+      clusterHost),
     canvas);
 
   function boot(fromStore) {

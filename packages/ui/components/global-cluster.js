@@ -85,6 +85,10 @@ function endpoint({ label, kind, ports, selectedId, sysex, noneOption, onSelect 
  * @param {Element|null} [opts.densityTarget] gets .es-dense toggled; omit/null to skip slot 3
  * @param {object|null} [opts.library] omit/null to skip slot 4.
  *   { count?:number, onToggle:()=>void }
+ * @param {string|null} [opts.build] omit/null to skip slot 5 — a rightmost,
+ *   non-interactive build-id chip ("which build am I looking at?" — the Vane
+ *   diagnostic blessed suite-wide; design audit 2026-07-19 D3). Pass the id
+ *   your build stamps (e.g. a __BUILD_ID__ sed step).
  * @returns {{ root:HTMLElement, update(next?:object):void, destroy():void }}
  */
 export function createGlobalCluster(host, opts = {}) {
@@ -202,6 +206,20 @@ export function createGlobalCluster(host, opts = {}) {
         state.library.count != null ? `<span class="lib-count-badge">${state.library.count}</span>` : ""}`;
       lBtn.addEventListener("click", () => state.library.onToggle?.());
       root.append(lBtn);
+    }
+
+    // slot 5 · build-id — rightmost of all, non-interactive (D3): the
+    // "which build am I looking at?" chip, generalized from Vane.
+    if (state.build) {
+      const bChip = el("span", "es-btn es-small es-build-chip");
+      bChip.id = "build-chip";
+      bChip.title = "Build id";
+      bChip.setAttribute("aria-label", `Build ${state.build}`);
+      bChip.style.cursor = "default";
+      bChip.style.pointerEvents = "none";
+      bChip.style.opacity = "0.75";
+      bChip.textContent = state.build;
+      root.append(bChip);
     }
   }
 

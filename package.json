@@ -14,7 +14,8 @@
     "typecheck": "npm run build-packages",
     "sync-apps": "node scripts/sync-apps.mjs",
     "build-site": "node docs/build-site.mjs",
-    "msuite": "node packages/cli/dist/cli.js"
+    "msuite": "node packages/cli/dist/cli.js",
+    "audit-ui": "node packages/ui/tools/contrast-audit.mjs packages/ui/tokens/tokens.css && node packages/ui/tools/vane-token-sync.mjs"
   },
   "devDependencies": {
     "happy-dom": "^20.10.2",

@@ -53,6 +53,19 @@ on their own; this package makes the convergence official.
 - **Theming**: tokens only — no hardcoded colors in app code; both themes
   exercised before release (the WKWebView smoke can run twice with
   `data-theme` forced).
+- **Shared frame mounted** (design audit 2026-07-19, D2 — added after
+  Workspace shipped without it): every app mounts the global cluster
+  (`@enkerli/ui/global-cluster`) with at minimum the theme slot; theme is
+  `initTheme()` + the `enkerli.theme` key (never a hardcoded
+  `data-theme` in markup); a density target is wired unless the app has
+  a documented reason not to. MIDI/Library/build-id slots as applicable.
+- **One destructive idiom** (design audit 2026-07-19, D1): recoverable
+  item deletes use **optimistic delete + undo toast**
+  (`@enkerli/ui/toast` — the shipped pattern in library-browser, Vane,
+  Serpe); **two-tap armed confirm** is reserved for genuinely
+  unrecoverable acts (clear-all, panic-adjacent). Never both for the
+  same class of action. (`confirm.js` remains for the unrecoverable
+  cases only; MIDIcurator's delete paths migrating off it is queued.)
 
 ## Using it
 

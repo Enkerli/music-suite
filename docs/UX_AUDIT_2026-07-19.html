@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Suite Design Audit — July 2026 (Divergence Matrix v2)</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter+Tight:ital,wght@0,400;0,500;0,600;0,700;1,400&family=JetBrains+Mono:wght@400;500;600&family=Domine:ital,wght@0,500;0,600;1,500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/tokens.css">
+<style>
+:root{--w:1060px}
+*{box-sizing:border-box}
+body{margin:0;background:var(--es-bg,#f5f2eb);color:var(--es-fg,#2d2b27);font-family:"Inter Tight",system-ui,sans-serif;font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased}
+a{color:#8a5520;text-decoration:none;border-bottom:1px solid var(--es-border,#ddd6ca)}
+a:hover{color:#c4873a;border-bottom-color:#c4873a}
+[data-theme="dark"] a{color:#e8a838}[data-theme="dark"] a:hover{color:#e8c878}
+.wrap{max-width:var(--w);margin:0 auto;padding:28px 24px 80px}
+header.doc{display:flex;align-items:flex-start;gap:14px;justify-content:space-between;flex-wrap:wrap;border-bottom:2px solid var(--es-fg,#2d2b27);padding-bottom:18px;margin-bottom:8px}
+h1{font-family:Domine,Georgia,serif;font-weight:600;font-size:27px;margin:4px 0 6px;letter-spacing:-.01em}
+.sub{color:var(--es-fg-muted,#6b665b);max-width:640px;text-wrap:pretty}
+.eyebrow{font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--es-fg-muted,#6b665b);font-weight:600}
+.mono{font-family:"JetBrains Mono",ui-monospace,monospace;font-variant-numeric:tabular-nums}
+code{font-family:"JetBrains Mono",ui-monospace,monospace;font-size:.86em;background:var(--es-bg-sunken,#efebe2);padding:1px 5px;border-radius:5px;white-space:nowrap}
+.hchips{display:flex;flex-direction:column;gap:6px;align-items:flex-end}
+.chip{display:inline-flex;align-items:center;gap:7px;border:1px solid var(--es-border,#ddd6ca);background:var(--es-bg-raised,#fcfbf7);border-radius:999px;padding:4px 12px;font-size:12px;font-weight:600;color:var(--es-fg-2,#4b463e);cursor:default}
+button.chip{cursor:pointer;font-family:inherit}
+h2{font-family:Domine,Georgia,serif;font-weight:600;font-size:19px;margin:44px 0 4px;letter-spacing:-.01em}
+h2 .no{color:var(--es-fg-faint,#b3ac9e);margin-right:8px}
+.h2sub{color:var(--es-fg-muted,#6b665b);margin:0 0 16px;max-width:680px;text-wrap:pretty}
+table{border-collapse:collapse;width:100%;font-size:12.5px;background:var(--es-bg-raised,#fcfbf7);border:1px solid var(--es-border,#ddd6ca);border-radius:12px;overflow:hidden}
+.tblwrap{overflow-x:auto;border-radius:12px;box-shadow:0 6px 22px rgba(28,25,20,.05)}
+th{font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--es-fg-muted,#6b665b);text-align:left;padding:9px 10px;border-bottom:1px solid var(--es-border,#ddd6ca);background:var(--es-bg-sunken,#efebe2);white-space:nowrap}
+td{padding:8px 10px;border-bottom:1px solid var(--es-border-soft,#eae3d4);vertical-align:top}
+tr:last-child td{border-bottom:none}
+td.app{font-weight:600;white-space:nowrap}
+.ok,.part,.no-,.na{display:inline-block;font-weight:600;font-size:11.5px;padding:1px 7px;border-radius:6px;white-space:nowrap}
+.ok{color:#3d6b35;background:rgba(80,140,70,.12)}
+.part{color:#8a5520;background:rgba(196,135,58,.14)}
+.no-{color:#9c3f2e;background:rgba(178,80,60,.12)}
+.na{color:var(--es-fg-faint,#b3ac9e)}
+[data-theme="dark"] .ok{color:#8fc27f}[data-theme="dark"] .part{color:#e8a838}[data-theme="dark"] .no-{color:#e2846d}
+.legend{display:flex;gap:14px;flex-wrap:wrap;margin:10px 2px 0;font-size:12px;color:var(--es-fg-muted,#6b665b)}
+.wins{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:12px}
+.win{background:var(--es-bg-raised,#fcfbf7);border:1px solid var(--es-border-soft,#eae3d4);border-radius:12px;padding:13px 15px;box-shadow:0 6px 22px rgba(28,25,20,.05)}
+.win b{display:block;margin-bottom:3px}
+.win .ev{font-size:12px;color:var(--es-fg-muted,#6b665b);margin-top:5px}
+.finding{background:var(--es-bg-raised,#fcfbf7);border:1px solid var(--es-border,#ddd6ca);border-radius:14px;padding:16px 18px;margin:0 0 14px;box-shadow:0 6px 22px rgba(28,25,20,.05)}
+.fhead{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:6px}
+.fid{font-family:"JetBrains Mono",monospace;font-weight:600;font-size:12px;color:var(--es-fg-faint,#b3ac9e)}
+.fhead b{font-size:15px}
+.sev{font-size:10.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;padding:2px 8px;border-radius:6px}
+.sev.high{color:#9c3f2e;background:rgba(178,80,60,.12)}
+.sev.med{color:#8a5520;background:rgba(196,135,58,.14)}
+.sev.low{color:var(--es-fg-muted,#6b665b);background:var(--es-bg-sunken,#efebe2)}
+[data-theme="dark"] .sev.high{color:#e2846d}[data-theme="dark"] .sev.med{color:#e8a838}
+.frow{display:grid;grid-template-columns:92px 1fr;gap:4px 12px;font-size:13px;margin-top:8px}
+.frow .k{font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--es-fg-muted,#6b665b);font-weight:600;padding-top:2px}
+.persona{display:inline-block;font-size:11.5px;border:1px solid var(--es-border,#ddd6ca);border-radius:999px;padding:1px 9px;margin:0 4px 4px 0;color:var(--es-fg-2,#4b463e);background:var(--es-bg,#f5f2eb)}
+ol.seq{padding-left:22px;margin:0}
+ol.seq li{margin-bottom:10px;text-wrap:pretty}
+ol.seq .step-tag{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;margin-right:6px}
+ol.seq .step-tag.cheap{color:#3d6b35}ol.seq .step-tag.med{color:#8a5520}ol.seq .step-tag.gated{color:#9c3f2e}
+[data-theme="dark"] ol.seq .step-tag.cheap{color:#8fc27f}[data-theme="dark"] ol.seq .step-tag.med{color:#e8a838}[data-theme="dark"] ol.seq .step-tag.gated{color:#e2846d}
+.note{border-left:3px solid var(--es-border-strong,#b3ac9e);background:var(--es-bg-raised,#fcfbf7);border-radius:0 10px 10px 0;padding:10px 14px;font-size:13px;color:var(--es-fg-2,#4b463e);margin:14px 0}
+footer{margin-top:56px;padding-top:14px;border-top:1px solid var(--es-border,#ddd6ca);color:var(--es-fg-muted,#6b665b);font-size:12px;display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header class="doc">
+<div>
+<div class="eyebrow">Enkerli music suite · UX consistency pass 2</div>
+<h1>Design audit — the divergence matrix, v2</h1>
+<p class="sub">Verified against the repos on <span class="mono">2026-07-19</span> (music-suite <span class="mono">main@ab3d3df</span>, plus the plugin repos). Supersedes the 2026-07-06 matrix (<code>docs/UX_AUDIT.md</code>). Grounded in the user-centric docs: the seven reconciled personas (<code>docs/personas.md</code>, 07-15), <code>packages/ui/DESIGN.md</code>, and the shipped Shared-Frame components.</p>
+</div>
+<div class="hchips">
+<button class="chip" id="theme-toggle" title="Switch theme"><span id="theme-glyph">●</span><span id="theme-word">Dark</span></button>
+<span class="chip mono" title="Audit reference commit">ab3d3df · 2026-07-19</span>
+</div>
+</header>
+
+<h2><span class="no">1</span>What landed since the last audit</h2>
+<p class="h2sub">The 07-06 audit named three parallel design systems and eight preset experiences. Much of that is now closed — including both flags held for sign-off from the Vane convergence pass.</p>
+<div class="wins">
+<div class="win"><b>✓ The shared frame shipped as code</b>The Consistency-Pass chrome is real: <code>@enkerli/ui</code> now carries <code>global-cluster.js</code> (theme · MIDI · density · Library, stable ids), <code>library-browser.js</code> (config-driven, count-based facet scaling), and <code>toast.js</code>.<div class="ev">packages/ui/components/ — with tests and .d.ts</div></div>
+<div class="win"><b>✓ Flag resolved: disabled-ink token</b><code>--es-fg-faint</code> exists in both themes (<span class="mono">#b3ac9e</span> / <span class="mono">#5f584a</span>), documented "disabled ink ONLY (WCAG-exempt)". It replaces <code>--vn-muted-2</code> and <code>PAPER.ink30</code> exactly as the pass proposed.<div class="ev">packages/ui/tokens/tokens.css:116,141</div></div>
+<div class="win"><b>✓ Flag resolved: PitchFold's warm dark</b><code>PAPER_DARK</code> now carries the suite's warm dark verbatim (<span class="mono">#1a1814</span>…); the old cool blue-violet dark is retired — the file's own comment records the sign-off.<div class="ev">apps/pitchfold/design/tokens.jsx</div></div>
+<div class="win"><b>✓ One theme key across the divide</b><code>enkerli.theme</code> is honoured by the es family (theme.js), Vane (inline, semantics-identical), PitchFold (inline), and Serpe (with a one-time <code>serpe.theme</code> migration). Three keys → one.<div class="ev">apps/vane/index.html:1893 · pitchfold/main.jsx · serpe/main.jsx</div></div>
+<div class="win"><b>✓ Four full frame adopters</b>ProgGenie and exquisite-fingerings mount cluster + Library browser; Serpe mounts cluster + browser + toast; MIDIcurator mounts the cluster (Library stays in its sidebar by design). Exquisite's orphan-key bug (<code>fingeringPatterns</code> vs <code>exquisPatterns</code>) is fixed with a migration.<div class="ev">SharedFrame.tsx · App.jsx:368 · app.js:686-706 · serpe/main.jsx</div></div>
+<div class="win"><b>✓ Vane converged in place</b>Q5 answered as recommended: <code>--vn-*</code> literals byte-synced to es values (inlined on purpose — the file ships at three path depths), <code>enkerli.theme</code>, build-id (<code>__VANE_BUILD__</code>), optimistic delete + undo toast with pending-delete flush.<div class="ev">apps/vane/index.html:30-44, 825-848, 1844-1848</div></div>
+</div>
+
+<h2><span class="no">2</span>Adoption matrix — who wears the frame now</h2>
+<p class="h2sub">Per app, per shared pattern. <i>Values</i> = the app shows es token values; <i>mechanism</i> = it consumes the shared code.</p>
+<div class="tblwrap"><table>
+<thead><tr><th>App</th><th>Tokens</th><th>Theme key + toggle</th><th>Global cluster</th><th>Library browser</th><th>Device chrome</th><th>Delete idiom</th><th>Build-id</th><th>i18n</th></tr></thead>
+<tbody>
+<tr><td class="app">ProgGenie</td><td><span class="ok">es CSS</span></td><td><span class="ok">shared</span></td><td><span class="ok">yes</span></td><td><span class="ok">shared</span></td><td><span class="ok">cluster popover</span></td><td><span class="ok">undo toast</span></td><td><span class="no-">none</span></td><td><span class="no-">none</span></td></tr>
+<tr><td class="app">MIDIcurator</td><td><span class="ok">es CSS</span></td><td><span class="ok">shared</span></td><td><span class="ok">yes</span></td><td><span class="part">own sidebar</span></td><td><span class="ok">cluster popover</span></td><td><span class="part">confirm.js</span></td><td><span class="no-">none</span></td><td><span class="ok">i18next</span></td></tr>
+<tr><td class="app">Serpe</td><td><span class="ok">es CSS</span></td><td><span class="ok">shared + migration</span></td><td><span class="ok">yes</span></td><td><span class="ok">shared</span></td><td><span class="ok">cluster popover</span></td><td><span class="ok">undo toast</span></td><td><span class="no-">none</span></td><td><span class="no-">none</span></td></tr>
+<tr><td class="app">exquisite-fingerings</td><td><span class="ok">es CSS</span></td><td><span class="ok">shared</span></td><td><span class="ok">yes</span></td><td><span class="ok">shared + key fix</span></td><td><span class="ok">cluster popover</span></td><td><span class="ok">undo toast</span></td><td><span class="no-">none</span></td><td><span class="no-">none</span></td></tr>
+<tr><td class="app">chord-dictionary</td><td><span class="ok">es CSS</span></td><td><span class="ok">shared</span></td><td><span class="part">unverified</span></td><td><span class="na">n/a — no content</span></td><td><span class="na">n/a</span></td><td><span class="na">n/a</span></td><td><span class="no-">none</span></td><td><span class="no-">none</span></td></tr>
+<tr><td class="app">Vane</td><td><span class="part">vn literals = es values</span></td><td><span class="ok">key shared, code inline</span></td><td><span class="no-">own header chips</span></td><td><span class="part">own Presets tab</span></td><td><span class="no-">own chips</span></td><td><span class="ok">undo toast (own)</span></td><td><span class="ok">chip</span></td><td><span class="no-">none</span></td></tr>
+<tr><td class="app">PitchFold</td><td><span class="part">PAPER = es values</span></td><td><span class="ok">key shared, code inline</span></td><td><span class="no-">hand-placed toggle</span></td><td><span class="no-">pads in APVTS only</span></td><td><span class="no-">own DeviceSel row</span></td><td><span class="na">no delete UI</span></td><td><span class="no-">none</span></td><td><span class="no-">none</span></td></tr>
+<tr><td class="app">DrawnQurve</td><td><span class="no-">own PAPER (stale values)</span></td><td><span class="no-">own / none persisted</span></td><td><span class="no-">none</span></td><td><span class="no-">qurves not first-class</span></td><td><span class="na">host MIDI</span></td><td><span class="part">own</span></td><td><span class="no-">none</span></td><td><span class="no-">none</span></td></tr>
+<tr><td class="app">PickPCS</td><td><span class="ok">es vars (inline styles)</span></td><td><span class="no-">no toggle at all</span></td><td><span class="no-">none</span></td><td><span class="na">n/a — no content</span></td><td><span class="no-">push-button, no bar</span></td><td><span class="na">n/a</span></td><td><span class="no-">none</span></td><td><span class="no-">none</span></td></tr>
+<tr><td class="app">Workspace <span class="mono" style="font-weight:400;color:var(--es-fg-faint)">new 07-19</span></td><td><span class="ok">es CSS</span></td><td><span class="no-">hardcoded light</span></td><td><span class="no-">none</span></td><td><span class="no-">none</span></td><td><span class="part">bus/host edges</span></td><td><span class="part">unverified</span></td><td><span class="no-">none</span></td><td><span class="no-">none</span></td></tr>
+</tbody>
+</table></div>
+<div class="legend"><span><span class="ok">green</span> shared mechanism</span><span><span class="part">amber</span> converged values / partial</span><span><span class="no-">red</span> divergent</span><span><span class="na">grey</span> not applicable</span></div>
+
+<h2><span class="no">3</span>Findings</h2>
+<p class="h2sub">Ordered by user impact, each checked against the personas it hurts most.</p>
+
+<div class="finding"><div class="fhead"><span class="fid">F1</span><b>Two blessed destructive-action idioms — our own docs disagree</b><span class="sev high">High — trust</span></div>
+The shipped code (library-browser, Vane, toast.js) uses <b>optimistic delete + undo toast</b>, and the repo's UX audit marks that "SHIPPED" as the Q4 answer. But the Shared Frame spec table (this project, <code>shared-frame/spec.jsx</code>) documents <b>two-tap armed confirm</b> ("✕ → Delete? → commit") as the canonical delete, and MIDIcurator still ships <code>confirm.js</code>. A musician deleting a clip in MIDIcurator, a preset in Vane, and a pattern in Serpe meets three behaviours.
+<div class="frow"><span class="k">Personas</span><span><span class="persona">4 · Producer</span><span class="persona">7 · Systematic maker</span> — #7's brief is literally "I need to know what will happen when I click something."</span>
+<span class="k">Recommend</span><span>Re-affirm <b>one</b> idiom: undo toast for recoverable item deletes (the shipped pattern); two-tap armed confirm reserved for genuinely unrecoverable acts (clearing all lanes, panic-adjacent). Update <code>spec.jsx</code> + retire <code>confirm.js</code> from MIDIcurator delete paths.</span>
+<span class="k">Effort</span><span>Doc edit + one MIDIcurator migration. Small.</span></div></div>
+
+<div class="finding"><div class="fhead"><span class="fid">F2</span><b>Workspace shipped without the frame — the checklist has a gap</b><span class="sev high">High — process</span></div>
+The newest surface (promoted from staging 2026-07-19) imports es tokens + components but hardcodes <code>data-theme="light"</code>, has no theme toggle, no cluster, no density mode. Nothing in <code>DESIGN.md</code>'s release checklist says "mount the global cluster" — so the first app born after the frame shipped… doesn't wear it. This will recur with every new module.
+<div class="frow"><span class="k">Personas</span><span><span class="persona">1 · Wind performer</span><span class="persona">5 · Accessibility-first</span> — no dark mode and no density toggle on the one surface meant for live, multi-module use.</span>
+<span class="k">Recommend</span><span>Add "shared frame mounted (cluster · <code>enkerli.theme</code> · density target)" as a line in the DESIGN.md release checklist; retrofit Workspace (its <code>main.js</code> already injects the right CSS — this is a ~20-line change).</span>
+<span class="k">Effort</span><span>Small, unblocked.</span></div></div>
+
+<div class="finding"><div class="fhead"><span class="fid">F3</span><b>PickPCS has no theme control at all</b><span class="sev med">Medium</span></div>
+Zero theme code in <code>PickPCS.jsx</code>: dark mode arrives only via the tokens' OS-preference fallback and cannot be chosen — the only suite app where the person's stored <code>enkerli.theme</code> choice is ignored. Its MIDI send is a bare push button with no port visibility ("push-button-without-a-bar" from audit v1 — still true).
+<div class="frow"><span class="k">Personas</span><span><span class="persona">3 · Theory explorer</span><span class="persona">5 · Accessibility-first</span> — an educator projecting to a class can't force light; contrast preference is silently dropped.</span>
+<span class="k">Recommend</span><span>Mount the cluster (theme + MIDI-out slot; no density/Library needed). PickPCS being mostly embedded in PitchFold makes this doubly worthwhile: the same chrome then appears in both hosts.</span>
+<span class="k">Effort</span><span>Small — it already sits on es vars.</span></div></div>
+
+<div class="finding"><div class="fhead"><span class="fid">F4</span><b>PitchFold: converged values, divergent mechanism</b><span class="sev med">Medium</span></div>
+Tokens are now es-verbatim and the theme key is shared — good. But the chrome is still hand-rolled: its own tab bar, its own theme-toggle placement inside the tab row, its own <code>DeviceSel</code> selects (no LED, no status word, no remember-by-name), no cluster, no Library (chord-pad banks live only in APVTS state). It also duplicates <code>resolvedTheme()</code> inline rather than importing <code>theme.js</code> — the third private copy of that logic (Vane's is excused by its no-modules constraint; PitchFold bundles with esbuild and has no such excuse).
+<div class="frow"><span class="k">Personas</span><span><span class="persona">1 · Wind performer</span><span class="persona">4 · Producer</span> — device state legible at a glance is exactly what the es-device-bar's LED + status word provide.</span>
+<span class="k">Recommend</span><span>Adopt cluster (theme · MIDI · density) in the header; swap DeviceSel for the cluster's device popover; wire pad banks into the library-browser as <code>patch</code>-kind items (the named Track-B path). Import <code>theme.js</code> instead of the inline copy.</span>
+<span class="k">Effort</span><span>Medium — the WebView build already consumes @enkerli/ui in siblings.</span></div></div>
+
+<div class="finding"><div class="fhead"><span class="fid">F5</span><b>Vane: converged by hand — drift is now a build concern, not a design one</b><span class="sev low">Low</span></div>
+Vane did what the pass asked, the constraint-respecting way: literals synced byte-for-byte, with a comment contract ("if tokens.css changes, re-sync"). That contract is manual. One token change upstream (like the <code>--es-fg-muted</code> AA bump that already happened once) silently un-syncs Vane.
+<div class="frow"><span class="k">Recommend</span><span>A tiny check script (compare Vane's <code>:root</code> literals to tokens.css, run in CI next to the contrast audit) turns the comment contract into a machine one. No UI change.</span>
+<span class="k">Effort</span><span>Small, unblocked.</span></div></div>
+
+<div class="finding"><div class="fhead"><span class="fid">F6</span><b>DrawnQurve is now the last un-converged app — and one doc miscounts its platforms</b><span class="sev med">Medium</span></div>
+The webapp still carries its own PAPER objects with pre-convergence values, no persisted theme, no frame; qurves remain trapped in plugin state chunks (not first-class Library content — the LIBRARY_SPEC finding stands); and the shipping plugin editor is still the native JUCE UI. Meanwhile at least one suite document still claims DrawnQurve is platform-limited — it ships across platforms; the claim should be corrected wherever it appears (README/site/docs sweep).
+<div class="frow"><span class="k">Personas</span><span><span class="persona">2 · Grid learner</span><span class="persona">4 · Producer</span> — saved curves you can't browse, name, or carry between hosts.</span>
+<span class="k">Recommend</span><span>Sequence: (1) sync PAPER values + adopt <code>enkerli.theme</code> (mechanical, mirrors PitchFold's move); (2) make qurves first-class Library items per LIBRARY_SPEC's <code>payloadRef</code> path; (3) frame adoption when the WebUI replaces the native editor. Plus the one-line doc correction now.</span>
+<span class="k">Effort</span><span>1 is small; 2 is the design-gated piece; 3 rides the existing WebUI plan.</span></div></div>
+
+<div class="finding"><div class="fhead"><span class="fid">F7</span><b>Build-id chrome is still a Vane-only diagnostic</b><span class="sev low">Low</span></div>
+<code>__VANE_BUILD__</code> + chip answered "which build am I looking at?" so well it was blessed as a suite convention in the convergence pass — but no other app knows its build. With ten apps × three runtimes, support conversations need it ("web or plugin? which build?").
+<div class="frow"><span class="k">Personas</span><span><span class="persona">7 · Systematic maker</span> — visible state, including the app's own.</span>
+<span class="k">Recommend</span><span>A cluster option (<code>build: {id}</code> rendering a fifth, rightmost, non-interactive chip) + the <code>__BUILD_ID__</code> sed step each build already has a home for. Adopters get it for free.</span>
+<span class="k">Effort</span><span>Small, unblocked.</span></div></div>
+
+<div class="finding"><div class="fhead"><span class="fid">F8</span><b>Library reach: the browser exists, three content stores still bypass it</b><span class="sev med">Medium</span></div>
+The Q2 deliverable landed and has three real adopters — but MIDIcurator's clip library stays on its own sidebar UI (reasonable: it IS the app; still, its vocabulary should match the browser's — kind badges, facet chips, save wording), Vane's Presets tab remains a parallel implementation of the same pattern, and PitchFold/DrawnQurve content isn't addressable at all (F4/F6).
+<div class="frow"><span class="k">Recommend</span><span>Don't force MIDIcurator's sidebar into a drawer; converge its <i>vocabulary</i> (naming, badges, delete idiom per F1). Vane's Presets tab: adopt the browser's config API at the next Vane UI touch — it's the same list + facets + search shape already.</span>
+<span class="k">Effort</span><span>Vocabulary pass small; Vane swap medium (rides F5's constraint).</span></div></div>
+
+<div class="finding"><div class="fhead"><span class="fid">F9</span><b>i18n: the DESIGN.md requirement has one implementation and nine gaps</b><span class="sev low">Low — unchanged</span></div>
+Still MIDIcurator-only (i18next). No string extraction elsewhere; DESIGN.md carries the localization-readiness requirement for every release. Unchanged from audit v1 — restated so it doesn't fall off the queue, and because the shared components now bake in English strings ("Library", "Connected", "No devices") that will need a pass-through hook when extraction starts.
+<div class="frow"><span class="k">Recommend</span><span>When i18n work starts, begin with @enkerli/ui's own strings (an <code>opts.strings</code> table on cluster/browser/toast) so every adopter localizes at once.</span></div></div>
+
+<div class="finding"><div class="fhead"><span class="fid">F10</span><b>Tab idiom: two survivors</b><span class="sev low">Low</span></div>
+Vane (Stage · Patch · Matrix · Presets, segmented) and PitchFold (Scale · PickPCS · Pads · Voice · Time, ink-filled buttons) still implement tabs independently with different looks. Exquisite's old triple-disclosure is gone (Library drawer replaced it). One <code>.es-tabs</code> recipe in components.css — even just CSS, no JS — would close the last visual fork.
+<div class="frow"><span class="k">Effort</span><span>Small; fold into F4's PitchFold header work.</span></div></div>
+
+<h2><span class="no">4</span>Decisions needed (sign-off)</h2>
+<p class="h2sub">The two flags from the Vane pass are <b>resolved upstream</b> — no action. These four are new:</p>
+<div class="tblwrap"><table>
+<thead><tr><th>#</th><th>Decision</th><th>Options</th><th>Audit's recommendation</th></tr></thead>
+<tbody>
+<tr><td class="mono">D1</td><td>One destructive idiom (F1)</td><td>undo-toast everywhere · two-tap everywhere · split by recoverability</td><td>Split: undo-toast for item deletes, two-tap only for unrecoverable acts; update spec.jsx to match shipped code</td></tr>
+<tr><td class="mono">D2</td><td>Frame line in the release checklist (F2)</td><td>add to DESIGN.md · leave informal</td><td>Add — Workspace proves informal doesn't hold</td></tr>
+<tr><td class="mono">D3</td><td>Build-id as a cluster slot (F7)</td><td>cluster option · per-app · skip</td><td>Cluster option, non-interactive chip</td></tr>
+<tr><td class="mono">D4</td><td>Vane literal-sync CI check (F5)</td><td>script · keep manual comment contract</td><td>Script, alongside the contrast audit</td></tr>
+</tbody>
+</table></div>
+
+<h2><span class="no">5</span>Sequenced handoff (for the coding agent)</h2>
+<p class="h2sub">Cheap-and-unblocked first; nothing here blocks on new design work except where marked.</p>
+<ol class="seq">
+<li><span class="step-tag cheap">Cheap</span>Workspace: mount cluster + <code>enkerli.theme</code> + density target; drop hardcoded <code>data-theme</code> (F2). Add the checklist line to DESIGN.md (D2).</li>
+<li><span class="step-tag cheap">Cheap</span>PickPCS: mount cluster (theme + MIDI-out) (F3).</li>
+<li><span class="step-tag cheap">Cheap</span>Doc sweep: correct the DrawnQurve platform-availability claim (F6); update <code>shared-frame/spec.jsx</code> delete row per D1 (F1).</li>
+<li><span class="step-tag cheap">Cheap</span>Vane token-sync check script in CI (D4/F5). Build-id cluster option (D3/F7) — then adopters wear it free.</li>
+<li><span class="step-tag med">Medium</span>MIDIcurator: retire <code>confirm.js</code> delete paths → undo toast; vocabulary pass on the clip sidebar (F1/F8).</li>
+<li><span class="step-tag med">Medium</span>PitchFold: cluster + device popover replacing DeviceSel; import <code>theme.js</code>; <code>.es-tabs</code> recipe adopted here and offered to Vane (F4/F10). Pad banks → library-browser as <code>patch</code> items.</li>
+<li><span class="step-tag med">Medium</span>DrawnQurve step 1: PAPER value sync + <code>enkerli.theme</code> (F6).</li>
+<li><span class="step-tag gated">Design-gated</span>DrawnQurve qurves as first-class Library content (LIBRARY_SPEC <code>payloadRef</code>); Vane Presets tab onto the browser config API at its next UI touch (F6/F8).</li>
+</ol>
+
+<div class="note"><b>What this pass deliberately leaves alone:</b> per-app working surfaces (the stage, the piano roll, the curve canvas — "one language, per-app voice"), MIDIcurator's sidebar-as-library architecture, Vane's self-contained single-file constraint, and the leftmost-LSB / structural-spelling conventions (load-bearing, per CONVENTIONS.md).</div>
+
+<footer><span>Divergence matrix v2 · supersedes docs/UX_AUDIT.md (2026-07-06)</span><span class="mono">music-suite@ab3d3df · 2026-07-19</span></footer>
+</div>
+<script>
+(function(){
+  var K='enkerli.theme';
+  function resolved(){try{var s=localStorage.getItem(K);if(s==='light'||s==='dark')return s}catch(e){}try{return matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light'}catch(e){}return 'light'}
+  function label(){var d=resolved()==='dark';document.getElementById('theme-glyph').textContent=d?'☀︎':'●';document.getElementById('theme-word').textContent=d?'Light':'Dark';document.getElementById('theme-toggle').setAttribute('aria-pressed',String(d))}
+  document.documentElement.dataset.theme=resolved();label();
+  document.getElementById('theme-toggle').addEventListener('click',function(){var n=resolved()==='dark'?'light':'dark';try{localStorage.setItem(K,n)}catch(e){}document.documentElement.dataset.theme=n;label()});
+})();
+</script>
+</body>
+</html>

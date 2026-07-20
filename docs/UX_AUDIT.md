@@ -1,5 +1,7 @@
 # UX consistency audit — the divergence matrix (Track E4)
 
+> **Superseded** by the 2026-07-19 divergence matrix v2: [UX_AUDIT_2026-07-19.html](UX_AUDIT_2026-07-19.html) (implementation report: [DESIGN_AUDIT_JULY19_REPORT.md](DESIGN_AUDIT_JULY19_REPORT.md)). Kept for the Track-E4 record.
+
 *Written 2026-07-06, verified against the repos (grep + firsthand from the
 integration work). This is an AUDIT for the planned Claude Design pass —
 it names what diverges and what already exists to converge on. It makes no
