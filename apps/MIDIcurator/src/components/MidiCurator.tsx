@@ -207,8 +207,10 @@ export function MidiCurator() {
   const clipBrowserRef = useRef<ReturnType<typeof createLibraryBrowser> | null>(null);
 
   /** Delete a clip from the library with the suite's undo-toast idiom (Q4):
-   *  optimistic remove, Undo re-adds it. (The detail-pane Delete keeps its
-   *  explicit confirm — a higher-stakes, single-target action.) */
+   *  optimistic remove, Undo re-adds it. Both delete paths (browser list AND
+   *  detail pane) use this one idiom — design audit 2026-07-19 D1: a
+   *  recoverable item delete never warrants a confirm; confirm is reserved
+   *  for unrecoverable acts (Clear all, below). */
   const deleteClipFromLibrary = useCallback(async (clip: Clip) => {
     if (!db) return;
     if (selectedClip?.id === clip.id) { stop(); setSelectedClip(null); setTags([]); }
@@ -222,16 +224,8 @@ export function MidiCurator() {
 
   const deleteClip = useCallback(async () => {
     if (!selectedClip || !db) return;
-    // esConfirm, not window.confirm — native dialogs are no-ops in the
-    // plugin WebView (the action would silently never run).
-    if (await esConfirm(`Delete "${selectedClip.filename}"?`, { confirmLabel: 'Delete', danger: true })) {
-      stop();
-      await db.deleteClip(selectedClip.id);
-      setSelectedClip(null);
-      setTags([]);
-      refreshClips();
-    }
-  }, [selectedClip, db, refreshClips, stop]);
+    await deleteClipFromLibrary(selectedClip);
+  }, [selectedClip, db, deleteClipFromLibrary]);
 
   const generateVariants = useCallback(async () => {
     if (!selectedClip || !db) return;
