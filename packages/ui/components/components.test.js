@@ -5,6 +5,7 @@ import { createPitchGrid, layoutCells } from "./pitch-grid.js";
 import { layoutNotes } from "./piano-roll.js";
 import { createSection } from "./section.js";
 import { createRangeSlider, midiName } from "./range-slider.js";
+import { createKnob } from "./knob.js";
 import { PITCH_CLASS_COLORS, padColor, padInk } from "./pitch-class-colors.js";
 import { createGlobalCluster } from "./global-cluster.js";
 
@@ -186,6 +187,85 @@ describe("range slider (dual-thumb output range)", () => {
     expect(slider.values[0]).toBe(12);
     hi.dispatchEvent(new KeyboardEvent("keydown", { key: "End", bubbles: true }));
     expect(slider.values[1]).toBe(48);
+  });
+});
+
+describe("knob (docs/DESIGN_AGENT_ANSWERS.md §3 — a slider that looks like a knob)", () => {
+  it("renders role=slider with aria values and a visible readout + label", () => {
+    const el = document.createElement("div");
+    createKnob(el, { min: 0, max: 1, value: 0.3, label: "pocket", format: (v) => `${Math.round(v * 100)}%` });
+    const body = el.querySelector('[role="slider"]');
+    expect(body).not.toBeNull();
+    expect(body.getAttribute("aria-label")).toBe("pocket");
+    expect(body.getAttribute("aria-valuenow")).toBe("0.3");
+    expect(body.getAttribute("aria-valuetext")).toBe("30%");
+    expect(el.querySelector(".es-knob-readout").value).toBe("30%");
+    expect(el.querySelector(".es-knob-label").textContent).toBe("pocket");
+  });
+
+  it("emits onChange and exposes value; update() re-renders", () => {
+    const el = document.createElement("div");
+    const onChange = vi.fn();
+    const knob = createKnob(el, { min: 0, max: 100, value: 25, onChange });
+    expect(knob.value).toBe(25);
+    knob.update({ value: 60 });
+    expect(knob.value).toBe(60);
+    expect(el.querySelector(".es-knob-readout").value).toBe("60");
+  });
+
+  it("keyboard: arrows step, PageUp/Down jump, Home/End clamp to range", () => {
+    const el = document.createElement("div");
+    const onChange = vi.fn();
+    const knob = createKnob(el, { min: 0, max: 10, step: 1, value: 5, onChange });
+    const body = el.querySelector('[role="slider"]');
+    body.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowUp", bubbles: true }));
+    expect(knob.value).toBe(6);
+    body.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true }));
+    expect(knob.value).toBe(5);
+    body.dispatchEvent(new KeyboardEvent("keydown", { key: "PageUp", bubbles: true }));
+    expect(knob.value).toBe(10); // big step = step*10 (5+10=15), clamped to max
+    body.dispatchEvent(new KeyboardEvent("keydown", { key: "PageDown", bubbles: true }));
+    expect(knob.value).toBe(0); // 10-10=0, clamped to min (same value, different route)
+    body.dispatchEvent(new KeyboardEvent("keydown", { key: "End", bubbles: true }));
+    expect(knob.value).toBe(10);
+    body.dispatchEvent(new KeyboardEvent("keydown", { key: "Home", bubbles: true }));
+    expect(knob.value).toBe(0);
+    expect(onChange).toHaveBeenCalled();
+  });
+
+  it("double-click resets to the default value (initial value, unless overridden)", () => {
+    const el = document.createElement("div");
+    const knob = createKnob(el, { min: 0, max: 1, value: 0.2, default: 0.5 });
+    knob.update({ value: 0.9 });
+    expect(knob.value).toBe(0.9);
+    el.querySelector(".es-knob-body").dispatchEvent(new MouseEvent("dblclick", { bubbles: true }));
+    expect(knob.value).toBe(0.5);
+  });
+
+  it("click-to-type: the readout is a real editable input that commits on change", () => {
+    const el = document.createElement("div");
+    const onChange = vi.fn();
+    const knob = createKnob(el, { min: 0, max: 1, step: 0.01, value: 0.2, onChange });
+    const readout = el.querySelector(".es-knob-readout");
+    readout.value = "0.77";
+    readout.dispatchEvent(new Event("change", { bubbles: true }));
+    expect(knob.value).toBe(0.77);
+    expect(onChange).toHaveBeenLastCalledWith(0.77);
+  });
+
+  it("garbage typed into the readout is rejected, not silently coerced to 0", () => {
+    const el = document.createElement("div");
+    const knob = createKnob(el, { min: 0, max: 1, value: 0.4 });
+    const readout = el.querySelector(".es-knob-readout");
+    readout.value = "not a number";
+    readout.dispatchEvent(new Event("change", { bubbles: true }));
+    expect(knob.value).toBe(0.4); // unchanged
+  });
+
+  it("carries a per-dial hue through as a CSS custom property, for color-coded dial rows", () => {
+    const el = document.createElement("div");
+    createKnob(el, { hue: "var(--es-dim-pressure)" });
+    expect(el.querySelector(".es-knob").style.getPropertyValue("--es-knob-hue")).toBe("var(--es-dim-pressure)");
   });
 });
 

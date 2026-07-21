@@ -265,6 +265,35 @@ select.es-control option { background: var(--es-bg-raised); color: var(--es-fg);
   .es-range-thumb::after { width: 32px; height: 32px; }
 }
 
+/* ── Knob ("a slider that looks like a knob"; see components/knob.js,
+   docs/DESIGN_AGENT_ANSWERS.md §3) — circular body, VERTICAL-drag
+   interaction identical to a range slider (never angular/circular drag),
+   an indicator arc instead of a fill bar. Visual only. */
+.es-knob { display: inline-flex; flex-direction: column; align-items: center; gap: 4px; user-select: none; -webkit-user-select: none; }
+.es-knob-body {
+  position: relative; width: var(--es-touch-target); height: var(--es-touch-target);
+  padding: 0; border: none; background: transparent; cursor: grab; touch-action: none;
+  display: grid; place-items: center;
+}
+.es-knob-body.grab { cursor: grabbing; }
+.es-knob-face { width: 100%; height: 100%; }
+.es-knob-well { fill: var(--es-bg-sunken); stroke: var(--es-border-strong); stroke-width: 1.5; transition: stroke var(--es-motion-fast); }
+.es-knob-arc { fill: none; stroke: var(--es-knob-hue, var(--es-accent)); stroke-width: 3; stroke-linecap: round; }
+.es-knob-body:hover .es-knob-well, .es-knob-body.grab .es-knob-well { stroke: var(--es-knob-hue, var(--es-accent)); }
+.es-knob-body:focus-visible { outline: none; }
+.es-knob-body:focus-visible .es-knob-well { outline: var(--es-focus-ring); outline-offset: 2px; }
+.es-knob-readout {
+  width: 3.6em; text-align: center; font-family: var(--es-font-mono); font-size: 11px;
+  background: transparent; border: none; color: var(--es-fg); padding: 0;
+  -moz-appearance: textfield;
+}
+.es-knob-readout::-webkit-outer-spin-button, .es-knob-readout::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.es-knob-readout:focus { outline: var(--es-focus-ring); outline-offset: 1px; border-radius: 2px; }
+.es-knob-label { font-size: 10px; color: var(--es-fg-muted); text-align: center; white-space: nowrap; }
+@media (pointer: coarse) {
+  .es-knob-body { width: max(var(--es-touch-target), 48px); height: max(var(--es-touch-target), 48px); }
+}
+
 /* ── Leadsheet editor (components/leadsheet-editor.js) ────────────────
    Bars in a wrapping grid (left-rule = the barline), each holding 1..n
    editable chord chips. The shared editor for ProgGenie & MIDIcurator. */
