@@ -129,6 +129,83 @@ most reliable browser for this workflow today.
 
 ## 4. Building the JUCE plugins & standalones
 
+### 4.0 Get every repo checked out as siblings (do this once)
+
+Nine repos total, all as **siblings in one parent directory** — `enkerli-juce`
+(the shared CMake foundation), `music-suite` (this repo, for the five plugins
+whose WebView UI is your app source), and the seven plugin repos. Pick a
+parent directory and clone all nine into it:
+
+```bash
+mkdir -p ~/code && cd ~/code
+
+git clone https://github.com/Enkerli/music-suite
+git clone https://github.com/Enkerli/enkerli-juce
+git clone --recurse-submodules https://github.com/Enkerli/midicurator-plugin
+git clone --recurse-submodules https://github.com/Enkerli/progression-studio-plugin
+git clone --recurse-submodules https://github.com/Enkerli/PitchFold
+git clone --recurse-submodules https://github.com/Enkerli/rhythm_pattern_explorer
+git clone --recurse-submodules https://github.com/Enkerli/workspace-plugin
+git clone https://github.com/Enkerli/Vane
+git clone https://github.com/Enkerli/DrawnQurve
+
+cd music-suite && npm install && cd ..
+```
+
+(`--recurse-submodules` on five of them is a nice-to-have, not required —
+`cmake` self-heals an empty `enkerli-juce` submodule since 2026-07-19. Vane
+and DrawnQurve don't use the submodule at all.)
+
+**Verify the layout** before building anything — this is what actually
+checks every repo landed where the tools expect it:
+
+```bash
+enkerli-juce/tools/suite-build --list         # the 7 plugin aliases + their dirs/codes
+enkerli-juce/tools/suite-build all --dry-run  # prints every command it WOULD run, touches nothing
+```
+
+If `--dry-run` reports a repo "not found," either it wasn't cloned, or your
+layout isn't a flat sibling directory — set `SUITE_ROOT=/path/to/~/code`
+(the parent holding all nine) and/or `MUSIC_SUITE=/path/to/music-suite`
+explicitly and retry. As of 2026-07-21 `suite-build` also matches plugin
+directory names **case-insensitively** (`vane` resolves to the `Vane` the
+manifest expects, etc.) — useful if a filesystem or clone step normalized
+casing on you — but cloning with the exact names above avoids depending on
+that fallback at all.
+
+### 4.1 Already have everything cloned — update it all
+
+```bash
+cd ~/code
+for d in music-suite enkerli-juce midicurator-plugin progression-studio-plugin \
+         PitchFold rhythm_pattern_explorer workspace-plugin Vane DrawnQurve; do
+  echo "=== $d ==="
+  git -C "$d" pull --recurse-submodules
+done
+cd music-suite && npm install && cd ..   # picks up any package changes
+```
+
+If your directory names don't match that list exactly (lowercase, a
+different parent layout, only some repos checked out) — adjust the `for`
+list to your real names, or just `git -C <dir> pull` each one by hand.
+`suite-build`'s case-insensitive fallback (above) means an already-lowercase
+checkout doesn't need renaming for the build step to work; `git pull` itself
+doesn't care about casing either.
+
+**Then build.** One command for any (or all) seven plugin repos:
+
+```bash
+enkerli-juce/tools/suite-build all                    # Linux: LV2/Standalone/CLAP; macOS: quick build
+enkerli-juce/tools/suite-build all --ladder            # macOS: full validation ladder (build → iOS compile → auval → pluginval)
+enkerli-juce/tools/suite-build midicurator --ladder    # one repo at a time works the same way
+enkerli-juce/tools/suite-build --list                  # remind yourself of the aliases
+```
+
+`all` keeps going past a repo that's missing or fails and prints a pass/fail
+summary at the end — useful mid-consolidation when you don't have every
+repo yet. It does NOT handle Xcode signing/scheme/device-install steps —
+those stay manual, per-repo, below.
+
 **Shared setup, every repo below:**
 
 - macOS with **Xcode** installed (for AU/AUv3/iOS builds), **CMake ≥ 3.22**.
@@ -176,17 +253,12 @@ most reliable browser for this workflow today.
   <aumi|aumu> <4-char-plugin-code>` runs the whole automatable ladder
   (macOS build → iOS compile check → `auval`). Optional but catches most
   problems before a device does.
-- **One command for any (or all) of the seven repos**: `enkerli-juce/tools/
-  suite-build <alias|all> [--ladder] [--fresh] [--ios] [--formats
-  au,vst3,clap,lv2]` — added 2026-07-20 so you don't have to remember which
-  repo needs which directory/plugin-code/product-name combination (`suite-
-  build --list` shows the manifest). It wraps `validate.sh` unchanged for
-  the macOS ladder and adds the Linux LV2/Standalone/CLAP leg validate.sh
-  doesn't cover; `all` keeps going past a repo you haven't checked out yet
-  and prints a pass/fail summary. It does NOT replace the Xcode
-  signing/scheme/device-install steps below — those stay manual. Per-repo
-  quick invocations are noted under each heading; the full manual commands
-  remain underneath for anything the script doesn't cover.
+- **`suite-build`** (§4.0/4.1 above have the full clone-everything and
+  update-everything walkthroughs) wraps `validate.sh` per-repo and adds the
+  Linux LV2/Standalone/CLAP leg `validate.sh` doesn't cover. It does NOT
+  replace the Xcode signing/scheme/device-install steps below — those stay
+  manual. Per-repo quick invocations are noted under each heading; the full
+  manual commands remain underneath for anything the script doesn't cover.
 
 ### MIDIcurator
 
