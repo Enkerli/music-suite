@@ -290,6 +290,37 @@ CoG-on-focused-lane for the poly view (needs new hover/selection state
 that doesn't exist yet). Neither blocks the slice work; both are real,
 scoped follow-ups if wanted.
 
-**§3 (knobs):** `packages/ui/components/knob.js` + `.es-knob*` in
-`components.css` shipped as the shared primitive; MIDIcurator wiring
-in progress. **§4–§5 (Mono Merge pad, MTILT wordmark):** not started.
+**§3 (knobs) shipped, primitive + a real consumer.**
+`packages/ui/components/knob.js` + `.es-knob*` in `components.css`, wired
+into MIDIcurator's morph section (`GrooveGenerator.tsx`) via a
+`KnobField` React wrapper — same "wrap a vanilla create*(host,opts)
+component as a React island" pattern `SharedFrame.tsx`'s
+`GlobalClusterMount` already used for the global cluster: mount once,
+sync live value changes in a second effect, route `onChange` through a
+ref so the mount effect never re-runs on a fresh closure. Four dials
+(notes/pocket/rests/accents) each get their own `--es-dim-*` hue from the
+Vane vocabulary; `slide` sits in its own row, visually apart from the
+4-dial row (the part of "shouldn't read as a fifth dial" that actually
+mattered) — but **not** converted to a toggle/switch as specified: `slide`
+is a genuine 0..1 PROBABILITY in the actual engine contract (what
+fraction of eligible legato transitions get promoted to an audible
+portamento), not literally binary, so keeping it a knob preserves real
+control the spec's "binary" framing would have thrown away. A deliberate
+deviation, not an oversight — noted here rather than silently overridden.
+
+A real bug found and fixed along the way, caught by an actual browser
+(not the test suite — happy-dom is more lenient than Chromium here):
+the readout was a `type="number"` input, but `render()` writes a
+FORMATTED string into it (e.g. `"50%"` for a 0..1 dial) — a native
+number input silently empties itself on anything it can't parse as a
+bare number, so every knob showed a blank readout on load. Fixed by
+making the readout `type="text"` with its own small parser (accepts a
+bare number OR an `N%` string, the two shapes `format()` actually
+produces in this codebase) instead of leaning on native number-input
+validation for something it was never built to hold. 8 knob tests total
+(2 for this specific bug class — the empty-string coercion and the
+type=number/percent-string mismatch), a real dev-build Playwright pass
+confirming rendering, keyboard, and click-to-type (typed "80%" into a
+dial's readout, watched it commit and the arc redraw) all work.
+
+**§4–§5 (Mono Merge pad, MTILT wordmark): not started.**

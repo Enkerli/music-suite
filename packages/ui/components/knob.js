@@ -59,12 +59,15 @@ export function createKnob(el, opts = {}) {
   svg.append(well, arc);
   body.append(svg);
 
+  // type="text", not "number": the visible readout shows FORMATTED text
+  // (e.g. "50%" for a 0..1 morph dial) — a native number input silently
+  // empties itself on any value it can't parse as a bare number, which a
+  // "%"-suffixed string always is. parseReadout() below does the numeric
+  // interpretation by hand instead of relying on the input type for it.
   const readout = document.createElement("input");
-  readout.type = "number";
+  readout.type = "text";
+  readout.inputMode = "decimal";
   readout.className = "es-knob-readout es-num";
-  readout.step = String(s.step);
-  readout.min = String(s.min);
-  readout.max = String(s.max);
   readout.setAttribute("aria-label", s.label ? `${s.label} value` : "value");
 
   const labelEl = document.createElement("div");
@@ -154,14 +157,22 @@ export function createKnob(el, opts = {}) {
     e.preventDefault();
   });
 
-  // ── Click-to-type: the readout is a real <input type=number> ──
+  // ── Click-to-type: the readout is a real <input> the user can edit ──
+  // Accepts either a bare number ("0.5") or a percent-formatted string
+  // ("50%", read as 0.5) — the two shapes format() actually produces in
+  // this codebase's own knobs. Empty string never parses as 0: Number("")
+  // is 0 (finite), which would otherwise let an emptied/cleared field
+  // silently commit as the floor instead of being rejected.
+  function parseReadout(text) {
+    if (text.trim() === "") return null;
+    const plain = Number(text);
+    if (Number.isFinite(plain)) return plain;
+    const pct = /^\s*(-?[\d.]+)\s*%\s*$/.exec(text);
+    return pct ? Number(pct[1]) / 100 : null;
+  }
   readout.addEventListener("change", () => {
-    // A native number input silently empties itself on genuinely invalid
-    // text (readout.value === ""), and Number("") is 0 — finite, so it
-    // would otherwise slip past a bare isFinite check and commit a wrong
-    // value instead of rejecting it.
-    const v = Number(readout.value);
-    if (readout.value !== "" && Number.isFinite(v)) commit(v);
+    const v = parseReadout(readout.value);
+    if (v !== null) commit(v);
     else render(); // bad/empty input — restore the last valid value
   });
   readout.addEventListener("keydown", (e) => { if (e.key === "Enter") readout.blur(); });

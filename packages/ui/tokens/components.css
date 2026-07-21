@@ -285,9 +285,7 @@ select.es-control option { background: var(--es-bg-raised); color: var(--es-fg);
 .es-knob-readout {
   width: 3.6em; text-align: center; font-family: var(--es-font-mono); font-size: 11px;
   background: transparent; border: none; color: var(--es-fg); padding: 0;
-  -moz-appearance: textfield;
 }
-.es-knob-readout::-webkit-outer-spin-button, .es-knob-readout::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
 .es-knob-readout:focus { outline: var(--es-focus-ring); outline-offset: 1px; border-radius: 2px; }
 .es-knob-label { font-size: 10px; color: var(--es-fg-muted); text-align: center; white-space: nowrap; }
 @media (pointer: coarse) {

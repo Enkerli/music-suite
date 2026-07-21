@@ -18,3 +18,21 @@ declare module '@enkerli/ui/library-drawer' {
     opts: any,
   ): { root: HTMLElement; update(next?: any): void; destroy(): void };
 }
+
+declare module '@enkerli/ui/knob' {
+  export interface KnobOptions {
+    min?: number;
+    max?: number;
+    step?: number;
+    value?: number;
+    default?: number;
+    label?: string;
+    format?: (v: number) => string;
+    hue?: string;
+    onChange?: (v: number) => void;
+  }
+  export function createKnob(
+    host: Element,
+    opts?: KnobOptions,
+  ): { readonly value: number; update(next: Partial<KnobOptions>): void; destroy(): void };
+}

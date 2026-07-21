@@ -262,6 +262,23 @@ describe("knob (docs/DESIGN_AGENT_ANSWERS.md §3 — a slider that looks like a 
     expect(knob.value).toBe(0.4); // unchanged
   });
 
+  it("the readout is a real <input> that can hold a FORMATTED string, not just a bare number — " +
+     "a type=number input would silently empty itself on a value like \"50%\"", () => {
+    const el = document.createElement("div");
+    const onChange = vi.fn();
+    const knob = createKnob(el, {
+      min: 0, max: 1, value: 0.2, onChange, format: (v) => `${Math.round(v * 100)}%`,
+    });
+    const readout = el.querySelector(".es-knob-readout");
+    expect(readout.type).toBe("text");
+    expect(readout.value).toBe("20%"); // survives, unlike type=number
+    // Re-typing the formatted percent string itself parses back correctly.
+    readout.value = "75%";
+    readout.dispatchEvent(new Event("change", { bubbles: true }));
+    expect(knob.value).toBe(0.75);
+    expect(onChange).toHaveBeenLastCalledWith(0.75);
+  });
+
   it("carries a per-dial hue through as a CSS custom property, for color-coded dial rows", () => {
     const el = document.createElement("div");
     createKnob(el, { hue: "var(--es-dim-pressure)" });

@@ -2,6 +2,37 @@ import { useEffect, useRef, useState } from 'react';
 import { allStyleNames, importStyleFromJson } from '../lib/gloriarp-clip';
 import type { GrooveClipRequest } from '../lib/gloriarp-clip';
 import { bridge, IN_PLUGIN, b64ToBytes } from '../lib/juce-bridge';
+import { createKnob } from '@enkerli/ui/knob';
+
+/**
+ * A knob as a React island (docs/DESIGN_AGENT_ANSWERS.md §3 — "a slider
+ * that looks like a knob") — same wrap-a-vanilla-component pattern as
+ * SharedFrame.tsx's GlobalClusterMount: mount once, sync live value
+ * changes in a second effect, route onChange through a ref so the mount
+ * effect never needs to re-run just because a fresh closure came in.
+ */
+function KnobField({ value, onChange, label, hue, format, title }: {
+  value: number; onChange: (v: number) => void; label: string; hue: string;
+  format: (v: number) => string; title?: string;
+}) {
+  const hostRef = useRef<HTMLDivElement>(null);
+  const knobRef = useRef<ReturnType<typeof createKnob> | null>(null);
+  const onChangeRef = useRef(onChange);
+  onChangeRef.current = onChange;
+  useEffect(() => {
+    knobRef.current = createKnob(hostRef.current!, {
+      min: 0, max: 1, step: 0.01, value, label, hue, format,
+      onChange: (v) => onChangeRef.current(v),
+    });
+    return () => knobRef.current?.destroy();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- mounts once; value syncs below
+  }, []);
+  useEffect(() => {
+    if (knobRef.current && knobRef.current.value !== value) knobRef.current.update({ value });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [value]);
+  return <div ref={hostRef} className="mc-knob-field" title={title} />;
+}
 
 interface GrooveGeneratorProps {
   onGenerate: (req: GrooveClipRequest) => void;
@@ -116,18 +147,7 @@ export function GrooveGenerator({
     </label>
   );
 
-  const morphSlider = (label: string, value: number, set: (v: number) => void, title?: string) => (
-    <label className="mc-groove-gen__feel mc-groove-gen__feel--slider" title={title}>
-      {label}
-      <input
-        type="range" min={0} max={1} step={0.01} value={value}
-        onChange={e => set(Number(e.target.value))}
-        className="mc-groove-gen__slider"
-        aria-label={title ?? label}
-      />
-      <span className="mc-groove-gen__slider-val">{Math.round(value * 100)}%</span>
-    </label>
-  );
+  const pct = (v: number) => `${Math.round(v * 100)}%`;
 
   /** The morph/slide fields, only included when nonzero — same
    *  spreading discipline as the rest of this component's request
@@ -301,14 +321,28 @@ export function GrooveGenerator({
       </div>
       {morphExpanded && (
         <>
-          <div className="mc-progression-gen__row">
-            {morphSlider('notes', morphNotes, setMorphNotes, 'Re-roll note choice (passing tones, octave pops, chord-tone reselection) this much per take')}
-            {morphSlider('pocket', morphPocket, setMorphPocket, 'Re-roll timing/dynamics micro-variation this much per take')}
-            {morphSlider('rests', morphRests, setMorphRests, 'Re-roll WHICH steps drop this much per take')}
+          {/* Four knobs, one dial row (docs/DESIGN_AGENT_ANSWERS.md §3) —
+              each dimension gets its own --es-dim-* hue from the Vane
+              vocabulary, "slide" being the one exact name match. */}
+          <div className="mc-progression-gen__row mc-knob-row">
+            <KnobField label="notes" value={morphNotes} onChange={setMorphNotes} hue="var(--es-dim-vel)" format={pct}
+              title="Re-roll note choice (passing tones, octave pops, chord-tone reselection) this much per take" />
+            <KnobField label="pocket" value={morphPocket} onChange={setMorphPocket} hue="var(--es-dim-pressure)" format={pct}
+              title="Re-roll timing/dynamics micro-variation this much per take" />
+            <KnobField label="rests" value={morphRests} onChange={setMorphRests} hue="var(--es-dim-expr)" format={pct}
+              title="Re-roll WHICH steps drop this much per take" />
+            <KnobField label="accents" value={morphAccents} onChange={setMorphAccents} hue="var(--es-dim-bend)" format={pct}
+              title="Re-roll inflect's own articulation choices (sforzando/marcato, staccato/tenuto) and slide promotion this much per take — needs inflect > 0" />
           </div>
-          <div className="mc-progression-gen__row">
-            {morphSlider('accents', morphAccents, setMorphAccents, "Re-roll inflect's own articulation choices (sforzando/marcato, staccato/tenuto) and slide promotion this much per take — needs inflect > 0")}
-            {morphSlider('slide', slide, setSlide, 'Probability an eligible legato transition becomes an audible portamento glide instead of an instant pitch join — needs inflect > 0')}
+          {/* slide is a real 0..1 PROBABILITY (an eligible legato transition
+              becomes an audible portamento glide), not literally binary —
+              kept as a knob rather than converted to a toggle/switch, so it
+              doesn't lose that fine control; set in its own row, apart from
+              the 4-dial row above, which is what actually mattered about
+              "shouldn't read as a fifth dial". */}
+          <div className="mc-progression-gen__row mc-knob-row">
+            <KnobField label="slide" value={slide} onChange={setSlide} hue="var(--es-dim-slide)" format={pct}
+              title="Probability an eligible legato transition becomes an audible portamento glide instead of an instant pitch join — needs inflect > 0" />
             <label className="mc-groove-gen__feel" title="Portamento time (ms) for a promoted slide">
               glide ms
               <input
