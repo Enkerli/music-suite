@@ -68,7 +68,7 @@ filesystem move, 3 needs Alex's call, 6/7 weren't requested this round.
 | PCS Pads (learn-from-bus) | — (PitchFold's own pad bank is separate, see below) | — | — (composable via `msuite send --note...`/manual `scale` messages, no dedicated pad command) | — | ✅ new module, broadcasts `scale` — interoperates with PitchFold's own listener today, no changes needed there |
 | PitchFold pad-override (selected pad wins over main scale) | ✅ fixed this session (`engine/pads.js`) | ✅ already worked (this was always plugin-only-correct) | n/a | n/a | n/a |
 | PitchFold Snap Strength (`quantStrength`) | ✅ fixed — real slider now | ✅ fixed, pushed to `Enkerli/PitchFold` — **not build-verified** (no JUCE/Xcode here) | n/a | n/a | n/a |
-| PitchFold Mono Merge | ❌ still theater (UI + param, no engine logic, both engines) | ❌ same | n/a | n/a | n/a |
+| PitchFold Mono Merge | ❌ still theater (UI + param, no engine logic, both engines) | ❌ same | n/a | n/a | ✅ real, but NOT PitchFold's own engine — a separate `mono-merge` Workspace module (`@enkerli/voice-routing`'s `MonoMerge` class, priority note-stealing) delivers the actual value at the bus level instead (2026-07-21, see `docs/PITCHFOLD_AUDIT.md`'s "Reprioritized" note) |
 | PitchFold Swing | ❌ still theater (plugin engine never reads it) | ❌ same | n/a | n/a | n/a |
 | PitchFold Time engine (grid/humanize) | ❌ no JS twin exists at all | ✅ real | n/a | n/a | n/a |
 | Serpe concentric rings | ✅ | ✅ reaches automatically — the plugin's CMakeLists esbuilds `apps/serpe` directly, no vendoring step | — (no visual surface) | — | — |
@@ -129,7 +129,13 @@ still doesn't exist in the webapp.** Carried over from the audit,
 unchanged by this session's follow-through (which fixed the *cheap*
 findings, not these). Sizing and the reasoning for why these specifically
 resisted a quick fix are in `docs/PITCHFOLD_AUDIT.md`'s "Follow-up"
-section.
+section. **Update, 2026-07-21**: Mono Merge's actual VALUE (priority
+note-stealing) now exists for real, just not inside PitchFold's own two
+engines — a Workspace-level `mono-merge` module delivers it at the bus
+level instead, per the reprioritization this doc's own item 8 already
+flagged as the likelier home. PitchFold's `voiceMode`/`monoSelect`
+params are exactly as theater as before; nothing here changes that.
+Swing and the Time engine remain fully untouched.
 
 **4. ProgGenie → chord pads: checked, was a clean no, now shipped for the
 Workspace pad bank.** Originally traced and reported as a no: ProgGenie

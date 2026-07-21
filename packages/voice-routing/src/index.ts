@@ -49,3 +49,111 @@ export function splitChannel(baseChannel: number, span: number, priorCount: numb
   const idx = ((Math.floor(priorCount) % n) + n) % n;
   return Math.min(16, Math.max(1, Math.round(baseChannel) + idx));
 }
+
+/**
+ * Mono Merge — priority-based note-stealing for a monophonic voice.
+ *
+ * The other half of PitchFold's original `VoiceProcessor` voice modes
+ * (docs/PITCHFOLD_AUDIT.md): where Mono Merge's C++/JS engines both had a
+ * real `monoSelect` param that neither `processMono()` implementation ever
+ * read (pure theater — the audit's headline finding), this is the actual
+ * priority-selection rule, extracted fresh rather than ported from dead
+ * code. The 2026-07-20 "Reprioritized" note proposed delivering it as a
+ * Workspace-level note-router instead of rebuilding it twice inside one
+ * plugin's two engines — this class is the shared rule that router uses.
+ *
+ * Deliberately narrow, same discipline as VoiceSplitter: this tracks HELD
+ * NOTES and answers "what should be sounding now," not "how do I turn that
+ * into MIDI/bus messages." A caller feeds it note-on/note-off events (bare
+ * note numbers) and gets back which note to ATTACK and which to RELEASE —
+ * both may be set at once (a genuine steal: the new note attacks the
+ * instant the old one releases), either may be null, but never garbled: a
+ * decision's `attack`/`release` always reflect exactly what changed about
+ * "what's sounding," nothing more. Velocity/channel/articulation for the
+ * attacked note are the CALLER's concern — this class only ever sees plain
+ * note numbers, so it has nothing else to carry.
+ */
+export type MonoPriority = "last" | "lowest" | "highest" | "first";
+
+export interface MonoDecision {
+  /** The note that should start sounding now, or null if nothing changed
+   *  about what's attacking. */
+  attack: number | null;
+  /** The note that should stop sounding now, or null if nothing changed
+   *  about what's releasing. Can be set alongside `attack` (a steal). */
+  release: number | null;
+}
+
+const NO_CHANGE: MonoDecision = { attack: null, release: null };
+
+export class MonoMerge {
+  private held: number[] = []; // arrival order, oldest first
+  private priorityMode: MonoPriority;
+
+  constructor(mode: MonoPriority = "last") {
+    this.priorityMode = mode;
+  }
+
+  get mode(): MonoPriority {
+    return this.priorityMode;
+  }
+
+  /** Which currently-held note wins, under the active priority rule —
+   *  null when nothing is held. */
+  private pick(): number | null {
+    if (!this.held.length) return null;
+    switch (this.priorityMode) {
+      case "last": return this.held[this.held.length - 1]!;
+      case "first": return this.held[0]!;
+      case "lowest": return this.held.reduce((a, b) => (b < a ? b : a));
+      case "highest": return this.held.reduce((a, b) => (b > a ? b : a));
+    }
+  }
+
+  private decide(before: number | null): MonoDecision {
+    const after = this.pick();
+    if (after === before) return NO_CHANGE;
+    return { attack: after, release: before !== null && before !== after ? before : null };
+  }
+
+  /** A note starts. Idempotent if it's already held (a duplicate on with
+   *  no intervening off doesn't retrigger or reorder it) — a caller that
+   *  wants retrigger-on-repeat behavior can noteOff() first. */
+  noteOn(note: number): MonoDecision {
+    const before = this.pick();
+    if (!this.held.includes(note)) this.held.push(note);
+    return this.decide(before);
+  }
+
+  /** A note ends. A no-op (returns NO_CHANGE) if it wasn't held. */
+  noteOff(note: number): MonoDecision {
+    const before = this.pick();
+    this.held = this.held.filter((n) => n !== note);
+    return this.decide(before);
+  }
+
+  /** Change priority rule live — if a different note now wins under the
+   *  new rule, this returns the same attack/release shape as a note event
+   *  would, so a caller can apply mode changes through the identical
+   *  publish path instead of a special case. */
+  setMode(mode: MonoPriority): MonoDecision {
+    const before = this.pick();
+    this.priorityMode = mode;
+    return this.decide(before);
+  }
+
+  /** Every held note released at once — engagement ending mid-note, or a
+   *  panic reset. Returns what WAS sounding (to release), or null if
+   *  nothing was. */
+  releaseAll(): number | null {
+    const was = this.pick();
+    this.held = [];
+    return was;
+  }
+
+  /** Held notes, arrival order — read-only diagnostic, not part of the
+   *  decision contract. */
+  get heldNotes(): number[] {
+    return [...this.held];
+  }
+}

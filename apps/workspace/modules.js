@@ -8,7 +8,7 @@
  */
 import { sliderToNative, nativeToSlider, paramSet, commandInvoke, formatValue } from "./model.js";
 import { makeMessage, makeNote } from "@enkerli/protocol";
-import { VoiceSplitter } from "@enkerli/voice-routing";
+import { VoiceSplitter, MonoMerge } from "@enkerli/voice-routing";
 import { APPS } from "@enkerli/library";
 import { parseUPI, analyse, analyzeSyncopation, rotate, invert, complement, barlowTransform, mutatePattern } from "@enkerli/upi";
 import { createBindingEngine, addBinding, removeBinding } from "@enkerli/control";
@@ -294,6 +294,161 @@ export function voiceSplitModule(ctx, bodyEl, state) {
     status.textContent = `${m.from} → ch ${channel} → ${toSel.value} (${m.body.notes.join(",")})`;
   });
   return () => off();
+}
+
+const NS_SVG = "http://www.w3.org/2000/svg";
+const svgEl = (tag, attrs = {}) => {
+  const e = document.createElementNS(NS_SVG, tag);
+  for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v);
+  return e;
+};
+
+const MONO_PRIORITIES = [
+  ["last", "Last"], ["lowest", "Lowest"], ["highest", "Highest"], ["first", "First"],
+];
+
+// ── Mono Merge: hold to force monophonic — a live performance gesture, not
+// a passthrough setting (docs/DESIGN_AGENT_ANSWERS.md §4). PitchFold's own
+// Mono Merge mode was theater: a real monoSelect param neither C++/JS
+// engine's processMono() ever read (docs/PITCHFOLD_AUDIT.md's headline
+// finding). The 2026-07-20 "Reprioritized" note proposed a Workspace-level
+// note-router instead of rebuilding it twice inside one plugin's two
+// engines — this is that router. The actual priority-selection rule lives
+// in @enkerli/voice-routing's MonoMerge class (engine, no bus/DOM
+// knowledge); this module owns bus wiring, the hold gesture, and
+// per-note attribute memory (velocity/channel/articulation), since the
+// engine only ever sees bare note numbers.
+//
+// While DISENGAGED, notes pass through unchanged (from → to), same as
+// Voice Split always transforms — the destination should keep hearing the
+// source continuously, with mono-merge applied only while actually held.
+// While ENGAGED, a MonoDecision's attack/release are turned into explicit
+// gate:"on"/"off" note messages — a steal publishes BOTH in one incoming
+// event (the new note attacks the instant the old one releases).
+//
+// Scope: operates on the SUSTAINED gate on/off note model. A one-shot
+// (durationMs) note passes through unchanged regardless of engagement —
+// it manages its own lifetime outside the held-notes model this is built
+// around, and there's no principled way to time a matching release for it.
+//
+// Engaging starts a FRESH monophonic session: notes already physically
+// held before engagement aren't known (this module never touches the
+// engine while disengaged, so it has no shadow model of "what's actually
+// down" to inherit) — documented, not silently assumed.
+export function monoMergeModule(ctx, bodyEl, state) {
+  const merge = new MonoMerge(MONO_PRIORITIES.some(([v]) => v === state.priority) ? state.priority : "last");
+  const appIds = APPS.filter((a) => a !== FROM);
+  const noteAttrs = new Map(); // note number -> last-seen { velocity, channel, articulation }
+  let engaged = false; // live gesture state — deliberately NOT persisted (§4: momentary, not a setting)
+
+  const fromSel = el("select", { class: "ws-select", "aria-label": "Merge notes from" },
+    el("option", { value: "*", text: "any app" }),
+    ...appIds.map((a) => el("option", { value: a, text: a })));
+  const toSel = el("select", { class: "ws-select", "aria-label": "Send merged notes to" },
+    ...appIds.map((a) => el("option", { value: a, text: a })));
+  fromSel.value = state.listenFrom ?? "*";
+  toSel.value = state.sendTo ?? appIds[0];
+
+  const status = el("div", { class: "ws-readout", text: "hold the pad to force monophonic" });
+
+  function publishDecision(decision) {
+    if (decision.release != null) {
+      const attrs = noteAttrs.get(decision.release) ?? {};
+      ctx.bus.publish(makeNote(FROM,
+        { notes: [decision.release], gate: "off", ...(attrs.channel != null ? { channel: attrs.channel } : {}) },
+        { to: toSel.value }));
+    }
+    if (decision.attack != null) {
+      const attrs = noteAttrs.get(decision.attack) ?? {};
+      ctx.bus.publish(makeNote(FROM, {
+        notes: [decision.attack], gate: "on",
+        ...(attrs.velocity != null ? { velocity: attrs.velocity } : {}),
+        ...(attrs.channel != null ? { channel: attrs.channel } : {}),
+        ...(attrs.articulation ? { articulation: attrs.articulation } : {}),
+      }, { to: toSel.value }));
+    }
+    if (decision.attack != null || decision.release != null) {
+      status.textContent = `mono · sounding ${decision.attack ?? "—"} (held: ${merge.heldNotes.join(",") || "none"})`;
+    }
+  }
+
+  const priorityBtns = MONO_PRIORITIES.map(([v, label]) =>
+    el("button", { class: "ws-btn ghost", "aria-pressed": String(v === merge.mode), text: label }));
+  priorityBtns.forEach((btn, i) => {
+    btn.addEventListener("click", () => {
+      const mode = MONO_PRIORITIES[i][0];
+      publishDecision(merge.setMode(mode));
+      state.priority = mode;
+      ctx.save();
+      priorityBtns.forEach((b, j) => b.setAttribute("aria-pressed", String(j === i)));
+    });
+  });
+
+  function persist() {
+    Object.assign(state, { listenFrom: fromSel.value, sendTo: toSel.value });
+    ctx.save();
+  }
+  for (const input of [fromSel, toSel]) input.addEventListener("change", persist);
+
+  // ── The hold pad (docs/DESIGN_AGENT_ANSWERS.md §4): momentary, not a
+  // toggle — engaged only while actively held (pointer down / key down),
+  // never left "stuck" (pointerleave/cancel/blur all release it). ──
+  const ring = svgEl("svg", { viewBox: "0 0 40 40", class: "ws-hold-pad-ring", "aria-hidden": "true" });
+  ring.append(svgEl("circle", { cx: 20, cy: 20, r: 16, class: "ws-hold-pad-ring-stroke" }));
+  const pad = el("button", { type: "button", class: "ws-hold-pad", "aria-pressed": "false",
+    "aria-label": "Hold to force monophonic (momentary)" }, "HOLD → MONO");
+  pad.append(ring);
+
+  function engage() {
+    if (engaged) return;
+    engaged = true;
+    pad.classList.add("held");
+    pad.setAttribute("aria-pressed", "true");
+    status.textContent = "engaged — monophonic";
+  }
+  function disengage() {
+    if (!engaged) return;
+    engaged = false;
+    pad.classList.remove("held");
+    pad.setAttribute("aria-pressed", "false");
+    publishDecision({ attack: null, release: merge.releaseAll() });
+    status.textContent = "hold the pad to force monophonic";
+  }
+  pad.addEventListener("pointerdown", (e) => { e.preventDefault(); try { pad.setPointerCapture(e.pointerId); } catch { /* no-op */ } engage(); });
+  pad.addEventListener("pointerup", disengage);
+  pad.addEventListener("pointercancel", disengage);
+  pad.addEventListener("pointerleave", () => { if (engaged) disengage(); }); // never gets "stuck" if the pointer strays off
+  pad.addEventListener("keydown", (e) => { if ((e.key === " " || e.key === "Enter") && !e.repeat) { e.preventDefault(); engage(); } });
+  pad.addEventListener("keyup", (e) => { if (e.key === " " || e.key === "Enter") { e.preventDefault(); disengage(); } });
+  pad.addEventListener("blur", () => { if (engaged) disengage(); });
+
+  bodyEl.append(
+    el("div", { class: "ws-row", style: "flex-wrap:wrap" },
+      el("label", { class: "ws-ctl", text: "from " }, fromSel),
+      el("label", { class: "ws-ctl", text: "to " }, toSel)),
+    el("div", { class: "ws-row", style: "flex-wrap:wrap" }, ...priorityBtns),
+    pad,
+    status);
+
+  const off = ctx.bus.subscribe((m) => {
+    if (m.type !== "note" || !m.body || !Array.isArray(m.body.notes)) return;
+    if (m.from === FROM) return; // never re-process our own output — loop guard
+    const want = fromSel.value;
+    if (want !== "*" && m.from !== want) return;
+
+    if (m.body.durationMs != null || !engaged) {
+      // one-shot notes, or simply disengaged: pass through unchanged.
+      ctx.bus.publish(makeNote(FROM, { ...m.body }, { to: toSel.value }));
+      return;
+    }
+
+    const isOff = m.body.gate === "off";
+    for (const n of m.body.notes) {
+      if (!isOff) noteAttrs.set(n, { velocity: m.body.velocity, channel: m.body.channel, articulation: m.body.articulation });
+      publishDecision(isOff ? merge.noteOff(n) : merge.noteOn(n));
+    }
+  });
+  return () => { off(); if (engaged) disengage(); };
 }
 
 export function monitorModule(ctx, bodyEl) {
@@ -1163,6 +1318,7 @@ export const MODULES = {
   "pattern": { title: "Pattern (UPI)", make: patternModule },
   "pcs-pads": { title: "PCS Pads", make: pcsPadsModule },
   "voice-split": { title: "Voice Split", make: voiceSplitModule },
+  "mono-merge": { title: "Mono Merge", make: monoMergeModule },
   "transforms": { title: "Pattern Transforms", make: transformsModule },
   "player": { title: "Pattern Player", make: playerModule },
   "rhythm-analysis": { title: "Rhythm Analysis", make: rhythmAnalysisModule },

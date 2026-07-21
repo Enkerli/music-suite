@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import { describe, it, expect, vi } from "vitest";
 import { SuiteBus } from "./bus.js";
-import { controlSurfaceModule, patternModule, monitorModule, summarize, pcsPadsModule, voiceSplitModule } from "./modules.js";
+import { controlSurfaceModule, patternModule, monitorModule, summarize, pcsPadsModule, voiceSplitModule, monoMergeModule } from "./modules.js";
 
 const ctx = () => {
   const bus = new SuiteBus();
@@ -931,5 +931,153 @@ describe("Voice Split module (docs/PITCHFOLD_AUDIT.md — @enkerli/voice-routing
     bus.publish(note("proggenie", [62])); // back to ch 1
     const outs = seen.filter((m) => m.from === "external");
     expect(outs.map((m) => m.body.channel)).toEqual([1, 2, 1]);
+  });
+});
+
+describe("Mono Merge module (docs/DESIGN_AGENT_ANSWERS.md §4 — hold to force monophonic)", () => {
+  const note = (from, notes, over = {}) => ({
+    protocol: "enkerli-suite", v: 1, id: `n-${Math.random()}`, from, to: "*",
+    sentAt: "2026-07-20T00:00:00Z", type: "note", body: { notes, ...over },
+  });
+  const hold = (body) => body.querySelector(".ws-hold-pad")
+    .dispatchEvent(new Event("pointerdown", { bubbles: true, cancelable: true }));
+  const release = (body) => body.querySelector(".ws-hold-pad")
+    .dispatchEvent(new Event("pointerup", { bubbles: true, cancelable: true }));
+
+  it("passes notes through unchanged while disengaged", () => {
+    const { bus, ctxObj } = ctx();
+    const seen = [];
+    bus.subscribe((m) => { if (m.type === "note") seen.push(m); });
+    const body = document.createElement("div");
+    monoMergeModule(ctxObj, body, { sendTo: "vane" });
+
+    bus.publish(note("proggenie", [60, 64], { gate: "on" }));
+    const outs = seen.filter((m) => m.from === "external");
+    expect(outs).toHaveLength(1);
+    expect(outs[0].body).toMatchObject({ notes: [60, 64], gate: "on" });
+    expect(outs[0].to).toBe("vane");
+  });
+
+  it("while held, a new note steals from whatever was sounding — attack AND release in one publish", () => {
+    const { bus, ctxObj } = ctx();
+    const seen = [];
+    bus.subscribe((m) => { if (m.type === "note") seen.push(m); });
+    const body = document.createElement("div");
+    monoMergeModule(ctxObj, body, { sendTo: "vane" });
+
+    hold(body);
+    bus.publish(note("proggenie", [60], { gate: "on", velocity: 100 }));
+    bus.publish(note("proggenie", [64], { gate: "on", velocity: 90 }));
+    const outs = seen.filter((m) => m.from === "external").map((m) => m.body);
+    // publishDecision releases before attacking — the old voice clears
+    // before the new one arrives, never an instant of unintended overlap.
+    expect(outs).toEqual([
+      { notes: [60], gate: "on", velocity: 100 },
+      { notes: [60], gate: "off" },
+      { notes: [64], gate: "on", velocity: 90 },
+    ]);
+  });
+
+  it("releasing the sounding note falls back to the next-priority held note (re-attacks with ITS remembered velocity)", () => {
+    const { bus, ctxObj } = ctx();
+    const seen = [];
+    bus.subscribe((m) => { if (m.type === "note") seen.push(m); });
+    const body = document.createElement("div");
+    monoMergeModule(ctxObj, body, { sendTo: "vane" });
+
+    hold(body);
+    bus.publish(note("proggenie", [60], { gate: "on", velocity: 100 }));
+    bus.publish(note("proggenie", [64], { gate: "on", velocity: 90 })); // steals; 60 held-but-silent
+    bus.publish(note("proggenie", [64], { gate: "off" })); // 64 releases — falls back to 60
+    const outs = seen.filter((m) => m.from === "external").map((m) => m.body);
+    expect(outs.at(-2)).toEqual({ notes: [64], gate: "off" });
+    expect(outs.at(-1)).toEqual({ notes: [60], gate: "on", velocity: 100 }); // remembered from its own note-on
+  });
+
+  it("releasing the pad mid-note releases whatever was sounding", () => {
+    const { bus, ctxObj } = ctx();
+    const seen = [];
+    bus.subscribe((m) => { if (m.type === "note") seen.push(m); });
+    const body = document.createElement("div");
+    monoMergeModule(ctxObj, body, { sendTo: "vane" });
+
+    hold(body);
+    bus.publish(note("proggenie", [60], { gate: "on" }));
+    release(body);
+    const outs = seen.filter((m) => m.from === "external").map((m) => m.body);
+    expect(outs.at(-1)).toEqual({ notes: [60], gate: "off" });
+  });
+
+  it("after releasing the pad, notes pass through unchanged again (not stuck in mono)", () => {
+    const { bus, ctxObj } = ctx();
+    const seen = [];
+    bus.subscribe((m) => { if (m.type === "note") seen.push(m); });
+    const body = document.createElement("div");
+    monoMergeModule(ctxObj, body, { sendTo: "vane" });
+
+    hold(body);
+    bus.publish(note("proggenie", [60], { gate: "on" }));
+    release(body);
+    seen.length = 0;
+    bus.publish(note("proggenie", [60, 64, 67], { gate: "on" }));
+    const outs = seen.filter((m) => m.from === "external");
+    expect(outs).toHaveLength(1);
+    expect(outs[0].body.notes).toEqual([60, 64, 67]); // full chord, untouched
+  });
+
+  it("a one-shot (durationMs) note passes through unchanged even while held", () => {
+    const { bus, ctxObj } = ctx();
+    const seen = [];
+    bus.subscribe((m) => { if (m.type === "note") seen.push(m); });
+    const body = document.createElement("div");
+    monoMergeModule(ctxObj, body, { sendTo: "vane" });
+
+    hold(body);
+    bus.publish(note("proggenie", [72], { durationMs: 200 }));
+    const outs = seen.filter((m) => m.from === "external");
+    expect(outs).toHaveLength(1);
+    expect(outs[0].body).toMatchObject({ notes: [72], durationMs: 200 });
+  });
+
+  it("switching priority mode live re-evaluates currently-held notes", () => {
+    const { bus, ctxObj } = ctx();
+    const seen = [];
+    bus.subscribe((m) => { if (m.type === "note") seen.push(m); });
+    const body = document.createElement("div");
+    monoMergeModule(ctxObj, body, { sendTo: "vane" }); // default priority: last
+
+    hold(body);
+    bus.publish(note("proggenie", [60], { gate: "on" }));
+    bus.publish(note("proggenie", [72], { gate: "on" })); // 72 sounding ("last")
+    seen.length = 0;
+    [...body.querySelectorAll("button")].find((b) => b.textContent === "Lowest").dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    const outs = seen.filter((m) => m.from === "external").map((m) => m.body);
+    expect(outs).toEqual([{ notes: [72], gate: "off" }, { notes: [60], gate: "on" }]); // 60 is lower, steals
+  });
+
+  it("never re-processes its own output (loop guard)", () => {
+    const { bus, ctxObj } = ctx();
+    const seen = [];
+    bus.subscribe((m) => { if (m.type === "note") seen.push(m); });
+    const body = document.createElement("div");
+    monoMergeModule(ctxObj, body, { sendTo: "vane" });
+
+    hold(body);
+    bus.publish(note("external", [60], { gate: "on" })); // as if we'd somehow heard our own message
+    expect(seen.filter((m) => m.from === "external" && m.to === "vane").length).toBe(0);
+  });
+
+  it("the 'from' filter ignores notes from apps other than the chosen source", () => {
+    const { bus, ctxObj } = ctx();
+    const seen = [];
+    bus.subscribe((m) => { if (m.type === "note") seen.push(m); });
+    const body = document.createElement("div");
+    monoMergeModule(ctxObj, body, { listenFrom: "proggenie", sendTo: "vane" });
+
+    bus.publish(note("midicurator", [60], { gate: "on" })); // wrong source, ignored
+    bus.publish(note("proggenie", [62], { gate: "on" }));   // right source, passed through
+    const outs = seen.filter((m) => m.from === "external");
+    expect(outs.length).toBe(1);
+    expect(outs[0].body.notes).toEqual([62]);
   });
 });

@@ -327,3 +327,18 @@ instinct that produced `voice-split`) might deliver Mono Merge's actual
 value — priority-based note selection — to every app on the bus at
 once, rather than rebuilding it twice inside one plugin's two engines
 for PitchFold alone.
+
+**Mono Merge: done, 2026-07-21 — exactly that Workspace module.** Real
+priority-based note-stealing (`@enkerli/voice-routing`'s new `MonoMerge`
+class: Last/Lowest/Highest/First, the same four sub-modes this doc named
+above — track held notes, decide the sounding one on every on/off,
+correctly re-trigger the next-priority note when the current one
+releases), wired into a new `mono-merge` Workspace module
+(`apps/workspace/modules.js`) behind a momentary hold-pad gesture
+(docs/DESIGN_AGENT_ANSWERS.md §4). PitchFold's own two engines are
+UNTOUCHED — this doesn't retrofit `VoiceProcessor::processMono()`,
+it delivers the value at the bus level instead, reaching every app at
+once rather than one plugin. PitchFold's `voiceMode`/`monoSelect` params
+remain exactly the theater this audit found; nothing here changes that
+finding, it routes around it. Full writeup: `docs/DESIGN_AGENT_ANSWERS.md`
+§4's implementation notes.

@@ -331,15 +331,63 @@ actually enters app chrome and we know the sizes and surfaces it has to
 survive" is the answer's own call, and nothing has actually adopted the
 name in a UI yet to design against.
 
-**§4 (PitchFold's Mono Merge → Workspace, the hold-pad): not started —
-and can't be, yet, without building a decoy.** The pad's whole spec is
-interaction for a Mono Merge Workspace module that doesn't exist —
-`docs/PITCHFOLD_AUDIT.md`'s "Reprioritized" note and `docs/GLORIARP_NEXT.md`
-both still have it as roadmap only, no note-router engine, no bus wiring,
-nothing behind it. Building the pad's full hold/fill/spring interaction
-now would be exactly the "looks real, does nothing" pattern the PitchFold
-audit spent a whole doc criticizing — a real gesture control with no
-engine to hold onto. `.es-hold-pad` as a bare CSS shell (no behavior) is
-cheap to stub, but a stub with no interaction would misrepresent what's
-actually done here; holding off until the Mono Merge module itself is
-built is the honest call.
+**§4 shipped 2026-07-21 — the Mono Merge Workspace module now exists, so
+the pad has an engine to hold onto.**
+
+- **Engine**: `@enkerli/voice-routing` gained a `MonoMerge` class —
+  Last/Lowest/Highest/First priority, tracks held notes, answers "what
+  to attack / what to release" per note-on/note-off event (and per live
+  priority-mode switch, same decision shape). Deliberately narrow, same
+  discipline as the package's existing `VoiceSplitter`: it only ever
+  sees bare note numbers, never bus/DOM/MIDI — the caller owns turning a
+  decision into actual messages. 20 tests (up from 6): every priority
+  mode, the fallback-to-next-held-note behavior on release, duplicate
+  note-on being a no-op (doesn't retrigger or reorder), live mode
+  switching, `releaseAll()`.
+- **Module**: `mono-merge` in `apps/workspace/modules.js`
+  (`monoMergeModule`) — from/to app selects and priority buttons (the
+  same `ws-select`/`ws-btn` chrome every other module uses, per the
+  answer's own "inherit chrome" call), plus the ONE bespoke element: the
+  hold pad. While disengaged, notes pass through unchanged (the
+  destination keeps hearing the source continuously); while held, a
+  MonoDecision's attack/release become explicit `gate:"on"`/`"off"` note
+  messages, with per-note velocity/channel/articulation remembered
+  across the hold (the engine only tracks numbers, so the module keeps
+  the side-table). Registered in `MODULES` — appears in the "+ add
+  module" list automatically, no separate wiring needed.
+- **The pad**: built exactly to spec — momentary (pointerdown/up,
+  Space/Enter held via keyboard, `!e.repeat` guarding key-repeat from
+  re-triggering), never gets stuck (`pointerleave`/`pointercancel`/
+  `blur` all release it), `role`-implicit `<button>` with `aria-pressed`
+  and a "momentary" `aria-label`, fills `var(--es-dim-slide)` on hold
+  with an inset SVG ring that closes via a `stroke-dashoffset`
+  transition (`prefers-reduced-motion` turns it off). Landed as
+  `.ws-hold-pad` in `apps/workspace/workspace.css`, NOT promoted to
+  `@enkerli/ui`'s `.es-hold-pad` yet — this is the first consumer; the
+  answer's own fallback ("graduate it if a second performance module
+  ever needs it") applies literally, so it stays local until there's a
+  second.
+- **Scope, stated plainly**: operates on the SUSTAINED `gate:"on"/"off"`
+  note model; a one-shot (`durationMs`) note passes through unchanged
+  regardless of engagement — it manages its own lifetime outside the
+  held-notes model this is built around. **Honest limitation, not
+  hidden**: grepped the whole webapp layer — no Workspace module (Keys,
+  the groove player, …) currently EMITS sustained gate on/off notes,
+  only one-shot `durationMs` ones. Mono Merge's steal logic is real and
+  thoroughly module-tested against synthetic bus messages (the same
+  verification level `voice-split`'s own tests use), but has no LIVE
+  in-suite producer to demonstrate the steal end-to-end yet — only a
+  real MIDI controller feeding sustained notes in over WebMIDI would
+  currently trigger it. Not a blocker to calling this shipped: the
+  router is real, correct, and ready for whenever a sustained-note
+  source exists (or arrives live).
+- Engaging starts a FRESH monophonic session — notes already physically
+  held before engagement aren't known (the module never touches the
+  engine while disengaged, so there's no shadow model to inherit).
+  Documented, not silently assumed.
+- 11 new module tests (`apps/workspace/modules.dom.test.js`), a real
+  Chromium pass via Playwright confirming the pad's pointer interaction
+  and visual states (not just synthetic happy-dom events) — the fill,
+  the ring closing, `aria-pressed` flipping on real mouse down/up. Full
+  monorepo (1528 tests) and `apps/workspace`/`packages/voice-routing`
+  both build clean.

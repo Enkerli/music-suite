@@ -122,3 +122,38 @@ body {
 .ws-key:active { transform: translateY(1px); }
 
 .ws-chordname { font-size: 22px; font-weight: 600; }
+
+/* Mono Merge module: the hold pad (docs/DESIGN_AGENT_ANSWERS.md §4). A
+   momentary gesture, not a toggle — deliberately distinct from the
+   ws-btn/ws-select controls around it, per the answer's own "one
+   expressive affordance, everything else stays plain module chrome"
+   call. .es-hold-pad wasn't built as a shared @enkerli/ui primitive yet
+   (the answer's own fallback: promote it there "if a second performance
+   module ever needs it") — this is the first, so it stays local. */
+.ws-hold-pad {
+  position: relative; width: 100%; min-height: 56px; margin-top: 2px;
+  border-radius: 12px; border: 2px solid var(--es-border-strong, #9d8967);
+  background: transparent; color: var(--es-fg, #26231d);
+  font: inherit; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; font-size: 13px;
+  cursor: pointer; touch-action: none; user-select: none; -webkit-user-select: none;
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  transition: background var(--es-motion-fast, 120ms ease-out), border-color var(--es-motion-fast, 120ms ease-out), color var(--es-motion-fast, 120ms ease-out);
+}
+.ws-hold-pad.held {
+  background: var(--es-dim-slide, #a35bbf);
+  border-color: var(--es-dim-slide, #a35bbf);
+  color: var(--es-accent-fg, #fff);
+}
+.ws-hold-pad:focus-visible { outline: 2px solid var(--es-focus-ring, #3a6ea5); outline-offset: 2px; }
+.ws-hold-pad-ring { width: 22px; height: 22px; flex: 0 0 auto; }
+.ws-hold-pad-ring-stroke {
+  fill: none; stroke: currentColor; stroke-width: 3; stroke-linecap: round;
+  /* circumference of r=16 ≈ 100.53 — full dash, offset to empty at rest */
+  stroke-dasharray: 100.53; stroke-dashoffset: 100.53;
+  transform-origin: 20px 20px; transform: rotate(-90deg);
+  transition: stroke-dashoffset 220ms ease-out;
+}
+.ws-hold-pad.held .ws-hold-pad-ring-stroke { stroke-dashoffset: 0; }
+@media (prefers-reduced-motion: reduce) {
+  .ws-hold-pad, .ws-hold-pad-ring-stroke { transition: none; }
+}
