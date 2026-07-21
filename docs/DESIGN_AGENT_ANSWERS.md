@@ -244,38 +244,52 @@ to the multi-ring view).
 
 ## Implementation notes, 2026-07-21
 
-**§1+2 shipped** in both `createCircleView` (mono) and `createPolyCircleView`
-(poly) — `apps/serpe/engine/render.js`. Poly's geometry moved to the
-320-viewBox/`R=118`/`ringWidth≈10`/`ringGap≈8` spec exactly (was a
-340-viewBox stretched-to-fit layout). Guide rings now use the neutral
-`var(--es-border)` token everywhere, not a lane-tinted one. 16
-render.test.js tests (fully rewritten — the old dot-based DOM shape no
-longer exists), a real dev-build Playwright pass at several densities.
+**§1+2 shipped, in two passes — the first pass got the arc MODEL wrong,
+caught by a real screenshot review, corrected same day.**
 
-**One real finding, worth recording rather than smoothing over:** the
-"an onset's arc spans to the NEXT onset" rule, applied literally (as
-given in the pseudocode above), means the arcs for any pattern with 1+
-onset always sum to the FULL circle — a cyclic partition, standard in
-rhythm-necklace/Toussaint-style IOI visualizations, but it means "rests
-leave the track bare" is really only ever visually true for the
-zero-onset case. A dense OR evenly-spaced pattern (e.g. `E(5,8)`, even
-the "sparse-looking" `E(3,8)` tresillo) renders as what looks like one
-continuous ring, not visibly gapped — the rhythm reads through the arc
-LENGTHS and accent breaks (color + tick), not through empty space. The
-one deliberate exception is the documented single-onset case (`i===j`),
-which uses a small manufactured epsilon-gap so it doesn't try to stroke
-an SVG arc back to its own start point (a literal zero-length arc, which
-most renderers won't draw as a circle at all). Screenshots confirm this
-reads correctly and looks intentional, not broken — flagging it here so
-"why doesn't a rest show as a gap" isn't rediscovered as a bug later.
+**Pass 1 (wrong):** implemented "an onset's arc spans from step `i` to
+the NEXT onset step `j`" literally, per the pseudocode above. This is a
+cyclic IOI (inter-onset-interval) partition — standard in rhythm-
+necklace/Toussaint-style visualizations — but it has a real, non-obvious
+property: the arcs for ANY pattern with 1+ onset always sum to the FULL
+circle, no matter how sparse. Screenshots of `E(5,8)` and even the
+"sparse-looking" `E(3,8)` tresillo both rendered as one continuous ring
+with no visible gaps at all — "rests leave the track bare" was never
+actually achievable under that model except for the zero-onset case.
+
+**Pass 2 (correct, per Alex's own recollection of an earlier version of
+this exact visualization):** each step owns a FIXED, delimited slice of
+the ring — `360/n` degrees, not stretched to the next onset — drawn as a
+genuine donut-slice wedge (outer arc, radial line in, inner arc back,
+close), not a stroked line. Rests draw nothing; the small gap between
+adjacent slices (`stepWedgePath`'s `gapFrac`) is the actual delimiter
+Alex described ("like slices of a donut"). This also gave the ring a
+real HOLE for the first time — both `createCircleView` (a single donut
+band, R 34–118) and `createPolyCircleView` (nested donut bands sharing
+one hole floor at R 30, so more lanes never shrink the center to nothing)
+— "a relatively small hole, mostly meant to avoid moiré effects": the
+old full-length center-to-edge spokes were replaced with short stubs
+confined to the hole itself, since that's exactly where line convergence
+would moiré with more steps.
+
+Accent = fill color (accent-amber) **plus** the slice poking out past its
+lane's own outer edge — two channels, same "never color alone" rule as
+pass 1's tick-based approach, just expressed through the new wedge shape
+instead of a separate line element.
+
+19 render.test.js tests (rewritten again for the wedge/fill DOM shape —
+paths carry `fill`, not `stroke`), a real dev-build Playwright pass
+across sparse/dense/accented patterns and the 3-lane poly view, all
+visibly showing distinct delimited slices this time.
 
 **Deferred, not attempted:** the shared cross-ring playhead sweep line
 (needs a continuous cycle-phase value the JUCE bridge doesn't send today
 — `lanePh` is a discrete per-lane step index; a per-ring playhead marker
 dot ships instead, functionally equivalent, visually simpler) and
 CoG-on-focused-lane for the poly view (needs new hover/selection state
-that doesn't exist yet). Neither blocks the arc work; both are real,
+that doesn't exist yet). Neither blocks the slice work; both are real,
 scoped follow-ups if wanted.
 
-**§3–§5 (knobs, Mono Merge pad, MTILT wordmark):** tracked separately as
-they land.
+**§3 (knobs):** `packages/ui/components/knob.js` + `.es-knob*` in
+`components.css` shipped as the shared primitive; MIDIcurator wiring
+in progress. **§4–§5 (Mono Merge pad, MTILT wordmark):** not started.

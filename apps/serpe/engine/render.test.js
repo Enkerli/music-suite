@@ -4,59 +4,88 @@ import { createCircleView, createPolyCircleView } from "./render.js";
 
 const lane = (steps, accents = steps.map(() => 0)) => ({ steps, accents });
 
-describe("createCircleView — onset duration arcs (DESIGN_AGENT_ANSWERS.md §1)", () => {
-  it("draws one arc path per onset, none for rests", () => {
+describe("createCircleView — donut-slice steps (DESIGN_AGENT_ANSWERS.md §1)", () => {
+  it("draws one wedge path per onset, none for rests", () => {
     const host = document.createElement("div");
     const view = createCircleView(host, {});
     view.update({ steps: [1, 0, 1, 0], accents: [0, 0, 0, 0] });
-    const arcs = host.querySelectorAll("svg path");
-    expect(arcs.length).toBe(2); // two onsets, two arcs — no dots, no polygon
+    const wedges = host.querySelectorAll("svg path");
+    expect(wedges.length).toBe(2); // two onsets, two slices — no dots, no polygon
   });
 
-  it("draws NOTHING for an all-rest pattern beyond the guide ring and spokes", () => {
+  it("draws NOTHING for an all-rest pattern beyond the guide band and step stubs", () => {
     const host = document.createElement("div");
     const view = createCircleView(host, {});
     view.update({ steps: [0, 0, 0, 0], accents: [0, 0, 0, 0] });
     expect(host.querySelectorAll("svg path").length).toBe(0);
   });
 
-  it("never draws a <polygon> — the arc replaces it outright", () => {
+  it("never draws a <polygon> — the slice replaces it outright", () => {
     const host = document.createElement("div");
     const view = createCircleView(host, {});
     view.update({ steps: [1, 1, 1, 1], accents: [0, 0, 0, 0] });
     expect(host.querySelectorAll("svg polygon").length).toBe(0);
   });
 
-  it("a single onset in a multi-step ring draws a near-full-circle arc (large-arc, clockwise)", () => {
+  it("a lone onset in a multi-step ring is a SMALL delimited slice, not a near-full ring", () => {
     const host = document.createElement("div");
     const view = createCircleView(host, {});
     view.update({ steps: [1, 0, 0, 0, 0, 0, 0, 0], accents: [0] });
-    const arc = host.querySelector("svg path");
-    expect(arc).toBeTruthy();
-    expect(arc.getAttribute("d")).toMatch(/A \d+ \d+ 0 1 1/); // large-arc-flag=1, sweep-flag=1 (clockwise)
+    const wedge = host.querySelector("svg path");
+    expect(wedge).toBeTruthy();
+    // 1 of 8 steps = 45°, well under 180° — no large-arc-flag needed.
+    expect(wedge.getAttribute("d")).toMatch(/A [\d.]+ [\d.]+ 0 0 1/);
   });
 
-  it("an accented onset gets a heavier stroke AND an accent tick — two channels, not color alone", () => {
+  it("a single-step pattern (n=1) still closes correctly (needs the large-arc flag)", () => {
+    const host = document.createElement("div");
+    const view = createCircleView(host, {});
+    view.update({ steps: [1], accents: [0] });
+    const wedge = host.querySelector("svg path");
+    expect(wedge.getAttribute("d")).toMatch(/A [\d.]+ [\d.]+ 0 1 1/);
+  });
+
+  it("an accented onset fills with the accent-amber token and pokes out further — two channels, not color alone", () => {
     const host = document.createElement("div");
     const view = createCircleView(host, {});
     view.update({ steps: [1, 0, 1, 0], accents: [1, 0, 0, 0] });
-    const paths = host.querySelectorAll("svg path");
-    const accentedWidth = Number(paths[0].getAttribute("stroke-width"));
-    const plainWidth = Number(paths[1].getAttribute("stroke-width"));
-    expect(accentedWidth).toBeGreaterThan(plainWidth);
-    expect(paths[0].getAttribute("stroke")).toBe("var(--es-dim-pressure)"); // accent-amber token
-    const ticks = host.querySelectorAll("svg line");
-    // spokes (one per step, 4) + the one accent tick
-    expect(ticks.length).toBe(5);
+    const wedges = host.querySelectorAll("svg path");
+    expect(wedges[0].getAttribute("fill")).toBe("var(--es-dim-pressure)"); // accented
+    expect(wedges[1].getAttribute("fill")).not.toBe("var(--es-dim-pressure)"); // plain
+    // "pokes out further": the accented wedge's outer radius (118+8=126) is
+    // larger than the plain wedge's (118) — present as bigger coordinates
+    // in its arc's radius parameter.
+    const accentedR = Number(wedges[0].getAttribute("d").match(/A ([\d.]+)/)[1]);
+    const plainR = Number(wedges[1].getAttribute("d").match(/A ([\d.]+)/)[1]);
+    expect(accentedR).toBeGreaterThan(plainR);
   });
 
-  it("the guide ring uses the neutral border token at width 1, not the lane accent", () => {
+  it("adjacent onsets are delimited — their slices don't touch (real gap, not a continuous ring)", () => {
     const host = document.createElement("div");
-    const view = createCircleView(host, { lane: "moss" });
+    const view = createCircleView(host, {});
+    view.update({ steps: [1, 1], accents: [0, 0] }); // two adjacent onsets, n=2
+    const [a, b] = host.querySelectorAll("svg path");
+    // Slice a's trailing edge and slice b's leading edge are both derived
+    // from the SAME step boundary angle, minus/plus the gap respectively —
+    // if there were no gap they'd land on the identical point.
+    const aEnd = a.getAttribute("d").split(" ").slice(-7, -5).join(" ");
+    const bStart = b.getAttribute("d").split(" ").slice(1, 3).join(" ");
+    expect(aEnd).not.toBe(bStart);
+  });
+
+  it("the guide band has both an outer and an inner boundary — a real hole, not a thin ring", () => {
+    const host = document.createElement("div");
+    const view = createCircleView(host, { lane: "moss", showCog: false });
     view.update({ steps: [1, 0], accents: [0, 0] });
-    const guide = host.querySelector("svg circle");
-    expect(guide.getAttribute("stroke")).toBe("var(--es-border)");
-    expect(guide.getAttribute("stroke-width")).toBe("1");
+    const guides = host.querySelectorAll("svg circle");
+    expect(guides.length).toBe(2);
+    for (const g of guides) {
+      expect(g.getAttribute("stroke")).toBe("var(--es-border)");
+      expect(g.getAttribute("stroke-width")).toBe("1");
+    }
+    const radii = [...guides].map((g) => Number(g.getAttribute("r"))).sort((x, y) => x - y);
+    expect(radii[0]).toBeGreaterThan(0); // the hole itself is never r=0 (no moiré-prone center convergence)
+    expect(radii[1]).toBeGreaterThan(radii[0]);
   });
 
   it("update() re-renders in place — no DOM growth across repeated updates", () => {
@@ -70,7 +99,7 @@ describe("createCircleView — onset duration arcs (DESIGN_AGENT_ANSWERS.md §1)
   });
 });
 
-describe("createPolyCircleView — nested rings, one arc set per lane (KT item 9 + DESIGN_AGENT_ANSWERS.md §1)", () => {
+describe("createPolyCircleView — nested donut bands, one per lane (KT item 9 + DESIGN_AGENT_ANSWERS.md §1)", () => {
   it("draws one ring group per lane, outer→inner in declaration order", () => {
     const host = document.createElement("div");
     const view = createPolyCircleView(host, {});
@@ -86,30 +115,49 @@ describe("createPolyCircleView — nested rings, one arc set per lane (KT item 9
     expect(r0).toBeGreaterThan(r1); // lane 0 (declared first) is outermost
   });
 
-  it("a single lane uses the full outer radius — R = 118, same as the mono ring", () => {
+  it("a single lane's band spans the full outer radius down to the shared hole floor", () => {
     const host = document.createElement("div");
     const view = createPolyCircleView(host, {});
     view.update({ lanes: [lane([1, 0, 1, 1])], lanePh: [-1], muted: [false] });
-    const guide = host.querySelector("svg > g > g > circle");
-    expect(Number(guide.getAttribute("r"))).toBe(118);
+    const circles = host.querySelectorAll("svg > g > g > circle");
+    expect(circles.length).toBe(2); // outer + inner guide boundary
+    const outer = Number(circles[0].getAttribute("r"));
+    const inner = Number(circles[1].getAttribute("r"));
+    expect(outer).toBe(118);
+    expect(inner).toBeGreaterThan(0);
+    expect(inner).toBeLessThan(outer);
   });
 
-  it("draws a downbeat tick and one arc per onset, none for rests", () => {
+  it("more lanes never shrink the shared hole below its floor (moiré guard)", () => {
+    const host = document.createElement("div");
+    const view = createPolyCircleView(host, {});
+    view.update({
+      lanes: [lane([1, 0]), lane([1, 0]), lane([1, 0]), lane([1, 0]), lane([1, 0])],
+      lanePh: [-1, -1, -1, -1, -1], muted: [false, false, false, false, false],
+    });
+    const groups = host.querySelectorAll("svg > g > g");
+    const innermost = groups[groups.length - 1];
+    const inner = Number(innermost.querySelectorAll("circle")[1].getAttribute("r"));
+    expect(inner).toBeGreaterThan(20); // never collapses toward r=0
+  });
+
+  it("draws a downbeat tick and one slice per onset, none for rests", () => {
     const host = document.createElement("div");
     const view = createPolyCircleView(host, {});
     view.update({ lanes: [lane([1, 0, 1, 0])], lanePh: [-1], muted: [false] });
     const g = host.querySelector("svg > g > g");
-    expect(g.querySelectorAll("line").length).toBe(1); // downbeat tick only, no accents, no playhead
+    expect(g.querySelectorAll("line").length).toBe(1); // downbeat tick only
     expect(g.querySelectorAll("path").length).toBe(2); // two onsets
   });
 
-  it("an accented onset gets an accent tick line, not a halo circle", () => {
+  it("an accented onset fills with accent-amber and pokes past this lane's own outer edge", () => {
     const host = document.createElement("div");
     const view = createPolyCircleView(host, {});
     view.update({ lanes: [lane([1, 1, 1, 1], [1, 0, 0, 0])], lanePh: [-1], muted: [false] });
     const g = host.querySelector("svg > g > g");
-    expect(g.querySelectorAll("line").length).toBe(2); // downbeat tick + 1 accent tick
-    expect(g.querySelectorAll("path").length).toBe(4); // 4 onsets, one arc each
+    const paths = g.querySelectorAll("path");
+    expect(paths[0].getAttribute("fill")).toBe("var(--es-dim-pressure)");
+    expect(paths[1].getAttribute("fill")).not.toBe("var(--es-dim-pressure)");
   });
 
   it("the playhead is a small marker at this ring's own current step, absent when there is none", () => {
@@ -117,12 +165,11 @@ describe("createPolyCircleView — nested rings, one arc set per lane (KT item 9
     const view = createPolyCircleView(host, {});
     view.update({ lanes: [lane([1, 1, 1, 1])], lanePh: [-1], muted: [false] });
     let g = host.querySelector("svg > g > g");
-    // guide ring is the only circle when there's no playhead
-    expect(g.querySelectorAll("circle").length).toBe(1);
+    expect(g.querySelectorAll("circle").length).toBe(2); // just the guide band, no playhead marker
 
     view.update({ lanes: [lane([1, 1, 1, 1])], lanePh: [2], muted: [false] });
     g = host.querySelector("svg > g > g");
-    expect(g.querySelectorAll("circle").length).toBe(2); // guide ring + playhead marker
+    expect(g.querySelectorAll("circle").length).toBe(3); // guide band (2) + playhead marker
   });
 
   it("a muted lane's ring group is dimmed via opacity, not removed", () => {
@@ -144,13 +191,13 @@ describe("createPolyCircleView — nested rings, one arc set per lane (KT item 9
     expect(after).toBe(before);
   });
 
-  it("no lane's downbeat tick / arc color collides with the accent-amber highlight (contrast regression)", () => {
+  it("no lane's downbeat tick / slice color collides with the accent-amber highlight (contrast regression)", () => {
     const host = document.createElement("div");
     const view = createPolyCircleView(host, {});
     // 4 lanes cycles the full rotation at least once; none of them — including
     // what used to be the 2nd lane's 'rose' — may resolve to --es-dim-pressure,
     // the same token accented onsets use, or an accent there would be
-    // invisible (arc color unchanged from its own unaccented onsets).
+    // invisible (slice color unchanged from its own unaccented onsets).
     view.update({
       lanes: [lane([1, 0]), lane([1, 0]), lane([1, 0]), lane([1, 0])],
       lanePh: [-1, -1, -1, -1], muted: [false, false, false, false],
@@ -159,28 +206,25 @@ describe("createPolyCircleView — nested rings, one arc set per lane (KT item 9
     for (const g of groups) {
       const downbeat = g.querySelector("line");
       expect(downbeat.getAttribute("stroke")).not.toBe("var(--es-dim-pressure)");
-      const arc = g.querySelector("path");
-      expect(arc.getAttribute("stroke")).not.toBe("var(--es-dim-pressure)");
+      const slice = g.querySelector("path");
+      expect(slice.getAttribute("fill")).not.toBe("var(--es-dim-pressure)");
     }
   });
 
-  it("an accented onset's arc stroke differs from its own ring's unaccented onsets, on every lane in the rotation", () => {
+  it("an accented onset's fill differs from its own ring's unaccented onsets, on every lane in the rotation", () => {
     const host = document.createElement("div");
     const view = createPolyCircleView(host, {});
     // Regression for the specific bug: lane index 1 used to be 'rose', which
-    // IS --es-dim-pressure — an accented onset there had the same stroke as
-    // an unaccented one, losing the only color signal (the accent tick still
-    // drew, but the stroke swap that works for every other lane silently didn't).
+    // IS --es-dim-pressure — an accented onset there had the same fill as an
+    // unaccented one, losing the only color signal.
     view.update({
       lanes: [0, 1, 2, 3].map(() => ({ steps: [1, 1], accents: [1, 0] })),
       lanePh: [-1, -1, -1, -1], muted: [false, false, false, false],
     });
     const groups = host.querySelectorAll("svg > g > g");
     for (const g of groups) {
-      const arcs = g.querySelectorAll("path");
-      const accentedStroke = arcs[0].getAttribute("stroke");
-      const unaccentedStroke = arcs[1].getAttribute("stroke");
-      expect(accentedStroke).not.toBe(unaccentedStroke);
+      const slices = g.querySelectorAll("path");
+      expect(slices[0].getAttribute("fill")).not.toBe(slices[1].getAttribute("fill"));
     }
   });
 });

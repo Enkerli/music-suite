@@ -1,10 +1,13 @@
 /**
  * Serpe — visualisers. Three framework-agnostic SVG views over a pattern:
- *   createCircleView(el, opts)     → ring + onset duration arcs + playhead + CoG
+ *   createCircleView(el, opts)     → donut ring + onset slices + playhead + CoG
  *   createStepView(el, opts)       → linear step lane, beat grouping, playhead
- *   createPolyCircleView(el, opts) → nested rings, one per poly lane (KT item 9)
- * Onsets draw as arcs, not dots/polygons — DESIGN_AGENT_ANSWERS.md §1, the
- * differentiator from Lascabettes's Rhythmic Circle.
+ *   createPolyCircleView(el, opts) → nested donut rings, one per poly lane (KT item 9)
+ * Onsets draw as delimited donut SLICES, not dots/polygons —
+ * DESIGN_AGENT_ANSWERS.md §1, the differentiator from Lascabettes's
+ * Rhythmic Circle: each step owns a fixed 360/n wedge, not an arc
+ * stretched to the next onset (an earlier pass tried that; it always
+ * fills the whole circle — see the doc's "Implementation notes").
  * All expose .update({ ... }) and theme via tokens.
  */
 import { centerOfGravity } from "@enkerli/upi";
@@ -20,50 +23,41 @@ const el = (n, a = {}) => {
 const ang = (i, n) => (TAU * i) / n - Math.PI / 2;
 const pol = (cx, cy, r, a) => [cx + r * Math.cos(a), cy + r * Math.sin(a)];
 
-// ── Duration arcs (docs/DESIGN_AGENT_QUESTIONS.md answer §1) ────────────────
-// The differentiator from Lascabettes's Rhythmic Circle: onsets are drawn as
-// arc segments swept along the ring — "duration arcs, not dots + a polygon"
-// — so a rest is a gap and the ring's own silhouette encodes the rhythm.
-// Shared by createCircleView (mono) and createPolyCircleView (poly, one arc
-// set per ring) — the answer's own closing note calls this out as a single
-// primitive that "generalises to the multi-ring view."
+// ── Donut-slice steps (docs/DESIGN_AGENT_ANSWERS.md §1, corrected
+// 2026-07-21 after a real screenshot review) ─────────────────────────────
+// The differentiator from Lascabettes's Rhythmic Circle: onsets are drawn
+// as ring SLICES, not dots + a polygon — each step owns a fixed 360/n
+// wedge of the ring (delimited from its neighbors by a small gap), not an
+// arc stretched from one onset to the next. An earlier pass tried
+// "onset-to-next-onset" arcs; screenshots showed that model always fills
+// the WHOLE circle for any pattern with 1+ onset (a cyclic partition, so
+// there is never actually a gap to read) — the fixed-slice model is what
+// Alex specified from an earlier version of this exact visualization:
+// donut slices around a relatively small center hole (kept small
+// specifically to avoid moiré where many radial lines would otherwise
+// converge). Shared by createCircleView (mono) and createPolyCircleView
+// (poly, one donut band per ring, nested).
 
-/** Duration-arc path for onset i, spanning to next-onset j (its
- *  inter-onset interval — the sounding duration), swept clockwise. i === j
- *  (only one onset in the whole ring) draws almost the full circle with a
- *  small gap at its own step: SVG can't stroke a literal zero-length arc
- *  back to its own start point, and the gap is itself the correct,
- *  legible reading (a lone hit "holds" the cycle, visibly). */
-function onsetArcPath(cx, cy, r, i, j, n) {
-  const a0 = ang(i, n);
-  const full = i === j;
-  const a1 = full ? a0 - (TAU / n) * 0.08 : ang(j, n);
-  const [x0, y0] = pol(cx, cy, r, a0);
-  const [x1, y1] = pol(cx, cy, r, a1);
-  const sweepSteps = full ? n : (j - i + n) % n;
-  const large = full || sweepSteps / n > 0.5 ? 1 : 0;
-  return `M ${x0.toFixed(2)} ${y0.toFixed(2)} A ${r} ${r} 0 ${large} 1 ${x1.toFixed(2)} ${y1.toFixed(2)}`;
-}
-
-/** [onsetStepIndex, nextOnsetStepIndex] pairs, cyclic — the last onset's
- *  "next" wraps to the first (its duration runs into the loop repeat). */
-function onsetSpans(steps) {
-  const onsets = [];
-  for (let i = 0; i < steps.length; i++) if (steps[i]) onsets.push(i);
-  return onsets.map((i, k) => [i, onsets[(k + 1) % onsets.length]]);
-}
-
-/** The accent tick: a short radial spoke straddling an onset's leading edge
- *  (its attack) — the second channel for "accented", alongside the arc's
- *  own heavier stroke; never color alone. */
-function accentTick(cx, cy, r, i, n, color) {
-  const a = ang(i, n);
-  const [x0, y0] = pol(cx, cy, r - 6, a);
-  const [x1, y1] = pol(cx, cy, r + 6, a);
-  return el("line", {
-    x1: x0.toFixed(2), y1: y0.toFixed(2), x2: x1.toFixed(2), y2: y1.toFixed(2),
-    stroke: color, "stroke-width": 2.5, "stroke-linecap": "round",
-  });
+/** One step's donut-slice wedge between rInner and rOuter, delimited from
+ *  its neighbors by a small angular gap (gapFrac of the step's own
+ *  angular width, split evenly at both edges). */
+function stepWedgePath(cx, cy, rInner, rOuter, i, n, gapFrac = 0.12) {
+  const half = Math.PI / n; // half of this step's 360/n slice, in radians
+  const gap = half * gapFrac;
+  const a0 = ang(i, n) - half + gap;
+  const a1 = ang(i, n) + half - gap;
+  const large = a1 - a0 > Math.PI ? 1 : 0;
+  const [ox0, oy0] = pol(cx, cy, rOuter, a0);
+  const [ox1, oy1] = pol(cx, cy, rOuter, a1);
+  const [ix1, iy1] = pol(cx, cy, rInner, a1);
+  const [ix0, iy0] = pol(cx, cy, rInner, a0);
+  return [
+    `M ${ox0.toFixed(2)} ${oy0.toFixed(2)}`,
+    `A ${rOuter} ${rOuter} 0 ${large} 1 ${ox1.toFixed(2)} ${oy1.toFixed(2)}`,
+    `L ${ix1.toFixed(2)} ${iy1.toFixed(2)}`,
+    `A ${rInner} ${rInner} 0 ${large} 0 ${ix0.toFixed(2)} ${iy0.toFixed(2)}`,
+    "Z",
+  ].join(" ");
 }
 
 // laneColor() accepts any of the suite's 4 tokens (a caller may still ask for
@@ -115,17 +109,23 @@ export function createCircleView(host, opts = {}) {
     if (state.onToggle && (state.steps.length || 1) !== hitN) buildHits(state.steps.length || 1);
     const { steps, accents, playhead } = state;
     const n = steps.length || 1;
-    const cx = 160, cy = 160, R = 118;
+    const cx = 160, cy = 160, R_OUTER = 118, R_INNER = 34;
     const kids = [];
     const accent = laneColor(state.lane);
+    const accentAmber = "var(--es-dim-pressure)";
 
-    // guide ring — faint, so empty rests still show a track (DESIGN_AGENT_ANSWERS.md §1)
-    kids.push(el("circle", { cx, cy, r: R, fill: "none", stroke: "var(--es-border)", "stroke-width": 1 }));
+    // guide band — outer + inner boundary, faint, so an all-rest pattern
+    // still shows the donut's own track (DESIGN_AGENT_ANSWERS.md §1).
+    kids.push(el("circle", { cx, cy, r: R_OUTER, fill: "none", stroke: "var(--es-border)", "stroke-width": 1 }));
+    kids.push(el("circle", { cx, cy, r: R_INNER, fill: "none", stroke: "var(--es-border)", "stroke-width": 1 }));
 
-    // spokes (subtle) + downbeat tick
+    // step position stubs, confined to the hole (not the old full-length
+    // center-to-edge spokes) — a small hole with SHORT stubs is the whole
+    // point of keeping it small: far fewer/shorter lines converging near
+    // the center, so a 16+ step pattern doesn't moiré into a starburst.
     for (let i = 0; i < n; i++) {
-      const [x, y] = pol(cx, cy, R, ang(i, n));
-      const [xi] = pol(cx, cy, R - 6, ang(i, n));
+      const a = ang(i, n);
+      const [x, y] = pol(cx, cy, R_INNER, a);
       const isDown = i === 0;
       kids.push(el("line", {
         x1: cx, y1: cy, x2: x, y2: y,
@@ -133,26 +133,26 @@ export function createCircleView(host, opts = {}) {
       }));
     }
 
-    // onset duration arcs (DESIGN_AGENT_ANSWERS.md §1) — replaces the old
-    // onset polygon; each arc sweeps from its onset to the NEXT onset (its
-    // sounding duration), so rests leave the guide ring bare.
-    const accentAmber = "var(--es-dim-pressure)";
-    for (const [i, j] of onsetSpans(steps)) {
+    // onset slices — each step owns its own fixed 360/n wedge of the donut
+    // band, delimited from its neighbors by a small gap; a rest draws
+    // nothing (the bare guide band shows through). Accented slices poke
+    // out past R_OUTER — color AND shape, never color alone.
+    const onsets = [];
+    for (let i = 0; i < n; i++) {
+      if (!steps[i]) continue;
+      onsets.push(i);
       const acc = !!accents[i];
       kids.push(el("path", {
-        d: onsetArcPath(cx, cy, R, i, j, n),
-        fill: "none", stroke: acc ? accentAmber : accent,
-        "stroke-width": acc ? 11 : 7, "stroke-linecap": "round",
+        d: stepWedgePath(cx, cy, R_INNER, acc ? R_OUTER + 8 : R_OUTER, i, n),
+        fill: acc ? accentAmber : accent,
       }));
-      if (acc) kids.push(accentTick(cx, cy, R, i, n, accentAmber));
     }
-    const onsets = onsetSpans(steps).map(([i]) => i);
 
     // center of gravity vector
     if (state.showCog && onsets.length >= 1) {
       const cog = centerOfGravity(steps);
       const a = ang(cog.angleSteps, n);
-      const [gx, gy] = pol(cx, cy, R * cog.magnitude, a);
+      const [gx, gy] = pol(cx, cy, R_OUTER * cog.magnitude, a);
       if (cog.magnitude > 0.012) {
         kids.push(el("line", { x1: cx, y1: cy, x2: gx, y2: gy, stroke: "var(--es-fg-muted)", "stroke-width": 1.5, "stroke-dasharray": "3 3" }));
         kids.push(el("circle", { cx: gx, cy: gy, r: 4, fill: "var(--es-fg-muted)" }));
@@ -162,27 +162,22 @@ export function createCircleView(host, opts = {}) {
       }
     }
 
-    // playhead wedge
+    // playhead — a wedge highlight over the current step's own slice,
+    // spanning the whole donut band plus a little overshoot either side.
     if (playhead >= 0 && playhead < n) {
-      const a0 = ang(playhead - 0.5, n), a1 = ang(playhead + 0.5, n);
-      const [x0, y0] = pol(cx, cy, R + 8, a0);
-      const [x1, y1] = pol(cx, cy, R + 8, a1);
-      const wedge = el("path", {
-        d: `M ${cx} ${cy} L ${x0.toFixed(1)} ${y0.toFixed(1)} A ${R + 8} ${R + 8} 0 0 1 ${x1.toFixed(1)} ${y1.toFixed(1)} Z`,
-        fill: `color-mix(in oklab, ${accent} 12%, transparent)`,
-      });
-      kids.push(wedge);
+      kids.push(el("path", {
+        d: stepWedgePath(cx, cy, R_INNER - 6, R_OUTER + 10, playhead, n, 0),
+        fill: `color-mix(in oklab, ${accent} 16%, transparent)`,
+      }));
     }
 
-    // step number labels only — the arcs above ARE the onset markers now
-    // (their rounded caps read as the attack/release), so rests draw
-    // nothing but the bare guide ring, per the answer's own framing.
-    // thin labels on large cycles so they don't overlap / shrink illegibly
+    // step number labels only — thin on large cycles so they don't
+    // overlap / shrink illegibly.
     const labelEvery = n <= 16 ? 1 : n <= 32 ? 2 : Math.ceil(n / 16);
     for (let i = 0; i < n; i++) {
       const on = !!steps[i];
       if (state.showLabels && (on || i % labelEvery === 0)) {
-        const [lx, ly] = pol(cx, cy, R + 22, ang(i, n));
+        const [lx, ly] = pol(cx, cy, R_OUTER + 22, ang(i, n));
         const t = el("text", {
           x: lx, y: ly, "text-anchor": "middle", "dominant-baseline": "central",
           "font-size": 11, "font-family": "var(--es-font-mono)",
@@ -295,36 +290,42 @@ export function createPolyCircleView(host, opts = {}) {
   svg.append(visuals);
   host.replaceChildren(svg);
 
-  const R_OUTER = 118, RING_WIDTH = 10, RING_GAP = 8;
+  // Shared radial budget across ALL lanes, not a fixed per-lane width: the
+  // whole nested stack keeps ONE small hole at the center (R_INNER_FLOOR),
+  // same reasoning as the mono ring's own hole — short, sparse lines near
+  // the center instead of many rings' worth converging into a moiré knot.
+  const R_OUTER = 118, R_INNER_FLOOR = 30, RING_GAP = 3;
   const accentAmber = "var(--es-dim-pressure)";
 
   function render() {
     const { lanes, lanePh, muted } = state;
     const cx = 160, cy = 160;
+    const pitch = (R_OUTER - R_INNER_FLOOR) / Math.max(1, lanes.length);
     const kids = [];
     lanes.forEach((lane, li) => {
-      const R = R_OUTER - li * (RING_WIDTH + RING_GAP);
+      const outer = R_OUTER - li * pitch;
+      const inner = outer - pitch + RING_GAP;
       const n = lane.steps.length || 1;
       const color = laneColor(POLY_RING_COLORS[li % POLY_RING_COLORS.length]);
       const ring = [];
-      // guide ring — neutral token, not the lane's own hue (DESIGN_AGENT_ANSWERS.md
-      // §1's "Guide track": faint under the arcs so empty lanes/rests stay visible).
-      ring.push(el("circle", { cx, cy, r: R, fill: "none", stroke: "var(--es-border)", "stroke-width": 1 }));
+      // guide band — neutral token, not the lane's own hue (DESIGN_AGENT_ANSWERS.md
+      // §1's "Guide track": faint under the slices so empty lanes/rests stay visible).
+      ring.push(el("circle", { cx, cy, r: outer, fill: "none", stroke: "var(--es-border)", "stroke-width": 1 }));
+      ring.push(el("circle", { cx, cy, r: inner, fill: "none", stroke: "var(--es-border)", "stroke-width": 1 }));
       // downbeat tick — anchors step 0 across all rings at 12 o'clock
       const a0 = ang(0, n);
-      const [tx0, ty0] = pol(cx, cy, R - 6, a0);
-      const [tx1, ty1] = pol(cx, cy, R + 6, a0);
+      const [tx0, ty0] = pol(cx, cy, inner - 4, a0);
+      const [tx1, ty1] = pol(cx, cy, outer + 4, a0);
       ring.push(el("line", { x1: tx0.toFixed(1), y1: ty0.toFixed(1), x2: tx1.toFixed(1), y2: ty1.toFixed(1), stroke: color, "stroke-width": 1.5 }));
-      // onset duration arcs — same primitive as the mono ring (createCircleView),
-      // one ringWidth per DESIGN_AGENT_ANSWERS.md §1's poly geometry.
-      for (const [i, j] of onsetSpans(lane.steps)) {
+      // onset slices — same primitive as the mono ring (createCircleView):
+      // each step owns its own fixed 360/n wedge of THIS lane's own band.
+      for (let i = 0; i < n; i++) {
+        if (!lane.steps[i]) continue;
         const acc = !!lane.accents[i];
         ring.push(el("path", {
-          d: onsetArcPath(cx, cy, R, i, j, n),
-          fill: "none", stroke: acc ? accentAmber : color,
-          "stroke-width": acc ? RING_WIDTH + 4 : RING_WIDTH, "stroke-linecap": "round",
+          d: stepWedgePath(cx, cy, inner, acc ? outer + 4 : outer, i, n),
+          fill: acc ? accentAmber : color,
         }));
-        if (acc) ring.push(accentTick(cx, cy, R, i, n, accentAmber));
       }
       // playhead marker — this ring's own current step, regardless of
       // on/off (a rest can still be "where the clock is"). A per-ring dot,
@@ -332,7 +333,7 @@ export function createPolyCircleView(host, opts = {}) {
       // needs a continuous cycle-phase the bridge doesn't send yet — noted
       // as a follow-up, not silently dropped.
       if (lanePh[li] >= 0 && lanePh[li] < n) {
-        const [px, py] = pol(cx, cy, R, ang(lanePh[li], n));
+        const [px, py] = pol(cx, cy, (inner + outer) / 2, ang(lanePh[li], n));
         ring.push(el("circle", { cx: px, cy: py, r: 3, fill: "var(--es-fg)" }));
       }
       const g = el("g", { opacity: muted[li] ? 0.35 : 1 });
