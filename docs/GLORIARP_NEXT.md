@@ -326,13 +326,21 @@ the original sizing (below the line) was wrong about WHY:**
   clean (`tsc -b`, `vite build`) — this touches TypeScript consumed via
   `dist/`, so both were rebuilt and re-checked, not just source-tested.
 
-**Known limitation, not a blocker:** `resolveClipFrames` is bar-
-granularity only — a bar written with 2+ chords (e.g. "Dm7 G7" in one
-bar) reads as its first chord, the same simplification
-`getEffectiveBarChords` already makes elsewhere. Sub-bar splitting
-(`LeadsheetChord`'s own `position`/`totalInBar`/`beatPosition`) is real
-follow-up work, not attempted here — most of the voice-leading value is
-already in bar-to-bar changes, which is what shipped.
+**Sub-bar splitting closed, 2026-07-21.** `resolveClipFrames` now builds
+directly from each `LeadsheetChord`'s own
+`position`/`totalInBar`/`beatPosition`/`duration` when a bar actually
+carries more than one chord (e.g. "Dm7 G7" in one bar of a real tune) —
+sub-bar accurate, so a voice-leading note landing on beat 3's chord
+change reads against the chord that's ACTUALLY sounding there. A
+one-chord-per-bar leadsheet still takes the original bar-level path
+(`resolveClipFramesByBar`, via `getEffectiveBarChords`) unchanged — the
+sub-bar machinery only runs when there's real sub-bar data to read,
+verified identical otherwise. 7 new tests (`gloriarp-clip.test.ts`):
+equal-division split, explicit `beatPosition`/`duration` for an uneven
+split, a one-chord-per-bar leadsheet proven untouched, an explicit NC
+breaking resonance without merging across the gap it leaves, and a chord
+held across bars via sub-bar data still merging into one span. 1507/1507
+monorepo.
 
 **Not done:** the CLI (`msuite style learn`) still only takes `--chord`,
 no `--leadsheet` equivalent — Alex's own framing ("just the clips

@@ -517,3 +517,136 @@ describe('progression-learned styles (real voice leading across chord changes)',
     expect(clipHasProgression(held)).toBe(false); // one held chord, not a progression
   });
 });
+
+// ── Sub-bar leadsheet frames — more than one chord per bar ──────────────────
+// A follow-up to §3g's own known limitation ("a bar with 2+ chords reads as
+// its first chord"), now closed: resolveClipFrames builds directly from
+// each LeadsheetChord's own position/totalInBar/beatPosition/duration when
+// a bar actually carries more than one chord, instead of always going
+// through getEffectiveBarChords (which only ever reads chords[0]).
+
+describe('sub-bar leadsheet frames (more than one chord per bar)', () => {
+  const kv = () => {
+    const m = new Map<string, string>();
+    return { getItem: (k: string) => m.get(k) ?? null, setItem: (k: string, v: string) => { m.set(k, v); } };
+  };
+  const DM7: DetectedChord = { root: 2, rootName: 'D', qualityKey: 'min7', symbol: 'Dm7', qualityName: 'minor seventh', templatePcs: [2, 5, 9, 0] };
+  const G7: DetectedChord = { root: 7, rootName: 'G', qualityKey: '7', symbol: 'G7', qualityName: 'dominant seventh', templatePcs: [7, 11, 2, 5] };
+
+  /** One bar, TWO chords (Dm7 then G7) — the case getEffectiveBarChords
+   *  can't see, since it only ever reads a bar's chords[0]. No explicit
+   *  beatPosition/duration, so each gets an equal half of the bar (2
+   *  beats = 960 ticks at 480 tpb). */
+  const twoChordBarClip = (): Clip => {
+    const pitches = [38, 43]; // D3 (Dm7 root), G3 (G7 root)
+    const onsets = [0, 960];
+    return {
+      id: 'two-chord-bar', filename: 'two-chord-bar.mid', imported_at: 0, bpm: 120, rating: null, notes: '',
+      gesture: {
+        onsets, durations: [180, 180], velocities: [100, 100],
+        density: 1, syncopation_score: 0, avg_velocity: 100, velocity_variance: 0, avg_duration: 180,
+        num_bars: 1, ticks_per_bar: 1920, ticks_per_beat: 480,
+      },
+      harmonic: {
+        pitches, pitchClasses: pitches.map((p) => p % 12),
+        barChords: [{ bar: 0, chord: null, pitchClasses: [] }],
+      },
+      leadsheet: {
+        inputText: 'Dm7 G7',
+        bars: [{ bar: 0, isRepeat: false, chords: [
+          { chord: DM7, inputText: 'Dm7', position: 0, totalInBar: 2 },
+          { chord: G7, inputText: 'G7', position: 1, totalInBar: 2 },
+        ] }],
+      },
+    };
+  };
+
+  it('clipHasProgression is true for a two-chord bar — sub-bar progression, not just bar-to-bar', () => {
+    expect(clipHasProgression(twoChordBarClip())).toBe(true);
+  });
+
+  it('splits a two-chord bar at the equal-division boundary when there is no explicit beatPosition/duration', () => {
+    const model = learnStyleModelFromProgressionClips([twoChordBarClip()], 'two-chord-bar-model', kv());
+    expect(model.frames).toHaveLength(2);
+    expect(model.frames?.[0]).toMatchObject({ start: 0, end: 960 });
+    expect(model.frames?.[0]?.chord.symbol).toBe('Dm7');
+    expect(model.frames?.[1]).toMatchObject({ start: 960, end: 1920 });
+    expect(model.frames?.[1]?.chord.symbol).toBe('G7');
+  });
+
+  it('a two-chord-bar model still samples and generates a playable clip', () => {
+    const s = kv();
+    learnStyleModelFromProgressionClips([twoChordBarClip()], 'two-chord-bar-model', s);
+    const { notes } = generateGrooveClip({ ...CANON, style: 'two-chord-bar-model' }, s);
+    expect(notes.length).toBeGreaterThan(0);
+  });
+
+  it('honors explicit beatPosition/duration for an UNEVEN split (3 beats then 1 beat)', () => {
+    const uneven: Clip = {
+      ...twoChordBarClip(),
+      leadsheet: {
+        inputText: 'Dm7 . . G7',
+        bars: [{ bar: 0, isRepeat: false, chords: [
+          { chord: DM7, inputText: 'Dm7', position: 0, totalInBar: 2, beatPosition: 0, duration: 3 },
+          { chord: G7, inputText: 'G7', position: 1, totalInBar: 2, beatPosition: 3, duration: 1 },
+        ] }],
+      },
+    };
+    const model = learnStyleModelFromProgressionClips([uneven], 'uneven-model', kv());
+    expect(model.frames?.[0]).toMatchObject({ start: 0, end: 1440 }); // 3 beats * 480
+    expect(model.frames?.[1]).toMatchObject({ start: 1440, end: 1920 }); // 1 beat * 480
+  });
+
+  it('a one-chord-per-bar leadsheet is untouched — still the bar-level path, same result as before', () => {
+    const oneChordPerBar: Clip = {
+      ...twoChordBarClip(),
+      leadsheet: {
+        inputText: 'Dm7',
+        bars: [{ bar: 0, isRepeat: false, chords: [{ chord: DM7, inputText: 'Dm7', position: 0, totalInBar: 1 }] }],
+      },
+    };
+    expect(clipHasProgression(oneChordPerBar)).toBe(false);
+  });
+
+  it('an explicit NC mid-bar breaks resonance — the gap it leaves is never bridged', () => {
+    // Three equal thirds (640 ticks each): Dm7, then NC, then G7. If
+    // resonance incorrectly carried Dm7 through the NC, the two chords
+    // would still merge into one span despite the gap; they must not.
+    const withNC: Clip = {
+      ...twoChordBarClip(),
+      leadsheet: {
+        inputText: 'Dm7 NC G7',
+        bars: [{ bar: 0, isRepeat: false, chords: [
+          { chord: DM7, inputText: 'Dm7', position: 0, totalInBar: 3 },
+          { chord: null, inputText: 'NC', position: 1, totalInBar: 3 },
+          { chord: G7, inputText: 'G7', position: 2, totalInBar: 3 },
+        ] }],
+      },
+    };
+    const model = learnStyleModelFromProgressionClips([withNC], 'nc-model', kv());
+    expect(model.frames).toHaveLength(2); // Dm7 and G7 stay separate spans, not merged across the NC
+    expect(model.frames?.[0]).toMatchObject({ start: 0, end: 640 });
+    expect(model.frames?.[1]).toMatchObject({ start: 1280, end: 1920 }); // the 640..1280 NC gap is never covered
+  });
+
+  it('a chord held across bars via sub-bar data still merges into one span', () => {
+    const held: Clip = {
+      ...twoChordBarClip(),
+      gesture: { ...twoChordBarClip().gesture, num_bars: 2 },
+      harmonic: { ...twoChordBarClip().harmonic, barChords: [{ bar: 0, chord: null, pitchClasses: [] }, { bar: 1, chord: null, pitchClasses: [] }] },
+      leadsheet: {
+        inputText: 'Dm7 G7 | %',
+        bars: [
+          { bar: 0, isRepeat: false, chords: [
+            { chord: DM7, inputText: 'Dm7', position: 0, totalInBar: 2 },
+            { chord: G7, inputText: 'G7', position: 1, totalInBar: 2 },
+          ] },
+          { bar: 1, isRepeat: true, chords: [] }, // carries G7 forward through bar 2
+        ],
+      },
+    };
+    const model = learnStyleModelFromProgressionClips([held], 'held-model', kv());
+    expect(model.frames).toHaveLength(2); // Dm7, then G7 spanning 960..3840 (bar 1's second half + all of bar 2)
+    expect(model.frames?.[1]).toMatchObject({ start: 960, end: 3840 });
+  });
+});

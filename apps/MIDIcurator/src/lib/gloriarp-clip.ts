@@ -40,7 +40,7 @@ import type {
   AccompanimentPhrase, AccompanimentRole, FrameChord, HarmonicFrame, InputNote, StyleModel,
 } from '@enkerli/accompaniment';
 import { findQualityByKey } from '@enkerli/theory';
-import type { Clip, Note } from '../types/clip';
+import type { Clip, DetectedChord, Leadsheet, Note } from '../types/clip';
 import { getEffectiveBarChords } from './gesture';
 
 import walkingBass from '../../../../packages/accompaniment/vectors/source-walking-bass.json';
@@ -263,46 +263,124 @@ export function learnStyleModelFromClips(clips: Clip[], name: string, kv?: KV): 
 // these are new, parallel functions, not a refactor of it, so nothing that
 // already depends on "every clip plays one chord" changes behavior.
 
-/**
- * A clip's full harmonic timeline: one HarmonicFrame per run of bars that
- * share a chord (adjacent identical chords merge into one span — a chord
- * held for 4 bars is one span, not four identical ones). Built from the
- * leadsheet-aware per-bar chords (getEffectiveBarChords) when a clip has
- * per-bar data; falls back to resolveClipFrame's single whole-clip chord
- * when it doesn't — a vamped one-chord clip therefore always degrades to
- * exactly the same single frame resolveClipFrame already produced for it.
- *
- * Bar-granularity only: a bar written with 2+ chords (e.g. "Dm7 G7") is
- * read as its first chord, the same simplification getEffectiveBarChords
- * itself already makes. Real sub-bar splitting (LeadsheetChord's own
- * position/totalInBar/beatPosition) is a follow-up, not a blocker — most
- * of the "learn real voice leading" value is already in bar-to-bar changes.
- */
-function resolveClipFrames(clip: Clip): HarmonicFrame[] {
+/** DetectedChord → FrameChord, deriving pcs from templatePcs/observedPcs or
+ *  the quality dictionary — the shared derivation resolveClipFrame,
+ *  resolveClipFramesByBar, and the sub-bar path all need. Returns null
+ *  (not a throw) when no pcs can be derived, so a caller iterating many
+ *  chords can skip just that one instead of failing the whole clip. */
+function frameChordOf(detected: DetectedChord): FrameChord | null {
+  let pcs = detected.templatePcs ?? detected.observedPcs ?? [];
+  if (!pcs.length && detected.qualityKey) {
+    const q = findQualityByKey(detected.qualityKey);
+    if (q) pcs = q.pcs.map((p) => (((detected.root + p) % 12) + 12) % 12);
+  }
+  if (!pcs.length) return null;
+  return { symbol: detected.symbol, rootPc: detected.root, pcs };
+}
+
+/** Append [start,end) as a new frame, or extend the previous one when it's
+ *  the SAME chord ending exactly where this one starts — a chord held
+ *  across bars, or across adjacent sub-bar positions, is one span, not
+ *  several identical ones. Silently drops a zero/negative-length span
+ *  (malformed duration data) rather than polluting the timeline with it. */
+function pushOrExtendFrame(frames: HarmonicFrame[], start: number, end: number, chord: FrameChord): void {
+  if (end <= start) return;
+  const prev = frames[frames.length - 1];
+  if (prev && prev.end === start && prev.chord.symbol === chord.symbol) prev.end = end;
+  else frames.push({ start, end, chord });
+}
+
+/** Bar-granularity timeline: one chord per bar, via per-bar chord
+ *  detection/leadsheet-override (getEffectiveBarChords). Falls back to
+ *  resolveClipFrame's single whole-clip chord when there's no per-bar
+ *  data at all — a vamped one-chord clip degrades to exactly that one
+ *  frame. This is resolveClipFrames' OWN fallback for clips whose
+ *  leadsheet never places more than one chord in any bar — it produces
+ *  an identical result to the sub-bar path for that case, so there's no
+ *  reason to run the sub-bar machinery when it wouldn't do anything. */
+function resolveClipFramesByBar(clip: Clip): HarmonicFrame[] {
   const g = clip.gesture;
   const ticksPerBar = g.ticks_per_bar || (g.ticks_per_beat || 480) * 4;
   const barChords = getEffectiveBarChords(clip);
   if (!barChords || !barChords.length) {
     return [{ start: 0, end: Math.max(1, g.num_bars * ticksPerBar), chord: resolveClipFrame(clip) }];
   }
-
   const frames: HarmonicFrame[] = [];
   for (const bc of barChords) {
-    const detected = bc.chord;
-    if (!detected) continue; // no chord established at this bar yet — no span to relate against
-    let pcs = detected.templatePcs ?? detected.observedPcs ?? [];
-    if (!pcs.length && detected.qualityKey) {
-      const q = findQualityByKey(detected.qualityKey);
-      if (q) pcs = q.pcs.map((p) => (((detected.root + p) % 12) + 12) % 12);
-    }
-    if (!pcs.length) continue; // same "no pitch classes to relate against" guard resolveClipFrame has
-    const chord: FrameChord = { symbol: detected.symbol, rootPc: detected.root, pcs };
-    const start = bc.bar * ticksPerBar;
-    const end = start + ticksPerBar;
+    if (!bc.chord) continue; // no chord established at this bar yet — no span to relate against
+    const chord = frameChordOf(bc.chord);
+    if (!chord) continue; // same "no pitch classes to relate against" guard resolveClipFrame has
+    pushOrExtendFrame(frames, bc.bar * ticksPerBar, bc.bar * ticksPerBar + ticksPerBar, chord);
+  }
+  if (!frames.length) throw new Error('clip needs a chord (add a leadsheet, or let detection find one) so the phrase knows its harmony');
+  return frames;
+}
 
-    const prev = frames[frames.length - 1];
-    if (prev && prev.end === start && prev.chord.symbol === chord.symbol) prev.end = end;
-    else frames.push({ start, end, chord });
+/** True when the leadsheet actually places more than one chord within at
+ *  least one bar — the signal that sub-bar splitting has real work to do.
+ *  A one-chord-per-bar (or repeat/NC-only) leadsheet doesn't need it: the
+ *  bar-level path already produces the identical timeline for that case. */
+function hasSubBarChords(leadsheet: Leadsheet | undefined): boolean {
+  return !!leadsheet?.bars.some((lb) => lb.chords.length > 1);
+}
+
+/**
+ * A clip's full harmonic timeline — one HarmonicFrame per run of TIME
+ * (not just whole bars) that shares a chord. When the clip's own leadsheet
+ * places more than one chord in some bar (e.g. "Dm7 G7", a real tune's
+ * actual harmonic rhythm, not a bar-quantized approximation of it), this
+ * builds the timeline directly from each LeadsheetChord's own
+ * position/totalInBar/beatPosition/duration — sub-bar accurate, so a
+ * voice-leading note landing on beat 3's chord change reads against the
+ * chord that's ACTUALLY sounding there, not whatever chord opened the
+ * bar. Falls back to resolveClipFramesByBar (bar-granularity) otherwise,
+ * which stays the exact path it always was for every clip that doesn't
+ * need the extra precision — additive, not a replacement of it.
+ *
+ * A held chord still merges into one span across bar AND sub-bar
+ * boundaries alike (pushOrExtendFrame) — a chord that opens bar 2 and
+ * carries through an isRepeat bar 3 is one frame spanning both, same as
+ * the bar-level path's own resonance rule, just finer-grained.
+ */
+function resolveClipFrames(clip: Clip): HarmonicFrame[] {
+  const leadsheet = clip.leadsheet;
+  if (!hasSubBarChords(leadsheet)) return resolveClipFramesByBar(clip);
+
+  const g = clip.gesture;
+  const ticksPerBeat = g.ticks_per_beat || 480;
+  const ticksPerBar = g.ticks_per_bar || ticksPerBeat * 4;
+  const beatsPerBar = ticksPerBar / ticksPerBeat;
+  const numBars = g.num_bars || leadsheet!.bars.length;
+  const barMap = new Map(leadsheet!.bars.map((lb) => [lb.bar, lb]));
+
+  const frames: HarmonicFrame[] = [];
+  // Chord resonance across bars, same idiom as getEffectiveBarChords: once
+  // a chord is established it carries forward until the next explicit
+  // chord or an explicit NC marker resets it.
+  let lastChord: FrameChord | null = null;
+  for (let barIdx = 0; barIdx < numBars; barIdx++) {
+    const barStart = barIdx * ticksPerBar;
+    const lb = barMap.get(barIdx);
+
+    if (!lb || lb.isRepeat || lb.chords.length === 0) {
+      if (lastChord) pushOrExtendFrame(frames, barStart, barStart + ticksPerBar, lastChord);
+      continue;
+    }
+    for (const lc of lb.chords) {
+      // beatPosition is authoritative when present; otherwise this chord's
+      // slot is its equal-division position (position * beatsPerBar/totalInBar)
+      // — the same "no explicit position → equal division" rule
+      // LeadsheetChord's own doc comment specifies.
+      const startBeat = lc.beatPosition ?? (lc.position * beatsPerBar) / lc.totalInBar;
+      const durBeats = lc.duration ?? beatsPerBar / lc.totalInBar;
+      const start = barStart + Math.round(startBeat * ticksPerBeat);
+      const end = Math.min(barStart + ticksPerBar, start + Math.round(durBeats * ticksPerBeat));
+      if (!lc.chord) { lastChord = null; continue; } // explicit NC — resonance breaks, no span here
+      const chord = frameChordOf(lc.chord);
+      if (!chord) continue;
+      lastChord = chord;
+      pushOrExtendFrame(frames, start, end, chord);
+    }
   }
   if (!frames.length) throw new Error('clip needs a chord (add a leadsheet, or let detection find one) so the phrase knows its harmony');
   return frames;
