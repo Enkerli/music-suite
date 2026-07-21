@@ -6,8 +6,9 @@ import {
   importStyleFromJson, exportStyleJson,
   styleKind, clipFamily, learnStyleModelFromFamily,
   DENSITY_PRESETS, generateDensityFamily,
+  clipHasProgression, learnStyleModelFromProgressionClips, learnStyleModelFromProgressionFamily,
 } from '../gloriarp-clip';
-import type { Clip } from '../../types/clip';
+import type { Clip, DetectedChord } from '../../types/clip';
 import adaptedVector from '../../../../../packages/accompaniment/vectors/adapted-dm7-g7-cmaj7-a7-seed42.json';
 
 const CANON = { progression: 'Dm7 | G7 | Cmaj7 | A7', style: 'walking-bass' as const, seed: 42, bpm: 120 };
@@ -404,5 +405,115 @@ describe('variants as style sources (docs/KNOWLEDGE_TRANSFER.md item 4)', () => 
       const family = generateDensityFamily({ ...CANON, style: 'fam-model2' }, custom, s);
       expect(family.map((f) => f.label)).toEqual(['sparse', 'dense']);
     });
+  });
+});
+
+// ── Learn from a real progression, not one vamped chord (docs/GLORIARP_NEXT.md §3g) ─
+
+describe('progression-learned styles (real voice leading across chord changes)', () => {
+  const kv = () => {
+    const m = new Map<string, string>();
+    return { getItem: (k: string) => m.get(k) ?? null, setItem: (k: string, v: string) => { m.set(k, v); } };
+  };
+
+  const DM7: DetectedChord = { root: 2, rootName: 'D', qualityKey: 'min7', symbol: 'Dm7', qualityName: 'minor seventh', templatePcs: [2, 5, 9, 0] };
+  const G7: DetectedChord = { root: 7, rootName: 'G', qualityKey: '7', symbol: 'G7', qualityName: 'dominant seventh', templatePcs: [7, 11, 2, 5] };
+  const CMAJ7: DetectedChord = { root: 0, rootName: 'C', qualityKey: 'maj7', symbol: 'Cmaj7', qualityName: 'major seventh', templatePcs: [0, 4, 7, 11] };
+
+  /** A 2-bar Dm7 | G7 clip: root/3rd on Dm7, a leading tone into the change
+   *  (F♯ just before bar 2), root/3rd on G7 — the kind of two-chord take a
+   *  real tune produces, as opposed to one bar vamped and looped. */
+  const progressionClip = (variant = 0): Clip => {
+    const jitter = [0, 3, -2, 4][variant % 4]!;
+    const pitches = [38, 41, 42, 43, 47];
+    const onsets = [0 + jitter, 960, 1800 + jitter, 1920, 2880];
+    return {
+      id: `prog-${variant}`, filename: `prog-${variant}.mid`, imported_at: 0, bpm: 120, rating: null, notes: '',
+      gesture: {
+        onsets, durations: [180, 180, 90, 180, 180], velocities: [100, 92, 88, 104, 96],
+        density: 1, syncopation_score: 0, avg_velocity: 96, velocity_variance: 0, avg_duration: 160,
+        num_bars: 2, ticks_per_bar: 1920, ticks_per_beat: 480,
+      },
+      harmonic: {
+        pitches, pitchClasses: pitches.map((p) => p % 12),
+        barChords: [{ bar: 0, chord: null, pitchClasses: [] }, { bar: 1, chord: null, pitchClasses: [] }],
+      },
+      leadsheet: {
+        inputText: 'Dm7 | G7',
+        bars: [
+          { bar: 0, isRepeat: false, chords: [{ chord: DM7, inputText: 'Dm7', position: 0, totalInBar: 1 }] },
+          { bar: 1, isRepeat: false, chords: [{ chord: G7, inputText: 'G7', position: 0, totalInBar: 1 }] },
+        ],
+      },
+    };
+  };
+
+  it('clipHasProgression distinguishes a real progression from one vamped chord', () => {
+    expect(clipHasProgression(progressionClip())).toBe(true);
+    const oneChord: Clip = {
+      ...progressionClip(),
+      leadsheet: { inputText: 'Dm7', bars: [{ bar: 0, isRepeat: false, chords: [{ chord: DM7, inputText: 'Dm7', position: 0, totalInBar: 1 }] }, { bar: 1, isRepeat: true, chords: [] }] },
+    };
+    expect(clipHasProgression(oneChord)).toBe(false);
+  });
+
+  it('learnStyleModelFromProgressionClips learns the whole timeline, not just the first chord', () => {
+    const s = kv();
+    const model = learnStyleModelFromProgressionClips([progressionClip(0), progressionClip(1), progressionClip(2)], 'dm7-g7', s);
+    expect(model.takes).toBe(3);
+    expect(model.frames).toHaveLength(2);
+    expect(model.frames?.map((f) => f.chord.symbol)).toEqual(['Dm7', 'G7']);
+    expect(listUserModels(s).map((e) => e.name)).toContain('dm7-g7');
+  });
+
+  it('a progression model generates a playable clip whose notes span both chords', () => {
+    const s = kv();
+    learnStyleModelFromProgressionClips([progressionClip(0), progressionClip(1)], 'dm7-g7', s);
+    const { notes } = generateGrooveClip({ ...CANON, style: 'dm7-g7' }, s);
+    expect(notes.length).toBeGreaterThan(0);
+    expect(notes.some((n) => n.ticks < 1920)).toBe(true);
+    expect(notes.some((n) => n.ticks >= 1920)).toBe(true);
+  });
+
+  it('learnStyleModelFromProgressionFamily matches the manual clipFamily + learnStyleModelFromProgressionClips path', () => {
+    const root = progressionClip(0);
+    const child: Clip = { ...progressionClip(1), id: 'child', source: root.id };
+    const s1 = kv(), s2 = kv();
+    const viaFamily = learnStyleModelFromProgressionFamily(child, [root, child], 'fam-prog', s1);
+    const viaManual = learnStyleModelFromProgressionClips(clipFamily(child, [root, child]), 'fam-prog', s2);
+    expect(viaFamily).toEqual(viaManual);
+    expect(viaFamily.takes).toBe(2);
+  });
+
+  it('refuses to fold clips with different progressions into one model, by filename', () => {
+    const s = kv();
+    const other: Clip = {
+      ...progressionClip(0), filename: 'different-tune.mid',
+      leadsheet: {
+        inputText: 'Cmaj7 | G7',
+        bars: [
+          { bar: 0, isRepeat: false, chords: [{ chord: CMAJ7, inputText: 'Cmaj7', position: 0, totalInBar: 1 }] },
+          { bar: 1, isRepeat: false, chords: [{ chord: G7, inputText: 'G7', position: 0, totalInBar: 1 }] },
+        ],
+      },
+    };
+    expect(() => learnStyleModelFromProgressionClips([progressionClip(0), other], 'mixed', s))
+      .toThrow(/different-tune\.mid.*different progression than.*prog-0\.mid/s);
+  });
+
+  it("a held chord across bars merges into one span, not one per bar", () => {
+    const held: Clip = {
+      ...progressionClip(0),
+      gesture: { ...progressionClip(0).gesture, num_bars: 2 },
+      harmonic: { ...progressionClip(0).harmonic, barChords: [{ bar: 0, chord: null, pitchClasses: [] }, { bar: 1, chord: null, pitchClasses: [] }] },
+      leadsheet: {
+        inputText: 'Dm7 | %',
+        bars: [
+          { bar: 0, isRepeat: false, chords: [{ chord: DM7, inputText: 'Dm7', position: 0, totalInBar: 1 }] },
+          { bar: 1, isRepeat: true, chords: [] },
+        ],
+      },
+    };
+    expect(clipHasProgression(held)).toBe(false); // one held chord, not a progression
   });
 });

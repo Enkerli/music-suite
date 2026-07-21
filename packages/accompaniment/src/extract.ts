@@ -21,10 +21,25 @@
  * other. A phrase with no polyphony (every hit is one note) takes the exact
  * legacy path — single global chain, no `voice` field — so mono output is
  * byte-identical to before this existed.
+ *
+ * PROGRESSIONS (docs/GLORIARP_NEXT.md §3g): `frames` generalizes the
+ * original single `frame` — each note relates to whichever HarmonicFrame
+ * covers its onset instead of one chord for the whole phrase. Nothing about
+ * `relate()` itself changes: chord-tone degree was always computed against
+ * "the chord passed in", and the chromatic-approach check was always just
+ * "one pc-semitone from the next note in this voice's chain" — neither
+ * cared whether that chord/next-note happened to be the SAME chord as the
+ * current note's. So a note a semitone below the first note of the
+ * FOLLOWING chord's span already reads as a chromatic-approach resolving
+ * INTO that chord — real voice leading — purely as a side effect of giving
+ * each note its own frame; no new inference category was needed. `frame`
+ * (singular) keeps working exactly as before — it's just the frames.length
+ * === 1 case now, byte-identical output, so every existing caller is
+ * unaffected.
  */
 
 import type {
-  AccompanimentPhrase, AccompanimentRole, ChordRelation, FrameChord, Meter,
+  AccompanimentPhrase, AccompanimentRole, ChordRelation, FrameChord, HarmonicFrame, Meter,
   PhraseEvent, ProvenanceRef,
 } from "./phrase.js";
 import { PHRASE_SCHEMA_V } from "./phrase.js";
@@ -46,12 +61,37 @@ export interface ExtractOptions {
   meter: Meter;
   ticksPerBeat: number;
   lengthTicks: number;
-  /** The single chord the source phrase was played against (slice 1: one frame). */
-  frame: FrameChord;
+  /** The single chord the source phrase was played against (slice 1: one
+   *  frame). Exactly one of `frame`/`frames` is required — pass `frames`
+   *  for a phrase played against a real progression. */
+  frame?: FrameChord;
+  /** A harmonic timeline (ticks, contiguous, covering [0, lengthTicks)) the
+   *  source was played against — a real chord progression, not one vamped
+   *  chord. Each note relates to whichever frame covers its onset. */
+  frames?: HarmonicFrame[];
   source?: ProvenanceRef;
   /** Notes starting within this many ticks of each other are one "hit" for
    *  voice detection. Default: ticksPerBeat/32 (a 128th note). */
   simultaneityTicks?: number;
+}
+
+/** Resolve `frame`/`frames` into one normalized timeline. */
+function resolveFrames(opts: ExtractOptions): HarmonicFrame[] {
+  if (opts.frames) {
+    if (!opts.frames.length) throw new Error("extractPhrase: frames must be non-empty");
+    return opts.frames;
+  }
+  if (opts.frame) return [{ start: 0, end: opts.lengthTicks, chord: opts.frame }];
+  throw new Error("extractPhrase: exactly one of `frame`/`frames` is required");
+}
+
+/** Frame covering an onset (frames are contiguous, ordered by start). Onsets
+ *  past the end of the last frame (a trailing chromatic approach one tick
+ *  over) fall back to that last frame — same defensive edge as bass.ts's
+ *  own frameAt. */
+function frameAt(frames: HarmonicFrame[], onset: number): HarmonicFrame {
+  for (const f of frames) if (onset >= f.start && onset < f.end) return f;
+  return frames[frames.length - 1]!;
 }
 
 const mod12 = (n: number) => ((n % 12) + 12) % 12;
@@ -115,8 +155,10 @@ function detectVoices(sorted: InputNote[], simultaneityTicks: number): number[] 
   return voices;
 }
 
-/** Notes + one harmonic frame → a validated-shape AccompanimentPhrase. */
+/** Notes + a harmonic timeline (one frame, or a real progression) → a
+ *  validated-shape AccompanimentPhrase. */
 export function extractPhrase(notes: InputNote[], opts: ExtractOptions): AccompanimentPhrase {
+  const frames = resolveFrames(opts);
   const sorted = [...notes].sort((a, b) => a.startTick - b.startTick || a.pitch - b.pitch);
   const tolerance = opts.simultaneityTicks ?? Math.max(1, Math.round(opts.ticksPerBeat / 32));
   const voices = detectVoices(sorted, tolerance);
@@ -144,7 +186,7 @@ export function extractPhrase(notes: InputNote[], opts: ExtractOptions): Accompa
       velocity: n.velocity ?? 96,
       note: n.pitch,
       pitchClass: mod12(n.pitch),
-      chordRelation: relate(n.pitch, next, opts.frame, nextIndex),
+      chordRelation: relate(n.pitch, next, frameAt(frames, n.startTick).chord, nextIndex),
       sourceEventId: `e${i}`,
       ...(voices && { voice: voices[i] }),
     };
@@ -158,6 +200,6 @@ export function extractPhrase(notes: InputNote[], opts: ExtractOptions): Accompa
     meter: opts.meter,
     ...(opts.source !== undefined && { source: opts.source }),
     events,
-    harmonicFrames: [{ start: 0, end: opts.lengthTicks, chord: opts.frame }],
+    harmonicFrames: frames,
   };
 }

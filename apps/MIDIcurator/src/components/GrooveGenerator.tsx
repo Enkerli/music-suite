@@ -413,7 +413,7 @@ export function GrooveGenerator({
               className="mc-groove-gen__from-clip"
               disabled={!hasSelectedClip}
               title={hasSelectedClip
-                ? `Learn a style MODEL from the selected clip's whole variant family (${familySize} clip${familySize === 1 ? '' : 's'} — VP intensity siblings, density variants…), not just this one clip`
+                ? `Learn a style MODEL from the selected clip's whole variant family (${familySize} clip${familySize === 1 ? '' : 's'} — VP intensity siblings, density variants…), not just this one clip. A clip whose leadsheet has more than one chord learns real voice leading between them, not just one chord's vocabulary.`
                 : 'Select a clip first'}
               onClick={() => learn(onLearnFamilyStyle, 'family')}
             >

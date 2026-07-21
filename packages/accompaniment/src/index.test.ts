@@ -80,6 +80,53 @@ describe("extractPhrase — chord-relative inference", () => {
     const p = extractPhrase([{ pitch: 44, startTick: 0, durationTicks: 480 }], opts); // G♯ vs Dm7, no neighbor
     expect(p.events[0]!.chordRelation).toMatchObject({ category: "unclassified", confidence: 0 });
   });
+  it("requires exactly one of frame/frames", () => {
+    const { frame: _frame, ...noFrame } = opts;
+    expect(() => extractPhrase(notes, noFrame as typeof opts)).toThrow(/exactly one of/);
+    expect(() => extractPhrase(notes, { ...opts, frames: [] })).toThrow(/non-empty/);
+  });
+});
+
+describe("extractPhrase — a real progression (docs/GLORIARP_NEXT.md §3g)", () => {
+  // Dm7 | G7, back to back — a note is a chord tone of whichever chord is
+  // ACTUALLY sounding under it, and a note near the boundary that's one
+  // semitone from the following chord's first note reads as a chromatic
+  // approach INTO it — cross-chord voice leading, not a new inference
+  // category, just relate() given the right chord per note.
+  const G7: FrameChord = { symbol: "G7", rootPc: 7, pcs: [7, 11, 2, 5] };
+  const frames: HarmonicFrame[] = [
+    { start: 0, end: 1920, chord: DM7 },
+    { start: 1920, end: 3840, chord: G7 },
+  ];
+  const notes = [
+    { pitch: 38, startTick: 0, durationTicks: 480, velocity: 96 },     // D — Dm7 root
+    { pitch: 42, startTick: 1800, durationTicks: 120, velocity: 90 },  // F♯ — one semitone below G7's root
+    { pitch: 43, startTick: 1920, durationTicks: 480, velocity: 100 }, // G — G7 root, first note of the NEXT span
+  ];
+  const opts = {
+    id: "t", role: "bass" as const, meter: { numerator: 4, denominator: 4 },
+    ticksPerBeat: 480, lengthTicks: 3840, frames,
+  };
+  it("gives each note the chord that's actually sounding at its onset", () => {
+    const p = extractPhrase(notes, opts);
+    expect(p.events[0]!.chordRelation).toMatchObject({ category: "chord-tone", degree: 1 }); // D in Dm7
+    expect(p.events[2]!.chordRelation).toMatchObject({ category: "chord-tone", degree: 1 }); // G in G7, not Dm7
+  });
+  it("hears a boundary semitone as a chromatic approach INTO the next chord", () => {
+    const p = extractPhrase(notes, opts);
+    expect(p.events[1]!.chordRelation).toMatchObject({
+      category: "chromatic-approach", alteration: -1, target: 2, // targets the G7-root event
+    });
+  });
+  it("round-trips the whole timeline in harmonicFrames, not just the first chord", () => {
+    const p = extractPhrase(notes, opts);
+    expect(p.harmonicFrames).toEqual(frames);
+  });
+  it("a single frame keeps producing frames.length === 1, byte-identical to the old `frame` call", () => {
+    const viaFrame = extractPhrase(notes.slice(0, 1), { ...opts, frame: DM7, frames: undefined, lengthTicks: 1920 });
+    const viaFrames = extractPhrase(notes.slice(0, 1), { ...opts, frames: [{ start: 0, end: 1920, chord: DM7 }], lengthTicks: 1920 });
+    expect(viaFrame).toEqual(viaFrames);
+  });
 });
 
 // ── features ─────────────────────────────────────────────────────────────────

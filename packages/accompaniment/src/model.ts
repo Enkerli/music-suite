@@ -28,10 +28,26 @@
  * naturally gets half the onset probability). A monophonic corpus never
  * populates `voices` at all, so its models are byte-identical to before
  * comping existed.
+ *
+ * PROGRESSIONS (docs/GLORIARP_NEXT.md §3g): a model learned from a real
+ * chord progression (not one vamped chord) carries `frames`, the whole
+ * timeline — `frame` (singular) stays populated as `frames[0].chord`, so
+ * every existing single-chord consumer keeps working unchanged. Slot
+ * accumulation itself (`addTake`) needed NO change: a slot's statistics are
+ * already just "what absolute note/velocity/timing showed up at this tick
+ * position across takes" — chord-agnostic by construction, since the
+ * chord-relative INTERPRETATION lives in each take's own `chordRelation`,
+ * not in the slot. The one real change is sampling: `samplePhrase` re-runs
+ * extraction over the model's own `frames` instead of one repeated chord,
+ * so a sampled take carries correct per-position chord-relations — which is
+ * what lets `adaptBassPhrase` reharmonize it onto a DIFFERENT target
+ * progression later, exactly as it already does for single-chord models.
  */
 
 import { mulberry32 } from "@enkerli/proggen";
-import type { AccompanimentPhrase, AccompanimentRole, FrameChord, Meter, ProvenanceRef } from "./phrase.js";
+import type {
+  AccompanimentPhrase, AccompanimentRole, FrameChord, HarmonicFrame, Meter, ProvenanceRef,
+} from "./phrase.js";
 import { extractPhrase, type InputNote } from "./extract.js";
 
 export const MODEL_SCHEMA_V = 1;
@@ -75,8 +91,14 @@ export interface StyleModel {
   bars: number;
   /** Grid slots per beat (4 = sixteenths). */
   grid: number;
-  /** The chord the whole corpus was played against. */
+  /** The chord the whole corpus was played against — for a progression
+   *  model this is `frames[0].chord`, kept populated for consumers that
+   *  only care about "some chord to relate against", not the full timeline. */
   frame: FrameChord;
+  /** The full harmonic timeline the corpus was played against, when it's a
+   *  real progression (more than one chord) rather than one vamped chord.
+   *  Absent for single-chord models — the original, still-default shape. */
+  frames?: HarmonicFrame[];
   /** Takes accumulated so far. */
   takes: number;
   slots: SlotStats[];
@@ -97,10 +119,13 @@ export interface LearnOptions {
   source?: ProvenanceRef;
 }
 
-/** Start an empty model around a frame chord (accumulate with addTake). */
+/** Start an empty model around a frame chord (accumulate with addTake).
+ *  Pass `meta.frames` for a real progression — `frame` is still required
+ *  (its own chord, or `frames[0].chord` for a progression) so every
+ *  existing single-chord caller is unaffected. */
 export function createStyleModel(frame: FrameChord, meta: {
   id: string; role?: AccompanimentRole; ticksPerBeat: number; meter: Meter; bars: number;
-  grid?: number; source?: ProvenanceRef;
+  grid?: number; source?: ProvenanceRef; frames?: HarmonicFrame[];
 }): StyleModel {
   const grid = meta.grid ?? 4;
   const slotCount = meta.bars * meta.meter.numerator * grid;
@@ -109,6 +134,7 @@ export function createStyleModel(frame: FrameChord, meta: {
     ticksPerBeat: meta.ticksPerBeat, meter: meta.meter, bars: meta.bars, grid,
     frame, takes: 0, slots: Array.from({ length: slotCount }, emptySlot),
     ...(meta.source && { source: meta.source }),
+    ...(meta.frames && { frames: meta.frames }),
   };
 }
 
@@ -158,11 +184,19 @@ export function addTake(model: StyleModel, phrase: AccompanimentPhrase): StyleMo
   return model;
 }
 
-/** Learn a model from a corpus of phrases sharing one harmonic frame. */
+/** Learn a model from a corpus of phrases sharing one harmonic timeline —
+ *  one vamped chord (the original shape) or a real progression (more than
+ *  one frame; the model then carries `frames`, the whole thing). Which
+ *  chord(s) the corpus actually agrees on is the CALLER's concern (e.g.
+ *  gloriarp-clip.ts's per-clip progression check, filename in hand for a
+ *  useful error) — same division of responsibility the original single-
+ *  chord shape already had: this function has never itself verified that
+ *  every phrase's frame matches the first one. */
 export function learnStyleModel(phrases: AccompanimentPhrase[], opts: LearnOptions): StyleModel {
   if (!phrases.length) throw new Error("learnStyleModel: at least one phrase required");
   const first = phrases[0]!;
-  const frame = first.harmonicFrames?.[0]?.chord;
+  const firstFrames = first.harmonicFrames;
+  const frame = firstFrames?.[0]?.chord;
   if (!frame) throw new Error("learnStyleModel: phrases need a harmonic frame (the chord they were played against)");
   const model = createStyleModel(frame, {
     id: opts.id,
@@ -172,6 +206,7 @@ export function learnStyleModel(phrases: AccompanimentPhrase[], opts: LearnOptio
     bars: Math.max(1, Math.round(first.lengthTicks / (first.meter.numerator * first.ticksPerBeat))),
     ...(opts.grid !== undefined && { grid: opts.grid }),
     ...(opts.source && { source: opts.source }),
+    ...((firstFrames?.length ?? 0) > 1 && { frames: firstFrames }),
   });
   for (const p of phrases) {
     if (p.ticksPerBeat !== model.ticksPerBeat)
@@ -305,7 +340,11 @@ export function samplePhrase(model: StyleModel, opts: SampleOptions): Accompanim
     meter: model.meter,
     ticksPerBeat: model.ticksPerBeat,
     lengthTicks: model.slots.length * slotTicks,
-    frame: model.frame,
+    // A progression model reconstructs against its OWN timeline (so the
+    // sample's chord-relations are correct per position, degree-of-Dm7 vs
+    // degree-of-G7 etc.) — a single-chord model keeps the exact original
+    // one-frame call, byte-identical.
+    ...(model.frames ? { frames: model.frames } : { frame: model.frame }),
     source: { note: `sampled from style model ${model.id} (${model.takes} takes) seed ${opts.seed} pass ${pass}` },
   });
 }
@@ -326,6 +365,16 @@ export function validateModel(x: unknown): { ok: boolean; errors: string[] } {
   if (!Number.isInteger(m.grid) || (m.grid as number) <= 0) errors.push("grid must be a positive integer");
   if (!m.frame || typeof (m.frame as FrameChord).rootPc !== "number" || !Array.isArray((m.frame as FrameChord).pcs))
     errors.push("frame must carry rootPc and pcs");
+  if (m.frames !== undefined) {
+    if (!Array.isArray(m.frames) || !m.frames.length) errors.push("frames must be a non-empty array when present");
+    else m.frames.forEach((f, i) => {
+      if (typeof f?.start !== "number" || typeof f?.end !== "number" || f.end <= f.start)
+        errors.push(`frames[${i}] must have start < end`);
+      const c = f?.chord as FrameChord | undefined;
+      if (!c || typeof c.rootPc !== "number" || !Array.isArray(c.pcs))
+        errors.push(`frames[${i}].chord must carry rootPc and pcs`);
+    });
+  }
   if (!Array.isArray(m.slots) || !m.slots.length) errors.push("slots must be a non-empty array");
   else for (let i = 0; i < m.slots.length; i++) {
     const s = m.slots[i] as Partial<SlotStats>;

@@ -1,8 +1,8 @@
 import { describe, it, expect } from "vitest";
-import { learnStyleModel, addTake, samplePhrase, serializeModel, parseModel, looksLikeModel } from "./model.js";
+import { learnStyleModel, addTake, samplePhrase, serializeModel, parseModel, looksLikeModel, validateModel } from "./model.js";
 import { extractPhrase, type InputNote } from "./extract.js";
 import { groove } from "./pipeline.js";
-import type { FrameChord } from "./phrase.js";
+import type { FrameChord, HarmonicFrame } from "./phrase.js";
 
 const BB7: FrameChord = { symbol: "B♭7", rootPc: 10, pcs: [10, 2, 5, 8] };
 
@@ -131,5 +131,92 @@ describe("StyleModel — serialization", () => {
   it("parseModel names what is wrong", () => {
     expect(() => parseModel("{}")).toThrow(/v must be 1/);
     expect(() => parseModel("nope")).toThrow(/not JSON/);
+  });
+
+  it("a single-chord model never gains a `frames` field", () => {
+    const m = learnStyleModel(corpus(), { id: "funk-test" });
+    expect(m.frames).toBeUndefined();
+  });
+});
+
+// ── progressions (docs/GLORIARP_NEXT.md §3g) ─────────────────────────────────
+
+describe("StyleModel — learned from a real progression, not one vamped chord", () => {
+  const DM7: FrameChord = { symbol: "Dm7", rootPc: 2, pcs: [2, 5, 9, 0] };
+  const G7: FrameChord = { symbol: "G7", rootPc: 7, pcs: [7, 11, 2, 5] };
+  const frames: HarmonicFrame[] = [
+    { start: 0, end: 1920, chord: DM7 },
+    { start: 1920, end: 3840, chord: G7 },
+  ];
+  /** A 2-bar Dm7|G7 walking figure with a leading tone INTO the change
+   *  (F♯ at 1800, one semitone below G7's root at 1920) — the voice-leading
+   *  case single-chord corpora can never produce, since they have nowhere
+   *  to lead TO. */
+  const progressionTake = (variant: number) => {
+    const jitter = [0, 3, -2, 4][variant % 4]!;
+    const notes: InputNote[] = [
+      { pitch: 38, startTick: 0 + jitter, durationTicks: 180, velocity: 100 },     // D — Dm7 root
+      { pitch: 41, startTick: 960, durationTicks: 180, velocity: 92 },             // F — Dm7 3rd
+      { pitch: 42, startTick: 1800 + jitter, durationTicks: 90, velocity: 88 },    // F♯ — leads into G7
+      { pitch: 43, startTick: 1920, durationTicks: 180, velocity: 104 },           // G — G7 root
+      { pitch: 47, startTick: 2880, durationTicks: 180, velocity: 96 },            // B — G7 3rd
+    ];
+    return extractPhrase(notes, {
+      id: `pt-${variant}`, role: "bass", meter: { numerator: 4, denominator: 4 },
+      ticksPerBeat: 480, lengthTicks: 3840, frames,
+    });
+  };
+  const progressionCorpus = () => [0, 1, 2, 3].map(progressionTake);
+
+  it("learnStyleModel captures the whole timeline in `frames`, `frame` staying the first chord", () => {
+    const m = learnStyleModel(progressionCorpus(), { id: "dm7-g7" });
+    expect(m.frames).toEqual(frames);
+    expect(m.frame).toEqual(DM7);
+    expect(m.bars).toBe(2);
+  });
+
+  it("addTake needed no chord-awareness: per-slot vocabulary is still learned correctly across the bar line", () => {
+    const m = learnStyleModel(progressionCorpus(), { id: "dm7-g7" });
+    const slotTicks = m.ticksPerBeat / m.grid; // 120
+    const bar2Downbeat = m.slots[Math.round(1920 / slotTicks)]!;
+    expect(bar2Downbeat.notes["43"]).toBe(4); // every take's G at the chord change
+  });
+
+  it("a sampled take carries correct chord-relations PER CHORD, not one global one", () => {
+    const m = learnStyleModel(progressionCorpus(), { id: "dm7-g7" });
+    const p = samplePhrase(m, { seed: 7, humanize: 0 });
+    expect(p.harmonicFrames).toEqual(frames);
+    const bar1 = p.events.filter((e) => e.onset < 1920);
+    const bar2 = p.events.filter((e) => e.onset >= 1920);
+    expect(bar1.length).toBeGreaterThan(0);
+    expect(bar2.length).toBeGreaterThan(0);
+    // Every learned pitch class in each half is drawn from ITS OWN chord's
+    // vocabulary (38→D, 41→F in Dm7; 43→G, 47→B in G7) or is the boundary
+    // approach (42) — never mislabeled against the wrong half's harmony.
+    for (const e of bar1) expect([2, 5, 6]).toContain(e.pitchClass); // D, F, or the F♯ approach
+    for (const e of bar2) expect([7, 11]).toContain(e.pitchClass);   // G, B
+  });
+
+  it("a progression-learned sample still reharmonizes onto a DIFFERENT target — same 'adapts anywhere' property", () => {
+    const m = learnStyleModel(progressionCorpus(), { id: "dm7-g7" });
+    const src = samplePhrase(m, { seed: 11 });
+    const r = groove(src, { progression: "Cmaj7 | A7", seed: 11 });
+    expect(r.phrase.events.length).toBeGreaterThan(0);
+    const pcs = new Set(r.phrase.events.map((e) => e.pitchClass));
+    expect(pcs.has(0) || pcs.has(9)).toBe(true); // C or A roots present — not stuck on Dm7/G7
+  });
+
+  it("validateModel accepts a progression model and still rejects a malformed `frames`", () => {
+    const m = learnStyleModel(progressionCorpus(), { id: "dm7-g7" });
+    expect(validateModel(m).ok).toBe(true);
+    expect(validateModel({ ...m, frames: [{ start: 0, end: 0, chord: DM7 }] }).errors.join())
+      .toMatch(/start < end/);
+  });
+
+  it("round-trips through JSON with `frames` intact", () => {
+    const m = learnStyleModel(progressionCorpus(), { id: "dm7-g7" });
+    const back = parseModel(serializeModel(m));
+    expect(back).toEqual(m);
+    expect(back.frames).toEqual(frames);
   });
 });

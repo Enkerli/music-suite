@@ -18,7 +18,12 @@ now both are real there, see item 9). Read it before this doc if you
 want the "what actually happened" view rather than the per-item plan.
 `docs/DESIGN_AGENT_QUESTIONS.md` — five short questions for whoever
 picks up the design pass, topped by the Serpe rings' resemblance to
-Lascabettes's Rhythmic Circle.*
+Lascabettes's Rhythmic Circle. Beyond the original 9-item plan:
+`docs/GLORIARP_NEXT.md` §3g (2026-07-21) — style models can now learn
+from a real chord progression, not just one vamped chord, so a corpus's
+own voice leading (a leading tone into the next chord) gets captured,
+not just its vocabulary against one frame. MIDIcurator's existing "learn
+family as style" button already routes through it automatically.*
 
 ## 0. Read order, then rules
 

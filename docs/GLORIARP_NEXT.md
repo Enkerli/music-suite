@@ -250,102 +250,113 @@ glide behavior is untested by ear/real audio — this container has no audio
 device; the CC5/CC65/glide-time wiring is verified structurally (bytes
 posted, correct order, correct values) but never heard.
 
-## 3g. Planned — progression-learned styles (voice leading across chord changes)
+## 3g. Shipped 2026-07-21 — progression-learned styles (voice leading across chord changes)
 
 **The ask (Alex, 2026-07-21):** style-learning was Alex's original reason
-to start curating MIDI files, and every path to it today — CLI
-`msuite style learn` AND MIDIcurator's own "Learn" button
-(`learnStyleFromClip`/`learnStyleModelFromFamily`, wired into
-`MidiCurator.tsx`) — only ever learns from clips all played against ONE
-chord. Learning from a realized chord *progression* instead would also
-capture the transitions between chords — voice leading and passing notes
-being the most audible part of that — which single-chord learning can
-never see by construction.
+to start curating MIDI files, and every path to it — CLI `msuite style
+learn` AND MIDIcurator's own "Learn" button (`learnStyleFromClip`/
+`learnStyleModelFromFamily`) — only ever learned from clips all played
+against ONE chord. Learning from a realized chord *progression* instead
+would also capture the transitions between chords — voice leading and
+passing notes being the most audible part of that — which single-chord
+learning can never see by construction. Told to start on it: "high value
+and… doesn't depend on any external source for insight. Just the clips
+themselves, of which I have plenty."
 
-**Correcting the premise first: this was never CLI-only.** Both learning
-paths already share one engine (`@enkerli/accompaniment`), and MIDIcurator
-has had its own "Learn" UI since `learnStyleFromClip`/
-`learnStyleModelFromFamily` shipped (§3c) — the CLI verb is a second,
-scriptable front end onto the same code, not the primary one. What's
-actually true is narrower and more specific than "CLI-only": **every
-model is locked to one `FrameChord`.**
+Correcting the premise first, as noted when this was scoped: this was
+never CLI-only — MIDIcurator's "Learn" UI predates this work (§3c); the
+real constraint was that every model was locked to one `FrameChord`.
 
-Where that lock actually lives, traced end to end:
-- `StyleModel.frame: FrameChord` (`model.ts`) — one chord, not a sequence.
-- `ExtractOptions.frame: FrameChord` (`extract.ts`) — extraction takes one
-  frame; `relate()` computes each note's chord-relation against it alone.
-- `learnStyleModelFromClips` (`gloriarp-clip.ts:245`) hard-throws if two
-  clips in a batch don't share the same chord symbol — the gate that
-  makes "one chord per corpus" a rule, not just today's usage pattern.
+**Turned out smaller than sized, in three places — worth recording since
+the original sizing (below the line) was wrong about WHY:**
+- **No schema bump needed.** `AccompanimentPhrase.harmonicFrames` was
+  ALREADY `HarmonicFrame[]` (`phrase.ts`), and `validatePhrase` already
+  validated an arbitrary-length array — `extractPhrase` was just the only
+  thing that ever produced a length-1 array. Making `frame`/`frames` both
+  optional on `ExtractOptions` (exactly one required) and resolving the
+  right frame per note via a small `frameAt()` was the whole extraction
+  change — `relate()` itself, untouched.
+- **No new inference category needed.** The planned "boundary/transition
+  classification" turned out to already exist: `relate()`'s chromatic-
+  approach check was always just "one pc-semitone from the next note in
+  this voice's chain" — it never cared whether that next note was in the
+  SAME chord. Once each note gets the frame that's actually sounding
+  under IT (instead of one global frame for the whole phrase), a leading
+  tone one semitone below the next chord's root automatically reads as a
+  `chromatic-approach` targeting it — real voice leading, as a side
+  effect of correct per-note chord context, not a new field.
+- **`StyleModel` slots needed zero changes.** `addTake`'s accumulation was
+  already chord-agnostic — a slot just remembers "what absolute note
+  showed up at this tick position across takes," and the chord-relative
+  INTERPRETATION lives in each take's own `chordRelation`, not the slot.
+  The only real change was `samplePhrase`'s reconstruction call, which now
+  re-runs extraction over the model's own `frames` (when present) instead
+  of one repeated chord.
 
-**The good news: the raw material for the multi-chord version already
-exists, just not wired together.**
-- Clips already carry a real chord *sequence*, not just one symbol —
-  `clip.leadsheet.bars` (`types/clip.ts`), populated from Apple Loops
-  import or MIDIcurator's own progression-clip generator
-  (`generate-clip.ts`'s `generateProgressionClip`). The "MIDI file +
-  its leadsheet" pairing Alex described is already how clips work.
-- `phrase.ts` already defines `HarmonicFrame { start, end, chord }` — a
-  timeline of chord-spans — but nothing constructs an array of them from
-  a clip today; every real call site still builds exactly one `FrameChord`
-  and hands it to `extractPhrase` as a scalar.
-- `relate()`'s per-note logic is already local to one span (chord-tone /
-  extension / scale-tone / chromatic-approach against whichever frame
-  it's given) — slicing a clip's notes per `HarmonicFrame` and calling the
-  existing single-chord path once per span is close to free. **What's
-  genuinely new is the boundary:** today "next" for approach-tone
-  detection is cyclic *within* one frame; nothing classifies a note's
-  relation to the *upcoming* chord at a change point. That boundary
-  relation — common tone retained, stepwise resolution up/down, leap,
-  suspension carried over the barline — is the actual voice-leading
-  signal Alex is after, and it doesn't exist anywhere in the schema yet.
+**What shipped:**
+- `packages/accompaniment/src/extract.ts`: `ExtractOptions.frame`/`frames`
+  (exactly one required); `frameAt()` resolves the sounding chord per
+  note. `frame` alone still produces byte-identical output to before.
+- `packages/accompaniment/src/model.ts`: `StyleModel.frames?:
+  HarmonicFrame[]` (the whole progression; `frame` stays `frames[0].chord`
+  for old consumers); `learnStyleModel` captures it when the first
+  phrase's timeline has more than one frame; `samplePhrase` samples
+  against it; `validateModel` validates it. `MODEL_SCHEMA_V` unchanged —
+  additive optional field, not a version bump.
+- `apps/MIDIcurator/src/lib/gloriarp-clip.ts`: new, parallel functions
+  (the single-chord path — `resolveClipFrame`/`clipToPhrase`/
+  `learnStyleModelFromClips` — is untouched, zero regression risk):
+  `resolveClipFrames` (a clip's per-bar timeline from its leadsheet,
+  adjacent-identical-chord bars merged into one span; falls back to
+  `resolveClipFrame`'s single frame when there's no per-bar data — a
+  vamped one-chord clip degrades to exactly today's shape), `clipHasProgression`,
+  `clipToProgressionPhrase`, `learnStyleModelFromProgressionClips` (its
+  own "every clip must share the same chord sequence" gate, named-file
+  errors like the single-chord gate already had), and
+  `learnStyleModelFromProgressionFamily`.
+- **Surface**: MIDIcurator's existing "learn family as style" button now
+  routes through the progression path automatically when the selected
+  clip's own leadsheet carries more than one chord (`clipHasProgression`)
+  — no new button, the clip's own data decides, same as the role
+  heuristic (bass vs comping) already does.
+- 12 new engine tests (`packages/accompaniment`: 5 extraction, 7 model —
+  coprime-adjacent discipline: real Dm7→G7 boundaries, not two identical
+  bars), 6 new `gloriarp-clip.test.ts` tests. 1482/1482 monorepo. Both
+  `packages/accompaniment` and `apps/MIDIcurator` type-check and build
+  clean (`tsc -b`, `vite build`) — this touches TypeScript consumed via
+  `dist/`, so both were rebuilt and re-checked, not just source-tested.
 
-**Shape of the work, sized honestly, additive over refactor (same
-discipline as this session's other schema-adjacent changes — old
-single-chord phrases/models must keep working, byte-identical, not get
-migrated):**
+**Known limitation, not a blocker:** `resolveClipFrames` is bar-
+granularity only — a bar written with 2+ chords (e.g. "Dm7 G7" in one
+bar) reads as its first chord, the same simplification
+`getEffectiveBarChords` already makes elsewhere. Sub-bar splitting
+(`LeadsheetChord`'s own `position`/`totalInBar`/`beatPosition`) is real
+follow-up work, not attempted here — most of the voice-leading value is
+already in bar-to-bar changes, which is what shipped.
 
-1. **Schema**: give `AccompanimentPhrase`/`StyleModel` a `frames:
-   HarmonicFrame[]` timeline as an alternative to today's singular
-   `frame` (schema v2, additive — a v1 phrase is just a v2 phrase with a
-   one-element timeline, no data migration needed, exactly the discipline
-   `MODEL_SCHEMA_V`/`PHRASE_SCHEMA_V` already exist to support).
-2. **Extraction**: `extractPhrase` slices notes per span from the clip's
-   own `leadsheet`, runs the existing `relate()` once per span (no change
-   to that function), then adds a new boundary pass: for notes within N
-   ticks of a chord change, compute a second relation against the
-   INCOMING chord and classify the transition (retained / step / leap /
-   suspension). New field, additive to `ChordRelation` or a sibling
-   `transition?` on `PhraseEvent` — never overwrites the existing
-   single-frame relation.
-3. **StyleModel slots**: today a slot is keyed by raw `(bar, beat,
-   grid-position)` against one recurring chord shape. For a progression,
-   slots need to key by `(chordSpanIndex, grid-position-within-span)`
-   instead, so sampling can walk the SAME progression back out — plus a
-   small transition table (keyed by chord-quality-pair or scale-degree
-   movement, same accumulable-counts shape as `SlotStats`) capturing
-   voice-leading tendencies specifically at boundaries.
-4. **`learnStyleModelFromClips`'s gate** changes from "every clip must
-   share one chord" to "every clip must share one progression" — checked
-   against each clip's own `leadsheet`, which already exists; no new
-   input format needed.
-5. **Surfaces**: MIDIcurator's existing "Learn" button already operates
-   on `clipFamily` — when the selected clip's leadsheet has more than one
-   distinct chord, that's the natural trigger to learn a progression style
-   instead of demanding one `--chord`. CLI gets the mirror:
-   `style learn ... --leadsheet file.txt` alongside today's `--chord`.
-6. **Sampling**: `samplePhrase` needs to walk a target progression's own
-   span sequence when regenerating (today it samples against the one
-   frame it was built from) — this is where the existing chord-relative
-   encoding pays off, since each span's relation already survives
-   reharmonization; the new part is sequencing spans correctly and
-   pulling boundary-transition stats in near chord changes.
+**Not done:** the CLI (`msuite style learn`) still only takes `--chord`,
+no `--leadsheet` equivalent — Alex's own framing ("just the clips
+themselves") pointed at MIDIcurator as the primary surface, so that's
+where the work went first. CLI parity is a small, separate follow-up
+(`framesFromProgression` in `pipeline.ts` already parses bar notation
+into a `HarmonicFrame[]`, so the underlying piece exists) whenever it's
+wanted.
 
-**Not started.** This is a real schema extension plus a genuinely new
-inference category (voice leading has no existing analog to lean on the
-way accents/slides reused `inflect.ts`), not a small slice — closer in
-size to §3d (polyphonic comping) than to §3e/§3f. Worth its own session
-rather than folding into the next-session queue below.
+<details>
+<summary>Original sizing (2026-07-21, before starting) — kept for the record</summary>
+
+Where the single-chord lock lived, traced end to end: `StyleModel.frame:
+FrameChord`, `ExtractOptions.frame: FrameChord`, and
+`learnStyleModelFromClips`'s hard-throw on a chord mismatch. The sizing
+called for a schema v2, a new boundary-relation field on `ChordRelation`,
+and re-keying `StyleModel` slots by `(chordSpanIndex,
+grid-position-within-span)` — all of which turned out unnecessary once
+the actual shape of the existing code was traced further (see above).
+Sized at the time as "closer to §3d (polyphonic comping) than to
+§3e/§3f" — that comparison held for the CALENDAR effort, not for the
+amount of new surface area actually needed.
+
+</details>
 
 ## 3b. Next session queue (prep, 2026-07-20)
 

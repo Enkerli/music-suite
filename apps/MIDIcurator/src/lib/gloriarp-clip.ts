@@ -37,7 +37,7 @@ import {
   looksLikeModel, parseModel, serializeModel, validateModel, serializePhrase,
 } from '@enkerli/accompaniment';
 import type {
-  AccompanimentPhrase, AccompanimentRole, FrameChord, InputNote, StyleModel,
+  AccompanimentPhrase, AccompanimentRole, FrameChord, HarmonicFrame, InputNote, StyleModel,
 } from '@enkerli/accompaniment';
 import { findQualityByKey } from '@enkerli/theory';
 import type { Clip, Note } from '../types/clip';
@@ -255,6 +255,130 @@ export function learnStyleModelFromClips(clips: Clip[], name: string, kv?: KV): 
   const model = learnStyleModel(phrases, { id: name });
   saveUserModel(name, model, kv);
   return model;
+}
+
+// ── Learn a PROGRESSION: several chords, real voice leading between them ────
+// docs/GLORIARP_NEXT.md §3g. The single-chord path above (resolveClipFrame /
+// clipToPhrase / learnStyleModelFromClips) is untouched by any of this —
+// these are new, parallel functions, not a refactor of it, so nothing that
+// already depends on "every clip plays one chord" changes behavior.
+
+/**
+ * A clip's full harmonic timeline: one HarmonicFrame per run of bars that
+ * share a chord (adjacent identical chords merge into one span — a chord
+ * held for 4 bars is one span, not four identical ones). Built from the
+ * leadsheet-aware per-bar chords (getEffectiveBarChords) when a clip has
+ * per-bar data; falls back to resolveClipFrame's single whole-clip chord
+ * when it doesn't — a vamped one-chord clip therefore always degrades to
+ * exactly the same single frame resolveClipFrame already produced for it.
+ *
+ * Bar-granularity only: a bar written with 2+ chords (e.g. "Dm7 G7") is
+ * read as its first chord, the same simplification getEffectiveBarChords
+ * itself already makes. Real sub-bar splitting (LeadsheetChord's own
+ * position/totalInBar/beatPosition) is a follow-up, not a blocker — most
+ * of the "learn real voice leading" value is already in bar-to-bar changes.
+ */
+function resolveClipFrames(clip: Clip): HarmonicFrame[] {
+  const g = clip.gesture;
+  const ticksPerBar = g.ticks_per_bar || (g.ticks_per_beat || 480) * 4;
+  const barChords = getEffectiveBarChords(clip);
+  if (!barChords || !barChords.length) {
+    return [{ start: 0, end: Math.max(1, g.num_bars * ticksPerBar), chord: resolveClipFrame(clip) }];
+  }
+
+  const frames: HarmonicFrame[] = [];
+  for (const bc of barChords) {
+    const detected = bc.chord;
+    if (!detected) continue; // no chord established at this bar yet — no span to relate against
+    let pcs = detected.templatePcs ?? detected.observedPcs ?? [];
+    if (!pcs.length && detected.qualityKey) {
+      const q = findQualityByKey(detected.qualityKey);
+      if (q) pcs = q.pcs.map((p) => (((detected.root + p) % 12) + 12) % 12);
+    }
+    if (!pcs.length) continue; // same "no pitch classes to relate against" guard resolveClipFrame has
+    const chord: FrameChord = { symbol: detected.symbol, rootPc: detected.root, pcs };
+    const start = bc.bar * ticksPerBar;
+    const end = start + ticksPerBar;
+
+    const prev = frames[frames.length - 1];
+    if (prev && prev.end === start && prev.chord.symbol === chord.symbol) prev.end = end;
+    else frames.push({ start, end, chord });
+  }
+  if (!frames.length) throw new Error('clip needs a chord (add a leadsheet, or let detection find one) so the phrase knows its harmony');
+  return frames;
+}
+
+/** The progression-aware sibling of clipToPhrase: same note-fetching and
+ *  role heuristic, but related against the clip's FULL timeline instead of
+ *  one chord — a note near a chord change that's a semitone from the next
+ *  chord's tone reads as a chromatic approach INTO it (extract.ts's
+ *  relate(), unchanged; it just gets the right chord per note now). */
+function clipToProgressionPhrase(clip: Clip, id: string): AccompanimentPhrase {
+  const frames = resolveClipFrames(clip);
+  const notes = clipToInputNotes(clip);
+  const g = clip.gesture;
+  const avg = notes.reduce((s, n) => s + n.pitch, 0) / notes.length;
+  const role: AccompanimentRole = avg < 52 ? 'bass' : 'melodic-fill';
+  const phrase = extractPhrase(notes, {
+    id,
+    role,
+    meter: { numerator: 4, denominator: 4 },
+    ticksPerBeat: g.ticks_per_beat || 480,
+    lengthTicks: Math.max(1, g.num_bars * (g.ticks_per_bar || (g.ticks_per_beat || 480) * 4)),
+    frames,
+    source: { note: `learned from MIDIcurator clip "${clip.filename}" against ${frames.map((f) => f.chord.symbol).join(' → ')}` },
+  });
+  if (phrase.events.some((e) => e.voice !== undefined)) phrase.role = 'comping';
+  return phrase;
+}
+
+const sortedPcs = (pcs: number[]) => [...pcs].sort((a, b) => a - b).join(',');
+
+function framesMatch(a: HarmonicFrame[], b: HarmonicFrame[]): boolean {
+  if (a.length !== b.length) return false;
+  return a.every((f, i) => {
+    const g = b[i]!;
+    return f.start === g.start && f.end === g.end
+      && f.chord.rootPc === g.chord.rootPc && sortedPcs(f.chord.pcs) === sortedPcs(g.chord.pcs);
+  });
+}
+
+/**
+ * Learn a STYLE MODEL from clips that all play the SAME chord PROGRESSION,
+ * not one vamped chord — several distinct chords, so the learned per-slot
+ * vocabulary carries real chord-to-chord voice leading. Every clip resolves
+ * its OWN timeline (leadsheet, or per-bar detection) and they must all
+ * agree, the same "refuse a mismatch by name" discipline
+ * learnStyleModelFromClips already uses for the single-chord case.
+ */
+export function learnStyleModelFromProgressionClips(clips: Clip[], name: string, kv?: KV): StyleModel {
+  if (!clips.length) throw new Error('learnStyleModelFromProgressionClips: at least one clip is required');
+  const frameSets = clips.map((c) => resolveClipFrames(c));
+  const first = frameSets[0]!;
+  frameSets.forEach((f, i) => {
+    if (!framesMatch(f, first))
+      throw new Error(`learnStyleModelFromProgressionClips: "${clips[i]!.filename}" plays a different progression than "${clips[0]!.filename}" — every clip must share the same chord sequence`);
+  });
+  const phrases = clips.map((c, i) => clipToProgressionPhrase(c, `${name}-${i}`));
+  const model = learnStyleModel(phrases, { id: name });
+  saveUserModel(name, model, kv);
+  return model;
+}
+
+/** True when a clip's own timeline (resolveClipFrames) has more than one
+ *  distinct chord — the signal callers (the UI, mainly) use to route
+ *  between the single-chord and progression learning paths automatically,
+ *  without asking the user to declare which one they mean. */
+export function clipHasProgression(clip: Clip): boolean {
+  try { return resolveClipFrames(clip).length > 1; } catch { return false; }
+}
+
+/** learnStyleModelFromProgressionClips over a clip's whole variant family —
+ *  the progression counterpart of learnStyleModelFromFamily, same
+ *  clipFamily walk (defined below; not GloriArp-specific despite the
+ *  proximity of these two callers). */
+export function learnStyleModelFromProgressionFamily(clip: Clip, allClips: Clip[], name: string, kv?: KV): StyleModel {
+  return learnStyleModelFromProgressionClips(clipFamily(clip, allClips), name, kv);
 }
 
 // ── Variants as style sources (docs/KNOWLEDGE_TRANSFER.md item 4) ───────────

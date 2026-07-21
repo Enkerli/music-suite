@@ -26,6 +26,7 @@ import { generateProgressionClip } from '../lib/generate-clip';
 import {
   generateGrooveClip, learnStyleFromClip,
   clipFamily, learnStyleModelFromFamily, generateDensityFamily,
+  clipHasProgression, learnStyleModelFromProgressionFamily,
 } from '../lib/gloriarp-clip';
 import type { GrooveClipRequest } from '../lib/gloriarp-clip';
 import { IN_PLUGIN, IS_PLUGIN_BUILD, bridge, b64ToBytes } from '../lib/juce-bridge';
@@ -1243,9 +1244,16 @@ export function MidiCurator() {
   // same idiom vpSiblings already reads) becomes ONE style model, so
   // sampling it back at a chosen density recovers a rung from the family's
   // OWN learned variability instead of a fresh rule-based synthesis.
+  //
+  // Progression-aware (docs/GLORIARP_NEXT.md §3g): when the selected clip's
+  // own leadsheet carries more than one chord, this routes through the
+  // progression-learning path instead — real chord-to-chord voice leading,
+  // not just one vamped chord's vocabulary. No separate button: the clip's
+  // own data decides, the same way role (bass vs comping) already does.
   const handleLearnFamilyStyle = useCallback((name: string): string => {
     if (!selectedClip) throw new Error('select a clip to learn from');
-    learnStyleModelFromFamily(selectedClip, clips, name);
+    if (clipHasProgression(selectedClip)) learnStyleModelFromProgressionFamily(selectedClip, clips, name);
+    else learnStyleModelFromFamily(selectedClip, clips, name);
     return name;
   }, [selectedClip, clips]);
 
