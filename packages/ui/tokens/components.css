@@ -12,6 +12,25 @@
   margin: 0;
 }
 
+/* ── MTILT wordmark (interim lockup; docs/DESIGN_AGENT_ANSWERS.md §5) ──
+   The suite's name, decided but not yet given a real identity pass —
+   deliberately monochrome, Inter Tight at weight 700, so every interim
+   appearance (README badge, app header, ...) is consistent until the
+   actual contexts (favicon, splash, light/dark) exist to design against.
+   .mtilt-wordmark--tilt is the optional literal nod to the name; ship
+   upright by default. */
+.mtilt-wordmark {
+  font-family: var(--es-font-sans);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--es-fg);
+}
+.mtilt-wordmark--tilt {
+  display: inline-block;
+  transform: skewX(-6deg);
+}
+
 .es-panel {
   background: var(--es-bg-raised);
   border: 1px solid var(--es-border);

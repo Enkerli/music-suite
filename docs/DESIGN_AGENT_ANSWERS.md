@@ -323,4 +323,23 @@ type=number/percent-string mismatch), a real dev-build Playwright pass
 confirming rendering, keyboard, and click-to-type (typed "80%" into a
 dial's readout, watched it commit and the arc redraw) all work.
 
-**§4–§5 (Mono Merge pad, MTILT wordmark): not started.**
+**§5 (MTILT wordmark) shipped as the primitive only, per the answer's own
+framing** — `.mtilt-wordmark`/`.mtilt-wordmark--tilt` in `components.css`,
+Inter Tight 700, upright by default. Not applied anywhere in app chrome
+yet (no README badge, no header) — deliberately: "do the pass when MTILT
+actually enters app chrome and we know the sizes and surfaces it has to
+survive" is the answer's own call, and nothing has actually adopted the
+name in a UI yet to design against.
+
+**§4 (PitchFold's Mono Merge → Workspace, the hold-pad): not started —
+and can't be, yet, without building a decoy.** The pad's whole spec is
+interaction for a Mono Merge Workspace module that doesn't exist —
+`docs/PITCHFOLD_AUDIT.md`'s "Reprioritized" note and `docs/GLORIARP_NEXT.md`
+both still have it as roadmap only, no note-router engine, no bus wiring,
+nothing behind it. Building the pad's full hold/fill/spring interaction
+now would be exactly the "looks real, does nothing" pattern the PitchFold
+audit spent a whole doc criticizing — a real gesture control with no
+engine to hold onto. `.es-hold-pad` as a bare CSS shell (no behavior) is
+cheap to stub, but a stub with no interaction would misrepresent what's
+actually done here; holding off until the Mono Merge module itself is
+built is the honest call.
