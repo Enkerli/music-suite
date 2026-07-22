@@ -57,8 +57,14 @@ verified sound.
 > Linux build to confirm the VST3 target actually appears** (verified by
 > logic — the new pin's Linux FORMATS is `LV2 VST3 Standalone` — not yet by
 > a compile). To pick it up: `git pull --recurse-submodules` (updates the
-> submodule to the new pin) then rebuild. Findings 2, 4, 5 and Vane's Linux
-> VST3 (action 4) remain open.
+> submodule to the new pin) then rebuild.
+>
+> **Action 4 also done** (Vane Linux VST3, `f45d555`): Vane's inline CMake now
+> defaults to the desktop WebView build with `LV2 VST3 Standalone`; the
+> headless MODEP/Pi build is opt-in via `-DVANE_LINUX_HEADLESS=ON`. **All seven
+> plugins now build Linux VST3** (five via the pin bump, DrawnQurve already
+> did, Vane here) — pending the same real-compile confirmation. Findings 2
+> (build-verify the new C++) and 5 (PitchFold dead params) remain open.
 
 ---
 

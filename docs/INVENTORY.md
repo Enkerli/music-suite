@@ -11,13 +11,13 @@ that adds or removes a deliverable. Vocabulary lives in
 
 | Plugin | Code | Formats | What it does |
 |---|---|---|---|
-| Vane | `aumu VAne` | AU·VST3·CLAP·Standalone·AUv3; LV2/Standalone on Linux | Breath-first wind-controller synth; WASM voice powers the browser standalone |
-| Serpe | `aumi RPEd` | AU·VST3·Standalone·AUv3 | Rhythm-pattern engine; UPI notation; engine-authoritative WebView UI |
+| Vane | `aumu VAne` | AU·VST3·CLAP·Standalone·AUv3; LV2·VST3·CLAP·Standalone on Linux (desktop default; `-DVANE_LINUX_HEADLESS=ON` for MODEP/Pi = LV2·Standalone) | Breath-first wind-controller synth; WASM voice powers the browser standalone |
+| Serpe | `aumi RPEd` | AU·VST3·Standalone·AUv3; LV2·VST3·CLAP·Standalone on Linux | Rhythm-pattern engine; UPI notation; engine-authoritative WebView UI |
 | DrawnQurve | — | AU·AUv3·VST3·Standalone (macOS/iPadOS); VST3·LV2·Standalone (Linux) | Draw/record gesture curves ("qurves") that drive MIDI; polyphonic lanes |
 | PitchFold | `aumi Pqf1` | AU·VST3·Standalone·AUv3·LV2 | Folds incoming pitch into a chosen pitch-class set |
 | ProgGenie | `aumi Prst` | AU·VST3·Standalone·AUv3 | Chord-progression generator/editor over corpus statistics |
 | MIDIcurator | `aumi Mcur` | AU·VST3·Standalone·AUv3 | Clip library and curation; host-synced auditioning; file-backed library |
-| Suite Workspace | `aumi Wksp` | AU·VST3·Standalone·AUv3; LV2/CLAP on Linux | The workspace webapp in a DAW: bus notes out as host MIDI, host MIDI in to bindings |
+| Suite Workspace | `aumi Wksp` | AU·VST3·Standalone·AUv3; LV2·VST3·CLAP·Standalone on Linux | The workspace webapp in a DAW: bus notes out as host MIDI, host MIDI in to bindings |
 
 ## Webapps (11, on Pages: `…/music-suite/apps/<slug>/`)
 
