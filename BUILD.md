@@ -195,23 +195,40 @@ doesn't care about casing either.
 **Then build.** One command for any (or all) seven plugin repos:
 
 ```bash
-enkerli-juce/tools/suite-build all                    # Linux: LV2/Standalone/CLAP; macOS: quick build
+enkerli-juce/tools/suite-build all                     # Linux: LV2/VST3/CLAP/Standalone; macOS: quick build
 enkerli-juce/tools/suite-build all --ladder            # macOS: full validation ladder (build → iOS compile → auval → pluginval)
 enkerli-juce/tools/suite-build midicurator --ladder    # one repo at a time works the same way
+enkerli-juce/tools/suite-build drawnqurve,serpe,proggenie --formats vst3,clap   # a subset, specific formats
 enkerli-juce/tools/suite-build --list                  # remind yourself of the aliases
 ```
 
-`all` keeps going past a repo that's missing or fails and prints a pass/fail
-summary at the end — useful mid-consolidation when you don't have every
-repo yet. It does NOT handle Xcode signing/scheme/device-install steps —
-those stay manual, per-repo, below.
+`all` (or a comma-separated repo list) keeps going past a repo that's missing
+or fails and prints a pass/fail summary at the end — useful mid-consolidation
+when you don't have every repo yet. `--formats` narrows what gets built
+(macOS: `au,vst3,clap,standalone`; Linux: `lv2,vst3,clap,standalone` — no
+`au`, that's Apple-only). It does NOT handle Xcode signing/scheme/device-
+install steps — those stay manual, per-repo, below.
+
+**A failed rung is reported as FAILED, never a silent OK** — the summary line
+for a repo is `OK` only if every step that ran actually succeeded. If you see
+`FAILED`, scroll up to that repo's `=== … ===` block for the real error.
 
 **Shared setup, every repo below:**
 
 - macOS with **Xcode** installed (for AU/AUv3/iOS builds), **CMake ≥ 3.22**.
+  On **Linux**, also install **`xvfb`** (`apt install xvfb` /
+  `dnf install xorg-x11-server-Xvfb`): the LV2 target runs the built plugin
+  headlessly to generate its manifest, which needs a display — `suite-build`
+  wraps that step in `xvfb-run` automatically when it's present, and without
+  it the LV2 build dies with `cannot open display` / a SIGPIPE (exit 141).
+  Standalone/VST3/CLAP don't need it.
 - **JUCE 8.0.13 is fetched automatically** by `cmake` if you don't have a
   local copy — no manual JUCE clone needed, despite what some READMEs say.
-  (Speed-up, optional: `ln -s /Applications/JUCE JUCE` inside the plugin repo.)
+  To share **one** JUCE across all seven repos instead of each fetching its
+  own ~500MB copy, clone `juce-framework/JUCE` (tag 8.0.13) as an eighth
+  sibling: `suite-build` defaults `JUCE_PATH` to `$SUITE_ROOT/JUCE` and
+  every repo's CMake honours it. (Speed-up, optional on macOS:
+  `ln -s /Applications/JUCE JUCE` inside the plugin repo.)
 - Five repos vendor `enkerli-juce` as a **git submodule** (MIDIcurator,
   ProgGenie, PitchFold, Serpe, workspace-plugin). `--recurse-submodules`
   at clone time is nice but **no longer required**: since 2026-07-19,
@@ -255,7 +272,7 @@ those stay manual, per-repo, below.
   problems before a device does.
 - **`suite-build`** (§4.0/4.1 above have the full clone-everything and
   update-everything walkthroughs) wraps `validate.sh` per-repo and adds the
-  Linux LV2/Standalone/CLAP leg `validate.sh` doesn't cover. It does NOT
+  Linux LV2/VST3/CLAP/Standalone leg `validate.sh` doesn't cover. It does NOT
   replace the Xcode signing/scheme/device-install steps below — those stay
   manual. Per-repo quick invocations are noted under each heading; the full
   manual commands remain underneath for anything the script doesn't cover.
@@ -316,8 +333,8 @@ open build-ios/PitchFold.xcodeproj
 ### Vane
 
 Quick: `suite-build vane --ladder` (macOS), `suite-build vane` on Linux
-(LV2/Standalone). Manual — note this uses its own `build-mac` dir name,
-independent of the script's `build`:
+(LV2/VST3/CLAP/Standalone). Manual — note this uses its own `build-mac`
+dir name, independent of the script's `build`:
 
 ```bash
 git clone https://github.com/Enkerli/Vane
@@ -327,9 +344,10 @@ cmake --build build-mac --target Vane_Standalone Vane_AU Vane_VST3
 cmake -S . -B build-ios -G Xcode -DCMAKE_SYSTEM_NAME=iOS -DCMAKE_OSX_DEPLOYMENT_TARGET=16.0
 open build-ios/Vane.xcodeproj    # run Vane_Standalone, then Vane_AUv3, to an iPad
 ```
-On Linux, `cmake -S . -B build-linux` configures an **LV2 + Standalone**
-build instead (no Xcode step) — the headless-synth path (see `docs/JAM.md`
-in music-suite). Full Linux sequence, valid for any of the three checkout
+On Linux, `cmake -S . -B build-linux` configures an **LV2 + VST3 +
+Standalone** build (plus CLAP), no Xcode step — the headless-synth path
+(see `docs/JAM.md` in music-suite). Full Linux sequence, valid for any of
+the three checkout
 layouts above (this exact nested case — `~/Coding/music-suite/Vane` with
 the monorepo at `~/Coding/music-suite` — failed before 2026-07-19; now
 auto-detected):
@@ -375,7 +393,7 @@ open build-ios/DrawnCurve.xcodeproj   # run DrawnCurve_Standalone, then DrawnCur
 DrawnQurve is **cross-platform** (an older claim of iPad-only was wrong —
 corrected 2026-07-19 against CMakeLists): macOS builds AU/AUv3/VST3/
 Standalone (`cmake -B build-mac && cmake --build build-mac`, verified),
-Linux builds VST3/LV2/Standalone (`cmake -B build-linux`). The Xcode
+Linux builds VST3/LV2/CLAP/Standalone (`cmake -B build-linux`). The Xcode
 project target is named `DrawnCurve` (no "Q") — a historical rename that
 would break too many references to undo.
 
@@ -398,7 +416,7 @@ Promoted to its own repo 2026-07-19 (the `plugin-shells/` staging copy in
 this repo has been removed — the repo is the source of truth now).
 
 Quick: `suite-build workspace --ladder` (macOS), `suite-build workspace` on
-Linux (LV2/Standalone/CLAP). Manual:
+Linux (LV2/VST3/CLAP/Standalone). Manual:
 
 ```bash
 git clone --recurse-submodules https://github.com/Enkerli/workspace-plugin
@@ -411,7 +429,7 @@ cmake -B build-ios -G Xcode -DCMAKE_SYSTEM_NAME=iOS -DCMAKE_OSX_DEPLOYMENT_TARGE
 open build-ios/Workspace.xcodeproj   # run Workspace_Standalone to an iPad once, then Workspace_AUv3
 ```
 
-Linux configures LV2/Standalone/CLAP (verified 2026-07-20 from the staged
+Linux configures LV2/VST3/CLAP/Standalone (verified 2026-07-20 from the staged
 copy, same source).
 
 ## 5. If something doesn't match this file
