@@ -48,6 +48,18 @@ Severity: **HIGH** = affects what ships / contradicts a stated claim ·
 **MED** = real gap, scoped · **LOW** = cosmetic / informational · **OK** =
 verified sound.
 
+> **Update, 2026-07-22 (same day): action 1 done.** All five helper repos
+> (midicurator-plugin `2d379da`, progression-studio-plugin `409afe3`,
+> PitchFold `01a2aed`, rhythm_pattern_explorer `0e25f78`, workspace-plugin
+> `ad65bc3`) had their `enkerli-juce` submodule pin bumped `76a01b0 →
+> 9b41fb4`. This resolves findings **1** and **3**: those repos now build
+> Linux VST3, and `BUILD.md`'s claim is truthful. **Still needs a real
+> Linux build to confirm the VST3 target actually appears** (verified by
+> logic — the new pin's Linux FORMATS is `LV2 VST3 Standalone` — not yet by
+> a compile). To pick it up: `git pull --recurse-submodules` (updates the
+> submodule to the new pin) then rebuild. Findings 2, 4, 5 and Vane's Linux
+> VST3 (action 4) remain open.
+
 ---
 
 ## Dimension 1 — Functional reality vs theater
