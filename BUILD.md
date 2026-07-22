@@ -2,7 +2,71 @@
 
 *Real commands, one place. If a step here disagrees with an older doc
 (HEADLESS.md, JAM.md, a plugin repo's own README), this file wins — it was
-verified against the actual repos on 2026-07-19.*
+verified against the actual repos on 2026-07-19 (build tooling refreshed
+2026-07-22).*
+
+---
+
+## Quickstart — build the JUCE plugins
+
+Every plugin repo builds from **one parent directory of sibling checkouts**,
+driven by a single script (`enkerli-juce/tools/suite-build`). Pick a parent
+dir (`~/code` throughout) and pick your path.
+
+**A. From scratch** — clone all nine repos side by side:
+
+```bash
+mkdir -p ~/code && cd ~/code
+for r in music-suite enkerli-juce midicurator-plugin progression-studio-plugin \
+         PitchFold rhythm_pattern_explorer workspace-plugin Vane DrawnQurve; do
+  git clone --recurse-submodules "https://github.com/Enkerli/$r"
+done
+cd music-suite && npm install && cd ..      # WebUI build deps the plugins need
+```
+
+**B. Already cloned** — update everything:
+
+```bash
+cd ~/code
+for d in music-suite enkerli-juce midicurator-plugin progression-studio-plugin \
+         PitchFold rhythm_pattern_explorer workspace-plugin Vane DrawnQurve; do
+  git -C "$d" pull --recurse-submodules
+done
+cd music-suite && npm install && cd ..
+```
+
+**C. Build** (from `~/code`):
+
+```bash
+enkerli-juce/tools/suite-build all            # every plugin, this platform's formats
+enkerli-juce/tools/suite-build all --ladder   # macOS: + iOS compile + strict auval + pluginval(VST3)
+enkerli-juce/tools/suite-build vane           # just one
+enkerli-juce/tools/suite-build drawnqurve,serpe --formats vst3,clap   # a subset, chosen formats
+enkerli-juce/tools/suite-build --list         # the aliases
+```
+
+A `FAILED` in the end-of-run summary is real — scroll up to that repo's
+`=== … ===` block for the error. `all` keeps going past a missing or failing
+repo, so a partial checkout still builds what it can.
+
+**JUCE** — nothing to do on **macOS** if `/Applications/JUCE` exists (the
+standard installer location): it's found automatically. On **Linux** (no
+`/Applications/JUCE`) clone JUCE once as a tenth sibling so every repo shares
+it instead of each fetching and building its own ~500 MB copy:
+
+```bash
+git clone --branch 8.0.13 --depth 1 https://github.com/juce-framework/JUCE ~/code/JUCE
+```
+
+`suite-build` points every repo at `~/code/JUCE` when it's there. On **Linux**
+also `apt install xvfb` (or your distro's equivalent) — the LV2 build runs the
+plugin headlessly for its manifest and needs a display; `suite-build` wraps
+that step in `xvfb-run` automatically.
+
+Per-repo signing, iOS device install, layout overrides, and troubleshooting
+are in **§4** below.
+
+---
 
 ## 0. The pieces
 
@@ -129,113 +193,84 @@ most reliable browser for this workflow today.
 
 ## 4. Building the JUCE plugins & standalones
 
-### 4.0 Get every repo checked out as siblings (do this once)
+The three copy-paste paths (clone-all / update-all / build) are in the
+**Quickstart** at the top of this file. This section is the reference behind
+them: the sibling layout the tools assume, how to override it, and what each
+build flag does.
 
-Nine repos total, all as **siblings in one parent directory** — `enkerli-juce`
-(the shared CMake foundation), `music-suite` (this repo, for the five plugins
-whose WebView UI is your app source), and the seven plugin repos. Pick a
-parent directory and clone all nine into it:
+### 4.0 The sibling layout, and how the tools find things
 
-```bash
-mkdir -p ~/code && cd ~/code
+The Quickstart's clone step lays down nine repos (ten with a shared JUCE) in
+one parent: `enkerli-juce` (the shared CMake foundation), `music-suite` (this
+repo — the WebUI source for five of the plugins), and the seven plugin repos.
+What the build tools expect, and how to bend it:
 
-git clone https://github.com/Enkerli/music-suite
-git clone https://github.com/Enkerli/enkerli-juce
-git clone --recurse-submodules https://github.com/Enkerli/midicurator-plugin
-git clone --recurse-submodules https://github.com/Enkerli/progression-studio-plugin
-git clone --recurse-submodules https://github.com/Enkerli/PitchFold
-git clone --recurse-submodules https://github.com/Enkerli/rhythm_pattern_explorer
-git clone --recurse-submodules https://github.com/Enkerli/workspace-plugin
-git clone https://github.com/Enkerli/Vane
-git clone https://github.com/Enkerli/DrawnQurve
+- **Verify a fresh checkout** before building anything:
+  ```bash
+  enkerli-juce/tools/suite-build --list         # aliases → dirs / plugin codes
+  enkerli-juce/tools/suite-build all --dry-run  # prints every command, runs nothing
+  ```
+  A repo reported "not found" either wasn't cloned or isn't a flat sibling —
+  fix the layout or set the overrides below.
+- **Where plugin repos are found**: as siblings of `enkerli-juce`, i.e.
+  `$SUITE_ROOT/<dir>`, where `SUITE_ROOT` defaults to `enkerli-juce`'s parent.
+  Override with `export SUITE_ROOT=~/code`. Directory names match
+  **case-insensitively**, so a lowercase `vane`/`pitchfold`/`drawnqurve`
+  checkout still resolves to the manifest's `Vane`/`PitchFold`/`DrawnQurve`.
+- **Where music-suite is found**: `$MUSIC_SUITE` (default
+  `$SUITE_ROOT/music-suite`; override `export MUSIC_SUITE=/path/to/music-suite`)
+  — consulted for MIDIcurator's and Progression Studio's WebUI regen. The
+  other five plugins find music-suite themselves at CMake time (the
+  sibling · nested · `MUSIC_SUITE`-env · `webui.local.cmake` probing in the
+  per-repo notes below).
+- **Where JUCE is found** (resolution order): a repo-local `JUCE/` dir → the
+  `$JUCE_PATH` env var (which `suite-build` sets to `$SUITE_ROOT/JUCE`) →
+  `/Applications/JUCE` → a `FetchContent` download of 8.0.13. So
+  `/Applications/JUCE` on macOS and a `~/code/JUCE` sibling on Linux both work
+  with nothing to configure; set none of them and each repo fetches (and
+  builds) its own copy.
+- **Submodules self-heal**: the five submodule repos (MIDIcurator, ProgGenie,
+  PitchFold, Serpe, workspace-plugin) initialize an empty `enkerli-juce`
+  submodule themselves at cmake time (since 2026-07-19), so a plain clone
+  without `--recurse-submodules` still builds. Vane and DrawnQurve don't use
+  the submodule.
 
-cd music-suite && npm install && cd ..
-```
+### 4.1 Build flags
 
-(`--recurse-submodules` on five of them is a nice-to-have, not required —
-`cmake` self-heals an empty `enkerli-juce` submodule since 2026-07-19. Vane
-and DrawnQurve don't use the submodule at all.)
+`suite-build <repo[,repo…]|all> [flags]` (full text: `suite-build --help`):
 
-**Verify the layout** before building anything — this is what actually
-checks every repo landed where the tools expect it:
+- **bare** — a quick build for this platform (macOS: AU/VST3/Standalone+CLAP;
+  Linux: LV2/VST3/CLAP/Standalone).
+- **`--ladder`** — the full automatable ladder: macOS build → iOS unsigned
+  compile → strict `auval` → `pluginval` (strictness 8, on the VST3). macOS
+  only; on Linux it's just the platform build. (The AU is covered by native
+  `auval -strict`; pluginval's own AU-component sub-test was dropped 2026-07-22
+  — it drove auval through the slow AUAudioUnit bridge and timed out on
+  heavy instruments like Vane, while native strict auval passes in ~30s.)
+- **`--formats a,b`** — narrow the targets. macOS: `au,vst3,clap,standalone`;
+  Linux: `lv2,vst3,clap,standalone` (no `au` — Apple-only). No effect under
+  `--ladder`.
+- **`--fresh`** — wipe `build*/` dirs first (catches stale/hollow-bundle
+  builds). **`--ios`** — add the iOS unsigned compile to a non-ladder run.
+  **`--dry-run`** — print commands, run nothing.
 
-```bash
-enkerli-juce/tools/suite-build --list         # the 7 plugin aliases + their dirs/codes
-enkerli-juce/tools/suite-build all --dry-run  # prints every command it WOULD run, touches nothing
-```
-
-If `--dry-run` reports a repo "not found," either it wasn't cloned, or your
-layout isn't a flat sibling directory — set `SUITE_ROOT=/path/to/~/code`
-(the parent holding all nine) and/or `MUSIC_SUITE=/path/to/music-suite`
-explicitly and retry. As of 2026-07-21 `suite-build` also matches plugin
-directory names **case-insensitively** (`vane` resolves to the `Vane` the
-manifest expects, etc.) — useful if a filesystem or clone step normalized
-casing on you — but cloning with the exact names above avoids depending on
-that fallback at all.
-
-### 4.1 Already have everything cloned — update it all
-
-```bash
-cd ~/code
-for d in music-suite enkerli-juce midicurator-plugin progression-studio-plugin \
-         PitchFold rhythm_pattern_explorer workspace-plugin Vane DrawnQurve; do
-  echo "=== $d ==="
-  git -C "$d" pull --recurse-submodules
-done
-cd music-suite && npm install && cd ..   # picks up any package changes
-```
-
-If your directory names don't match that list exactly (lowercase, a
-different parent layout, only some repos checked out) — adjust the `for`
-list to your real names, or just `git -C <dir> pull` each one by hand.
-`suite-build`'s case-insensitive fallback (above) means an already-lowercase
-checkout doesn't need renaming for the build step to work; `git pull` itself
-doesn't care about casing either.
-
-**Then build.** One command for any (or all) seven plugin repos:
-
-```bash
-enkerli-juce/tools/suite-build all                     # Linux: LV2/VST3/CLAP/Standalone; macOS: quick build
-enkerli-juce/tools/suite-build all --ladder            # macOS: full validation ladder (build → iOS compile → auval → pluginval)
-enkerli-juce/tools/suite-build midicurator --ladder    # one repo at a time works the same way
-enkerli-juce/tools/suite-build drawnqurve,serpe,proggenie --formats vst3,clap   # a subset, specific formats
-enkerli-juce/tools/suite-build --list                  # remind yourself of the aliases
-```
-
-`all` (or a comma-separated repo list) keeps going past a repo that's missing
-or fails and prints a pass/fail summary at the end — useful mid-consolidation
-when you don't have every repo yet. `--formats` narrows what gets built
-(macOS: `au,vst3,clap,standalone`; Linux: `lv2,vst3,clap,standalone` — no
-`au`, that's Apple-only). It does NOT handle Xcode signing/scheme/device-
-install steps — those stay manual, per-repo, below.
-
-**A failed rung is reported as FAILED, never a silent OK** — the summary line
-for a repo is `OK` only if every step that ran actually succeeded. If you see
-`FAILED`, scroll up to that repo's `=== … ===` block for the real error.
+`all` and comma-separated lists keep going past a missing/failing repo and
+print a pass/fail summary. **A rung that fails is reported `FAILED`, never a
+silent `OK`** — a repo shows `OK` only if every step that ran succeeded; on
+`FAILED`, scroll up to that repo's `=== … ===` block. None of this touches
+the Xcode signing/scheme/device-install steps — those stay manual, per repo,
+below.
 
 **Shared setup, every repo below:**
 
-- macOS with **Xcode** installed (for AU/AUv3/iOS builds), **CMake ≥ 3.22**.
-  On **Linux**, also install **`xvfb`** (`apt install xvfb` /
-  `dnf install xorg-x11-server-Xvfb`): the LV2 target runs the built plugin
-  headlessly to generate its manifest, which needs a display — `suite-build`
-  wraps that step in `xvfb-run` automatically when it's present, and without
-  it the LV2 build dies with `cannot open display` / a SIGPIPE (exit 141).
-  Standalone/VST3/CLAP don't need it.
-- **JUCE 8.0.13 is fetched automatically** by `cmake` if you don't have a
-  local copy — no manual JUCE clone needed, despite what some READMEs say.
-  To share **one** JUCE across all seven repos instead of each fetching its
-  own ~500MB copy, clone `juce-framework/JUCE` (tag 8.0.13) as an eighth
-  sibling: `suite-build` defaults `JUCE_PATH` to `$SUITE_ROOT/JUCE` and
-  every repo's CMake honours it. (Speed-up, optional on macOS:
-  `ln -s /Applications/JUCE JUCE` inside the plugin repo.)
-- Five repos vendor `enkerli-juce` as a **git submodule** (MIDIcurator,
-  ProgGenie, PitchFold, Serpe, workspace-plugin). `--recurse-submodules`
-  at clone time is nice but **no longer required**: since 2026-07-19,
-  `cmake` initializes the submodule itself when it's empty (a plain clone
-  used to die with a cryptic `Unknown CMake command "enkerli_resolve_juce"`
-  — the probable cause of the "fresh clone wouldn't build" reports). Vane
-  and DrawnQurve don't use the submodule.
+- **Prerequisites**: macOS with **Xcode** (for AU/AUv3/iOS builds) or Linux
+  with a C++ toolchain; **CMake ≥ 3.22** either way. On Linux also install
+  **`xvfb`** (Quickstart explains why). **JUCE and its submodule are handled
+  for you** — the resolution order and the shared-JUCE option are in §4.0; a
+  plain clone (no `--recurse-submodules`) still builds, because the submodule
+  self-heals at cmake time. If a *fresh* clone ever dies with
+  `Unknown CMake command "enkerli_resolve_juce"`, that's the pre-2026-07-19
+  behaviour — just re-pull `enkerli-juce`.
 - Five repos (Serpe, PitchFold, Vane, DrawnQurve, workspace-plugin) build
   their WebView UI **from this monorepo's `apps/<slug>`** — check out
   `music-suite` and `npm install` it. CMake finds it automatically in any
@@ -268,9 +303,9 @@ for a repo is `OK` only if every step that ran actually succeeded. If you see
   (e.g. AUM's "MIDI FX" / "MIDI Processor" node).
 - **Verify a build** (macOS): `enkerli-juce/tools/validate.sh <repo-dir>
   <aumi|aumu> <4-char-plugin-code>` runs the whole automatable ladder
-  (macOS build → iOS compile check → `auval`). Optional but catches most
-  problems before a device does.
-- **`suite-build`** (§4.0/4.1 above have the full clone-everything and
+  (macOS build → iOS compile check → strict `auval` → `pluginval` on the
+  VST3). Optional but catches most problems before a device does.
+- **`suite-build`** (the Quickstart at the top has the clone-everything and
   update-everything walkthroughs) wraps `validate.sh` per-repo and adds the
   Linux LV2/VST3/CLAP/Standalone leg `validate.sh` doesn't cover. It does NOT
   replace the Xcode signing/scheme/device-install steps below — those stay
@@ -444,8 +479,9 @@ Everything above was read from each repo's actual `CMakeLists.txt` on
 ## 6. Verified build matrix — 2026-07-19 (Mac, Apple Silicon)
 
 Run via `enkerli-juce/tools/validate.sh` (macOS AU/VST3/Standalone build →
-iOS unsigned compile → `auval` → pluginval s8), after the day's fixes
-(WebUI layout probing, submodule auto-init, workspace wasm loaders):
+iOS unsigned compile → strict `auval` → `pluginval` s8 on the VST3), after
+the day's fixes (WebUI layout probing, submodule auto-init, workspace wasm
+loaders):
 
 | Plugin | Result |
 |---|---|
