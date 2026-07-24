@@ -26,7 +26,7 @@ drawnqurve · pickpcs · chord-dictionary · exquisite · style-gallery
 — see GLOSSARY.md for what each one is; four (serpe, pitchfold, vane,
 drawnqurve) are the same code the plugins embed.
 
-## Packages (13, `@enkerli/*`, TypeScript/JS)
+## Packages (14, `@enkerli/*`, TypeScript/JS)
 
 | Package | One line (from its manifest) |
 |---|---|
@@ -38,6 +38,7 @@ drawnqurve) are the same code the plugins embed.
 | proggen | ProgGenie's progression engine: Markov/trigram generation, curation, voicing |
 | accompaniment | GloriArp's engine: curated phrases reharmonized across a progression, seeded |
 | control | Binding layer: keyboard / MIDI-CC / MIDI-note → param/command via tool manifests |
+| voice-routing | Voice routing primitives: round-robin Voice Split + priority note-stealing Mono Merge (extracted from PitchFold, KT item 8) |
 | protocol | SysEx-JSON message protocol: versioned envelope, 7-bit codec, chunking |
 | library | LIS-informed content envelope (identity, provenance, facets) |
 | corpus-tools | Lead-sheet corpus pipeline (no corpus data ships) |
@@ -50,11 +51,13 @@ drawnqurve) are the same code the plugins embed.
 `pattern` · `play` · `recv` · `render` · `send` · `smf` · `style` ·
 `upi` — matrix of what runs where: [HEADLESS.md](HEADLESS.md).
 
-## Workspace modules (15, `apps/workspace/modules.js` `MODULES`)
+## Workspace modules (18, `apps/workspace/modules.js` `MODULES`)
 
-Control Surface · Vane Synth · Pattern (UPI) · Pattern Transforms ·
-Pattern Player · Rhythm Analysis · Progression · GloriArp · Keys ·
-Chord Namer · Recorder · Library · Bindings · Bus Monitor · Bridge (CLI)
+Control Surface · Vane Synth · Pattern (UPI) · PCS Pads · Voice Split ·
+Mono Merge · Pattern Transforms · Pattern Player · Rhythm Analysis ·
+Progression · GloriArp · Keys · Chord Namer · Recorder · Library ·
+Bindings · Bus Monitor · Bridge (CLI)
+*(PCS Pads · Voice Split · Mono Merge are the KT-item-8 additions.)*
 
 ## Data & foundation repos
 
