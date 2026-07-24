@@ -108,15 +108,57 @@ largest *latent* bug risk in the suite is unchanged and lives elsewhere:
 
 ---
 
-## What Phase 2 should do (behaviour-based, as asked)
+## Phase 2 — the apps, run for real (2026-07-22, same day)
 
-1. **Run each webapp** (Playwright) and drive its core flow — catch broken
-   states and doc-vs-behaviour gaps the source can't show.
-2. **axe-core per app** + a keyboard-only pass — turn the a11y section from
-   pointers into verdicts.
-3. **Clear the `innerHTML` sinks** — confirm none interpolate un-escaped
-   external text.
-4. **A CI doc-sync check** — count `packages/*`, `MODULES` keys, and CLI
-   cases against `INVENTORY.md` so this drift can't recur.
-5. **Plugin C++ build-verify** (from `SUITE_AUDIT.md` finding 2) — the one
+*Method: this container's egress policy blocks `enkerli.github.io` (403
+CONNECT), so the pass ran against the **same artifacts Pages serves** —
+`docs/` from this repo at current `main`, served locally, driven by real
+Chromium (Playwright) with axe-core injected. Identical bytes; only
+GitHub's CDN layer is out of the loop.*
+
+**All 11 apps, loaded and probed** (workspace · proggenie · midicurator ·
+serpe · pitchfold · vane · drawnqurve · pickpcs · chord-dictionary ·
+exquisite · style-gallery):
+
+| Check | Result |
+|---|---|
+| Loads + UI actually mounts | **11/11** — real DOM (95–6754 elements), real text, no blank shells |
+| Console/page errors | **0 real errors.** One benign 404 (browser's automatic `/favicon.ico` probe — no app ships one; cosmetic) |
+| axe-core, critical/serious | **0 across all 11 apps** [OK] |
+| axe-core, moderate | 1–3 per app, and it's the *same* structural trio everywhere: `landmark-one-main`, `page-has-heading-one`, `region` — a shared-shell pattern (wrap the app root in `<main>`, one `<h1>`, landmark the panels). One sweep through the shared frame fixes most of it. [LOW] |
+| Keyboard: focus after 3 Tabs | **11/11** land on a real control (`.es-btn`/`.es-control`/`.es-tab`/`.icon-btn`) — the tab order enters actual UI, not a focus trap or void |
+
+**The flagship documented workflow, end-to-end and full duplex** (BUILD.md
+§3 / CONTROL_PLANE / the bridge docstring) — a real `msuite bridge`
+process, the real Workspace app in Chromium, the real UI controls:
+
+1. Add-module select → Bridge module → **connect** → status
+   `"connected · in 0 · out 0"`. ✅
+2. CLI→browser: a `makeNote("external", …)` POSTed to `/send` → HTTP 204 →
+   module status `"in 1"` — the message crossed into the tab. ✅
+3. Browser→CLI (**full duplex**, the specific documented claim): clicking a
+   key in the Keys module produced a validated NDJSON `note` message on the
+   bridge process's **stdout** — exactly what `… | msuite bridge | msuite
+   recv` promises. ✅
+
+**One footgun noted, not a bug:** the protocol's `make*` helpers will
+happily *construct* an envelope with a sender that `validateMessage` then
+rejects ("from: not in the app vocabulary") — e.g. `"workspace"`, which is
+deliberately not an app id (the Workspace sends as `"external"`; documented
+in `modules.js`). TypeScript's `AppId` type protects compiled callers;
+plain-JS callers get a runtime rejection with a clear error. Worth one line
+in `CONTROL_PLANE.md`'s vocabulary section. [LOW]
+
+## Still open for a later phase
+
+1. **Clear the `innerHTML` sinks** — confirm none interpolate un-escaped
+   external text (flagged in the security section; not yet cleared).
+2. **A CI doc-sync check** — count `packages/*`, `MODULES` keys, and CLI
+   cases against `INVENTORY.md` so the Phase-1 drift can't recur.
+3. **The moderate-a11y sweep** — `<main>`/`<h1>`/landmarks in the shared
+   shell (one pass, all apps benefit).
+4. **Plugin C++ build-verify** (from `SUITE_AUDIT.md` finding 2) — the one
    thing that fundamentally needs a Mac + DAW.
+5. **Deployed-site spot check from a normal network** — this pass proved
+   the artifacts; a one-minute look at the live URLs from the user's own
+   machine closes the CDN gap this container's egress policy left open.
