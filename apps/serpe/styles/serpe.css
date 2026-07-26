@@ -312,3 +312,17 @@ select.es-control {
 .poly-cell.on { background: var(--es-accent, #4a9); }
 .poly-cell.on.acc { background: var(--es-dim-pressure, #d90); }
 .poly-cell.ph { border-color: var(--es-ink, #eee); }
+
+/* ── Durations (long/short) + named import ─────────────────────────────────
+   The L/S reading and its push/pull controls; see docs/SERPE_RECOVERY.md. */
+.ls-read { display: flex; align-items: baseline; gap: 10px; margin-bottom: 2px; }
+.ls-morse { font-size: 18px; letter-spacing: .22em; color: var(--es-fg); }
+.ls-foot { font-size: 11px; color: var(--es-fg-muted); text-transform: lowercase; }
+.ls-depth-val { font-size: 11px; color: var(--es-fg-muted); min-width: 34px; text-align: right; }
+.ls-bars { display: flex; align-items: flex-end; gap: 3px; height: 56px; margin-bottom: 6px; }
+.ls-bar { flex: 1; background: var(--es-border); border-radius: 2px 2px 0 0; }
+.ls-bar.long { background: var(--es-fg); }
+.ls-durs { font-size: 11px; color: var(--es-fg-muted); }
+.named-import textarea { width: 100%; font-family: var(--es-font-mono, monospace); font-size: 11px; }
+.named-errs { margin: 4px 0 0; padding-left: 16px; font-size: 11px; color: var(--es-danger, #a33); }
+.named-errs li { margin: 2px 0; }
