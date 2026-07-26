@@ -82,7 +82,26 @@ Things to try:
 - With a MIDI-capable browser, Serpe can drive real hardware or other
   apps from the MIDI section.
 
-### Long and short — making a rhythm breathe
+### Counting in longs and shorts (additive / aksak meters)
+
+Plenty of music counts a bar as a mix of **long and short beats** rather than
+equal ones. The Balkan 9/8 is *short–short–short–long*: 2+2+2+3.
+
+Two ways to write that:
+
+```
+A(2,2,2,3)        the beat groups, outright
+D:2,3 ...-        dots and dashes, saying a short is 2 and a long is 3
+```
+
+`A(...)` is usually the clearer one, and it handles meters that aren't just
+two lengths — `A(2,2,3)` is a 7/8, `A(2,3,2,2,2)` an 11/8. Rotations are
+different rhythms and you write them as such: `A(2,2,3,2)`, `A(3,2,2,2)`.
+
+*(Without the `D:` part, a dot is one step and a dash is two — so plain
+`...-` is a short five-step figure, not a 9/8. `D:` is what sets the sizes.)*
+
+### Making a rhythm breathe
 
 **Durations (long/short)** reads the *gaps* between your onsets. A tresillo
 (`E(3,8)`) has gaps of 3, 3, 2 — two long, one short — so Serpe shows it as

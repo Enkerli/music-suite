@@ -219,6 +219,65 @@ verified in a browser: typing `E(3,8) LS(1.4..1.8, 70%)` moves the ratio
 fields to 1.4/1.8 and push/pull to 70%. `msuite pattern "E(3,8) LS(3)"`
 prints `durate  fixed 3:1  →  [3.00 3.00 1.00]`.
 
+## Additive / aksak meters — the notation that really did change (fifth pass)
+
+**This is the "long/short" that was actually missing**, and the earlier passes
+in this document answered a different question. Recorded plainly because the
+confusion cost several rounds:
+
+| "Long/short" can mean | Status |
+|---|---|
+| **Counting a bar as long and short BEATS** — Balkan 9/8 as *short short short long* (2+2+2+3). Structural: it defines the rhythm. | **The real gap. Fixed in this pass.** |
+| *Reading* an existing pattern's gaps as long/short (`LLS`, `--.`) | Restored earlier (`longShort`) |
+| *Stretching* how long notes SOUND at playback | Added earlier (`LS(…)`, `dynamicDurations`) |
+
+### What changed in the notation, and when
+
+The original Rhythm Pattern Explorer documented two related input forms
+(`WebApp/app/index.html`, syntax list):
+
+```
+Morse Intervals: -.-- (dots=short, dashes=long intervals)
+Custom Durations: D:1,5 pattern (short=1, long=5), D:3,1 (reverse short/long)
+```
+
+The dot/dash form survived into UPI. **`D:s,l` did not** — so the surviving
+form was stuck at short=1, long=2, and `...-` produced `11110` (5 steps)
+rather than a 9-step aksak. The *interval* reading was intact; the ability to
+say **what a short and a long are worth** was gone, and that is exactly the
+control an additive meter needs. Nothing recorded the removal, which is why it
+read as "the notation changed and I never documented it" — accurate.
+
+### Restored, plus a more general form
+
+```
+D:2,3 ...-      short short short long → 2+2+2+3 = the Balkan 9/8
+A(2,2,2,3)      the same bar, as explicit beat GROUPS
+A(2,2,3,2)      a ROTATION — a different rhythm, and E(4,9) won't give it
+A(2,2,3)        7/8;  A(2,3,2,2,2) → 11/8
+D:1,5 .-        the original's own example (1+5)
+D:3,1 .-        reversed feel (3+1)
+```
+
+`D:s,l` is the original's syntax, restored verbatim. `A(…)` is new and more
+general: aksak meters are not always two-valued (2+2+3+2+2), and `A()` says
+the groups outright instead of encoding them as short/long.
+
+**`E(4,9)` is not a substitute.** It happens to equal 2+2+2+3, which is why it
+sat in the presets as "aksak" — but it cannot express that bar's rotations
+(`A(2,2,3,2)`, `A(3,2,2,2)`), and most additive meters are not Euclidean at
+all. The coincidence is what let the gap hide.
+
+### It round-trips
+
+`A(2,2,2,3)` analysed by `longShort` gives intervals `[2,2,2,3]`, pattern
+`SSSL`, morse `...-` — the notation you typed. Input and analysis are proper
+inverses, which is the check that they are the same concept rather than two
+lookalikes. A test asserts it.
+
+Defaults are untouched: a bare `...-` still means short=1/long=2, and `SOS`
+still gives its 12 steps.
+
 ## Still open
 
 1. **Nothing calls `dynamicDurations` at PLAYBACK yet.** The panel computes

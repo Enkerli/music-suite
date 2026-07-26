@@ -310,3 +310,56 @@ describe("LS(…) notation — stating the durational layer in UPI itself", () =
     }
   });
 });
+
+describe("additive / aksak meters — building a bar from long and short beats", () => {
+  const bin = (r) => r.steps.join("");
+
+  it("D:2,3 with dots and dashes gives the Balkan 9/8 (short short short long)", () => {
+    const r = parseUPI("D:2,3 ...-");
+    expect(bin(r)).toBe("101010100");     // 2+2+2+3
+    expect(r.steps).toHaveLength(9);
+  });
+
+  it("A(2,2,2,3) is the same bar, said as beat groups", () => {
+    expect(bin(parseUPI("A(2,2,2,3)"))).toBe("101010100");
+  });
+
+  it("A() reaches rotations that E(4,9) does not", () => {
+    // E(4,9) happens to equal 2+2+2+3; its rotations are different rhythms.
+    expect(bin(parseUPI("E(4,9)"))).toBe("101010100");
+    expect(bin(parseUPI("A(2,2,3,2)"))).toBe("101010010");
+    expect(bin(parseUPI("A(3,2,2,2)"))).toBe("100101010");
+  });
+
+  it("handles other aksak meters — 7/8 and 11/8", () => {
+    expect(bin(parseUPI("A(2,2,3)"))).toBe("1010100");           // 7
+    expect(parseUPI("A(2,3,2,2,2)").steps).toHaveLength(11);     // 11
+  });
+
+  it("D: works with uneven long/short and longer strings", () => {
+    expect(bin(parseUPI("D:2,3 .-.-"))).toBe("1010010100");      // 2+3+2+3 = 10
+    expect(bin(parseUPI("D:1,5 .-"))).toBe("110000");            // 1+5 = 6
+  });
+
+  it("reversing short and long reverses the feel (D:3,1)", () => {
+    expect(bin(parseUPI("D:3,1 .-"))).toBe("1001");              // 3+1
+  });
+
+  it("leaves the DEFAULT morse meaning untouched (short 1, long 2)", () => {
+    expect(bin(parseUPI("...-"))).toBe("11110");
+    expect(parseUPI("SOS").steps).toHaveLength(12);
+  });
+
+  it("the additive bar reads back as its own long/short shape", () => {
+    const r = parseUPI("A(2,2,2,3)");
+    const ls = longShort(r.steps.map(Boolean));
+    expect(ls.intervals).toEqual([2, 2, 2, 3]);
+    expect(ls.pattern).toBe("SSSL");
+    expect(ls.morse).toBe("...-");        // round-trips to what you typed
+  });
+
+  it("rejects malformed additive lists rather than inventing a bar", () => {
+    expect(parseUPI("A()").ok).not.toBe(true);
+    expect(bin(parseUPI("A(2,0,2)")) === "1010100").toBe(false);
+  });
+});

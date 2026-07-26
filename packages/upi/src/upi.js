@@ -99,16 +99,36 @@ const MORSE = {
   o: "---", p: ".--.", q: "--.-", r: ".-.", s: "...", t: "-", u: "..-",
   v: "...-", w: ".--", x: "-..-", y: "-.--", z: "--..",
 };
-function morseToSteps(text) {
+function morseToSteps(text, shortLen = 1, longLen = 2) {
   let p = String(text).toLowerCase().trim();
   if (p === "sos") p = "...---...";
   else if (p === "cq") p = "-.-.--.-";
   else if (/[a-z]/.test(p)) p = [...p].map((ch) => (MORSE[ch] !== undefined ? MORSE[ch] : ch)).join("");
   const steps = [];
+  // Each symbol is an INTERVAL: an onset followed by (len-1) rests. The
+  // defaults (short 1, long 2) are what a bare morse string has always meant
+  // here; `D:s,l` overrides them, which is how additive/aksak meters are
+  // written — "D:2,3 ...-" is short-short-short-long = 2+2+2+3 = 9.
+  const emit = (len) => { steps.push(1); for (let i = 1; i < len; i++) steps.push(0); };
   for (const c of p) {
-    if (c === ".") steps.push(1);
-    else if (c === "-") { steps.push(1); steps.push(0); }
+    if (c === ".") emit(shortLen);
+    else if (c === "-") emit(longLen);
     else if (c === " ") steps.push(0);
+  }
+  return steps;
+}
+
+/* ── Additive / aksak meters ───────────────────────────────────────────────
+ * `A(2,2,2,3)` — a bar built from beat GROUPS, one onset starting each group.
+ * The Balkan 9/8 counted "short short short long" is A(2,2,2,3); its rotations
+ * (A(2,2,3,2), A(3,2,2,2)) are different rhythms and are written as such.
+ * More general than the two-value morse form, which can only say short/long. */
+export function additiveToSteps(groups) {
+  const steps = [];
+  for (const g of groups) {
+    const len = Math.max(1, Math.round(Number(g) || 0));
+    steps.push(1);
+    for (let i = 1; i < len; i++) steps.push(0);
   }
   return steps;
 }
@@ -177,7 +197,13 @@ function bitsFromValue(value, width) {
  *   0x94 / b10010010 / 10010010 / o111 / d73   numeric (leftmost = LSB)
  *   [0,3,6]:8                onset array with optional :N step count
  *   tresillo / cinquillo / tri / pent / hex / hept / oct   shorthand names
- *   SOS / CQ / M:-.- / .-..    Morse (. = onset, - = onset+rest, space = rest)
+ *   SOS / CQ / M:-.- / .-..    Morse (. = short, - = long, space = rest;
+ *                              short = 1 step and long = 2 by default)
+ *   D:2,3 ...-                 …with CUSTOM long/short lengths — this is how
+ *                              additive/aksak meters are written: short-short-
+ *                              short-long = 2+2+2+3 = the Balkan 9/8
+ *   A(2,2,2,3)                 the same bar as explicit beat GROUPS; more
+ *                              general (any group sizes, not just two values)
  *   <pattern> LS(3)            long/short: a long lasts 3× a short (static)
  *   <pattern> LS(1.4..1.8)     …a RANGE — the contrast breathes within it
  *   <pattern> LS(1.4..1.8,70%) …with an explicit push/pull depth
@@ -274,17 +300,32 @@ export function parseUPI(input, ctx = { n: 16 }) {
     const sh = SHORTHAND[src.toLowerCase()];
     if (sh) src = sh;
 
+    // Additive / aksak: A(2,2,2,3) — beat groups, one onset each.
+    m = src.match(/^A\(\s*([\d\s,]+?)\s*\)$/i);
+    if (m) {
+      const groups = m[1].split(",").map((g) => g.trim()).filter(Boolean).map(Number);
+      if (groups.length && groups.every((g) => Number.isFinite(g) && g >= 1)) {
+        return out(additiveToSteps(groups), `A(${groups.join(",")})`);
+      }
+    }
+
     // Morse — checked BEFORE combination because Morse uses '-'. Only pure
     // dot/dash strings, an `M:` prefix, or a bare letter word qualify (real
     // combinations carry parens/digits, so they fall through to the combiner).
+    // `D:s,l` in front sets what a short and a long are worth (the original
+    // Rhythm Pattern Explorer's "Custom Durations"), which is what turns the
+    // dot/dash form into an additive-meter notation.
     {
+      let body = src, shortLen = 1, longLen = 2;
+      const dm = body.match(/^D:\s*(\d+)\s*,\s*(\d+)\s*(.*)$/i);
+      if (dm) { shortLen = Math.max(1, +dm[1]); longLen = Math.max(1, +dm[2]); body = dm[3].trim(); }
       let morseSrc = null;
-      if (/^M:/i.test(src)) morseSrc = src.slice(2);
-      else if (/^[.\-\s]+$/.test(src) && /[.\-]/.test(src)) morseSrc = src;
-      else if (/^[a-z]+$/i.test(src)) morseSrc = src;
+      if (/^M:/i.test(body)) morseSrc = body.slice(2);
+      else if (/^[.\-\s]+$/.test(body) && /[.\-]/.test(body)) morseSrc = body;
+      else if (/^[a-z]+$/i.test(body)) morseSrc = body;
       if (morseSrc !== null) {
-        const steps = morseToSteps(morseSrc);
-        if (steps.length) return out(steps, `♪ ${src}`);
+        const steps = morseToSteps(morseSrc, shortLen, longLen);
+        if (steps.length) return out(steps, dm ? `D:${shortLen},${longLen} ${body}` : `♪ ${src}`);
       }
     }
 

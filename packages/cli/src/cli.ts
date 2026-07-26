@@ -44,6 +44,8 @@ const USAGE = `msuite <command> …
                                         LS(1.4..1.8, 70%) to make it breathe
           --import <file|-> [--json]    named patterns → library items
   upi "<notation>" [--steps N]          the full Serpe UPI language: P(3,0)+P(5,0), E(3,8);12, {100}E(3,8), Morse…
+                                        additive/aksak meters: A(2,2,2,3) or D:2,3 ...-
+                                        (both = short-short-short-long, the Balkan 9/8)
                                         POLY lanes (docs/SERPE_POLY.md): "kick=E(4,16) / snare=E(2,4)@+12ms"
                                         / separates lanes; @±Nms or @±1/32 is per-lane micro-timing (Keil)
   generate [--mode major|minor] [--length N] [--seed N] [--method markov|markov-cadence|circle] [--tonic C] [-o out.mid] [--bars-only]
