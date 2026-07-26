@@ -11,6 +11,10 @@ export interface UpiResult {
   steps: Steps;
   accents: number[];
   accentPattern: number[] | null;
+  /** `LS(…)` durational suffix, when present — note LENGTH. */
+  longShort: { min: number; max: number; depth: number } | null;
+  /** `PD(…)` microtiming suffix, when present — note PLACEMENT. */
+  microtiming: { depth: number; seed: number } | null;
   label: string;
   error?: string;
 }
@@ -191,3 +195,17 @@ export function dynamicDurations(steps: boolean[], opts?: {
 /** The `LS(…)` durational suffix, split off a UPI string. */
 export interface LongShortSpec { min: number; max: number; depth: number }
 export function parseLongShortSuffix(text: string): { rest: string; longShort: LongShortSpec | null };
+
+// ── Microtiming (src/microtiming.js) — Keil participatory discrepancies ─────
+export interface MicrotimingSpec { depth: number; seed: number }
+/** Per-STEP displacement, fractions of a step; + late, − early. */
+export function microtiming(steps: boolean[], opts?: {
+  depth?: number; seed?: number; pass?: number; maxShift?: number;
+}): number[];
+/** Displacements → per-step length multipliers. Sums to the nominal bar. */
+export function timingScales(shift: number[]): number[];
+export function microtimingMs(steps: boolean[], stepMs: number, opts?: {
+  depth?: number; seed?: number; pass?: number; maxShift?: number;
+}): number[];
+export function parseMicrotimingSuffix(text: string): { rest: string; microtiming: MicrotimingSpec | null };
+export function additiveToSteps(groups: number[]): number[];

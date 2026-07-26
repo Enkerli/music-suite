@@ -802,6 +802,27 @@ function SerpeApp() {
       tempo: L.tempo, group: L.group,
     });
   }
+  // Per-lane microtiming. Each lane carries its OWN PD(…) — the point of poly
+  // being that one lane can push while another stays straight — so the scales
+  // are cached per (lane, depth, seed, cycle) rather than globally.
+  const laneCycles = useRef([]);
+  const lanePhRef = useRef([]);
+  const lanePdCache = useRef([]);
+  function laneStepMsAt(lane, li, idx) {
+    const base = laneStepMs(lane);
+    const pd = lane.microtiming;
+    if (!pd || !(pd.depth > 0) || !lane.steps || !lane.steps.length) return base;
+    const cycle = laneCycles.current[li] || 0;
+    const key = lane.steps.join('') + '|' + pd.depth + '|' + pd.seed + '|' + cycle;
+    const slot = lanePdCache.current[li];
+    if (!slot || slot.key !== key) {
+      const sh = microtiming(lane.steps.map(Boolean), { depth: pd.depth, seed: pd.seed, pass: cycle });
+      lanePdCache.current[li] = { key, scales: timingScales(sh) };
+    }
+    const sc = lanePdCache.current[li].scales;
+    return base * (sc[idx % sc.length] ?? 1);
+  }
+
   function polyHit(lane, laneIdx, accent) {
     const L = live.current;
     const ui = L.polyUi[lane.label] || {};
@@ -828,19 +849,25 @@ function SerpeApp() {
     const L = live.current;
     if (!L.poly || !L.poly.lanes[li]) return;
     const lane = L.poly.lanes[li];
-    setLanePh(ph => {
-      const cur = ph.slice();
-      const next = ((cur[li] ?? -1) + 1) % (lane.steps.length || 1);
-      cur[li] = next;
-      if (lane.steps[next]) polyHit(lane, li, !!lane.accents[next]);
-      return cur;
-    });
-    laneTimers.current[li] = setTimeout(() => laneTickRef.current(li), laneStepMs(lane));
+    // The phase advance is tracked in a REF, not read out of the state updater:
+    // a functional setState may run after this function returns (and twice in
+    // StrictMode), so anything the scheduler needs synchronously — like the
+    // next step's microtiming — has to be computed here, not in there.
+    const len = lane.steps.length || 1;
+    const next = ((lanePhRef.current[li] ?? -1) + 1) % len;
+    lanePhRef.current[li] = next;
+    if (next === 0) laneCycles.current[li] = ((laneCycles.current[li] || 0) + 1) % 1024;
+    if (lane.steps[next]) polyHit(lane, li, !!lane.accents[next]);
+    setLanePh(ph => { const cur = ph.slice(); cur[li] = next; return cur; });
+    laneTimers.current[li] = setTimeout(() => laneTickRef.current(li), laneStepMsAt(lane, li, next));
   };
   function polyPlayStart() {
     laneTimers.current.forEach(clearTimeout);
     laneTimers.current = [];
     setLanePh(live.current.poly.lanes.map(() => -1));
+    laneCycles.current = live.current.poly.lanes.map(() => 0);
+    lanePhRef.current = live.current.poly.lanes.map(() => -1);
+    lanePdCache.current = [];
     live.current.poly.lanes.forEach((_, li) => { laneTimers.current[li] = setTimeout(() => laneTickRef.current(li), 0); });
   }
   function polyStopTimers() {

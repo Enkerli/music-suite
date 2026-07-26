@@ -105,6 +105,10 @@ export function parsePolyUPI(input, ctx = { n: 16 }) {
       steps: parsed.steps,
       accents: parsed.accents,
       accentPattern: parsed.accentPattern,
+      // Per-lane feel: a lane may carry its own PD(…)/LS(…), which is the
+      // point of poly — one lane pushes while another stays straight.
+      microtiming: parsed.microtiming ?? null,
+      longShort: parsed.longShort ?? null,
       offset,
       source: rest,
       parsedLabel: parsed.label,

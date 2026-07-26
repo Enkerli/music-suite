@@ -346,11 +346,68 @@ bumps the pass at each cycle boundary).
 | **Placement** | **`PD(20%)`** | **when attacks land — push/pull** | **yes, web audio** |
 | Length | `LS(1.4..1.8)` | how long notes sound (gate) | **no — readout only** |
 
+## Poly lanes, and verifying by MIDI rather than by ear (seventh pass)
+
+Reported: `A(2,2,2,3) PD(90%)/A(2,2,2,3)` — the two lanes still sounded in
+sync. Correct report; **three** separate faults, only the first of which the
+previous pass had addressed.
+
+1. **`parsePolyUPI` dropped per-lane `PD(…)` entirely** — the lane's own
+   suffix parsed to `microtiming: null`, so the depth never reached anything.
+   (The *pattern* was fine, because `parseUPI` strips the suffix before
+   parsing; only the feel was discarded.) Lanes now carry their own
+   `microtiming` and `longShort`, which is the point of poly: one lane pushes
+   while another stays straight.
+2. **Poly runs a different scheduler.** The previous pass wired mono's
+   `stepDur()`; poly ticks each lane on `laneStepMs(lane)` — one fixed value,
+   no per-step variation. Now `laneStepMsAt(lane, li, idx)` applies that
+   lane's own walk, cached per (lane, depth, seed, cycle).
+3. **A React bug in the first attempt at (2).** The next step index and its
+   timing were computed *inside* a `setLanePh(ph => …)` updater, then used on
+   the line after — but a functional setState may run after the caller
+   returns (and twice under StrictMode), so the scheduler kept reading the
+   pre-update value and nothing changed. The phase now advances in a **ref**,
+   synchronously; the state update is for display only. Worth remembering as
+   a pattern: *anything a timer needs synchronously must not be computed
+   inside a state updater.*
+
+Measured in the real page (scheduled `setTimeout` gaps):
+
+```
+A(2,2,2,3)/A(2,2,2,3)             60 125 60 125 125 125 …   (2 distinct)
+A(2,2,2,3) PD(90%)/A(2,2,2,3)     60 125 60 125 120.94 125 60 129.06 …
+```
+
+### `msuite upi --midi` — checking timing objectively
+
+Suggested during the same report, and a much better instrument than ears:
+render the pattern to a Standard MIDI File with `PD(…)` applied and read the
+ticks.
+
+```
+msuite upi "A(2,2,2,3)"          --midi straight.mid --bars 2
+msuite upi "A(2,2,2,3) PD(60%)"  --midi pushed.mid   --bars 2
+```
+
+Note-on ticks parsed back **out of the written files**:
+
+```
+straight: 0 240 480 720 | 1080 1320 1560 1800
+pushed  : 0 240 462 706 | 1080 1317 1535 1791
+delta   : 0   0 -18 -14 |    0   -3  -25   -9  ticks
+```
+
+Cycle 2 begins at tick **1080 in both** — the attacks are displaced, the bar
+is not. That is the bar-preserving property demonstrated on artefact bytes
+rather than asserted, and it is the check to reach for whenever "is this
+actually doing anything?" comes up again.
+
 ## Still open
 
-1. **`LS(…)` is still not wired to playback** — it remains a readout. Now that
-   the vocabulary is separated, the honest question is whether note-length
-   variation is wanted at all, or whether `PD(…)` was the whole ask.
+1. **`LS(…)` is still not wired to playback** — it remains a readout. Its
+   likely home is **articulation**: note length against step length is exactly
+   staccato-vs-legato, which is a more useful framing than "dynamic long/short"
+   and is how it should probably be presented and named.
 2. **The C++ engine has neither.** `microtiming.js` is JS; Serpe's plugin
    scheduler would need the same treatment (the model is small and portable —
    displacements, differenced, downbeat pinned). Needs a Mac to build.

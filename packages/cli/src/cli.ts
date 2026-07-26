@@ -32,7 +32,8 @@ import {
   type SendOptions, type ControlMap, type InputEvent,
 } from "./index.js";
 import { VoiceSplitter } from "@enkerli/voice-routing";
-import { identify, longShort, durations, dynamicDurations, parseNamedPatterns, describeNamedPattern, parseLongShortSuffix } from "@enkerli/upi";
+import { identify, longShort, durations, dynamicDurations, parseNamedPatterns, describeNamedPattern, parseLongShortSuffix, parseUPI, microtiming, timingScales } from "@enkerli/upi";
+import { createSMF } from "@enkerli/midi";
 import { wrapPattern } from "@enkerli/library";
 import type { TraceLevel } from "@enkerli/accompaniment";
 import type { AppId, Destination, ParamMode } from "@enkerli/protocol";
@@ -43,7 +44,8 @@ const USAGE = `msuite <command> …
                                         PD(20%) = push/pull microtiming (timing);
                                         LS(3) / LS(1.4..1.8, 70%) = note length
           --import <file|-> [--json]    named patterns → library items
-  upi "<notation>" [--steps N]          the full Serpe UPI language: P(3,0)+P(5,0), E(3,8);12, {100}E(3,8), Morse…
+  upi "<notation>" [--steps N] [--midi out.mid [--bpm N] [--bars N] [--note N]]
+                                        the full Serpe UPI language: P(3,0)+P(5,0), E(3,8);12, {100}E(3,8), Morse…
                                         additive/aksak meters: A(2,2,2,3) or D:2,3 ...-
                                         (both = short-short-short-long, the Balkan 9/8)
                                         POLY lanes (docs/SERPE_POLY.md): "kick=E(4,16) / snare=E(2,4)@+12ms"
@@ -262,6 +264,52 @@ async function main(): Promise<number> {
       const notation = args.positional.join(" ");
       if (!notation) throw new Error('upi: a UPI notation is required, e.g. "E(3,8)" or "kick=E(4,16) / snare=E(2,4)@+12ms"');
       const nSteps = one(args, "steps") !== undefined ? Number(one(args, "steps")) : 16;
+
+      // --midi: render the pattern to an SMF, APPLYING any PD(…) microtiming,
+      // so push/pull can be checked against real note ticks instead of by ear.
+      const midiOut = one(args, "midi");
+      if (midiOut !== undefined) {
+        const parsed = parseUPI(notation, { n: nSteps });
+        if (!parsed.ok) { console.error(`no pattern (${parsed.error ?? "unparsed"})`); return 1; }
+        const stepsArr = parsed.steps.map(Boolean);
+        const bpm = one(args, "bpm") !== undefined ? Number(one(args, "bpm")) : 120;
+        const bars = one(args, "bars") !== undefined ? Number(one(args, "bars")) : 2;
+        const note = one(args, "note") !== undefined ? Number(one(args, "note")) : 36;
+        const tpb = 480;
+        const stepTicks = tpb / 4;               // one step = a 16th
+        const pd = parsed.microtiming;
+        const notes: Array<{ pitch: number; velocity: number; startTick: number; durationTicks: number }> = [];
+        let cursor = 0;
+        for (let cycle = 0; cycle < bars; cycle++) {
+          const scales = pd && pd.depth > 0
+            ? timingScales(microtiming(stepsArr, { depth: pd.depth, seed: pd.seed, pass: cycle }))
+            : stepsArr.map(() => 1);
+          for (let i = 0; i < stepsArr.length; i++) {
+            if (stepsArr[i]) {
+              notes.push({ pitch: note, velocity: 100, startTick: Math.round(cursor),
+                           durationTicks: Math.max(10, Math.round(stepTicks * 0.5)) });
+            }
+            cursor += stepTicks * (scales[i] ?? 1);
+          }
+        }
+        writeFileSync(String(midiOut), createSMF(notes, { bpm, ticksPerBeat: tpb, trackName: notation }));
+        const shifts = pd && pd.depth > 0 ? microtiming(stepsArr, { depth: pd.depth, seed: pd.seed, pass: 0 }) : null;
+        const pdDepth = pd ? pd.depth : 0;
+        console.log(`wrote ${midiOut} — ${notes.length} notes, ${bars} cycle(s) @ ${bpm}bpm`);
+        console.log(`ticks   ${notes.slice(0, 10).map((n) => n.startTick).join(" ")}${notes.length > 10 ? " …" : ""}`);
+        if (shifts) {
+          const msPerStep = (60000 / bpm) / 4;
+          console.log(`pd      depth ${Math.round(pdDepth * 100)}%  →  ` +
+            stepsArr.map((on, i) => {
+              if (!on) return null;
+              const sh = shifts[i] ?? 0;
+              return `${sh >= 0 ? "+" : ""}${(sh * msPerStep).toFixed(1)}`;
+            }).filter(Boolean).join("  ") + " ms (cycle 1)");
+        } else {
+          console.log(`pd      none — add PD(30%) to the notation to hear/see push-pull`);
+        }
+        return 0;
+      }
       if (isPolyUpi(notation)) {
         const p = polyUpiInfo(notation, nSteps);
         if (!p.ok) { console.log(`no pattern (${p.error ?? "unparsed"})`); return 1; }
