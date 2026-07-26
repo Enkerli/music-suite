@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import { detectEuclidean, detectBarlow, decompose, identify } from "./decompose.js";
 import { longShort, durations, dynamicDurations } from "./longshort.js";
 import { parseNamedPattern, parseNamedPatterns, describeNamedPattern } from "./named.js";
+import { parseUPI } from "./upi.js";
 
 const P = (s) => [...s].map((c) => c === "1");
 
@@ -253,5 +254,59 @@ describe("dynamicDurations — push/pull on the long/short contrast", () => {
 
   it("is empty when there is nothing to measure", () => {
     expect(dynamicDurations(P("00000000"), { depth: 1 })).toEqual([]);
+  });
+});
+
+describe("LS(…) notation — stating the durational layer in UPI itself", () => {
+  it("a bare ratio is static (no range, so nothing to breathe in)", () => {
+    expect(parseUPI("E(3,8) LS(3)").longShort).toEqual({ min: 3, max: 3, depth: 0 });
+  });
+
+  it("a range with no depth implies FULL depth — otherwise it would silently do nothing", () => {
+    expect(parseUPI("E(3,8) LS(1.4..1.8)").longShort).toEqual({ min: 1.4, max: 1.8, depth: 1 });
+  });
+
+  it("depth accepts a percentage or a 0..1 fraction", () => {
+    expect(parseUPI("E(3,8) LS(1.4..1.8, 70%)").longShort.depth).toBeCloseTo(0.7, 5);
+    expect(parseUPI("E(3,8) LS(1.4..1.8, 0.5)").longShort.depth).toBeCloseTo(0.5, 5);
+  });
+
+  it("does not disturb the pattern it is attached to", () => {
+    expect(parseUPI("E(3,8) LS(1.4..1.8)").steps).toEqual(parseUPI("E(3,8)").steps);
+  });
+
+  it("survives combinations — the '-' inside LS() never reaches the '+/-' splitter", () => {
+    const plain = parseUPI("P(3,0)+P(5,0)");
+    const withLs = parseUPI("P(3,0)+P(5,0) LS(2..3)");
+    expect(withLs.steps).toEqual(plain.steps);
+    expect(withLs.longShort).toEqual({ min: 2, max: 3, depth: 1 });
+  });
+
+  it("composes with an accent prefix", () => {
+    const r = parseUPI("{101}E(5,8) LS(1.5..2)");
+    expect(r.ok).toBe(true);
+    expect(r.accentPattern).toEqual([1, 0, 1]);
+    expect(r.longShort.max).toBe(2);
+  });
+
+  it("is optional — a plain pattern reports no durational layer", () => {
+    expect(parseUPI("E(3,8)").longShort).toBeNull();
+  });
+
+  it("clamps nonsense rather than producing an inverted or negative range", () => {
+    const r = parseUPI("E(3,8) LS(0.2..0.1, 500%)");
+    expect(r.longShort.min).toBeGreaterThanOrEqual(1);
+    expect(r.longShort.max).toBeGreaterThanOrEqual(r.longShort.min);
+    expect(r.longShort.depth).toBeLessThanOrEqual(1);
+  });
+
+  it("feeds dynamicDurations directly — notation to sound, one path", () => {
+    const r = parseUPI("E(3,8) LS(1.4..1.8, 70%)");
+    const steps = r.steps.map(Boolean);
+    const d = dynamicDurations(steps, { ratio: [r.longShort.min, r.longShort.max], depth: r.longShort.depth, seed: 1 });
+    expect(d).toHaveLength(3);
+    for (const v of d) {
+      if (v > 1.05) { expect(v).toBeGreaterThanOrEqual(1.4 - 1e-9); expect(v).toBeLessThanOrEqual(1.8 + 1e-9); }
+    }
   });
 });

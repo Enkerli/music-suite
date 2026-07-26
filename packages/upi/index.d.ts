@@ -187,3 +187,7 @@ export function dynamicDurations(steps: boolean[], opts?: {
   ratio?: number | [number, number];
   depth?: number; seed?: number; pass?: number;
 }): number[];
+
+/** The `LS(…)` durational suffix, split off a UPI string. */
+export interface LongShortSpec { min: number; max: number; depth: number }
+export function parseLongShortSuffix(text: string): { rest: string; longShort: LongShortSpec | null };

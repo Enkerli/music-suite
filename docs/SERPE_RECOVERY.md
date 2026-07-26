@@ -185,6 +185,40 @@ Two things fell out of wiring it in:
   investigation started from. Still not a catalogue; still prose-adjacent
   presets. But not nothing.
 
+## The notation: `LS(…)` (2026-07-22, fourth pass)
+
+The previous pass shipped panel controls but **no way to say any of it in
+UPI** — so "what do I type to get a dynamic long/short?" had no answer. It
+does now; the durational layer is part of the notation:
+
+```
+E(3,8) LS(3)                 fixed: a long lasts 3× a short
+E(3,8) LS(1.4..1.8)          a range — the contrast breathes within it
+E(3,8) LS(1.4..1.8, 70%)     …with an explicit push/pull depth (or 0.7)
+{101}E(5,8) LS(1.5..2)       composes with accents
+P(3,0)+P(5,0) LS(2..3)       …and with combinations
+```
+
+Three decisions worth keeping:
+
+- **`..` for the range, not `-`.** The combination parser splits on top-level
+  `+`/`-`; a hyphen inside `LS()` would be ambiguous the moment someone wrote
+  `E(3,8)+E(2,8) LS(1.4-1.8)`. The suffix is also stripped *first*, before any
+  other parsing, exactly like the `{…}` accent prefix — so its contents can
+  never reach the splitter at all. A regression test covers precisely this.
+- **A range with no depth means full depth.** `LS(1.4..1.8)` obviously intends
+  movement; defaulting depth to 0 would make it silently inert, which is the
+  same trap the panel warns about. A *bare* ratio (`LS(3)`) has no range, so
+  its depth is 0 — static, as written.
+- **Values are clamped, not rejected.** `LS(0.2..0.1, 500%)` yields a sane
+  min ≥ 1, max ≥ min, depth ≤ 1 rather than an error or an inverted range.
+
+`parseUPI` returns the spec as `longShort: {min, max, depth}` (or `null`).
+Serpe's `applyPattern` feeds it straight into the Durations controls —
+verified in a browser: typing `E(3,8) LS(1.4..1.8, 70%)` moves the ratio
+fields to 1.4/1.8 and push/pull to 70%. `msuite pattern "E(3,8) LS(3)"`
+prints `durate  fixed 3:1  →  [3.00 3.00 1.00]`.
+
 ## Still open
 
 1. **Nothing calls `dynamicDurations` at PLAYBACK yet.** The panel computes

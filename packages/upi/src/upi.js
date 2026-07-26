@@ -178,14 +178,56 @@ function bitsFromValue(value, width) {
  *   [0,3,6]:8                onset array with optional :N step count
  *   tresillo / cinquillo / tri / pent / hex / hept / oct   shorthand names
  *   SOS / CQ / M:-.- / .-..    Morse (. = onset, - = onset+rest, space = rest)
+ *   <pattern> LS(3)            long/short: a long lasts 3× a short (static)
+ *   <pattern> LS(1.4..1.8)     …a RANGE — the contrast breathes within it
+ *   <pattern> LS(1.4..1.8,70%) …with an explicit push/pull depth
  *   <expr>+<expr> / <expr>-<expr>   combination: union / difference (LCM;
  *                            all-polygon '+' projects onto lcm of polygon sizes)
  *   {10010}<expr>            accent layer wrapping any of the above
  * Returns { steps, accents, label, ok, error }.
  */
+/* Long/short suffix — `LS(ratio)`, `LS(min..max)`, `LS(min..max, depth)`.
+ * Stripped FIRST, like the accent prefix, so its contents can never reach the
+ * combination parser (which splits on top-level '+'/'-'); `..` is the range
+ * separator for the same reason — a '-' inside would be ambiguous.
+ * A range given without an explicit depth implies FULL depth: otherwise
+ * `LS(1.4..1.8)` would silently do nothing, which is the exact trap the UI
+ * warns about. */
+// `\d+(\.\d+)?` not `[\d.]+`: the latter is greedy across the ".." range
+// separator and swallows "1.4..1.8" whole.
+const NUM = "\\d+(?:\\.\\d+)?";
+const LS_SUFFIX = new RegExp(
+  `\\s*LS\\(\\s*(${NUM})\\s*(?:\\.\\.\\s*(${NUM})\\s*)?(?:,\\s*(${NUM}%?)\\s*)?\\)\\s*$`, "i");
+
+export function parseLongShortSuffix(text) {
+  const m = LS_SUFFIX.exec(String(text || ""));
+  if (!m) return { rest: String(text || "").trim(), longShort: null };
+  const min = Number(m[1]);
+  const max = m[2] !== undefined ? Number(m[2]) : min;
+  let depth;
+  if (m[3] !== undefined) {
+    depth = m[3].endsWith("%") ? Number(m[3].slice(0, -1)) / 100 : Number(m[3]);
+  } else {
+    depth = max > min ? 1 : 0;   // a range with no depth means "use the range"
+  }
+  if (!Number.isFinite(min) || !Number.isFinite(max) || !Number.isFinite(depth)) {
+    return { rest: String(text).trim(), longShort: null };
+  }
+  return {
+    rest: text.slice(0, m.index).trim(),
+    longShort: { min: Math.max(1, min), max: Math.max(Math.max(1, min), max),
+                 depth: Math.max(0, Math.min(1, depth)) },
+  };
+}
+
 export function parseUPI(input, ctx = { n: 16 }) {
   let src = String(input || "").trim();
   let accents = null;
+
+  // Durational (long/short) suffix — removed before anything else parses.
+  const lsSplit = parseLongShortSuffix(src);
+  const longShortSpec = lsSplit.longShort;
+  src = lsSplit.rest;
 
   // accent prefix {…}
   const accM = src.match(/^\{([^}]*)\}\s*(.*)$/);
@@ -207,7 +249,8 @@ export function parseUPI(input, ctx = { n: 16 }) {
     }
     // accentPattern is the raw {…} layer; the UI re-applies it with a live offset
     // so the displayed accents precess across cycles in step with playback.
-    return { steps: steps.map(Number), accents: acc, accentPattern: accents, label, ok: true };
+    return { steps: steps.map(Number), accents: acc, accentPattern: accents,
+             longShort: longShortSpec, label, ok: true };
   };
 
   try {

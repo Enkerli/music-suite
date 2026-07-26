@@ -492,6 +492,12 @@ function SerpeApp() {
   function applyPattern(p, { syncField = true } = {}) {
     setSteps(p.steps); setAccentPattern(p.accentPattern); setAccentOffset(0); setLabel(p.label);
     if (syncField && p.label) setUpiText(p.label);
+    // An LS(…) suffix in the notation drives the Durations controls, so the
+    // text field is a complete way to state a rhythm INCLUDING how it breathes
+    // — not just which steps sound.
+    if (p.longShort) {
+      setLsMin(p.longShort.min); setLsMax(p.longShort.max); setLsDepth(p.longShort.depth);
+    }
   }
 
   // The full engine string: the Accents field prepends as {…} unless the

@@ -45,6 +45,8 @@ export {
   // named-pattern import: "Fume-Fume: [0,2,4,7,9]/12", one line or a block
   parseNamedPattern, parseNamedPatterns, describeNamedPattern,
 } from "./named.js";
+
+export { parseLongShortSuffix } from "./upi.js";
 export { mutatePattern } from "./mutate.js";
 
 export {

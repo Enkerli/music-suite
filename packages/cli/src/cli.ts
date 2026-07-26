@@ -32,7 +32,7 @@ import {
   type SendOptions, type ControlMap, type InputEvent,
 } from "./index.js";
 import { VoiceSplitter } from "@enkerli/voice-routing";
-import { identify, longShort, durations, parseNamedPatterns, describeNamedPattern } from "@enkerli/upi";
+import { identify, longShort, durations, dynamicDurations, parseNamedPatterns, describeNamedPattern, parseLongShortSuffix } from "@enkerli/upi";
 import { wrapPattern } from "@enkerli/library";
 import type { TraceLevel } from "@enkerli/accompaniment";
 import type { AppId, Destination, ParamMode } from "@enkerli/protocol";
@@ -40,6 +40,9 @@ import type { AppId, Destination, ParamMode } from "@enkerli/protocol";
 const USAGE = `msuite <command> …
   chord <values…> [--pcs|--notes]
   pattern <spec>                        E(3,8) · 0x94:8 · o111:8 · d73:8 · 10010010
+                                        add LS(3) for a fixed long:short, or
+                                        LS(1.4..1.8, 70%) to make it breathe
+          --import <file|-> [--json]    named patterns → library items
   upi "<notation>" [--steps N]          the full Serpe UPI language: P(3,0)+P(5,0), E(3,8);12, {100}E(3,8), Morse…
                                         POLY lanes (docs/SERPE_POLY.md): "kick=E(4,16) / snare=E(2,4)@+12ms"
                                         / separates lanes; @±Nms or @±1/32 is per-lane micro-timing (Keil)
@@ -221,7 +224,9 @@ async function main(): Promise<number> {
           (asJson ? "" : " — add --json for library items"));
         return errors.length ? 1 : 0;
       }
-      const spec = args.positional.join(" ");
+      const rawSpec = args.positional.join(" ");
+      // An LS(…) suffix states the durational layer in the notation itself.
+      const { rest: spec, longShort: lsSpec } = parseLongShortSuffix(rawSpec);
       const p = patternInfo(spec);
       console.log(`steps   ${p.steps}`);
       console.log(`binary  ${p.binary}`);
@@ -239,7 +244,15 @@ async function main(): Promise<number> {
       const ls = longShort(steps);
       if (ls.intervals.length) {
         console.log(`ioi     [${ls.intervals.join(" ")}]  ${ls.pattern}  ${ls.morse}`);
-        console.log(`durate  ${ls.description}${ls.isochronous ? "" : `  →  [${durations(steps).join(" ")}]`}`);
+        if (lsSpec) {
+          const d = dynamicDurations(steps, { ratio: [lsSpec.min, lsSpec.max], depth: lsSpec.depth, seed: 1 });
+          const how = lsSpec.max > lsSpec.min
+            ? `${lsSpec.min}–${lsSpec.max} at ${Math.round(lsSpec.depth * 100)}% push/pull`
+            : `fixed ${lsSpec.min}:1`;
+          console.log(`durate  ${how}  →  [${d.map((x) => x.toFixed(2)).join(" ")}]`);
+        } else {
+          console.log(`durate  ${ls.description}${ls.isochronous ? "" : `  →  [${durations(steps).join(" ")}]`}`);
+        }
       }
       return 0;
     }

@@ -541,20 +541,33 @@ Things to try:
 `--.` (dash = long, dot = short) and names the shape *antibacchic*. Even
 rhythms like `E(4,8)` have no contrast to read, and the panel says so.
 
-Two controls turn that reading into durations you can play:
+**You can write it straight into the pattern**, with `LS(...)` after the
+notation:
+
+```
+E(3,8) LS(3)                the classic: a long lasts 3× a short, steady
+E(3,8) LS(1.4..1.8)         a RANGE — the contrast breathes within it
+E(3,8) LS(1.4..1.8, 70%)    …and how strongly it moves
+```
+
+Type that in Serpe's pattern field and the Durations controls follow it. It
+works the same at the command line — `msuite pattern "E(3,8) LS(1.4..1.8,
+70%)"` — and alongside everything else the notation does, so
+`{101}E(5,8) LS(1.5..2)` accents *and* breathes.
+
+Or set the same thing with the two controls:
 
 - **Ratio** — how much longer a long is than a short. One number holds it
-  steady (`3` gives the classic short-1/long-3). Set the **second number
-  higher than the first** and you have a *range* — the room the rhythm is
-  allowed to move in, e.g. `1.4` to `1.8`.
+  steady. Set the **second number higher than the first** and you have a
+  *range* — the room the rhythm is allowed to move in.
 - **Push / pull** — how much it actually moves inside that range. At 0 the
   rhythm is metronomic. Raise it and the long notes lean and relax as they
   go, hardest away from the strong beats and pulled back into line on them.
 
-**So: to get a breathing long/short, you need both — a ratio range (second
-number bigger than the first) *and* push/pull above 0.** Either alone does
-nothing: no range leaves the walk no room, no push/pull leaves it no reason
-to move. The panel tells you which one is missing.
+**A range with no push/pull, or push/pull with no range, does nothing** —
+one is the room, the other is the reason to move. Writing `LS(1.4..1.8)`
+without a depth assumes you meant it and uses the whole range; the panel
+tells you when a setting is inert.
 
 The movement is not random jitter. It accumulates and resolves, the way a
 player leans into a phrase and settles at the downbeat — the same "pocket"
