@@ -456,8 +456,21 @@ function refreshDevices() {
   if (!selectEl || !midi) return;
   const saved = (() => { try { return localStorage.getItem(MIDI_IN_KEY); } catch { return null; } })();
   const curName = midi.inputs.find((p) => p.id === selectEl.value)?.name;
-  selectEl.innerHTML = '<option value="">— MIDI in —</option>' +
-    midi.inputs.map((p) => `<option value="${p.id}">${p.name}</option>`).join('');
+  // Built with DOM APIs, not an innerHTML string: a MIDI port name is external
+  // input (the OS hands it over, and any local software can register a VIRTUAL
+  // port under a name it chooses), so interpolating it into HTML would be an
+  // injection sink. textContent/value never parse markup.
+  selectEl.replaceChildren();
+  const none = document.createElement('option');
+  none.value = '';
+  none.textContent = '— MIDI in —';
+  selectEl.append(none);
+  for (const p of midi.inputs) {
+    const opt = document.createElement('option');
+    opt.value = p.id;
+    opt.textContent = p.name;
+    selectEl.append(opt);
+  }
   // Preference order: the remembered device (just re-plugged?) → whatever was
   // already selected → first available.
   const pick = midi.inputs.find((p) => p.name === saved)

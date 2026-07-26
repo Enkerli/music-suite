@@ -5,9 +5,17 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <link rel="icon" type="image/svg+xml" href="/icon.svg" />
     <title>Concentric PCS Picker</title>
-  </head>
+    <style>
+    /* Visually hidden, still announced (see .es-sr-only in @enkerli/ui tokens).
+       Inlined so the heading is hidden from the FIRST paint, before any
+       bundle's CSS loads — otherwise the title flashes visibly. */
+    .es-sr-only { position:absolute; width:1px; height:1px; padding:0; margin:-1px;
+      overflow:hidden; clip:rect(0 0 0 0); clip-path:inset(50%); white-space:nowrap; border:0; }
+  </style>
+</head>
   <body>
-    <div id="root"></div>
+    <header class="es-sr-only"><h1>PickPCS</h1></header>
+    <main id="root"></main>
     <script type="module" src="src/main.jsx"></script>
   </body>
 </html>

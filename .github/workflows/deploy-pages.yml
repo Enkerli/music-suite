@@ -52,6 +52,10 @@ jobs:
       # actually emits (unlike an incremental local tree).
       - name: Build shared packages (tsc -b)
         run: npm run typecheck
+      # Fails the build if docs/INVENTORY.md's counts/names drift from the
+      # tree (the 2026-07-22 audit found it 1 package and 3 modules stale).
+      - name: Check INVENTORY.md matches the tree
+        run: npm run check-inventory
       - name: Rebuild in-repo apps into docs/apps
         run: npm run sync-apps -- --monorepo
       - name: Build site from docs/site.md

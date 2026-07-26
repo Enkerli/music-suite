@@ -558,10 +558,15 @@ input,textarea,[contenteditable]{ -webkit-user-select:text; user-select:text; -w
 .pbtn{border:1px solid var(--vn-line);background:var(--vn-panel);color:var(--vn-text-2);font-size:11px;font-weight:600;border-radius:8px;height:var(--ctl-h,34px);max-height:32px;min-width:40px;padding:0 10px;cursor:pointer;font-family:var(--vn-ui)}
 .pbtn.on{background:var(--vn-slide);color:#fff;border-color:var(--vn-slide)}
 .pbtn:disabled{opacity:.38;cursor:default}
+  /* Visually hidden, still announced (see .es-sr-only in @enkerli/ui tokens).
+     Inlined so the heading is hidden from the FIRST paint. */
+  .es-sr-only { position:absolute; width:1px; height:1px; padding:0; margin:-1px;
+    overflow:hidden; clip:rect(0 0 0 0); clip-path:inset(50%); white-space:nowrap; border:0; }
 </style>
 </head>
 <body>
-<div id="app">
+<header class="es-sr-only"><h1>Vane</h1></header>
+<div id="app" role="main">
   <!-- Header — preset name is the primary title (F2) -->
   <div class="header">
     <div class="brand"><span class="mark">Vane</span></div>

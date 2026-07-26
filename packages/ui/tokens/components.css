@@ -980,3 +980,16 @@ select.es-control option { background: var(--es-bg-raised); color: var(--es-fg);
   background:var(--es-fg);color:var(--es-bg-raised);border-color:var(--es-fg);
 }
 .es-tabs .es-tab:focus-visible{outline:var(--es-focus-ring);outline-offset:2px}
+
+/* ── .es-sr-only — visually hidden, still in the accessibility tree ──────────
+   For the page's structural heading when the visible design has no room for
+   one (WCAG 1.3.1 / axe `page-has-heading-one`). NOT `display:none` and NOT
+   `visibility:hidden` — both remove the element from the a11y tree, which is
+   the opposite of the point. The clip+1px technique keeps it announced.
+   Paired with a landmark (`<header class="es-sr-only"><h1>…`) so the heading
+   itself doesn't then land outside any landmark (axe `region`). */
+.es-sr-only{
+  position:absolute;width:1px;height:1px;padding:0;margin:-1px;
+  overflow:hidden;clip:rect(0 0 0 0);clip-path:inset(50%);
+  white-space:nowrap;border:0;
+}

@@ -37,10 +37,21 @@ Severity: **HIGH** / **MED** / **LOW** / **OK** (verified sound).
 | **Bind address is localhost only** (`127.0.0.1`), not `0.0.0.0`. | OK | `bridge.ts:150`; startup log "listening on http://localhost:8799". | Correct — the bridge is not reachable from the network. |
 | **No runtime `eval`/`exec`/child-process in app or package source.** The only `execSync` calls are in build scripts (`WebUI/build.mjs`, now macOS-guarded) and `db.exec` is sql.js SQL, not shell. | OK | source scan (dist bundles excluded). | No injection surface found in runtime code. |
 
-**Static sinks still to review in a deeper pass:** `innerHTML`/
-`insertAdjacentHTML` usage in the webapps (present; needs a check that none
-interpolate un-escaped bus/leadsheet/user text), and the plugin WebViews'
-message handling. Flagged, not yet cleared.
+### The `innerHTML` sinks — reviewed and cleared (Phase 3)
+
+Every `innerHTML` / `insertAdjacentHTML` / `dangerouslySetInnerHTML` in app
+and package **source** was read (built bundles excluded). Result: **one real
+sink, fixed; everything else clean.**
+
+| Site | Verdict |
+|---|---|
+| **`apps/vane/synth-main.js` — MIDI device list** | **REAL SINK, FIXED.** Port names went into `innerHTML` raw: `` `<option value="${p.id}">${p.name}</option>` ``. A MIDI port name is external input — the OS supplies it, and *any local software can register a virtual port under a name it chooses*, so a crafted name was an injection vector. Rebuilt with DOM APIs (`createElement` + `textContent`), which never parse markup. [MED → fixed] |
+| `packages/ui/components/library-browser.js` | **Clean, deliberately.** `esc()` covers `&<>"`, and `highlight()` escapes *every* segment around the `<mark>` (its docstring says "HTML-escaped"). User-controlled library item names are escaped on both the display and rename paths. |
+| `apps/exquisite-fingerings/src/app.js` (~25 sites) | **Clean.** Interpolates only engine-computed values — ergonomic scores, finger numbers, pitch classes, internal recommendation strings. No external or user-authored text reaches these templates. |
+| `apps/serpe/main.jsx`, `apps/chord-dictionary/src/App.jsx` | **Clean.** `dangerouslySetInnerHTML` carries locally-generated SVG (an icon constant; a chord-circle built from numbers), not external text. |
+
+Not covered: the plugin WebViews' C++-side message handling (needs the JUCE
+side, out of scope for this container).
 
 ---
 
@@ -149,16 +160,75 @@ in `modules.js`). TypeScript's `AppId` type protects compiled callers;
 plain-JS callers get a runtime rejection with a clear error. Worth one line
 in `CONTROL_PLANE.md`'s vocabulary section. [LOW]
 
-## Still open for a later phase
+## Phase 3 — the fixes, measured (2026-07-22)
 
-1. **Clear the `innerHTML` sinks** — confirm none interpolate un-escaped
-   external text (flagged in the security section; not yet cleared).
-2. **A CI doc-sync check** — count `packages/*`, `MODULES` keys, and CLI
-   cases against `INVENTORY.md` so the Phase-1 drift can't recur.
-3. **The moderate-a11y sweep** — `<main>`/`<h1>`/landmarks in the shared
-   shell (one pass, all apps benefit).
-4. **Plugin C++ build-verify** (from `SUITE_AUDIT.md` finding 2) — the one
-   thing that fundamentally needs a Mac + DAW.
-5. **Deployed-site spot check from a normal network** — this pass proved
-   the artifacts; a one-minute look at the live URLs from the user's own
-   machine closes the CDN gap this container's egress policy left open.
+### Accessibility: 11/11 apps now report **zero** axe violations
+
+Not "zero serious" — **zero at any impact level**, verified by re-running
+the same axe-core pass that produced the Phase-2 numbers.
+
+| App | moderate violations before → after |
+|---|---|
+| proggenie · midicurator · serpe · pitchfold · vane · drawnqurve · pickpcs | 3 → **0** |
+| chord-dictionary · style-gallery · workspace | 2 → **0** |
+| exquisite | 1 → **0** |
+
+The fix was found empirically rather than assumed — variants were tested
+against axe and the winner kept:
+
+1. **Promote the mount root to `<main>`** (`<div id="root">` →
+   `<main id="root">`). Because these apps style `#root` *by id*, the CSS is
+   untouched and there is no wrapper element — **zero layout risk**. This one
+   change cleared `landmark-one-main` **and every `region` violation** (8 of
+   them on PitchFold alone): once all content sits inside a landmark, the
+   rule is satisfied wholesale.
+2. **Add the missing `<h1>`.** Where the design has no visible heading, a
+   `.es-sr-only` one inside a `<header>` landmark (visually hidden, still
+   announced). Where a visible title already existed, **promote it** — the
+   Workspace's "Suite Workspace" brand `<span>` became a real `<h1>`, which
+   is the honest fix; its CSS gained `font-size:inherit;margin:0` so the h1
+   defaults (2em, .67em margins) can't break the flex topbar.
+
+**Verified against regressions, not assumed:** PitchFold before/after
+screenshots are **byte-identical** (59435 bytes both) with +2 hidden
+elements; the Workspace was screenshotted after its visible-h1 change and
+renders correctly; the full suite still passes **1528 tests**.
+
+Two findings worth keeping, both discovered by measuring:
+
+- **`<header class="es-sr-only">` backfires on a page that already has a
+  banner.** Adding it to the Workspace produced *new* violations
+  (`landmark-no-duplicate-banner`, `landmark-unique`). But a bare
+  `<h1 class="es-sr-only">` then failed `region` — it sits outside every
+  landmark. The resolution is the rule above: **prefer promoting a real
+  visible heading**; reach for the hidden one only where no landmark exists
+  to collide with.
+- `.es-sr-only` now lives in `@enkerli/ui`'s tokens as a suite primitive —
+  but it is **also inlined** in each app's `<style>`, deliberately: the
+  heading must be hidden from the *first paint*, before any bundle's CSS
+  loads, or the title flashes visibly.
+
+### Consistency: the drift can no longer recur silently
+
+`scripts/check-inventory.mjs` (also `npm run check-inventory`) counts the
+real `packages/*` directories, the `MODULES` registry keys, and the CLI's
+dispatch cases, and fails if `INVENTORY.md` disagrees — on **counts and on
+names**, since a swap keeps the number and still drifts. It runs in CI
+(`deploy-pages.yml`) ahead of the site build. Currently green: 14 packages ·
+18 modules · 14 commands. The file's own stated rule — *"update this file in
+the same commit"* — is now enforced by something other than good intentions.
+
+## Still open — and honestly, not closable from here
+
+1. **Plugin C++ build-verify** (`SUITE_AUDIT.md` finding 2) — code committed
+   without ever being compiled. Needs a Mac + DAW. **This remains the
+   suite's largest single quality risk.**
+2. **Deployed-site spot check from a normal network** — this container's
+   egress policy blocks `enkerli.github.io`, so every app result above came
+   from the identical `docs/` artifacts served locally. A one-minute look at
+   the live URLs closes the CDN gap.
+3. **PitchFold's dead params** (Mono Merge / Swing) — a keep/cut/build
+   decision, not a defect (`SUITE_AUDIT.md` finding 5).
+4. **Usability beyond the CLI nit** — first-run clarity, empty states, and
+   error surfacing across 11 apps is a heuristic review with a human in the
+   loop, not something axe or a script can score.

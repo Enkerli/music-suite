@@ -15,7 +15,9 @@ body {
   background: var(--es-bg-raised, #fff);
   position: relative; z-index: 10;
 }
-.ws-brand { font-weight: 700; letter-spacing: .01em; }
+/* An <h1> (the page's real heading, in the banner) styled to sit inline in
+   the topbar — h1 defaults (2em, .67em margins) would break the flex row. */
+.ws-brand { font-weight: 700; letter-spacing: .01em; font-size: inherit; margin: 0; }
 .ws-tagline { color: var(--es-fg-muted, #6b6559); font-size: 13px; margin-right: auto; }
 
 /* Bento canvas: a packed grid — aligned by construction, overlap impossible.

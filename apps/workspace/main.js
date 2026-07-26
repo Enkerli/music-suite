@@ -45,7 +45,7 @@ function main() {
       try { window.dispatchEvent(new CustomEvent("enkerli-midi", { detail: e })); } catch { /* page teardown */ }
     });
   }
-  const canvas = el("div", { class: "ws-canvas" });
+  const canvas = el("main", { class: "ws-canvas" });
   const store = loadStore();
   let seq = store.seq ?? 0;
 
@@ -143,7 +143,7 @@ function main() {
 
   document.body.append(
     el("header", { class: "ws-topbar" },
-      el("span", { class: "ws-brand", text: "Suite Workspace" }),
+      el("h1", { class: "ws-brand", text: "Suite Workspace" }),
       el("span", { class: "ws-tagline", text: "modules on one bus — a bento grid: ◀ ▶ to reorder, ⤢ to resize" }),
       ...(hostChip ? [hostChip] : []),
       adder,
