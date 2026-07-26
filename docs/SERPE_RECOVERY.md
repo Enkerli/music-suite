@@ -85,9 +85,66 @@ prosodic foot — plus what the integer-only original could not express:
 Named feet include the two-value classics plus `antibacchic` (LLS — the
 tresillo), `bacchic`, and `cretic`.
 
+## Named-pattern import (2026-07-22, second pass)
+
+The adapter, built onto `@enkerli/library` rather than porting the old
+localStorage store — so Serpe's rhythms sit beside every other kind of suite
+content and inherit its identity/provenance/facet model.
+
+**`0x5BA` is correct.** Decoded in UPI's own hex convention (each nibble
+bit-reversed — `0x94:8` is the tresillo, not `0x92`), `0x5BA:12` yields
+`[0,2,4,5,7,9,11]`: exactly the standard bembé/short-bell timeline.
+
+One entry per line, `Name: spec`, where spec is any UPI expression plus a
+bare onset list. All four forms work, one at a time or as a pasted block:
+
+```
+Fume-Fume: [0,2,4,7,9]/12     onset indices, /12 = step count
+Bembé: 0x5BA:12               hex (nibble-reversed, as UPI has always read it)
+Tresillo: 10010010            binary
+Gahu: E(7,12)                 any UPI expression
+```
+
+`msuite pattern --import <file|-> [--json]` prints a table, or emits validated
+library items. A bad line reports its line number and is skipped — one typo in
+a pasted list never discards the other forty.
+
+Analysis is computed **at import** and stored as facets (`euclidean`,
+`reading`, `longShort`, `foot`, `ratio`, `steps`, `onsets`), which is what
+makes the database browsable the way the original's `euclidean` field was —
+"show me the Euclidean ones", "everything antibacchic", "12-step only".
+
+A result that fell out of it: **Bembé is `E(7,12,7)`** — a *rotation* of the
+same Euclidean that gives Gahu (`E(7,12)`). The rotation-aware detector earns
+its keep on the first real vocabulary it met.
+
+No canned catalogue ships. Which timeline is "the" bembé depends on tradition,
+region and transcription; baking one spelling into the suite would launder an
+editorial choice into an apparent fact. The importer is the feature; the
+vocabulary is yours.
+
+## Dynamic long/short — push/pull
+
+`dynamicDurations(steps, { ratio, depth, seed, pass })` makes the long/short
+contrast breathe. It **reuses GloriArp's pocket model** rather than inventing
+a second one: the same correlated, mean-reverting walk from
+`@enkerli/accompaniment`'s `express.ts` (GLORIARP_NEXT §2), where metric
+weight sets how hard each position pulls the walk home. There it displaces
+onsets in milliseconds; here it stretches the durational contrast — the same
+Keil gesture applied to duration rather than placement.
+
+- `ratio` takes a point (`1.5`) **or a range** (`[1.4, 1.8]`), and a range is
+  a promise: the walk never leaves it (verified across 200 seeds).
+- `depth` 0..1; **depth 0 returns exactly the static `durations()`**.
+- Deterministic — `(seed, pass)` reproduces byte-identically, and a new
+  `pass` breathes differently, matching the discipline every other expressive
+  layer in the suite follows.
+
 ## Still open
 
-1. **The pattern database.** Not restored here. The suite now has
+1. **The pattern database.** The *adapter* now exists (above); what is still
+   unbuilt is a Serpe-side browsing UI over it — `library-browser` is already
+   the shared component for that, so it is wiring, not new machinery. The suite now has
    `@enkerli/library` (identity/provenance/facets) and a `library-browser`
    component, which is a better foundation than the original's
    localStorage-and-binary-dedup approach — so the right move is probably a

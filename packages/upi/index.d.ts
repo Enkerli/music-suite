@@ -158,3 +158,32 @@ export interface LongShortResult {
 }
 export function longShort(steps: boolean[], opts?: { tolerance?: number }): LongShortResult;
 export function durations(steps: boolean[], opts?: { unit?: number; ratio?: number }): number[];
+
+// ── Named-pattern import (src/named.js) ─────────────────────────────────────
+export interface NamedPattern {
+  name: string;
+  steps: boolean[];
+  stepCount: number;
+  /** The spec as typed: "[0,2,4,7,9]/12", "0x5BA:12", "E(7,12)". */
+  source: string;
+}
+export interface NamedPatternDescription {
+  name: string; binary: string; stepCount: number;
+  onsets: number[]; onsetCount: number; source: string;
+  euclidean: string | null; barlow: string | null; reading: string | null;
+  longShort: string; foot: string; intervals: number[]; ratio: number | null;
+}
+export function parseNamedPattern(line: string, opts?: { defaultSteps?: number }): NamedPattern;
+export function parseNamedPatterns(text: string, opts?: { defaultSteps?: number }): {
+  patterns: NamedPattern[];
+  errors: Array<{ line: number; text: string; error: string }>;
+};
+export function describeNamedPattern(entry: NamedPattern): NamedPatternDescription;
+
+/** Long/short durations that breathe — the pocket walk applied to duration. */
+export function dynamicDurations(steps: boolean[], opts?: {
+  unit?: number;
+  /** A point, or a [min,max] range the walk stays within. */
+  ratio?: number | [number, number];
+  depth?: number; seed?: number; pass?: number;
+}): number[];

@@ -32,7 +32,8 @@ import {
   type SendOptions, type ControlMap, type InputEvent,
 } from "./index.js";
 import { VoiceSplitter } from "@enkerli/voice-routing";
-import { identify, longShort, durations } from "@enkerli/upi";
+import { identify, longShort, durations, parseNamedPatterns, describeNamedPattern } from "@enkerli/upi";
+import { wrapPattern } from "@enkerli/library";
 import type { TraceLevel } from "@enkerli/accompaniment";
 import type { AppId, Destination, ParamMode } from "@enkerli/protocol";
 
@@ -123,7 +124,7 @@ function parseArgs(argv: string[]): Args {
     const a = argv[i]!;
     if (a.startsWith("--")) {
       const name = a.slice(2);
-      const boolean = ["pcs", "notes", "help", "stream", "validate", "explain", "play", "bars-only", "loop", "list"].includes(name);
+      const boolean = ["pcs", "notes", "help", "stream", "validate", "explain", "play", "bars-only", "loop", "list", "json"].includes(name);
       const value = boolean ? "true" : argv[++i];
       if (value === undefined) throw new Error(`--${name} needs a value`);
       if (!flags.has(name)) flags.set(name, []);
@@ -200,6 +201,26 @@ async function main(): Promise<number> {
       return 0;
     }
     case "pattern": {
+      // --import: a named-pattern block (file, or "-" for stdin) becomes
+      // library items. One line per pattern: "Fume-Fume: [0,2,4,7,9]/12".
+      const importFrom = one(args, "import");
+      if (importFrom !== undefined) {
+        const text = importFrom === "-" ? readFileSync(0, "utf8") : readFileSync(String(importFrom), "utf8");
+        const { patterns, errors } = parseNamedPatterns(text);
+        for (const e of errors) console.error(`line ${e.line}: ${e.error}`);
+        const asJson = args.flags.has("json");
+        for (const p of patterns) {
+          const d = describeNamedPattern(p);
+          if (asJson) { console.log(JSON.stringify(wrapPattern(d))); continue; }
+          const bits = [d.name.padEnd(16), d.binary.padEnd(17), `${d.onsetCount}/${d.stepCount}`.padStart(6)];
+          if (d.reading) bits.push(` ${d.reading}`);
+          if (d.foot && d.foot !== "none") bits.push(` · ${d.longShort} (${d.foot})`);
+          console.log(bits.join(" "));
+        }
+        console.error(`\n${patterns.length} pattern(s)${errors.length ? `, ${errors.length} error(s)` : ""}` +
+          (asJson ? "" : " — add --json for library items"));
+        return errors.length ? 1 : 0;
+      }
       const spec = args.positional.join(" ");
       const p = patternInfo(spec);
       console.log(`steps   ${p.steps}`);

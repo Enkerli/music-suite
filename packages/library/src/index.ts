@@ -631,3 +631,98 @@ export function parseIndex(json: string): ParsedIndex {
   });
   return { items, errors };
 }
+
+// ── Rhythm patterns (Serpe) ───────────────────────────────────────────────────
+
+/** A named rhythm, as produced by `@enkerli/upi`'s `describeNamedPattern`. */
+export interface PatternEntry {
+  id?: string;
+  /** The rhythm's name — "Fume-Fume", "Bembé". */
+  name: string;
+  /** Step string, "1" = onset. The canonical payload. */
+  binary: string;
+  stepCount: number;
+  onsets: number[];
+  onsetCount: number;
+  /** What the user typed: "[0,2,4,7,9]/12", "0x5BA:12", "E(7,12)". */
+  source?: string;
+  /** Analysis computed at import, so the library is searchable by it. */
+  euclidean?: string | null;
+  barlow?: string | null;
+  reading?: string | null;
+  longShort?: string;
+  foot?: string;
+  intervals?: number[];
+  ratio?: number | null;
+  savedAt?: string;
+}
+
+/**
+ * Wrap a named rhythm as a library item.
+ *
+ * The analysis fields become FACETS rather than payload, because they are what
+ * you browse and filter by — "show me the Euclidean ones", "show me everything
+ * antibacchic", "12-step only". That is the capability the original Rhythm
+ * Pattern Explorer's own database had (it searched its `euclidean` field
+ * directly); here it comes from the shared library layer instead of a
+ * bespoke localStorage store, so Serpe's patterns sit beside every other
+ * kind of suite content. Facet values must stay scalar — `onsets` and
+ * `intervals` are arrays, so they travel in the payload.
+ */
+export function wrapPattern(entry: PatternEntry, opts?: WrapOptions): LibraryItem {
+  return {
+    envelope: "enkerli-library-item",
+    envelopeVersion: 1,
+    id: entry.id ?? opts?.id ?? newId(),
+    kind: "pattern",
+    format: "serpe-pattern",
+    formatVersion: 1,
+    title: entry.name,
+    creator: opts?.creator ?? "user",
+    app: "serpe",
+    savedAt: entry.savedAt ?? opts?.savedAt ?? nowIso(),
+    provenance: baseProvenance("serpe", opts),
+    facets: {
+      steps: entry.stepCount,
+      onsets: entry.onsetCount,
+      ...(entry.euclidean != null && { euclidean: entry.euclidean }),
+      ...(entry.barlow != null && { barlow: entry.barlow }),
+      ...(entry.reading != null && { reading: entry.reading }),
+      ...(entry.longShort !== undefined && { longShort: entry.longShort }),
+      ...(entry.foot !== undefined && { foot: entry.foot }),
+      ...(entry.ratio != null && { ratio: entry.ratio }),
+    },
+    ...(opts?.tags !== undefined && { tags: opts.tags }),
+    payload: {
+      binary: entry.binary,
+      onsetPositions: entry.onsets,
+      ...(entry.intervals !== undefined && { intervals: entry.intervals }),
+      ...(entry.source !== undefined && { source: entry.source }),
+    },
+  };
+}
+
+/** Recover a named rhythm from a pattern envelope. */
+export function unwrapPattern(item: LibraryItem): PatternEntry {
+  if (item.kind !== "pattern" || !item.payload)
+    throw new Error("not an inline pattern item");
+  const p = item.payload;
+  const f = item.facets ?? {};
+  return {
+    id: item.id,
+    name: item.title,
+    binary: p.binary as string,
+    stepCount: typeof f.steps === "number" ? f.steps : (p.binary as string).length,
+    onsets: (p.onsetPositions as number[]) ?? [],
+    onsetCount: typeof f.onsets === "number" ? f.onsets : 0,
+    savedAt: item.savedAt,
+    ...(typeof p.source === "string" && { source: p.source }),
+    ...(typeof f.euclidean === "string" && { euclidean: f.euclidean }),
+    ...(typeof f.barlow === "string" && { barlow: f.barlow }),
+    ...(typeof f.reading === "string" && { reading: f.reading }),
+    ...(typeof f.longShort === "string" && { longShort: f.longShort }),
+    ...(typeof f.foot === "string" && { foot: f.foot }),
+    ...(typeof f.ratio === "number" && { ratio: f.ratio }),
+    ...(Array.isArray(p.intervals) && { intervals: p.intervals as number[] }),
+  };
+}

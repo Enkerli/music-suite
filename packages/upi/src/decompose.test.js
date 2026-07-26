@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { detectEuclidean, detectBarlow, decompose, identify } from "./decompose.js";
-import { longShort, durations } from "./longshort.js";
+import { longShort, durations, dynamicDurations } from "./longshort.js";
+import { parseNamedPattern, parseNamedPatterns, describeNamedPattern } from "./named.js";
 
 const P = (s) => [...s].map((c) => c === "1");
 
@@ -162,5 +163,95 @@ describe("durations — performable long/short values", () => {
 
   it("is empty when there is nothing to measure", () => {
     expect(durations(P("00000000"))).toEqual([]);
+  });
+});
+
+describe("named patterns — import by name", () => {
+  it("parses an onset list with an explicit step count", () => {
+    const r = parseNamedPattern("Fume-Fume: [0,2,4,7,9]/12");
+    expect(r.name).toBe("Fume-Fume");
+    expect(r.stepCount).toBe(12);
+    expect(r.steps.map((s, i) => (s ? i : -1)).filter((i) => i >= 0)).toEqual([0, 2, 4, 7, 9]);
+  });
+
+  it("parses hex in UPI's own convention — 0x5BA:12 IS the bembé bell", () => {
+    const r = parseNamedPattern("Bembé: 0x5BA:12");
+    expect(r.stepCount).toBe(12);
+    expect(r.steps.map((s, i) => (s ? i : -1)).filter((i) => i >= 0)).toEqual([0, 2, 4, 5, 7, 9, 11]);
+  });
+
+  it("accepts binary and UPI expressions too", () => {
+    expect(parseNamedPattern("Tresillo: 10010010").stepCount).toBe(8);
+    const gahu = parseNamedPattern("Gahu: E(7,12)");
+    expect(gahu.stepCount).toBe(12);
+  });
+
+  it("tolerates quoted, JSON-ish lines", () => {
+    const r = parseNamedPattern('"Fume-Fume": [0,2,4,7,9]/12,');
+    expect(r.name).toBe("Fume-Fume");
+  });
+
+  it("rejects onsets that fall outside the step count, naming the pattern", () => {
+    expect(() => parseNamedPattern("Bad: [0,5,99]/8")).toThrow(/99.*outside 8 steps/);
+  });
+
+  it("a block collects errors per line instead of discarding the good ones", () => {
+    const { patterns, errors } = parseNamedPatterns(`
+      # a comment
+      Fume-Fume: [0,2,4,7,9]/12
+      Broken: [0,99]/8
+      Tresillo: 10010010
+    `);
+    expect(patterns.map((p) => p.name)).toEqual(["Fume-Fume", "Tresillo"]);
+    expect(errors).toHaveLength(1);
+    expect(errors[0].line).toBeGreaterThan(0);
+  });
+
+  it("describeNamedPattern carries the analysis the library filters on", () => {
+    const d = describeNamedPattern(parseNamedPattern("Tresillo: 10010010"));
+    expect(d.euclidean).toBe("E(3,8)");
+    expect(d.foot).toBe("antibacchic");
+    expect(d.onsetCount).toBe(3);
+    expect(d.binary).toBe("10010010");
+  });
+});
+
+describe("dynamicDurations — push/pull on the long/short contrast", () => {
+  const T = P("10010010");
+
+  it("depth 0 is exactly the static reading", () => {
+    expect(dynamicDurations(T, { depth: 0 })).toEqual(durations(T));
+  });
+
+  it("is deterministic: same seed and pass, same output", () => {
+    const a = dynamicDurations(T, { depth: 0.5, seed: 7, pass: 1 });
+    const b = dynamicDurations(T, { depth: 0.5, seed: 7, pass: 1 });
+    expect(a).toEqual(b);
+  });
+
+  it("a different pass breathes differently (the loop is not frozen)", () => {
+    const p0 = dynamicDurations(T, { depth: 0.5, seed: 7, pass: 0 });
+    const p1 = dynamicDurations(T, { depth: 0.5, seed: 7, pass: 1 });
+    expect(p0).not.toEqual(p1);
+  });
+
+  it("an explicit ratio RANGE is a promise — the walk never leaves it", () => {
+    for (let seed = 1; seed < 60; seed++) {
+      for (const d of dynamicDurations(T, { ratio: [1.4, 1.8], depth: 1, seed })) {
+        if (d > 1.05) { // a 'long'; shorts stay at unit
+          expect(d).toBeGreaterThanOrEqual(1.4 - 1e-9);
+          expect(d).toBeLessThanOrEqual(1.8 + 1e-9);
+        }
+      }
+    }
+  });
+
+  it("shorts stay at the unit — the contrast moves, not the whole grid", () => {
+    const d = dynamicDurations(T, { depth: 1, seed: 5 });
+    expect(d[2]).toBe(1); // the tresillo's short
+  });
+
+  it("is empty when there is nothing to measure", () => {
+    expect(dynamicDurations(P("00000000"), { depth: 1 })).toEqual([]);
   });
 });

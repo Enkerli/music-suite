@@ -126,3 +126,73 @@ export function durations(steps, opts = {}) {
   const { unit = 1, ratio = ls.ratio ?? 1 } = opts;
   return ls.types.map((t) => (t === "long" ? unit * ratio : unit));
 }
+
+/**
+ * Dynamic long/short — the ratio breathes instead of holding still.
+ *
+ * Same model as GloriArp's pocket (`@enkerli/accompaniment`'s `express.ts`,
+ * GLORIARP_NEXT §2), deliberately reused rather than reinvented: Keil's
+ * participatory discrepancies are NOT i.i.d. jitter and NOT a fixed offset,
+ * but a CORRELATED walk that accumulates and then resolves, pulled home
+ * hardest at the strongest positions. There it displaces onsets in
+ * milliseconds; here it stretches the long/short contrast itself — the same
+ * gesture applied to duration rather than placement.
+ *
+ * Deterministic: (seed, pass, depth) → identical output, and depth 0 returns
+ * exactly the static `durations()`. So a groove can be reproduced, diffed, or
+ * held rock-steady, which is the discipline the rest of the suite's
+ * expressive layers already follow.
+ *
+ * @param {boolean[]} steps
+ * @param {{
+ *   unit?:number, ratio?:number|[number,number], depth?:number,
+ *   seed?:number, pass?:number
+ * }} [opts]
+ *   - `ratio` a point (1.5) or a RANGE ([1.4, 1.8]) the walk moves within;
+ *     a range makes the breathing explicit rather than a ± around a point.
+ *   - `depth` 0..1 — how far the walk may pull the ratio (0 = static).
+ * @returns {number[]} one duration per inter-onset interval
+ */
+export function dynamicDurations(steps, opts = {}) {
+  const ls = longShort(steps);
+  if (!ls.intervals.length) return [];
+  const { unit = 1, depth = 0, seed = 1, pass = 0 } = opts;
+
+  const spec = opts.ratio ?? ls.ratio ?? 1;
+  const [lo, hi] = Array.isArray(spec) ? [spec[0], spec[1]] : [spec, spec];
+  const mid = (lo + hi) / 2;
+  const span = (hi - lo) / 2;
+
+  if (depth <= 0 && span === 0) {
+    return ls.types.map((t) => (t === "long" ? unit * mid : unit));
+  }
+
+  // mulberry32, inlined — @enkerli/upi stays dependency-free by design.
+  let s = (seed * 0x9e3779b1 + pass * 0x85ebca6b) >>> 0;
+  const rnd = () => {
+    s = (s + 0x6d2b79f5) >>> 0;
+    let t = s;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+
+  const n = steps.length;
+  const on = onsetIndices(steps);
+  let drift = 0;
+  return ls.types.map((t, i) => {
+    // Metric weight of the interval's own starting position: the downbeat is
+    // the strongest anchor, then the half, then the beat divisions.
+    const pos = on[i] ?? 0;
+    const w = pos === 0 ? 1 : pos % (n / 2) === 0 ? 0.7 : pos % (n / 4) === 0 ? 0.5 : 0.2;
+    const anchor = w >= 1 ? 0.7 : w >= 0.5 ? 0.4 : 0.15; // strong positions pull it home
+    drift = drift * (1 - anchor) + (rnd() * 2 - 1) * depth;
+    // An explicit range is a promise: the walk moves WITHIN [lo,hi], never
+    // outside it. A bare point has no such bound, so the depth sets the reach.
+    const bounded = span > 0;
+    const reach = bounded ? span : Math.abs(mid - 1) * depth * 0.5;
+    const raw = mid + Math.max(-1, Math.min(1, drift)) * reach;
+    const r = Math.max(1, bounded ? Math.max(lo, Math.min(hi, raw)) : raw);
+    return t === "long" ? unit * r : unit;
+  });
+}
