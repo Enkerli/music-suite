@@ -30,6 +30,16 @@ export {
 } from "./analysis.js";
 
 export { analyzeSyncopation } from "./syncopation.js";
+
+export {
+  // recognition + decomposition: what IS this pattern, in generator terms?
+  detectEuclidean, detectBarlow, decompose, identify,
+} from "./decompose.js";
+
+export {
+  // durational (long/short) reading of the inter-onset intervals
+  longShort, durations,
+} from "./longshort.js";
 export { mutatePattern } from "./mutate.js";
 
 export {

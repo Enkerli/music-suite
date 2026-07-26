@@ -32,6 +32,7 @@ import {
   type SendOptions, type ControlMap, type InputEvent,
 } from "./index.js";
 import { VoiceSplitter } from "@enkerli/voice-routing";
+import { identify, longShort, durations } from "@enkerli/upi";
 import type { TraceLevel } from "@enkerli/accompaniment";
 import type { AppId, Destination, ParamMode } from "@enkerli/protocol";
 
@@ -207,6 +208,18 @@ async function main(): Promise<number> {
       console.log(`octal   o${p.octal}:${p.steps}`);
       console.log(`decimal d${p.decimal}:${p.steps}`);
       console.log(`onsets  [${p.onsets.join(" ")}] (${p.onsetCount})`);
+      const steps = [...p.binary].map((c) => c === "1");
+      const id = identify(steps);
+      if (id.euclidean) console.log(`euclid  ${id.euclidean.formula}`);
+      if (id.barlow) console.log(`barlow  ${id.barlow.formula}`);
+      const others = id.readings.filter((r: { terms: string[] }) => r.terms.length > 1).slice(0, 3);
+      if (others.length) console.log(`decomp  ${others.map((r: { formula: string }) => r.formula).join("  ·  ")}`);
+      else if (!id.euclidean && !id.barlow) console.log(`decomp  (no exact Euclidean/Barlow reading)`);
+      const ls = longShort(steps);
+      if (ls.intervals.length) {
+        console.log(`ioi     [${ls.intervals.join(" ")}]  ${ls.pattern}  ${ls.morse}`);
+        console.log(`durate  ${ls.description}${ls.isochronous ? "" : `  →  [${durations(steps).join(" ")}]`}`);
+      }
       return 0;
     }
     case "upi": {
