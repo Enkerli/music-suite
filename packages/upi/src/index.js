@@ -46,7 +46,12 @@ export {
   parseNamedPattern, parseNamedPatterns, describeNamedPattern,
 } from "./named.js";
 
-export { parseLongShortSuffix, additiveToSteps } from "./upi.js";
+export { parseLongShortSuffix, parseMicrotimingSuffix, additiveToSteps } from "./upi.js";
+
+export {
+  // microtiming (Keil participatory discrepancies): push/pull around the beat
+  microtiming, timingScales, microtimingMs,
+} from "./microtiming.js";
 export { mutatePattern } from "./mutate.js";
 
 export {

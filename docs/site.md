@@ -553,15 +553,40 @@ different rhythms and you write them as such: `A(2,2,3,2)`, `A(3,2,2,2)`.
 *(Without the `D:` part, a dot is one step and a dash is two — so plain
 `...-` is a short five-step figure, not a 9/8. `D:` is what sets the sizes.)*
 
-### Making a rhythm breathe
+### Playing ahead of or behind the beat (push/pull)
+
+Human players don't land exactly on the grid — they lean ahead of the beat or
+sit back behind it, and the leaning comes and goes in phrases. Charles Keil
+called these *participatory discrepancies*, and they're a lot of what makes a
+groove feel alive rather than typed in.
+
+```
+A(2,2,2,3) PD(20%)      a light lean
+A(2,2,2,3) PD(60%)      a strong one
+```
+
+Or use the **Push / pull** slider under *Feel*. Either way it changes **when
+the notes actually play** — you'll hear it.
+
+Three things it deliberately isn't:
+
+- **not swing**, which is a fixed long-short subdivision, identical every bar;
+  push/pull wanders and differs each time round;
+- **not random jitter**, which just sounds like sloppy playing — this
+  accumulates and resolves, so the rhythm leans and then settles;
+- **not a tempo change** — the downbeat stays put and each cycle lasts exactly
+  as long as it should, so you can play along with it. It leans; it never
+  drifts.
+
+### Making notes longer or shorter
 
 **Durations (long/short)** reads the *gaps* between your onsets. A tresillo
 (`E(3,8)`) has gaps of 3, 3, 2 — two long, one short — so Serpe shows it as
 `--.` (dash = long, dot = short) and names the shape *antibacchic*. Even
 rhythms like `E(4,8)` have no contrast to read, and the panel says so.
 
-**You can write it straight into the pattern**, with `LS(...)` after the
-notation:
+This is about **how long each note lasts** — its length, not its placement.
+(For placement, see push/pull above.) Write it with `LS(...)`:
 
 ```
 E(3,8) LS(3)                the classic: a long lasts 3× a short, steady

@@ -204,7 +204,11 @@ function bitsFromValue(value, width) {
  *                              short-long = 2+2+2+3 = the Balkan 9/8
  *   A(2,2,2,3)                 the same bar as explicit beat GROUPS; more
  *                              general (any group sizes, not just two values)
- *   <pattern> LS(3)            long/short: a long lasts 3× a short (static)
+ *   <pattern> PD(20%)          microtiming: push/pull around the beat (Keil's
+ *                              participatory discrepancies) — WHERE attacks
+ *                              land. Correlated, downbeat-pinned, bar-length
+ *                              preserving. This is the one that changes timing.
+ *   <pattern> LS(3)            note LENGTH: a long lasts 3× a short (static)
  *   <pattern> LS(1.4..1.8)     …a RANGE — the contrast breathes within it
  *   <pattern> LS(1.4..1.8,70%) …with an explicit push/pull depth
  *   <expr>+<expr> / <expr>-<expr>   combination: union / difference (LCM;
@@ -224,6 +228,24 @@ function bitsFromValue(value, width) {
 const NUM = "\\d+(?:\\.\\d+)?";
 const LS_SUFFIX = new RegExp(
   `\\s*LS\\(\\s*(${NUM})\\s*(?:\\.\\.\\s*(${NUM})\\s*)?(?:,\\s*(${NUM}%?)\\s*)?\\)\\s*$`, "i");
+
+/* Microtiming suffix — `PD(20%)` or `PD(0.2)`, optionally `PD(20%, seed)`.
+ * PD = participatory discrepancies (Keil): push/pull around the beat. Stripped
+ * before other parsing, same as LS(…) and the {…} accent prefix. */
+const PD_SUFFIX = new RegExp(`\\s*PD\\(\\s*(${NUM}%?)\\s*(?:,\\s*(${NUM})\\s*)?\\)\\s*$`, "i");
+
+export function parseMicrotimingSuffix(text) {
+  const m = PD_SUFFIX.exec(String(text || ""));
+  if (!m) return { rest: String(text || "").trim(), microtiming: null };
+  const raw = m[1];
+  const depth = raw.endsWith("%") ? Number(raw.slice(0, -1)) / 100 : Number(raw);
+  if (!Number.isFinite(depth)) return { rest: String(text).trim(), microtiming: null };
+  return {
+    rest: text.slice(0, m.index).trim(),
+    microtiming: { depth: Math.max(0, Math.min(1, depth)),
+                   seed: m[2] !== undefined ? Number(m[2]) : 1 },
+  };
+}
 
 export function parseLongShortSuffix(text) {
   const m = LS_SUFFIX.exec(String(text || ""));
@@ -249,6 +271,12 @@ export function parseLongShortSuffix(text) {
 export function parseUPI(input, ctx = { n: 16 }) {
   let src = String(input || "").trim();
   let accents = null;
+
+  // Microtiming (push/pull) suffix, then the durational one — both removed
+  // before anything else parses.
+  const pdSplit = parseMicrotimingSuffix(src);
+  const microtimingSpec = pdSplit.microtiming;
+  src = pdSplit.rest;
 
   // Durational (long/short) suffix — removed before anything else parses.
   const lsSplit = parseLongShortSuffix(src);
@@ -276,7 +304,8 @@ export function parseUPI(input, ctx = { n: 16 }) {
     // accentPattern is the raw {…} layer; the UI re-applies it with a live offset
     // so the displayed accents precess across cycles in step with playback.
     return { steps: steps.map(Number), accents: acc, accentPattern: accents,
-             longShort: longShortSpec, label, ok: true };
+             longShort: longShortSpec, microtiming: microtimingSpec,
+             label, ok: true };
   };
 
   try {

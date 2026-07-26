@@ -326,3 +326,10 @@ select.es-control {
 .named-import textarea { width: 100%; font-family: var(--es-font-mono, monospace); font-size: 11px; }
 .named-errs { margin: 4px 0 0; padding-left: 16px; font-size: 11px; color: var(--es-danger, #a33); }
 .named-errs li { margin: 2px 0; }
+
+/* Microtiming lane: one mark per onset, nudged left/right by its displacement. */
+.pd-lane { position: relative; height: 22px; margin: 2px 0 6px; border-top: 1px dashed var(--es-border); }
+.pd-mark { position: absolute; top: 4px; width: 3px; height: 14px; border-radius: 2px;
+           background: var(--es-fg-muted); }
+.pd-mark.early { background: var(--es-accent, #3b6ea8); }
+.pd-mark.late  { background: var(--es-dim-pressure, #b5651d); }

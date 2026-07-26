@@ -26,6 +26,7 @@ import { parseUPI, euclid, polygon, rotate, complement, invert,
          analyse, analyzeSyncopation, funkyEuclidean, bellCurveRandomSteps,
          mutatePattern, parsePolyUPI, splitLanes,
          longShort, durations, dynamicDurations, identify,
+         microtiming, timingScales,
          parseNamedPatterns } from '@enkerli/upi';
 import { createCircleView, createStepView, createPolyCircleView } from './engine/render.js';
 import { laneStepMs as computeLaneStepMs, laneOffsetMs as computeLaneOffsetMs } from './engine/poly-clock.js';
@@ -310,8 +311,13 @@ function SerpeApp() {
   const [lsMin, setLsMin] = useState(+LS.get('lsMin', 1.5));
   const [lsMax, setLsMax] = useState(+LS.get('lsMax', 1.5));
   const [lsDepth, setLsDepth] = useState(+LS.get('lsDepth', 0));
-  useEffect(() => { LS.set('lsMin', lsMin); LS.set('lsMax', lsMax); LS.set('lsDepth', lsDepth); },
-            [lsMin, lsMax, lsDepth]);
+  // Microtiming (Keil participatory discrepancies): push/pull around the beat.
+  const [pdDepth, setPdDepth] = useState(+LS.get('pdDepth', 0));
+  const [pdSeed, setPdSeed] = useState(1);
+  const [pdCycle, setPdCycle] = useState(0);   // bumped each cycle so passes differ
+  useEffect(() => { LS.set('lsMin', lsMin); LS.set('lsMax', lsMax); LS.set('lsDepth', lsDepth);
+                    LS.set('pdDepth', pdDepth); },
+            [lsMin, lsMax, lsDepth, pdDepth]);
 
   const [accVel, setAccVel] = useState(112);
   const [unaccVel, setUnaccVel] = useState(72);
@@ -423,7 +429,7 @@ function SerpeApp() {
   const live = useRef({});
   live.current = { steps, accents, accentPattern, accText, editAccent, tempo, group, swing, waOn, waVol,
                    midiNote, accVel, unaccVel, accPitch, midiChan, midiInId, midiOutId,
-                   poly, polyUi, polyLock, drumKit, midiAdvance };
+                   poly, polyUi, polyLock, drumKit, midiAdvance, pdDepth, pdSeed, pdCycle };
 
   // Notes we've sent out recently, so we can drop their echo when the same port
   // is routed back into our input (e.g. IAC In == Out) — otherwise each output
@@ -498,6 +504,7 @@ function SerpeApp() {
     if (p.longShort) {
       setLsMin(p.longShort.min); setLsMax(p.longShort.max); setLsDepth(p.longShort.depth);
     }
+    if (p.microtiming) { setPdDepth(p.microtiming.depth); setPdSeed(p.microtiming.seed); }
   }
 
   // The full engine string: the Accents field prepends as {…} unless the
@@ -734,8 +741,27 @@ function SerpeApp() {
   function stepDur(idx) {
     const L = live.current; const grp = L.group || 4;
     const base = (60 / L.tempo) / grp; const s = L.swing / 100 * 0.5;
-    if (s <= 0) return base * 1000;
-    return base * (idx % 2 === 0 ? 1 + s : 1 - s) * 1000;
+    let ms = (s <= 0) ? base * 1000 : base * (idx % 2 === 0 ? 1 + s : 1 - s) * 1000;
+    // Microtiming rides ON TOP of swing: swing is a fixed, repeating subdivision;
+    // push/pull is a correlated walk that differs per cycle. Applied as a scale
+    // on this step's length, and because the scales are differenced from
+    // per-onset displacements the cycle still lasts exactly as long as it did.
+    if (L.pdDepth > 0 && L.steps && L.steps.length) {
+      const sc = pdScales(L.steps, L.pdDepth, L.pdSeed, L.pdCycle);
+      ms *= sc[idx % sc.length] ?? 1;
+    }
+    return ms;
+  }
+  // Memoised per (pattern, depth, seed, cycle) — recomputing a whole cycle's
+  // walk on every step would be wasteful and, worse, non-deterministic in feel.
+  const pdCache = useRef({ key: null, scales: null });
+  function pdScales(stepsArr, depth, seed, cycle) {
+    const key = stepsArr.join('') + '|' + depth + '|' + seed + '|' + cycle;
+    if (pdCache.current.key !== key) {
+      const sh = microtiming(stepsArr.map(Boolean), { depth, seed, pass: cycle });
+      pdCache.current = { key, scales: timingScales(sh) };
+    }
+    return pdCache.current.scales;
   }
   // ── Poly playback: PER-LANE clocks (SERPE_POLY.md, playback semantics
   // decided 2026-07-18 after field testing). Default 'cycle' lock is
@@ -826,6 +852,7 @@ function SerpeApp() {
       const L = live.current;
       const n = L.steps.length || 1;
       const next = (ph + 1) % n;
+      if (next === 0) setPdCycle(c => (c + 1) % 1024);   // a new walk each cycle
       // at the cycle boundary, advance the accent phase by this cycle's onset
       // count so the displayed accents precess like the engine's onset counter
       if (next === 0 && L.accentPattern && L.accentPattern.length) {
@@ -1250,7 +1277,9 @@ function SerpeApp() {
           steps.length <= 16 && h('div', { className: 'indisp-x' }, steps.map((_, i) => h('span', { key: i }, i)))),
 
         // Durations — makes the long/short reading playable (dynamicDurations).
-        !poly && h(Section, { title: 'Durations (long/short)' },
+        !poly && h(Section, { title: 'Feel (push/pull & durations)' },
+          h(MicrotimingPanel, { steps, pdDepth, setPdDepth, pdSeed, tempo, group }),
+          h('hr', { style: { border: 0, borderTop: '1px solid var(--es-border)', margin: '14px 0 12px' } }),
           h(DurationsPanel, { steps, lsMin, setLsMin, lsMax, setLsMax, lsDepth, setLsDepth,
                               lsPass: playing ? playhead : 0 })),
 
@@ -1352,6 +1381,37 @@ function ClusterMount({ midi }) {
 
 // ── small presentational helpers ──
 const BADGE_LABEL = { web: 'web', host: 'plugin', standalone: 'standalone' };
+/* ── Microtiming (push/pull) ───────────────────────────────────────────────
+   Keil's participatory discrepancies: WHERE each attack lands relative to the
+   beat. Unlike swing (fixed, every bar the same) this is a correlated walk
+   that differs each cycle, pinned at the downbeat and loosest off the beat —
+   and the cycle still lasts exactly as long, so nothing drifts out of time.
+   This one IS wired to playback: the web-audio scheduler applies it. */
+function MicrotimingPanel({ steps, pdDepth, setPdDepth, pdSeed, tempo, group }) {
+  const stepMs = (60 / (tempo || 120)) / (group || 4) * 1000;
+  const shift = microtiming(steps.map(Boolean), { depth: pdDepth, seed: pdSeed, pass: 0 });
+  const onsets = steps.map((v, i) => v ? i : -1).filter(i => i >= 0);
+  const ms = onsets.map(i => shift[i] * stepMs);
+  const peak = Math.max(1, ...ms.map(Math.abs));
+  return h('div', null,
+    h(Field, { label: 'Push / pull' },
+      h('input', { className: 'es-range', type: 'range', min: 0, max: 100,
+        value: Math.round(pdDepth * 100), 'aria-label': 'Microtiming push and pull depth',
+        onChange: e => setPdDepth(+e.target.value / 100) }),
+      h('span', { className: 'ls-depth-val' }, Math.round(pdDepth * 100) + '%')),
+    h('p', { className: 'note', style: { fontSize: 11, color: 'var(--es-fg-muted)', margin: '0 0 8px' } },
+      pdDepth > 0
+        ? `Attacks lean up to ${peak.toFixed(0)} ms early or late. The downbeat stays put and the cycle keeps its length — it leans, it doesn't drift.`
+        : 'Dead straight. Raise it to let attacks sit ahead of or behind the beat.'),
+    pdDepth > 0 && h('div', { className: 'pd-lane' }, onsets.map((i, k) =>
+      h('div', { key: i, className: 'pd-mark' + (ms[k] < -0.5 ? ' early' : ms[k] > 0.5 ? ' late' : ''),
+        title: `onset at step ${i}: ${ms[k] >= 0 ? '+' : ''}${ms[k].toFixed(1)} ms`,
+        style: { left: (i / steps.length * 100) + '%',
+                 transform: `translateX(${Math.max(-14, Math.min(14, ms[k] / peak * 14))}px)` } }))),
+    pdDepth > 0 && h('code', { className: 'ls-durs' },
+      onsets.map((i, k) => (ms[k] >= 0 ? '+' : '') + ms[k].toFixed(0)).join('  ') + ' ms'));
+}
+
 /* ── Durations (long/short) ────────────────────────────────────────────────
    The pattern says WHICH steps sound; this says HOW LONG each one lasts.
    `longShort` reads the inter-onset intervals into short/long (the reading the

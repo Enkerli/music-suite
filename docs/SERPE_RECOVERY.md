@@ -278,9 +278,83 @@ lookalikes. A test asserts it.
 Defaults are untouched: a bare `...-` still means short=1/long=2, and `SOS`
 still gives its 12 steps.
 
+## Microtiming — the push/pull that was actually meant (sixth pass)
+
+**A correction.** Asked for "a dynamic long/short — a push/pull, like Keil's
+participatory discrepancies", this document's previous pass built
+`dynamicDurations`: it varies how long a note **lasts**. Push/pull is about
+**where the attack lands** — ahead of or behind the beat. Those are different
+musical parameters, and the wrong one was built. Worse, `LS(…)` was never
+wired to playback at all, so it was inaudible: correct-looking numbers in a
+panel, silence in the ears. "I'm not hearing a difference" was the accurate
+report of a real defect, not a misunderstanding.
+
+`packages/upi/src/microtiming.js` is the right primitive, and it **is** wired
+to Serpe's scheduler.
+
+### The model
+
+`microtiming(steps, {depth, seed, pass})` returns a displacement per onset in
+fractions of a step (+ late, − early). Four properties, each load-bearing:
+
+1. **Per ONSET, not per interval** — the thing being displaced is an attack.
+2. **Correlated, not i.i.d.** — the walk accumulates and resolves, so the
+   phrase leans and settles. Independent per-note noise is what sounds like a
+   broken quantiser, and is the usual wrong implementation of this idea.
+3. **Anchored by metric weight** — downbeat pinned hardest, offbeats loosest.
+4. **Bar length preserved EXACTLY.** `timingScales()` differences the
+   displacements into per-step multipliers, so lengthening one gap necessarily
+   shortens another. Verified across 30 seeds at full depth: the cycle sums to
+   its nominal length to 9 decimal places. This is what separates "playing
+   with the beat" from "drifting away from it", and it is why the primitive
+   returns displacements to be differenced rather than perturbing intervals
+   directly.
+
+Displacement is capped at ±0.35 of a step — past ~0.5 an onset crosses its
+neighbour and the result reads as a different rhythm, not as feel.
+
+### It is audible — measured, not assumed
+
+Serpe's `stepDur(idx)` (the function feeding the scheduler's `setTimeout`) now
+applies the scales, memoised per cycle. Instrumenting the real page:
+
+```
+A(2,2,2,3)            step gaps: 125 125 125 125 …          (1 distinct value)
+A(2,2,2,3) PD(60%)    step gaps: 125 125 129.04 120.96 94.82 155.18 …
+```
+
+Note the compensation — a long gap followed by a short one. That is the
+bar-preserving property visible in the scheduled timing itself.
+
+### Notation
+
+```
+A(2,2,2,3) PD(20%)          a light lean
+E(3,8) PD(0.25, 7)          depth as a fraction, with an explicit seed
+A(2,2,2,3) LS(1.4..1.8) PD(30%)   length and placement compose
+```
+
+Push/pull rides **on top of** swing rather than replacing it: swing is a
+fixed, repeating subdivision; PD is a walk that differs every cycle (Serpe
+bumps the pass at each cycle boundary).
+
+### The vocabulary, finally straight
+
+| Parameter | Notation | What it changes | Wired to playback? |
+|---|---|---|---|
+| Structure | `A(2,2,2,3)`, `D:2,3 ...-` | which beats are long/short | yes (it *is* the pattern) |
+| **Placement** | **`PD(20%)`** | **when attacks land — push/pull** | **yes, web audio** |
+| Length | `LS(1.4..1.8)` | how long notes sound (gate) | **no — readout only** |
+
 ## Still open
 
-1. **Nothing calls `dynamicDurations` at PLAYBACK yet.** The panel computes
+1. **`LS(…)` is still not wired to playback** — it remains a readout. Now that
+   the vocabulary is separated, the honest question is whether note-length
+   variation is wanted at all, or whether `PD(…)` was the whole ask.
+2. **The C++ engine has neither.** `microtiming.js` is JS; Serpe's plugin
+   scheduler would need the same treatment (the model is small and portable —
+   displacements, differenced, downbeat pinned). Needs a Mac to build.
+3. **Nothing calls `dynamicDurations` at PLAYBACK yet.** The panel computes
    and displays the durations, and they are correct — but Serpe's scheduler
    (and the C++ plugin engine) still play fixed-length notes. Making the
    rhythm actually *sound* dynamic means feeding these durations into the

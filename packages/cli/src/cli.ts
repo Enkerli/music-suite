@@ -40,8 +40,8 @@ import type { AppId, Destination, ParamMode } from "@enkerli/protocol";
 const USAGE = `msuite <command> …
   chord <values…> [--pcs|--notes]
   pattern <spec>                        E(3,8) · 0x94:8 · o111:8 · d73:8 · 10010010
-                                        add LS(3) for a fixed long:short, or
-                                        LS(1.4..1.8, 70%) to make it breathe
+                                        PD(20%) = push/pull microtiming (timing);
+                                        LS(3) / LS(1.4..1.8, 70%) = note length
           --import <file|-> [--json]    named patterns → library items
   upi "<notation>" [--steps N]          the full Serpe UPI language: P(3,0)+P(5,0), E(3,8);12, {100}E(3,8), Morse…
                                         additive/aksak meters: A(2,2,2,3) or D:2,3 ...-

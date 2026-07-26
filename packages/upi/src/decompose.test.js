@@ -3,6 +3,7 @@ import { detectEuclidean, detectBarlow, decompose, identify } from "./decompose.
 import { longShort, durations, dynamicDurations } from "./longshort.js";
 import { parseNamedPattern, parseNamedPatterns, describeNamedPattern } from "./named.js";
 import { parseUPI } from "./upi.js";
+import { microtiming, timingScales, microtimingMs } from "./microtiming.js";
 
 const P = (s) => [...s].map((c) => c === "1");
 
@@ -361,5 +362,84 @@ describe("additive / aksak meters — building a bar from long and short beats",
   it("rejects malformed additive lists rather than inventing a bar", () => {
     expect(parseUPI("A()").ok).not.toBe(true);
     expect(bin(parseUPI("A(2,0,2)")) === "1010100").toBe(false);
+  });
+});
+
+describe("microtiming — push/pull around the beat (Keil PDs)", () => {
+  const aksak = P("101010100");   // A(2,2,2,3)
+
+  it("depth 0 is dead straight", () => {
+    expect(microtiming(aksak, { depth: 0 }).every((v) => v === 0)).toBe(true);
+    expect(timingScales(microtiming(aksak, { depth: 0 })).every((v) => v === 1)).toBe(true);
+  });
+
+  it("moves attacks EARLY and LATE, not just one way", () => {
+    let sawEarly = false, sawLate = false;
+    for (let seed = 1; seed < 40; seed++) {
+      for (const v of microtiming(aksak, { depth: 0.8, seed })) {
+        if (v < -0.01) sawEarly = true;
+        if (v > 0.01) sawLate = true;
+      }
+    }
+    expect(sawEarly).toBe(true);
+    expect(sawLate).toBe(true);
+  });
+
+  it("PRESERVES bar length exactly — it leans, it never drifts", () => {
+    for (let seed = 1; seed < 30; seed++) {
+      const scales = timingScales(microtiming(aksak, { depth: 1, seed }));
+      const total = scales.reduce((a, b) => a + b, 0);
+      expect(total).toBeCloseTo(aksak.length, 9);
+    }
+  });
+
+  it("pins the downbeat — the reference never moves", () => {
+    for (let seed = 1; seed < 20; seed++) {
+      expect(microtiming(aksak, { depth: 1, seed })[0]).toBe(0);
+    }
+  });
+
+  it("never displaces far enough to cross a neighbouring step", () => {
+    for (let seed = 1; seed < 30; seed++) {
+      for (const v of microtiming(aksak, { depth: 1, seed })) expect(Math.abs(v)).toBeLessThanOrEqual(0.35);
+    }
+    // and no step may collapse
+    for (let seed = 1; seed < 30; seed++) {
+      for (const s of timingScales(microtiming(aksak, { depth: 1, seed }))) expect(s).toBeGreaterThan(0.24);
+    }
+  });
+
+  it("is deterministic, and a new pass breathes differently", () => {
+    const a = microtiming(aksak, { depth: 0.6, seed: 5, pass: 0 });
+    expect(microtiming(aksak, { depth: 0.6, seed: 5, pass: 0 })).toEqual(a);
+    expect(microtiming(aksak, { depth: 0.6, seed: 5, pass: 1 })).not.toEqual(a);
+  });
+
+  it("is NOT swing: swing repeats every bar, this differs per cycle", () => {
+    const c0 = timingScales(microtiming(aksak, { depth: 0.7, seed: 2, pass: 0 }));
+    const c1 = timingScales(microtiming(aksak, { depth: 0.7, seed: 2, pass: 1 }));
+    expect(c0).not.toEqual(c1);
+  });
+
+  it("reports milliseconds against a real step length", () => {
+    const ms = microtimingMs(aksak, 125, { depth: 0.5, seed: 3 });
+    expect(ms).toHaveLength(9);
+    for (const v of ms) expect(Math.abs(v)).toBeLessThanOrEqual(0.35 * 125 + 1e-9);
+  });
+
+  it("PD(…) notation parses and does not disturb the pattern", () => {
+    const plain = parseUPI("A(2,2,2,3)");
+    const withPd = parseUPI("A(2,2,2,3) PD(60%)");
+    expect(withPd.steps).toEqual(plain.steps);
+    expect(withPd.microtiming).toEqual({ depth: 0.6, seed: 1 });
+    expect(parseUPI("E(3,8) PD(0.25, 7)").microtiming).toEqual({ depth: 0.25, seed: 7 });
+    expect(plain.microtiming).toBeNull();
+  });
+
+  it("PD and LS compose — placement and length are separate parameters", () => {
+    const r = parseUPI("A(2,2,2,3) LS(1.4..1.8) PD(30%)");
+    expect(r.steps).toEqual(parseUPI("A(2,2,2,3)").steps);
+    expect(r.microtiming.depth).toBeCloseTo(0.3, 5);
+    expect(r.longShort).toEqual({ min: 1.4, max: 1.8, depth: 1 });
   });
 });
