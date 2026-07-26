@@ -24,7 +24,9 @@ import serpeCss from './styles/serpe.css';
 import { parseUPI, euclid, polygon, rotate, complement, invert,
          barlowTransform, indispensabilityWeights, onsetCount,
          analyse, analyzeSyncopation, funkyEuclidean, bellCurveRandomSteps,
-         mutatePattern, parsePolyUPI, splitLanes } from '@enkerli/upi';
+         mutatePattern, parsePolyUPI, splitLanes,
+         longShort, durations, dynamicDurations, identify,
+         parseNamedPatterns } from '@enkerli/upi';
 import { createCircleView, createStepView, createPolyCircleView } from './engine/render.js';
 import { laneStepMs as computeLaneStepMs, laneOffsetMs as computeLaneOffsetMs } from './engine/poly-clock.js';
 import serpeManifest from './manifest.json';
@@ -133,7 +135,7 @@ function PatternLibrary({ items, onOpen, onDelete }) {
       keys: { name: 'name', source: 'source' },
       sorts: [{ value: 'recent', label: 'Added' }, { value: 'name', label: 'UPI A–Z' }],
       facets: [
-        { key: 'source', label: 'Source', kind: 'multi', values: ['Saved', 'Preset', 'Recent'], accessor: (it) => it.source },
+        { key: 'source', label: 'Source', kind: 'multi', values: ['Named', 'Saved', 'Preset', 'Recent'], accessor: (it) => it.source },
         { key: 'family', label: 'Generator', kind: 'multi', badge: true, accessor: (it) => it.family },
         { key: 'tags', label: 'Tags', kind: 'multi', tag: true, defaultOpen: false, limit: 20, accessor: (it) => it.tags },
       ],
@@ -146,6 +148,30 @@ function PatternLibrary({ items, onOpen, onDelete }) {
   }, []);
   useEffect(() => { if (br.current) br.current.setItems(items); }, [items]);
   return h('div', { ref: host });
+}
+
+/* Named-pattern import — one line or a pasted block. Collapsed by default so
+   the rail stays a picker; the syntax is shown in the placeholder because it
+   is the whole interface (docs/SERPE_RECOVERY.md). */
+function NamedImport({ onImport }) {
+  const [open, setOpen] = useState(false);
+  const [text, setText] = useState('');
+  const [errs, setErrs] = useState([]);
+  if (!open) {
+    return h('button', { className: 'es-btn es-small ghost', style: { width: '100%', marginBottom: 8 },
+      onClick: () => setOpen(true) }, 'import named…');
+  }
+  return h('div', { className: 'named-import' },
+    h('textarea', { className: 'es-control', rows: 3, value: text, spellCheck: false,
+      'aria-label': 'Named patterns to import',
+      placeholder: 'Fume-Fume: [0,2,4,7,9]/12\nBembé: 0x5BA:12\nGahu: E(7,12)',
+      onChange: e => setText(e.target.value) }),
+    h('div', { style: { display: 'flex', gap: 6, margin: '6px 0' } },
+      h('button', { className: 'es-btn es-small', disabled: !text.trim(),
+        onClick: () => { const e = onImport(text); setErrs(e); if (!e.length) { setText(''); setOpen(false); } } }, 'import'),
+      h('button', { className: 'es-btn es-small ghost', onClick: () => { setOpen(false); setErrs([]); } }, 'cancel')),
+    errs.length > 0 && h('ul', { className: 'named-errs' },
+      errs.map((e, i) => h('li', { key: i }, `line ${e.line}: ${e.error}`))));
 }
 
 function EngineView({ create, opts, data }) {
@@ -279,6 +305,13 @@ function SerpeApp() {
   const [dilMode, setDilMode] = useState('barlow');   // dilute/concentrate weighting
   const [mutStyle, setMutStyle] = useState('balanced');   // mutation style
   const [mutAmount, setMutAmount] = useState(50);         // mutation amount %
+
+  // Long/short durations + the pattern library (docs/SERPE_RECOVERY.md).
+  const [lsMin, setLsMin] = useState(+LS.get('lsMin', 1.5));
+  const [lsMax, setLsMax] = useState(+LS.get('lsMax', 1.5));
+  const [lsDepth, setLsDepth] = useState(+LS.get('lsDepth', 0));
+  useEffect(() => { LS.set('lsMin', lsMin); LS.set('lsMax', lsMax); LS.set('lsDepth', lsDepth); },
+            [lsMin, lsMax, lsDepth]);
 
   const [accVel, setAccVel] = useState(112);
   const [unaccVel, setUnaccVel] = useState(72);
@@ -960,6 +993,29 @@ function SerpeApp() {
     const u = upiText.trim(); if (!u || !patInfo(u)) return;
     setLib(prev => { const next = [{ upi: u }, ...prev.filter(x => x.upi !== u)].slice(0, 64); LS.set('library', JSON.stringify(next)); return next; });
   }
+  /** Import a named-pattern block (docs/SERPE_RECOVERY.md) into the library.
+   *  Each line becomes a saved entry carrying its NAME, so the browser lists
+   *  "Bembé" rather than the raw hex. Returns the parse errors for display. */
+  function importNamed(text) {
+    const { patterns, errors } = parseNamedPatterns(text);
+    if (patterns.length) {
+      setLib(prev => {
+        const next = prev.slice();
+        for (const p of patterns) {
+          const upi = p.steps.map(x => x ? '1' : '0').join('');
+          const at = next.findIndex(x => x.name === p.name || x.upi === upi);
+          const entry = { upi, name: p.name };
+          if (at >= 0) next[at] = entry; else next.unshift(entry);
+        }
+        const capped = next.slice(0, 128);
+        LS.set('library', JSON.stringify(capped));
+        return capped;
+      });
+      toast({ text: `Imported ${patterns.length} pattern${patterns.length === 1 ? '' : 's'}` });
+    }
+    return errors;
+  }
+
   const delFromLibrary = (u) => setLib(prev => { const next = prev.filter(x => x.upi !== u); LS.set('library', JSON.stringify(next)); return next; });
   /** Delete a saved pattern with the suite's undo-toast idiom (Q4). */
   function delSavedWithUndo(u) {
@@ -976,11 +1032,25 @@ function SerpeApp() {
   const libItems = useMemo(() => {
     const mk = (u, source, name, i) => {
       const info = patInfo(u);
-      const tags = [name && name !== u ? name : null, info].filter(Boolean);
-      return { id: source[0] + i, name: u, upi: u, source, family: upiFamily(u), tags };
+      // What IS this rhythm? Recognition + durational reading ride as tags so
+      // the browser can filter by them (the capability the original RPE's
+      // database had via its own `euclidean` field). Cheap: only on re-memo.
+      let reading = null, foot = null;
+      try {
+        const p = parseUPI(u, { n: 16 });
+        if (p.ok) {
+          const st = p.steps.map(Boolean);
+          const id = identify(st);
+          reading = id.best ? id.best.formula : null;
+          const f = longShort(st).foot;
+          foot = f && f !== 'none' && f !== 'mixed' && f !== 'complex' ? f : null;
+        }
+      } catch { /* unparseable entries still list, just without analysis */ }
+      const tags = [name && name !== u ? name : null, info, reading, foot].filter(Boolean);
+      return { id: source[0] + i, name: name || u, upi: u, source, family: upiFamily(u), tags };
     };
     return [
-      ...lib.map((x, i) => mk(x.upi, 'Saved', null, i)),
+      ...lib.map((x, i) => mk(x.upi, x.name ? 'Named' : 'Saved', x.name || null, i)),
       ...PRESETS.map(([u, n], i) => mk(u, 'Preset', n, i)),
       ...hist.map((u, i) => mk(u, 'Recent', null, i)),
     ];
@@ -1173,6 +1243,11 @@ function SerpeApp() {
             h('div', { key: i, className: 'b' + (on ? ' on' : ''), style: { height: (10 + weights[i] * 46) + 'px' }, title: `step ${i} · weight ${weights[i].toFixed(2)}` }))),
           steps.length <= 16 && h('div', { className: 'indisp-x' }, steps.map((_, i) => h('span', { key: i }, i)))),
 
+        // Durations — makes the long/short reading playable (dynamicDurations).
+        !poly && h(Section, { title: 'Durations (long/short)' },
+          h(DurationsPanel, { steps, lsMin, setLsMin, lsMax, setLsMax, lsDepth, setLsDepth,
+                              lsPass: playing ? playhead : 0 })),
+
         // Scenes
         h(Section, { title: 'Scenes' },
           h('div', { className: 'scenes' }, scenes.map((sc, i) => {
@@ -1234,6 +1309,7 @@ function SerpeApp() {
         // rail; the old presets/saved/history tabs are now one Source facet.
         h(Section, { title: 'Patterns', badge: cfg.web ? 'web' : 'plugin' },
           h('button', { className: 'es-btn es-small', style: { width: '100%', marginBottom: 8 }, onClick: saveToLibrary }, '+ Save current'),
+          h(NamedImport, { onImport: importNamed }),
           h(PatternLibrary, {
             items: libItems,
             onOpen: (it) => loadPattern(it.upi),
@@ -1270,6 +1346,62 @@ function ClusterMount({ midi }) {
 
 // ── small presentational helpers ──
 const BADGE_LABEL = { web: 'web', host: 'plugin', standalone: 'standalone' };
+/* ── Durations (long/short) ────────────────────────────────────────────────
+   The pattern says WHICH steps sound; this says HOW LONG each one lasts.
+   `longShort` reads the inter-onset intervals into short/long (the reading the
+   original Rhythm Pattern Explorer had — docs/SERPE_RECOVERY.md); the two
+   controls below turn that reading into durations you can perform.
+
+   Ratio is the long:short contrast. A RANGE (min < max) makes it breathe: the
+   walk moves within the range and never outside it, correlated and anchored at
+   strong positions — GloriArp's pocket model applied to duration rather than
+   placement (Keil's participatory discrepancies). Depth 0 = perfectly static. */
+function DurationsPanel({ steps, lsMin, setLsMin, lsMax, setLsMax, lsDepth, setLsDepth, lsPass }) {
+  const ls = longShort(steps);
+  if (!ls.intervals.length) {
+    return h('p', { className: 'note', style: { fontSize: 12, color: 'var(--es-fg-muted)' } },
+      ls.description + ' — durations need at least two onsets.');
+  }
+  const breathing = lsMax > lsMin && lsDepth > 0;
+  const durs = breathing
+    ? dynamicDurations(steps, { ratio: [lsMin, lsMax], depth: lsDepth, seed: 1, pass: lsPass })
+    : durations(steps, { ratio: lsMin });
+  const maxD = Math.max(...durs, 1);
+  return h('div', null,
+    h('div', { className: 'ls-read' },
+      h('code', { className: 'ls-morse', title: 'short = dot, long = dash' }, ls.morse),
+      h('span', { className: 'ls-foot' }, ls.pattern, ' · ', ls.foot)),
+    h('p', { className: 'note', style: { fontSize: 11, color: 'var(--es-fg-muted)', margin: '2px 0 10px' } },
+      ls.isochronous
+        ? `Even — ${ls.intervals.length} intervals of ${ls.short}. Nothing to contrast; the ratio has no effect.`
+        : `Intervals [${ls.intervals.join(' ')}] — measured ${ls.ratio.toFixed(2)}:1`),
+    h(Field, { label: breathing ? 'Ratio (range)' : 'Ratio' },
+      h('input', { className: 'es-control', type: 'number', min: 1, max: 6, step: 0.05, value: lsMin,
+        style: { width: 74 }, 'aria-label': 'Minimum long-to-short ratio',
+        onChange: e => { const v = Math.max(1, +e.target.value || 1); setLsMin(v); if (lsMax < v) setLsMax(v); } }),
+      h('span', { style: { color: 'var(--es-fg-muted)', fontSize: 12 } }, '–'),
+      h('input', { className: 'es-control', type: 'number', min: 1, max: 6, step: 0.05, value: lsMax,
+        style: { width: 74 }, 'aria-label': 'Maximum long-to-short ratio',
+        onChange: e => { const v = Math.max(lsMin, +e.target.value || 1); setLsMax(v); } })),
+    h(Field, { label: 'Push / pull' },
+      h('input', { className: 'es-range', type: 'range', min: 0, max: 100, value: Math.round(lsDepth * 100),
+        'aria-label': 'Push and pull depth',
+        onChange: e => setLsDepth(+e.target.value / 100) }),
+      h('span', { className: 'ls-depth-val' }, Math.round(lsDepth * 100) + '%')),
+    h('p', { className: 'note', style: { fontSize: 11, color: 'var(--es-fg-muted)', margin: '0 0 10px' } },
+      breathing
+        ? `Breathing between ${lsMin.toFixed(2)} and ${lsMax.toFixed(2)} — the walk stays inside the range.`
+        : lsMax > lsMin
+          ? 'Raise push/pull above 0 to make the ratio breathe.'
+          : 'Set the second ratio higher than the first to give the walk room.'),
+    h('p', { className: 'es-eyebrow', style: { margin: '4px 0 6px' } }, 'Durations'),
+    h('div', { className: 'ls-bars' }, durs.map((d, i) =>
+      h('div', { key: i, className: 'ls-bar' + (ls.types[i] === 'long' ? ' long' : ''),
+        style: { height: (10 + (d / maxD) * 42) + 'px' },
+        title: `interval ${i + 1} · ${ls.types[i]} · ${d.toFixed(2)}` }))),
+    h('code', { className: 'ls-durs' }, '[' + durs.map(d => d.toFixed(2)).join(' ') + ']'));
+}
+
 function Section({ title, badge, open, children }) {
   return h('details', { className: 'es-section', open: !!open },
     h('summary', null, title, badge && h('span', { className: 'feat-badge ' + badge }, BADGE_LABEL[badge] || badge)),

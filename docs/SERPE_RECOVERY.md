@@ -140,11 +140,60 @@ Keil gesture applied to duration rather than placement.
   `pass` breathes differently, matching the discipline every other expressive
   layer in the suite follows.
 
+## In the UI (2026-07-22, third pass)
+
+Both features are now reachable from Serpe, verified in a real browser.
+
+**Correction to the previous pass:** Serpe was described here as having "no
+browsing UI" for patterns. That was wrong — it already used the shared
+`createLibraryBrowser` (`PatternLibrary`), with saved/preset/recent entries
+persisted at the `serpe.library` key. So the right move was to *extend* that
+one library, not add a rival panel beside it.
+
+### Durations (long/short) — `DurationsPanel`
+
+A new section showing the `longShort` reading (morse, L/S string, named foot,
+measured ratio and intervals) plus the two controls that make it playable:
+
+- **Ratio**, as two numbers. Equal = static; second > first = a range.
+- **Push / pull** (0–100%) = `dynamicDurations`' `depth`.
+
+**What you must input to get a DYNAMIC long/short: both.** A range *and*
+push/pull above zero — either alone is inert, and the panel says which is
+missing rather than looking broken. Verified live: at depth 0 the durations
+read `[1.50 1.00 1.50 1.00 1.50]`; at 70% with a 1.5–2.2 range they read
+`[1.87 1.00 1.72 1.00 1.98]` — the longs move, the shorts stay at the unit.
+The contrast breathes; the grid does not.
+
+The bar chart and the printed duration list update live, so the setting is
+legible rather than a number you have to trust.
+
+### Named import — folded into the existing library
+
+*import named…* under **Patterns** accepts one line or a pasted block, and
+entries land in the same browser as everything else with a `Named` source
+facet. Errors report their line number and don't discard the batch.
+
+Two things fell out of wiring it in:
+
+- Every library row now carries its analysis as tags, so the **existing
+  presets** gained it too: `tresillo` shows `#E(3,8) #antibacchic`,
+  `khafif-e-ramal` shows `#E(2,5) #trochaic`. That is the original RPE
+  database's `euclidean`-field capability, now on the shared browser.
+- Serpe's presets already included some named rhythms (`khafif-e-ramal`,
+  `aksak`) — worth knowing given the "was there a catalogue?" question this
+  investigation started from. Still not a catalogue; still prose-adjacent
+  presets. But not nothing.
+
 ## Still open
 
-1. **The pattern database.** The *adapter* now exists (above); what is still
-   unbuilt is a Serpe-side browsing UI over it — `library-browser` is already
-   the shared component for that, so it is wiring, not new machinery. The suite now has
+1. **Nothing calls `dynamicDurations` at PLAYBACK yet.** The panel computes
+   and displays the durations, and they are correct — but Serpe's scheduler
+   (and the C++ plugin engine) still play fixed-length notes. Making the
+   rhythm actually *sound* dynamic means feeding these durations into the
+   note-length path on both sides. That is the honest boundary of this pass:
+   the control is real and its output is real, but it is a readout, not yet
+   an instruction to the player. The suite now has
    `@enkerli/library` (identity/provenance/facets) and a `library-browser`
    component, which is a better foundation than the original's
    localStorage-and-binary-dedup approach — so the right move is probably a

@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "build": "npx esbuild main.jsx --bundle --conditions=source --inject:react-globals.js --loader:.css=text --loader:.svg=dataurl --banner:js='/*! Bundles WEBMIDI.js (c) Jean-Philippe Cote, Apache-2.0, https://webmidijs.org - see @enkerli/webmidi/THIRD_PARTY_LICENSES.md */' --define:process.env.NODE_ENV=\\\"production\\\" --minify --outfile=dist/bundle.js && cp index.html dist/index.html && mkdir -p dist/fonts && cp ../../packages/ui/fonts/*.woff2 dist/fonts/",
-    "dev":   "npx esbuild main.jsx --bundle --conditions=source --inject:react-globals.js --loader:.css=text --loader:.svg=dataurl --define:process.env.NODE_ENV=\\\"development\\\" --sourcemap --outfile=dist/bundle.js && cp index.html dist/index.html && mkdir -p dist/fonts && cp ../../packages/ui/fonts/*.woff2 dist/fonts/",
+    "dev": "npx esbuild main.jsx --bundle --conditions=source --inject:react-globals.js --loader:.css=text --loader:.svg=dataurl --define:process.env.NODE_ENV=\\\"development\\\" --sourcemap --outfile=dist/bundle.js && cp index.html dist/index.html && mkdir -p dist/fonts && cp ../../packages/ui/fonts/*.woff2 dist/fonts/",
     "watch": "npx esbuild main.jsx --bundle --conditions=source --inject:react-globals.js --loader:.css=text --loader:.svg=dataurl --define:process.env.NODE_ENV=\\\"development\\\" --sourcemap --watch --outfile=dist/bundle.js"
   },
   "dependencies": {
@@ -15,7 +15,8 @@
     "@enkerli/protocol": "*",
     "@enkerli/webmidi": "*",
     "react": "^18.3.1",
-    "react-dom": "^18.3.1"
+    "react-dom": "^18.3.1",
+    "@enkerli/library": "*"
   },
   "devDependencies": {
     "esbuild": "^0.24.0"

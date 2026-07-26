@@ -82,6 +82,54 @@ Things to try:
 - With a MIDI-capable browser, Serpe can drive real hardware or other
   apps from the MIDI section.
 
+### Long and short — making a rhythm breathe
+
+**Durations (long/short)** reads the *gaps* between your onsets. A tresillo
+(`E(3,8)`) has gaps of 3, 3, 2 — two long, one short — so Serpe shows it as
+`--.` (dash = long, dot = short) and names the shape *antibacchic*. Even
+rhythms like `E(4,8)` have no contrast to read, and the panel says so.
+
+Two controls turn that reading into durations you can play:
+
+- **Ratio** — how much longer a long is than a short. One number holds it
+  steady (`3` gives the classic short-1/long-3). Set the **second number
+  higher than the first** and you have a *range* — the room the rhythm is
+  allowed to move in, e.g. `1.4` to `1.8`.
+- **Push / pull** — how much it actually moves inside that range. At 0 the
+  rhythm is metronomic. Raise it and the long notes lean and relax as they
+  go, hardest away from the strong beats and pulled back into line on them.
+
+**So: to get a breathing long/short, you need both — a ratio range (second
+number bigger than the first) *and* push/pull above 0.** Either alone does
+nothing: no range leaves the walk no room, no push/pull leaves it no reason
+to move. The panel tells you which one is missing.
+
+The movement is not random jitter. It accumulates and resolves, the way a
+player leans into a phrase and settles at the downbeat — the same "pocket"
+idea GloriArp uses for its timing, applied here to duration. And it is
+repeatable: the same settings give the same performance.
+
+### Naming rhythms
+
+Rhythms travel under names. Under **Patterns**, *import named…* takes one
+line or a whole pasted list:
+
+```
+Fume-Fume: [0,2,4,7,9]/12     positions that sound, out of 12 steps
+Bembé: 0x5BA:12               hex, if that's how you have them written
+Tresillo: 10010010            1 = a hit, 0 = a rest
+Gahu: E(7,12)                 or any Serpe notation
+```
+
+They join your library under their names, tagged with what Serpe worked out
+about them — so the bembé bell arrives labelled `E(7,12,7)`: a *rotation* of
+the same even 7-in-12 that gives Gahu. A bad line tells you which line it
+was, and the rest still import.
+
+No rhythms ship built in. Which timeline counts as "the" bembé depends on
+who you learned it from, and putting one spelling in the app would quietly
+turn a choice into a fact. The vocabulary is yours to bring.
+
 The same pattern language runs everywhere in the suite — the Workspace's
 Pattern module, the command line (`msuite upi "E(3,8)"`), and the Serpe
 plugin are all the same engine.
