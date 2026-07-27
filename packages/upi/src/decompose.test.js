@@ -3,7 +3,7 @@ import { detectEuclidean, detectBarlow, decompose, identify } from "./decompose.
 import { longShort, durations, dynamicDurations } from "./longshort.js";
 import { parseNamedPattern, parseNamedPatterns, describeNamedPattern } from "./named.js";
 import { parseUPI } from "./upi.js";
-import { microtiming, timingScales, microtimingMs } from "./microtiming.js";
+import { microtiming, timingScales, microtimingMs, MAX_SHIFT } from "./microtiming.js";
 
 const P = (s) => [...s].map((c) => c === "1");
 
@@ -400,8 +400,13 @@ describe("microtiming — push/pull around the beat (Keil PDs)", () => {
   });
 
   it("never displaces far enough to cross a neighbouring step", () => {
+    // Asserted against MAX_SHIFT, not a copy of its value: the invariant is
+    // "an onset never reaches its neighbour", which is what makes this feel
+    // rather than a different pattern — and what keeps displacedIndex()'s
+    // one-step-either-side boundary test well-defined in both engines.
+    expect(MAX_SHIFT).toBeLessThan(0.5);
     for (let seed = 1; seed < 30; seed++) {
-      for (const v of microtiming(aksak, { depth: 1, seed })) expect(Math.abs(v)).toBeLessThanOrEqual(0.35);
+      for (const v of microtiming(aksak, { depth: 1, seed })) expect(Math.abs(v)).toBeLessThanOrEqual(MAX_SHIFT);
     }
     // and no step may collapse
     for (let seed = 1; seed < 30; seed++) {
@@ -424,7 +429,7 @@ describe("microtiming — push/pull around the beat (Keil PDs)", () => {
   it("reports milliseconds against a real step length", () => {
     const ms = microtimingMs(aksak, 125, { depth: 0.5, seed: 3 });
     expect(ms).toHaveLength(9);
-    for (const v of ms) expect(Math.abs(v)).toBeLessThanOrEqual(0.35 * 125 + 1e-9);
+    for (const v of ms) expect(Math.abs(v)).toBeLessThanOrEqual(MAX_SHIFT * 125 + 1e-9);
   });
 
   it("PD(…) notation parses and does not disturb the pattern", () => {

@@ -50,7 +50,7 @@ export { parseLongShortSuffix, parseMicrotimingSuffix, additiveToSteps } from ".
 
 export {
   // microtiming (Keil participatory discrepancies): push/pull around the beat
-  microtiming, timingScales, microtimingMs,
+  microtiming, timingScales, microtimingMs, MAX_SHIFT, WALK_SCALE,
 } from "./microtiming.js";
 export { mutatePattern } from "./mutate.js";
 

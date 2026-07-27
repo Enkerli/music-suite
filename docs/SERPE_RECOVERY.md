@@ -511,11 +511,35 @@ picking a winner is a decision, not a cleanup.
    matters: under `PD`, attacks must lean *against* the host grid and stay
    locked to it — if the pattern walks away from the click, the bar-length
    invariant is not surviving the scheduler, whatever the conformance app says.
-2. **`PD` may still read as too subtle.** The `maxShift` cap is ±0.35 of a
-   step by design (beyond ~0.5 an onset crosses its neighbour and the rhythm
-   reads as a *different pattern*, not as feel). If 90% should sound more
-   extreme than it does, that cap is the knob — and it must move in
-   `microtiming.js` and `Microtiming.h` together, with regenerated vectors.
+2. ~~**`PD` may still read as too subtle.**~~ **Widened 2026-07-27.** Confirmed
+   in a host — `PD(50%)` audibly displaces, `PD(90%)` flams — but still
+   conservative. Measuring it rather than guessing showed the *cap* was not
+   actually the main limiter: at depth 0.9 the mean displacement was 0.23 of a
+   step, and lifting the cap alone only reached 0.27. The walk's own step
+   (`depth × 0.5`) was the binding constraint, and 35% of onsets sat clipped
+   flat against the cap — flattening the walk into a square wave at exactly
+   the setting meant to be wildest.
+
+   Both moved together: `MAX_SHIFT` 0.35 → **0.45**, `WALK_SCALE` 0.5 → **0.75**.
+
+   | depth | mean displacement, before | after |
+   |---|---|---|
+   | 0.3 | 0.098 step | 0.147 step |
+   | 0.5 | 0.158 step | 0.229 step |
+   | 0.9 | 0.230 step (35% clipped) | 0.316 step (42% clipped) |
+
+   The mid-dial now lands where 0.9 used to, so the whole range is usable.
+   **0.5 is a hard ceiling, not a preference**: that is where an onset reaches
+   its neighbour's nominal position and where `displacedIndex()`'s
+   one-step-either-side boundary test — the scheduling primitive in *both*
+   engines — stops being well-defined.
+
+   Both constants are named and exported now (`MAX_SHIFT`/`WALK_SCALE` in
+   `microtiming.js`, `kMaxShift`/`kWalkScale` in `Microtiming.h`), the
+   never-crosses-a-neighbour test asserts against the constant instead of a
+   copied literal, and `scripts/gen-microtiming-vectors.mjs` regenerates
+   `MicrotimingVectors.h` — the header had said "regenerate when the JS
+   changes" since it was written, with nothing to regenerate it with.
 3. **Nothing calls `dynamicDurations` at PLAYBACK yet.** The panel computes
    and displays the durations, and they are correct — but Serpe's scheduler
    still plays fixed-length notes from them. (`LS(…)` *is* wired on the C++

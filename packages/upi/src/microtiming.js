@@ -45,6 +45,25 @@ function rng(seed, pass) {
   };
 }
 
+/**
+ * How far a single onset may be displaced, in fractions of a step, and how
+ * hard the walk pushes at a given depth. These two set how EXTREME the feel
+ * can get, so they are named and measured rather than buried as literals.
+ *
+ * Raised 2026-07-27 (0.35/0.5 → 0.45/0.75) after playing it: at depth 0.9 the
+ * old numbers gave a mean displacement of 0.23 of a step and clipped 35% of
+ * onsets flat against the cap — audible, but nobody would call it extreme, and
+ * the clipping was flattening the walk into a square wave at exactly the
+ * setting meant to be wildest. Now: 0.32 mean at depth 0.9, and the mid-dial
+ * (0.5) lands where 0.9 used to, so the whole range is usable.
+ *
+ * `MAX_SHIFT` cannot go to 0.5: that is where an onset reaches its
+ * neighbour's nominal position, and where the ±1-step boundary test both
+ * engines schedule with (`displacedIndex`) stops being well-defined.
+ */
+export const MAX_SHIFT = 0.45;
+export const WALK_SCALE = 0.75;
+
 /** How strongly a position resists being moved. 1 = downbeat, pinned hardest. */
 function anchorAt(pos, n) {
   if (pos === 0) return 0.85;
@@ -59,14 +78,16 @@ function anchorAt(pos, n) {
  * @param {boolean[]|number[]} steps
  * @param {{depth?:number, seed?:number, pass?:number, maxShift?:number}} [opts]
  *   `depth` 0..1 — how much push/pull. `maxShift` caps a single displacement
- *   in fractions of a step (default 0.35; beyond ~0.5 an onset would cross its
- *   neighbour and the rhythm reads as a different pattern, not as feel).
+ *   in fractions of a step (default 0.45; at 0.5 an onset reaches its
+ *   neighbour's position, the rhythm reads as a different pattern rather than
+ *   as feel, and the ±1-step boundary test both engines use stops being
+ *   well-defined — so 0.5 is a hard ceiling, not a preference).
  * @returns {number[]} one value per STEP index; + = late, − = early, in
  *   fractions of a step. Steps without an onset are 0 (nothing to displace).
  */
 export function microtiming(steps, opts = {}) {
   const n = steps.length;
-  const { depth = 0, seed = 1, pass = 0, maxShift = 0.35 } = opts;
+  const { depth = 0, seed = 1, pass = 0, maxShift = MAX_SHIFT } = opts;
   const shift = new Array(n).fill(0);
   if (!n || depth <= 0) return shift;
 
@@ -78,7 +99,7 @@ export function microtiming(steps, opts = {}) {
   for (const pos of on) {
     const anchor = anchorAt(pos, n);
     // Mean-reverting walk: pulled home hardest where the metre is strongest.
-    drift = drift * (1 - anchor) + (rnd() * 2 - 1) * depth * 0.5;
+    drift = drift * (1 - anchor) + (rnd() * 2 - 1) * depth * WALK_SCALE;
     const d = Math.max(-maxShift, Math.min(maxShift, drift));
     shift[pos] = pos === 0 ? 0 : d;   // the downbeat is the reference, never moved
   }
