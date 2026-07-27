@@ -450,7 +450,11 @@ export function parseUPI(input, ctx = { n: 16 }) {
     // that reading bought nothing and cost the geometry.
     if ((m = src.match(/^P\(\s*(\d+)\s*,\s*(-?\d+)\s*(?:,\s*(\d+)\s*)?\)$/i))) {
       const k = +m[1], off = +m[2];
-      const n = m[3] ? k * +m[3] : ctx.n;
+      // No expansion factor means factor 1 — a k-gon at its own resolution, k
+      // steps. It used to fall back to `ctx.n`, the step count of whatever was
+      // already loaded, so P(7,2) was 7 steps in the plugin and 16 in the app.
+      // `P(7,2);16` is how you ask for it on a 16-step grid.
+      const n = k * (m[3] ? +m[3] : 1);
       if (n <= 0) return { ok: false, steps: [], accents: null, label: src, error: `P(): expansion must be ≥ 1` };
       return out(polygon(k, ((off % n) + n) % n, n), `P(${k},${off}${m[3] ? "," + m[3] : ""})`);
     }

@@ -52,6 +52,57 @@ describe("parseUPI — the notation language", () => {
   });
 });
 
+describe("step counts are what the notation asks for", () => {
+  // No 8-step floor anywhere: `:N` is how you request a length. The plugin
+  // used to floor decimals, arrays and prefixed numerics at 8.
+  it("sizes a bare polygon at its own resolution", () => {
+    // Not ctx.n — P(7,2) was 7 steps in the plugin and 16 in the app.
+    expect(parseUPI("P(7,2)", { n: 16 }).steps.length).toBe(7);
+    expect(parseUPI("P(4,0)", { n: 16 }).steps.join("")).toBe("1111");
+  });
+
+  it("sizes numerics by the digits WRITTEN, not the value", () => {
+    // Digits are packed little-endian, so o10 and 0x10 have value 1 while
+    // stating six and eight steps — the trailing zero digit is real.
+    expect(parseUPI("0x1").steps.length).toBe(4);
+    expect(parseUPI("0x10").steps.join("")).toBe("10000000");
+    expect(parseUPI("o10").steps.join("")).toBe("100000");
+    expect(parseUPI("b1011").steps.join("")).toBe("1011");
+    expect(parseUPI("d5").steps.join("")).toBe("101"); // decimal: value-sized
+  });
+
+  it("keeps an onset array only as long as its last onset", () => {
+    expect(parseUPI("[0,2]").steps.join("")).toBe("101");
+    expect(parseUPI("[0,2]:8").steps.join("")).toBe("10100000");
+  });
+});
+
+describe(";N — Lascabettes angular re-grid", () => {
+  it("re-grids onto an arbitrary step count", () => {
+    expect(parseUPI("E(5,13);8").steps.join("")).toBe("10110110");
+  });
+
+  it("distinguishes clockwise from counter-clockwise", () => {
+    // E(3,8) is asymmetric, so the two directions genuinely differ. Symmetric
+    // sources give the same set both ways and would hide a broken sign.
+    expect(parseUPI("E(3,8);5").steps.join("")).toBe("10101");
+    expect(parseUPI("E(3,8);-5").steps.join("")).toBe("11010");
+  });
+
+  it("merges collisions when re-gridding downward", () => {
+    const r = parseUPI("E(3,8);3");
+    expect(r.steps.length).toBe(3);
+    expect(onsetCount(r.steps)).toBeLessThanOrEqual(3);
+  });
+
+  it("binds looser than + and -, so it re-grids the whole expression", () => {
+    // Not P(3,0) combined with P(5,0);16, which would land on lcm(3,16) = 48.
+    const r = parseUPI("P(3,0)+P(5,0);16");
+    expect(r.steps.length).toBe(16);
+    expect(r.steps.join("")).toBe("1001011000110100");
+  });
+});
+
 describe("combination — every operand is a shape on a shared cycle", () => {
   // Combination projects each operand onto the lcm (scaling its onsets) rather
   // than repeating it to fill the lcm. That is what makes the result a

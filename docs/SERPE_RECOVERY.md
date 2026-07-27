@@ -572,11 +572,44 @@ In a combination the factor is shape-neutral: since every operand projects onto
 the shared cycle, expansion changes only the polygon's natural length, hence
 the LCM, hence the resulting cycle length — not the geometry.
 
-### One remaining JS/C++ divergence
+### Step counts are what the notation asks for
 
-| input | `msuite upi` | C++ engine |
+The plugin floored decimals, onset arrays and prefixed numerics at **8 steps**
+— a habit from when everything in sight was an 8-step pattern. `:N` is how you
+ask for a length, so a notation yielding 3 steps now gives 3 steps. All three
+floors are gone.
+
+Removing them exposed a second bug underneath: the width was then taken from
+the *value*, but hex/octal digits are packed **little-endian**, so `o10` and
+`0x10` have value 1 while stating six and eight steps. Their trailing zero
+digit is real — high steps that are empty. Width now comes from the digits
+written (1 bit per binary digit, 3 per octal, 4 per hex); only bare decimal,
+which has no digit width, is sized from the value.
+
+| input | steps | |
 |---|---|---|
-| `d73` | 7 steps, `1001001` | 8 steps, `10010010` (C++ floors decimals at 8 steps) |
+| `0x1` | 4 | one hex digit |
+| `0x10` | 8 | two digits, value 1 |
+| `o10` | 6 | two octal digits |
+| `d5` | 3 | decimal is value-sized |
+| `[0,2]` | 3 | exactly long enough to hold its last onset |
+| `[0,2]:8` | 8 | `:N` pads |
+
+A bare polygon is sized the same way — `P(7,2)` is 7 steps, its own
+resolution (expansion factor 1). It used to take `ctx.n` in the webapp, so it
+was 7 steps in the plugin and 16 in the app. `P(7,2);16` asks for the 16-step
+grid explicitly.
+
+### `;N` binds looser than `+` and `-`
+
+`P(3,0)+P(5,0);16` is the 15-step combination re-gridded onto 16. The plugin
+split on `+` first and parsed it as `P(3,0)` combined with `P(5,0);16`, landing
+on lcm(3,16) = **48 steps**. Quantization is now hoisted ahead of the
+combination split, matching the webapp.
+
+`PD(50%)` with no pattern in front of it also used to come back as a *valid*
+0-step pattern named `Binary: ` — success everywhere downstream. It is an error
+now.
 
 ## Still open
 
