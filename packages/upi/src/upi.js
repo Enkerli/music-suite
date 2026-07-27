@@ -346,7 +346,10 @@ export function parseUPI(input, ctx = { n: 16 }) {
     // dot/dash form into an additive-meter notation.
     {
       let body = src, shortLen = 1, longLen = 2;
-      const dm = body.match(/^D:\s*(\d+)\s*,\s*(\d+)\s*(.*)$/i);
+      // `D:s,l` (the webapp's / the original RPE's documented spelling) and
+      // `L:s,l` (what the C++ engine has always implemented). Both accepted in
+      // both engines — the divergence was silent and cost real confusion.
+      const dm = body.match(/^[DL]:\s*(\d+)\s*,\s*(\d+)\s*(.*)$/i);
       if (dm) { shortLen = Math.max(1, +dm[1]); longLen = Math.max(1, +dm[2]); body = dm[3].trim(); }
       let morseSrc = null;
       if (/^M:/i.test(body)) morseSrc = body.slice(2);
