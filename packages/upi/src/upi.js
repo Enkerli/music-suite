@@ -382,13 +382,36 @@ export function parseUPI(input, ctx = { n: 16 }) {
           }
           return out(steps, label);
         }
-        const first = parseUPI(terms[0].pat, ctx);
-        if (!first.ok) return first;
-        let steps = first.steps.slice();
-        for (let i = 1; i < terms.length; i++) {
-          const r = parseUPI(terms[i].pat, ctx);
-          if (!r.ok) return r;
-          steps = combineSteps(steps, r.steps, terms[i].op === "+");
+        // A BARE polygon is a shape, not a step pattern: P(3,0) means "three
+        // evenly spaced vertices" and has no step grid of its own. Parsing it
+        // through the normal path gave it `ctx.n` — the step count of whatever
+        // was already loaded — so `E(3,8)+P(3,0)` returned 8 steps in the app
+        // and 16 in the CLI, from the same string. Its length here is its
+        // vertex count, and it is PROJECTED onto the combination's LCM rather
+        // than tiled (tiling turns any polygon into solid onsets). Matches
+        // UPIParser's general-combination path in the C++ engine.
+        const bareRe = /^P\(\s*(\d+)\s*,\s*(-?\d+)\s*\)$/i;
+        const resolved = terms.map((t) => {
+          const mm = t.pat.match(bareRe);
+          if (mm) return { poly: { k: +mm[1], off: +mm[2] }, len: +mm[1] };
+          const r = parseUPI(t.pat, ctx);
+          return { err: r.ok ? null : r, steps: r.steps, len: r.ok ? r.steps.length : 1 };
+        });
+        const bad = resolved.find((r) => r.err);
+        if (bad) return bad.err;
+
+        const L = resolved.reduce((acc, r) => lcm2(acc, Math.max(1, r.len)), 1);
+        const at = (r) =>
+          r.poly ? polygon(r.poly.k, ((r.poly.off % L) + L) % L, L)
+                 : Array.from({ length: L }, (_, i) => r.steps[i % r.steps.length]);
+
+        let steps = at(resolved[0]).slice();
+        for (let i = 1; i < resolved.length; i++) {
+          const next = at(resolved[i]);
+          const isAdd = terms[i].op === "+";
+          for (let j = 0; j < L; j++) {
+            steps[j] = isAdd ? (steps[j] || next[j] ? 1 : 0) : (steps[j] && !next[j] ? 1 : 0);
+          }
         }
         return out(steps, label);
       }

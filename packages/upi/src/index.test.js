@@ -39,6 +39,39 @@ describe("parseUPI — the notation language", () => {
   });
 });
 
+describe("combination — a bare polygon is a shape, not a step pattern", () => {
+  // The README's own example. A polygon TILED to fill the LCM becomes solid
+  // onsets (P(4,0) is "1111"), which is what the C++ engine used to return
+  // here; projected onto 8 steps it is the square 10101010, and the union
+  // with the tresillo is a rhythm rather than a drone.
+  it("projects P(4,0) onto the combination length, never tiles it", () => {
+    const r = parseUPI("E(3,8)+P(4,0)");
+    expect(r.ok).toBe(true);
+    expect(r.steps.join("")).toBe("10111010");
+  });
+
+  it("gives a bare polygon its own length, not the caller's step count", () => {
+    // Regression: P(3,0) used to inherit ctx.n, so the SAME string returned 8
+    // steps in the app and 16 in the CLI depending on what was already
+    // loaded. Its length is its vertex count; the combination lands on
+    // lcm(8,3) = 24 regardless of context.
+    for (const n of [8, 16, 12]) {
+      const r = parseUPI("E(3,8)+P(3,0)", { n });
+      expect(r.ok).toBe(true);
+      expect(r.steps.length).toBe(24);
+      expect(r.steps.join("")).toBe("100100101001001010010010");
+    }
+  });
+
+  it("still projects an all-polygon '+' onto the lcm of polygon sizes", () => {
+    expect(parseUPI("P(3,0)+P(5,0)").steps.join("")).toBe("100101100110100");
+  });
+
+  it("leaves same-length difference alone", () => {
+    expect(parseUPI("E(5,8)-E(3,8)").steps.join("")).toBe("00100100");
+  });
+});
+
 describe("generators + transforms", () => {
   it("euclid(3,8) is the tresillo", () => {
     expect(euclid(3, 8)).toEqual(TRESILLO);

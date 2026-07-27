@@ -489,19 +489,55 @@ host-authoritative branch of `parseField()` returns early and never cleared
 The C++ side had the matching defect (lanes stayed `active` when
 `isPolyPattern` went false); both are fixed.
 
-### Two remaining JS/C++ divergences (pre-existing, not from this pass)
+### Combination: a bare polygon is a shape, not a step pattern
 
-Found by running the same strings through both. Neither is a regression and
-both change musical output, so they are reported rather than silently
-"harmonised":
+`E(3,8)+P(3,0)` was wrong in both engines, for two unrelated reasons.
+
+**The plugin tiled polygons.** `P(3,0)` is *three evenly spaced vertices* — it
+has no step grid of its own, and the parser represents it as the three-step
+`111`. Repeating that to fill the LCM makes every polygon solid onsets, which
+is why `E(3,8)+P(3,0)` came back as 24 unbroken hits. The README's own example
+shows how visible this was: **`E(3,8) + P(4,0)` returned eight onsets instead
+of `10111010`**. The general combination path now works out the target length
+first and *projects* each bare polygon onto it — exactly what the all-polygon
+path (`P(3,0)+P(5,0)` → lcm 15) had always done. Anything with a real step
+grid, including `P(k,off,n)`, keeps the LCM tiling it has always had.
+
+**The webapp gave a bare polygon whatever was already loaded.** It parsed
+through the normal path, where `P(3,0)` with no explicit length takes `ctx.n`
+— the *current pattern's* step count. So the same string returned 8 steps in
+the app and 16 in the CLI. Its length is now its vertex count, deterministically.
+
+Both engines now agree:
+
+| input | both engines |
+|---|---|
+| `E(3,8)+P(4,0)` | `10111010` (8 steps) — the README's example, finally |
+| `E(3,8)+P(3,0)` | `100100101001001010010010` (24 steps) |
+| `P(3,0)+P(5,0)` | `100101100110100` (15 steps, unchanged) |
+| `E(5,8)-E(3,8)` | `00100100` (unchanged) |
+
+**Still a decision, not a bug:** at lcm 24 the tresillo tiles three times and
+the triangle's vertices (0, 8, 16) land exactly on those tile boundaries, so
+`P(3,0)` adds nothing audible. The alternative reading — *project both*
+operands, so each spans the shared cycle once — gives
+`100000001100000010100000` (5 onsets: 0, 8, 9, 16, 18) and is what poly lanes'
+cycle-lock default already means everywhere else in the suite. It would also
+change existing combinations of unequal concrete lengths (`E(3,8)+E(2,4)`:
+`10111010` today, `10011010` under that reading), which is why it has not been
+adopted unilaterally.
+
+### Two remaining JS/C++ divergences (pre-existing, not from this pass)
 
 | input | `msuite upi` | C++ engine |
 |---|---|---|
 | `d73` | 7 steps, `1001001` | 8 steps, `10010010` (C++ floors decimals at 8 steps) |
-| `E(3,8)+P(3,0)` | 16 steps, `1001011010010010` | 24 steps, all onsets (LCM of 8 and 3, and `P(3,0)` = `111`) |
+| `P(3,0,8)` | 8 steps — third argument is a **step count** | 24 steps — third argument is a **multiplier** (`sides × n`) |
 
-The C++ polygon-LCM projection is deliberately preserved behaviour, so
-picking a winner is a decision, not a cleanup.
+The polygon one has a documented answer: the v0.02a README says "`P(5,0,16)` -
+Polygon: 5-sided shape in 16 steps", which is the JS reading. Changing the C++
+would silently re-voice every existing `P(k,off,n)` pattern, so it is reported
+rather than done.
 
 ## Still open
 
