@@ -547,6 +547,11 @@ function SerpeApp() {
       // hint (it may not understand engine-only notation).
       sendUPI(full);
       setParseErr(null);
+      // No '/' in this string, so we have just left poly. Retire the lanes
+      // here as well as in the standalone branch below: this branch returns
+      // early, so without it the plugin kept the old poly panel on screen
+      // over a pattern that is now mono.
+      if (poly) setPoly(null);
       return;
     }
     const p = parseUPI(full, { n: steps.length || 16 });

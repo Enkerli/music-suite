@@ -434,36 +434,99 @@ only changes via the off-thread pattern queue.
 **Build status: the plugin compiles clean (AU/VST3/Standalone, macOS).** What
 is still unverified is *behaviour in a host* — see below.
 
+## Why none of it worked in a host (ninth pass) — four bugs, found by asking the parser
+
+134 green conformance checks and a clean build, and in Bitwig and Logic the
+feel notation still did nothing: `PD(50%)` changed no timing, `D:2,3 ...-`
+produced `0011110`, `L:2,3 ...-.` produced three silent steps. Guessing at a
+parser from the outside had already cost a round trip, so
+`Source/Tests/ParserProbe.cpp` was added — a console app that prints what
+`UPIParser::parse` actually returns for a list of inputs. It answered in one
+run: every `PD`/`LS` line parsed its pattern correctly and printed **no**
+`PD(…)` field. The suffix was being stripped and the flags then thrown away.
+
+1. **`UPIParser::parse` discarded its own ParseResult.** It recorded the feel
+   flags on a local `result`, then returned the *different* ParseResult that
+   `parsePattern`/the combination path produced. Everything downstream —
+   `rebuildMicrotiming`, the LS gate, the poly lanes — was reading defaults.
+   **This alone explains why microtiming never worked in any DAW**, while the
+   webapp (a separate implementation) was fine. Fixed by splitting the body
+   into `parseAfterFeel()` so `parse()` has exactly one return statement and
+   carries the flags onto whichever of the eight paths won. A ninth path
+   cannot reintroduce it.
+2. **The decimal prefix `d` ate `D:s,l`.** `isNumericPattern("d:2,3 ...-")`
+   took everything after the first colon as a step count, leaving empty
+   digits — and `juce::String::containsOnly` returns true for an empty string.
+   So it matched as decimal 0 in 2 steps, named `d:2`. That is precisely why
+   `D:` misbehaved where the identical `L:` did not: `l` is not a numeric
+   prefix, so nothing intercepted it. Fixed by requiring non-empty digits.
+3. **A Morse dash read as the difference operator.** `L:2,3 ...-` worked only
+   by luck — its dash was last, so the splitter produced one term and gave up.
+   `L:2,3 ...-.` split into `l:2,3 ...` minus `.`. The operator and the
+   notation genuinely collide, so the notation now wins where it is
+   unambiguous: an `m:`/`l:`/`d:` prefix, or a body of nothing but dots,
+   dashes and spaces. `E(5,8)-E(3,8)` and `E(3,8)+P(3,0)` still combine.
+4. **Poly lanes never received the feel at all.** `PolyLane` had no
+   microtiming fields and `processPolyLanes` had no displacement, so
+   `E(3,8) PD(90%)/E(3,8) PD(10%)` was two lanes locked together — an
+   accurate bug report. Each lane now carries its own depth/seed and its own
+   walk, re-rolled at its own cycle boundary, through the same
+   `serpe::microtiming::displacedIndex()` the mono path uses. One groove
+   model, so a lane cannot lean differently from the pattern that produced it.
+   Pinned by `testPerLaneFeel()` in `serpe_poly_conformance`.
+
+Verified in this container by building `serpe_parser_probe` against a JUCE
+checkout: `D:2,3 ...-` → `101010100`, `L:2,3 ...-.` → `10101010010` (11
+steps), both **identical to `msuite upi`** for the same strings; `PD`/`LS`
+now appear on the result, including through a combination
+(`E(3,8)+P(3,0) PD(40%)`). Microtiming conformance still 134/0; poly
+conformance still green.
+
+A fifth, separate bug — the plugin UI kept showing the old poly panel after a
+mono pattern was entered — was in the React app, not the parser: the
+host-authoritative branch of `parseField()` returns early and never cleared
+`poly`. The standalone branch did, which is why only the plugin showed it.
+The C++ side had the matching defect (lanes stayed `active` when
+`isPolyPattern` went false); both are fixed.
+
+### Two remaining JS/C++ divergences (pre-existing, not from this pass)
+
+Found by running the same strings through both. Neither is a regression and
+both change musical output, so they are reported rather than silently
+"harmonised":
+
+| input | `msuite upi` | C++ engine |
+|---|---|---|
+| `d73` | 7 steps, `1001001` | 8 steps, `10010010` (C++ floors decimals at 8 steps) |
+| `E(3,8)+P(3,0)` | 16 steps, `1001011010010010` | 24 steps, all onsets (LCM of 8 and 3, and `P(3,0)` = `111`) |
+
+The C++ polygon-LCM projection is deliberately preserved behaviour, so
+picking a winner is a decision, not a cleanup.
+
 ## Still open
 
-1. **`LS(…)` is still not wired to playback** — it remains a readout. Its
-   likely home is **articulation**: note length against step length is exactly
-   staccato-vs-legato, which is a more useful framing than "dynamic long/short"
-   and is how it should probably be presented and named.
-2. **The C++ is built and math-conformant, but not yet HEARD.** A clean
-   compile and 134 green checks say the walk is right and the code links; they
-   say nothing about whether a DAW plays it as intended. The one that matters:
-   under `PD`, attacks must lean *against* the host grid and stay locked to it
-   — if the pattern walks away from the click, the bar-length invariant is not
-   surviving the scheduler, whatever the conformance app says.
+1. **The C++ feel path is fixed but not yet HEARD.** The probe proves the
+   flags now reach the ParseResult and the poly conformance proves each lane
+   gets its own depth; neither proves a DAW plays it as intended. The one that
+   matters: under `PD`, attacks must lean *against* the host grid and stay
+   locked to it — if the pattern walks away from the click, the bar-length
+   invariant is not surviving the scheduler, whatever the conformance app says.
+2. **`PD` may still read as too subtle.** The `maxShift` cap is ±0.35 of a
+   step by design (beyond ~0.5 an onset crosses its neighbour and the rhythm
+   reads as a *different pattern*, not as feel). If 90% should sound more
+   extreme than it does, that cap is the knob — and it must move in
+   `microtiming.js` and `Microtiming.h` together, with regenerated vectors.
 3. **Nothing calls `dynamicDurations` at PLAYBACK yet.** The panel computes
    and displays the durations, and they are correct — but Serpe's scheduler
-   (and the C++ plugin engine) still play fixed-length notes. Making the
-   rhythm actually *sound* dynamic means feeding these durations into the
-   note-length path on both sides. That is the honest boundary of this pass:
-   the control is real and its output is real, but it is a readout, not yet
-   an instruction to the player. The suite now has
-   `@enkerli/library` (identity/provenance/facets) and a `library-browser`
-   component, which is a better foundation than the original's
-   localStorage-and-binary-dedup approach — so the right move is probably a
-   Serpe adapter onto `@enkerli/library`, not a port of the old file. Needs a
-   decision before code.
-2. **Dynamic L/S / participatory discrepancies.** `tolerance`, float `ratio`
-   and `durations()` are the analysis groundwork. The *generative* half — a
-   long/short that adapts to context as it plays, rather than being measured
-   once — is unbuilt, and is a design conversation (what does the ratio
-   respond to: position in the cycle? density? a running feel parameter?
-   ranges rather than points?).
-3. **A named-pattern catalogue** genuinely does not exist anywhere in the
-   history. If it is wanted, it is new work — and `identify()` now makes it
-   cheap to attach names to recognised formulas.
+   still plays fixed-length notes from them. (`LS(…)` *is* wired on the C++
+   side: it replaced the hardcoded 80%-of-a-step gate. The per-onset
+   `dynamicDurations` sequence is the part that remains a readout.) The
+   control is real and its output is real, but it is not yet an instruction
+   to the player.
+4. **The two divergences in the table above** need a decision, not a cleanup.
+5. **A canned named-pattern *catalogue*** is still deliberately absent. The
+   importer exists (`named.js` + the library adapter, second/third passes);
+   what is not shipped is a list of "authentic" rhythms, because which
+   timeline is *the* bembé depends on tradition, region and transcription,
+   and baking one spelling in would launder an editorial choice into an
+   apparent fact. The importer is the feature; the vocabulary is the user's.
