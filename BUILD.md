@@ -24,16 +24,17 @@ done
 cd music-suite && npm install && cd ..      # WebUI build deps the plugins need
 ```
 
-**B. Already cloned** — update everything:
+**B. Already cloned** — update and rebuild everything, one command:
 
 ```bash
-cd ~/code
-for d in music-suite enkerli-juce midicurator-plugin progression-studio-plugin \
-         PitchFold rhythm_pattern_explorer workspace-plugin Vane DrawnQurve; do
-  git -C "$d" pull --recurse-submodules
-done
-cd music-suite && npm install && cd ..
+cd ~/code            # ~/Documents/Coding on the Mac
+enkerli-juce/tools/suite-build all --pull
 ```
+
+`--pull` updates music-suite and every selected repo (plus submodules),
+builds the shared TypeScript packages, regenerates the two committed WebUI
+bundles, and runs `npm install` itself if the monorepo has never been
+installed here. Nothing to prepare by hand.
 
 **C. Build** (from `~/code`):
 
