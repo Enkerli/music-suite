@@ -217,8 +217,14 @@ What the build tools expect, and how to bend it:
   Override with `export SUITE_ROOT=~/code`. Directory names match
   **case-insensitively**, so a lowercase `vane`/`pitchfold`/`drawnqurve`
   checkout still resolves to the manifest's `Vane`/`PitchFold`/`DrawnQurve`.
+- **Both layouts work.** Siblings (`<root>/music-suite` + `<root>/Vane` …)
+  is the documented default; **repos nested inside the music-suite checkout**
+  (`<root>/music-suite/Vane` …) is detected too — there `SUITE_ROOT` *is*
+  music-suite, and the script resolves `MUSIC_SUITE` to it rather than
+  looking for a `music-suite/music-suite` that will never exist.
 - **Where music-suite is found**: `$MUSIC_SUITE` (default
-  `$SUITE_ROOT/music-suite`; override `export MUSIC_SUITE=/path/to/music-suite`)
+  `$SUITE_ROOT/music-suite`, or `$SUITE_ROOT` itself in the nested layout;
+  override `export MUSIC_SUITE=/path/to/music-suite`)
   — consulted for MIDIcurator's and Progression Studio's WebUI regen. The
   other five plugins find music-suite themselves at CMake time (the
   sibling · nested · `MUSIC_SUITE`-env · `webui.local.cmake` probing in the
@@ -247,12 +253,28 @@ What the build tools expect, and how to bend it:
   `auval -strict`; pluginval's own AU-component sub-test was dropped 2026-07-22
   — it drove auval through the slow AUAudioUnit bridge and timed out on
   heavy instruments like Vane, while native strict auval passes in ~30s.)
-- **`--formats a,b`** — narrow the targets. macOS: `au,vst3,clap,standalone`;
-  Linux: `lv2,vst3,clap,standalone` (no `au` — Apple-only). No effect under
-  `--ladder`.
+- **`--formats a,b`** — narrow the targets. macOS:
+  `au,vst3,clap,standalone` (+ `auv3`, see below); Linux:
+  `lv2,vst3,clap,standalone` (no `au` — Apple-only). No effect under
+  `--ladder`. A requested format the repo doesn't build **on this platform**
+  is reported as a `NOTE:` and skipped, and the rest still build; only a
+  request where *nothing* is buildable fails.
+  **`auv3` is the iPadOS format**, not a macOS one, for the six archetype
+  repos — ask for it there and the script says so and points you at `--ios`.
+  Vane is the exception: it declares a macOS AUv3 alongside its AU, so
+  `--formats auv3` builds a real target there.
 - **`--fresh`** — wipe `build*/` dirs first (catches stale/hollow-bundle
   builds). **`--ios`** — add the iOS unsigned compile to a non-ladder run.
-  **`--dry-run`** — print commands, run nothing.
+  **`--dry-run`** — print commands, run nothing. **`--no-node`** — skip the
+  shared-package build below (only when you know it is current).
+- **Every run first builds the shared packages** (`npm run build-packages`
+  in music-suite, incremental `tsc -b` — a no-op when current). This is not
+  optional politeness: `@enkerli/*` resolve to `packages/*/dist`, and `dist/`
+  is **gitignored**, so after a pull that touched theory/ui the MIDIcurator
+  and ProgGenie bundles would otherwise be regenerated against *stale* shared
+  code — the same staleness class that shipped GloriArp two weeks old, one
+  level down. Missing `node_modules` is a hard, named failure
+  (`cd music-suite && npm install`), never a silently degraded build.
 
 `all` and comma-separated lists keep going past a missing/failing repo and
 print a pass/fail summary. **A rung that fails is reported `FAILED`, never a

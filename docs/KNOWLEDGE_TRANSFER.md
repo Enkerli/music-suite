@@ -91,11 +91,27 @@ machine — not verifiable from a JUCE-less container either way.
 suite-build: one command for any (or all) of the seven plugin repos";
 `BUILD.md` updated with a "Quick:" line per repo). Wraps `validate.sh`
 unchanged; adds the Linux leg; `all` skips a repo that isn't checked out
-yet instead of dying. **Not run-verified** — built and dry-run-traced
-without a JUCE/Xcode toolchain (Linux container); a real `--ladder` pass on
-Mac is the remaining check before trusting it fully. `--formats` target-
-name guessing (`<Product>_VST3` etc.) is best-effort, flagged as such in
-its own `--help`.
+yet instead of dying.
+
+**Run-verified on macOS 2026-07-27** against the real root
+(`~/Documents/Coding`), and four gaps closed in the process (enkerli-juce
+`219957b`):
+- the `--formats` target names its own `--help` flagged as best-effort
+  guesses were **right except `auv3`**, which is the iPadOS format for the
+  six archetype repos and a macOS target only for Vane — asking Serpe for
+  it aborted the whole repo with `No rule to make target Serpe_AUv3`.
+  Targets are now filtered against what configure actually produced, so an
+  unavailable format is a reported skip and the rest still build;
+- shared packages are built first (`@enkerli/*` → `packages/*/dist`, which
+  is **gitignored**, so the two committed bundles were being regenerated
+  against whatever stale dist was on disk);
+- the nested layout resolved `MUSIC_SUITE` to a `music-suite/music-suite`
+  that cannot exist;
+- the `--formats` path built serially (no `-j`).
+
+Still not verified by machine: a full `--ladder` (auval + pluginval) run
+across all seven, and everything Linux — `--formats`/xvfb/LV2 legs are
+written but only Alex's miniPC can prove them.
 
 Original brief, for reference:
 
