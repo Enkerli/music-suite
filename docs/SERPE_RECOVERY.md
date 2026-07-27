@@ -402,15 +402,50 @@ is not. That is the bar-preserving property demonstrated on artefact bytes
 rather than asserted, and it is the check to reach for whenever "is this
 actually doing anything?" comes up again.
 
+## The C++ engine (eighth pass) — built and conformant
+
+`Source/Core/Microtiming.h` ports `microtiming.js`; `UPIParser` strips
+`PD(…)`/`LS(…)` before anything else parses; `PluginProcessor` applies them.
+
+**Parity is proven, not assumed.** `Source/Tests/MicrotimingVectors.h` is
+generated from the JS, and `serpe_microtiming_conformance` checks the C++
+against it — including the mulberry32 RNG bit-for-bit (`Math.imul` and
+`>>> 0` are exactly uint32 arithmetic). Green on **macOS/clang and
+Linux/gcc: 134 checks, 0 failures**, and on gcc in the authoring container.
+134 = 110 vector comparisons + 6 bar-length invariants + 18 depth-zero
+checks. Same discipline as PolyClock/PolyParser: the plugin and the webapp
+must *feel* identical, and "looks equivalent" is not a proof.
+
+Two design choices worth keeping:
+
+- **PD shifts the step-boundary TEST**, not a queued event (`displacedStep()`).
+  For a PPQ-derived scheduler that is how you get early *and* late placement
+  with no added latency and no scheduling queue: step *i* becomes current at
+  position *i + shift[i]*. Depth 0 is the previous code path exactly.
+- **LS is the note-length (articulation) parameter** — it replaces the
+  hardcoded 80%-of-a-step gate. `LS(0.5)` staccato, `LS(1)` tenuto, `LS(1.5)`
+  overlapping. It was never a timing control, and naming it as articulation is
+  what finally made the vocabulary coherent.
+
+Real-time note: the walk re-rolls at each cycle boundary, on the audio thread,
+allocation-free — `assign()` at unchanged size reuses the buffer, and the size
+only changes via the off-thread pattern queue.
+
+**Build status: the plugin compiles clean (AU/VST3/Standalone, macOS).** What
+is still unverified is *behaviour in a host* — see below.
+
 ## Still open
 
 1. **`LS(…)` is still not wired to playback** — it remains a readout. Its
    likely home is **articulation**: note length against step length is exactly
    staccato-vs-legato, which is a more useful framing than "dynamic long/short"
    and is how it should probably be presented and named.
-2. **The C++ engine has neither.** `microtiming.js` is JS; Serpe's plugin
-   scheduler would need the same treatment (the model is small and portable —
-   displacements, differenced, downbeat pinned). Needs a Mac to build.
+2. **The C++ is built and math-conformant, but not yet HEARD.** A clean
+   compile and 134 green checks say the walk is right and the code links; they
+   say nothing about whether a DAW plays it as intended. The one that matters:
+   under `PD`, attacks must lean *against* the host grid and stay locked to it
+   — if the pattern walks away from the click, the bar-length invariant is not
+   surviving the scheduler, whatever the conformance app says.
 3. **Nothing calls `dynamicDurations` at PLAYBACK yet.** The panel computes
    and displays the durations, and they are correct — but Serpe's scheduler
    (and the C++ plugin engine) still play fixed-length notes. Making the
