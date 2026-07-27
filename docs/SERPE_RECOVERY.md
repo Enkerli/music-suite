@@ -530,17 +530,53 @@ same-length combination is untouched. `E(3,8)+E(2,4)` is the shape of what did
 change: a shorter operand is now stretched across the shared cycle instead of
 looping inside it.
 
-### Two remaining JS/C++ divergences (pre-existing, not from this pass)
+### A polygon's third argument is an expansion factor, not a step count
+
+`P(3,1,4)` is **"Triangle×4"** — a triangle expanded over 3×4 = 12 steps,
+still exactly even. The webapp read the argument as a step count and returned
+`1110`: three onsets crammed into four steps, which is not a triangle at all.
+
+The original webapp settles it — `WebApp/app/pattern-generators.js`:
+
+```js
+@param {number|null} expansion - Expansion factor (default: 1, range: 1-21)
+// Returns: P(4,0,3) with 12 total steps (4 × 3)
+const totalSteps = vertices * expansion;
+```
+
+…and its own help text names the string: `POLYGON_EXPANDED: 'P(3,1,4) -
+Triangle×4'`. The C++ engine matched that all along; the newer JS drifted. The
+v0.02a README's "5-sided shape in 16 steps" is a loose doc, not the contract —
+and the current READMEs illustrated it with `P(5,12,0)`, which under the real
+signature `P(sides,offset,expansion)` is offset 12 and expansion 0. Those lines
+are corrected.
+
+**The step-count reading bought nothing**, because re-gridding already has
+notation: `;N` (Lascabettes angular quantization), which works on *any*
+pattern and has both directions. It was bit-identical —
+
+| | |
+|---|---|
+| `P(3,0,8)` as step count | `10010100` |
+| `P(3,0);8` | `10010100` |
+
+— so the third argument was a polygon-only duplicate of the weaker half of an
+existing operator. The two now do different jobs, which is the point:
+
+| | | |
+|---|---|---|
+| `P(3,0,8)` | `100000001000000010000000` | 24 steps, **exactly even** — `k×x` is always divisible by `k`, so a polygon stays a polygon |
+| `P(3,0);8` | `10010100` | 8 steps, **rounded** — three vertices cannot be even on eight steps; deformation is what `;N` is for |
+
+In a combination the factor is shape-neutral: since every operand projects onto
+the shared cycle, expansion changes only the polygon's natural length, hence
+the LCM, hence the resulting cycle length — not the geometry.
+
+### One remaining JS/C++ divergence
 
 | input | `msuite upi` | C++ engine |
 |---|---|---|
 | `d73` | 7 steps, `1001001` | 8 steps, `10010010` (C++ floors decimals at 8 steps) |
-| `P(3,0,8)` | 8 steps — third argument is a **step count** | 24 steps — third argument is a **multiplier** (`sides × n`) |
-
-The polygon one has a documented answer: the v0.02a README says "`P(5,0,16)` -
-Polygon: 5-sided shape in 16 steps", which is the JS reading. Changing the C++
-would silently re-voice every existing `P(k,off,n)` pattern, so it is reported
-rather than done.
 
 ## Still open
 

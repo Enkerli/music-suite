@@ -20,11 +20,24 @@ describe("parseUPI — the notation language", () => {
   it("parses hex with a step count (0x94:8)", () => {
     expect(parseUPI("0x94:8").steps).toEqual(TRESILLO);
   });
-  it("parses a polygon P(3,0,8)", () => {
-    const r = parseUPI("P(3,0,8)");
+  it("reads a polygon's third argument as an expansion factor", () => {
+    // P(3,1,4) is the original webapp's "Triangle×4": a triangle over 3×4 = 12
+    // steps, still exactly even. Read as a step count it was `1110` — three
+    // onsets crammed into four steps, which is not a triangle.
+    const r = parseUPI("P(3,1,4)");
     expect(r.ok).toBe(true);
-    expect(r.steps.length).toBe(8);
-    expect(onsetCount(r.steps)).toBe(3);
+    expect(r.steps.length).toBe(12);
+    expect(r.steps.join("")).toBe("010001000100");
+  });
+
+  it("expands exactly, where ;N re-grids with rounding", () => {
+    // The two jobs are distinct, which is why the third argument is not a step
+    // count: expansion keeps the polygon a polygon (k*x is always divisible by
+    // k), while `;N` is Lascabettes angular quantization onto an arbitrary
+    // grid and rounds. Three vertices on eight steps cannot be even.
+    expect(parseUPI("P(3,0,8)").steps.length).toBe(24);
+    expect(parseUPI("P(3,0,8)").steps.join("")).toBe("100000001000000010000000");
+    expect(parseUPI("P(3,0);8").steps.join("")).toBe("10010100");
   });
   it("applies an {accent} prefix over onsets, not steps", () => {
     const r = parseUPI("{100}E(3,8)");

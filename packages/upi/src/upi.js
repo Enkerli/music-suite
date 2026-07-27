@@ -190,7 +190,8 @@ function bitsFromValue(value, width) {
 /**
  * Parse one UPI token into a pattern. Supports the headline grammar:
  *   E(k,n) / E(k,n,rot)      Euclidean
- *   P(k,off) / P(k,off,n)    polygon
+ *   P(k,off) / P(k,off,x)    polygon; x is an EXPANSION FACTOR (k*x steps),
+ *                            not a step count — P(3,1,4) is a triangle over 12
  *   R(k,n)                   random
  *   B(k,n) / W(k,n)          Barlow / Wolrab (anti-Barlow) of length n
  *   D(k,n)                   Dilcue (anti-Euclidean)
@@ -211,8 +212,12 @@ function bitsFromValue(value, width) {
  *   <pattern> LS(3)            note LENGTH: a long lasts 3× a short (static)
  *   <pattern> LS(1.4..1.8)     …a RANGE — the contrast breathes within it
  *   <pattern> LS(1.4..1.8,70%) …with an explicit push/pull depth
- *   <expr>+<expr> / <expr>-<expr>   combination: union / difference (LCM;
- *                            all-polygon '+' projects onto lcm of polygon sizes)
+ *   <expr>;N / <expr>;-N     Lascabettes angular quantization: re-grid onto N
+ *                            steps (negative = counter-clockwise). This is the
+ *                            way to put any pattern on an arbitrary step count.
+ *   <expr>+<expr> / <expr>-<expr>   combination: union / difference on a shared
+ *                            cycle — every operand is PROJECTED onto the lcm
+ *                            (its onsets scaled), never tiled to fill it
  *   {10010}<expr>            accent layer wrapping any of the above
  * Returns { steps, accents, label, ok, error }.
  */
@@ -435,9 +440,19 @@ export function parseUPI(input, ctx = { n: 16 }) {
       const k = +m[1], n = +m[2], rot = m[3] ? +m[3] : 0;
       return out(euclideanRhythm(k, n, rot), `E(${k},${n}${rot ? "," + rot : ""})`);
     }
+    // P(sides,offset) / P(sides,offset,expansion). The third argument is an
+    // EXPANSION FACTOR, not a step count: P(3,1,4) is "Triangle×4" — a triangle
+    // over 3×4 = 12 steps, still exactly even. Read as a step count it produced
+    // `1110`, three onsets crammed into four steps, which is not a triangle.
+    // Re-gridding a pattern onto an arbitrary step count is what `;N` does
+    // (Lascabettes angular quantization), and it works on any pattern, not just
+    // polygons — `P(3,0);8` and `P(3,0,8)`-as-step-count were bit-identical, so
+    // that reading bought nothing and cost the geometry.
     if ((m = src.match(/^P\(\s*(\d+)\s*,\s*(-?\d+)\s*(?:,\s*(\d+)\s*)?\)$/i))) {
-      const k = +m[1], off = +m[2], n = m[3] ? +m[3] : ctx.n;
-      return out(polygon(k, ((off % n) + n) % n, n), `P(${k},${off}${m[3] ? "," + n : ""})`);
+      const k = +m[1], off = +m[2];
+      const n = m[3] ? k * +m[3] : ctx.n;
+      if (n <= 0) return { ok: false, steps: [], accents: null, label: src, error: `P(): expansion must be ≥ 1` };
+      return out(polygon(k, ((off % n) + n) % n, n), `P(${k},${off}${m[3] ? "," + m[3] : ""})`);
     }
     if ((m = src.match(/^R\(\s*(\d+)\s*,\s*(\d+)\s*\)$/i))) {
       const k = +m[1], n = +m[2];
