@@ -39,15 +39,25 @@ describe("parseUPI — the notation language", () => {
   });
 });
 
-describe("combination — a bare polygon is a shape, not a step pattern", () => {
-  // The README's own example. A polygon TILED to fill the LCM becomes solid
-  // onsets (P(4,0) is "1111"), which is what the C++ engine used to return
-  // here; projected onto 8 steps it is the square 10101010, and the union
-  // with the tresillo is a rhythm rather than a drone.
-  it("projects P(4,0) onto the combination length, never tiles it", () => {
-    const r = parseUPI("E(3,8)+P(4,0)");
+describe("combination — every operand is a shape on a shared cycle", () => {
+  // Combination projects each operand onto the lcm (scaling its onsets) rather
+  // than repeating it to fill the lcm. That is what makes the result a
+  // geometry rather than a stack of loops.
+  it("builds a perfectly balanced geometry from three polygons", () => {
+    // The case that pins the rule: balanced only because each polygon spans
+    // the 30-step cycle exactly once.
+    expect(parseUPI("P(3,1)+P(5,0)+P(2,5)").steps.join("")).toBe(
+      "110001100001100000101100100000",
+    );
+  });
+
+  it("projects a polygon against a Euclidean term, never tiles it", () => {
+    // Tiling made this a 24-step drone (P(3,0) is the three-step "111"
+    // repeated eight times). Projected, the triangle lands on 0/8/16 and the
+    // tresillo — stretched across the same cycle — on 0/9/18.
+    const r = parseUPI("E(3,8)+P(3,0)");
     expect(r.ok).toBe(true);
-    expect(r.steps.join("")).toBe("10111010");
+    expect(r.steps.join("")).toBe("100000001100000010100000");
   });
 
   it("gives a bare polygon its own length, not the caller's step count", () => {
@@ -57,17 +67,26 @@ describe("combination — a bare polygon is a shape, not a step pattern", () => 
     // lcm(8,3) = 24 regardless of context.
     for (const n of [8, 16, 12]) {
       const r = parseUPI("E(3,8)+P(3,0)", { n });
-      expect(r.ok).toBe(true);
       expect(r.steps.length).toBe(24);
-      expect(r.steps.join("")).toBe("100100101001001010010010");
+      expect(r.steps.join("")).toBe("100000001100000010100000");
     }
+  });
+
+  it("matches the v0.02a README example E(3,8)+P(4,0)", () => {
+    // lcm(8,4) = 8, so the square projects onto 10101010.
+    expect(parseUPI("E(3,8)+P(4,0)").steps.join("")).toBe("10111010");
   });
 
   it("still projects an all-polygon '+' onto the lcm of polygon sizes", () => {
     expect(parseUPI("P(3,0)+P(5,0)").steps.join("")).toBe("100101100110100");
   });
 
-  it("leaves same-length difference alone", () => {
+  it("projects non-polygon terms too", () => {
+    // E(2,4) spans the shared cycle once (onsets 0,4), not twice (0,2,4,6).
+    expect(parseUPI("E(3,8)+E(2,4)").steps.join("")).toBe("10011010");
+  });
+
+  it("leaves same-length difference alone (projection is identity)", () => {
     expect(parseUPI("E(5,8)-E(3,8)").steps.join("")).toBe("00100100");
   });
 });

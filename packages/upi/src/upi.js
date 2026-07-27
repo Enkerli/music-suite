@@ -382,14 +382,21 @@ export function parseUPI(input, ctx = { n: 16 }) {
           }
           return out(steps, label);
         }
-        // A BARE polygon is a shape, not a step pattern: P(3,0) means "three
-        // evenly spaced vertices" and has no step grid of its own. Parsing it
-        // through the normal path gave it `ctx.n` — the step count of whatever
-        // was already loaded — so `E(3,8)+P(3,0)` returned 8 steps in the app
-        // and 16 in the CLI, from the same string. Its length here is its
-        // vertex count, and it is PROJECTED onto the combination's LCM rather
-        // than tiled (tiling turns any polygon into solid onsets). Matches
-        // UPIParser's general-combination path in the C++ engine.
+        // Every operand is a SHAPE spanning one shared cycle, so each is
+        // projected onto the lcm — its onsets scaled to the new length —
+        // rather than repeated to fill it. This is the all-polygon rule above
+        // (P(3,0)+P(5,0) -> lcm 15) generalised to every term, and it is what
+        // makes combination a geometry: P(3,1)+P(5,0)+P(2,5) is perfectly
+        // balanced across 30 steps only because each polygon spans the cycle
+        // once. Tiling breaks that — a bare polygon repeated to fill the lcm
+        // is solid onsets — which is why E(3,8)+P(3,0) used to come back as a
+        // drone instead of 100000001100000010100000.
+        //
+        // A bare polygon also has no step grid of its own: P(3,0) means
+        // "three evenly spaced vertices". It used to be parsed through the
+        // normal path, where it takes `ctx.n` — the step count of whatever was
+        // already loaded — so the same string gave 8 steps in the app and 16
+        // in the CLI. Its length here is its vertex count.
         const bareRe = /^P\(\s*(\d+)\s*,\s*(-?\d+)\s*\)$/i;
         const resolved = terms.map((t) => {
           const mm = t.pat.match(bareRe);
@@ -401,9 +408,16 @@ export function parseUPI(input, ctx = { n: 16 }) {
         if (bad) return bad.err;
 
         const L = resolved.reduce((acc, r) => lcm2(acc, Math.max(1, r.len)), 1);
-        const at = (r) =>
-          r.poly ? polygon(r.poly.k, ((r.poly.off % L) + L) % L, L)
-                 : Array.from({ length: L }, (_, i) => r.steps[i % r.steps.length]);
+        const at = (r) => {
+          // Same scaling either way: a k-gon is just a pattern whose k onsets
+          // are its k steps, so polygon(k, off, L) and the loop below agree.
+          if (r.poly) return polygon(r.poly.k, ((r.poly.off % L) + L) % L, L);
+          const projected = new Array(L).fill(0);
+          const n = r.steps.length;
+          for (let i = 0; i < n; i++)
+            if (r.steps[i]) projected[Math.round((i * L) / n) % L] = 1;
+          return projected;
+        };
 
         let steps = at(resolved[0]).slice();
         for (let i = 1; i < resolved.length; i++) {

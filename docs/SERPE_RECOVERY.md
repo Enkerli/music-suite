@@ -489,43 +489,46 @@ host-authoritative branch of `parseField()` returns early and never cleared
 The C++ side had the matching defect (lanes stayed `active` when
 `isPolyPattern` went false); both are fixed.
 
-### Combination: a bare polygon is a shape, not a step pattern
+### Combination is a geometry: every operand spans one shared cycle
 
-`E(3,8)+P(3,0)` was wrong in both engines, for two unrelated reasons.
+Combination projects each operand onto the LCM — *scaling* its onsets to the
+new length — rather than repeating it to fill the LCM. This is the rule the
+all-polygon path always used, now applied to every term in every combination.
 
-**The plugin tiled polygons.** `P(3,0)` is *three evenly spaced vertices* — it
-has no step grid of its own, and the parser represents it as the three-step
-`111`. Repeating that to fill the LCM makes every polygon solid onsets, which
-is why `E(3,8)+P(3,0)` came back as 24 unbroken hits. The README's own example
-shows how visible this was: **`E(3,8) + P(4,0)` returned eight onsets instead
-of `10111010`**. The general combination path now works out the target length
-first and *projects* each bare polygon onto it — exactly what the all-polygon
-path (`P(3,0)+P(5,0)` → lcm 15) had always done. Anything with a real step
-grid, including `P(k,off,n)`, keeps the LCM tiling it has always had.
+The case that pins it down is a balanced-pattern one:
+`P(3,1)+P(5,0)+P(2,5)` → `110001100001100000101100100000`, perfectly balanced
+across 30 steps **only because each polygon spans the cycle exactly once**.
+Tile any of them instead and the geometry collapses.
+
+`E(3,8)+P(3,0)` was broken in both engines, for two unrelated reasons.
+
+**The plugin tiled.** `P(3,0)` is *three evenly spaced vertices* — no step grid
+of its own — and the parser represents it as the three-step `111`. Repeating
+that to fill the LCM makes any polygon solid onsets, so `E(3,8)+P(3,0)` came
+back as a 24-step drone. The README's own example shows how visible this was:
+**`E(3,8) + P(4,0)` returned eight onsets instead of `10111010`**.
 
 **The webapp gave a bare polygon whatever was already loaded.** It parsed
 through the normal path, where `P(3,0)` with no explicit length takes `ctx.n`
 — the *current pattern's* step count. So the same string returned 8 steps in
 the app and 16 in the CLI. Its length is now its vertex count, deterministically.
 
-Both engines now agree:
+Both engines now agree, and `E(3,8)+P(3,0)` matches what the original webapp
+produced:
 
 | input | both engines |
 |---|---|
-| `E(3,8)+P(4,0)` | `10111010` (8 steps) — the README's example, finally |
-| `E(3,8)+P(3,0)` | `100100101001001010010010` (24 steps) |
+| `P(3,1)+P(5,0)+P(2,5)` | `110001100001100000101100100000` (30 steps, balanced) |
+| `E(3,8)+P(3,0)` | `100000001100000010100000` (24 steps: triangle 0/8/16, tresillo 0/9/18) |
+| `E(3,8)+P(4,0)` | `10111010` — the README's example, finally |
 | `P(3,0)+P(5,0)` | `100101100110100` (15 steps, unchanged) |
-| `E(5,8)-E(3,8)` | `00100100` (unchanged) |
+| `E(3,8)+E(2,4)` | `10011010` — E(2,4) spans the cycle once (0,4), not twice |
+| `E(5,8)-E(3,8)` | `00100100` (unchanged — projection is identity at equal lengths) |
 
-**Still a decision, not a bug:** at lcm 24 the tresillo tiles three times and
-the triangle's vertices (0, 8, 16) land exactly on those tile boundaries, so
-`P(3,0)` adds nothing audible. The alternative reading — *project both*
-operands, so each spans the shared cycle once — gives
-`100000001100000010100000` (5 onsets: 0, 8, 9, 16, 18) and is what poly lanes'
-cycle-lock default already means everywhere else in the suite. It would also
-change existing combinations of unequal concrete lengths (`E(3,8)+E(2,4)`:
-`10111010` today, `10011010` under that reading), which is why it has not been
-adopted unilaterally.
+Projection is identity whenever the operands already share a length, so every
+same-length combination is untouched. `E(3,8)+E(2,4)` is the shape of what did
+change: a shorter operand is now stretched across the shared cycle instead of
+looping inside it.
 
 ### Two remaining JS/C++ divergences (pre-existing, not from this pass)
 
