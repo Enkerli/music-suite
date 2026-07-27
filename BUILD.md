@@ -230,6 +230,14 @@ What the build tools expect, and how to bend it:
   other five plugins find music-suite themselves at CMake time (the
   sibling · nested · `MUSIC_SUITE`-env · `webui.local.cmake` probing in the
   per-repo notes below).
+- **Where clap-juce-extensions is found**: `$CLAP_JUCE_PATH` → a repo-local
+  `clap-juce-extensions/` → a `FetchContent` download. It carries the CLAP SDK
+  as git submodules, so a private copy per repo is the slowest thing in a cold
+  build; clone it **once beside the repos** and `suite-build` points every repo
+  at it (2026-07-27):
+  ```bash
+  git clone --recurse-submodules https://github.com/free-audio/clap-juce-extensions ~/code/clap-juce-extensions
+  ```
 - **Where JUCE is found** (resolution order): a repo-local `JUCE/` dir → the
   `$JUCE_PATH` env var (which `suite-build` sets to `$SUITE_ROOT/JUCE`) →
   `/Applications/JUCE` → a `FetchContent` download of 8.0.13. So
@@ -264,6 +272,12 @@ What the build tools expect, and how to bend it:
   repos — ask for it there and the script says so and points you at `--ios`.
   Vane is the exception: it declares a macOS AUv3 alongside its AU, so
   `--formats auv3` builds a real target there.
+- **`--pull`** — update first: music-suite, then each selected repo and its
+  submodules. **`suite-build all --pull` is the whole "update everything"
+  command**; it replaces the by-hand nine-repo loop the Quickstart used to
+  require. A repo with local changes fails loudly rather than being skipped —
+  except the two committed WebUI bundles, generated files the script rewrites
+  anyway.
 - **`--fresh`** — wipe `build*/` dirs first (catches stale/hollow-bundle
   builds). **`--ios`** — add the iOS unsigned compile to a non-ladder run.
   **`--dry-run`** — print commands, run nothing. **`--no-node`** — skip the
@@ -274,8 +288,9 @@ What the build tools expect, and how to bend it:
   is **gitignored**, so after a pull that touched theory/ui the MIDIcurator
   and ProgGenie bundles would otherwise be regenerated against *stale* shared
   code — the same staleness class that shipped GloriArp two weeks old, one
-  level down. Missing `node_modules` is a hard, named failure
-  (`cd music-suite && npm install`), never a silently degraded build.
+  level down. Missing `node_modules` is **installed for you**, not reported as
+  homework — "prepare the tree yourself, then call me" is the friction this
+  entry point exists to remove.
 
 `all` and comma-separated lists keep going past a missing/failing repo and
 print a pass/fail summary. **A rung that fails is reported `FAILED`, never a
