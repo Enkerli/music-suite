@@ -36,12 +36,24 @@ in any build touches them:
 | `Source/Core/UPIParser.cpp.bak` | 1,422 |
 | `Source/Platform/PluginProcessor_Original.h` | 359 |
 
-Caution before deleting: `_Original` predates the manager extraction in §B, so
-it is currently the clearest record of how the *legacy* system worked — the
-thing the half-finished migration falls back to. Read it while finishing §B,
-then delete. Git keeps it either way, which is the argument for deleting: a
-`.bak` inside a git repo is a belt over a belt, and it silently doubles the
-search results for anyone grepping the parser.
+**Mining verdict, measured 2026-07-27 — there is almost nothing in them.**
+Comparing declared methods against the live files:
+
+- `PluginProcessor_Original.cpp`: **39** methods vs the live processor's **66**,
+  and the only name unique to the orphan is its pre-rename class
+  (`RhythmPatternExplorerAudioProcessor`). Nothing to mine.
+- `PluginEditor_Original.cpp`: **no** unique methods. Nothing to mine.
+- `UPIParser.cpp.bak`: four names absent from the live parser, of which two
+  merely moved — `combinePatterns` now lives in `PatternUtils`, `hasAccentPattern`
+  is still in `UPIParser`. Only **`extractAccentPattern`** and
+  **`removeAccentPattern`** exist nowhere else. Accents demonstrably work
+  (`{10}E(5,8)` parses; ledger row ✓), so these look superseded by inline
+  handling rather than lost — worth a ten-minute read before deletion, not a
+  salvage operation.
+
+Method names do not prove body equivalence, so this is "nothing worth mining"
+rather than "provably identical". But it removes the main reason to keep 6,256
+lines: they are not the last record of anything.
 
 ## B. The stopped migration — Serpe's manager extraction (the big one)
 
@@ -53,8 +65,8 @@ and twice `TEMPORARY: Disable ProgressiveManager to isolate legacy system`.
 
 | Manager | Lines | Wiring | State |
 |---|---|---|---|
-| `SceneManager` | 233 | 12 call sites from the processor | runs in parallel with a legacy path; every read has a legacy fallback |
-| `ProgressiveManager` | 682 | 4 call sites | **owns state persistence** (save/load/clear via ValueTree) but its `applyProgressiveTransformation()` is a **stub returning the base pattern** — the real transform lives in `UPIParser` |
+| `SceneManager` | 233 | 12 call sites from the processor | **genuinely live**, and genuinely duplicated: `initializeScenes` populates it, `advanceScene` advances it, getters are read — all alongside the processor's own legacy scene arrays, with an `if manager else legacy` fallback on each read. Two working implementations of one behaviour |
+| `ProgressiveManager` | 682 | 4 call sites | **inert — corrected 2026-07-27.** The census first said it "owns state persistence". It *implements* persistence, but is never fed: `initializeProgressiveState()` is the only writer of `progressiveStates` and has **no external caller**, so the map is always empty — save writes an empty tree, load restores nothing, clear clears nothing. Its `applyProgressiveTransformation()` is also a stub returning the base pattern; the real transform lives in `UPIParser` (with its own static state maps and LRU cleanup — a parser holding session state is the smell finishing this would fix) |
 | `PresetManager` | 444 | 1 in the processor, 15 in the editor | genuinely in use — the editor drives it. Not part of the problem |
 
 Why this is the highest-value item: two code paths for the same behaviour is
