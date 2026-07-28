@@ -71,7 +71,7 @@ Bindings · Bus Monitor · Bridge (CLI)
 
 ## Documentation set (docs/)
 
-GLOSSARY (vocabulary) · BUILD (all build commands) · HEADLESS (CLI/where
+CODE_CENSUS (dead code + stopped migrations, 2026-07-27) · GLOSSARY (vocabulary) · BUILD (all build commands) · HEADLESS (CLI/where
 things run) · MASTER_PLAN (roadmap spine) · USE_CASES · CONTROL_PLANE ·
 WORKSPACE_PLUGIN · GLORIARP_BRIEF + GLORIARP_AUDIT · LIBRARY_SPEC +
 schemas/ · JUCE_INDEPENDENCE · A11Y_TEST_PLAN + A11Y_AUDIT + UX_AUDIT ·
