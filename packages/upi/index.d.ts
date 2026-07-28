@@ -209,3 +209,33 @@ export function microtimingMs(steps: boolean[], stepMs: number, opts?: {
 }): number[];
 export function parseMicrotimingSuffix(text: string): { rest: string; microtiming: MicrotimingSpec | null };
 export function additiveToSteps(groups: number[]): number[];
+
+// ── Progressive notation (stateful forms) ────────────────────────────────────
+/** `pat>N` transform · `pat%N`/`pat+N` offset · `pat*N` lengthening. */
+export interface ProgressiveDesc {
+  kind: "transform" | "offset" | "lengthen";
+  base: string;
+  source: string;
+  /** transform only: b|w|e|d, defaulting to Barlow. */
+  type?: "b" | "w" | "e" | "d";
+  /** transform only: the onset count the progression walks toward. */
+  target?: number;
+  /** offset / lengthen only. */
+  step?: number;
+}
+export interface ProgressiveStep { steps: number[]; index: number; label: string; error?: string }
+export interface ProgressiveOpts {
+  parseBase: (s: string) => { steps: number[] } | null;
+  /** Lengthening RNG; defaults to Math.random (lengthening is random by design). */
+  random?: () => number;
+}
+/** Null when the string isn't progressive, so callers fall through to parseUPI. */
+export function parseProgressive(input: string): ProgressiveDesc | null;
+/** The pattern at trigger `n` (1-based; n=1 is the untransformed base). */
+export function progressiveAt(desc: ProgressiveDesc, n: number, opts: ProgressiveOpts): ProgressiveStep;
+export class ProgressiveRun {
+  constructor(input: string, opts: ProgressiveOpts);
+  index: number;
+  next(): ProgressiveStep;
+  reset(): void;
+}

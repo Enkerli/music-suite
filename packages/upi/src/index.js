@@ -8,9 +8,17 @@
  * stay app-side (apps/serpe/engine/render.js); everything importable in node
  * lives here.
  *
- * Progressive/scene state is stateful and stays engine-side (the C++ plugin);
- * this package is the pure notation + generators + transforms + analysis.
+ * Scene state stays engine-side (the C++ plugin). PROGRESSIVE notation used to
+ * as well — it is stateful, so the pure parser has nothing single to return —
+ * but progressive.js closes that gap by making the state derivable from the
+ * trigger index rather than stored, so `progressiveAt(desc, n)` is pure for
+ * the deterministic forms. See docs/FEATURE_PARITY (Serpe repo).
  */
+export {
+  // Progressive notation (stateful forms: pat>N, pat%N, pat+N, pat*N)
+  parseProgressive, progressiveAt, ProgressiveRun,
+} from "./progressive.js";
+
 export {
   // UPI notation + generators + transforms
   primeFactors, euclid, polygon, randomPattern, rotate, invert, complement,

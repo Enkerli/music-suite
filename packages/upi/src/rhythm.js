@@ -101,25 +101,32 @@ export function funkyEuclidean(steps, params = {}) {
 // ── Progressive lengthening: bell-curve random steps (matches the C++ engine
 // generateBellCurveRandomSteps). Returns `numSteps` steps with a bell-curve
 // number of onsets randomly distributed. *1 is a 50/50 coin flip. ──
-function gaussian(mean, std) {
+function gaussian(mean, std, random = Math.random) {
   let u = 0, v = 0;
-  while (u === 0) u = Math.random();
-  while (v === 0) v = Math.random();
+  while (u === 0) u = random();
+  while (v === 0) v = random();
   return mean + std * Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
 }
-export function bellCurveRandomSteps(numSteps) {
+/**
+ * @param {number} numSteps
+ * @param {() => number} [random] injectable RNG. Defaults to Math.random, so
+ *   this stays random by design (progressive lengthening is meant to be, and
+ *   the engine's own version is unseeded); the parameter exists so tests can
+ *   pin a sequence without imposing seeding on callers.
+ */
+export function bellCurveRandomSteps(numSteps, random = Math.random) {
   const out = new Array(Math.max(0, numSteps | 0)).fill(0);
   if (numSteps <= 0) return out;
   let onsets;
   if (numSteps === 1) {
-    onsets = Math.random() < 0.5 ? 0 : 1;
+    onsets = random() < 0.5 ? 0 : 1;
   } else {
-    onsets = Math.round(gaussian(numSteps / 2, (numSteps - 1) / 6));
+    onsets = Math.round(gaussian(numSteps / 2, (numSteps - 1) / 6, random));
     onsets = Math.max(0, Math.min(numSteps, onsets));
   }
   const pos = [...Array(numSteps).keys()];
   for (let i = pos.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
+    const j = Math.floor(random() * (i + 1));
     [pos[i], pos[j]] = [pos[j], pos[i]];
   }
   for (let i = 0; i < onsets; i++) out[pos[i]] = 1;

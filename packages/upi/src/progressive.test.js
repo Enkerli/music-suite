@@ -1,0 +1,135 @@
+/**
+ * Progressive notation — ported from the C++ engine, pinned to ITS output.
+ *
+ * The CPP_SEQUENCES below are not hand-written expectations: they are the
+ * Serpe C++ engine's own results, taken 2026-07-27 from
+ *
+ *   cd rhythm_pattern_explorer
+ *   cmake --build build --target serpe_parser_probe
+ *   ./build/serpe_parser_probe_artefacts/Release/serpe_parser_probe
+ *
+ * whose progressive section calls UPIParser::parse() on the same string N
+ * times — the engine is stateful, so each call returns the next trigger. That
+ * is the sequence progressiveAt(desc, n) has to reproduce. Regenerate the same
+ * way if the engine's algorithm ever changes; do not "fix" a vector by hand.
+ *
+ * NOT covered here, deliberately: progressive OFFSET direction and LENGTHENING
+ * bits. Offset state lives in PatternEngine (processor-side), which a parser
+ * probe cannot reach; lengthening is random by design. Both are tested for
+ * structure and determinism-given-an-RNG instead, and the gap is recorded in
+ * the Serpe repo's FEATURE_PARITY ledger rather than papered over.
+ */
+import { describe, it, expect } from "vitest";
+import { parseProgressive, progressiveAt, ProgressiveRun } from "./progressive.js";
+import { parseUPI } from "./upi.js";
+
+const parseBase = (s) => {
+  const r = parseUPI(s, { n: 16 });
+  return r.ok ? { steps: r.steps } : null;
+};
+const seq = (input, k, opts = {}) =>
+  Array.from({ length: k }, (_, i) =>
+    progressiveAt(parseProgressive(input), i + 1, { parseBase, ...opts }).steps.join(""),
+  ).join(" ");
+
+/** Verbatim from the C++ probe (see header). */
+const CPP_SEQUENCES = {
+  "E(1,8)>8":
+    "10000000 10000001 10001001 10101001 10101011 11101011 11111011 11111111 10000000 10000001",
+  "B(1,17)>17":
+    "10000000000000000 10000000000000001 10001000000000001 10001000000001001 " +
+    "10001010000001001 10001010000101001 10101010000101001 10101010000101011",
+  "E(8,8)>1":
+    "11111111 10111111 10101111 10101011 10001011 10001001 10000001 10000000 11111111",
+};
+
+describe("progressive transform — bit-identical to the C++ engine", () => {
+  for (const [input, expected] of Object.entries(CPP_SEQUENCES)) {
+    it(`${input} reproduces the engine's sequence`, () => {
+      expect(seq(input, expected.split(" ").length)).toBe(expected);
+    });
+  }
+
+  it("loops back to the base once the target is reached", () => {
+    // The engine cycles for live use rather than sticking at the target: the
+    // 8th trigger of E(1,8)>8 is full, the 9th is the base again.
+    const s = seq("E(1,8)>8", 9).split(" ");
+    expect(s[7]).toBe("11111111");
+    expect(s[8]).toBe(s[0]);
+  });
+
+  it("dilutes as well as concentrates (target below the base)", () => {
+    const s = seq("E(8,8)>1", 3).split(" ");
+    expect(s[0].split("1").length - 1).toBe(8);
+    expect(s[1].split("1").length - 1).toBe(7);
+    expect(s[2].split("1").length - 1).toBe(6);
+  });
+});
+
+describe("parseProgressive", () => {
+  it("reads the transformer letter before '>', defaulting to Barlow", () => {
+    expect(parseProgressive("E(1,8)>8")).toMatchObject({ kind: "transform", base: "E(1,8)", type: "b", target: 8 });
+    expect(parseProgressive("E(1,8)W>8")).toMatchObject({ base: "E(1,8)", type: "w" });
+    expect(parseProgressive("E(1,8)e>8")).toMatchObject({ base: "E(1,8)", type: "e" });
+  });
+
+  it("distinguishes progressive offset from pattern combination", () => {
+    // `pat+N` (numeric tail) is an offset; `pat+pat` is combination and must
+    // fall through to the pure parser untouched.
+    expect(parseProgressive("E(3,8)+3")).toMatchObject({ kind: "offset", step: 3 });
+    expect(parseProgressive("E(3,8)+P(4,0)")).toBeNull();
+    expect(parseProgressive("P(3,0)+P(5,0)")).toBeNull();
+  });
+
+  it("reads %, and * lengthening", () => {
+    expect(parseProgressive("E(3,8)%2")).toMatchObject({ kind: "offset", step: 2 });
+    expect(parseProgressive("E(3,8)*3")).toMatchObject({ kind: "lengthen", step: 3 });
+  });
+
+  it("returns null for ordinary notation, so callers can fall through", () => {
+    for (const p of ["E(3,8)", "0x94:8", "A(2,2,3,2)", "E(3,8);5", "tresillo"]) {
+      expect(parseProgressive(p), p).toBeNull();
+    }
+  });
+});
+
+describe("progressive offset", () => {
+  it("trigger 1 is the un-rotated base, then rotates by step each trigger", () => {
+    const base = parseBase("E(3,8)").steps.join("");
+    const s = seq("E(3,8)%2", 3).split(" ");
+    expect(s[0]).toBe(base);
+    expect(s[1]).not.toBe(base);
+    // onset count is invariant under rotation
+    for (const p of s) expect(p.split("1").length - 1).toBe(3);
+  });
+
+  it("is pure — the same trigger index always gives the same pattern", () => {
+    expect(seq("E(5,13)%5", 6)).toBe(seq("E(5,13)%5", 6));
+  });
+});
+
+describe("progressive lengthening", () => {
+  it("grows by `step` steps per trigger, keeping the base as a prefix", () => {
+    const random = () => 0.5;                       // pinned only for the test
+    const d = parseProgressive("E(3,8)*4");
+    const a = progressiveAt(d, 1, { parseBase, random }).steps;
+    const b = progressiveAt(d, 3, { parseBase, random }).steps;
+    expect(a.length).toBe(8);
+    expect(b.length).toBe(8 + 4 + 4);
+    expect(b.slice(0, 8)).toEqual(a);
+  });
+});
+
+describe("ProgressiveRun", () => {
+  it("advances one trigger at a time and resets", () => {
+    const run = new ProgressiveRun("E(1,8)>8", { parseBase });
+    expect(run.next().steps.join("")).toBe("10000000");
+    expect(run.next().steps.join("")).toBe("10000001");
+    run.reset();
+    expect(run.next().steps.join("")).toBe("10000000");
+  });
+
+  it("refuses non-progressive notation rather than silently doing nothing", () => {
+    expect(() => new ProgressiveRun("E(3,8)", { parseBase })).toThrow(/not progressive/);
+  });
+});

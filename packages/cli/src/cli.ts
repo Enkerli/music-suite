@@ -32,7 +32,7 @@ import {
   type SendOptions, type ControlMap, type InputEvent,
 } from "./index.js";
 import { VoiceSplitter } from "@enkerli/voice-routing";
-import { identify, longShort, durations, dynamicDurations, parseNamedPatterns, describeNamedPattern, parseLongShortSuffix, parseUPI, microtiming, timingScales } from "@enkerli/upi";
+import { identify, longShort, durations, dynamicDurations, parseNamedPatterns, describeNamedPattern, parseLongShortSuffix, parseUPI, microtiming, timingScales, parseProgressive, progressiveAt } from "@enkerli/upi";
 import { createSMF } from "@enkerli/midi";
 import { wrapPattern } from "@enkerli/library";
 import type { TraceLevel } from "@enkerli/accompaniment";
@@ -324,6 +324,32 @@ async function main(): Promise<number> {
         });
         return 0;
       }
+      // Progressive notation (`pat>N`, `pat%N`, `pat+N`, `pat*N`) denotes a
+      // DIFFERENT pattern per trigger, so there is no single pattern to print
+      // — show the sequence instead. Before 2026-07-27 this whole family just
+      // came back "Unrecognised pattern", which read as "unsupported" when the
+      // truth was "stateful, and the state lived only in the C++ plugin".
+      const prog = parseProgressive(notation);
+      if (prog) {
+        const triggers = one(args, "triggers") !== undefined ? Number(one(args, "triggers")) : 8;
+        const parseBase = (str: string) => {
+          const r = parseUPI(str, { n: nSteps });
+          return r.ok ? { steps: r.steps } : null;
+        };
+        const first = progressiveAt(prog, 1, { parseBase });
+        if (first.error) { console.log(`no pattern (${first.error})`); return 1; }
+        console.log(`label   ${prog.source}`);
+        console.log(`kind    progressive ${prog.kind}${prog.kind === "transform" ? ` (${prog.type} → ${prog.target} onsets)` : ` (step ${prog.step})`}`);
+        console.log(`note    stateful: one pattern per trigger${prog.kind === "lengthen" ? "; lengthening appends RANDOM steps, so runs differ" : ""}`);
+        for (let i = 1; i <= triggers; i++) {
+          const r = progressiveAt(prog, i, { parseBase });
+          const bits = r.steps.map((x: number) => (x ? "1" : "0")).join("");
+          const onsets = r.steps.reduce((acc: number, x: number) => acc + (x ? 1 : 0), 0);
+          console.log(`  ${String(i).padStart(2)}    ${bits}  ${onsets} onsets`);
+        }
+        return 0;
+      }
+
       const info = upiInfo(notation, nSteps);
       if (!info.ok) { console.log(`no pattern (${info.error ?? "unparsed"})`); return 1; }
       const a = info.analysis!;
