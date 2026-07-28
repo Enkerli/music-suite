@@ -66,12 +66,24 @@ and twice `TEMPORARY: Disable ProgressiveManager to isolate legacy system`.
 | Manager | Lines | Wiring | State |
 |---|---|---|---|
 | `SceneManager` | 233 | 12 call sites from the processor | **genuinely live**, and genuinely duplicated: `initializeScenes` populates it, `advanceScene` advances it, getters are read — all alongside the processor's own legacy scene arrays, with an `if manager else legacy` fallback on each read. Two working implementations of one behaviour |
-| `ProgressiveManager` | 682 | 4 call sites | **inert — corrected 2026-07-27.** The census first said it "owns state persistence". It *implements* persistence, but is never fed: `initializeProgressiveState()` is the only writer of `progressiveStates` and has **no external caller**, so the map is always empty — save writes an empty tree, load restores nothing, clear clears nothing. Its `applyProgressiveTransformation()` is also a stub returning the base pattern; the real transform lives in `UPIParser` (with its own static state maps and LRU cleanup — a parser holding session state is the smell finishing this would fix) |
+| ~~`ProgressiveManager`~~ | ~~682~~ | — | ✅ **REVERTED and merged 2026-07-28** (Serpe `f01dafc`): 682 lines and 4 call sites gone, play-tested in the standalone first (progressive advances from Enter and MIDI, unchanged). Kept below for the reasoning. **inert — corrected 2026-07-27.** The census first said it "owns state persistence". It *implements* persistence, but is never fed: `initializeProgressiveState()` is the only writer of `progressiveStates` and has **no external caller**, so the map is always empty — save writes an empty tree, load restores nothing, clear clears nothing. Its `applyProgressiveTransformation()` is also a stub returning the base pattern; the real transform lives in `UPIParser` (with its own static state maps and LRU cleanup — a parser holding session state is the smell finishing this would fix) |
 | `PresetManager` | 444 | 1 in the processor, 15 in the editor | genuinely in use — the editor drives it. Not part of the problem |
 
 Why this is the highest-value item: two code paths for the same behaviour is
 how you get bugs that only appear in one of them, and the `TEMPORARY` disables
 mean the intended path is *off*. It also explains §C.
+
+**Half of it is now resolved.** ProgressiveManager was reverted on a branch,
+verified three ways (byte-identical parser-probe output against a pre-revert
+baseline, full ladder, then played in the standalone), and merged 2026-07-28.
+The `TEMPORARY: Disable ProgressiveManager…` comments went with it.
+**SceneManager is the remaining decision** — and it is the harder one, because
+unlike ProgressiveManager it is genuinely fed, so "revert" and "finish" both
+change which implementation runs. The technique proposed for it: before
+deleting either path, make each of the 12 sites compare manager-vs-legacy and
+record disagreements; a session of real use with no disagreement is the
+evidence. Note that `printf`/`DBG` logging is unreliable inside a plugin host
+(Alex, 2026-07-27) — write to a file, or push over the WebView bridge.
 
 ## C. Uncalled functions — features that are inert, not just symbols
 
@@ -109,10 +121,9 @@ progression-studio-plugin and DrawnQurve came back with **no markers at all**.
 
 ## E. Suggested order, if and when this gets acted on
 
-1. **Finish or revert §B** — it is the only item where doing nothing carries
-   ongoing risk (two live paths, intended one disabled). Decide per manager:
-   complete the extraction and delete the legacy path, or revert the manager
-   and delete it. Both are better than parallel.
+1. ~~**Finish or revert §B**~~ — **ProgressiveManager done 2026-07-28**
+   (reverted, merged). **SceneManager remains**: it is fed, so decide with
+   the disagreement-recording technique above rather than by reading.
 2. **Answer §C's progressive-offset question in a host** (type `E(3,8)%2`,
    trigger, watch). If the feature is wanted, wiring
    `triggerProgressiveOffset` is small; if not, its remains go with §B.
