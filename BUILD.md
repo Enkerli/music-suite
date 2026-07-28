@@ -518,6 +518,50 @@ open build-ios/Workspace.xcodeproj   # run Workspace_Standalone to an iPad once,
 Linux configures LV2/VST3/CLAP/Standalone (verified 2026-07-20 from the staged
 copy, same source).
 
+## 4.9 Working on a branch without confusing your builds
+
+Desktop builds **install into the shared user plug-in folders**
+(`~/Library/Audio/Plug-Ins/...`), so a branch build silently replaces the
+plugin your DAW loads — and nothing on screen says which build it is. This
+bit on 2026-07-27: a revert-branch Serpe took over the installed one
+mid-session. Three layers, cheapest first:
+
+1. **`--no-install`** — build without copying into the plug-in folders:
+   ```bash
+   enkerli-juce/tools/suite-build serpe --formats vst3 --no-install
+   ```
+   Artefacts stay under `build/`, so a host only sees them if you point it
+   there. Backed by the archetype's `ENKERLI_INSTALL_PLUGINS` option
+   (default ON — normal builds still install). **Use it for every
+   experimental branch.**
+
+2. **Test with the Standalone.** It registers nothing and needs no host:
+   `build/<Target>_artefacts/Release/Standalone/<Name>.app`. For anything
+   you can judge by ear — scenes, progressive patterns, feel — this is the
+   cleanest isolation there is.
+
+3. **A worktree per branch**, so main and the branch each keep their own
+   checkout *and* their own `build/`, with no rebuild churn when you switch:
+   ```bash
+   cd ~/Documents/Coding
+   git -C rhythm_pattern_explorer worktree add ../serpe-revert serpe/progressive-manager-revert
+   ./enkerli-juce/tools/suite-build --root . serpe --no-install   # or build in ../serpe-revert directly
+   ```
+   Remove it with `git -C rhythm_pattern_explorer worktree remove ../serpe-revert`.
+
+**What isolation cannot give you**: two *installed* AUs of the same plugin
+side by side. macOS registers an AU by its four-character code, and those are
+forever (`plugin-codes-are-forever`) — changing one to fork a build would
+poison host sessions that reference it. VST3/CLAP are path-based and slightly
+more forgiving, but the honest answer is: install one build at a time, and use
+`--no-install` plus the Standalone for the other.
+
+**If you are ever unsure which build is installed**, compare timestamps:
+```bash
+ls -ld ~/Library/Audio/Plug-Ins/{Components,VST3}/Serpe.*
+git -C ~/Documents/Coding/rhythm_pattern_explorer log -1 --format='%h %s'
+```
+
 ## 5. If something doesn't match this file
 
 This file is the one meant to stay current — if a plugin repo's own README
