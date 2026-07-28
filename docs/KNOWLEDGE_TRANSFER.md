@@ -109,9 +109,22 @@ yet instead of dying.
   that cannot exist;
 - the `--formats` path built serially (no `-j`).
 
+**Linux verified 2026-07-27** on Alex's miniPC: `all --pull` built all
+seven (LV2/xvfb legs included). Two field lessons from that day, both now
+handled in the script and worth knowing because neither is obvious:
+
+- **A globally linked `msuite` binds to ONE checkout.** With two roots
+  (`~/code` and `~/Coding`), `A(2,2,3,2)` parsed on one machine and not
+  the other *at the same commit* — the link pointed at the tree that
+  wasn't being updated. `@enkerli/upi` loads straight from `src/`, so
+  there is no stale `dist/` to give it away; a notation just appears not
+  to exist. `suite-build` now relinks to the checkout it builds.
+- **The script used to block on its own side effect.** Its `npm install`
+  rewrote `package-lock.json`, so the next `--pull` refused to move.
+  Pulls now use `--autostash` and installs prefer `npm ci`.
+
 Still not verified by machine: a full `--ladder` (auval + pluginval) run
-across all seven, and everything Linux — `--formats`/xvfb/LV2 legs are
-written but only Alex's miniPC can prove them.
+across all seven.
 
 Original brief, for reference:
 
