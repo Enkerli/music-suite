@@ -13,16 +13,19 @@ Every plugin repo builds from **one parent directory of sibling checkouts**,
 driven by a single script (`enkerli-juce/tools/suite-build`). Pick a parent
 dir (`~/code` throughout) and pick your path.
 
-**A. From scratch** — clone all nine repos side by side:
+**A. From scratch** — one repo, then one command:
 
 ```bash
 mkdir -p ~/code && cd ~/code
-for r in music-suite enkerli-juce midicurator-plugin progression-studio-plugin \
-         PitchFold rhythm_pattern_explorer workspace-plugin Vane DrawnQurve; do
-  git clone --recurse-submodules "https://github.com/Enkerli/$r"
-done
-cd music-suite && npm install && cd ..      # WebUI build deps the plugins need
+git clone --recurse-submodules https://github.com/Enkerli/enkerli-juce
+enkerli-juce/tools/suite-build all
 ```
+
+`suite-build` clones what it needs into the same parent: music-suite, every
+plugin repo, **JUCE** (when the machine has no system one — Linux has no
+standard location), and **clap-juce-extensions**. It then `npm install`s the
+monorepo, builds the shared packages, and links `msuite` to this checkout.
+`--no-clone` turns the provisioning off if you'd rather do it by hand.
 
 **B. Already cloned** — update and rebuild everything, one command:
 
@@ -35,6 +38,16 @@ enkerli-juce/tools/suite-build all --pull
 builds the shared TypeScript packages, regenerates the two committed WebUI
 bundles, and runs `npm install` itself if the monorepo has never been
 installed here. Nothing to prepare by hand.
+
+**If you have more than one checkout**, this matters: a global `msuite` is a
+link into **one** tree, so building a different one leaves the command running
+the old source — and because `@enkerli/upi` loads straight from `src/`, there
+is no stale `dist/` to give it away; a notation simply appears not to exist.
+(Real case, 2026-07-27: `A(2,2,3,2)` parsed on one machine and not the other
+at the same commit — two roots, `~/code` and `~/Coding`, with the link on the
+one that wasn't being updated.) `suite-build` now **relinks `msuite` to the
+checkout it just built**; `--no-link` opts out. To see where yours points:
+`readlink -f "$(which msuite)"`.
 
 **C. Build** (from `~/code`):
 
