@@ -65,7 +65,7 @@ and twice `TEMPORARY: Disable ProgressiveManager to isolate legacy system`.
 
 | Manager | Lines | Wiring | State |
 |---|---|---|---|
-| `SceneManager` | 233 | 12 call sites from the processor | **genuinely live**, and genuinely duplicated: `initializeScenes` populates it, `advanceScene` advances it, getters are read — all alongside the processor's own legacy scene arrays, with an `if manager else legacy` fallback on each read. Two working implementations of one behaviour |
+| ~~`SceneManager`~~ | ~~233~~ | — | ✅ **FINISHED 2026-07-28** (Serpe `7284a17`, branch `serpe/finish-scene-manager`): the legacy scene arrays are gone, 302 lines deleted, and the manager owns its own persistence. Reasoning kept below |
 | ~~`ProgressiveManager`~~ | ~~682~~ | — | ✅ **REVERTED and merged 2026-07-28** (Serpe `f01dafc`): 682 lines and 4 call sites gone, play-tested in the standalone first (progressive advances from Enter and MIDI, unchanged). Kept below for the reasoning. **inert — corrected 2026-07-27.** The census first said it "owns state persistence". It *implements* persistence, but is never fed: `initializeProgressiveState()` is the only writer of `progressiveStates` and has **no external caller**, so the map is always empty — save writes an empty tree, load restores nothing, clear clears nothing. Its `applyProgressiveTransformation()` is also a stub returning the base pattern; the real transform lives in `UPIParser` (with its own static state maps and LRU cleanup — a parser holding session state is the smell finishing this would fix) |
 | `PresetManager` | 444 | 1 in the processor, 15 in the editor | genuinely in use — the editor drives it. Not part of the problem |
 
@@ -114,6 +114,55 @@ into the shared plug-in folders (this branch's `enkerli-juce` pin predates
 `ENKERLI_INSTALL_PLUGINS`), so building them would overwrite the real installed
 Serpe — the same trap that bit the ProgressiveManager pass.
 
+**Result, 2026-07-28.** A real session gave:
+
+```
+currentSceneIndex       checks=74  disagreements=0   agree
+sceneCount              checks=0   disagreements=0   (never ran)
+basePattern             checks=74  disagreements=0   agree
+progressiveOffset       checks=74  disagreements=7   manager=[4] legacy=[2]
+progressiveLengthening  checks=74  disagreements=6   manager=[6] legacy=[3]
+baseLengthPattern       checks=1   disagreements=0   agree
+```
+
+Every difference is exactly **one advance** — step 2 giving 4 vs 2, step 3
+giving 6 vs 3. That is not two implementations disagreeing. `advanceScene`'s
+"Keep legacy system in sync" block was an empty `if` containing only comments,
+so the legacy counters sat at their initial values forever while the manager
+moved. And `SceneManager::advanceScene` is a verbatim copy of the legacy code
+("EXACTLY the original", in its own comments). Same algorithm, one copy frozen:
+the fallback was stale data wearing a safety label, and reverting to it would
+have been the regression.
+
+`sceneManager` is built in the constructor and never released, so the legacy
+branches only ran when `hasScenes()` was false — when there is nothing to
+advance. Unreachable whenever it mattered.
+
+So: **finished, not reverted.** Deleted seven members, the duplicated
+scene-syntax parser in `parseAndApplyUPI` (`initializeScenes` did the same work
+on the next line), both legacy branches, and the scene half of
+get/setStateInformation. Persistence moved into SceneManager with the property
+names and CSV format unchanged, so older sessions still load. Parser-probe
+output byte-identical to main; microtiming 134/134.
+
+`sceneCount checks=0` is its own small finding: nothing calls `getSceneCount()`.
+
+### Open: scene advance fires more than once per trigger
+
+Surfaced by the same session, **not caused by the migration and not fixed by
+it** — it lives in the trigger paths, which were not touched. Symptom (Alex,
+2026-07-28): with `E(1,8)>8|E(3,8)%2|E(3,8)*3` the display sticks on the first
+scene, flicking through the others, "like one scene advance is worth 3". Three
+scenes, so three advances per trigger lands back where it started.
+
+There are exactly three `advanceScene()` call sites: the tick-parameter edge,
+MIDI note input, and resubmitting an unchanged chain inside `parseAndApplyUPI`
+(which is the path the WebUI's Enter takes). Each fires once, so reaching 3
+requires more than one to run per user action. **That is a hypothesis, not
+evidence** — settle it the same way §B was settled, by counting calls per site
+rather than reading. The `SceneCompare` pattern on `serpe/scene-manager-compare`
+is the template.
+
 ## C. Uncalled functions — features that are inert, not just symbols
 
 - **`PatternEngine::triggerProgressiveOffset()`** (Serpe) — defined and
@@ -150,9 +199,12 @@ progression-studio-plugin and DrawnQurve came back with **no markers at all**.
 
 ## E. Suggested order, if and when this gets acted on
 
-1. ~~**Finish or revert §B**~~ — **ProgressiveManager done 2026-07-28**
-   (reverted, merged). **SceneManager remains**: it is fed, so decide with
-   the disagreement-recording technique above rather than by reading.
+1. ~~**Finish or revert §B**~~ — **done 2026-07-28.** ProgressiveManager
+   reverted and merged; SceneManager finished on `serpe/finish-scene-manager`,
+   awaiting a play-test before merge. Both decided by measurement, and they
+   went opposite ways — which is the argument for measuring rather than
+   reading. What remains from that session is the separate scene-advance bug
+   recorded at the end of §B.
 2. **Answer §C's progressive-offset question in a host** (type `E(3,8)%2`,
    trigger, watch). If the feature is wanted, wiring
    `triggerProgressiveOffset` is small; if not, its remains go with §B.
