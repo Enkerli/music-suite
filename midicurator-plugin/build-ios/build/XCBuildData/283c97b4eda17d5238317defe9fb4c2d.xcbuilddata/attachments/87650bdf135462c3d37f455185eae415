@@ -1,0 +1,19 @@
+#!/bin/sh
+set -e
+if test "$CONFIGURATION" = "Debug"; then :
+  cd /Users/alex/Documents/Coding/music-suite/midicurator-plugin/build-ios
+  /opt/homebrew/bin/cmake -E copy /Users/alex/Documents/Coding/music-suite/midicurator-plugin/build-ios/MIDIcurator_artefacts/JuceLibraryCode/MIDIcurator_AUv3/PkgInfo /Users/alex/Documents/Coding/music-suite/midicurator-plugin/build-ios/MIDIcurator_artefacts/Debug/AUv3/MIDIcurator.appex
+fi
+if test "$CONFIGURATION" = "Release"; then :
+  cd /Users/alex/Documents/Coding/music-suite/midicurator-plugin/build-ios
+  /opt/homebrew/bin/cmake -E copy /Users/alex/Documents/Coding/music-suite/midicurator-plugin/build-ios/MIDIcurator_artefacts/JuceLibraryCode/MIDIcurator_AUv3/PkgInfo /Users/alex/Documents/Coding/music-suite/midicurator-plugin/build-ios/MIDIcurator_artefacts/Release/AUv3/MIDIcurator.appex
+fi
+if test "$CONFIGURATION" = "MinSizeRel"; then :
+  cd /Users/alex/Documents/Coding/music-suite/midicurator-plugin/build-ios
+  /opt/homebrew/bin/cmake -E copy /Users/alex/Documents/Coding/music-suite/midicurator-plugin/build-ios/MIDIcurator_artefacts/JuceLibraryCode/MIDIcurator_AUv3/PkgInfo /Users/alex/Documents/Coding/music-suite/midicurator-plugin/build-ios/MIDIcurator_artefacts/MinSizeRel/AUv3/MIDIcurator.appex
+fi
+if test "$CONFIGURATION" = "RelWithDebInfo"; then :
+  cd /Users/alex/Documents/Coding/music-suite/midicurator-plugin/build-ios
+  /opt/homebrew/bin/cmake -E copy /Users/alex/Documents/Coding/music-suite/midicurator-plugin/build-ios/MIDIcurator_artefacts/JuceLibraryCode/MIDIcurator_AUv3/PkgInfo /Users/alex/Documents/Coding/music-suite/midicurator-plugin/build-ios/MIDIcurator_artefacts/RelWithDebInfo/AUv3/MIDIcurator.appex
+fi
+

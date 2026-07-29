@@ -1,0 +1,261 @@
+{
+  "v": 1,
+  "id": "funka",
+  "role": "bass",
+  "ticksPerBeat": 480,
+  "meter": {
+    "numerator": 4,
+    "denominator": 4
+  },
+  "bars": 1,
+  "grid": 4,
+  "frame": {
+    "symbol": "E♭7",
+    "rootPc": 3,
+    "pcs": [
+      3,
+      7,
+      10,
+      1
+    ]
+  },
+  "takes": 9,
+  "slots": [
+    {
+      "covered": 9,
+      "count": 9,
+      "velSum": 938,
+      "velSqSum": 99764,
+      "durSum": 2963,
+      "devSum": 0,
+      "devSqSum": 0,
+      "notes": {
+        "27": 2,
+        "39": 3,
+        "51": 1,
+        "63": 1,
+        "67": 2
+      }
+    },
+    {
+      "covered": 9,
+      "count": 3,
+      "velSum": 322,
+      "velSqSum": 34692,
+      "durSum": 102,
+      "devSum": -68,
+      "devSqSum": 1544,
+      "notes": {
+        "51": 2,
+        "56": 1
+      }
+    },
+    {
+      "covered": 9,
+      "count": 9,
+      "velSum": 911,
+      "velSqSum": 95705,
+      "durSum": 436,
+      "devSum": -8,
+      "devSqSum": 92,
+      "notes": {
+        "39": 2,
+        "51": 5,
+        "61": 1,
+        "63": 1
+      }
+    },
+    {
+      "covered": 9,
+      "count": 3,
+      "velSum": 224,
+      "velSqSum": 16856,
+      "durSum": 485,
+      "devSum": -68,
+      "devSqSum": 1630,
+      "notes": {
+        "39": 3
+      }
+    },
+    {
+      "covered": 9,
+      "count": 12,
+      "velSum": 1348,
+      "velSqSum": 156244,
+      "durSum": 1411,
+      "devSum": -4,
+      "devSqSum": 234,
+      "notes": {
+        "51": 1,
+        "53": 1,
+        "55": 1,
+        "56": 1,
+        "58": 2,
+        "61": 4,
+        "65": 1,
+        "67": 1
+      }
+    },
+    {
+      "covered": 9,
+      "count": 5,
+      "velSum": 463,
+      "velSqSum": 45529,
+      "durSum": 297,
+      "devSum": -16,
+      "devSqSum": 2402,
+      "notes": {
+        "51": 3,
+        "56": 1,
+        "60": 1
+      }
+    },
+    {
+      "covered": 9,
+      "count": 9,
+      "velSum": 938,
+      "velSqSum": 100156,
+      "durSum": 642,
+      "devSum": 16,
+      "devSqSum": 238,
+      "notes": {
+        "39": 2,
+        "51": 3,
+        "55": 1,
+        "58": 2,
+        "61": 1
+      }
+    },
+    {
+      "covered": 9,
+      "count": 7,
+      "velSum": 574,
+      "velSqSum": 47236,
+      "durSum": 825,
+      "devSum": -106,
+      "devSqSum": 3586,
+      "notes": {
+        "58": 3,
+        "60": 1,
+        "61": 3
+      }
+    },
+    {
+      "covered": 9,
+      "count": 4,
+      "velSum": 408,
+      "velSqSum": 44214,
+      "durSum": 386,
+      "devSum": 9,
+      "devSqSum": 63,
+      "notes": {
+        "51": 1,
+        "53": 2,
+        "61": 1
+      }
+    },
+    {
+      "covered": 9,
+      "count": 11,
+      "velSum": 868,
+      "velSqSum": 70168,
+      "durSum": 923,
+      "devSum": -82,
+      "devSqSum": 4714,
+      "notes": {
+        "51": 3,
+        "55": 2,
+        "56": 3,
+        "60": 2,
+        "63": 1
+      }
+    },
+    {
+      "covered": 9,
+      "count": 6,
+      "velSum": 616,
+      "velSqSum": 65464,
+      "durSum": 295,
+      "devSum": -9,
+      "devSqSum": 25,
+      "notes": {
+        "49": 1,
+        "51": 5
+      }
+    },
+    {
+      "covered": 9,
+      "count": 7,
+      "velSum": 518,
+      "velSqSum": 39004,
+      "durSum": 643,
+      "devSum": -25,
+      "devSqSum": 3051,
+      "notes": {
+        "48": 1,
+        "51": 2,
+        "55": 2,
+        "58": 1,
+        "61": 1
+      }
+    },
+    {
+      "covered": 9,
+      "count": 9,
+      "velSum": 869,
+      "velSqSum": 91197,
+      "durSum": 955,
+      "devSum": 4,
+      "devSqSum": 188,
+      "notes": {
+        "49": 2,
+        "51": 1,
+        "55": 2,
+        "56": 2,
+        "60": 1,
+        "67": 1
+      }
+    },
+    {
+      "covered": 9,
+      "count": 5,
+      "velSum": 364,
+      "velSqSum": 26656,
+      "durSum": 308,
+      "devSum": -37,
+      "devSqSum": 2023,
+      "notes": {
+        "51": 3,
+        "56": 2
+      }
+    },
+    {
+      "covered": 9,
+      "count": 7,
+      "velSum": 630,
+      "velSqSum": 59388,
+      "durSum": 304,
+      "devSum": -14,
+      "devSqSum": 158,
+      "notes": {
+        "51": 6,
+        "58": 1
+      }
+    },
+    {
+      "covered": 9,
+      "count": 3,
+      "velSum": 210,
+      "velSqSum": 16268,
+      "durSum": 163,
+      "devSum": 50,
+      "devSqSum": 942,
+      "notes": {
+        "51": 3
+      }
+    }
+  ],
+  "source": {
+    "note": "learned from 9 local clips against E♭7"
+  }
+}

@@ -1,0 +1,16 @@
+Target dependency graph (5 targets)
+Target 'MIDIcurator_Standalone' in project 'MIDIcurator'
+➜ Explicit dependency on target 'MIDIcurator' in project 'MIDIcurator'
+➜ Explicit dependency on target 'MIDIcurator_AUv3' in project 'MIDIcurator'
+➜ Explicit dependency on target 'MIDIcuratorWebUI' in project 'MIDIcurator'
+➜ Explicit dependency on target 'ZERO_CHECK' in project 'MIDIcurator'
+Target 'MIDIcurator_AUv3' in project 'MIDIcurator'
+➜ Explicit dependency on target 'MIDIcurator' in project 'MIDIcurator'
+➜ Explicit dependency on target 'MIDIcuratorWebUI' in project 'MIDIcurator'
+➜ Explicit dependency on target 'ZERO_CHECK' in project 'MIDIcurator'
+Target 'MIDIcurator' in project 'MIDIcurator'
+➜ Explicit dependency on target 'MIDIcuratorWebUI' in project 'MIDIcurator'
+➜ Explicit dependency on target 'ZERO_CHECK' in project 'MIDIcurator'
+Target 'MIDIcuratorWebUI' in project 'MIDIcurator'
+➜ Explicit dependency on target 'ZERO_CHECK' in project 'MIDIcurator'
+Target 'ZERO_CHECK' in project 'MIDIcurator' (no dependencies)

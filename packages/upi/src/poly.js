@@ -18,7 +18,7 @@
  * of the notation on principle: the notation says WHEN, the instrument rack
  * says WHAT.
  */
-import { parseUPI } from "./upi.js";
+import { parseUPI, rotate } from "./upi.js";
 
 const MAX_MS = 50;
 const MAX_FRAC = 1 / 8;
@@ -98,11 +98,23 @@ export function parsePolyUPI(input, ctx = { n: 16 }) {
     if (lm) { label = lm[1]; src = lm[2]; }
     const { rest, offset, error: offErr } = parseOffset(src);
     if (offErr) return { ok: false, lanes: [], lcm: 0, error: `${label}: ${offErr}` };
-    const parsed = parseUPI(rest, ctx);
-    if (!parsed.ok) return { ok: false, lanes: [], lcm: 0, error: `${label}: ${parsed.error ?? `unparsed "${rest}"`}` };
+    // Per-lane progressive offset, `body%N` (docs/SERPE_POLY.md 2.5: `/` binds
+    // loosest, so `%N` belongs to the LANE). Stripped here rather than taught
+    // to parseUPI, which stays a pure single-pattern parser.
+    const laneBody = rest;
+    let progressive = null;
+    const pm = /^(.*[^\s])\s*%\s*(-?\d+)$/.exec(rest);
+    const body = pm ? pm[1].trim() : rest;
+    if (pm) progressive = { kind: "offset", step: +pm[2] };
+    const parsed = parseUPI(body, ctx);
+    if (!parsed.ok) return { ok: false, lanes: [], lcm: 0, error: `${label}: ${parsed.error ?? `unparsed "${body}"`}` };
     lanes.push({
       label,
       steps: parsed.steps,
+      // null unless this lane carries `%N`. The lane's pattern at trigger n is
+      // polyLaneAt(lane, n) — state derived from the trigger index, the same
+      // approach progressive.js takes, so nothing here has to be stateful.
+      progressive,
       accents: parsed.accents,
       accentPattern: parsed.accentPattern,
       // Per-lane feel: a lane may carry its own PD(…)/LS(…), which is the
@@ -110,7 +122,9 @@ export function parsePolyUPI(input, ctx = { n: 16 }) {
       microtiming: parsed.microtiming ?? null,
       longShort: parsed.longShort ?? null,
       offset,
-      source: rest,
+      // Keeps the `%N`, so a re-parse can tell E(3,8)%2 from E(3,8) — the
+      // plugin uses exactly that comparison to decide restart vs advance.
+      source: laneBody,
       parsedLabel: parsed.label,
     });
   }
@@ -124,7 +138,27 @@ function formatLane(lane) {
   const off = lane.offset == null ? ""
     : lane.offset.kind === "ms" ? `@${lane.offset.ms >= 0 ? "+" : ""}${lane.offset.ms}ms`
     : `@${lane.offset.num >= 0 ? "+" : ""}${lane.offset.num}/${lane.offset.den}`;
-  return `${name}${lane.parsedLabel ?? lane.source}${off}`;
+  const prog = lane.progressive ? `%${lane.progressive.step}` : "";
+  return `${name}${lane.parsedLabel ?? lane.source}${prog}${off}`;
+}
+
+/**
+ * A lane's pattern at trigger `n` (1-based). Lanes without `%N` never change,
+ * so this is the identity for them; a lane with `%N` is rotated by step*n —
+ * trigger 1 already shows one step, which is what `%N` means in a mono
+ * pattern too. Pure: the same n always gives the same pattern.
+ *
+ * SIGN: this module's `rotate(p, +k)` equals the C++ PatternUtils
+ * `rotatePattern(p, -k)` — the two helpers were written with opposite
+ * conventions, verified 2026-07-28 against serpe_poly_precedence. The engine
+ * is authoritative, so the offset goes in POSITIVE here. progressive.js's
+ * header flagged this direction as unverified because a parser probe could
+ * not reach PatternEngine; a poly lane can, which is how it got settled.
+ */
+export function polyLaneAt(lane, n) {
+  if (!lane?.progressive) return lane?.steps ?? [];
+  const idx = Math.max(1, Math.floor(n));
+  return rotate(lane.steps, lane.progressive.step * idx);
 }
 
 /** Stable round-trip: parsePolyUPI(formatPolyUPI(p)) is p, normalized. */

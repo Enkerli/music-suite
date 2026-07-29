@@ -122,12 +122,39 @@ Alex's three strings work:
 
 | Wanted | Needs | Size |
 |---|---|---|
-| `E(3,8)%2/E(3,7)` | per-lane progressive offset | **S** — `PolyParser::beforeLaneParse` already binds each lane's own engine for the `@initial#step` spelling; `%N` maps onto the same machinery |
+| ~~`E(3,8)%2/E(3,7)`~~ | ✅ **DONE 2026-07-28** — Serpe `f1917a1`, JS `polyLaneAt`. Sized S because the per-lane machinery "already existed"; it existed as *structure*, not function — `triggerProgressiveOffset()` and `getCurrentProgressiveOffset()` had no callers at all, so the work was connecting it (this closes half of census C) |
 | `E(3,8)*3/E(3,7)` | per-lane lengthening | **M** — a lane changing length changes the LCM display grid |
 | `A\|B/C` | per-lane scenes | **L** — a `SceneManager` per lane, plus deciding whether lanes advance together or independently |
 
 Both engines need each of these to stay at parity, so each row is two
 implementations plus a differential test, not one.
+
+#### Rotation sign: the two helpers disagree — **settled 2026-07-28**
+
+Building the lane offset in both engines finally answered a question
+`progressive.js` had flagged as unanswerable:
+
+> the DIRECTION is not verified against the C++ engine — progressive offset
+> lives in PatternEngine (processor state), which the parser probe cannot reach
+
+A poly lane *can* reach it. Measured:
+
+```
+JS   rotate(E(3,8), +2)        = 10100100
+C++  rotatePattern(E(3,8), -2) = 10100100
+```
+
+**`rotate(p, +k)` ≡ `rotatePattern(p, -k)`.** Neither is wrong; they were
+written with opposite conventions, and the C++ mono path negates on purpose
+("negative rotation for clockwise progression"). `polyLaneAt` passes the
+offset in positive to match the engine, which is authoritative.
+
+**Open, and a real divergence:** the *phase* still differs for mono. The
+engine's `%N` shows offset N on trigger 1; `progressive.js`'s `progressiveAt`
+returns the un-rotated base on trigger 1 and is pinned to that by its own
+test. Poly lanes follow the engine. Mono JS does not. One of them should
+move — engine-authoritative says the JS — but that changes documented
+behaviour and a pinned vector, so it is a decision, not a cleanup.
 
 This also answers open question (d) at the end of §8.1 — poly patterns are
 **not** scene-incompatible by decree; scenes simply live one level down, and
