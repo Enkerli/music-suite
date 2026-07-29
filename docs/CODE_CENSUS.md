@@ -55,6 +55,60 @@ Method names do not prove body equivalence, so this is "nothing worth mining"
 rather than "provably identical". But it removes the main reason to keep 6,256
 lines: they are not the last record of anything.
 
+### Body-level check, 2026-07-28 — they are copies of revisions git already has
+
+The name-based pass above left the obvious hole: identical names can hide
+different bodies. Closed by comparing bodies against every historical revision
+of the corresponding live file.
+
+| Orphan | Closest revision git stores | Similarity |
+|---|---|---|
+| `PluginProcessor_Original.cpp` | `a61fc8c` 2025-08-15 | **0.974** |
+| `PluginEditor_Original.cpp` | `ae71c94` 2025-08-15 | **0.969** |
+| `UPIParser.cpp.bak` | `2c0b8b8` 2025-07-24 | **0.989** |
+
+For the processor, normalising the one systematic difference (the
+`RhythmPatternExplorerAudioProcessor` → `Serpe` rename) leaves **5 lines**
+present in the orphan and absent from `a61fc8c` — two includes, an
+`#if JUCE_IOS`, and a `presetManager.installFactoryPresets()` call, all of
+which exist elsewhere in the live tree. These files are not a lost branch of
+development. They are snapshots of the mainline, taken during the 2025-07-29
+"Copy All The Things" iPad port, and they lived in a directory named
+`Plugin/Archive/` at the time. **Git already stores every line of them.**
+
+The two functions flagged above as existing nowhere else,
+`extractAccentPattern` and `removeAccentPattern`, are nine lines each: find
+`{…}`, return its contents / strip it. `UPIParser.cpp:102-115` does exactly
+those two substring operations inline, plus a `.trim()`. Nothing was lost when
+they were inlined.
+
+The polygon-LCM combination comments in the `.bak` looked like a real algorithm
+worth checking. It survives — the code moved to `PatternUtils` and the probe
+confirms it: `P(3,0)+P(5,0)` → 15 steps, `E(5,13)+P(7,2)` → 91 steps.
+
+**Verdict: delete all four.** Not "probably redundant" — provably so, against
+git's own history.
+
+#### The one thing worth keeping out of 6,256 lines
+
+`PluginEditor_Original.cpp:142`, on a docs panel inside the then-native editor:
+
+> `// TEMPORARILY DISABLED: WebView causing GPU process issues on iPadOS`
+
+…with the button left visible but `setEnabled(false)` and its callback
+commented out. This is the only piece of institutional knowledge in the whole
+set, and it is not obsolete trivia: **a second WebView in the same plugin caused
+GPU-process trouble on iPadOS.** Serpe's editor is now entirely a WebView and
+works on iPad, so the constraint as written no longer binds — but every
+WebView-based plugin in the suite (Serpe, MIDIcurator, PitchFold, Workspace)
+would be adding a *second* WebView if it ever gains an in-plugin docs or help
+panel. Worth remembering before anyone designs one.
+
+Note the shape of this finding: 118 comment lines appear "only in the orphans",
+but nearly all of them describe the legacy scene arrays and `TRANSITION`
+scaffolding **deleted from the live tree earlier the same day**. Uniqueness
+measured against a moving target is not evidence of value.
+
 ## B. The stopped migration — Serpe's manager extraction (the big one)
 
 Managers were extracted from `PluginProcessor` and then left **running in
@@ -256,7 +310,11 @@ progression-studio-plugin and DrawnQurve came back with **no markers at all**.
 2. **Answer §C's progressive-offset question in a host** (type `E(3,8)%2`,
    trigger, watch). If the feature is wanted, wiring
    `triggerProgressiveOffset` is small; if not, its remains go with §B.
-3. **Then delete §A**, having mined `_Original` for whatever §B needed.
+3. ~~**Then delete §A**~~ — **cleared to delete 2026-07-28.** Body-level
+   comparison shows all four are 96.9–98.9% copies of revisions git already
+   stores, so deleting them loses nothing history does not hold. The one
+   salvageable note (iPadOS GPU trouble with a second WebView) is recorded in
+   §A above. Deletion itself not yet done.
 4. **Close §D** whenever PickPCS/MIDIcurator are next touched — a two-file
    deletion, no risk, just tidiness.
 
