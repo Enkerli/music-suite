@@ -89,6 +89,50 @@ always wins, and kit choice persists per browser.
 - A single lane with no `/` parses exactly as today — **zero breaking
   change**; `parseUPI` untouched, `parsePolyUPI` added beside it.
 
+#### `/` binds loosest — **DECIDED** *(Alex, 2026-07-28)*
+
+"Settled by construction" turned out to be settled in two different ways.
+The JS split on `/` first and parsed each lane; the C++ peeled scenes `|`
+and progressive `%N`/`*N`/`>N` off first and only then looked for `/`. The
+same string meant different things in the two engines, and one case was
+worse than a disagreement:
+
+```
+E(3,8)%2|E(3,8)*3/E(3,7)
+```
+
+`SceneManager` took everything after the last `*` and called `getIntValue()`
+on it. `"3/E(3,7)"` is `3`, so this read as "lengthen by 3" and the second
+lane vanished with **no error at all**. A parser that silently drops a lane
+is worse than one that refuses the string.
+
+**The rule: `/` is the loosest binder.** A top-level `/` means parallel
+lanes; scenes and progressive belong to a *lane*, not to the whole string.
+`E(3,8)%2/E(3,7)` is "an 8-step lane rotating against a static 7-step lane".
+That matches what the JS already did, so the JS is the reference and the C++
+moved to it (Serpe `8eeb87a`), pinned by `serpe_poly_precedence`.
+
+Also fixed there: the tail after `*` must be a bare number, exactly as `%N`
+already required. The rule had been written three times — twice inline in
+`initializeScenes`, once in the helpers — and the copies had drifted.
+
+**Still not supported: progressive and scenes INSIDE a lane.** This is now
+the actual feature rather than a parsing accident, and it is what makes
+Alex's three strings work:
+
+| Wanted | Needs | Size |
+|---|---|---|
+| `E(3,8)%2/E(3,7)` | per-lane progressive offset | **S** — `PolyParser::beforeLaneParse` already binds each lane's own engine for the `@initial#step` spelling; `%N` maps onto the same machinery |
+| `E(3,8)*3/E(3,7)` | per-lane lengthening | **M** — a lane changing length changes the LCM display grid |
+| `A\|B/C` | per-lane scenes | **L** — a `SceneManager` per lane, plus deciding whether lanes advance together or independently |
+
+Both engines need each of these to stay at parity, so each row is two
+implementations plus a differential test, not one.
+
+This also answers open question (d) at the end of §8.1 — poly patterns are
+**not** scene-incompatible by decree; scenes simply live one level down, and
+the work above is what implements that.
+
 ## 3. Data model
 
 ```ts
