@@ -147,7 +147,51 @@ output byte-identical to main; microtiming 134/134.
 
 `sceneCount checks=0` is its own small finding: nothing calls `getSceneCount()`.
 
-### Open: scene advance fires more than once per trigger
+### Closed: scene transforms lost a race with the pattern queue
+
+**Fixed 2026-07-28** (Serpe `53df3ec`). Scene advance was never broken —
+that was two rounds of wrong theory, mine and the symptom's. Measuring it
+took one session; guessing at it took three.
+
+`parseAndApplyUPI()` does not set the pattern, it **enqueues** it;
+`processPatternUpdates()` drains the queue on the audio thread. So
+`applyCurrentScenePattern()`, which rotated or lengthened "the generated
+pattern" on the next line, was transforming whatever the engine still held,
+and the queued base then overwrote it. Occasionally the drain landed in
+between and the transform survived a moment — which showed up as *brief
+glimpses of the other scene* rather than an outright failure. Intermittent
+success is the signature of a race, and it is what made the symptom read as
+"one advance is worth three".
+
+**This bug had already been found and fixed once**, for the non-scene
+progressive offset; the fix is documented at length inside
+`processPatternUpdates()`. It was never applied to the scene path. Alex
+called that before the evidence did: *"Not for the first time either."*
+
+Lessons worth keeping:
+
+- **A symptom description is a lead, not a diagnosis.** "One advance is
+  worth 3" was a faithful report of what the screen did and had nothing to
+  do with advancing.
+- **When a fix is written as a comment explaining a race, grep for other
+  callers of the same pattern.** The comment in `processPatternUpdates()`
+  described this exact failure and the scene path sat one function away.
+- **Instrument for order, not just counts.** `SceneCompare` counted and
+  settled §B; the scene bug needed a *sequence* plus the engine's own
+  pattern per step. Different question, different instrument.
+- Screen recordings are evidence. The frozen display, four frames apart,
+  is what moved the investigation off the trigger path.
+
+Also fixed in passing: the processor-level `progressiveOffset` is left over
+from whatever non-scene pattern was typed before a chain, so with scenes
+active both transforms would have applied and rotated twice. Scenes now take
+priority.
+
+Not covered: `queuePatternUpdate()` falls back to `setPatternWithPhaseSync()`
+when the queue is full, bypassing the drain and therefore both transforms.
+Pre-existing, shared with the non-scene path, left alone.
+
+### Superseded: scene advance fires more than once per trigger
 
 Surfaced by the same session, **not caused by the migration and not fixed by
 it** — it lives in the trigger paths, which were not touched. Symptom (Alex,
@@ -158,10 +202,14 @@ scenes, so three advances per trigger lands back where it started.
 There are exactly three `advanceScene()` call sites: the tick-parameter edge,
 MIDI note input, and resubmitting an unchanged chain inside `parseAndApplyUPI`
 (which is the path the WebUI's Enter takes). Each fires once, so reaching 3
-requires more than one to run per user action. **That is a hypothesis, not
-evidence** — settle it the same way §B was settled, by counting calls per site
-rather than reading. The `SceneCompare` pattern on `serpe/scene-manager-compare`
-is the template.
+requires more than one to run per user action.
+
+**That hypothesis was wrong.** The trace showed exactly one advance per press,
+scenes alternating correctly, and only the Enter path firing — the tick and
+MIDI sites never ran at all. Kept here because the wrong theory is the useful
+part of the record: it was plausible, it was consistent with the symptom as
+described, and it survived two rounds of reading the code. See the closed item
+above for what was actually happening.
 
 ## C. Uncalled functions — features that are inert, not just symbols
 
