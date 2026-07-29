@@ -24,10 +24,14 @@ every row as a lead to confirm, not a verdict.
 
 ---
 
-## A. Orphans — 6,256 lines of uncompiled C++ in Serpe
+## A. ~~Orphans~~ — 6,256 lines of uncompiled C++ in Serpe ✅ DELETED
 
-None of these appear in `rhythm_pattern_explorer/CMakeLists.txt`, so nothing
-in any build touches them:
+**Deleted 2026-07-28**, Serpe `d350a20`. Reasoning preserved below, because the
+*method* is the reusable part: a checked-in copy of old code is only worth
+keeping if it is not already in history, and that is a measurable question.
+
+None of these appeared in `rhythm_pattern_explorer/CMakeLists.txt`, so nothing
+in any build ever touched them:
 
 | File | Lines |
 |---|---|
@@ -87,7 +91,8 @@ worth checking. It survives — the code moved to `PatternUtils` and the probe
 confirms it: `P(3,0)+P(5,0)` → 15 steps, `E(5,13)+P(7,2)` → 91 steps.
 
 **Verdict: delete all four.** Not "probably redundant" — provably so, against
-git's own history.
+git's own history. Done in `d350a20`; parser probe unchanged, microtiming
+134/134, standalone builds.
 
 #### The one thing worth keeping out of 6,256 lines
 
@@ -310,11 +315,9 @@ progression-studio-plugin and DrawnQurve came back with **no markers at all**.
 2. **Answer §C's progressive-offset question in a host** (type `E(3,8)%2`,
    trigger, watch). If the feature is wanted, wiring
    `triggerProgressiveOffset` is small; if not, its remains go with §B.
-3. ~~**Then delete §A**~~ — **cleared to delete 2026-07-28.** Body-level
-   comparison shows all four are 96.9–98.9% copies of revisions git already
-   stores, so deleting them loses nothing history does not hold. The one
-   salvageable note (iPadOS GPU trouble with a second WebView) is recorded in
-   §A above. Deletion itself not yet done.
+3. ~~**Then delete §A**~~ — **done 2026-07-28** (`d350a20`). All four were
+   96.9–98.9% copies of revisions git already stores. The one salvageable note
+   (iPadOS GPU trouble with a second WebView) is recorded in §A above.
 4. **Close §D** whenever PickPCS/MIDIcurator are next touched — a two-file
    deletion, no risk, just tidiness.
 
