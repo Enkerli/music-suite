@@ -19,6 +19,7 @@
  * says WHAT.
  */
 import { parseUPI, rotate } from "./upi.js";
+import { bellCurveRandomSteps } from "./rhythm.js";
 
 const MAX_MS = 50;
 const MAX_FRAC = 1 / 8;
@@ -103,9 +104,20 @@ export function parsePolyUPI(input, ctx = { n: 16 }) {
     // to parseUPI, which stays a pure single-pattern parser.
     const laneBody = rest;
     let progressive = null;
+    let body = rest;
     const pm = /^(.*[^\s])\s*%\s*(-?\d+)$/.exec(rest);
-    const body = pm ? pm[1].trim() : rest;
-    if (pm) progressive = { kind: "offset", step: +pm[2] };
+    if (pm) {
+      progressive = { kind: "offset", step: +pm[2] };
+      body = pm[1].trim();
+    } else {
+      // `body*N` — this lane GROWS by N steps per trigger. Only when '%' did
+      // not already claim a suffix: a lane carries one or the other.
+      const lm = /^(.*[^\s])\s*\*\s*(\d+)$/.exec(rest);
+      if (lm) {
+        progressive = { kind: "lengthen", step: +lm[2] };
+        body = lm[1].trim();
+      }
+    }
     const parsed = parseUPI(body, ctx);
     if (!parsed.ok) return { ok: false, lanes: [], lcm: 0, error: `${label}: ${parsed.error ?? `unparsed "${body}"`}` };
     lanes.push({
@@ -138,7 +150,9 @@ function formatLane(lane) {
   const off = lane.offset == null ? ""
     : lane.offset.kind === "ms" ? `@${lane.offset.ms >= 0 ? "+" : ""}${lane.offset.ms}ms`
     : `@${lane.offset.num >= 0 ? "+" : ""}${lane.offset.num}/${lane.offset.den}`;
-  const prog = lane.progressive ? `%${lane.progressive.step}` : "";
+  const prog = !lane.progressive ? ""
+    : lane.progressive.kind === "lengthen" ? `*${lane.progressive.step}`
+    : `%${lane.progressive.step}`;
   return `${name}${lane.parsedLabel ?? lane.source}${prog}${off}`;
 }
 
@@ -155,10 +169,21 @@ function formatLane(lane) {
  * header flagged this direction as unverified because a parser probe could
  * not reach PatternEngine; a poly lane can, which is how it got settled.
  */
-export function polyLaneAt(lane, n) {
+export function polyLaneAt(lane, n, opts = {}) {
   if (!lane?.progressive) return lane?.steps ?? [];
   const idx = Math.max(1, Math.floor(n));
-  return rotate(lane.steps, lane.progressive.step * idx);
+  const { step, kind } = lane.progressive;
+  if (kind === "lengthen") {
+    // Grows by `step` per trigger, base kept as a prefix — trigger 1 is
+    // already base+step, matching the engine. The appended steps are random
+    // by design, so this is reproducible only for a given RNG (as
+    // progressive.js's lengthening is).
+    const { random = Math.random } = opts;
+    let out = lane.steps.slice();
+    for (let i = 0; i < idx; i++) out = out.concat(bellCurveRandomSteps(step, random));
+    return out;
+  }
+  return rotate(lane.steps, step * idx);
 }
 
 /** Stable round-trip: parsePolyUPI(formatPolyUPI(p)) is p, normalized. */

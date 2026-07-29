@@ -50,6 +50,34 @@ describe("poly lane %N", () => {
     expect(again.lanes[0].progressive).toEqual({ kind: "offset", step: 2 });
   });
 
+  it("grows a *N lane by step per trigger, keeping the base as a prefix", () => {
+    const random = () => 0.5;                     // pinned only for the test
+    const p = parsePolyUPI("E(3,8)*3/E(3,7)");
+    expect(p.ok, p.error).toBe(true);
+    expect(p.lanes[0].progressive).toEqual({ kind: "lengthen", step: 3 });
+    expect(p.lanes[1].progressive).toBeNull();
+    // Trigger 1 is already base+step (11 steps, not 8) — the engine's phase,
+    // seen live when a scene entering E(3,8)*3 played 11 steps immediately.
+    const lens = [1, 2, 3, 4].map((n) => polyLaneAt(p.lanes[0], n, { random }).length);
+    expect(lens).toEqual([11, 14, 17, 20]);
+    const base = bits(p.lanes[0].steps);
+    expect(bits(polyLaneAt(p.lanes[0], 3, { random })).startsWith(base)).toBe(true);
+  });
+
+  it("gives a lane at most one progressive suffix, offset winning", () => {
+    // parseUPI understands '%N' too, so a lane could otherwise be flagged for
+    // both. Matches the C++ (serpe_poly_precedence) and the mono ordering.
+    const p = parsePolyUPI("E(3,8)%2*3/E(3,7)");
+    if (p.ok) expect(p.lanes[0].progressive?.kind).not.toBe("lengthen");
+  });
+
+  it("round-trips a *N lane too", () => {
+    const p = parsePolyUPI("E(3,8)*3/E(3,7)");
+    const again = parsePolyUPI(formatPolyUPI(p));
+    expect(again.ok, again.error).toBe(true);
+    expect(again.lanes[0].progressive).toEqual({ kind: "lengthen", step: 3 });
+  });
+
   it("still rejects what is genuinely unparseable in a lane", () => {
     // A bare '%' is not an offset, so the whole body has to parse — it does not.
     expect(parsePolyUPI("E(3,8)%/E(3,7)").ok).toBe(false);

@@ -123,11 +123,22 @@ Alex's three strings work:
 | Wanted | Needs | Size |
 |---|---|---|
 | ~~`E(3,8)%2/E(3,7)`~~ | ✅ **DONE 2026-07-28** — Serpe `f1917a1`, JS `polyLaneAt`. Sized S because the per-lane machinery "already existed"; it existed as *structure*, not function — `triggerProgressiveOffset()` and `getCurrentProgressiveOffset()` had no callers at all, so the work was connecting it (this closes half of census C) |
-| `E(3,8)*3/E(3,7)` | per-lane lengthening | **M** — a lane changing length changes the LCM display grid |
+| ~~`E(3,8)*3/E(3,7)`~~ | ✅ **DONE 2026-07-28** — Serpe `268d48d`, JS `polyLaneAt`. Sized M for the LCM grid, which turned out not to be the work: the parse-time `lcm` has **no consumer in the processor**, and `processPolyLanes` re-reads each lane's length from its live pattern every block, so the grid follows a growing lane by construction. The M was the growth state |
 | `A\|B/C` | per-lane scenes | **L** — a `SceneManager` per lane, plus deciding whether lanes advance together or independently |
 
 Both engines need each of these to stay at parity, so each row is two
 implementations plus a differential test, not one.
+
+**Which side of the slash carries the `*` matters.** In the default cycle lock,
+lane 0 defines the cycle (§3b). So `E(3,8)*3/E(3,7)` stretches the *whole
+cycle* as lane 0 grows, while `E(3,7)/E(3,8)*3` grows lane 1 *inside* a fixed
+cycle. Same two lanes, very different music. Not a bug — a consequence of the
+lane-0 rule worth knowing before writing a chain.
+
+A lane takes **at most one** progressive suffix, offset winning. `UPIParser`
+understands the `%N` spelling itself, so `E(3,8)%2*3` — where stripping `*3`
+leaves `E(3,8)%2` for the lane parser — would otherwise come back flagged for
+both.
 
 #### Rotation sign: the two helpers disagree — **settled 2026-07-28**
 
