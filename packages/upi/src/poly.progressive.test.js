@@ -11,7 +11,7 @@
  * plugin produced in a live session.
  */
 import { describe, it, expect } from "vitest";
-import { parsePolyUPI, polyLaneAt, formatPolyUPI } from "./poly.js";
+import { parsePolyUPI, polyLaneAt, formatPolyUPI, laneScenes } from "./poly.js";
 
 const bits = (steps) => steps.map((s) => (s ? "1" : "0")).join("");
 
@@ -76,6 +76,42 @@ describe("poly lane %N", () => {
     const again = parsePolyUPI(formatPolyUPI(p));
     expect(again.ok, again.error).toBe(true);
     expect(again.lanes[0].progressive).toEqual({ kind: "lengthen", step: 3 });
+  });
+
+  it("splits a scene chain inside a lane, not across the string", () => {
+    expect(laneScenes("E(3,8)|E(5,8)/E(3,7)")).toEqual([["E(3,8)", "E(5,8)"], ["E(3,7)"]]);
+    // A lane with no chain still reports one scene, so callers treat all alike.
+    expect(laneScenes("E(3,8)/E(3,7)")).toEqual([["E(3,8)"], ["E(3,7)"]]);
+    // Label and @offset belong to the lane, outside the chain.
+    expect(laneScenes("kick=E(3,8)|E(5,8)@+12ms/E(3,7)")[0]).toEqual(["E(3,8)", "E(5,8)"]);
+  });
+
+  it("resolves whichever scene each lane is on, wrapping", () => {
+    const onsets = (idx) =>
+      parsePolyUPI("E(3,8)|E(5,8)/E(3,7)", { n: 16 }, [idx, 0])
+        .lanes[0].steps.filter(Boolean).length;
+    expect([0, 1, 2, 3].map(onsets)).toEqual([3, 5, 3, 5]);
+  });
+
+  it("keeps the progressive suffix per SCENE, not per lane", () => {
+    const at = (idx) => parsePolyUPI("E(3,8)%2|E(3,8)*3/E(3,7)", { n: 16 }, [idx, 0]).lanes[0];
+    expect(at(0).progressive).toEqual({ kind: "offset", step: 2 });
+    expect(at(1).progressive).toEqual({ kind: "lengthen", step: 3 });
+  });
+
+  it("parses all three of the strings that started this", () => {
+    for (const s of [
+      "E(3,17)%2/E(3,5)|E(3,8)*3",
+      "E(3,17)/E(3,5)%2",
+      "E(3,8)%2|E(3,8)*3/E(3,7)",
+    ]) {
+      const chains = laneScenes(s);
+      const most = Math.max(...chains.map((c) => c.length));
+      for (let t = 0; t < most * 2; t++) {
+        const r = parsePolyUPI(s, { n: 16 }, chains.map(() => t));
+        expect(r.ok, `${s} @ scene ${t}: ${r.error}`).toBe(true);
+      }
+    }
   });
 
   it("still rejects what is genuinely unparseable in a lane", () => {

@@ -87,7 +87,29 @@ const lcm2 = (a, b) => (a / gcd2(a, b)) * b;
  * { label, steps, accents, accentPattern, offset, source, ok, error? }.
  * A failed lane fails the whole parse (never half a groove on the wire).
  */
-export function parsePolyUPI(input, ctx = { n: 16 }) {
+/**
+ * Each lane's scene chain, after the label and `@` offset are stripped. A lane
+ * with no `|` yields a one-element array, so every lane can be treated alike.
+ * Lets a host advance its own per-lane scene position before calling
+ * parsePolyUPI with `sceneIndices`.
+ */
+export function laneScenes(input) {
+  return splitLanes(String(input || "").trim()).map((raw) => {
+    let body = raw;
+    const lm = /^([A-Za-z][\w-]*)\s*=\s*(.+)$/.exec(body);
+    if (lm) body = lm[2];
+    const { rest, error } = parseOffset(body);
+    return splitScenes(error ? body : rest);
+  });
+}
+
+/** A lane body split on `|`; no chain gives a one-element array. */
+function splitScenes(laneBody) {
+  const out = String(laneBody).split("|").map((s) => s.trim()).filter((s) => s !== "");
+  return out.length ? out : [String(laneBody).trim()];
+}
+
+export function parsePolyUPI(input, ctx = { n: 16 }, sceneIndices = []) {
   const lanesSrc = splitLanes(String(input || "").trim());
   if (!lanesSrc.length) return { ok: false, lanes: [], lcm: 0, error: "empty poly pattern" };
   const lanes = [];
@@ -99,20 +121,29 @@ export function parsePolyUPI(input, ctx = { n: 16 }) {
     if (lm) { label = lm[1]; src = lm[2]; }
     const { rest, offset, error: offErr } = parseOffset(src);
     if (offErr) return { ok: false, lanes: [], lcm: 0, error: `${label}: ${offErr}` };
-    // Per-lane progressive offset, `body%N` (docs/SERPE_POLY.md 2.5: `/` binds
-    // loosest, so `%N` belongs to the LANE). Stripped here rather than taught
-    // to parseUPI, which stays a pure single-pattern parser.
-    const laneBody = rest;
+    // Scenes belong to a LANE, so the chain splits here and the caller says
+    // which scene this lane is currently on. Wraps, so an ever-increasing
+    // trigger count can be passed straight in.
+    const scenes = splitScenes(rest);
+    const sceneCount = scenes.length;
+    const sceneIndex = sceneCount
+      ? ((((sceneIndices[i] ?? 0) % sceneCount) + sceneCount) % sceneCount)
+      : 0;
+    // Per-scene progressive suffix, `body%N` / `body*N` (docs/SERPE_POLY.md
+    // §2.5: `/` binds loosest, so these belong to the scene inside the lane).
+    // Stripped here rather than taught to parseUPI, which stays a pure
+    // single-pattern parser.
+    const laneBody = scenes[sceneIndex];
     let progressive = null;
-    let body = rest;
-    const pm = /^(.*[^\s])\s*%\s*(-?\d+)$/.exec(rest);
+    let body = laneBody;
+    const pm = /^(.*[^\s])\s*%\s*(-?\d+)$/.exec(laneBody);
     if (pm) {
       progressive = { kind: "offset", step: +pm[2] };
       body = pm[1].trim();
     } else {
       // `body*N` — this lane GROWS by N steps per trigger. Only when '%' did
       // not already claim a suffix: a lane carries one or the other.
-      const lm = /^(.*[^\s])\s*\*\s*(\d+)$/.exec(rest);
+      const lm = /^(.*[^\s])\s*\*\s*(\d+)$/.exec(laneBody);
       if (lm) {
         progressive = { kind: "lengthen", step: +lm[2] };
         body = lm[1].trim();
@@ -122,6 +153,8 @@ export function parsePolyUPI(input, ctx = { n: 16 }) {
     if (!parsed.ok) return { ok: false, lanes: [], lcm: 0, error: `${label}: ${parsed.error ?? `unparsed "${body}"`}` };
     lanes.push({
       label,
+      sceneCount,
+      sceneIndex,
       steps: parsed.steps,
       // null unless this lane carries `%N`. The lane's pattern at trigger n is
       // polyLaneAt(lane, n) — state derived from the trigger index, the same

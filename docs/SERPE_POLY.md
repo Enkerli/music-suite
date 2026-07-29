@@ -124,7 +124,7 @@ Alex's three strings work:
 |---|---|---|
 | ~~`E(3,8)%2/E(3,7)`~~ | ✅ **DONE 2026-07-28** — Serpe `f1917a1`, JS `polyLaneAt`. Sized S because the per-lane machinery "already existed"; it existed as *structure*, not function — `triggerProgressiveOffset()` and `getCurrentProgressiveOffset()` had no callers at all, so the work was connecting it (this closes half of census C) |
 | ~~`E(3,8)*3/E(3,7)`~~ | ✅ **DONE 2026-07-28** — Serpe `268d48d`, JS `polyLaneAt`. Sized M for the LCM grid, which turned out not to be the work: the parse-time `lcm` has **no consumer in the processor**, and `processPolyLanes` re-reads each lane's length from its live pattern every block, so the grid follows a growing lane by construction. The M was the growth state |
-| `A\|B/C` | per-lane scenes | **L** — a `SceneManager` per lane, plus deciding whether lanes advance together or independently |
+| ~~`A\|B/C`~~ | ✅ **DONE 2026-07-28** — Serpe `b021f8e`, JS `laneScenes` + `parsePolyUPI(…, sceneIndices)`. No `SceneManager` per lane in the end: progressive state is *derived* from a per-scene visit count, which is smaller than the manager and cannot drift |
 
 Both engines need each of these to stay at parity, so each row is two
 implementations plus a differential test, not one.
@@ -139,6 +139,36 @@ A lane takes **at most one** progressive suffix, offset winning. `UPIParser`
 understands the `%N` spelling itself, so `E(3,8)%2*3` — where stripping `*3`
 leaves `E(3,8)%2` for the lane parser — would otherwise come back flagged for
 both.
+
+#### Lanes advance their chains INDEPENDENTLY — **DECIDED** *(2026-07-28)*
+
+Every lane steps its own chain on every trigger. Two scenes against three
+therefore come back round together only every **six** triggers:
+
+```
+E(3,8)|E(5,8) / E(3,7)|E(5,7)|E(2,7)
+```
+
+Lockstep advancing was the other reading and would have made a chain on a lane
+behave like a chain on the string, which is the thing `/` binding loosest
+exists to avoid. Independence is why you would put a chain on a lane at all.
+
+Progressive state is **per (lane, scene)** — scene 2 keeps growing while scene
+1 keeps rotating, each resuming where it left off when the chain comes back to
+it. It is derived from a visit count (`offset = step * visits`) rather than
+accumulated, so it cannot drift out of step with the scene it belongs to; the
+same trick removes the need to know a scene's step size before that scene has
+been parsed.
+
+Label and `@` offset are stripped **before** the chain splits, so they belong
+to the lane: `kick=E(3,8)|E(5,8)@+12ms` is one labelled, nudged lane cycling
+two scenes.
+
+`PolyParser` stayed pure — `laneScenes()` reports the chains, `parse()` takes
+scene indices and resolves them, and the processor owns the positions.
+
+**All three of the strings that started this now parse on every scene**, in
+both engines, pinned as tests.
 
 #### Rotation sign: the two helpers disagree — **settled 2026-07-28**
 
