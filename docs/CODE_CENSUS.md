@@ -79,11 +79,40 @@ baseline, full ladder, then played in the standalone), and merged 2026-07-28.
 The `TEMPORARY: Disable ProgressiveManager…` comments went with it.
 **SceneManager is the remaining decision** — and it is the harder one, because
 unlike ProgressiveManager it is genuinely fed, so "revert" and "finish" both
-change which implementation runs. The technique proposed for it: before
-deleting either path, make each of the 12 sites compare manager-vs-legacy and
-record disagreements; a session of real use with no disagreement is the
-evidence. Note that `printf`/`DBG` logging is unreliable inside a plugin host
-(Alex, 2026-07-27) — write to a file, or push over the WebView bridge.
+change which implementation runs.
+
+**Instrumented 2026-07-28**, branch `serpe/scene-manager-compare`
+(`398832d`, `e4a678c`). `Source/Platform/SceneCompare.h` makes every read site
+compute both values and record whether they matched; behaviour is unchanged,
+each site still returns exactly what it returned before. Six things are
+watched: scene index, scene count, base pattern, progressive offset,
+progressive lengthening, base-length pattern.
+
+Three design points worth keeping even if the file is deleted:
+
+- **The report separates "agreed" from "never ran".** A site that never
+  executed is silent in a log, and silence is indistinguishable from success —
+  which is the failure mode this whole technique exists to avoid. Counts are
+  per site, and unexercised sites say so.
+- **`printf`/`DBG` is unreliable inside a plugin host** (Alex, 2026-07-27), so
+  it writes a file, rewritten whole so it is always valid to read:
+  `~/Library/Serpe/scene-compare.log`. Note JUCE's
+  `userApplicationDataDirectory` is `~/Library` on macOS, *not*
+  `~/Library/Application Support` — a self-test pinned that down rather than a
+  play session discovering it the slow way.
+- **`applyCurrentScenePattern()` runs on the audio thread**, so that side only
+  bumps atomics and copies one short example under a try-lock. The file is
+  written from the message thread: destructor, `releaseResources`,
+  `getStateInformation`, and the editor timer.
+
+One site is weaker than the others and is labelled as such in the code: the
+base-length pattern is written by whichever branch runs, so after first use the
+legacy copy is empty *by construction*. Only the first use is comparable.
+
+Verify in the **Standalone**. The AU/VST3 targets here still copy themselves
+into the shared plug-in folders (this branch's `enkerli-juce` pin predates
+`ENKERLI_INSTALL_PLUGINS`), so building them would overwrite the real installed
+Serpe — the same trap that bit the ProgressiveManager pass.
 
 ## C. Uncalled functions — features that are inert, not just symbols
 
