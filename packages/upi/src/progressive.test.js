@@ -13,11 +13,16 @@
  * is the sequence progressiveAt(desc, n) has to reproduce. Regenerate the same
  * way if the engine's algorithm ever changes; do not "fix" a vector by hand.
  *
- * NOT covered here, deliberately: progressive OFFSET direction and LENGTHENING
- * bits. Offset state lives in PatternEngine (processor-side), which a parser
- * probe cannot reach; lengthening is random by design. Both are tested for
- * structure and determinism-given-an-RNG instead, and the gap is recorded in
- * the Serpe repo's FEATURE_PARITY ledger rather than papered over.
+ * OFFSET is now covered too. It was excluded because its state lives in
+ * PatternEngine (processor-side) where a parser probe cannot reach — but a
+ * poly lane reaches it, so `serpe_poly_precedence` in the Serpe repo produces
+ * the vector below. That closed two bugs at once: the rotation SIGN (the two
+ * `rotate` helpers have opposite conventions) and the PHASE (the engine's
+ * first trigger is already offset by one step; this module used to return the
+ * bare base, so it ran a trigger behind the plugin).
+ *
+ * LENGTHENING stays structural: it is random by design, so only its phase and
+ * growth can be pinned, not its bits.
  */
 import { describe, it, expect } from "vitest";
 import { parseProgressive, progressiveAt, ProgressiveRun } from "./progressive.js";
@@ -41,6 +46,16 @@ const CPP_SEQUENCES = {
     "10001010000001001 10001010000101001 10101010000101001 10101010000101011",
   "E(8,8)>1":
     "11111111 10111111 10101111 10101011 10001011 10001001 10000001 10000000 11111111",
+};
+
+/**
+ * Progressive OFFSET, verbatim from serpe_poly_precedence (Serpe repo), which
+ * drives a real PatternEngine through setProgressiveOffset /
+ * triggerProgressiveOffset — the path the plugin itself uses. Rotating an
+ * 8-step pattern by 2 has period 4, so the 5th trigger repeats the 1st.
+ */
+const CPP_OFFSET = {
+  "E(3,8)%2": "10100100 00101001 01001010 10010010 10100100",
 };
 
 describe("progressive transform — bit-identical to the C++ engine", () => {
@@ -93,12 +108,21 @@ describe("parseProgressive", () => {
   });
 });
 
-describe("progressive offset", () => {
-  it("trigger 1 is the un-rotated base, then rotates by step each trigger", () => {
+describe("progressive offset — bit-identical to the C++ engine", () => {
+  for (const [input, expected] of Object.entries(CPP_OFFSET)) {
+    it(`${input} reproduces the engine's rotations`, () => {
+      expect(seq(input, expected.split(" ").length)).toBe(expected);
+    });
+  }
+
+  it("trigger 1 is ALREADY offset by one step, as the plugin shows it", () => {
+    // The engine initialises currentOffset to `step`, so the un-rotated base
+    // is never displayed. This module used to return it first and therefore
+    // lagged the plugin by one trigger (fixed 2026-07-28).
     const base = parseBase("E(3,8)").steps.join("");
-    const s = seq("E(3,8)%2", 3).split(" ");
-    expect(s[0]).toBe(base);
-    expect(s[1]).not.toBe(base);
+    const s = seq("E(3,8)%2", 4).split(" ");
+    expect(s[0]).not.toBe(base);
+    expect(s[3]).toBe(base);      // 4 * 2 = 8 = a full turn
     // onset count is invariant under rotation
     for (const p of s) expect(p.split("1").length - 1).toBe(3);
   });
@@ -114,14 +138,19 @@ describe("progressive lengthening", () => {
     const d = parseProgressive("E(3,8)*4");
     const a = progressiveAt(d, 1, { parseBase, random }).steps;
     const b = progressiveAt(d, 3, { parseBase, random }).steps;
-    expect(a.length).toBe(8);
-    expect(b.length).toBe(8 + 4 + 4);
-    expect(b.slice(0, 8)).toEqual(a);
+    // Trigger 1 is already ONE step of growth, matching the engine: a scene
+    // entering `E(3,8)*3` plays 11 steps immediately, not 8 (observed in a
+    // live session, Serpe scene trace 2026-07-28).
+    expect(a.length).toBe(8 + 4);
+    expect(b.length).toBe(8 + 4 + 4 + 4);
+    expect(b.slice(0, 8 + 4)).toEqual(a);
   });
 });
 
 describe("ProgressiveRun", () => {
   it("advances one trigger at a time and resets", () => {
+    // `>N` transforms are unaffected by the offset/lengthening phase change:
+    // their sequences were already pinned to the engine's own output.
     const run = new ProgressiveRun("E(1,8)>8", { parseBase });
     expect(run.next().steps.join("")).toBe("10000000");
     expect(run.next().steps.join("")).toBe("10000001");

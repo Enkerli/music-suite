@@ -11,6 +11,10 @@
  * a function of the trigger index, so `progressiveAt(desc, n)` is pure for the
  * deterministic forms and hosts that prefer a cursor can use `ProgressiveRun`.
  *
+ * Trigger 1 is what the plugin shows on the FIRST trigger, for every form —
+ * which for `%N` and `*N` means one step of transformation has already been
+ * applied. The engine is authoritative (Alex, 2026-07-28).
+ *
  * Semantics are ported from the C++ engine, read at 2026-07-27:
  *   · transform  `base[BWED]>N`  UPIParser.cpp applyProgressiveTransformation
  *   · offset     `base%N`/`base+N`  PatternEngine::triggerProgressiveOffset
@@ -20,10 +24,18 @@
  */
 import { barlowTransform, euclideanRhythm, euclideanComplement, bellCurveRandomSteps } from "./rhythm.js";
 // The package's own rotate, so progressive offset turns the same way as the
-// UI's Rotate transform. NOTE: the DIRECTION is not verified against the C++
-// engine — progressive offset lives in PatternEngine (processor state), which
-// the parser probe cannot reach, so the differential test below covers the
-// transform forms only. Flagged in FEATURE_PARITY rather than assumed.
+// UI's Rotate transform.
+//
+// DIRECTION AND PHASE — verified 2026-07-28, and both were wrong here before.
+// This was flagged as unverifiable because progressive offset lives in
+// PatternEngine (processor state) and a parser probe cannot reach it. A poly
+// lane can, so `serpe_poly_precedence` settled it:
+//
+//   · sign:  rotate(p, +k) equals the C++ PatternUtils rotatePattern(p, -k).
+//            The offset therefore goes in POSITIVE here.
+//   · phase: the engine's `%N` shows offset N on the FIRST trigger, not the
+//            un-rotated base. This module used to return the base first, so
+//            every trigger was one step behind the plugin.
 import { rotate } from "./upi.js";
 
 const countOnsets = (steps) => steps.reduce((a, s) => a + (s ? 1 : 0), 0);
@@ -98,14 +110,17 @@ export function progressiveAt(desc, n, opts = {}) {
   if (!base) return { steps: [], index: idx, label: desc.source, error: "base pattern did not parse" };
 
   if (desc.kind === "offset") {
-    // currentOffset = initial + triggerCount * step, triggerCount starting at
-    // 0 — so trigger 1 is the un-rotated base.
-    return { steps: rotate(base, desc.step * (idx - 1)), index: idx, label: desc.source };
+    // The engine sets currentOffset = step on setup and adds step per trigger,
+    // so trigger n is rotated by step*n and trigger 1 is ALREADY offset by one
+    // step. See the sign/phase note at the top.
+    return { steps: rotate(base, desc.step * idx), index: idx, label: desc.source };
   }
 
   if (desc.kind === "lengthen") {
+    // Same phase rule: the engine initialises lengthening to `step`, so the
+    // first trigger is already base + step steps long, not the bare base.
     let out = base.slice();
-    for (let i = 1; i < idx; i++) out = out.concat(bellCurveRandomSteps(desc.step, random));
+    for (let i = 0; i < idx; i++) out = out.concat(bellCurveRandomSteps(desc.step, random));
     return { steps: out, index: idx, label: desc.source };
   }
 

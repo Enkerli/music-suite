@@ -149,12 +149,24 @@ written with opposite conventions, and the C++ mono path negates on purpose
 ("negative rotation for clockwise progression"). `polyLaneAt` passes the
 offset in positive to match the engine, which is authoritative.
 
-**Open, and a real divergence:** the *phase* still differs for mono. The
-engine's `%N` shows offset N on trigger 1; `progressive.js`'s `progressiveAt`
-returns the un-rotated base on trigger 1 and is pinned to that by its own
-test. Poly lanes follow the engine. Mono JS does not. One of them should
-move — engine-authoritative says the JS — but that changes documented
-behaviour and a pinned vector, so it is a decision, not a cleanup.
+**Phase: JS moved to the engine** *(Alex, 2026-07-28)*. The engine's `%N`
+shows offset N on trigger 1; `progressive.js` returned the un-rotated base and
+so ran a trigger behind the plugin. `progressiveAt` now rotates by `step * n`
+rather than `step * (n - 1)`, and `E(3,8)%2` is pinned as a vector taken from
+`serpe_poly_precedence`:
+
+```
+10100100 00101001 01001010 10010010 10100100
+```
+
+Lengthening `*N` had the identical off-by-one and moved with it — trigger 1 is
+base + step, which is what a scene entering `E(3,8)*3` does when it plays 11
+steps immediately rather than 8. Fixing only the offset would have left the
+same bug in the neighbouring branch.
+
+Only `@enkerli/cli` consumes this layer today, so the blast radius was one
+command's output; `>N` transforms were already pinned to engine output and are
+unaffected. Monorepo 1628 tests green.
 
 This also answers open question (d) at the end of §8.1 — poly patterns are
 **not** scene-incompatible by decree; scenes simply live one level down, and
