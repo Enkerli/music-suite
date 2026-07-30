@@ -36,17 +36,17 @@ const haveSiblings = existsSync(join(SIBLINGS, "rhythm_pattern_explorer"));
  *                        not a one-liner: the UI's state is spread across ten
  *                        localStorage call sites with no single object to send,
  *                        so this is a consolidation, not a connection.
- *   MIDIcurator  runtime  RuntimeInfo::snapshot pushed every ~2s. No
- *   Workspace    runtime  subscriber and nothing in either UI that would
- *                        display it — Progression Studio, from the same
- *                        template, DOES subscribe (2 sites). So the C++ half
- *                        was copied into these two without the UI half. Either
- *                        add a display or stop emitting; today it is work done
- *                        every 2 seconds for nobody.
+ *   ~~runtime~~          RESOLVED 2026-07-30: MIDIcurator and Workspace both
+ *                        pushed a RuntimeInfo snapshot every ~2s that nothing
+ *                        received and neither UI had anywhere to show. The C++
+ *                        half had been copied from the same template as
+ *                        Progression Studio, which does subscribe. Alex chose
+ *                        to stop emitting rather than build two diagnostics
+ *                        panels; RuntimeInfo is untouched if one is ever
+ *                        wanted (midicurator-plugin, workspace-plugin).
  */
 const KNOWN = {
-  MIDIcurator: ["runtime", "state"],
-  "Suite Workspace": ["runtime"],
+  MIDIcurator: ["state"],
   // DrawnQurve setDirection — RESOLVED 2026-07-30, and the resolution is the
   // more interesting result. The audit was right that nothing listened; my
   // first reading of what that MEANT was wrong. Direction was never broken:
