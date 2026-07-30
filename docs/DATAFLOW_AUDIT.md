@@ -161,15 +161,32 @@ Rules that keep it usable by "diverse people":
 | 1 | Trace format + schema + analyser + tests | ✅ see `tools/dataflow/` |
 | 2 | Serpe contract, and the test sheet generated from it | ✅ |
 | 3 | UI-side probe (`@enkerli/dataflow` helper the bridges call) | next |
-| 4 | C++-side probe (message-thread appender + audio-thread ring) | next |
-| 5 | Headless driver: run a scripted session, capture trace + MIDI | after 3/4 |
+| 4 | C++-side probe — `DataflowTrace.h`, ring buffer + message-thread flush | ✅ |
+| 5 | Headless driver — `serpe_dataflow_probe`, trace + MIDI per session | ✅ |
 | 6 | Within-binary and within-UI scopes | after 5 |
 | 7 | Between-apps scope (Workspace ↔ Vane) | last, needs 5 |
 
-Stages 1–2 are built and tested: the format, the analyser, its verdicts, and the
-sheet generator. Stages 3–4 are the probes that produce real traces; until they
-land, the analyser runs against synthetic traces in its tests, which is enough to
-pin the verdict logic but is **not** evidence about any app.
+Stages 1–2, 4 and 5 are built. `serpe_dataflow_probe` instantiates the real
+processor, runs scripted sessions offline, and writes a trace plus the MIDI each
+one produced — no UI, no host, no audio device, so it runs in a sandbox and in CI.
 
-Being explicit about that boundary is the point. The previous tool's problem was
-not that it was static — it was that its output read like proof.
+**Stage 3, the UI-side probe, is not built.** Until it is, `ui<->binary` channels
+are `NEVER_EXERCISED` in every report, which is the correct thing for the tool to
+say and worth reading twice: those eight lines are not eight passes.
+
+### What the first real runs found
+
+Two things, from the first three sessions:
+
+- **`queuedPatternUpdate` is exercised by mono and never by poly.** Poly sets each
+  lane's engine directly on the message thread, so the queue's phase-sync
+  discipline applies to mono only. Not known to be wrong — recorded because it was
+  invisible until a trace showed the channel unexercised in every poly session.
+- **A `DROPPED` that was mine.** The mono session reported 1 of 9 updates lost.
+  It was the harness: the last trigger enqueues an update that only the *next*
+  `processBlock` consumes, and the probe stopped without one. A DAW keeps calling.
+  Two drain blocks removed the finding.
+
+That second one is the tool working exactly as intended, and the discipline it
+demands. A verdict is a lead to confirm. The previous tool's problem was not that
+it was static — it was that its output read like proof.

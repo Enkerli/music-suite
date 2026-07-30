@@ -125,7 +125,7 @@
       "cadence": "per parse",
       "expect": "a pattern typed or triggered reaches the audio thread exactly once, and any rotation or lengthening survives the trip",
       "userVisible": false,
-      "notes": "Scene transforms lost this race for months: they were applied immediately after enqueue, so the queued base overwrote them. Only intermittently visible, as brief glimpses of the other scene. Fixed 2026-07-28 (Serpe 53df3ec)."
+      "notes": "Scene transforms lost this race for months: they were applied immediately after enqueue, so the queued base overwrote them. Only intermittently visible, as brief glimpses of the other scene. Fixed 2026-07-28 (Serpe 53df3ec). Observed 2026-07-30 by the headless probe: the MONO path uses this queue, the POLY path does not — poly sets each lane's engine directly on the message thread. So the queue's phase-sync discipline (baseTickRhythm reset, accent phase) applies to mono only. Not known to be wrong; recorded because it was invisible until a trace showed the channel unexercised in every poly session."
     },
     {
       "id": "laneScenes",
@@ -138,7 +138,8 @@
       },
       "cadence": "per trigger",
       "expect": "each poly lane advances its own scene chain independently, so two scenes against three realign every six triggers",
-      "userVisible": false
+      "userVisible": false,
+      "notes": "Traced both ends 2026-07-30: sender records the scene index each lane is asked for, receiver records what that lane ended up sounding. Delivery proved across 8 triggers of E(3,8)|E(3,8)*3/E(3,7) and 6 of E(3,8)%2/E(3,7)."
     }
   ]
 }
