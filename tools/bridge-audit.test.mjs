@@ -1,0 +1,94 @@
+/**
+ * The bridge audit, as a test — so a half-wired event fails a run instead of
+ * waiting to be noticed as a feature that quietly does nothing.
+ *
+ * Baseline, not zero. There are known drops today (below) and blocking every
+ * run on pre-existing debt would just get the test skipped. What this catches
+ * is a NEW one, which is the case that actually costs an evening.
+ *
+ * Skips entirely when the plugin repos are not checked out beside music-suite —
+ * CI here cannot see them (BUILD.md §4).
+ */
+import { describe, it, expect } from "vitest";
+import { execFileSync } from "node:child_process";
+import { existsSync } from "node:fs";
+import { dirname, resolve, join } from "node:path";
+import { fileURLToPath } from "node:url";
+
+const HERE = dirname(fileURLToPath(import.meta.url));
+const SIBLINGS = resolve(HERE, "../..");
+const haveSiblings = existsSync(join(SIBLINGS, "rhythm_pattern_explorer"));
+
+/**
+ * Known drops as of 2026-07-30, each verified by hand. Recorded rather than
+ * fixed because they live in other repos; fixing one means deleting its line.
+ *
+ *   MIDIcurator  state    proc.loadUiState() is pushed to the UI on load and
+ *                        nothing subscribes, so restored session UI state
+ *                        never arrives. The real one.
+ *   MIDIcurator  runtime  RuntimeInfo::snapshot every ~2s, unreceived.
+ *   Workspace    runtime  same diagnostics payload, same gap.
+ */
+const KNOWN = {
+  MIDIcurator: ["runtime", "state"],
+  "Suite Workspace": ["runtime"],
+  // DrawnQurve  setDirection  main.jsx:184 calls sendDirection(d), which emits
+  //             it, and the C++ listens for 17 events but not this one. So the
+  //             direction control does nothing in the plugin. Found BY this
+  //             audit on its first run — the same shape as the polyState gap
+  //             that prompted writing it, in a repo nobody was looking at.
+  DrawnQurve: ["setDirection"],
+};
+
+describe.skipIf(!haveSiblings)("WebView bridge wiring", () => {
+  const report = () => {
+    let out;
+    try {
+      out = execFileSync("node", [join(HERE, "bridge-audit.mjs"), "--json"], { encoding: "utf8" });
+    } catch (e) {
+      out = e.stdout; // exits 1 when drops exist, which is the normal case here
+    }
+    return JSON.parse(out);
+  };
+
+  it("has no bridge event wired at only one end, beyond the known list", () => {
+    const { results } = report();
+    const unexpected = [];
+    for (const r of results) {
+      if (r.skipped) continue;
+      const known = KNOWN[r.name] ?? [];
+      for (const ev of [...r.droppedToJs, ...r.droppedToCpp]) {
+        if (!known.includes(ev)) unexpected.push(`${r.name}: ${ev}`);
+      }
+    }
+    // A failure here means an event is emitted at one end and received at
+    // neither — it will compile, ship, and do nothing. Wire it, or add it to
+    // KNOWN above with a note saying why it is acceptable.
+    expect(unexpected).toEqual([]);
+  });
+
+  it("still finds the drops we know about, so the audit itself has not gone blind", () => {
+    // A tool that silently stops detecting is worse than no tool. If a KNOWN
+    // entry disappears, either it was fixed (delete the line) or the audit's
+    // patterns stopped matching that repo's style.
+    const { results } = report();
+    for (const [name, evs] of Object.entries(KNOWN)) {
+      const r = results.find((x) => x.name === name);
+      if (!r || r.skipped) continue;
+      const found = [...r.droppedToJs, ...r.droppedToCpp];
+      for (const ev of evs) expect(found, `${name}: ${ev} no longer detected`).toContain(ev);
+    }
+  });
+
+  it("reads both bridge styles, so no plugin is silently unscanned", () => {
+    const { results } = report();
+    for (const r of results) {
+      if (r.skipped) continue;
+      // Zero on either side means the regexes missed this repo's idiom — which
+      // is exactly how Vane looked 26-events-broken and MIDIcurator looked to
+      // emit nothing at all, before the audit learned their styles.
+      expect(r.counts.cppEmits + r.counts.cppListens, `${r.name}: no C++ bridge calls found`).toBeGreaterThan(0);
+      expect(r.counts.jsSubs + r.counts.jsEmits, `${r.name}: no JS bridge calls found`).toBeGreaterThan(0);
+    }
+  });
+});
