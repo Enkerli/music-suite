@@ -378,6 +378,13 @@ function SerpeApp() {
   // the plugin these come from the C++ engine (the 'polyState' bridge event,
   // real playback); in the webapp the JS scheduler (polyPlayStart) drives them.
   const [lanePh, setLanePh] = useState([]);
+  // Plugin-only: what the C++ engine says each lane is ACTUALLY sounding —
+  // rotated by its progressive offset, grown by its lengthening, and resolved
+  // to the scene that lane is on. The panel used to draw from the JS parse of
+  // the typed text, so a lane with a `|` chain displayed its first scene
+  // forever while the engine cycled behind it (Alex, 2026-07-29). The webapp's
+  // own scheduler below still uses the JS parse — it IS the engine there.
+  const [engineLanes, setEngineLanes] = useState(null);
   // ── Plugin-only: lane note/channel/mute mirror the automatable APVTS
   // params (laneNote0-5/laneChannel0-5/laneMute0-5), not local-only state —
   // a host can automate them, and a saved session recalls them. Index-keyed
@@ -385,6 +392,26 @@ function SerpeApp() {
   // stays the webapp's label-keyed, localStorage-persisted routing.
   const [hostLaneParams, setHostLaneParams] = useState(() => Array.from({ length: 6 }, () => ({})));
   const [polyLagMs, setPolyLagMs] = useState(60);
+  // The engine's lane patterns win for DISPLAY when the plugin is reporting
+  // them; the parsed lane keeps its label, offset and routing. Falls back to
+  // the JS parse in the webapp, or before the first polyState arrives.
+  const displayPoly = useMemo(() => {
+    if (!poly || !engineLanes || !Array.isArray(engineLanes.patterns)) return poly;
+    return {
+      ...poly,
+      lanes: poly.lanes.map((lane, i) => {
+        const bits = engineLanes.patterns[i];
+        if (typeof bits !== 'string' || bits.length === 0) return lane;
+        return {
+          ...lane,
+          steps: Array.from(bits, (c) => c === '1'),
+          sceneIndex: engineLanes.sceneIndices[i] ?? 0,
+          sceneCount: engineLanes.sceneCounts[i] ?? 1,
+        };
+      }),
+    };
+  }, [poly, engineLanes]);
+
   const setLaneUi = (label, i, patch) => {
     if (cfg.host && juceAvailable()) {
       setHostLaneParams(prev => {
@@ -987,6 +1014,11 @@ function SerpeApp() {
         // 3) — the poly equivalent of 'transport's step, one per active lane.
         if (ev.active && Array.isArray(ev.steps)) setLanePh(ev.steps);
         else if (!ev.active) setLanePh([]);
+        if (ev.active && Array.isArray(ev.patterns)) {
+          setEngineLanes({ patterns: ev.patterns,
+                           sceneIndices: ev.sceneIndices || [],
+                           sceneCounts: ev.sceneCounts || [] });
+        } else if (!ev.active) setEngineLanes(null);
       } else if (ev.type === 'paramChange') {
         // Host automation of a lane param — keep the panel in sync live, not
         // just at load (unlike the older non-poly params, which don't have
@@ -1191,7 +1223,7 @@ function SerpeApp() {
             h('button', { key: v, className: 'upi-chip', onClick: () => applyChip(v) }, h('b', null, v), ' ' + t)))),
 
         poly
-        ? h(PolyLanesPanel, { poly, lanePh,
+        ? h(PolyLanesPanel, { poly: displayPoly || poly, lanePh,
             polyLock, setPolyLock: v => {
               setPolyLock(v); LS.set('polyLock', v);
               if (cfg.host && juceAvailable()) sendParamActual('polyLock', v === 'step' ? 1 : 0);
