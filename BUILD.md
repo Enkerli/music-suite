@@ -302,7 +302,15 @@ What the build tools expect, and how to bend it:
   plugin-context problem rather than a parser one. A parser does not behave
   differently inside a DAW.
 
-  Quick check that a bundle is current:
+  **Every WebUI plugin now shows its own build time** — a muted `build
+  2026-07-30 10:24 UTC` bottom-right, from `cmake/write-build-tag.cmake` in each
+  repo (Serpe `cf95968`, PitchFold `3babfea`, DrawnQurve `41fe7ef`,
+  workspace-plugin `7f8bdda`; MIDIcurator already had one in its title). Written
+  at *build* time, because a tag baked in at configure time never changes when
+  only the bundle is rebuilt — the one case it exists to catch. So "is this
+  bundle current?" is now a glance rather than an investigation.
+
+  From the command line:
 
   ```bash
   ls -t music-suite/packages/*/src/*.js | head -1   # newest input
