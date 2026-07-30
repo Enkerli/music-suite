@@ -22,6 +22,13 @@
  * and the reverse of each, which finds dead ends rather than dropped events:
  * a subscription for something never emitted, a C++ listener nothing sends.
  *
+ * HOW TO READ A FINDING. A drop means "nothing receives this NAME" — not that
+ * the feature is broken. DrawnQurve's `setDirection` was reported dropped and
+ * genuinely was, yet direction worked fine, because the same choice also went
+ * out as the `playbackDirection` parameter. The drop was redundancy, and the
+ * fix was to delete the extra emit. So confirm what a name carries before
+ * concluding anything about behaviour.
+ *
  * WHAT IT IS NOT. Grep, not a type system. It cannot see an event id built at
  * runtime (`emitEvent('lane' + i)`), and it does not claim the payload SHAPES
  * agree — only that both ends use the same name. Treat a finding as a lead to

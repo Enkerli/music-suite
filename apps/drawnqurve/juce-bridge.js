@@ -269,7 +269,13 @@ export function sendCurve(lane, f32, qurve = 0) {
 
 export function sendFocus(lane)          { juceEmit('setFocus',     { lane }); }
 export function sendPlaying(playing)     { juceEmit('setPlaying',   { playing }); }
-export function sendDirection(direction) { juceEmit('setDirection', { direction }); }
+// NO sendDirection: playback direction reaches the engine as the
+// `playbackDirection` APVTS parameter via sendGlobalActual, which the C++
+// handles generically in its setParamActual listener. A dedicated
+// 'setDirection' event used to be emitted alongside it and the C++ never
+// listened for it — harmless, because the parameter was doing the work, but a
+// second channel for one setting is how paths drift apart (removed 2026-07-30,
+// found by tools/bridge-audit.mjs).
 export function sendClearLane(lane)      { juceEmit('clearLane',    { lane }); }
 export function sendAddLane()            { juceEmit('addLane',      {}); }
 export function sendRemoveLane(lane)     { juceEmit('removeLane',   { lane }); }

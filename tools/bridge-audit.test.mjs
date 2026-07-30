@@ -32,12 +32,18 @@ const haveSiblings = existsSync(join(SIBLINGS, "rhythm_pattern_explorer"));
 const KNOWN = {
   MIDIcurator: ["runtime", "state"],
   "Suite Workspace": ["runtime"],
-  // DrawnQurve  setDirection  main.jsx:184 calls sendDirection(d), which emits
-  //             it, and the C++ listens for 17 events but not this one. So the
-  //             direction control does nothing in the plugin. Found BY this
-  //             audit on its first run — the same shape as the polyState gap
-  //             that prompted writing it, in a repo nobody was looking at.
-  DrawnQurve: ["setDirection"],
+  // DrawnQurve setDirection — RESOLVED 2026-07-30, and the resolution is the
+  // more interesting result. The audit was right that nothing listened; my
+  // first reading of what that MEANT was wrong. Direction was never broken:
+  // the line after sendDirection() sent the same choice as the
+  // `playbackDirection` APVTS parameter, which the C++ handles generically in
+  // setParamActual and reads in processBlock. So this was a redundant second
+  // channel, not a dead one. Fixed by deleting the emit rather than by adding
+  // a C++ listener — two paths for one setting is how they drift apart.
+  //
+  // Lesson for reading this tool's output: a drop means "nothing receives this
+  // NAME". Whether the FEATURE is broken depends on what else carries it. Check
+  // before believing, as with any grep-based finding.
 };
 
 describe.skipIf(!haveSiblings)("WebView bridge wiring", () => {

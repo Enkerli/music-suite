@@ -13,7 +13,7 @@ import './design/scale-editor.jsx';
 
 // ── JUCE bridge ───────────────────────────────────────────────────────────────
 import { initJuceBridge, sendCurve, sendParam, sendFocus,
-         sendPlaying, sendDirection, sendEnabled, sendGlobalActual,
+         sendPlaying, sendEnabled, sendGlobalActual,
          sendClearLane, sendAddLane, sendRemoveLane,
          sendAddQurve, sendRemoveQurve, sendPanic,
          sendBeginTeach, sendCancelTeach,
@@ -181,8 +181,8 @@ import { initJuceBridge, sendCurve, sendParam, sendFocus,
 
     const setDirection = React.useCallback((d) => {
       demo.setDirection(d);
-      sendDirection(d);
-      // Mirror the UI choice ('fwd'/'rev'/'pp') into the global APVTS param.
+      // The engine learns the direction from this parameter alone — see the
+      // note where sendDirection used to live in juce-bridge.js.
       const idx = Math.max (0, ['fwd', 'rev', 'pp'].indexOf(d));
       sendGlobalActual('playbackDirection', idx);
     }, [demo.setDirection]);
