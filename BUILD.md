@@ -281,6 +281,34 @@ What the build tools expect, and how to bend it:
   DrawnQurve for the same setting**, because nothing else will tell you they
   diverged. A build step that silently does nothing does not fail a build.
 
+- **A WebUI bundle can be stale even when the C++ is current.** esbuild runs
+  with `--conditions=source`, so `@enkerli/*` resolves to `packages/*/src`, not
+  to a built dist — those sources are real inputs to the bundle. All four
+  bundling repos (Serpe, PitchFold, DrawnQurve, workspace-plugin) used to list
+  only files inside the app's own directory in `DEPENDS`.
+
+  On 2026-07-29 that shipped a plugin with the evening's C++ and the previous
+  night's JS: `packages/upi/src/poly.js` gained per-lane scenes, nothing under
+  `apps/serpe` changed, esbuild never re-ran, and the UI rejected
+  `E(3,8)%2\|E(3,8)*3/E(3,7)` as `lane1: Unrecognised pattern` — a string its
+  own engine parses. Fixed in all four (Serpe `b1112bf`, PitchFold `7d93e15`,
+  DrawnQurve `f0c4d78`, workspace-plugin `eb61ddb`) by globbing
+  `packages/*/src/*.js` with `CONFIGURE_DEPENDS`.
+
+  **The general lesson, twice over in one session: when the UI and the engine
+  disagree, suspect the UI's build before the engine's logic.** The C++ side is
+  testable on its own — `serpe_poly_precedence`, `serpe_poly_conformance` — so
+  prove the parser there first, and treat any remaining gap as a packaging or
+  plugin-context problem rather than a parser one. A parser does not behave
+  differently inside a DAW.
+
+  Quick check that a bundle is current:
+
+  ```bash
+  ls -t music-suite/packages/*/src/*.js | head -1   # newest input
+  ls -lT <repo>/build/webui/bundle.js                # must be newer
+  ```
+
 - **Checking what is actually installed**: compare the Mach-O *inside* the
   bundle, never the bundle's own timestamp. `.component`/`.vst3`/`.clap` are
   directories, and a directory's mtime changes only when a direct child does —
