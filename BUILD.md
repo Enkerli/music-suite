@@ -281,6 +281,26 @@ What the build tools expect, and how to bend it:
   DrawnQurve for the same setting**, because nothing else will tell you they
   diverged. A build step that silently does nothing does not fail a build.
 
+- **A new build target is not verified until it has been configured on both
+  platforms.** Building it where you are sitting proves it compiles there and
+  nothing else. On 2026-07-30 `serpe_dataflow_probe` was added, built clean on
+  macOS, pushed, and broke the Linux CI at `gtk/gtk.h`: it links the plugin's
+  shared code, so it inherits `juce_gui_extra`, and `juce_add_console_app` does
+  not carry the GTK/WebKit link configuration that `juce_add_plugin` sets up.
+  Green on one side, red on the other, from one line of CMake.
+
+  Cheapest guard before pushing a new target — configure for Linux and see
+  whether it even resolves, without a full build:
+
+  ```bash
+  cmake -B build-linux-check -DCMAKE_SYSTEM_NAME=Linux 2>&1 | tail -5
+  ```
+
+  That will not catch everything (a cross-configure is not a cross-build), so
+  when it cannot, say in the commit message that only one platform was tried.
+  The failure mode this prevents is not the broken build — it is pushing and
+  believing it works.
+
 - **A WebUI bundle can be stale even when the C++ is current.** esbuild runs
   with `--conditions=source`, so `@enkerli/*` resolves to `packages/*/src`, not
   to a built dist — those sources are real inputs to the bundle. All four
