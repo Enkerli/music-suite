@@ -1,0 +1,144 @@
+{
+  "app": "serpe",
+  "channels": [
+    {
+      "id": "stateSnapshot",
+      "scope": "ui<->binary",
+      "direction": "binary->ui",
+      "from": "SerpeEditor::sendStateSnapshot",
+      "to": "juce-bridge.js juceOn('stateSnapshot')",
+      "payload": {
+        "snap": "object"
+      },
+      "cadence": "once, when the page reports ready",
+      "try": "Type a pattern, close the plugin window, reopen it.",
+      "expect": "reopening the plugin window shows the pattern and settings you left, not defaults",
+      "userVisible": true
+    },
+    {
+      "id": "engineState",
+      "scope": "ui<->binary",
+      "direction": "binary->ui",
+      "from": "SerpeEditor::sendEngineState",
+      "to": "juce-bridge.js juceOn('engineState')",
+      "payload": {
+        "pattern": "string",
+        "accents": "string"
+      },
+      "cadence": "on change only, 30Hz ceiling",
+      "try": "Type `E(1,8)>8` and press Enter about eight times, watching the wheel.",
+      "expect": "the wheel and step row show what the engine is playing, including after a progressive trigger",
+      "userVisible": true,
+      "notes": "Change-detected. The scene-transform race (2026-07-29) was invisible here because the pattern genuinely was not changing — the transform was being overwritten before this ran."
+    },
+    {
+      "id": "transport",
+      "scope": "ui<->binary",
+      "direction": "binary->ui",
+      "from": "SerpeEditor::sendTransport",
+      "to": "juce-bridge.js juceOn('transport')",
+      "payload": {
+        "playing": "bool",
+        "bpm": "number",
+        "step": "int",
+        "hostSync": "bool"
+      },
+      "cadence": "30Hz",
+      "try": "Press play. Then switch Host sync on and change the host's tempo.",
+      "expect": "the playhead moves while playing and the BPM readout follows the host",
+      "userVisible": true
+    },
+    {
+      "id": "polyState",
+      "scope": "ui<->binary",
+      "direction": "binary->ui",
+      "from": "SerpeEditor::sendPolyState",
+      "to": "juce-bridge.js juceOn('polyState')",
+      "payload": {
+        "active": "bool",
+        "steps": "int[]",
+        "patterns": "string[]",
+        "sceneIndices": "int[]",
+        "sceneCounts": "int[]"
+      },
+      "cadence": "on change, 30Hz ceiling",
+      "try": "Type `E(3,8)|E(3,8)*3/E(3,7)` and press Enter several times. Then do it again using MIDI notes instead of Enter.",
+      "expect": "each poly lane's row shows what that lane is sounding, its label names the scene it is on, and its playhead moves",
+      "userVisible": true,
+      "notes": "The reason this tool exists. Emitted by C++ and handled by main.jsx for weeks with no juceOn subscription between them, so every event was dropped: lane playheads never moved and a scene chain displayed its first scene forever. Fixed 2026-07-30 (music-suite 193ebdf)."
+    },
+    {
+      "id": "paramChange",
+      "scope": "ui<->binary",
+      "direction": "bidirectional",
+      "from": "APVTS listener / UI controls",
+      "to": "juceOn('paramChange') / juceEmit('setParam')",
+      "payload": {
+        "id": "string",
+        "value": "number"
+      },
+      "cadence": "on change",
+      "try": "Move the accent velocity slider. Then automate that same parameter from the host and watch the slider.",
+      "expect": "automating a parameter in the host moves the matching control, and moving the control writes automation",
+      "userVisible": true
+    },
+    {
+      "id": "setUPI",
+      "scope": "ui<->binary",
+      "direction": "ui->binary",
+      "from": "juceEmit('setUPI')",
+      "to": "SerpeAudioProcessor::setUPIInput",
+      "payload": {
+        "text": "string"
+      },
+      "cadence": "on Enter, or any pattern edit",
+      "try": "Type `E(3,8)%2` and press Enter repeatedly. Then try `E(7,16)>16/E(1,17)>17`.",
+      "expect": "typing a pattern and pressing Enter changes what plays; re-entering the same chain advances it",
+      "userVisible": true,
+      "notes": "The engine is authoritative: the raw text is sent without gating on the JS parser, which is why the UI can show a parse error for a string the engine handles. That mismatch cost hours on 2026-07-29."
+    },
+    {
+      "id": "setPlaying",
+      "scope": "ui<->binary",
+      "direction": "ui->binary",
+      "from": "juceEmit('setPlaying')",
+      "to": "SerpeAudioProcessor::setInternalPlaying",
+      "payload": {
+        "playing": "bool"
+      },
+      "cadence": "on transport button",
+      "try": "Turn Host sync off, then use the play and stop buttons in Serpe's own header.",
+      "expect": "play/stop in the plugin's own header starts and stops the sequencer when host sync is off",
+      "userVisible": true
+    },
+    {
+      "id": "queuedPatternUpdate",
+      "scope": "within-binary",
+      "direction": "one-way",
+      "from": "parseAndApplyUPI → PatternUpdateQueue::enqueue",
+      "to": "processPatternUpdates (audio thread)",
+      "payload": {
+        "rhythmPattern": "bool[]",
+        "accentPattern": "bool[]",
+        "accentPhaseOffset": "int"
+      },
+      "cadence": "per parse",
+      "expect": "a pattern typed or triggered reaches the audio thread exactly once, and any rotation or lengthening survives the trip",
+      "userVisible": false,
+      "notes": "Scene transforms lost this race for months: they were applied immediately after enqueue, so the queued base overwrote them. Only intermittently visible, as brief glimpses of the other scene. Fixed 2026-07-28 (Serpe 53df3ec)."
+    },
+    {
+      "id": "laneScenes",
+      "scope": "within-binary",
+      "direction": "one-way",
+      "from": "PolyParser::laneScenes + per-lane scene index",
+      "to": "PolyParser::parse(sceneIndices) → lane engines",
+      "payload": {
+        "sceneIndices": "int[]"
+      },
+      "cadence": "per trigger",
+      "expect": "each poly lane advances its own scene chain independently, so two scenes against three realign every six triggers",
+      "userVisible": false
+    }
+  ]
+}

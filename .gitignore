@@ -17,3 +17,8 @@ scripts/apps.local.json
 # redistribute a copy (docs/KNOWLEDGE_TRANSFER.md item 7). Dualo's Exquis
 # Developer Mode MIDI spec: download from https://dualo.com/en/support
 apps/exquisite-fingerings/Exquis_Dev_Mode_EN.pdf
+
+# Dataflow audit artifacts: traces, reports, and the MIDI/audio a run produced.
+# Evidence from one session on one machine — regenerate rather than commit, the
+# same way Vane's render probe output is never checked in (docs/DATAFLOW_AUDIT.md).
+scratch/
