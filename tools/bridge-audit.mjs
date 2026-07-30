@@ -87,7 +87,10 @@ function auditPlugin({ repo, app, name }) {
   const cpp = readAll(walk(join(repoDir, "Source"), [".cpp", ".h", ".mm"]));
   // .html too: Vane and MIDIcurator keep their whole UI inline in index.html,
   // so a .js-only scan reported 26 "dropped" events that are wired there.
-  const js = readAll(walk(appDir, [".js", ".jsx", ".html"]));
+  // .ts/.tsx as well: MIDIcurator is a TypeScript app, and a scan limited to
+  // .js/.jsx/.html read NONE of it — reporting zero sends and eight dead
+  // listeners for a plugin whose wiring had simply not been looked at.
+  const js = readAll(walk(appDir, [".js", ".jsx", ".ts", ".tsx", ".html"]));
 
   // C++ side
   const cppEmits = new Set([
@@ -118,8 +121,8 @@ function auditPlugin({ repo, app, name }) {
   // DrawnQurve's local `setDirection` callback both read as dropped events
   // otherwise. Precision matters more than reach here: the reason the real
   // polyState gap went unnoticed is that nobody trusts a noisy report.
-  const jsForEmits = readAll(walk(appDir, [".js", ".jsx", ".html"])
-    .filter((f) => /bridge/i.test(f) || /main\.js$|-main\.js$|index\.html$/.test(f)));
+  const jsForEmits = readAll(walk(appDir, [".js", ".jsx", ".ts", ".tsx", ".html"])
+    .filter((f) => /bridge/i.test(f) || /(^|\/)main\.[jt]sx?$|-main\.js$|index\.html$|App\.tsx$/.test(f)));
   const jsEmits = new Set([
     ...grabAll(jsForEmits, /juceEmit\s*\(\s*['"]([A-Za-z_]\w*)['"]/g),
     ...grabAll(jsForEmits, /backend\.emitEvent\s*\(\s*['"]([A-Za-z_]\w*)['"]/g),
@@ -159,9 +162,9 @@ function auditPlugin({ repo, app, name }) {
   // step edits re-send the whole pattern as UPI text instead. Reporting that
   // as a silently-dropped event would be crying wolf, and a check that cries
   // wolf gets ignored — which is how the real polyState gap survived.
-  const bridgeFiles = walk(appDir, [".js"]).filter((f) => /bridge/i.test(f));
+  const bridgeFiles = walk(appDir, [".js", ".ts"]).filter((f) => /bridge/i.test(f));
   const bridgeText = readAll(bridgeFiles);
-  const appText = readAll(walk(appDir, [".js", ".jsx", ".html"]).filter((f) => !/bridge/i.test(f)));
+  const appText = readAll(walk(appDir, [".js", ".jsx", ".ts", ".tsx", ".html"]).filter((f) => !/bridge/i.test(f)));
   // A standalone host shim EMULATES the native side: Vane's synth-main.js runs
   // the WASM voice when there is no JUCE host and emits the very events the C++
   // would. Those are not JS→C++ sends. The tell is general — an app does not

@@ -23,11 +23,26 @@ const haveSiblings = existsSync(join(SIBLINGS, "rhythm_pattern_explorer"));
  * Known drops as of 2026-07-30, each verified by hand. Recorded rather than
  * fixed because they live in other repos; fixing one means deleting its line.
  *
- *   MIDIcurator  state    proc.loadUiState() is pushed to the UI on load and
- *                        nothing subscribes, so restored session UI state
- *                        never arrives. The real one.
- *   MIDIcurator  runtime  RuntimeInfo::snapshot every ~2s, unreceived.
- *   Workspace    runtime  same diagnostics payload, same gap.
+ *   MIDIcurator  state    Checked 2026-07-30 and it is real, on BOTH halves.
+ *                        The C++ has a complete UI-state round trip — an
+ *                        `enkerliState` listener calling storeUiState(), and
+ *                        emit("state", loadUiState()) to restore — and the UI
+ *                        participates in neither: it never sends enkerliState
+ *                        and never subscribes to state. It persists through
+ *                        localStorage (10 sites) and IndexedDB (lib/db.ts)
+ *                        instead, and IndexedDB is documented in this project
+ *                        as unreliable under the juce:// scheme, which is
+ *                        plausibly why the C++ channel was built. Wiring it is
+ *                        not a one-liner: the UI's state is spread across ten
+ *                        localStorage call sites with no single object to send,
+ *                        so this is a consolidation, not a connection.
+ *   MIDIcurator  runtime  RuntimeInfo::snapshot pushed every ~2s. No
+ *   Workspace    runtime  subscriber and nothing in either UI that would
+ *                        display it — Progression Studio, from the same
+ *                        template, DOES subscribe (2 sites). So the C++ half
+ *                        was copied into these two without the UI half. Either
+ *                        add a display or stop emitting; today it is work done
+ *                        every 2 seconds for nobody.
  */
 const KNOWN = {
   MIDIcurator: ["runtime", "state"],
