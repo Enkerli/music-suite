@@ -61,6 +61,34 @@ interface SidebarProps {
   clusterMidi: ClusterMidi | null;
 }
 
+
+/**
+ * Build tag — which bundle, and which binary carrying it. The UI half has been
+ * here a while; the `bin` half arrived 2026-07-30, because the UI stamp alone is
+ * ambiguous in the case that matters. A bundle newer than the binary means it was
+ * rebuilt but never embedded and relinked, so what is running is not what was
+ * built — that shipped a two-day-old Serpe UI on 2026-07-29, and nothing on
+ * screen could say so.
+ */
+function BuildTag() {
+  const ui = typeof __BUILD_TAG__ === 'undefined' ? null : __BUILD_TAG__;
+  const bin = typeof __CPP_BUILD_TAG__ === 'undefined' ? undefined : __CPP_BUILD_TAG__;
+  if (!ui) return null;
+  const stale = !!bin && bin !== 'unknown' && ui.slice(0, 16) > bin.slice(0, 16);
+  return (
+    <span
+      style={{ fontSize: '0.6em', fontWeight: 400, color: 'var(--es-fg-muted)', fontVariantNumeric: 'tabular-nums' }}
+      title={bin
+        ? `WebUI bundle built ${ui}\nBinary produced ${bin}` +
+          (typeof __CPP_COMPILED__ === 'undefined' ? '' : `\nThis TU compiled ${__CPP_COMPILED__}`) +
+          (stale ? '\n\nWARNING: the bundle is newer than the binary running it — rebuild and reinstall.' : '')
+        : `Build tag — confirms which bundle is running (${ui})`}
+    >
+      {bin ? `UI ${ui} · bin ${bin}${stale ? ' ⚠' : ''}` : `build ${ui}`}
+    </span>
+  );
+}
+
 export function Sidebar({
   clips,
   allClips,
@@ -199,7 +227,7 @@ export function Sidebar({
   return (
     <div className="mc-sidebar">
       <div className="mc-sidebar-header">
-        <h2>MIDI Curator <span style={{ fontSize: '0.6em', fontWeight: 400, color: 'var(--es-fg-muted)' }} title="Build tag — confirms which bundle is running">build {__BUILD_TAG__}</span></h2>
+        <h2>MIDI Curator <BuildTag /></h2>
         {/* The shared frame's global cluster (theme · MIDI · density) —
             archetype A: it lives in the rail header. No Library slot here:
             the ClipBrowser below IS the library, always visible — a
