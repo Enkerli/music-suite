@@ -69,6 +69,14 @@ export function initJuceBridge(onEvent) {
   juceOn('paramChange',   ({ id, value }) => onEvent({ type: 'paramChange', id, value }));
   juceOn('transport',     t => onEvent({ type: 'transport', ...t }));
   juceOn('engineState',   s => onEvent({ type: 'engineState', ...s }));  // C++ is authoritative
+  // Per-lane poly state: playheads, and each lane's actual pattern + scene
+  // position. This subscription was MISSING — the C++ emitted polyState and
+  // main.jsx handled it, but nothing joined them, so every poly lane event has
+  // been dropped since the feature was added. The visible symptoms were a lane
+  // panel frozen on the first scene and per-lane playheads that never moved
+  // (Alex, 2026-07-29; found by logging the C++ side and seeing correct pushes
+  // arrive nowhere).
+  juceOn('polyState',     p => onEvent({ type: 'polyState', ...p }));
   juceEmit('uiReady', {});
 }
 

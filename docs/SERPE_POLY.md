@@ -408,7 +408,26 @@ the order of work:
    constant, having no host automation to expose). The per-lane playhead
    (`lanePh`) now animates from a new `polyState` bridge event carrying the
    C++ engine's real per-lane step indices, since the webapp's own JS
-   scheduler never runs inside the plugin. **Verified**: esbuild bundles
+   scheduler never runs inside the plugin.
+
+   > **This never worked, 2026-07-29 → fixed 2026-07-30.** `juce-bridge.js`
+   > had no `juceOn('polyState', …)` subscription. The C++ emitted the event
+   > and `main.jsx` handled it, but nothing joined the two, so every poly lane
+   > event was dropped from the day the feature landed. Per-lane playheads
+   > never moved, and once lane patterns were added to the same event the lane
+   > panel stayed frozen on each lane's first scene.
+   >
+   > Note what "**Verified**" meant below: esbuild bundled cleanly and the
+   > plugin compiled. Both true, and neither says the event arrives. A bridge
+   > has three parts — emit, subscribe, handle — and two of them existing
+   > compiles perfectly. It took logging the C++ side and seeing correct
+   > pushes arrive nowhere; three rounds of fixing the producer and the
+   > consumer changed nothing, because the wire was the missing piece.
+   >
+   > Cheapest guard for the next bridge event: after adding one, grep
+   > `juce-bridge.js` for its name. If it appears once, it is not wired.
+
+   **Verified**: esbuild bundles
    the changed webapp clean, and the full plugin (LV2+Standalone) builds
    end-to-end through the exact pipeline that embeds this source; both
    `ctest` targets still pass. **Not verified**: this project's own
