@@ -402,11 +402,23 @@ function SerpeApp() {
       lanes: poly.lanes.map((lane, i) => {
         const bits = engineLanes.patterns[i];
         if (typeof bits !== 'string' || bits.length === 0) return lane;
+        const si = engineLanes.sceneIndices[i] ?? 0;
+        const sc = engineLanes.sceneCounts[i] ?? 1;
+        const steps = Array.from(bits, (c) => c === '1');
         return {
           ...lane,
-          steps: Array.from(bits, (c) => c === '1'),
-          sceneIndex: engineLanes.sceneIndices[i] ?? 0,
-          sceneCount: engineLanes.sceneCounts[i] ?? 1,
+          steps,
+          // Accents came from the parsed scene; a lengthened lane is longer
+          // than they are, and an absent entry just reads as unaccented.
+          accents: lane.accents ?? [],
+          sceneIndex: si,
+          sceneCount: sc,
+          // Label the scene actually sounding, with its position in the chain.
+          // Showing the first scene's text forever was half of what looked
+          // like a frozen display (Alex, 2026-07-29).
+          parsedLabel: sc > 1 && Array.isArray(lane.scenes) && lane.scenes[si]
+            ? `${lane.scenes[si]}  (${si + 1}/${sc})`
+            : lane.parsedLabel,
         };
       }),
     };

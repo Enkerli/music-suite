@@ -19,7 +19,7 @@
  * says WHAT.
  */
 import { parseUPI, rotate } from "./upi.js";
-import { bellCurveRandomSteps } from "./rhythm.js";
+import { parseProgressive, progressiveAt } from "./progressive.js";
 
 const MAX_MS = 50;
 const MAX_FRAC = 1 / 8;
@@ -129,32 +129,26 @@ export function parsePolyUPI(input, ctx = { n: 16 }, sceneIndices = []) {
     const sceneIndex = sceneCount
       ? ((((sceneIndices[i] ?? 0) % sceneCount) + sceneCount) % sceneCount)
       : 0;
-    // Per-scene progressive suffix, `body%N` / `body*N` (docs/SERPE_POLY.md
-    // §2.5: `/` binds loosest, so these belong to the scene inside the lane).
-    // Stripped here rather than taught to parseUPI, which stays a pure
-    // single-pattern parser.
+    // Per-scene progressive notation (docs/SERPE_POLY.md §2.5: `/` binds
+    // loosest, so `%N`, `*N` and `>N` all belong to the scene inside the lane).
+    //
+    // Detection is progressive.js's, not a local copy. Hand-rolled regexes here
+    // covered `%N` and `*N` and silently missed `>N`, so E(7,16)>16/E(1,17)>17
+    // came back "lane1: Unrecognised pattern" from a string the C++ engine
+    // parses (Alex, 2026-07-29). Sharing the parser is also what keeps the
+    // phase rules from drifting apart again.
     const laneBody = scenes[sceneIndex];
-    let progressive = null;
-    let body = laneBody;
-    const pm = /^(.*[^\s])\s*%\s*(-?\d+)$/.exec(laneBody);
-    if (pm) {
-      progressive = { kind: "offset", step: +pm[2] };
-      body = pm[1].trim();
-    } else {
-      // `body*N` — this lane GROWS by N steps per trigger. Only when '%' did
-      // not already claim a suffix: a lane carries one or the other.
-      const lm = /^(.*[^\s])\s*\*\s*(\d+)$/.exec(laneBody);
-      if (lm) {
-        progressive = { kind: "lengthen", step: +lm[2] };
-        body = lm[1].trim();
-      }
-    }
+    const progressive = parseProgressive(laneBody);
+    const body = progressive ? progressive.base : laneBody;
     const parsed = parseUPI(body, ctx);
     if (!parsed.ok) return { ok: false, lanes: [], lcm: 0, error: `${label}: ${parsed.error ?? `unparsed "${body}"`}` };
     lanes.push({
       label,
       sceneCount,
       sceneIndex,
+      // The chain as typed, so a host that knows which scene a lane is on can
+      // label it with THAT scene rather than always the first.
+      scenes,
       steps: parsed.steps,
       // null unless this lane carries `%N`. The lane's pattern at trigger n is
       // polyLaneAt(lane, n) — state derived from the trigger index, the same
@@ -205,18 +199,14 @@ function formatLane(lane) {
 export function polyLaneAt(lane, n, opts = {}) {
   if (!lane?.progressive) return lane?.steps ?? [];
   const idx = Math.max(1, Math.floor(n));
-  const { step, kind } = lane.progressive;
-  if (kind === "lengthen") {
-    // Grows by `step` per trigger, base kept as a prefix — trigger 1 is
-    // already base+step, matching the engine. The appended steps are random
-    // by design, so this is reproducible only for a given RNG (as
-    // progressive.js's lengthening is).
-    const { random = Math.random } = opts;
-    let out = lane.steps.slice();
-    for (let i = 0; i < idx; i++) out = out.concat(bellCurveRandomSteps(step, random));
-    return out;
-  }
-  return rotate(lane.steps, step * idx);
+  // progressive.js owns the per-form rules — offset rotates by step*n,
+  // lengthening appends, `>N` folds one onset per trigger — and its phases are
+  // pinned to the C++ engine's own output. The lane's already-parsed steps ARE
+  // the base, so parseBase just hands them back rather than re-parsing.
+  return progressiveAt(lane.progressive, idx, {
+    parseBase: () => ({ steps: lane.steps }),
+    ...opts,
+  }).steps;
 }
 
 /** Stable round-trip: parsePolyUPI(formatPolyUPI(p)) is p, normalized. */

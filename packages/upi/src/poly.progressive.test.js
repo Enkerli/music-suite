@@ -19,7 +19,7 @@ describe("poly lane %N", () => {
   it("attaches the offset to its own lane, leaving the others alone", () => {
     const p = parsePolyUPI("E(3,8)%2/E(3,7)");
     expect(p.ok, p.error).toBe(true);
-    expect(p.lanes[0].progressive).toEqual({ kind: "offset", step: 2 });
+    expect(p.lanes[0].progressive).toMatchObject({ kind: "offset", step: 2 });
     expect(p.lanes[1].progressive).toBeNull();
     expect(p.lanes[0].steps.length).toBe(8);
     expect(p.lanes[1].steps.length).toBe(7);
@@ -47,14 +47,14 @@ describe("poly lane %N", () => {
     const p = parsePolyUPI("E(3,8)%2/E(3,7)");
     const again = parsePolyUPI(formatPolyUPI(p));
     expect(again.ok, again.error).toBe(true);
-    expect(again.lanes[0].progressive).toEqual({ kind: "offset", step: 2 });
+    expect(again.lanes[0].progressive).toMatchObject({ kind: "offset", step: 2 });
   });
 
   it("grows a *N lane by step per trigger, keeping the base as a prefix", () => {
     const random = () => 0.5;                     // pinned only for the test
     const p = parsePolyUPI("E(3,8)*3/E(3,7)");
     expect(p.ok, p.error).toBe(true);
-    expect(p.lanes[0].progressive).toEqual({ kind: "lengthen", step: 3 });
+    expect(p.lanes[0].progressive).toMatchObject({ kind: "lengthen", step: 3 });
     expect(p.lanes[1].progressive).toBeNull();
     // Trigger 1 is already base+step (11 steps, not 8) — the engine's phase,
     // seen live when a scene entering E(3,8)*3 played 11 steps immediately.
@@ -75,7 +75,7 @@ describe("poly lane %N", () => {
     const p = parsePolyUPI("E(3,8)*3/E(3,7)");
     const again = parsePolyUPI(formatPolyUPI(p));
     expect(again.ok, again.error).toBe(true);
-    expect(again.lanes[0].progressive).toEqual({ kind: "lengthen", step: 3 });
+    expect(again.lanes[0].progressive).toMatchObject({ kind: "lengthen", step: 3 });
   });
 
   it("splits a scene chain inside a lane, not across the string", () => {
@@ -95,8 +95,8 @@ describe("poly lane %N", () => {
 
   it("keeps the progressive suffix per SCENE, not per lane", () => {
     const at = (idx) => parsePolyUPI("E(3,8)%2|E(3,8)*3/E(3,7)", { n: 16 }, [idx, 0]).lanes[0];
-    expect(at(0).progressive).toEqual({ kind: "offset", step: 2 });
-    expect(at(1).progressive).toEqual({ kind: "lengthen", step: 3 });
+    expect(at(0).progressive).toMatchObject({ kind: "offset", step: 2 });
+    expect(at(1).progressive).toMatchObject({ kind: "lengthen", step: 3 });
   });
 
   it("parses all three of the strings that started this", () => {
@@ -112,6 +112,25 @@ describe("poly lane %N", () => {
         expect(r.ok, `${s} @ scene ${t}: ${r.error}`).toBe(true);
       }
     }
+  });
+
+  it("handles a progressive TRANSFORM in a lane, which regexes here missed", () => {
+    for (const s of ["E(7,16)>16/E(1,17)>17", "E(7,16)E>16/E(1,17)E>17"]) {
+      const p = parsePolyUPI(s);
+      expect(p.ok, `${s}: ${p.error}`).toBe(true);
+      expect(p.lanes[0].progressive).toMatchObject({ kind: "transform" });
+      expect(p.lanes[1].progressive).toMatchObject({ kind: "transform" });
+    }
+    // The transformer letter before '>' is read, defaulting to Barlow.
+    expect(parsePolyUPI("E(7,16)E>16/E(1,17)>17").lanes[0].progressive.type).toBe("e");
+    expect(parsePolyUPI("E(7,16)>16/E(1,17)>17").lanes[0].progressive.type).toBe("b");
+  });
+
+  it("advances a >N lane one fold per trigger", () => {
+    const lane = parsePolyUPI("E(1,8)>8/E(3,7)").lanes[0];
+    const bitsAt = (n) => bits(polyLaneAt(lane, n));
+    // Same sequence progressive.js pins against the C++ probe for mono.
+    expect([1, 2, 3].map(bitsAt)).toEqual(["10000000", "10000001", "10001001"]);
   });
 
   it("still rejects what is genuinely unparseable in a lane", () => {
