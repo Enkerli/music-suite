@@ -34,11 +34,18 @@ import {
 import { VoiceSplitter } from "@enkerli/voice-routing";
 import { identify, longShort, durations, dynamicDurations, parseNamedPatterns, describeNamedPattern, parseLongShortSuffix, parseUPI, microtiming, timingScales, parseProgressive, progressiveAt } from "@enkerli/upi";
 import { createSMF } from "@enkerli/midi";
+import { execFileSync } from "node:child_process";
+import { fileURLToPath } from "node:url";
+import { createRequire } from "node:module";
+const PKG_VERSION: string = (() => {
+  try { return createRequire(import.meta.url)("../package.json").version ?? "0.0.0"; }
+  catch { return "0.0.0"; }
+})();
 import { wrapPattern } from "@enkerli/library";
 import type { TraceLevel } from "@enkerli/accompaniment";
 import type { AppId, Destination, ParamMode } from "@enkerli/protocol";
 
-const USAGE = `msuite <command> …
+const USAGE = `msuite <command> …\n  --version                      which build, and which checkout it runs from
   chord <values…> [--pcs|--notes]
   pattern <spec>                        E(3,8) · 0x94:8 · o111:8 · d73:8 · 10010010
                                         PD(20%) = push/pull microtiming (timing);
@@ -187,9 +194,38 @@ function openMidiFromFlags(args: Args, log: (s: string) => void): { player: Retu
   return { player, finish };
 }
 
+/**
+ * Which msuite is this, and where is it running from?
+ *
+ * The last question is the one that matters in practice. On 2026-07-27 a global
+ * `msuite` link pointed at a stale second checkout and reported a pattern as
+ * unrecognised that the current tree parsed fine; the only way to find out was
+ * `readlink -f $(which msuite)`. The plugins gained build stamps for the same
+ * reason — knowing WHICH build you are running should not require detective work.
+ */
+function versionReport(): string {
+  const here = fileURLToPath(new URL(".", import.meta.url));
+  const lines = [`@enkerli/cli ${PKG_VERSION}`, `running from  ${here}`];
+  // Commit and working-tree state, when this is a git checkout rather than an
+  // installed copy. Best-effort: a tarball install has no git, and that is fine.
+  try {
+    const opts = { cwd: here, encoding: "utf8" as const,
+                   stdio: ["ignore", "pipe", "ignore"] as ("ignore" | "pipe")[] };
+    const sha = execFileSync("git", ["rev-parse", "--short", "HEAD"], opts).trim();
+    const dirty = execFileSync("git", ["status", "--porcelain"], opts).trim().length > 0;
+    const when = execFileSync("git", ["log", "-1", "--format=%cd", "--date=format:%Y-%m-%d %H:%M"], opts).trim();
+    lines.push(`commit        ${sha}${dirty ? " (dirty)" : ""}  ${when}`);
+  } catch {
+    lines.push("commit        unknown (not a git checkout)");
+  }
+  lines.push(`node          ${process.version}`);
+  return lines.join("\n");
+}
+
 async function main(): Promise<number> {
   const [cmd, ...rest] = process.argv.slice(2);
   if (!cmd || cmd === "--help" || cmd === "help") { console.log(USAGE); return 0; }
+  if (cmd === "--version" || cmd === "-v" || cmd === "version") { console.log(versionReport()); return 0; }
   const args = parseArgs(rest);
   if (args.flags.has("help")) { console.log(USAGE); return 0; }
 

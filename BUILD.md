@@ -310,6 +310,24 @@ What the build tools expect, and how to bend it:
   only the bundle is rebuilt — the one case it exists to catch. So "is this
   bundle current?" is now a glance rather than an investigation.
 
+  **Coverage, as of 2026-07-30** — every suite tool can now say which build it
+  is. The mechanism differs because the build paths do, which is the point of
+  "appropriate":
+
+  | Tool | UI stamp | Native stamp |
+  |---|---|---|
+  | Serpe, PitchFold, DrawnQurve, workspace-plugin | `cmake/write-build-tag.cmake` → esbuild `--inject` | own editor / shared helper |
+  | MIDIcurator | vite `define` (shown in its title) | shared helper |
+  | Progression Studio | `WebUI/build.mjs` | shared helper |
+  | Vane | *none, and correctly so* — `apps/vane/index.html` is embedded verbatim, so there is no bundle to stamp separately | own editor |
+  | `msuite` CLI | `msuite --version` | n/a |
+
+  `msuite --version` reports the package version, **which checkout it is running
+  from**, and the commit with a dirty flag. That middle line is the one that
+  earns its keep: on 2026-07-27 a global link pointed at a stale second checkout
+  and reported a pattern unrecognised that the current tree parsed fine, and the
+  only way to find out was `readlink -f $(which msuite)`.
+
   From the command line:
 
   ```bash
