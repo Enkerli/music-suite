@@ -128,7 +128,12 @@ function auditPlugin({ repo, app, name }) {
     ...grabAll(jsForEmits, /backend\.emitEvent\s*\(\s*['"]([A-Za-z_]\w*)['"]/g),
     ...grabAll(jsForEmits, /\bemit\s*\(\s*['"]([A-Za-z_]\w*)['"]/g),
     ...grabAll(jsForEmits, /Bridge\.send\s*\(\s*['"]([A-Za-z_]\w*)['"]/g),
-    ...grabAll(jsForEmits, /\bsend\s*\(\s*['"]([A-Za-z_]\w*)['"]/g),
+    // NOT a generic /\bsend\(/: that captures the first argument of any
+    // sendSomething() helper, and `sendParamActual('pcsMask', v)` carries a
+    // PARAMETER id there, not an event id. Every real send in this suite goes
+    // through juceEmit, backend.emitEvent, emit or Bridge.send above, so the
+    // generic pattern only ever added PitchFold's pcsMask/pcsRoot as phantom
+    // dropped events.
   ]);
   const jsHandles = grabAll(js, /(?:ev|e|msg)\.type\s*===\s*['"]([A-Za-z_]\w*)['"]/g);
   // The helpers' own parameter name, picked up from their generic definitions.
