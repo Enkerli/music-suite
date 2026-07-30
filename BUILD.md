@@ -263,6 +263,35 @@ What the build tools expect, and how to bend it:
   without `--recurse-submodules` still builds. Vane and DrawnQurve don't use
   the submodule.
 
+- **The two repos off the shared archetype are where install bugs hide.** Vane
+  and DrawnQurve reimplement `EnkerliPlugin.cmake` inline rather than calling
+  it, so they do not inherit changes to it — and on 2026-07-29 a sanity check
+  found both had the *same* setting wrong, in opposite directions:
+
+  | Repo | `COPY_PLUGIN_AFTER_BUILD` was | Effect |
+  |---|---|---|
+  | DrawnQurve | hardcoded `FALSE` | **no build ever installed.** `suite-build` reported success while the installed plugin sat three weeks behind its source (AU Jul 13, VST3/CLAP Jul 8, HEAD Jul 27) |
+  | Vane | hardcoded `TRUE` | **`--no-install` silently did nothing.** A branch build would still have overwritten the installed plugin — the hazard that flag exists for |
+
+  Both now declare and honour `option(ENKERLI_INSTALL_PLUGINS … ON)`, matching
+  the archetype (DrawnQurve `63ee261`, Vane `62a8989`). iOS stays `FALSE` in
+  both: a cross-compile has no install location on the build host.
+
+  The lesson for the next change to `EnkerliPlugin.cmake`: **grep Vane and
+  DrawnQurve for the same setting**, because nothing else will tell you they
+  diverged. A build step that silently does nothing does not fail a build.
+
+- **Checking what is actually installed**: compare the Mach-O *inside* the
+  bundle, never the bundle's own timestamp. `.component`/`.vst3`/`.clap` are
+  directories, and a directory's mtime changes only when a direct child does —
+  which is how a current CLAP can look two days stale (I made that mistake
+  before catching it):
+
+  ```bash
+  find ~/Library/Audio/Plug-Ins/CLAP/Serpe.clap -type f -perm -u+x -path '*MacOS*' \
+    | head -1 | xargs ls -lT
+  ```
+
 ### 4.1 Build flags
 
 `suite-build <repo[,repo…]|all> [flags]` (full text: `suite-build --help`):
