@@ -86,8 +86,22 @@ function transformStep(steps, type, target) {
 }
 
 /**
- * The pattern at trigger `n` (1-based: n=1 is the base, untransformed — the
- * engine deliberately shows the starting pattern on the first trigger).
+ * The pattern at trigger `n`, 1-based.
+ *
+ * WHAT n=1 GIVES YOU DEPENDS ON THE OPERATOR, and they do not agree. This
+ * comment used to claim "n=1 is the base, untransformed" for all three, which
+ * was true of exactly one of the branches below it:
+ *
+ *   %N  offset       n=1 is ALREADY rotated by N. The base is never heard.
+ *   *N  lengthen     n=1 is ALREADY base+N steps. The base is never heard.
+ *   >N  transform    n=1 IS the bare base. The base is heard.
+ *
+ * That split is inherited from the engine, which is authoritative (INTENT D3):
+ * PluginProcessor.cpp sets `progressiveOffset = newStep` on setup — literally
+ * commented "Start with first offset" — while the transform path counts from
+ * the base. See INTENT D6; whether the split is *right* is an open question,
+ * not a settled one, and changing it here alone would just re-open the
+ * divergence that 2026-07-30 closed.
  *
  * @param {object} desc      from parseProgressive
  * @param {number} n         trigger index, 1-based

@@ -188,16 +188,29 @@ Two scenes against three realign every six triggers, not every one.
 
 **Why:** same as D4. Lockstep would collapse poly into mono with extra syntax.
 
-### D6 — Progressive `%N` and `*N` start one step in
-The first trigger of `E(3,8)%2` is already rotated by 2; `E(3,8)*3` is already
-11 steps. The un-transformed base is never heard.
+### D6 — `%N` and `*N` skip the base; `>N` does not
+The first trigger of `E(3,8)%2` is already rotated by 2, and `E(3,8)*3` is
+already three steps longer. `E(1,8)>8`, by contrast, gives you the bare base on
+trigger 1.
+
+**Verified 2026-07-30, both sides:** `PluginProcessor.cpp:1864` sets
+`progressiveOffset = newStep` with the comment *"Start with first offset"*;
+`packages/upi/src/progressive.js` rotates by `step * idx` with `idx` clamped to
+a minimum of 1, and lengthens from `i = 0` while transform counts from `i = 1`.
 
 **Why:** it is what the engine has always done, and the engine is authoritative
 (D3). The JS reference disagreed until 2026-07-30 and was moved to match.
 
-**Open question underneath it:** is that the *right* behaviour, or just the
-incumbent one? Showing the base first would be defensible. Nobody has argued
-for it out loud, so it stands.
+**The open question, stated properly.** This entry used to say the operators
+agreed with each other. They do not, and that is the part worth being nervous
+about — not "does `%N` start one step in" but "why do two operators skip the
+base and the third one not?" Nobody chose that. It is the residue of three code
+paths written at different times.
+
+`progressive.js` carried a docstring asserting the base *is* shown on trigger 1
+— true for `>N`, false for the two branches directly beneath it. Corrected
+2026-07-30. **Options are laid out in [PROGRESSIVE_PHASE](PROGRESSIVE_PHASE.md);
+nothing has been decided and nothing should change until it is.**
 
 ### D7 — The jazz corpus is never published
 Only derived statistics ship. The corpus stays local and gitignored.
