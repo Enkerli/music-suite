@@ -13,6 +13,14 @@ gap**. The gaps are not failures of the use case; surfacing them is the point.*
 what it exercises · what it surfaces. "Reality today" is called out wherever
 a step is aspirational, so a tester knows what they can actually drive.
 
+*Refreshed 2026-07-30: every `msuite` command named across U1–U8 was checked
+against the CLI's own dispatch and all seven exist. U8 was added for Serpe's
+poly work, which post-dates the original set. The "reality today" notes in
+U1–U7 are as written on 2026-07-15 and have NOT been re-verified — treat them
+as claims of that date, not of this one. Verifying them is the next pass, and
+the honest place to start is a session with the generated test sheet
+(`node tools/dataflow/testsheet.mjs`).*
+
 ---
 
 ## U1 — Hands-free sound control
@@ -204,11 +212,61 @@ reproducibility · validation-with-clear-errors · self-describing manifests.
 cycle. This is the use case the plane's headless work satisfies most directly;
 it is also the readiest to run as an actual test session.
 
+## U8 — Two rhythms at once, each moving at its own rate
+**Personas:** Rhythm explorer (primary) · Theory explorer/educator (secondary)
+**Trigger:** Wanting two patterns of different lengths running together, with
+one of them *changing* while the other holds — the thing a single pattern
+cannot express.
+**Tools:** Serpe (plugin or webapp) · a DAW or the standalone · optionally
+`msuite upi` to preview a lane's sequence before playing it.
+
+**Flow**
+1. Type a poly pattern — lanes separated by `/`:
+   `E(3,8)%2/E(3,7)`. Two lanes, eight steps against seven, and the first one
+   rotates by two steps on every trigger.
+2. Trigger it: press Enter, send a MIDI note, or automate the Tick parameter.
+   All three advance it, and identically.
+3. Watch the lane rows. Lane 1's pattern rotates and its label follows; lane 2
+   holds. The grid they share is their lcm — 56 steps for 8 against 7.
+4. Give a lane a scene chain of its own: `E(3,8)|E(3,8)*3/E(3,7)`. Now lane 1
+   alternates between two scenes, one of which grows by three steps each time
+   it comes round, while lane 2 stays put.
+5. To see a lane's sequence without playing it, `msuite upi "E(3,8)%2"` prints
+   the pattern per trigger.
+
+**Success (observable):** you hear two cycles of different lengths phasing
+against each other; the changing lane visibly changes on every trigger while
+the other does not; and the same string typed twice does the same thing twice.
+
+**Exercises:** `PolyParser` lane splitting · per-lane progressive state
+(`%N` offset, `*N` lengthening, `>N` transform) · per-lane scene chains ·
+the poly clock's cycle lock · the `polyState` bridge channel that carries each
+lane's real pattern to the UI.
+
+**Surfaces:** *reality today:* **all of the above works, verified 2026-07-30**
+— per-lane `%N`, `*N`, `>N` and `|` chains, on Enter and on MIDI, with the
+lane rows following the engine. Notation is settled: `/` binds loosest, so
+everything else belongs to a lane (docs/SERPE_POLY.md §2.5). Two caveats
+worth knowing before a session:
+
+- **Which side of the slash carries the `*` changes the music.** In the
+  default cycle lock, lane 0 defines the cycle, so `E(3,8)*3/E(3,7)` stretches
+  the whole cycle as lane 0 grows, while `E(3,7)/E(3,8)*3` grows one lane
+  inside a fixed cycle.
+- **A `*N` lane grows without bound** — 11, 14, 17, 20 steps and onward. That
+  is the notation working as defined, not a fault, but a long session on one
+  ends up with a very long pattern.
+
+Still open: the webapp's own scheduler drives lanes locally, so a browser
+session and a plugin session are not yet proven to agree beyond the parser
+(the dataflow probe covers the plugin side only —
+[DATAFLOW_AUDIT.md](DATAFLOW_AUDIT.md)).
+
 ---
 
 ## What the set reveals (for the plane's backlog)
 
-Reading the seven together, the recurring gaps are consistent — and small:
+Reading the eight together, the recurring gaps are consistent — and small:
 
 - **In-app adoption — every web app is now wired.** Serpe (keyboard + bus,
   both ways), Vane (bus → real sound), the PickPCS → PitchFold `scale` pair,

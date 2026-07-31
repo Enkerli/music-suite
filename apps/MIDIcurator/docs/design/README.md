@@ -1,6 +1,31 @@
 # MIDIcurator Design Documentation
 
-**Last updated:** 2026-02-12
+> **HISTORICAL RECORD — a design snapshot from February 2026. Kept
+> deliberately; do not treat as a current spec.**
+>
+> This set captures the Design Thinking work that founded the app: personas,
+> empathy maps, journey maps, principles. That reasoning is still valuable and
+> is why the set is kept rather than pruned. What it is *not* is a description
+> of the code today — the app moved on, and the docs did not follow.
+>
+> Concretely, as of 2026-07-30: these files reference components that have been
+> renamed or removed (`ThemeToggle.tsx`, `spelling.ts` among them) and link to a
+> documentation set that was never written (`ARCHITECTURE.md`,
+> `HARMONY_ENGINE.md`, `SEGMENTATION.md`, `OPEN_NOTES.md`, `METADATA_MIDI.md`).
+> `node tools/doc-audit.mjs` from the monorepo root lists them; they are left in
+> place because rewriting a February document to match July code would destroy
+> the record without adding a spec.
+>
+> **For what is true now**, see [`../../README.md`](../../README.md) (current),
+> [`../../MIDI_CURATOR_DOCS.md`](../../MIDI_CURATOR_DOCS.md) and
+> [`../SPEC-LEADSHEET-BAR.md`](../SPEC-LEADSHEET-BAR.md) — and the code, which
+> outranks all of them.
+>
+> **Read this set for intent, not for interface.** The problem statements and
+> principles have aged well; the component names have not.
+
+**Last updated:** 2026-02-12 *(the design work; this banner added 2026-07-30)*
+
 
 ## Overview
 
