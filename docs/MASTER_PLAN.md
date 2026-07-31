@@ -107,7 +107,7 @@ overlaid canvas, one playhead per sounding curve):
   or many? (This intersects the `@enkerli/upi` promotion — decide the data
   shape once, for both.)
 
-Full spec when we pick it up: `docs/SERPE_POLYRHYTHM.md`.
+Full spec when we pick it up: `docs/SERPE_POLY.md`.
 
 ---
 
@@ -209,9 +209,20 @@ things together" work. Skeleton once lifted:
 - **Cadence** — when in the roadmap testing happens (proposal: after §1.1
   ships the binding layer, because U1/U5 can't be tested before it exists).
 
-### 2.4 Training & documentation plan — *to write*
+### 2.4 Training & documentation plan — **written 2026-07-31**
 
-Two audiences, deliberately separated:
+> Now a document: **[TRAINING_PLAN.md](TRAINING_PLAN.md)**. Two ladders — a
+> musician's (A0 make a sound having installed nothing → A7 cross-tool use
+> cases) and a contributor's (B0 read the brief → B6 how we know things) —
+> ordered by what each rung assumes rather than by obligation, since a course
+> you must finish in order contradicts INTENT B2.
+>
+> It also names what is missing rather than implying completeness: no
+> screenshots or audio on the rungs that are about hearing, `msuite jam` felt
+> exactly where it does not exist, nothing on the corpus side, and the fact
+> that Part A has never been walked by an actual newcomer.
+
+The shape it was written to (retained as the record):
 
 - **User-facing** — per-tool quickstarts and the cross-tool use-case
   walkthroughs; single-sourced through the existing site pipeline

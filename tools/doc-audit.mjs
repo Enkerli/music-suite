@@ -162,7 +162,13 @@ export function auditDocs() {
       if (fenced) return;   // commands inside fences are examples, checked below
 
       // ── msuite commands
-      if (msuite) {
+      // Same exemption as `historical` above, for the other direction: INTENT
+      // H1 and the training plan both name `msuite jam` precisely BECAUSE it
+      // does not exist. Flagging an accurate statement of absence punishes the
+      // doc for being right — the identical mistake this check made about
+      // `suite-build --help`.
+      const namesAbsence = /\b(does not exist|doesn't exist|not implemented|never implemented|no such command|wishlist|not yet)\b/i.test(line);
+      if (msuite && !namesAbsence) {
         for (const m of line.matchAll(/`msuite ([a-z][\w-]*)/g)) {
           const cmd = m[1];
           if (!msuite.has(cmd) && !["--version", "help"].includes(cmd))
