@@ -18,19 +18,21 @@ though it makes me a bit nervous" and asked to hear the options.*
 > MIDI note-in. Pre-existing — proven by stashing the phase change and watching
 > the old code sit equally frozen one step in. Filed separately.
 
-## The nervousness is well placed, but slightly off-target
+## The nervousness was well placed, but slightly off-target
 
-The question sounds like *"should `%N` start one step in?"* Having read both
-implementations, the sharper question is **why the three progressive operators
-disagree with each other**:
+The question sounded like *"should `%N` start one step in?"* Reading both
+implementations turned up a sharper one: **why did the three progressive
+operators disagree with each other?** This was the state before the change:
 
-| Operator | Trigger 1 gives you | Base heard? |
+| Operator | Trigger 1 gave you | Base heard? |
 |---|---|---|
 | `%N` offset | already rotated by `N` | **no** |
 | `*N` lengthen | already `base + N` steps | **no** |
 | `>N` transform | the bare base | **yes** |
 
-Verified 2026-07-30 on both sides, not inferred:
+All three now give the bare base.
+
+Verified on both sides before touching anything, not inferred:
 
 - **Engine** — `PluginProcessor.cpp:1864`, `progressiveOffset = newStep;` with
   the comment *"Start with first offset"*.
@@ -45,7 +47,7 @@ table next to each other. The module's own docstring asserted that trigger 1 is
 always the base — true of one branch, false of the two directly beneath it.
 Corrected 2026-07-30.
 
-**So the real risk is not the convention. It is that there isn't one.**
+**So the real risk was never the convention. It was that there wasn't one.**
 
 ---
 
@@ -107,17 +109,23 @@ A global "progressive chains start at the base" toggle.
 
 ---
 
-## Recommendation
+## What was recommended, and what was chosen
 
-**A now, B if it survives listening.**
+The recommendation at the time was **A now, B if it survives listening** — not
+because A was right, but because nobody had *heard* the difference, and this is
+a musical question wearing a software question's clothes.
 
-Not because A is right — because the honest state is that nobody has *heard*
-the difference, and this is a musical question wearing a software question's
-clothes. The arguments above are all arguments from principle, and the suite's
-own brief (INTENT B1: semi-generative musicking, B3: theory through practice)
-says that is the wrong way to settle it.
+**Alex chose B directly**, on the principle rather than the listening test:
+*"I'd be more comfortable with bare base."* That is a fair way to settle it —
+"what you typed is what you hear first" is the rule that needs no table, and the
+listening test was proposed to break a tie that turned out not to exist.
 
-There is a cheap way to actually decide, and it already exists.
+The listening material below is kept anyway, because it is still the way to
+check that the change *sounds* right rather than merely tests right — and
+because the trigger-index gap at the end is worth closing regardless.
+
+`serpe_dataflow_probe` instantiates the real processor, runs a scripted session
+offline, and writes **the MIDI it produced**.
 `serpe_dataflow_probe` instantiates the real processor, runs a scripted session
 offline, and writes **the MIDI it produced**. Point it at the same patterns
 under both conventions and listen to the two files:
@@ -125,6 +133,10 @@ under both conventions and listen to the two files:
 ```bash
 ~/Documents/Coding/rhythm_pattern_explorer/build/serpe_dataflow_probe_artefacts/Release/serpe_dataflow_probe
 ```
+
+It now also prints the engine's pattern per trigger, which is what makes phase
+observable at all — a MIDI file cannot show you that trigger 1 was the base.
+That addition is what exposed the separate mono-advance bug in the banner.
 
 Patterns worth putting through it, chosen to make the difference audible rather
 than theoretical:
@@ -141,14 +153,18 @@ that switches convention mid-sequence is the case the current split makes
 genuinely hard to reason about, and it is the one a person will hit while
 playing rather than while reading.
 
-**If B wins the listening test**, do it as one change across engine and JS
-together, with the conformance vectors regenerated in the same commit — the
+**Done as one change across engine and JS together**, with the vectors re-taken
+from the rebuilt C++ in the same pair of commits rather than hand-shifted — the
 2026-07-30 work closed a JS/C++ divergence, and this is exactly the shape of
 change that reopens one if it lands on one side only.
 
 ## What would make this decidable sooner
 
-The trigger index is not currently visible anywhere in the UI. If the lane panel
-showed *"trigger 3 · rotated 6"*, the phase question would have answered itself
-long ago, and it is worth doing regardless of which option wins — it is the
-explainability commitment (B5) applied to the exact place it is missing.
+## Still open
+
+The trigger index is not visible anywhere in the UI. If the lane panel showed
+*"trigger 3 · rotated 6"*, the phase question would have answered itself long
+ago — and the mono-advance bug in the banner, which sat unnoticed through
+however many sessions, would have been obvious the first time someone held a
+note down. It is the explainability commitment (B5) applied to the exact place
+it is missing, and it is now the most valuable small thing left here.
