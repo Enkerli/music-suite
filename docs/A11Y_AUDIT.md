@@ -17,6 +17,17 @@
 > "no focus indicator" flag is a tooling false positive (its ring lives on
 > a `::after`). The original findings are preserved below as the record.
 
+> **Currency note 2026-07-30.** This audit covered the ten apps that existed on
+> 2026-07-11. `workspace` shipped 2026-07-15 and is **not** in it — "axe-clean
+> on all eleven pages" above means eleven *pages* of the then-ten apps, not the
+> eleven apps there are now. Nothing here says anything about `workspace`.
+>
+> Also worth stating plainly: this was an **automated** sweep. axe finds a real
+> and useful class of defect and cannot find a cognitive barrier, a confusing
+> reading order, or a control that is technically labelled and practically
+> unusable. The manual counterpart is [A11Y_TEST_PLAN](A11Y_TEST_PLAN.md), and
+> it has not been run.
+
 *Automated sweep of all ten apps + the showcase index, at the production
 `docs/` layout (rebuilt via `sync-apps --monorepo`, served locally, driven
 headless). Method: axe-core 4.x, WCAG 2.0/2.1 A+AA rulesets, run in **both

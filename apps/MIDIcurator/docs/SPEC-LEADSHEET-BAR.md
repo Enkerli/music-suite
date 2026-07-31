@@ -2,6 +2,14 @@
 
 *Spec prepared 2026-02-09. Companion to PLAN.md §2.1.*
 
+> **Currency pass 2026-07-30.** This is a LIVE spec, not a historical record
+> (unlike `docs/design/`, which is marked as such). Checked against the code:
+> the four files it names all exist, and `parseLeadsheet` behaves as described.
+> One section had gone stale — §2.4, slash bass, corrected below.
+>
+> **Not re-verified:** §5's rendering rules and §5.4's inline editing were read,
+> not exercised. Treat those as 2026-02 claims until someone drives the UI.
+
 ---
 
 ## 1. Concept
@@ -60,19 +68,28 @@ All symbols parseable by the existing `parseChordSymbol()` in
   (`m`, `min`, `-`, `7`, `maj7`, `∆`, `dim`, `°`, `aug`, `+`,
    `m7`, `-7`, `m7b5`, `ø`, `sus4`, `9`, `13`, `add9`, `6`, etc.)
 
-### 2.4 Slash bass chords (future enhancement)
+### 2.4 Slash bass chords — **SUPPORTED since (at latest) 2026-07-30**
 
-Format: `Am7/G`, `C/E`. The `/Bass` suffix is **not yet supported** by
-`parseChordSymbol()`. The parser will need a minor extension:
-1. Split on `/` after quality extraction
-2. Parse the bass note as a root (letter + accidental)
-3. Store as `bassNote` field on the parsed result
+Format: `Am7/G`, `C/E`.
 
-For v1, slash bass is **deferred** — the parser strips `/…` and logs a
-warning. The underlying chord is still identified correctly by root +
-quality.
-
----
+> **Corrected 2026-07-30.** This section said slash bass was "**not yet
+> supported**" and "**deferred** for v1", with the parser stripping `/…` and
+> logging a warning. That is no longer true, and the spec had it backwards.
+>
+> `chord-parser.ts` splits the symbol at the last `/` (`slashIdx`, `bassSuffix`)
+> and `parseLeadsheet` carries the result through: a parsed chord now has
+> `bassPc` and `bassName` alongside `root`, `rootName`, `qualityKey` and
+> `symbol`. Verified by running it:
+>
+> ```
+> parseLeadsheet("| Am7/G | C/E |", 2)
+>   → bar 0 chord 0: { root: 9, rootName: "A", …, bassName: "G" }
+> ```
+>
+> What is *not* established here is what the renderer and the NCT analysis do
+> with a bass note that is not in the chord — the spec never said, because it
+> assumed the feature away. That is now a real open question rather than a
+> deferral.
 
 ## 3. Data Model
 

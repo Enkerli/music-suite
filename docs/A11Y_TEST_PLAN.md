@@ -1,5 +1,14 @@
 # Accessibility test plan — Enkerli Music Suite
 
+> **Currency pass 2026-07-30.** The app table below listed ten apps. There are
+> now **eleven** — `workspace` landed 2026-07-15, four days *after* the
+> automated sweep in [A11Y_AUDIT](A11Y_AUDIT.md), and has never been through
+> either. It is added to the table below and flagged as unaudited.
+>
+> The rest of this plan was verified against the source on 2026-07-01 and has
+> not been re-verified since. Treat component claims older than that date as
+> claims, not findings.
+
 *Prepared 2026-07-01 for testing carried out through specialized means
 (external testers, assistive-technology users, and/or audit tooling).
 This document is intended to be self-sufficient: no prior knowledge of
@@ -8,7 +17,7 @@ verified against the source on the preparation date.*
 
 ## 1. What you are testing
 
-A suite of ten music web applications sharing one design system
+A suite of eleven music web applications sharing one design system
 (`@enkerli/ui`: design tokens, CSS components, and a small set of
 framework-agnostic interactive components). The same UI code also runs
 inside audio-plugin windows (JUCE WebViews) on macOS and iPadOS — §6
@@ -45,6 +54,7 @@ Live apps (GitHub Pages): `https://enkerli.github.io/music-suite/apps/<name>/`
 | `pitchfold` | PCS quantizer UI | PCS controls, range sliders, collapsible sections |
 | `drawnqurve` | Gesture/automation curve editor | Canvas curve drawing (pointer-heavy), MIDI out |
 | `vane` | Synth UI + browser-playable voice | Tabbed panels, knobs/sliders, WebAudio playback, MIDI in (Chromium only) |
+| `workspace` | **NEVER AUDITED** — cross-app control surface: binds keys and MIDI to commands in the other apps | Key-capture field ("press a key…"), MIDI learn, per-module sliders/pads, a global key listener |
 | `style-gallery` | **Design-system reference page** | Every token, control style, and shared component in one place — the best first stop to test components in isolation |
 
 Notes for testers:
@@ -53,6 +63,13 @@ Notes for testers:
   MIDI is expected there, broken layout or dead-end UI is a finding.
 - `drawnqurve` and `serpe` render heavily to `<canvas>`; these are the
   highest-risk apps for screen-reader users and deserve extra attention.
+- **`workspace` is the highest-risk app for keyboard users, and untested.** It
+  installs a document-level key listener and binds bare single keys (`]`, `[`,
+  `m`) to commands in other apps. The only guard is `isTyping(e.target)`, which
+  covers text fields — it does not obviously cover a focused button, select, or
+  a screen reader's own navigation keys. Whether that steals keystrokes from
+  assistive technology is exactly the kind of thing this plan exists to find
+  out, and nobody has checked. Please test it early and report generously.
 
 ## 3. Test lenses — the seven personas
 

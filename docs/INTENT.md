@@ -19,8 +19,83 @@ one.
 | [USE_CASES](USE_CASES.md) | who it is for, and what they can actually do |
 | **INTENT** (this) | why it is like this, and what we are still chewing on |
 
+Read in three parts: **B** is the brief the whole thing serves, **D** are
+settled decisions, **H** are ideas parked mid-flight, **L** are lessons about
+method. B is the part that cannot be recovered from the code.
+
 Entries are not tickets. They close only when the question stops being live,
 and several will stay open for years — which is fine, and worth seeing.
+
+---
+
+## B — The brief
+
+*Added 2026-07-30, from Alex. The D-entries below are choices; this is what
+they are choices **in service of**. It is easy to keep the decisions and lose
+this, and then the suite still works and is no longer the same thing.*
+
+### B1 — Playfulness is a requirement, not a garnish
+Exploration, experimentation, lucky mistakes, "what if". Going away from what
+is generic, expected, common.
+
+**Smidgen** is the tell. The word keeps surfacing on its own: as a candidate
+name for what shipped as `@enkerli/accompaniment` ([GLORIARP_BRIEF](GLORIARP_BRIEF.md)),
+and as MIDIcurator's name for its wishlist tier — *"Tier 4 — Wishlist / Future
+(smidgen territory)"* ([PLAN](../apps/MIDIcurator/PLAN.md)). It means a small
+speculative amount of something, and the fact that a codebase reaches for that
+word twice, unprompted, is the brief showing through. Alex, 2026-07-30:
+*"'Smidgen' is part of that."*
+
+**What this rules out:** the sensible-default reflex. When a choice is between
+"the thing everyone does" and "the thing that might surprise someone", the
+brief says the second is at least as valid, and needs no further defence.
+
+**What it does not license:** breaking things, or hiding what a control does.
+Playful is not careless. A surprising *result* is the goal; a surprising
+*failure* is still a bug.
+
+### B2 — Not to generate what you would have heard anyway
+The point is not automatic music. It is inspiration, curation, and hearing
+something unexpected — then choosing. The suite proposes; a person disposes.
+
+**Why it matters for design:** it moves the quality bar off "is the output
+good" and onto "is the output *worth listening to and deciding about*". A tool
+that reliably produced pleasant, ordinary results would have failed this brief.
+
+### B3 — Theory through practice
+The concepts are learned by hearing and doing them, not by reading them first.
+A pitch-class set is a thing you rotate and listen to. Euclidean rhythm is a
+thing you watch land on the beat.
+
+### B4 — Explainability, *especially* for the weird parts
+Much of what is under the hood is unfamiliar — Euclidean/Bjorklund, pitch-class
+set theory, corpus statistics, Morse, binary/hex pattern encodings. That is a
+reason to explain more, not to hide it behind a preset. Nobody should have to
+already know the maths to use the thing, and nobody should be prevented from
+finding out what it is doing.
+
+The test: can a user get an answer to "why did it do that?" without reading the
+source? Where they cannot, that is a gap, whatever else is finished.
+
+### B5 — Accessibility as welcome, not as compliance
+The commitment is a real analysis with practical tests — screen reader,
+keyboard-only, magnification — and explicit attention to **cognitive** barriers,
+which no automated tool reports.
+
+Documentation carries the same double duty: it should work as onboarding for
+someone arriving cold **and** leave room for unplanned exploration. Those pull
+against each other, and the resolution is not to pick one.
+
+Status, honestly: [A11Y_AUDIT](A11Y_AUDIT.md) is automated and was clean on the
+ten apps of 2026-07-11. [A11Y_TEST_PLAN](A11Y_TEST_PLAN.md) is the manual
+counterpart and **has not been run**. `workspace` has been through neither.
+
+### B6 — "Workspace", not "playground"
+*Playground* is overused, and it undersells this by implying nothing is at
+stake. What the suite actually offers is closer to a **workspace** — a place
+with your materials out, where work happens and play is how the work gets done.
+That the app named Workspace is a cross-app control surface is an accident of
+naming; the word is doing the more important job elsewhere.
 
 ---
 
@@ -34,9 +109,24 @@ they were decisions. Each says what it is, why, and what breaks if reversed.
 the least significant bit. Hex and octal digits are little-endian too, so
 `0x1:4` is `1000`, not `0001`.
 
-**Why:** a rhythm is read left to right in time, and a pattern's first step
-should be its first digit. The alternative puts the downbeat at the far end of
-the number.
+**Why:** *consistency of direction*, held strictly. A rhythm is read left to
+right in time, so the first step is the first digit — and then that same rule is
+carried all the way down, through hex and octal digits too, without an exception
+anywhere.
+
+Alex's own framing (2026-07-30), worth keeping in his words rather than mine:
+
+> There's an analogy to date formats and even address formats. Go in a single
+> direction: stick to it. Small to big or big to small doesn't matter.
+> Consistency does.
+
+Left-to-right specifically, because that is the reading direction in French and
+English — **left is the first step, in a scale or in a beat**.
+
+The honest part: the notation systems this carries through are themselves rarely
+used elsewhere, and where they *are* used, they never apply this principle, at
+least not as strictly. That inconsistency in the wider world is precisely what
+bothered Alex enough to make this a rule here.
 
 **If reversed:** every hex/octal/decimal pattern in every doc, test vector and
 saved session silently means something else. Reverted once already (2026-06-22,
@@ -135,6 +225,23 @@ would be *for* inside a DAW, which is the missing piece, not the build.
 through one. `pluginval` builds on Linux and `lv2lint` exists, so the rungs are
 available; found 2026-07-30 when a Linux `--ladder` run reported OK for seven
 repos having validated nothing.
+
+### H8 — The draft blogpost, becoming a series *(2026-07-30)*
+Alex has an incomplete draft post covering most of the suite in one pass —
+DrawnQurve, ProgGenie, the Chord Dictionary, MIDIcurator/GloriArp, Vane
+(expression, tuning, MTS-ESP, Robby Kilgore chording), the `msuite` CLI, Serpe,
+PitchFold, Exquisite Fingerings, Workspace — plus two sections that are not
+about the tools at all: *The Vibes* (vibecoding, and what it costs) and *The
+Project* (MTILT).
+
+Likely to become a series rather than one post. It is listed here because it is
+currently the only place several framings exist in Alex's own words, and because
+a series would need the same thing this file needs: the *why*, not the feature
+tour. Whatever it becomes, the ideas in it should land in B above rather than
+living only in a draft.
+
+**Open:** one post per tool, or one per idea? The draft is organised by tool,
+and the interesting material is not.
 
 ### H7 — Splitting the processor from the plugin target, properly
 Done narrowly on 2026-07-30 (`createEditor` moved out) so a headless probe
