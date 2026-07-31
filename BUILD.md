@@ -85,14 +85,20 @@ are in **§4** below.
 ## 0. The pieces
 
 - **This repo** (`music-suite`): shared TypeScript packages, the `msuite`
-  CLI, and six webapps (Workspace, MIDIcurator, Progression Studio, PickPCS,
-  Chord Dictionary, Exquisite Fingerings, Style Gallery).
-- **Six separate repos**: JUCE plugins (AU/VST3/AUv3/LV2/Standalone) whose
-  WebView UI is the SAME code as four of the apps above (Serpe, PitchFold,
-  Vane, DrawnQurve embed `apps/serpe`, `apps/pitchfold`, `apps/vane`,
-  `apps/drawnqurve`; MIDIcurator's and Progression Studio's plugins embed
-  their whole app via a build script). All six vendor or fetch
-  **`enkerli-juce`**, the shared CMake foundation.
+  CLI, and **eleven** apps under `apps/` — Workspace, MIDIcurator, Progression
+  Studio, PickPCS, Chord Dictionary, Exquisite Fingerings, Style Gallery,
+  Serpe, PitchFold, Vane, DrawnQurve. The last four are webapps *and* the
+  WebView UI of their plugins; the rest are webapp-only.
+- **Seven separate plugin repos**: JUCE plugins (AU/VST3/AUv3/CLAP/LV2/
+  Standalone) — Serpe, PitchFold, Vane, DrawnQurve, MIDIcurator, Progression
+  Studio, Suite Workspace. Their WebView UI is the same code as the app of the
+  same name; MIDIcurator's and Progression Studio's plugins embed their whole
+  app via a build script, the rest bundle at cmake time.
+- **`enkerli-juce`**, the shared CMake foundation, is a submodule of **five**
+  of them (Serpe, PitchFold, MIDIcurator, Progression Studio, Suite Workspace).
+  **Vane and DrawnQurve reimplement it inline** and so inherit nothing from it —
+  which is where install bugs hide (§4, "the two repos off the shared
+  archetype").
 - **The live site**: `https://enkerli.github.io/music-suite/` — every app
   runs there already. You only need to build locally to change code or to
   build a plugin/standalone.
@@ -674,7 +680,13 @@ Everything above was read from each repo's actual `CMakeLists.txt` on
 
 ---
 
-## 6. Verified build matrix — 2026-07-19 (Mac, Apple Silicon)
+## 6. Verified build matrix — 2026-07-19, spot-checked 2026-07-30 (Mac, Apple Silicon)
+
+> **Read the date.** This table is a record of one day's run, not a standing
+> guarantee, and it drifted: DrawnQurve's row was wrong by 2026-07-30 (below),
+> and the whole matrix predates CLAP being built and installed everywhere. The
+> 2026-07-30 spot-check re-ran `auval` on all seven and they passed. If you need
+> to know the state today, run it today — `suite-build all --ladder`.
 
 Run via `enkerli-juce/tools/validate.sh` (macOS AU/VST3/Standalone build →
 iOS unsigned compile → strict `auval` → `pluginval` s8 on the VST3), after
@@ -689,7 +701,7 @@ loaders):
 | Serpe (`aumi RPEd`) | **PASS** — full ladder |
 | Vane (`aumu VAne`) | **PASS** — full ladder |
 | Suite Workspace (`aumi Wksp`) | **PASS** — full ladder (after the wasm-loader fix; first run caught it) |
-| DrawnQurve | **PASS** — iOS unsigned compile (iPad-only by design) |
+| DrawnQurve (`aumi Dqau`) | **PASS** — full ladder on macOS as of 2026-07-30. The "iPad-only by design" note here was wrong, or had stopped being true: it builds and validates AU/VST3/CLAP on macOS. Until 2026-07-30 none of those reached `~/Library` at all, because its `COPY_PLUGIN_AFTER_BUILD` was hardcoded `FALSE` (§4) |
 
 Fresh-clone checks the same day: MIDIcurator iOS **BUILD SUCCEEDED** from a
 virgin clone; a submodule-less plain clone now self-heals at `cmake` time.
