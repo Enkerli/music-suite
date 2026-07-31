@@ -53,9 +53,13 @@ const CPP_SEQUENCES = {
  * drives a real PatternEngine through setProgressiveOffset /
  * triggerProgressiveOffset — the path the plugin itself uses. Rotating an
  * 8-step pattern by 2 has period 4, so the 5th trigger repeats the 1st.
+ *
+ * Re-taken 2026-07-30 after the move to base-first: trigger 1 is now the bare
+ * E(3,8) and the whole sequence shifted one to the right. The old first
+ * element (10100100) is now the second.
  */
 const CPP_OFFSET = {
-  "E(3,8)%2": "10100100 00101001 01001010 10010010 10100100",
+  "E(3,8)%2": "10010010 10100100 00101001 01001010 10010010",
 };
 
 describe("progressive transform — bit-identical to the C++ engine", () => {
@@ -115,14 +119,16 @@ describe("progressive offset — bit-identical to the C++ engine", () => {
     });
   }
 
-  it("trigger 1 is ALREADY offset by one step, as the plugin shows it", () => {
-    // The engine initialises currentOffset to `step`, so the un-rotated base
-    // is never displayed. This module used to return it first and therefore
-    // lagged the plugin by one trigger (fixed 2026-07-28).
+  it("trigger 1 is the BARE BASE — what you typed is what you hear first", () => {
+    // Base-first, chosen by Alex 2026-07-30 and applied to every progressive
+    // operator in the same commit as the engine. `%N` and `*N` used to apply
+    // one step on setup so the base was never heard; `>N` never did. See
+    // docs/PROGRESSIVE_PHASE.md.
     const base = parseBase("E(3,8)").steps.join("");
-    const s = seq("E(3,8)%2", 4).split(" ");
-    expect(s[0]).not.toBe(base);
-    expect(s[3]).toBe(base);      // 4 * 2 = 8 = a full turn
+    const s = seq("E(3,8)%2", 5).split(" ");
+    expect(s[0]).toBe(base);
+    expect(s[1]).not.toBe(base);  // rotation starts on trigger 2
+    expect(s[4]).toBe(base);      // 4 * 2 = 8 = a full turn, back to base
     // onset count is invariant under rotation
     for (const p of s) expect(p.split("1").length - 1).toBe(3);
   });
@@ -138,12 +144,13 @@ describe("progressive lengthening", () => {
     const d = parseProgressive("E(3,8)*4");
     const a = progressiveAt(d, 1, { parseBase, random }).steps;
     const b = progressiveAt(d, 3, { parseBase, random }).steps;
-    // Trigger 1 is already ONE step of growth, matching the engine: a scene
-    // entering `E(3,8)*3` plays 11 steps immediately, not 8 (observed in a
-    // live session, Serpe scene trace 2026-07-28).
-    expect(a.length).toBe(8 + 4);
-    expect(b.length).toBe(8 + 4 + 4 + 4);
-    expect(b.slice(0, 8 + 4)).toEqual(a);
+    // Trigger 1 is the bare base: a lane entering `E(3,8)*4` plays 8 steps,
+    // then 12, then 16. It used to play 12 immediately and never 8 — changed
+    // 2026-07-30 with the engine (serpe_poly_precedence prints 8,11,14,17 for
+    // the *3 case).
+    expect(a.length).toBe(8);
+    expect(b.length).toBe(8 + 4 + 4);
+    expect(b.slice(0, 8)).toEqual(a);
   });
 });
 

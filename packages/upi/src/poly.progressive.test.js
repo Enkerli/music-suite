@@ -32,7 +32,9 @@ describe("poly lane %N", () => {
 
   it("reproduces the C++ engine's rotation cycle", () => {
     // Verbatim from serpe_poly_precedence: rotating E(3,8) by 2 has period 4.
-    const CPP = ["10100100", "00101001", "01001010", "10010010", "10100100"];
+    // Re-taken 2026-07-30 after base-first — trigger 1 is the bare E(3,8) and
+    // the sequence shifted one right. The probe prints exactly this line.
+    const CPP = ["10010010", "10100100", "00101001", "01001010", "10010010"];
     const lane = parsePolyUPI("E(3,8)%2/E(3,7)").lanes[0];
     expect(CPP.map((_, i) => bits(polyLaneAt(lane, i + 1)))).toEqual(CPP);
   });
@@ -56,10 +58,11 @@ describe("poly lane %N", () => {
     expect(p.ok, p.error).toBe(true);
     expect(p.lanes[0].progressive).toMatchObject({ kind: "lengthen", step: 3 });
     expect(p.lanes[1].progressive).toBeNull();
-    // Trigger 1 is already base+step (11 steps, not 8) — the engine's phase,
-    // seen live when a scene entering E(3,8)*3 played 11 steps immediately.
+    // Trigger 1 is the bare base (8 steps): a lane entering E(3,8)*3 plays 8
+    // and then grows. Was [11,14,17,20] until base-first landed 2026-07-30;
+    // serpe_poly_precedence now prints "lengths run 8,11,14,17".
     const lens = [1, 2, 3, 4].map((n) => polyLaneAt(p.lanes[0], n, { random }).length);
-    expect(lens).toEqual([11, 14, 17, 20]);
+    expect(lens).toEqual([8, 11, 14, 17]);
     const base = bits(p.lanes[0].steps);
     expect(bits(polyLaneAt(p.lanes[0], 3, { random })).startsWith(base)).toBe(true);
   });

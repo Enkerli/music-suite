@@ -11,9 +11,12 @@
  * a function of the trigger index, so `progressiveAt(desc, n)` is pure for the
  * deterministic forms and hosts that prefer a cursor can use `ProgressiveRun`.
  *
- * Trigger 1 is what the plugin shows on the FIRST trigger, for every form —
- * which for `%N` and `*N` means one step of transformation has already been
- * applied. The engine is authoritative (Alex, 2026-07-28).
+ * PHASE, one rule for every form since 2026-07-30: **trigger 1 is the bare
+ * base**. What you typed is what you hear first, and the transform starts on
+ * trigger 2. `>N` always worked this way; `%N`, `+N` and `*N` did not until
+ * Alex chose base-first ("I'd be more comfortable with bare base"). The engine
+ * changed in the same commit — it is authoritative (INTENT D3), so the two must
+ * never move apart. See docs/PROGRESSIVE_PHASE.md.
  *
  * Semantics are ported from the C++ engine, read at 2026-07-27:
  *   · transform  `base[BWED]>N`  UPIParser.cpp applyProgressiveTransformation
@@ -88,20 +91,19 @@ function transformStep(steps, type, target) {
 /**
  * The pattern at trigger `n`, 1-based.
  *
- * WHAT n=1 GIVES YOU DEPENDS ON THE OPERATOR, and they do not agree. This
- * comment used to claim "n=1 is the base, untransformed" for all three, which
- * was true of exactly one of the branches below it:
+ * **n=1 is the bare base, for every operator.** `%N` is unrotated, `*N` is
+ * un-grown, `>N` is untransformed; the transform starts at n=2.
  *
- *   %N  offset       n=1 is ALREADY rotated by N. The base is never heard.
- *   *N  lengthen     n=1 is ALREADY base+N steps. The base is never heard.
- *   >N  transform    n=1 IS the bare base. The base is heard.
+ * Until 2026-07-30 this was true of `>N` only — `%N` and `*N` each applied one
+ * step on setup, so the base was never heard. The three branches below differed
+ * by a single character (`i = 0` vs `i = 1`, `step * idx` vs `step * (idx-1)`)
+ * and nobody had chosen the difference; it was three code paths written at
+ * different times. Alex settled it base-first. The docstring that used to sit
+ * here asserted the base was always shown, which was false of two of the three
+ * branches directly beneath it — hence the detail now.
  *
- * That split is inherited from the engine, which is authoritative (INTENT D3):
- * PluginProcessor.cpp sets `progressiveOffset = newStep` on setup — literally
- * commented "Start with first offset" — while the transform path counts from
- * the base. See INTENT D6; whether the split is *right* is an open question,
- * not a settled one, and changing it here alone would just re-open the
- * divergence that 2026-07-30 closed.
+ * The engine changed in the same commit (INTENT D3: it is authoritative, and a
+ * one-sided change here reopens the divergence closed on 2026-07-30).
  *
  * @param {object} desc      from parseProgressive
  * @param {number} n         trigger index, 1-based
@@ -124,17 +126,18 @@ export function progressiveAt(desc, n, opts = {}) {
   if (!base) return { steps: [], index: idx, label: desc.source, error: "base pattern did not parse" };
 
   if (desc.kind === "offset") {
-    // The engine sets currentOffset = step on setup and adds step per trigger,
-    // so trigger n is rotated by step*n and trigger 1 is ALREADY offset by one
-    // step. See the sign/phase note at the top.
-    return { steps: rotate(base, desc.step * idx), index: idx, label: desc.source };
+    // idx-1, so trigger 1 is the bare base and rotation starts on trigger 2.
+    // The engine sets progressiveOffset = 0 on setup and adds step per trigger.
+    // See the sign/phase note at the top.
+    return { steps: rotate(base, desc.step * (idx - 1)), index: idx, label: desc.source };
   }
 
   if (desc.kind === "lengthen") {
-    // Same phase rule: the engine initialises lengthening to `step`, so the
-    // first trigger is already base + step steps long, not the bare base.
+    // Same phase rule, hence `i = 1`: trigger 1 is the bare base and the first
+    // growth lands on trigger 2. The engine no longer applies an initial
+    // lengthening on setup either.
     let out = base.slice();
-    for (let i = 0; i < idx; i++) out = out.concat(bellCurveRandomSteps(desc.step, random));
+    for (let i = 1; i < idx; i++) out = out.concat(bellCurveRandomSteps(desc.step, random));
     return { steps: out, index: idx, label: desc.source };
   }
 

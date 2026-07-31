@@ -188,29 +188,33 @@ Two scenes against three realign every six triggers, not every one.
 
 **Why:** same as D4. Lockstep would collapse poly into mono with extra syntax.
 
-### D6 — `%N` and `*N` skip the base; `>N` does not
-The first trigger of `E(3,8)%2` is already rotated by 2, and `E(3,8)*3` is
-already three steps longer. `E(1,8)>8`, by contrast, gives you the bare base on
-trigger 1.
+### D6 — Trigger 1 is the bare base, for every progressive operator
+`E(3,8)%2` gives you `E(3,8)` on the first trigger and starts rotating on the
+second. Same for `E(3,8)*3` (8 steps, then 11) and `E(1,8)>8`. **What you typed
+is what you hear first.**
 
-**Verified 2026-07-30, both sides:** `PluginProcessor.cpp:1864` sets
-`progressiveOffset = newStep` with the comment *"Start with first offset"*;
-`packages/upi/src/progressive.js` rotates by `step * idx` with `idx` clamped to
-a minimum of 1, and lengthens from `i = 0` while transform counts from `i = 1`.
+**Why:** it is the only rule that needs no table, and it is the explainable one
+(B5) — the notation describes its own starting point.
 
-**Why:** it is what the engine has always done, and the engine is authoritative
-(D3). The JS reference disagreed until 2026-07-30 and was moved to match.
+**History, because it explains the shape of the code.** Until 2026-07-30 this
+was true of `>N` alone. `%N`, `+N` and `*N` each applied one step on setup, so
+their base was never heard. Nobody had chosen that: three code paths written at
+different times, each self-consistent, differing by a single character
+(`i = 0` vs `i = 1`). The JS module's own docstring asserted base-first for all
+three, which was false of two of the branches directly beneath it.
 
-**The open question, stated properly.** This entry used to say the operators
-agreed with each other. They do not, and that is the part worth being nervous
-about — not "does `%N` start one step in" but "why do two operators skip the
-base and the third one not?" Nobody chose that. It is the residue of three code
-paths written at different times.
+Alex settled it: *"I'd be more comfortable with bare base. Can it be consistent
+across all versions, for all notations?"* — and it can, because the operator set
+is closed: three kinds, four spellings, six edit points across both engines.
 
-`progressive.js` carried a docstring asserting the base *is* shown on trigger 1
-— true for `>N`, false for the two branches directly beneath it. Corrected
-2026-07-30. **Options are laid out in [PROGRESSIVE_PHASE](PROGRESSIVE_PHASE.md);
-nothing has been decided and nothing should change until it is.**
+**If reversed:** every progressive pattern shifts by one trigger, in both
+engines, and the conformance vectors in `progressive.test.js` and
+`serpe_poly_precedence` have to move together or the two parsers diverge again.
+
+**Watch out:** mono `%N` and `*N` do not advance on MIDI note-in at all — a
+separate, pre-existing bug found by the same probe run, proven by stashing the
+phase change and seeing the old code equally frozen one step in. Do not read a
+static mono `%N` as a phase problem.
 
 ### D7 — The jazz corpus is never published
 Only derived statistics ship. The corpus stays local and gitignored.

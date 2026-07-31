@@ -1,8 +1,22 @@
 # Progressive phase — where a chain starts, and the options
 
 *2026-07-30. Written because Alex said starting `%N` one step in "sounds fine
-though it makes me a bit nervous" and asked to hear the options. Nothing here is
-decided. Nothing should change until it is.*
+though it makes me a bit nervous" and asked to hear the options.*
+
+> **DECIDED, same day: option B — base first, everywhere.** Alex: *"I'd be more
+> comfortable with bare base. Can it be consistent across all versions, for all
+> notations?"* It can, and it now is. Shipped in Serpe `430413e` (engine, probe
+> and precedence harness) and the monorepo commit alongside it (JS reference and
+> vectors), deliberately together — a one-sided change reopens the divergence
+> closed on 2026-07-30.
+>
+> `%N`, `+N` and `*N` moved; `>N` already behaved this way. Six edit points, and
+> the full conformance suite plus 146 JS tests pass. The options below are kept
+> as the record of what was weighed, not as live choices.
+>
+> **Found on the way, and not fixed here:** mono `%N` and `*N` never advance on
+> MIDI note-in. Pre-existing — proven by stashing the phase change and watching
+> the old code sit equally frozen one step in. Filed separately.
 
 ## The nervousness is well placed, but slightly off-target
 
