@@ -19,7 +19,7 @@ one.
 | [USE_CASES](USE_CASES.md) | who it is for, and what they can actually do |
 | **INTENT** (this) | why it is like this, and what we are still chewing on |
 
-Read in three parts: **B** is the brief the whole thing serves, **D** are
+Read in four parts: **B** is the brief the whole thing serves, **D** are
 settled decisions, **H** are ideas parked mid-flight, **L** are lessons about
 method. B is the part that cannot be recovered from the code.
 
@@ -34,17 +34,38 @@ and several will stay open for years — which is fine, and worth seeing.
 they are choices **in service of**. It is easy to keep the decisions and lose
 this, and then the suite still works and is no longer the same thing.*
 
-### B1 — Playfulness is a requirement, not a garnish
-Exploration, experimentation, lucky mistakes, "what if". Going away from what
-is generic, expected, common.
+### B1 — Smidgen: semi-generative musicking
+**Smidgen** is the name for the whole practice. Alex, 2026-07-30:
 
-**Smidgen** is the tell. The word keeps surfacing on its own: as a candidate
-name for what shipped as `@enkerli/accompaniment` ([GLORIARP_BRIEF](GLORIARP_BRIEF.md)),
-and as MIDIcurator's name for its wishlist tier — *"Tier 4 — Wishlist / Future
-(smidgen territory)"* ([PLAN](../apps/MIDIcurator/PLAN.md)). It means a small
-speculative amount of something, and the fact that a codebase reaches for that
-word twice, unprompted, is the brief showing through. Alex, 2026-07-30:
-*"'Smidgen' is part of that."*
+> Smidgen is my nickname for **semi-generative musicking**.
+
+It is a portmanteau — se**m**i-**gen**erative — and it carries both halves of
+the brief in one word:
+
+- **semi-**generative: the machine goes partway and stops. Not automatic music
+  (B3); a proposal that a person answers.
+- **musick*ing***: a verb, not a noun. The thing being supported is the
+  *activity* — playing, trying, listening, deciding — not an output file. This
+  is the same claim as theory-through-practice (B4), from the other side.
+
+The word arrived on its own in two places before anyone defined it: as a
+candidate name for what shipped as `@enkerli/accompaniment`
+([GLORIARP_BRIEF](GLORIARP_BRIEF.md), a *"semi-generative accompaniment
+system"*), and as MIDIcurator's name for its wishlist tier — *"Tier 4 —
+Wishlist / Future (smidgen territory)"* ([PLAN](../apps/MIDIcurator/PLAN.md)).
+
+That second use is the interesting one. "Smidgen territory" for the wishlist
+means the speculative pile is not junk — it is where the semi-generative ideas
+wait. The word does double duty, and both duties are this brief.
+
+**Corrected twice on 2026-07-30**, which is why it is spelled out here: I first
+wrote smidgen as *"a control whose unit is a smidgen"*, then as *"a small
+speculative amount"* — reading the ordinary English word off the page and
+guessing. It is a coinage. Alex had to say so.
+
+### B2 — Playfulness is a requirement, not a garnish
+Exploration, experimentation, lucky mistakes, "what if". Going away from what
+is generic, expected, common. This is how smidgen (B1) is actually practised.
 
 **What this rules out:** the sensible-default reflex. When a choice is between
 "the thing everyone does" and "the thing that might surprise someone", the
@@ -54,7 +75,7 @@ brief says the second is at least as valid, and needs no further defence.
 Playful is not careless. A surprising *result* is the goal; a surprising
 *failure* is still a bug.
 
-### B2 — Not to generate what you would have heard anyway
+### B3 — Not to generate what you would have heard anyway
 The point is not automatic music. It is inspiration, curation, and hearing
 something unexpected — then choosing. The suite proposes; a person disposes.
 
@@ -62,12 +83,12 @@ something unexpected — then choosing. The suite proposes; a person disposes.
 good" and onto "is the output *worth listening to and deciding about*". A tool
 that reliably produced pleasant, ordinary results would have failed this brief.
 
-### B3 — Theory through practice
+### B4 — Theory through practice
 The concepts are learned by hearing and doing them, not by reading them first.
 A pitch-class set is a thing you rotate and listen to. Euclidean rhythm is a
 thing you watch land on the beat.
 
-### B4 — Explainability, *especially* for the weird parts
+### B5 — Explainability, *especially* for the weird parts
 Much of what is under the hood is unfamiliar — Euclidean/Bjorklund, pitch-class
 set theory, corpus statistics, Morse, binary/hex pattern encodings. That is a
 reason to explain more, not to hide it behind a preset. Nobody should have to
@@ -77,7 +98,7 @@ finding out what it is doing.
 The test: can a user get an answer to "why did it do that?" without reading the
 source? Where they cannot, that is a gap, whatever else is finished.
 
-### B5 — Accessibility as welcome, not as compliance
+### B6 — Accessibility as welcome, not as compliance
 The commitment is a real analysis with practical tests — screen reader,
 keyboard-only, magnification — and explicit attention to **cognitive** barriers,
 which no automated tool reports.
@@ -90,7 +111,7 @@ Status, honestly: [A11Y_AUDIT](A11Y_AUDIT.md) is automated and was clean on the
 ten apps of 2026-07-11. [A11Y_TEST_PLAN](A11Y_TEST_PLAN.md) is the manual
 counterpart and **has not been run**. `workspace` has been through neither.
 
-### B6 — "Workspace", not "playground"
+### B7 — "Workspace", not "playground"
 *Playground* is overused, and it undersells this by implying nothing is at
 stake. What the suite actually offers is closer to a **workspace** — a place
 with your materials out, where work happens and play is how the work gets done.

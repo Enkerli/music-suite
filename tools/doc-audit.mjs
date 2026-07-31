@@ -178,7 +178,10 @@ export function auditDocs() {
       }
 
       // ── spelled-out counts next to a parenthesised or dashed list
-      const cm = line.match(/\b(two|three|four|five|six|seven|eight|nine|ten|eleven|twelve)\b\s+([A-Za-z][\w-]*(?:\s+\w+)?)\s*[(—-]\s*([^)]{10,})/i);
+      // The separator was [(—-] only, which missed "in three parts: B, D, H, L"
+      // — a colon. Found 2026-07-30 by writing exactly that error into INTENT.md
+      // and watching this check not catch it.
+      const cm = line.match(/\b(two|three|four|five|six|seven|eight|nine|ten|eleven|twelve)\b\s+([A-Za-z][\w-]*(?:\s+\w+)?)\s*[(—:-]\s*([^)]{10,})/i);
       if (cm) {
         const want = NUMBERS[cm[1].toLowerCase()];
         const items = cm[3].split(/,| and /).map((x) => x.trim()).filter((x) => x.length > 1);
