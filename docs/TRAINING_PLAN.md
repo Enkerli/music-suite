@@ -66,9 +66,10 @@ instead. `E(1,8)>8` fills in.
 **Notice:** the pattern is no longer *a* pattern — it is a pattern per trigger,
 and you are now playing a process rather than a loop. This is the first properly
 smidgen-ish rung (INTENT B1): the machine goes partway, you decide when it moves.
-**Goes wrong, today:** mono `%N` and `*N` do **not** advance on MIDI note-in —
-a known bug, [PROGRESSIVE_PHASE](PROGRESSIVE_PHASE.md). Use the Tick/Enter path
-until it is fixed. Scenes and poly lanes advance correctly.
+**Goes wrong:** nothing known, as of 2026-07-31. Until that day mono `%N` and
+`*N` did not advance on MIDI note-in *or* on Tick — only from the editor — so if
+you are running an older build and a rotating pattern sits frozen while you
+play, that is the bug and not your typing. Fixed in Serpe `852ec88`.
 
 ### A4 — Two things at once, each on its own clock
 `E(3,8)/E(3,7)` — two lanes, eight steps against seven, realigning every 56.

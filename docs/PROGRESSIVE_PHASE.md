@@ -14,9 +14,12 @@ though it makes me a bit nervous" and asked to hear the options.*
 > the full conformance suite plus 146 JS tests pass. The options below are kept
 > as the record of what was weighed, not as live choices.
 >
-> **Found on the way, and not fixed here:** mono `%N` and `*N` never advance on
-> MIDI note-in. Pre-existing — proven by stashing the phase change and watching
-> the old code sit equally frozen one step in. Filed separately.
+> **Found on the way, fixed 2026-07-31 in `852ec88`:** mono `%N`, `+N` and `*N`
+> never advanced on MIDI note-in *or* on the tick edge — only from the editor.
+> Pre-existing, proven by stashing the phase change and watching the old code
+> sit equally frozen one step in. Both trigger sites now call one shared
+> `advanceMonoProgressiveForTrigger()`, since the bug was two sites drifting
+> from a third implementation (INTENT L5).
 
 ## The nervousness was well placed, but slightly off-target
 

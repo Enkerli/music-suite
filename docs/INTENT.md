@@ -211,10 +211,10 @@ is closed: three kinds, four spellings, six edit points across both engines.
 engines, and the conformance vectors in `progressive.test.js` and
 `serpe_poly_precedence` have to move together or the two parsers diverge again.
 
-**Watch out:** mono `%N` and `*N` do not advance on MIDI note-in at all — a
-separate, pre-existing bug found by the same probe run, proven by stashing the
-phase change and seeing the old code equally frozen one step in. Do not read a
-static mono `%N` as a phase problem.
+**Watch out:** a static mono `%N` is not a phase problem. It was a separate,
+pre-existing bug — no advancement on MIDI note-in or on Tick, only from the
+editor — found by the same probe run and fixed 2026-07-31 (`852ec88`). If you
+see it again, look at the trigger sites, not at the phase.
 
 ### D7 — The jazz corpus is never published
 Only derived statistics ship. The corpus stays local and gitignored.
@@ -315,6 +315,17 @@ Linux; a WebUI bundle went two days stale. All three reported success.
 The `*N` numeric guard existed three times and one copy lacked it. The queue
 race was fixed for mono and not for scenes. Vane and DrawnQurve answered the
 same install question in opposite directions.
+
+**Fourth incident, 2026-07-31**, in the same file as two of the above: mono
+`%N`/`*N` advancement existed in `setUPIInput` and in neither of the two trigger
+sites, so a rotating pattern was frozen from Tick and from MIDI while working
+from the editor. The tell was visible and unread — the CC branch of the very
+same function computed `hasProgressiveOffset` correctly while the note-on branch
+directly above it did not.
+
+The fix was one shared function with three callers, and that is now the standing
+answer here: **when a rule needs to hold at more than one call site, it gets a
+name.** Copying a branch "just this once" is how all four of these started.
 
 ### L6 — A verdict is a lead, not a proof
 The audit's first real finding — DrawnQurve's `setDirection` — was correctly
