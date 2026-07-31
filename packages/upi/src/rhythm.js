@@ -9,6 +9,57 @@
  */
 
 // ── Euclidean (Bjorklund, rotated so the first onset is at index 0) ──────────
+/**
+ * Spread `beats` onsets as evenly as possible over `steps` steps.
+ *
+ *   E(3,8)  → 10010010   the tresillo
+ *   E(5,8)  → 10110110   the cinquillo
+ *   E(5,13) → 1001010010100
+ *
+ * WHY THIS IS NOT JUST `round(i * steps / beats)`. Even spacing is only exact
+ * when `beats` divides `steps`. Otherwise the remainder has to be distributed,
+ * and distributing it *evenly again* is the same problem one level down. That
+ * recursion is Euclid's algorithm for gcd — which is why these rhythms are
+ * called Euclidean, and why the loop below looks like long division rather
+ * than like anything musical.
+ *
+ * THE ALGORITHM (Bjorklund). Think of it as `beats` groups of `[1]` and
+ * `steps - beats` groups of `[0]`, then repeatedly distributing the smaller
+ * pile into the larger:
+ *
+ *   remainders[0] = beats        the onsets
+ *   divisor       = steps - beats  the rests
+ *
+ * Each pass records how many of the current group fit into each of the other
+ * (`counts[level]`) and what is left over (`remainders[level+1]`) — exactly the
+ * quotient/remainder pair of Euclid's algorithm. The loop stops when the
+ * remainder is 0 or 1, i.e. when nothing is left to distribute.
+ *
+ * `build` then replays that record backwards to emit the actual steps. The two
+ * sentinel levels are the base cases and are the only part that touches the
+ * output array:
+ *
+ *   build(-1)  emit a rest   (0)
+ *   build(-2)  emit an onset (1)
+ *
+ * At every real level it emits `counts[l]` copies of the next group down, then
+ * one copy of the group below that if there was a remainder to place. Nothing
+ * about this is obvious from the code, which is why it is written out here.
+ *
+ * ROTATION. Bjorklund's output does not necessarily start on an onset — the
+ * groups come out in whatever order the distribution produced. Every caller in
+ * this suite wants step 0 to be the downbeat, so the pattern is rotated to put
+ * the first onset there before returning. `offset` then rotates further, on
+ * purpose.
+ *
+ * Ported verbatim from the C++ engine, which is authoritative (INTENT D3).
+ * Changing the tie-breaking here would silently desynchronise the two.
+ *
+ * @param {number} beats   onsets to place; clamped to [0, steps]
+ * @param {number} steps   pattern length
+ * @param {number} offset  extra rotation, applied after the downbeat rotation
+ * @returns {number[]} 0/1 array, leftmost = first step (INTENT D1)
+ */
 export function euclideanRhythm(beats, steps, offset = 0) {
   if (beats > steps) beats = steps;
   if (beats <= 0) return new Array(steps).fill(0);
@@ -20,6 +71,8 @@ export function euclideanRhythm(beats, steps, offset = 0) {
   remainders[0] = beats;
   let level = 0;
 
+  // Euclid's algorithm, keeping the whole quotient/remainder trail rather than
+  // just the final gcd — `build` needs every step of it to reassemble groups.
   do {
     counts[level] = Math.floor(divisor / remainders[level]);
     remainders[level + 1] = divisor % remainders[level];
@@ -30,8 +83,8 @@ export function euclideanRhythm(beats, steps, offset = 0) {
   counts[level] = divisor;
 
   function build(l) {
-    if (l === -1) pattern.push(0);
-    else if (l === -2) pattern.push(1);
+    if (l === -1) pattern.push(0);        // base case: one rest
+    else if (l === -2) pattern.push(1);   // base case: one onset
     else {
       for (let i = 0; i < counts[l]; i++) build(l - 1);
       if (remainders[l] !== 0) build(l - 2);
@@ -39,8 +92,10 @@ export function euclideanRhythm(beats, steps, offset = 0) {
   }
   build(level);
 
+  // Degenerate inputs can leave the pattern short; pad with rests.
   while (pattern.length < steps) pattern.push(0);
 
+  // Put the first onset on step 0 — see ROTATION above.
   const firstBeatIndex = pattern.findIndex((b) => b);
   if (firstBeatIndex > 0) pattern = pattern.slice(firstBeatIndex).concat(pattern.slice(0, firstBeatIndex));
 
@@ -101,6 +156,17 @@ export function funkyEuclidean(steps, params = {}) {
 // ── Progressive lengthening: bell-curve random steps (matches the C++ engine
 // generateBellCurveRandomSteps). Returns `numSteps` steps with a bell-curve
 // number of onsets randomly distributed. *1 is a 50/50 coin flip. ──
+/**
+ * A normally-distributed sample, by the Box–Muller transform: two uniform
+ * randoms in, one Gaussian out. `sqrt(-2 ln u)` gives the radius and
+ * `cos(2π v)` the angle, which together turn a uniform square into a normal
+ * distribution. (The transform actually produces two independent samples —
+ * `sin` gives the other — and we discard it, because one is all we need and
+ * caching it would make the RNG consumption order harder to pin in tests.)
+ *
+ * The `while (u === 0)` guards matter: `Math.log(0)` is -Infinity, and a
+ * single zero from the RNG would poison the result. Cheap insurance.
+ */
 function gaussian(mean, std, random = Math.random) {
   let u = 0, v = 0;
   while (u === 0) u = random();
@@ -119,11 +185,21 @@ export function bellCurveRandomSteps(numSteps, random = Math.random) {
   if (numSteps <= 0) return out;
   let onsets;
   if (numSteps === 1) {
+    // One step has no distribution to speak of — a coin flip.
     onsets = random() < 0.5 ? 0 : 1;
   } else {
+    // How MANY onsets, not where: centred on half the steps, with the spread
+    // chosen so ±3σ spans the whole range (σ = (n-1)/6). That makes the
+    // extremes — all onsets or none — rare but reachable, which is the point:
+    // growth should usually feel like "some more notes" and occasionally
+    // surprise. Clamped because a Gaussian has no bounds and this does.
     onsets = Math.round(gaussian(numSteps / 2, (numSteps - 1) / 6, random));
     onsets = Math.max(0, Math.min(numSteps, onsets));
   }
+  // WHERE they land: a Fisher-Yates shuffle of the positions, then take the
+  // first `onsets`. Uniform over positions on purpose — the bell curve governs
+  // density, not placement, so growth does not inherit the base's metric
+  // accents and stays recognisably a different kind of material.
   const pos = [...Array(numSteps).keys()];
   for (let i = pos.length - 1; i > 0; i--) {
     const j = Math.floor(random() * (i + 1));
@@ -187,6 +263,21 @@ function isWeakBeat(position, stepCount) {
 }
 
 // ── Barlow transform: dilute / concentrate, with Wolrab (anti) mode ──────────
+/**
+ * Move a pattern toward `targetOnsets` by adding or removing the *least
+ * musically load-bearing* steps first, ranked by Barlow indispensability
+ * (above). Removing notes from the weak positions keeps a rhythm recognisable;
+ * removing them at random does not.
+ *
+ * **Wolrab** is "Barlow" backwards, and that is exactly what the mode does:
+ * invert the ranking, so it removes the *strongest* positions and adds to the
+ * weakest. The result is deliberately awkward — it takes the downbeat away
+ * first. That is a feature (INTENT B2/B3: going away from the expected), not a
+ * bug to be smoothed out.
+ *
+ * Reached from UPI as `B>N` (Barlow) and `W>N` (Wolrab); `E>N` and `D>N` use
+ * Euclidean and its complement instead and never come through here.
+ */
 export function barlowTransform(pattern, targetOnsets, options = {}) {
   const stepCount = pattern.length;
   const current = pattern.filter((s) => s).length;
@@ -206,9 +297,17 @@ function dilute(pattern, targetOnsets, table, options) {
   const onsets = pattern
     .map((on, i) => ({ position: i, indispensability: table[i], isDownbeat: i === 0, on }))
     .filter((p) => p.on);
+  // Removal order. Ascending indispensability normally, so the weakest onsets
+  // go first; descending under Wolrab, so the strongest do.
+  //
+  // Note `preserveDownbeat && !wolrabMode`: the downbeat guard is deliberately
+  // switched OFF in Wolrab. Keeping it would defeat the mode — taking the
+  // downbeat away is the most characteristic thing Wolrab does, and a guard
+  // that protected it would leave the mode barely distinguishable from a mild
+  // reshuffle. The asymmetry is intentional; do not "fix" it for symmetry.
   onsets.sort((a, b) => {
     if (preserveDownbeat && !wolrabMode) {
-      if (a.isDownbeat && !b.isDownbeat) return 1;
+      if (a.isDownbeat && !b.isDownbeat) return 1;   // downbeat sorts last = removed last
       if (!a.isDownbeat && b.isDownbeat) return -1;
     }
     return wolrabMode ? b.indispensability - a.indispensability : a.indispensability - b.indispensability;
@@ -242,10 +341,15 @@ function concentrate(pattern, targetOnsets, table, options) {
 
   const next = pattern.slice();
   let added = 0;
+  // First pass respects the floor, so weak positions are not filled while
+  // stronger ones are still free.
   for (let i = 0; i < empty.length && added < toAdd; i++) {
     const c = empty[i];
     if (c.indispensability >= minimumIndispensability) { next[c.position] = 1; added++; }
   }
+  // Second pass ignores it. The caller asked for `targetOnsets` and must get
+  // them; a floor that silently returned a shorter-than-requested pattern would
+  // desynchronise this from the C++ engine, which also always reaches target.
   if (added < toAdd) {
     for (let i = 0; i < empty.length && added < toAdd; i++) {
       const c = empty[i];
