@@ -162,6 +162,10 @@ So they are not reported as design problems:
   (`apps/workspace/modules.js:96` uses the mono parser). Any Workspace
   visualization work depends on fixing this first.
 - **`msuite jam`** is described in three docs and does not exist.
+- ~~The standalone webapp rejects progressive notation~~ — **fixed 2026-08-01**.
+  `E(1,8)>8`, `E(3,8)%2` and `E(3,8)*3` now parse in the field, show trigger 1
+  (the bare base) and step on **Advance cycle**. In a plugin this always worked,
+  because the string goes straight to the C++ engine.
 - ~~Poly lane progressive state is not persisted across a session save~~ —
   **fixed 2026-08-01**.
 

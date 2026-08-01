@@ -27,7 +27,7 @@ import { parseUPI, euclid, polygon, rotate, complement, invert,
          mutatePattern, parsePolyUPI, splitLanes,
          longShort, durations, dynamicDurations, identify,
          microtiming, timingScales,
-         parseNamedPatterns } from '@enkerli/upi';
+         parseNamedPatterns, parseProgressive, progressiveAt } from '@enkerli/upi';
 import { createCircleView, createStepView, createPolyCircleView } from './engine/render.js';
 import { laneStepMs as computeLaneStepMs, laneOffsetMs as computeLaneOffsetMs } from './engine/poly-clock.js';
 import serpeManifest from './manifest.json';
@@ -362,6 +362,13 @@ function SerpeApp() {
   const [progOff, setProgOff] = useState(1);
   const [progLeng, setProgLeng] = useState(false);
   const [cycle, setCycle] = useState(0);
+  // Notation-driven progression (`E(1,8)>8`, `E(3,8)%2`, `E(3,8)*3`) as opposed
+  // to the slider-driven one below. The webapp had NEITHER until 2026-08-01:
+  // parseUPI is the single-body parser and rejects every progressive form, so
+  // standalone answered "Unrecognised" for notation the plugin plays. In the
+  // plugin the string goes straight to C++ (engine-authoritative, INTENT D3),
+  // which is why this only ever bit outside a host.
+  const progNotationRef = useRef(null);   // { desc, index } or null
   const baseRef = useRef(null);
   const lenRef = useRef(null);   // accumulating pattern for progressive lengthening
 
@@ -561,7 +568,7 @@ function SerpeApp() {
   // pattern (type, load, generate, one-shot transform/mutate/dilute, scene) so
   // no stale base/length/cycle leaks into the next progression. progAdvance is
   // the one action that does NOT call this — it deliberately continues.
-  function resetProgressive() { baseRef.current = null; lenRef.current = null; setCycle(0); }
+  function resetProgressive() { baseRef.current = null; lenRef.current = null; progNotationRef.current = null; setCycle(0); }
 
   function applyPattern(p, { syncField = true } = {}) {
     setSteps(p.steps); setAccentPattern(p.accentPattern); setAccentOffset(0); setLabel(p.label);
@@ -633,8 +640,29 @@ function SerpeApp() {
       return;
     }
     const p = parseUPI(full, { n: steps.length || 16 });
-    if (p.ok) { setParseErr(null); applyPattern(p, { syncField: false }); if (poly) setPoly(null); }
-    else setParseErr(p.error || 'unrecognised');
+    if (p.ok) {
+      progNotationRef.current = null;
+      setParseErr(null); applyPattern(p, { syncField: false }); if (poly) setPoly(null);
+      return;
+    }
+    // Progressive notation denotes a pattern PER TRIGGER, so the pure parser has
+    // nothing single to return and refuses. Show trigger 1 — the bare base
+    // (INTENT D6) — and let Advance step it, which is what the engine does.
+    const desc = parseProgressive(full);
+    const first = desc && progressiveAt(desc, 1, {
+      parseBase: (str) => { const r = parseUPI(str, { n: steps.length || 16 }); return r.ok ? { steps: r.steps } : null; },
+    });
+    if (first && !first.error) {
+      progNotationRef.current = { desc, index: 1 };
+      setCycle(0);
+      setParseErr(null);
+      setSteps(first.steps);
+      setLabel(desc.source);
+      if (poly) setPoly(null);
+      return;
+    }
+    progNotationRef.current = null;
+    setParseErr(p.error || 'unrecognised');
   }
 
   // parse whenever the text/accents change (debounced-ish via React batching)
@@ -754,6 +782,22 @@ function SerpeApp() {
       setCycle(c => c + 1);          // display hint; the engine holds the truth
       sendUPI(fullUPI());
       return;
+    }
+    // Notation-driven progression wins over the slider: the field says what to
+    // do, and progressiveAt is a pure function of the trigger index, so this
+    // cannot drift the way an accumulated pattern can.
+    if (progNotationRef.current) {
+      const g = progNotationRef.current;
+      const n = g.index + 1;
+      const r = progressiveAt(g.desc, n, {
+        parseBase: (str) => { const q = parseUPI(str, { n: steps.length || 16 }); return q.ok ? { steps: q.steps } : null; },
+      });
+      if (r && !r.error) {
+        g.index = n;
+        setCycle(n - 1);
+        setSteps(r.steps);
+        return;
+      }
     }
     if (!baseRef.current) baseRef.current = { steps: steps.slice() };
     const c = cycle + 1; setCycle(c);
