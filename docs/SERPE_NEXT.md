@@ -69,7 +69,7 @@ Measured on the unfixed build before touching it:
    rebuilt by the parse `setStateInformation` itself triggers, so restoring into
    lanes needs a defined point after that parse. Same shape as the mono fix in
    `03b0bbc` — read that hunk first, it is the template.
-2. **The webapp does not precess poly lane accents.** It draws and plays them
+2. ~~**The webapp does not precess poly lane accents.**~~ **FIXED 2026-08-01.** It draws and plays them
    (`apps/serpe/main.jsx`, `lane.accents`), but from the first-cycle projection
    with no per-cycle advance — mono precesses, poly does not. So `{10}E(5,8)` on
    a lane disagrees with the plugin from cycle 2. D3 says the engine wins; this

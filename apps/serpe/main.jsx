@@ -98,6 +98,30 @@ const PLEN_VAL = ['0.125', '0.25', '0.5', '0.75', '1', '2', '3', '4', '5', '6', 
   '9', '10', '11', '12', '13', '14', '15', '16', '17', '18', '19', '20', '21', '22', '23',
   '24', '25', '26', '27', '28', '29', '30', '31', '32'];
 
+// Onset index of step `idx` within its cycle — how many onsets precede it.
+function onsetIndexAt(steps, idx) {
+  let n = 0;
+  for (let i = 0; i < idx; i++) if (steps[i]) n++;
+  return n;
+}
+
+// Re-project each lane's accents at its current precession. Lanes carry the
+// FIRST-CYCLE projection from the parser; mono advances its phase every cycle
+// (see tick()) and poly did not, so a lane whose accent layer is not the same
+// length as its onset count disagreed with the engine from cycle 2 — `{10}E(5,8)`
+// has 2 accents over 5 onsets and only repeats every 10. Fixed 2026-08-01.
+//
+// Done here rather than inside PolyLanesPanel so the rows AND the circle view
+// both get it: they each read `lane.accents`.
+function withPrecessedAccents(poly, offsets) {
+  if (!poly || !Array.isArray(poly.lanes)) return poly;
+  return { ...poly, lanes: poly.lanes.map((l, i) => {
+    const pat = l.accentPattern;
+    if (!pat || !pat.length || !(offsets[i] > 0)) return l;
+    return { ...l, accents: applyAccents(l.steps, pat, offsets[i]) };
+  }) };
+}
+
 // Apply a raw accent pattern to a step array's onsets, offset by `off` onsets
 // (the precession). Onset k is accented when pattern[(k + off) % len] is set.
 function applyAccents(steps, pattern, off = 0) {
@@ -265,6 +289,11 @@ function PolyLanesPanel({ poly, lanePh, polyLock, setPolyLock, polyView, setPoly
 }
 
 function SerpeApp() {
+  // Per-lane accent precession, the poly counterpart of mono's accentOffset.
+  // The ref is what the scheduler reads (synchronously, like lanePhRef); the
+  // state is what the display re-renders from.
+  const laneAccOffRef = useRef([]);
+  const [laneAccOff, setLaneAccOff] = useState([]);
   const [steps, setSteps]     = useState(() => euclid(5, 8));
   // Accents are derived: the raw {…} pattern re-applied to the onsets with a
   // live offset, so they precess across playback cycles (offset from the C++
@@ -910,12 +939,35 @@ function SerpeApp() {
     const len = lane.steps.length || 1;
     const next = ((lanePhRef.current[li] ?? -1) + 1) % len;
     lanePhRef.current[li] = next;
-    if (next === 0) laneCycles.current[li] = ((laneCycles.current[li] || 0) + 1) % 1024;
-    if (lane.steps[next]) polyHit(lane, li, !!lane.accents[next]);
+    if (next === 0) {
+      const seen = laneCycles.current[li] || 0;
+      // seen === 0 is this lane's FIRST arrival at step 0, i.e. the start of
+      // cycle 1, not a boundary — advancing there would skip the layer's first
+      // entry. Only cycles actually completed count.
+      const pat = lane.accentPattern;
+      if (seen > 0 && pat && pat.length) {
+        const k = lane.steps.reduce((a, st) => a + (st ? 1 : 0), 0);
+        const off = ((laneAccOffRef.current[li] || 0) + k) % pat.length;
+        laneAccOffRef.current[li] = off;
+        setLaneAccOff(prev => { const cur = prev.slice(); cur[li] = off; return cur; });
+      }
+      laneCycles.current[li] = (seen + 1) % 1024;
+    }
+    if (lane.steps[next]) {
+      // Precessed, not the frozen first-cycle projection.
+      const pat = lane.accentPattern;
+      const accented = pat && pat.length
+        ? !!pat[(onsetIndexAt(lane.steps, next) + (laneAccOffRef.current[li] || 0)) % pat.length]
+        : !!lane.accents[next];
+      polyHit(lane, li, accented);
+    }
     setLanePh(ph => { const cur = ph.slice(); cur[li] = next; return cur; });
     laneTimers.current[li] = setTimeout(() => laneTickRef.current(li), laneStepMsAt(lane, li, next));
   };
   function polyPlayStart() {
+    // A fresh run starts every lane's accent layer at its first entry.
+    laneAccOffRef.current = [];
+    setLaneAccOff([]);
     laneTimers.current.forEach(clearTimeout);
     laneTimers.current = [];
     setLanePh(live.current.poly.lanes.map(() => -1));
@@ -1245,7 +1297,7 @@ function SerpeApp() {
             h('button', { key: v, className: 'upi-chip', onClick: () => applyChip(v) }, h('b', null, v), ' ' + t)))),
 
         poly
-        ? h(PolyLanesPanel, { poly: displayPoly || poly, lanePh,
+        ? h(PolyLanesPanel, { poly: withPrecessedAccents(displayPoly || poly, laneAccOff), lanePh,
             polyLock, setPolyLock: v => {
               setPolyLock(v); LS.set('polyLock', v);
               if (cfg.host && juceAvailable()) sendParamActual('polyLock', v === 'step' ? 1 : 0);

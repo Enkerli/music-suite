@@ -156,9 +156,8 @@ So they are not reported as design problems:
   routes `|` through the poly parser. **A scene chain with no `/` therefore
   renders in the POLY panel as a single lane** — correct, but not obviously
   right, and a presentation call for this pass (§3.1).
-- **The webapp does not precess poly lane accents.** It draws and plays them,
-  but from the first-cycle projection with no per-cycle advance, so a lane's
-  accents disagree with the plugin from cycle 2 onward.
+- ~~The webapp does not precess poly lane accents~~ — **fixed 2026-08-01**.
+  Lanes now advance their accent phase every cycle, as mono always did.
 - **Workspace's pattern module takes no poly, no scenes, no progressive**
   (`apps/workspace/modules.js:96` uses the mono parser). Any Workspace
   visualization work depends on fixing this first.
