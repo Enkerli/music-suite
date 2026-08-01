@@ -388,3 +388,37 @@ lane-aware view rather than a swapped call.
 timing baseline built on `--midi` therefore covers the mono path alone until
 that is widened, which is worth knowing before it becomes the reference the DAW
 captures are compared against.
+
+### F7a — `--midi` is poly-aware; `parseUPI` is a layer, not a rival
+
+`msuite upi --midi` now renders through `parsePolyUPI`: lanes on their own note
+numbers, per-lane accents (louder **and** transposed +5, matching the plugin),
+per-lane `@` offsets as tick shifts, per-lane PD. Mono callers see no change
+because `parsePolyUPI` handles the one-lane case identically.
+
+It renders **step lock** (polymeter — equal steps, lanes drifting to the lcm).
+Stated loudly because the plugin's `Poly Lock` parameter **defaults to Cycle**,
+so a capture taken with the default will not match this file. Set Poly Lock to
+Step when capturing against the baseline, or render-side cycle lock has to be
+added first.
+
+Verified: `E(3,8)/E(3,7)` at 120bpm, 480tpb, 2 cycles gives
+`0 0 240 360 480 720 840 960 1080 1320 1320 1680` — lane 2 begins its second
+cycle at 840 while lane 1 begins at 960, which is the drift a baseline has to be
+able to express.
+
+**On deprecating `parseUPI`** (Alex's suggestion): it cannot be, and the reason
+is structural — `parsePolyUPI` is *built on it* (`poly.js:143` parses each lane
+body with it). It is the single-body parser under the notation parser, not a
+rival to it.
+
+The useful version of the instinct is a **layering rule**:
+
+> Anything taking user input calls `parsePolyUPI`. Only library internals call
+> `parseUPI`.
+
+By that rule, of 14 call sites: `poly.js`, `named.js` and `upi.js`'s own
+recursion are correct; `cli.ts --midi` (fixed here) and `apps/workspace/modules.js:96`
+were wrong. `apps/serpe/main.jsx` (three sites) and
+`packages/accompaniment/src/pipeline.ts:144` are unreviewed and should be
+checked against the rule.

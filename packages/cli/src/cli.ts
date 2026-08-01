@@ -32,7 +32,7 @@ import {
   type SendOptions, type ControlMap, type InputEvent,
 } from "./index.js";
 import { VoiceSplitter } from "@enkerli/voice-routing";
-import { identify, longShort, durations, dynamicDurations, parseNamedPatterns, describeNamedPattern, parseLongShortSuffix, parseUPI, microtiming, timingScales, parseProgressive, progressiveAt } from "@enkerli/upi";
+import { parsePolyUPI, identify, longShort, durations, dynamicDurations, parseNamedPatterns, describeNamedPattern, parseLongShortSuffix, parseUPI, microtiming, timingScales, parseProgressive, progressiveAt } from "@enkerli/upi";
 import { createSMF } from "@enkerli/midi";
 import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
@@ -305,45 +305,81 @@ async function main(): Promise<number> {
       // so push/pull can be checked against real note ticks instead of by ear.
       const midiOut = one(args, "midi");
       if (midiOut !== undefined) {
-        const parsed = parseUPI(notation, { n: nSteps });
-        if (!parsed.ok) { console.error(`no pattern (${parsed.error ?? "unparsed"})`); return 1; }
-        const stepsArr = parsed.steps.map(Boolean);
+        // Poly-aware since 2026-08-01. This used parseUPI, so it rendered MONO
+        // ONLY — no lanes, no per-lane accents, and `E(3,8)|E(5,8)` was refused
+        // outright. That mattered more than it looked: this file is meant to be
+        // the reference a DAW capture gets compared against, and a reference
+        // that cannot express poly cannot speak to the lane clock, per-lane
+        // offsets, or accents, which is where the timing questions actually are.
+        //
+        // parsePolyUPI handles the one-lane case identically, so mono callers
+        // see no change.
+        const poly = parsePolyUPI(notation, { n: nSteps });
+        if (!poly.ok) { console.error(`no pattern (${poly.error ?? "unparsed"})`); return 1; }
         const bpm = one(args, "bpm") !== undefined ? Number(one(args, "bpm")) : 120;
         const bars = one(args, "bars") !== undefined ? Number(one(args, "bars")) : 2;
         const note = one(args, "note") !== undefined ? Number(one(args, "note")) : 36;
         const tpb = 480;
         const stepTicks = tpb / 4;               // one step = a 16th
-        const pd = parsed.microtiming;
+
+        // STEP LOCK (polymeter): every lane's step is the same length, so lanes
+        // of different lengths drift and realign at their lcm. Stated because
+        // the plugin's `Poly Lock` parameter DEFAULTS to Cycle (polyrhythm,
+        // every lane spanning one cycle) — so a capture taken with the default
+        // will not match this file. Render-side cycle lock is not implemented;
+        // set Poly Lock to Step when capturing against this baseline.
         const notes: Array<{ pitch: number; velocity: number; startTick: number; durationTicks: number }> = [];
-        let cursor = 0;
-        for (let cycle = 0; cycle < bars; cycle++) {
-          const scales = pd && pd.depth > 0
-            ? timingScales(microtiming(stepsArr, { depth: pd.depth, seed: pd.seed, pass: cycle }))
-            : stepsArr.map(() => 1);
-          for (let i = 0; i < stepsArr.length; i++) {
-            if (stepsArr[i]) {
-              notes.push({ pitch: note, velocity: 100, startTick: Math.round(cursor),
-                           durationTicks: Math.max(10, Math.round(stepTicks * 0.5)) });
-            }
-            cursor += stepTicks * (scales[i] ?? 1);
+        const laneLines: string[] = [];
+
+        poly.lanes.forEach((lane, li) => {
+          const stepsArr = lane.steps.map(Boolean);
+          if (!stepsArr.length) return;
+          const L = lane as unknown as { accents?: number[] | null; microtiming?: { depth: number; seed?: number } | null };
+          const acc = L.accents ?? null;
+          const pd = L.microtiming ?? null;
+
+          // Per-lane offset, exactly as the notation spells it: `@+20ms` or a
+          // beat fraction. Applied as a tick shift on every onset in the lane.
+          let offTicks = 0;
+          if (lane.offset != null) {
+            offTicks = lane.offset.kind === "ms"
+              ? Math.round((lane.offset.ms / 1000) * (bpm / 60) * tpb)
+              : Math.round((lane.offset.num / lane.offset.den) * tpb);
           }
-        }
+
+          let cursor = 0;
+          for (let cycle = 0; cycle < bars; cycle++) {
+            const scales = pd && pd.depth > 0
+              ? timingScales(microtiming(stepsArr, { depth: pd.depth, ...(pd.seed !== undefined && { seed: pd.seed }), pass: cycle }))
+              : stepsArr.map(() => 1);
+            for (let i = 0; i < stepsArr.length; i++) {
+              if (stepsArr[i]) {
+                // An accent is LOUDER AND TRANSPOSED, matching the plugin
+                // (accentVelocity / accentPitchOffset, +5 by default). A file
+                // that only raised velocity would not match a capture.
+                const accented = !!(acc && acc[i]);
+                notes.push({
+                  pitch: note + li + (accented ? 5 : 0),
+                  velocity: accented ? 127 : 100,
+                  startTick: Math.max(0, Math.round(cursor) + offTicks),
+                  durationTicks: Math.max(10, Math.round(stepTicks * 0.5)),
+                });
+              }
+              cursor += stepTicks * (scales[i] ?? 1);
+            }
+          }
+          const accN = acc ? acc.filter(Boolean).length : 0;
+          laneLines.push(`${(poly.lanes.length > 1 ? lane.label : "pattern").padEnd(8)} note ${note + li}`
+            + `  ${stepsArr.length} steps` + (accN ? `  ${accN} accented (→ note ${note + li + 5})` : "")
+            + (offTicks ? `  offset ${offTicks > 0 ? "+" : ""}${offTicks} ticks` : "")
+            + (pd && pd.depth > 0 ? `  PD ${Math.round(pd.depth * 100)}%` : ""));
+        });
+
+        notes.sort((a, b) => a.startTick - b.startTick);
         writeFileSync(String(midiOut), createSMF(notes, { bpm, ticksPerBeat: tpb, trackName: notation }));
-        const shifts = pd && pd.depth > 0 ? microtiming(stepsArr, { depth: pd.depth, seed: pd.seed, pass: 0 }) : null;
-        const pdDepth = pd ? pd.depth : 0;
-        console.log(`wrote ${midiOut} — ${notes.length} notes, ${bars} cycle(s) @ ${bpm}bpm`);
-        console.log(`ticks   ${notes.slice(0, 10).map((n) => n.startTick).join(" ")}${notes.length > 10 ? " …" : ""}`);
-        if (shifts) {
-          const msPerStep = (60000 / bpm) / 4;
-          console.log(`pd      depth ${Math.round(pdDepth * 100)}%  →  ` +
-            stepsArr.map((on, i) => {
-              if (!on) return null;
-              const sh = shifts[i] ?? 0;
-              return `${sh >= 0 ? "+" : ""}${(sh * msPerStep).toFixed(1)}`;
-            }).filter(Boolean).join("  ") + " ms (cycle 1)");
-        } else {
-          console.log(`pd      none — add PD(30%) to the notation to hear/see push-pull`);
-        }
+        console.log(`wrote ${midiOut} — ${notes.length} notes, ${bars} cycle(s) @ ${bpm}bpm, step lock`);
+        laneLines.forEach((l) => console.log(l));
+        console.log(`ticks   ${notes.slice(0, 12).map((n) => n.startTick).join(" ")}${notes.length > 12 ? " …" : ""}`);
         return 0;
       }
       // Scenes ('|') go through the POLY parser even without a top-level '/'.
