@@ -147,6 +147,21 @@ runtime state is new.
 
 ## 4. Known, already filed — please don't spend time re-finding
 
+> **First DAW session done 2026-08-01 — read
+> [SERPE_DAW_FINDINGS](SERPE_DAW_FINDINGS_2026-08.md) before testing further.**
+> Five findings, one of which (process-wide progressive state) makes every
+> progressive result non-reproducible until fixed.
+
+- **Accents are dropped entirely in poly lanes.** Deliberate v1 scope, and this
+  document should have said so before Alex found it in Logic. Mono accents work.
+- **An accent is a different note number**, not only a louder one:
+  `accentPitchOffset` defaults to **+5**, so an accented onset on note 36
+  arrives as **note 41**. If your drum kit has nothing at 41, accents go silent
+  while the MIDI is correct.
+- **Polymeter is the `Poly Lock` parameter set to `Step`.** The default,
+  `Cycle`, is polyrhythm — every lane spans the same cycle. Both work; the
+  default is just the less interesting one.
+
 - **Mono `%N` on an older build sits frozen.** Fixed 07-31 (`852ec88`). If you
   are on an earlier binary you will see it; check your stamp first.
 - **`--ladder` does nothing on Linux.** macOS-only (auval, xcodebuild). It now
