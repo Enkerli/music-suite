@@ -65,7 +65,7 @@ Measured on the unfixed build before touching it:
 
 ## 2. Open, in the order I would take them
 
-1. **Poly lane progressive state is not persisted.** Mono is. A lane's state is
+1. ~~**Poly lane progressive state is not persisted.**~~ **FIXED 2026-08-01** (`defffc7`). Mono is. A lane's state is
    rebuilt by the parse `setStateInformation` itself triggers, so restoring into
    lanes needs a defined point after that parse. Same shape as the mono fix in
    `03b0bbc` — read that hunk first, it is the template.
@@ -74,7 +74,10 @@ Measured on the unfixed build before touching it:
    with no per-cycle advance — mono precesses, poly does not. So `{10}E(5,8)` on
    a lane disagrees with the plugin from cycle 2. D3 says the engine wins; this
    is the last piece of poly accents.
-3. **`setProgressiveOffsetEngine` is still a process-wide static.** Re-bound
+3. ~~**`setProgressiveOffsetEngine` is still a process-wide static.**~~ **FIXED
+   2026-08-01** (`55c3047`) — it was a process-wide *pointer* to a per-instance
+   object with an empty destructor, so it was a dangling-pointer risk as well
+   as a sharing one. Now `ProgressiveTransformState::offsetEngine`. Re-bound
    before every lane parse, so it does not accumulate state the way the maps
    did — but it is the same shape of thing, and it is what `beforeLaneParse`
    exists to work around. Worth folding into the lane-state accessor.
