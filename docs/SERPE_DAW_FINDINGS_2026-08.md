@@ -43,9 +43,66 @@ which match what Alex reported:
 back. The problem is that the authoritative copy of progressive state lives
 somewhere the project file cannot reach.
 
-**Fix direction:** the maps become members of the processor (or of
-`PatternEngine`, which each poly lane already owns), and their contents join
-`getStateInformation`. That also fixes multi-instance, which nobody has tested.
+### F1a — it reaches poly lanes too
+
+`PolyParser.cpp:306` calls the same `UPIParser::parse()` **per lane**, so every
+lane's `>N` state goes through the same global map, keyed by pattern text.
+
+**Prediction, from reading the code — not yet measured.** For
+`E(1,8)>8/E(1,8)>8`, both lanes hit one key, so each trigger advances the shared
+counter *twice* and the lanes come apart immediately:
+
+| | trigger 1 | trigger 2 |
+|---|---|---|
+| JS reference (pure, stateless) | `10000000` / `10000000` | `10000001` / `10000001` |
+| C++ predicted | `10000000` / `10000001` | `10001001` / `10101001` |
+
+The JS row is measured (`polyLaneAt`, 2026-08-01) and is what *should* happen:
+identical lanes stay identical and advance one step per trigger. If the C++ row
+is confirmed, it is the same bug in its most visible form and makes a good
+regression test.
+
+### Fix direction — decided 2026-08-01
+
+The coupling is far smaller than it looks. **Four call sites, total:**
+
+| symbol | callers |
+|---|---|
+| `UPIParser::parse()` | 2 — `PolyParser.cpp:306`, `PluginProcessor.cpp:2200` |
+| `applyProgressiveTransformation()` | 1 — inside `parse()`, `UPIParser.cpp:600` |
+| `getProgressiveStepCount()` | 1 — `PluginProcessor.cpp:2787` |
+
+So **pass the state in** rather than hiding it in a singleton or threading it
+through `PatternEngine`:
+
+```cpp
+struct ProgressiveTransformState {
+    std::map<juce::String, std::vector<bool>> patterns;
+    std::map<juce::String, int> stepCount;
+    std::map<juce::String, int> accessCount;
+    void saveTo (juce::ValueTree&) const;
+    void restoreFrom (const juce::ValueTree&);
+};
+
+static ParseResult parse (const juce::String& input, ProgressiveTransformState& progressive);
+```
+
+Why this shape:
+
+- **No default argument.** A defaulted parameter would let a future call site
+  silently fall back to shared state — which is exactly how the two trigger
+  sites drifted from `setUPIInput` (INTENT L5). Make the compiler visit all two.
+- **Parsing stays static and pure.** The state is the *transform bookkeeping*,
+  not the parse, and this keeps that boundary visible instead of dissolving it.
+- **Ownership falls out for free.** The processor owns one for mono;
+  `PolyLaneRuntime` owns one per lane, which fixes F1a in the same change rather
+  than needing a second pass.
+- **Persistence is then obvious** — `saveTo`/`restoreFrom` join the existing
+  `sceneManager->saveStateTo(state)` call in `getStateInformation`, alongside
+  the `currentProgressivePatternKey` that is already saved.
+
+`MAX_PROGRESSIVE_STATES = 100` can drop a lot once the map is per-instance, but
+eviction semantics should not change silently — if the cap changes, say so.
 
 ---
 
