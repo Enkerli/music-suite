@@ -106,9 +106,9 @@ eviction semantics should not change silently — if the cap changes, say so.
 
 ---
 
-## F2 — Accents are dropped in poly. Deliberately, and undocumented outside the code
+## F2 — Accents were dropped in poly. **Fixed 2026-08-01**
 
-`PluginProcessor.cpp:1494` — the parameter is commented out at the signature:
+`PluginProcessor.cpp:1494` — the parameter was commented out at the signature:
 
 ```cpp
 void SerpeAudioProcessor::triggerPolyNote(..., bool /*isAccented*/)
@@ -117,17 +117,54 @@ void SerpeAudioProcessor::triggerPolyNote(..., bool /*isAccented*/)
     float velocity = unaccentedVelocityParam ? unaccentedVelocityParam->get() : 0.8f;
 ```
 
-Confirmed headlessly. `{1001010}E(5,8)/E(1,17)>17` emits **one** note/velocity
-pair, `note 36 vel 102` — flat, unaccented. Mono is fine (F3).
+Confirmed headlessly. `{1001010}E(5,8)/E(1,17)>17` emitted **one** note/velocity
+pair, `note 36 vel 102` — flat, unaccented. Mono was fine (F3).
 
-The intent is recorded at `PluginProcessor.cpp:1256`: *"v1 scope, deliberately:
+The intent was recorded at `PluginProcessor.cpp:1256`: *"v1 scope, deliberately:
 unaccented (flat velocity) — accent parity is separate roadmap work."*
 
-So Alex's Logic finding is a known limitation behaving exactly as built. **The
-failure is that nobody could have known.** It is in a code comment and in no
+So Alex's Logic finding was a known limitation behaving exactly as built. **The
+failure was that nobody could have known.** It was in a code comment and in no
 document a tester reads — including the testing notes written the day before,
-which walked through poly at length and never mentioned accents. Now listed in
-[TESTING_NOTES_2026-08](TESTING_NOTES_2026-08.md) §4.
+which walked through poly at length and never mentioned accents.
+
+### The fix, and the decision it needed first
+
+Every lane already parsed its own accent layer; `PolyParser` simply had no field
+to put it in, so it was dropped between the parser and the runtime. Restoring it
+is three small pieces — the parser carries `accentPattern` per lane, the lane
+runtime keeps it, and `triggerPolyNote` applies the same
+`accentVelocity`/`accentPitchOffset` mono uses, to **that lane's own**
+`laneNote` rather than a hardcoded 36.
+
+What had to be settled before any of that was **whose accent a leading brace
+is**. `{1001010}E(5,8)/E(1,17)>17` looks like it puts the brace outside the
+lanes, but `/` binds loosest (INTENT §D4), so both splitters split on it before
+reading anything else and the brace is already inside lane 1's body. Now written
+down as **INTENT §D8**: an accent layer belongs to a lane. That string accents
+lane 1 alone; `{101}E(3,8)/{11}E(3,7)` accents both. So what Alex heard as "no
+accents at all" will now be "accents on the first lane" — the semantics were
+never the bug, but they were never stated either.
+
+The index is per-lane and cumulative over **onsets** (mono's rule), derived from
+the lane clock rather than counted, so a 7-long layer on a 5-onset lane
+precesses instead of repeating and cannot drift.
+
+**Verified:** `serpe_dataflow_probe`'s new `serpe-accent-poly` session runs the
+transport for ~2 cycles and now reports **two** distinct pairs — `note 41 vel
+127` alongside `note 36 vel 102` — with `serpe-accent-mono` as the control.
+`serpe_poly_precedence` pins §D8 itself (lane 1 accented, lane 2 not) and the
+onset arithmetic; `packages/upi/src/poly.accents.test.js` pins the same reading
+on the JS side, which had it right all along.
+
+**Still open, found while checking the JS side.** The webapp already *draws* and
+*plays* per-lane accents (`main.jsx` — `lane.accents`), but it uses the
+first-cycle projection and never advances it: mono precesses its accent phase at
+each cycle boundary, poly lanes do not. So on a lane where the layer's length
+does not divide the onsets per cycle — `{10}E(5,8)`, the usual test case — the
+webapp's second cycle repeats while the engine's precesses. Not a regression
+from this fix, and D3 says the engine is the authority, but it is a visible
+disagreement in the browser and it is now the only piece of poly accents left.
 
 ---
 

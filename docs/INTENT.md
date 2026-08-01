@@ -219,6 +219,41 @@ see it again, look at the trigger sites, not at the phase.
 ### D7 — The jazz corpus is never published
 Only derived statistics ship. The corpus stays local and gitignored.
 
+### D8 — An accent layer belongs to a lane, not to the string
+`{1001010}E(5,8)/E(1,17)>17` accents **lane 1 only**. To accent more than one
+lane, write a brace on each: `{101}E(3,8)/{11}E(3,7)`. There is no spelling for
+a whole-string accent, and deliberately so.
+
+**Why:** it is D4 applied to one more operator. `/` binds loosest, so both
+splitters split on it *before* anything else is read — a leading brace is
+already part of lane 1's body by the time any parser sees it. The JS reference
+has carried a per-lane `accentPattern` since it was written. Reading a leading
+brace as global would mean `{…}` binds *looser* than `/`, the one thing D4 says
+nothing does.
+
+The lane's layer is indexed by **onset**, not by step, exactly as mono's is — so
+`{10}E(5,8)` on a lane precesses across cycles rather than repeating. In the
+plugin that index is derived from the lane clock (`polyLaneOnsetIndex`), never
+accumulated, for the reason CLAUDE.md's accent-swirling section gives.
+
+**History.** Poly played *flat* until 2026-08-01: the C++ parsed each lane's
+accent layer and dropped it on the floor, one commented-out parameter in
+`triggerPolyNote`. Alex found it in Logic with the string above and reported it
+as "no accents at all", which is what a per-lane accent on lane 1 sounds like
+when the lane throws it away — the semantics were never the bug
+(SERPE_DAW_FINDINGS_2026-08 F2). Deciding this was still necessary before
+fixing it, because "no accents" and "accents on lane 1" are the same observation
+until you say which one you meant.
+
+**Watch out:** the surprise this leaves is real but small. Someone writing a
+brace at the head of a poly string may well mean it for everything, and will
+hear it on lane 1 alone. That is the cost of D4 being a rule rather than a
+preference; the answer is the per-lane spelling, not an exception.
+
+**If reversed:** every existing poly string with a leading brace changes what it
+plays, and the two parsers disagree again — the C++ would have to un-split, the
+JS to re-split.
+
 ---
 
 ## H — Hitchhikers: ideas picked up along the way, not yet homed

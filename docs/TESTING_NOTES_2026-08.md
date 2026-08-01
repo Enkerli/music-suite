@@ -152,8 +152,20 @@ runtime state is new.
 > Five findings, one of which (process-wide progressive state) makes every
 > progressive result non-reproducible until fixed.
 
-- **Accents are dropped entirely in poly lanes.** Deliberate v1 scope, and this
-  document should have said so before Alex found it in Logic. Mono accents work.
+- **~~Accents are dropped entirely in poly lanes.~~ Fixed 2026-08-01 — and an
+  accent belongs to ONE lane.** Poly lanes played flat until this fix (deliberate
+  v1 scope, which this document should have said before Alex found it in Logic).
+  They now accent like mono. **What to expect when you retest:** a brace binds to
+  the lane it is written in, because `/` binds loosest — so
+  `{1001010}E(5,8)/E(1,17)>17` accents **lane 1 only**, not both lanes. Write
+  `{101}E(3,8)/{11}E(3,7)` to accent each. That is a decision, not an oversight
+  (INTENT §D8); if it reads wrong in practice, that is worth telling us, but
+  "lane 2 has no accents" on the string above is correct behaviour.
+  Each lane's accents land on **that lane's own note** (its `Lane N Note`),
+  transposed by `accentPitchOffset` — see the next item.
+  In the **browser**, poly accents are drawn and played but do not yet precess
+  across cycles the way the plugin's do, so a layer like `{10}` on a 5-onset lane
+  will disagree with the plugin from the second cycle on. The plugin is right.
 - **An accent is a different note number**, not only a louder one:
   `accentPitchOffset` defaults to **+5**, so an accented onset on note 36
   arrives as **note 41**. If your drum kit has nothing at 41, accents go silent
