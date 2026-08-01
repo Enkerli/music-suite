@@ -5,10 +5,16 @@
 four of them real, one a control nobody could find.*
 
 **The headline: one root cause probably explains most of the confusing results.**
-Serpe keeps progressive state in **process-wide statics**, so what a pattern does
-depends on what other instances and other projects did earlier in the same DAW
-session. Until that is fixed, any test of a progressive pattern is
-non-reproducible by construction, and results should be read with that in mind.
+Serpe kept progressive state in **process-wide statics**, so what a pattern did
+depended on what other instances and other projects had done earlier in the same
+DAW session. Any test of a progressive pattern was non-reproducible by
+construction.
+
+> **Fixed 2026-08-01 (F1, F1a).** The state is now owned — one per processor for
+> mono, one per lane for poly — and it travels in the project file. Progressive
+> results are reproducible from this build on, so **re-test anything you
+> previously wrote off as flaky**; the earlier notes on those runs are not
+> evidence about the current build.
 
 ---
 
@@ -43,24 +49,70 @@ which match what Alex reported:
 back. The problem is that the authoritative copy of progressive state lives
 somewhere the project file cannot reach.
 
-### F1a — it reaches poly lanes too
+### Fixed 2026-08-01 — and what the measurements said
+
+Built as decided below: a `ProgressiveTransformState` passed in by reference,
+with **no default argument**, owned by the processor for mono and by each
+`PolyLaneRuntime` for poly. The statics are gone.
+
+The prediction in F1a was **confirmed first, then fixed**, because a bug this
+old deserves a failing test before a patch. What the probe measured on the
+unfixed build:
+
+| | before | after |
+|---|---|---|
+| two instances, triggers interleaved (`E(1,8)>8`) | `10000001 10101001 11101011 …` against `10001001 10101011 11111011 …` — each took alternate steps of ONE sequence | both `10000001 10001001 10101001 10101011` |
+| `E(1,8)>8/E(1,8)>8` (F1a) | `11000100+11010100` on trigger 1 — already apart, and already several steps in | `11000000+11000000`, `01100010+01100010`, … identical, one onset per trigger |
+
+Two details the measurement added that reading the code had not:
+
+- **The lanes did not merely diverge, they started mid-progression.** Trigger 1
+  of that poly session inherited state from an *earlier session in the same
+  probe run* that happened to use the same pattern text. One process, one map —
+  the probe was contaminating itself, which is the bug in miniature.
+- **Persistence needed a second fix.** Making the map per-instance is not enough
+  if a reopened project resumes from the wrong step: `setStateInformation` calls
+  `setUPIInput`, that re-parses, and a `>N` parse ADVANCES. Restoring before it
+  left a reloaded project one step late (saved on `11101011`, restored on
+  `11111011`). The state now goes back *after* that parse, along with the
+  pattern it describes. Also saved now: `lastProgressiveTransformUPI`, without
+  which a reload looks like freshly typed text and clears what it just restored.
+
+Three probe sessions pin all of it — `serpe-two-instances`,
+`serpe-poly-shared-key`, `serpe-state-roundtrip`. The first is the test whose
+absence let this survive: every earlier session built ONE processor, and
+process-wide state is invisible to a single instance by construction.
+
+**Still open:** a poly lane's progressive state is not persisted (mono is). A
+lane's state is rebuilt by the parse that `setStateInformation` itself triggers,
+so restoring into lanes needs a defined point after that — a separate change,
+noted rather than half-done.
+
+### F1a — it reaches poly lanes too *(fixed with F1; measured, no longer predicted)*
 
 `PolyParser.cpp:306` calls the same `UPIParser::parse()` **per lane**, so every
 lane's `>N` state goes through the same global map, keyed by pattern text.
 
-**Prediction, from reading the code — not yet measured.** For
-`E(1,8)>8/E(1,8)>8`, both lanes hit one key, so each trigger advances the shared
-counter *twice* and the lanes come apart immediately:
+**Was a prediction from reading the code; MEASURED 2026-08-01 before the fix,
+and it held.** For `E(1,8)>8/E(1,8)>8` both lanes hit one key, so each trigger
+advanced the shared counter *twice* and the lanes came apart immediately:
 
 | | trigger 1 | trigger 2 |
 |---|---|---|
 | JS reference (pure, stateless) | `10000000` / `10000000` | `10000001` / `10000001` |
 | C++ predicted | `10000000` / `10000001` | `10001001` / `10101001` |
+| **C++ measured, unfixed** | `11000100` / `11010100` | `11101010` / `11111010` |
+| **C++ measured, fixed** | `11000000` / `11000000` | `01100010` / `01100010` |
 
 The JS row is measured (`polyLaneAt`, 2026-08-01) and is what *should* happen:
-identical lanes stay identical and advance one step per trigger. If the C++ row
-is confirmed, it is the same bug in its most visible form and makes a good
-regression test.
+identical lanes stay identical and advance one step per trigger. The C++ row was
+confirmed on the unfixed build and is now the `serpe-poly-shared-key` probe
+session — it fails loudly if the lanes ever diverge again.
+
+One difference from the JS numbering, and it is not this bug: the C++ column
+starts a step further on, because `setUPIInput` parses once itself before any
+trigger. The *sequence* matches; the offset is where the two engines count
+from.
 
 ### Fix direction — decided 2026-08-01
 
@@ -100,6 +152,14 @@ Why this shape:
 - **Persistence is then obvious** — `saveTo`/`restoreFrom` join the existing
   `sceneManager->saveStateTo(state)` call in `getStateInformation`, alongside
   the `currentProgressivePatternKey` that is already saved.
+
+**One correction from building it.** The table above lists `parse()` and
+`applyProgressiveTransformation()`, but the `>N` branch actually lives in
+`parsePattern()`, which also recurses into itself for the named patterns
+(`tresillo`, `hex`, …). So the state threads through `parse` → `parseAfterFeel`
+→ `parsePattern`, and the internal call sites are ~15 rather than 4. All
+mechanical, none of it changes the shape — but "four call sites" undersold it,
+and the next person reading this should not be surprised.
 
 `MAX_PROGRESSIVE_STATES = 100` can drop a lot once the map is per-instance, but
 eviction semantics should not change silently — if the cap changes, say so.

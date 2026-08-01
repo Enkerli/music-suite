@@ -149,8 +149,12 @@ runtime state is new.
 
 > **First DAW session done 2026-08-01 — read
 > [SERPE_DAW_FINDINGS](SERPE_DAW_FINDINGS_2026-08.md) before testing further.**
-> Five findings, one of which (process-wide progressive state) makes every
-> progressive result non-reproducible until fixed.
+> Five findings. The one that made every progressive result non-reproducible
+> (process-wide progressive state, F1/F1a) is **fixed as of 2026-08-01** —
+> progressive state is now per instance and per lane, and it is saved with the
+> project. If you tested a progressive pattern before that and it behaved
+> erratically, that result says nothing about the current build: please re-test
+> rather than trusting the old note.
 
 - **~~Accents are dropped entirely in poly lanes.~~ Fixed 2026-08-01 — and an
   accent belongs to ONE lane.** Poly lanes played flat until this fix (deliberate
