@@ -564,7 +564,17 @@ function SerpeApp() {
     // (SERPE_POLY.md §8 milestone 2) — send the raw text same as mono's
     // engine-authoritative path below. Accents are inline per lane ({…}
     // inside each lane); the Accents field is mono's, never merged in here.
-    if (splitLanes(text).length > 1) {
+    // Scenes ('|') come here too, even with no top-level '/'. parsePolyUPI
+    // handles the one-lane case and returns the scene chain; the mono path
+    // below uses the single-body parser, which rejects '|' outright — so
+    // standalone answered "unrecognised" for notation the plugin plays, while
+    // ENGINE_ADVANCE_RE above already listed '|' as engine notation. Same
+    // one-line root cause fixed in `msuite upi` on 2026-08-01.
+    //
+    // FOR THE DESIGN PASS: a scene chain with no '/' now renders through the
+    // POLY panel as a single lane. That is correct but not obviously right —
+    // see docs/DESIGN_BRIEF.md §3.1.
+    if (splitLanes(text).length > 1 || text.includes('|')) {
       LS.set('upi', text);
       const pp = parsePolyUPI(text, { n: steps.length || 16 });
       // Mid-edit errors KEEP the last good poly (same contract as mono, which
