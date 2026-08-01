@@ -339,3 +339,52 @@ Tested on macOS with **CLAP and AU**. VST3 untested; iPad untested.
 
 F3 and F4 need no fix; they are explained by F1 and by the accent-pitch-offset
 behaviour, which should be surfaced in the UI rather than changed.
+
+---
+
+## F7 — Parity check: `msuite upi` and Workspace against the library
+
+*2026-08-01, from Alex: "my expectation is that everything can parse everything
+in the same way, including [accents, scenes, progressive transforms in poly
+lanes]."*
+
+**The expectation is nearly right, and the gap is not where it looks.** The
+library parses all of it. Two consumers were not using it.
+
+| | `parsePolyUPI` | `msuite upi` before | after | Workspace |
+|---|---|---|---|---|
+| poly `/` | ✅ | ✅ | ✅ | ❌ |
+| accents `{}` mono | ✅ | ✅ | ✅ | ✅ |
+| accents per lane | ✅ | ❌ silently dropped | ✅ | ❌ |
+| scenes `\|` mono | ✅ | ❌ **rejected** | ✅ | ❌ **rejected** |
+| scenes per lane | ✅ | ❌ silently dropped | ✅ | ❌ |
+| progressive mono | ✅ | ✅ | ✅ | ❌ |
+| progressive per lane | ✅ | ❌ silently dropped | ✅ | ❌ |
+
+**Root cause, one line, in both consumers:** anything without a top-level `/`
+went to the *mono* parser `parseUPI`, which rejects `|` outright —
+`E(3,8)|E(5,8)` returned *"Unrecognised pattern"* for notation the plugin plays
+perfectly. `parsePolyUPI` handles the one-lane case and returns `sceneCount: 2`,
+so routing scene-bearing strings through it fixes mono scenes for free.
+
+The per-lane accents/scenes/progressive were never dropped at all — the parse
+had them (`accents`, `accentPattern`, `scenes`, `sceneCount`, `progressive`) and
+the renderer printed only `parsedLabel` and the binary. A display gap reading as
+a parser gap, which is why it looked worse than it was.
+
+**Fixed in the CLI.** `E(3,8)|E(5,8)` now prints its scenes; poly lanes print
+their accent layer, scene chain and progressive kind.
+
+**Workspace is NOT fixed.** `apps/workspace/modules.js:96` calls
+`parseUPI(input.value, { n: 16 })`, so its pattern module cannot take poly,
+scenes, or any progressive form. Same one-line root cause, same fix —
+`parsePolyUPI` — but the module also renders a single pattern, so it needs a
+lane-aware view rather than a swapped call.
+
+### Related, and it matters for the timing work
+
+`msuite upi --midi` also uses `parseUPI` (`cli.ts:308`). So the CLI can render
+**mono only** to a MIDI file — no poly, no scenes, no per-lane accents. Any
+timing baseline built on `--midi` therefore covers the mono path alone until
+that is widened, which is worth knowing before it becomes the reference the DAW
+captures are compared against.

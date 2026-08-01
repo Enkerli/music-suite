@@ -346,17 +346,44 @@ async function main(): Promise<number> {
         }
         return 0;
       }
-      if (isPolyUpi(notation)) {
+      // Scenes ('|') go through the POLY parser even without a top-level '/'.
+      // parsePolyUPI handles the one-lane case and returns sceneCount/scenes,
+      // while the mono parser below rejects '|' outright — so `E(3,8)|E(5,8)`
+      // used to print "no pattern (Unrecognised pattern)" for notation the
+      // plugin plays perfectly. Found 2026-08-01 checking CLI/Workspace parity.
+      if (isPolyUpi(notation) || notation.includes("|")) {
         const p = polyUpiInfo(notation, nSteps);
         if (!p.ok) { console.log(`no pattern (${p.error ?? "unparsed"})`); return 1; }
-        console.log(`lanes   ${p.poly!.lanes.length} · display grid lcm ${p.poly!.lcm}`);
-        p.poly!.lanes.forEach((lane, i) => {
+        const lanes = p.poly!.lanes;
+        if (lanes.length > 1) console.log(`lanes   ${lanes.length} · display grid lcm ${p.poly!.lcm}`);
+        lanes.forEach((lane, i) => {
           const a = p.analyses[i]!;
           const off = lane.offset == null ? ""
             : lane.offset.kind === "ms" ? `  @${lane.offset.ms >= 0 ? "+" : ""}${lane.offset.ms}ms`
             : `  @${lane.offset.num >= 0 ? "+" : ""}${lane.offset.num}/${lane.offset.den}`;
-          console.log(`${lane.label.padEnd(10)} ${lane.parsedLabel}${off}`);
+          const head = lanes.length > 1 ? lane.label.padEnd(10) : "pattern   ";
+          console.log(`${head} ${lane.parsedLabel}${off}`);
           console.log(`           ${a.binary}  onsets [${a.onsets.join(" ")}] (${a.k}/${a.n}, evenness ${a.evenness.toFixed(3)})`);
+
+          // Everything below was PARSED and silently not shown, which read as
+          // "poly drops accents/scenes/progressive" when the library had them
+          // all along. Only the display was missing.
+          const L = lane as unknown as {
+            accents?: number[] | null; accentPattern?: number[] | null;
+            sceneCount?: number; sceneIndex?: number; scenes?: string[];
+            progressive?: { kind: string; type?: string; target?: number; step?: number } | null;
+          };
+          if (L.accentPattern && L.accentPattern.length)
+            console.log(`           accents {${L.accentPattern.join("")}} → ${(L.accents ?? []).join("")}`);
+          if (L.sceneCount && L.sceneCount > 1)
+            console.log(`           scenes  ${L.sceneCount}: ${(L.scenes ?? []).join("  |  ")}  (showing ${(L.sceneIndex ?? 0) + 1})`);
+          if (L.progressive) {
+            const g = L.progressive;
+            const how = g.kind === "transform" ? `${g.type ?? "b"} → ${g.target} onsets`
+                      : g.kind === "offset"    ? `rotate ${g.step} per trigger`
+                      : `grow ${g.step} steps per trigger`;
+            console.log(`           progressive  ${g.kind} (${how}) — one pattern per trigger`);
+          }
         });
         return 0;
       }
