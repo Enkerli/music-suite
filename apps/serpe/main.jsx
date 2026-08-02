@@ -24,7 +24,7 @@ import serpeCss from './styles/serpe.css';
 import { parseUPI, euclid, polygon, rotate, complement, invert,
          barlowTransform, indispensabilityWeights, onsetCount,
          analyse, analyzeSyncopation, funkyEuclidean, bellCurveRandomSteps,
-         mutatePattern, parsePolyUPI, splitLanes,
+         mutatePattern, parsePolyUPI, splitLanes, polyLaneAt, formatPolyUPI,
          longShort, durations, dynamicDurations, identify,
          microtiming, timingScales,
          parseNamedPatterns, parseProgressive, progressiveAt } from '@enkerli/upi';
@@ -324,6 +324,10 @@ function SerpeApp() {
   // Per-lane accent precession, the poly counterpart of mono's accentOffset.
   // The ref is what the scheduler reads (synchronously, like lanePhRef); the
   // state is what the display re-renders from.
+  // Shared trigger ordinal for poly progression in the WEBAPP. In a plugin the
+  // engine owns this and reports it back via polyState; here the app is the
+  // engine, so it counts — and feeds the same trigger chip.
+  const [polyTrig, setPolyTrig] = useState(1);
   const laneAccOffRef = useRef([]);
   const [laneAccOff, setLaneAccOff] = useState([]);
   const [steps, setSteps]     = useState(() => euclid(5, 8));
@@ -464,7 +468,21 @@ function SerpeApp() {
   // them; the parsed lane keeps its label, offset and routing. Falls back to
   // the JS parse in the webapp, or before the first polyState arrives.
   const displayPoly = useMemo(() => {
-    if (!poly || !engineLanes || !Array.isArray(engineLanes.patterns)) return poly;
+    if (!poly) return poly;
+    // STANDALONE: no engine to report lane state, so derive it here. Each lane
+    // resolves its own progression at the shared trigger ordinal — polyLaneAt
+    // is pure in that index, so replaying the same number always gives the
+    // same pattern, and the chip below shows the number it was derived from
+    // rather than a tally kept beside it.
+    if (!engineLanes || !Array.isArray(engineLanes.patterns)) {
+      if (!poly.lanes.some((l) => l.progressive)) return poly;
+      return {
+        ...poly,
+        lanes: poly.lanes.map((lane) => (lane.progressive
+          ? { ...lane, steps: polyLaneAt(lane, polyTrig), triggerIndex: polyTrig }
+          : { ...lane, triggerIndex: polyTrig })),
+      };
+    }
     return {
       ...poly,
       lanes: poly.lanes.map((lane, i) => {
@@ -491,7 +509,7 @@ function SerpeApp() {
         };
       }),
     };
-  }, [poly, engineLanes]);
+  }, [poly, engineLanes, polyTrig]);
 
   const setLaneUi = (label, i, patch) => {
     if (cfg.host && juceAvailable()) {
@@ -648,7 +666,12 @@ function SerpeApp() {
       const pp = parsePolyUPI(text, { n: steps.length || 16 });
       // Mid-edit errors KEEP the last good poly (same contract as mono, which
       // keeps its last good steps) — typing never blanks a playing pattern.
-      if (pp.ok) { setPoly(pp); setParseErr(null); }
+      if (pp.ok) {
+        // A different poly string starts its chains over; re-submitting the
+        // SAME one advances, matching Enter's meaning in the plugin.
+        setPolyTrig((t) => (poly && formatPolyUPI(poly) === formatPolyUPI(pp) ? t + 1 : 1));
+        setPoly(pp); setParseErr(null);
+      }
       else setParseErr(pp.error || 'unrecognised poly');
       // Plugin: send raw, don't gate on the JS parse succeeding — the C++
       // engine is authoritative and has its own fallback for a bad string
@@ -682,12 +705,19 @@ function SerpeApp() {
     // nothing single to return and refuses. Show trigger 1 — the bare base
     // (INTENT D6) — and let Advance step it, which is what the engine does.
     const desc = parseProgressive(full);
-    const first = desc && progressiveAt(desc, 1, {
+    // Re-submitting the SAME progressive string ADVANCES it — that is what
+    // Enter does in the plugin (the string is re-sent and the engine steps),
+    // and the webapp has to match or Enter would silently restart a chain the
+    // user is playing. A DIFFERENT string starts over at the base.
+    const prev = progNotationRef.current;
+    const same = prev && desc && prev.desc.source === desc.source;
+    const index = same ? prev.index + 1 : 1;
+    const first = desc && progressiveAt(desc, index, {
       parseBase: (str) => { const r = parseUPI(str, { n: steps.length || 16 }); return r.ok ? { steps: r.steps } : null; },
     });
     if (first && !first.error) {
-      progNotationRef.current = { desc, index: 1 };
-      setCycle(0);
+      progNotationRef.current = { desc, index };
+      setCycle(index - 1);
       setParseErr(null);
       setSteps(first.steps);
       setLabel(desc.source);
@@ -806,7 +836,21 @@ function SerpeApp() {
   // accentPrefix, inline or field), so accents survive progressive offset AND
   // lengthening — parseField re-applies them, onset-indexed, to the new pattern.
   function progAdvance() {
-    if (poly) return;     // mono-only in poly slice 1
+    // Poly lanes advance too. This used to return early ("mono-only in poly
+    // slice 1"), so Advance did nothing at all for a poly pattern while
+    // working for the same notation on one lane — reported 2026-08-01.
+    //
+    // One shared ordinal, applied per lane: every trigger advances EVERY
+    // lane's own chain by one, and each lane derives its own pattern from it
+    // (INTENT D5 — lanes are independent in what they do per trigger, not in
+    // how often they are triggered). polyLaneAt is a pure function of that
+    // index, so this cannot drift the way an accumulated pattern can.
+    if (poly) {
+      if (!poly.lanes.some((l) => l.progressive)) return;   // nothing to advance
+      if (cfg.host && juceAvailable()) { sendUPI(fullUPI()); return; }  // engine owns it
+      setPolyTrig((t) => t + 1);
+      return;
+    }
     // Plugin + engine notation in the field (scenes / >N / %N / *N): the C++
     // engine owns progression — re-send the same string to advance (the exact
     // semantics of Tick and MIDI-in). The local rotate below stays for the

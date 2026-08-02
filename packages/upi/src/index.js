@@ -64,5 +64,5 @@ export { mutatePattern } from "./mutate.js";
 
 export {
   // poly lanes (docs/SERPE_POLY.md): / separates, name= labels, @ offsets
-  parsePolyUPI, formatPolyUPI, splitLanes, offsetTicks,
+  parsePolyUPI, formatPolyUPI, splitLanes, offsetTicks, polyLaneAt,
 } from "./poly.js";
