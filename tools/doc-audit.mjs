@@ -134,7 +134,13 @@ export function auditDocs() {
       // CODE_CENSUS lists the 6,256 lines it had deleted, and flagging those as
       // rot would punish the doc for being accurate. Skip lines that are
       // explicitly talking about something in the past.
-      const historical = /~~|\b(deleted|removed|no longer|used to|was|were|until|formerly|gone)\b/i.test(line);
+      // Past tense OR future tense. A doc that records a deleted file and a
+      // plan that proposes a new one are both naming a path that correctly does
+      // not exist; flagging either punishes the doc for being accurate. The
+      // past-tense half was learned from CODE_CENSUS, the future-tense half
+      // from a planning doc proposing `tools/midi-timing.mjs` (2026-08-01).
+      const historical = /~~|\b(deleted|removed|no longer|used to|was|were|until|formerly|gone)\b/i.test(line)
+        || /\b(new|proposed|to build|will be|would be|planned|does not exist)\b/i.test(line);
       if (!fenced && !historical) for (const m of line.matchAll(/`([\w./-]+\.(?:md|mjs|js|jsx|ts|tsx|json|cmake|sh|cpp|h))`/g)) {
         const ref = m[1];
         if (ref.startsWith("http") || !ref.includes("/")) continue;
