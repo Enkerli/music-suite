@@ -1,0 +1,85 @@
+{
+  "_comment": [
+    "Baseline tick positions for `msuite upi --midi`. Same discipline as the",
+    "Serpe conformance vectors: what the notation SHOULD produce, pinned, so a",
+    "change that moves a note has to say so out loud.",
+    "",
+    "All values are TICKS at 480 per quarter, 120 bpm — the renderer's defaults.",
+    "`onsets` are de-duplicated moments in time (simultaneous lanes count once);",
+    "`lanes` gives each note number's own timeline, which is how a poly file is",
+    "read at all.",
+    "",
+    "Regenerate with: node tools/gen-timing-vectors.mjs",
+    "Never hand-edit a value to make a test pass. If the renderer changed on",
+    "purpose, regenerate and put WHY in the commit; if it changed by accident,",
+    "that is the bug this file exists to catch."
+  ],
+  "division": 480,
+  "bpm": 120,
+  "vectors": [
+    {
+      "name": "mono E(3,8)",
+      "notation": "E(3,8)",
+      "bars": 2,
+      "why": "The plainest case. Step = 120 ticks, onsets at steps 0,3,6, cycle = 960.",
+      "onsets": [0, 360, 720, 960, 1320, 1680],
+      "lanes": { "36": [0, 360, 720, 960, 1320, 1680] }
+    },
+    {
+      "name": "mono E(5,8) with accents",
+      "notation": "{10010}E(5,8)",
+      "bars": 2,
+      "why": "An accent is louder AND transposed +5, so accented onsets appear on note 41. Two note numbers here is the two-channel accent, visible in the file.",
+      "onsets": [0, 240, 360, 600, 720, 960, 1200, 1320, 1560, 1680],
+      "lanes": {
+        "36": [240, 360, 720, 1200, 1320, 1680],
+        "41": [0, 600, 960, 1560]
+      }
+    },
+    {
+      "name": "poly E(3,8)/E(3,7) — cycle lock (polyrhythm)",
+      "notation": "E(3,8)/E(3,7)",
+      "bars": 2,
+      "lock": "cycle",
+      "why": "Both lanes span ONE cycle of 960 ticks, so lane 2's seven steps are 137.14 ticks each. Both lanes start cycle 2 at 960 — that shared 960 is what makes it polyrhythm.",
+      "onsets": [0, 274, 360, 549, 720, 960, 1234, 1320, 1509, 1680],
+      "lanes": {
+        "36": [0, 360, 720, 960, 1320, 1680],
+        "37": [0, 274, 549, 960, 1234, 1509]
+      }
+    },
+    {
+      "name": "poly E(3,8)/E(3,7) — step lock (polymeter)",
+      "notation": "E(3,8)/E(3,7)",
+      "bars": 2,
+      "lock": "step",
+      "why": "Every lane's step is 120 ticks, so the 7-step lane finishes early: it starts cycle 2 at 840 while lane 1 starts at 960. That drift is the polymeter, and it is the single clearest difference between the two locks.",
+      "onsets": [0, 240, 360, 480, 720, 840, 960, 1080, 1320, 1680],
+      "lanes": {
+        "36": [0, 360, 720, 960, 1320, 1680],
+        "37": [0, 240, 480, 840, 1080, 1320]
+      }
+    },
+    {
+      "name": "poly with per-lane accents",
+      "notation": "{101}E(3,8)/{11}E(3,7)",
+      "bars": 1,
+      "lock": "cycle",
+      "why": "D8 — an accent layer belongs to its lane. Lane 1 accents onsets 1 and 3 (note 36+5=41); lane 2's {11} accents every onset (note 37+5=42). Four note numbers.",
+      "onsets": [0, 274, 360, 549, 720],
+      "lanes": {
+        "36": [360],
+        "41": [0, 720],
+        "42": [0, 274, 549]
+      }
+    },
+    {
+      "name": "single lane, whole cycle",
+      "notation": "E(1,8)",
+      "bars": 2,
+      "why": "One onset per cycle. Guards the degenerate case where an off-by-one in cycle length would be invisible in a busier pattern.",
+      "onsets": [0, 960],
+      "lanes": { "36": [0, 960] }
+    }
+  ]
+}
