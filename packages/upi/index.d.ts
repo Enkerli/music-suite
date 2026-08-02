@@ -162,6 +162,12 @@ export interface LongShortResult {
 }
 export function longShort(steps: boolean[], opts?: { tolerance?: number }): LongShortResult;
 export function durations(steps: boolean[], opts?: { unit?: number; ratio?: number }): number[];
+/**
+ * Steps from onset `i` to the next onset, wrapping; the whole cycle when it is
+ * the only onset. The span an onset OWNS — what Serpe's duration arcs draw and
+ * what `msuite upi --midi --gate` writes into note lengths.
+ */
+export function interOnsetSteps(steps: ArrayLike<unknown>, i: number): number;
 
 // ── Named-pattern import (src/named.js) ─────────────────────────────────────
 export interface NamedPattern {

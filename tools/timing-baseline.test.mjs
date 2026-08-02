@@ -4,7 +4,7 @@ import { mkdtempSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import { parseSMF, onsetTicks, byNote } from "./midi-timing.mjs";
+import { parseSMF, onsetTicks, byNote, lineArticulation } from "./midi-timing.mjs";
 
 /**
  * The timing baseline: what `msuite upi --midi` must produce, in ticks.
@@ -22,10 +22,10 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const CLI = join(ROOT, "packages/cli/dist/cli.js");
 const VECTORS = JSON.parse(readFileSync(join(ROOT, "tools/timing-vectors.json"), "utf8"));
 
-function render(vec, out) {
+function render(vec, out, extra = []) {
   const args = ["upi", vec.notation, "--midi", out, "--bars", String(vec.bars)];
   if (vec.lock) args.push("--lock", vec.lock);
-  execFileSync("node", [CLI, ...args], { stdio: "pipe" });
+  execFileSync("node", [CLI, ...args, ...extra], { stdio: "pipe" });
   return parseSMF(readFileSync(out));
 }
 
@@ -62,5 +62,62 @@ describe("timing baseline — msuite upi --midi", () => {
     // lock, and early under step lock.
     expect(cyc.lanes["37"][3]).toBe(960);
     expect(stp.lanes["37"][3]).toBe(840);
+  });
+});
+
+/**
+ * --gate writes ARTICULATION into the file. Until 2026-08-02 the note length
+ * was hardcoded at half a step, so every file this renderer produced was
+ * detached and a legato example could not be written at all — which made it
+ * useless for driving a wind instrument, where the difference between a slur
+ * and a re-articulation is most of the performance.
+ */
+describe("upi --midi --gate — articulation", () => {
+  const dir = mkdtempSync(join(tmpdir(), "gate-"));
+  const vec = { notation: "E(4,8)", bars: 2 };
+  const line = (extra) => lineArticulation(...(() => {
+    const smf = render(vec, join(dir, "g.mid"), extra);
+    return [smf.notes, smf.offs];
+  })());
+
+  it("defaults to detached — a sequencer's plain note", () => {
+    expect(line([]).verdict).toBe("detached");
+  });
+
+  it("--gate legato lasts exactly until the next onset", () => {
+    expect(line(["--gate", "legato"]).verdict).toBe("legato (abutting)");
+  });
+
+  it("takes the named gates from @enkerli/accompaniment, not a second copy", () => {
+    // staccato 0.4 and tenuto 0.85 must both still be detached, and tenuto the
+    // longer of the two — if these ever diverge from `accompany --gate`, the
+    // same word means two things across the CLI.
+    const st = line(["--gate", "staccato"]);
+    const te = line(["--gate", "tenuto"]);
+    expect(st.verdict).toBe("detached");
+    expect(te.verdict).toBe("detached");
+    expect(te.durations[0]).toBeGreaterThan(st.durations[0]);
+  });
+
+  /**
+   * A lane is ONE note number, and MIDI cannot sound two instances of the same
+   * pitch at once: the first note's note-off silences the second, so a gate
+   * above 1.0 makes a HOLE, not a slur. Found by playing the file through Vane
+   * and hearing the gap — the tick dump looked perfectly reasonable.
+   */
+  it("clamps above 1.0 rather than overlapping a pitch with itself", () => {
+    expect(line(["--gate", "1.5"]).verdict).toBe("legato (abutting)");
+  });
+
+  it("measures the gate against the next ONSET, not the grid step", () => {
+    // E(4,8) has onsets two steps apart, so a gate measured against the step
+    // would leave `legato` half as long as it should be and audibly detached.
+    const l = line(["--gate", "legato"]);
+    const ioi = 240;                    // 8 steps of 120 ticks, onsets at 0 2 4 6
+    expect(l.durations[0]).toBe(ioi);
+  });
+
+  it("rejects a gate it cannot read instead of silently using a default", () => {
+    expect(() => render(vec, join(dir, "g.mid"), ["--gate", "molto"])).toThrow();
   });
 });

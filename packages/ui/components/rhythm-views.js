@@ -10,7 +10,7 @@
  * fills the whole circle — see the doc's "Implementation notes").
  * All expose .update({ ... }) and theme via tokens.
  */
-import { centerOfGravity } from "@enkerli/upi";
+import { centerOfGravity, interOnsetSteps } from "@enkerli/upi";
 
 const NS = "http://www.w3.org/2000/svg";
 const TAU = Math.PI * 2;
@@ -103,13 +103,6 @@ function onsetArcPath(cx, cy, r, i, ioiSteps, n, { gate = 1, trimSteps = 0.4 } =
   return `M ${x0.toFixed(1)} ${y0.toFixed(1)} A ${r} ${r} 0 ${large} 1 ${x1.toFixed(1)} ${y1.toFixed(1)}`;
 }
 
-/** Steps from onset `i` to the next onset, wrapping; the full cycle when it is
- *  the only onset (so a lone hit draws a near-complete ring with one gap). */
-function interOnsetSteps(steps, i) {
-  const n = steps.length;
-  for (let d = 1; d <= n; d++) if (steps[(i + d) % n]) return d;
-  return n;
-}
 
 
 /**

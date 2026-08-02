@@ -32,7 +32,7 @@ import {
   type SendOptions, type ControlMap, type InputEvent,
 } from "./index.js";
 import { VoiceSplitter } from "@enkerli/voice-routing";
-import { parsePolyUPI, identify, longShort, durations, dynamicDurations, parseNamedPatterns, describeNamedPattern, parseLongShortSuffix, parseUPI, microtiming, timingScales, parseProgressive, progressiveAt } from "@enkerli/upi";
+import { parsePolyUPI, identify, longShort, durations, dynamicDurations, parseNamedPatterns, describeNamedPattern, parseLongShortSuffix, parseUPI, microtiming, timingScales, parseProgressive, progressiveAt, interOnsetSteps } from "@enkerli/upi";
 import { createSMF } from "@enkerli/midi";
 import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
@@ -43,6 +43,7 @@ const PKG_VERSION: string = (() => {
 })();
 import { wrapPattern } from "@enkerli/library";
 import type { TraceLevel } from "@enkerli/accompaniment";
+import { GATES } from "@enkerli/accompaniment";
 import type { AppId, Destination, ParamMode } from "@enkerli/protocol";
 
 const USAGE = `msuite <command> …\n  --version                      which build, and which checkout it runs from
@@ -51,7 +52,10 @@ const USAGE = `msuite <command> …\n  --version                      which buil
                                         PD(20%) = push/pull microtiming (timing);
                                         LS(3) / LS(1.4..1.8, 70%) = note length
           --import <file|-> [--json]    named patterns → library items
-  upi "<notation>" [--steps N] [--midi out.mid [--bpm N] [--bars N] [--note N] [--lock cycle|step]]
+  upi "<notation>" [--steps N] [--midi out.mid [--bpm N] [--bars N] [--note N] [--lock cycle|step]
+                                        [--gate 0..1+|staccato|tenuto|legato]]
+                                        --gate is how much of its step a note sounds (default 0.5,
+                                        detached); >1 overlaps into the next — legato/melisma
                                         the full Serpe UPI language: P(3,0)+P(5,0), E(3,8);12, {100}E(3,8), Morse…
                                         additive/aksak meters: A(2,2,2,3) or D:2,3 ...-
                                         (both = short-short-short-long, the Balkan 9/8)
@@ -342,6 +346,41 @@ async function main(): Promise<number> {
           return 1;
         }
         const cycleLock = lockArg === "cycle";
+
+        // --gate: how much of its step each note actually sounds. Until
+        // 2026-08-02 this was hardcoded to 0.5, so every file this renderer
+        // produced was detached and there was no way to write a LEGATO one —
+        // which made it useless for the articulation half of what a wind
+        // instrument does. Vane's synthetic breath, its mono bore handoff and
+        // its melisma all hinge on whether one note is still sounding when the
+        // next begins, and none of it could be driven from a file.
+        //
+        // Named values come from @enkerli/accompaniment's GATES, not a second
+        // copy — `accompany --gate legato` and `upi --gate legato` must mean the
+        // same thing. Above 1.0 the notes OVERLAP, which is the unambiguous
+        // legato: at exactly 1.0 the note-off and the next note-on land on the
+        // same tick and a host is free to order them either way.
+        const gateArg = one(args, "gate") ?? "0.5";
+        const gateReq = gateArg in GATES ? GATES[gateArg as keyof typeof GATES] : Number(gateArg);
+        if (!Number.isFinite(gateReq) || gateReq <= 0) {
+          console.error(`upi --gate: expected a positive number or one of ${Object.keys(GATES).join("|")}, got "${gateArg}"`);
+          return 1;
+        }
+        // Clamped at 1.0 HERE, unlike `accompany --gate`, and the difference is
+        // not an oversight: this renderer puts a whole lane on ONE note number.
+        // Overlapping two instances of the same pitch is not something MIDI can
+        // express — the first note's note-off silences the second — so a gate
+        // above 1.0 does not produce a longer note, it produces a hole. Caught
+        // by playing the file through Vane and hearing the gap, not by reading
+        // the ticks, which looked entirely reasonable.
+        //
+        // Overlap IS meaningful for melodic material, where consecutive notes
+        // differ in pitch. That is `msuite accompany --gate 1.3`.
+        const gate = Math.min(gateReq, 1.0);
+        if (gateReq > 1.0)
+          console.error(`upi --gate ${gateArg}: clamped to 1.0 — a lane is one note number, and`
+            + ` overlapping the same pitch cuts the note short instead of slurring it.`
+            + ` For overlapping legato use a melodic source (msuite accompany --gate ${gateArg}).`);
         // Under cycle lock every lane shares one cycle, lengthed by the FIRST
         // lane — which is what the engine does (refSteps = lane 1's length).
         const cycleSteps = poly.lanes[0]?.steps.length || nSteps;
@@ -386,7 +425,13 @@ async function main(): Promise<number> {
                   pitch: note + li + (accented ? 5 : 0),
                   velocity: accented ? 127 : 100,
                   startTick: Math.max(0, Math.round(cursor) + offTicks),
-                  durationTicks: Math.max(10, Math.round(stepTicks * 0.5)),
+                  // Measured against the span to the NEXT onset, not the grid
+                  // step — that span is what the note actually owns, and it is
+                  // the same interOnsetSteps Serpe's duration arcs draw. Gating
+                  // the step instead left `--gate legato` with a silent gap on
+                  // any pattern whose onsets are not adjacent (E(4,8) is two
+                  // steps apart, so "legato" sounded for half the distance).
+                  durationTicks: Math.max(10, Math.round(laneStepTicks * interOnsetSteps(stepsArr, i) * gate)),
                 });
               }
               cursor += laneStepTicks * (scales[i] ?? 1);

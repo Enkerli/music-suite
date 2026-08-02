@@ -196,3 +196,23 @@ export function dynamicDurations(steps, opts = {}) {
     return t === "long" ? unit * r : unit;
   });
 }
+
+/**
+ * Steps from onset `i` to the NEXT onset, wrapping around the cycle; the whole
+ * cycle when it is the only onset.
+ *
+ * This is the durational span an onset OWNS, and it is the one number that
+ * decides articulation: a note that sounds for less than this is detached, one
+ * that sounds for more overlaps into the next and is legato. Serpe's duration
+ * arcs draw exactly this span, and `msuite upi --midi --gate` writes exactly
+ * this span into note lengths — the picture and the file agree because they ask
+ * the same function, not because two copies of the rule happen to match. (They
+ * did not: this lived privately inside the arc renderer until 2026-08-02, and
+ * the first version of --gate measured against the grid step instead, which
+ * made `--gate legato` leave a gap on any pattern whose onsets are not adjacent.)
+ */
+export function interOnsetSteps(steps, i) {
+  const n = steps.length;
+  for (let d = 1; d <= n; d++) if (steps[(i + d) % n]) return d;
+  return n;
+}

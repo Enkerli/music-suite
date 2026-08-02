@@ -62,7 +62,7 @@ export function parseSMF(buf) {
   if (division & 0x8000)
     throw new Error("SMPTE time division is not supported — this suite writes ticks-per-quarter");
 
-  const notes = [], tempos = [];
+  const notes = [], tempos = [], offs = [];
   let i = 14, tracks = 0;
   while (i + 8 <= buf.length) {
     if (buf.toString("latin1", i, i + 4) !== "MTrk") break;
@@ -85,6 +85,8 @@ export function parseSMF(buf) {
         // doubles every note in files that use that convention.
         if (kind === 0x90 && vel > 0)
           notes.push({ tick: t, note, vel, channel: (status & 0x0f) + 1 });
+        else
+          offs.push({ tick: t, note, channel: (status & 0x0f) + 1 });
       } else if (kind === 0xa0 || kind === 0xb0 || kind === 0xe0) p += 2;
       else if (kind === 0xc0 || kind === 0xd0) p += 1;
       else if (status === 0xff) {
@@ -103,7 +105,7 @@ export function parseSMF(buf) {
     i = end;
   }
   notes.sort((a, b) => a.tick - b.tick || a.note - b.note);
-  return { division, tracks, notes, tempos };
+  return { division, tracks, notes, tempos, offs };
 }
 
 // ── measurements ────────────────────────────────────────────────────────────
@@ -129,6 +131,84 @@ export function byNote(notes) {
     .map(([note, ns]) => ({ note, ticks: ns.map((x) => x.tick), velocities: [...new Set(ns.map((x) => x.vel))].sort((a, b) => a - b) }));
 }
 
+/**
+ * Pair every note-on with its note-off and report what the gap to the NEXT
+ * onset of the same pitch actually is.
+ *
+ * Onsets alone cannot distinguish a legato line from a staccato one — the
+ * attacks land in the same places. For a wind instrument that difference is
+ * most of the performance: Vane's mono bore handoff, its synthetic-breath
+ * envelope and its melisma all key off whether a note is still sounding when
+ * the next begins. An analyser that drops note-offs is blind to all of it, and
+ * this one was until 2026-08-02.
+ *
+ * `overlap` > 0 means the notes overlap (unambiguous legato), 0 means they abut
+ * exactly, < 0 is the silent gap between them.
+ */
+export function articulation(notes, offs) {
+  const byPitch = new Map();
+  for (const n of notes) (byPitch.get(n.note) ?? byPitch.set(n.note, []).get(n.note)).push(n);
+  const out = [];
+  for (const [note, ns] of [...byPitch.entries()].sort((a, b) => a[0] - b[0])) {
+    const pool = offs.filter((o) => o.note === note).sort((a, b) => a.tick - b.tick);
+    const used = new Set();
+    const durs = ns.map((n) => {
+      const k = pool.findIndex((o, idx) => !used.has(idx) && o.tick > n.tick);
+      if (k < 0) return null;
+      used.add(k);
+      return pool[k].tick - n.tick;
+    });
+    const overlaps = ns.slice(0, -1).map((n, k) =>
+      durs[k] == null ? null : (n.tick + durs[k]) - ns[k + 1].tick);
+    const known = overlaps.filter((v) => v != null);
+    const verdict = !known.length ? "single note"
+      : known.every((v) => v > 0) ? "legato (overlapping)"
+      : known.every((v) => v === 0) ? "legato (abutting)"
+      : known.every((v) => v < 0) ? "detached"
+      : "mixed";
+    out.push({ note, durations: durs, overlaps, verdict });
+  }
+  return out;
+}
+
+/**
+ * Articulation of a monophonic LINE — consecutive notes in time, whatever their
+ * pitch.
+ *
+ * Per-pitch grouping above is the right lens for Serpe poly lanes, where each
+ * lane owns a note number and a lane's own succession is the question. It is
+ * the WRONG lens for a melody: two occurrences of the same pitch four bars
+ * apart are not consecutive in any musical sense, and reading their "overlap"
+ * says nothing. Melisma — several pitches inside one breath — only shows up
+ * here.
+ *
+ * Only computed when every onset is at a distinct tick. A file with
+ * simultaneous onsets is a chord or a poly stack, and "the next note" is not
+ * well defined for it.
+ */
+export function lineArticulation(notes, offs) {
+  const ns = [...notes].sort((a, b) => a.tick - b.tick);
+  if (new Set(ns.map((n) => n.tick)).size !== ns.length) return null;
+  const pool = [...offs].sort((a, b) => a.tick - b.tick);
+  const used = new Set();
+  const durs = ns.map((n) => {
+    const k = pool.findIndex((o, idx) => !used.has(idx) && o.note === n.note && o.tick > n.tick);
+    if (k < 0) return null;
+    used.add(k);
+    return pool[k].tick - n.tick;
+  });
+  const overlaps = ns.slice(0, -1).map((n, k) =>
+    durs[k] == null ? null : (n.tick + durs[k]) - ns[k + 1].tick);
+  const known = overlaps.filter((v) => v != null);
+  const slurred = known.filter((v) => v >= 0).length;
+  const verdict = !known.length ? "single note"
+    : known.every((v) => v > 0) ? "legato (overlapping)"
+    : known.every((v) => v === 0) ? "legato (abutting)"
+    : known.every((v) => v < 0) ? "detached"
+    : `mixed — ${slurred}/${known.length} slurred`;
+  return { durations: durs, overlaps, verdict, slurred, transitions: known.length };
+}
+
 /** Beats, for reading only — the assertions stay in ticks. */
 export const toBeats = (tick, division) => tick / division;
 
@@ -148,6 +228,8 @@ export function describe(file) {
     onsets: ticks,
     deltas: deltas(ticks),
     lanes: byNote(smf.notes),
+    articulation: articulation(smf.notes, smf.offs),
+    line: lineArticulation(smf.notes, smf.offs),
   };
 }
 
@@ -163,6 +245,16 @@ function print(r) {
   console.log(`  deltas   ${list(r.deltas)}`);
   for (const l of r.lanes)
     console.log(`  note ${String(l.note).padEnd(3)} vel ${list(l.velocities).padEnd(8)} ${list(l.ticks)}`);
+  if (r.line)
+    console.log(`  line     ${r.line.verdict.padEnd(21)}`
+      + ` ${r.line.transitions} transition(s)`
+      + (r.line.transitions ? `  overlap ${list([...new Set(r.line.overlaps.filter((v) => v != null))])}` : ""));
+  for (const a of r.articulation ?? []) {
+    const d = [...new Set(a.durations.filter((v) => v != null))];
+    const o = [...new Set(a.overlaps.filter((v) => v != null))];
+    console.log(`  note ${String(a.note).padEnd(3)} ${a.verdict.padEnd(21)}`
+      + ` dur ${list(d)}` + (o.length ? `  overlap ${list(o)}` : ""));
+  }
 }
 
 /** Two renderings of the same notation — engine vs reference, or before vs

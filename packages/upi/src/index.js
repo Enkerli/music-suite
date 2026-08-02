@@ -47,6 +47,8 @@ export {
 export {
   // durational (long/short) reading of the inter-onset intervals
   longShort, durations, dynamicDurations,
+  // the span an onset owns — what duration arcs draw and what --gate writes
+  interOnsetSteps,
 } from "./longshort.js";
 
 export {
