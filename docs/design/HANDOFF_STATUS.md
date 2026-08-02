@@ -15,7 +15,10 @@ text, not logic.
 | §3.3 Lane alignment | The control was "Timing lock" with options **Cycle** / **Step** — neither word said polyrhythm or polymeter, which is how a DAW session concluded polymeter was unimplemented. Now **Polyrhythm** *(one shared cycle)* / **Polymeter** *(shared step · drifts)*, two-line segments. Values `cycle`/`step` unchanged, so state, localStorage and the host parameter are untouched. |
 | §4 Non-visual route | The rings' `aria-label` said "Poly lane rings" — that a picture exists. It now says the pattern: *"2 lanes. Lane 1: 3 of 8 steps, on 1, 4, 7; accented on 1, 7. Lane 2: 3 of 7 steps, on 1, 3, 5."* Onset **positions**, not counts, because "3 of 8" is true of many rhythms and which ones is the point. Five tests, including one asserting the SVG carries exactly what `describeLanes` returns. |
 
-## Waiting on Alex — a direct conflict, not an oversight
+| §3.1 Duration arcs | **Approved by Alex and shipped.** Arcs replace the fixed wedge in the poly rings, each stopping `0.4` of a step short of the next onset, with a filled onset node proud of the arc head. `onsetArcPath` takes a `gate` fraction (1 today) — Alex's note that this "will build on for gate duration" is the reason it is a parameter and not a constant. |
+| §3.2 Trigger readout | Plumbing shipped: `polyState` now carries each lane's trigger ordinal, read from `sceneVisits` (which progressive offset is already derived from, so number and sound cannot disagree). The chip renders per lane in the plugin. **Standalone shows nothing** — correctly, rather than inventing a number; the webapp has no per-lane trigger count of its own yet. |
+
+## Resolved — the arc conflict
 
 **The handoff asks to replace the ring's onset wedges with duration arcs.**
 `engine/render.js` carries the opposite instruction, dated 2026-07-21:
@@ -30,16 +33,19 @@ short of the next onset, and draw a discrete onset node proud of the arc; it
 names this "the fix for the continuous-ring regression". So it is not the naive
 version that failed.
 
-But it reverses a call Alex made on screenshot evidence a fortnight ago, and
-that is his to reverse, not mine. **Not implemented.** The geometry is fully
-specified in the handoff if the answer is yes.
+**Alex reversed it, 2026-08-01:** *"Duration arcs are an improvement, now that
+their issues have been solved."* Shipped. The all-onset case — where arcs tile
+the cycle and the first attempt closed into a ring — is now a test.
+
+One thing kept **against** the handoff: it proposes `--es-dim-pressure` as
+lane 1's hue, but that is the accent token, and `POLY_RING_COLORS` already
+excludes its alias `rose` for exactly that reason. A lane whose base colour is
+the accent colour cannot show its own accents.
 
 ## Also waiting, and why
 
-- **§3.2 trigger readout chip.** Highest value in the brief. Needs a live
-  per-lane trigger index from engine state ("fed from engine state, never
-  recomputed"), and the bridge does not send one — so it is a small plumbing
-  change, i.e. behaviour, which this pass excluded.
+- **The trigger chip in standalone.** The engine feeds it in the plugin; the
+  webapp would need its own per-lane trigger count. Deliberately not faked.
 - **Rings as the single primary view, rows demoted.** A default change; wants
   the arc question settled first, since it is what makes rings carry the story.
 - **Default flip to Polymeter for fresh patterns.** The handoff marks this

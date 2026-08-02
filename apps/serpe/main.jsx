@@ -224,6 +224,21 @@ function EngineView({ create, opts, data }) {
 // actually needed). Per-lane controls (mute/note/chan/offset) stay in the
 // rows either way; Circle only swaps out the flat cell-strip for one
 // shared ring graphic above them.
+/**
+ * What this lane's progressive operator has done by trigger N. Trigger 1 always
+ * reads "base" and says nothing further: it IS the untransformed pattern
+ * (INTENT D6), and claiming "rotated 0" would suggest otherwise.
+ */
+function triggerConsequence(lane) {
+  const n = lane.triggerIndex || 0;
+  const g = lane.progressive;
+  if (n <= 1 || !g) return 'base';
+  if (g.kind === 'offset')   return `rotated ${g.step * (n - 1)}`;
+  if (g.kind === 'lengthen') return `+${g.step * (n - 1)} steps`;
+  if (g.kind === 'transform') return `step ${n}`;
+  return `trigger ${n}`;
+}
+
 function PolyLanesPanel({ poly, lanePh, polyLock, setPolyLock, polyView, setPolyView, drumKit, setDrumKit, kitNames,
                           laneNote, laneChan, laneMuted, setLaneUi, isHost, polyLagMs, setPolyLagMs }) {
   const fmtOff = (o) => o == null ? '' : o.kind === 'ms'
@@ -288,6 +303,12 @@ function PolyLanesPanel({ poly, lanePh, polyLock, setPolyLock, polyView, setPoly
             h('input', { className: 'es-control poly-num', type: 'number', min: 1, max: 16,
               value: laneChan(lane, i), 'aria-label': `${lane.label} MIDI channel`,
               onChange: e => setLaneUi(lane.label, i, { chan: +e.target.value }) }))),
+        // Trigger readout — the ordinal the engine is on, plus what this
+        // lane's operator does with it. Absent (not zero) when the engine has
+        // not reported one, so it never invents a number.
+        lane.triggerIndex > 0 && h('span', { className: 'trig-chip', title: 'Trigger the engine is on for this lane' },
+          h('span', { className: 'trig-n' }, `\u27F3 ${lane.triggerIndex}`),
+          h('span', { className: 'trig-what' }, triggerConsequence(lane))),
         !showCircle && h('div', { className: 'poly-cells', role: 'img',
           'aria-label': `${lane.label}: ${lane.steps.join('')} over ${lane.steps.length} steps` },
           lane.steps.map((s, c) =>
@@ -460,6 +481,7 @@ function SerpeApp() {
           accents: lane.accents ?? [],
           sceneIndex: si,
           sceneCount: sc,
+          triggerIndex: engineLanes.triggers?.[i] ?? 0,
           // Label the scene actually sounding, with its position in the chain.
           // Showing the first scene's text forever was half of what looked
           // like a frozen display (Alex, 2026-07-29).
@@ -1146,7 +1168,11 @@ function SerpeApp() {
         if (ev.active && Array.isArray(ev.patterns)) {
           setEngineLanes({ patterns: ev.patterns,
                            sceneIndices: ev.sceneIndices || [],
-                           sceneCounts: ev.sceneCounts || [] });
+                           sceneCounts: ev.sceneCounts || [],
+                           // Read from the engine, never recomputed here — a
+                           // display that keeps its own tally drifts from the
+                           // thing it describes (DESIGN_BRIEF §3.2).
+                           triggers: ev.triggers || [] });
         } else if (!ev.active) setEngineLanes(null);
       } else if (ev.type === 'paramChange') {
         // Host automation of a lane param — keep the panel in sync live, not

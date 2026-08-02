@@ -347,3 +347,15 @@ select.es-control {
 }
 /* The pressed segment must not lose its subtitle to low contrast. */
 .seg-2line button[aria-pressed="true"] .seg-sub { color: inherit; opacity: 0.85; }
+
+/* Trigger readout chip (DESIGN_BRIEF §3.2) — the ordinal the engine is on,
+   and what this lane's operator has done with it. Two segments so the number
+   stays scannable next to a phrase that changes width. */
+.trig-chip {
+  display: inline-flex; align-items: center; gap: 0;
+  border-radius: var(--es-radius-sm); overflow: hidden;
+  font-family: var(--es-font-mono); font-size: 0.72em; line-height: 1.6;
+  font-variant-numeric: tabular-nums; white-space: nowrap;
+}
+.trig-chip .trig-n { background: var(--es-accent); color: var(--es-accent-fg); padding: 0 .45em; }
+.trig-chip .trig-what { background: var(--es-bg-sunken); color: var(--es-fg-2); padding: 0 .45em; }
