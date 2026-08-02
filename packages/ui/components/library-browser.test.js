@@ -253,3 +253,33 @@ describe("sort & setItems", () => {
     expect(host.classList.contains("no-facets")).toBe(true); // 1 < threshold
   });
 });
+
+/**
+ * Per-row controls must say WHICH row.
+ *
+ * A library of 30 clips rendered 30 buttons all announcing as "⋯" — Axe passes
+ * that (the button has a name) and a screen-reader user gets thirty identical
+ * stops with no way to tell them apart. The automated run is silent on it,
+ * which is why the accessibility-tree pass exists.
+ */
+describe("row actions are distinguishable", () => {
+  it("names each kebab after its row", () => {
+    const host = document.createElement("div");
+    createLibraryBrowser(host, {
+      items: [{ id: "a", name: "Blue Bossa" }, { id: "b", name: "So What" }],
+      rowActionsFor: () => [{ id: "del", label: "Delete" }],
+    });
+    const labels = [...host.querySelectorAll(".kebab")].map((k) => k.getAttribute("aria-label"));
+    expect(labels).toEqual(["Actions for Blue Bossa", "Actions for So What"]);
+    expect(new Set(labels).size).toBe(labels.length);   // the point: no duplicates
+  });
+
+  it("falls back to the id when a row has no name", () => {
+    const host = document.createElement("div");
+    createLibraryBrowser(host, {
+      items: [{ id: "orphan" }],
+      rowActionsFor: () => [{ id: "del", label: "Delete" }],
+    });
+    expect(host.querySelector(".kebab").getAttribute("aria-label")).toBe("Actions for orphan");
+  });
+});

@@ -321,7 +321,12 @@ export function createLibraryBrowser(host, options = {}) {
         (it[keys.source] ? `<span class="src-tag">${esc(it[keys.source])}</span>` : "") +
         (dateOf(it) != null ? `<span class="row-date">${esc(relTime(dateOf(it)))}</span>` : "") +
         (actionsFor(it).length
-          ? `<div class="row-actions"><button class="kebab" type="button" aria-haspopup="menu" aria-expanded="${state.menuOpen === it.id}" title="Actions" data-menu="${esc(it.id)}">⋯</button>` +
+          // NAMED PER ROW. Every kebab used to announce as just "⋯", so a
+          // library of 30 clips gave a screen-reader user thirty identical
+          // "⋯ button" stops with no way to tell which row each belonged to.
+          // Axe passes this — the button HAS a name — which is exactly the
+          // class of thing an automated run cannot see (a11y pass 2026-08-02).
+          ? `<div class="row-actions"><button class="kebab" type="button" aria-haspopup="menu" aria-expanded="${state.menuOpen === it.id}" aria-label="Actions for ${esc(nameOf(it) || it.id)}" title="Actions" data-menu="${esc(it.id)}">⋯</button>` +
             (state.menuOpen === it.id ? menuHtml(it) : "") + `</div>`
           : "") +
       `</div></div>`;

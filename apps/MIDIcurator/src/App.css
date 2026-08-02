@@ -16,6 +16,15 @@
   --mc-selected: color-mix(in srgb, var(--es-accent) 22%, var(--es-bg));
   --mc-selected-border: var(--es-accent);
   --mc-success: var(--es-dim-expr);
+  /* The same teal, darkened until WHITE TEXT on it clears WCAG AA (4.5:1).
+     --es-dim-expr is the suite's expression-dimension colour and is used
+     across Vane and Serpe as a FILL, where nothing sits on top of it; white on
+     it measures 3.33:1, which Axe flagged as a serious violation on
+     MIDIcurator's Download All button (a11y pass 2026-08-02). Darkening the
+     shared token would have moved that dimension's colour everywhere, so this
+     is a separate surface value for the case where text sits on the fill.
+     Hue and saturation preserved; only lightness moves. 4.59:1. */
+  --mc-success-surface: #268373;
   --mc-danger: var(--es-danger);
   --mc-green-muted: var(--es-dim-expr);
   --mc-green-bg: color-mix(in srgb, var(--es-dim-expr) 16%, var(--es-bg));
@@ -746,7 +755,7 @@ body {
 }
 
 .mc-btn--success {
-  background: var(--mc-success);
+  background: var(--mc-success-surface);
 }
 
 .mc-btn--danger {
@@ -770,7 +779,7 @@ body {
 
 .mc-btn--download-all {
   padding: 4px 10px;
-  background: var(--mc-success);
+  background: var(--mc-success-surface);
   border: none;
   border-radius: 4px;
   color: white;
