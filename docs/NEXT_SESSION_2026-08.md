@@ -79,7 +79,7 @@ where timing was worst a year ago, so passing there is the stronger signal.
 
 ## Track B — Visual, while the design pass is fresh
 
-### B1. Mono ring duration arcs
+### ~~B1. Mono ring duration arcs~~ — DONE 2026-08-02 (`2f1f411`)
 `createCircleView` still uses `stepWedgePath` (`render.js:181`). Port
 `onsetArcPath`/`interOnsetSteps` across — they are already written and tested.
 
@@ -175,7 +175,7 @@ Also worth resolving: the relationship between this catalogue and `SHORTHAND` in
 | ~~1~~ | ~~**A1** lock-mode reconcile~~ — done, `81bcf92` |
 | ~~2~~ | ~~**A2 + A3** analyser and baseline vectors~~ — done, `44f6e62` / `35700f7` |
 | 3 | **A4** F5 — attempted, narrowed, still open |
-| 4 | **B1** mono arcs (cheap, self-contained; good filler between A stages) |
+| ~~4~~ | ~~**B1** mono arcs~~ — done, `2f1f411` |
 | 5 | **D** bell catalogue (content, no machinery) |
 | 6 | **C1** drum→pattern quantization |
 | 7 | **B2** Workspace viz — wants the design call on lane views |
