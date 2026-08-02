@@ -39,6 +39,13 @@ export const KIT = {
   kick:      { note: 36, pc: 0,  label: "Kick" },
   crash:     { note: 49, pc: 1,  label: "Crash" },
   snare:     { note: 38, pc: 2,  label: "Snare" },
+  // GM 39 is Hand Clap. Toontrack maps the same note to a snare articulation
+  // ("Ruffs" / "Half Circle"), verified against their community mapping sheet
+  // 2026-08-02 — so a Toontrack file sending 39 will clap here rather than
+  // ruff. Kept as GM, because the kit is GM-based and GM is the wider
+  // convention; recorded because it is a real disagreement and the kind that
+  // otherwise gets rediscovered as "why is there a clap in my jazz take".
+  // The jazz-waltz corpus has zero hits on 39, so nothing currently misfires.
   clap:      { note: 39, pc: 3,  label: "Clap" },
   lowTom:    { note: 41, pc: 5,  label: "Low tom" },
   closedHat: { note: 42, pc: 6,  label: "Closed hat" },
@@ -80,7 +87,7 @@ export const KIT_PCS = Object.values(KIT).map((d) => d.pc).sort((a, b) => a - b)
 const EXTENDED = {
   21: "pedalHat",   // EZdrummer pedal hat — outside GM
   35: "kick",       // acoustic bass drum
-  37: "snare",      // side stick
+  37: "snare",      // side stick (GM and Toontrack agree)
   40: "snare",      // electric snare
   43: "lowTom",     // high floor tom
   44: "pedalHat",   // GM pedal hi-hat

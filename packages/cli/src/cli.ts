@@ -409,6 +409,19 @@ async function main(): Promise<number> {
           const d = drumForLabel(lane.label ?? "");
           return d ? KIT[d]!.note : note + li;
         };
+        // Is this lane a DRUM? It changes what an accent means.
+        //
+        // An accent is normally louder AND transposed +5, matching the plugin's
+        // accentPitchOffset. On a drum kit that is wrong in a way that destroys
+        // the take: the note IS the instrument, so an accented ride (59) became
+        // 64 and resolved to nothing — silently dropped — and an accented snare
+        // (38) became 43 and played as a FLOOR TOM. Found by generating a
+        // pattern from a learned style and reading the render log.
+        //
+        // Applies to --midi as much as --wav: a drum .mid with transposed
+        // accents is wrong in any DAW, not just here. Unlabelled lanes are
+        // unaffected, so the timing baseline does not move.
+        const laneIsDrum = (lane: { label?: string }) => drumForLabel(lane.label ?? "") !== null;
         poly.lanes.forEach((lane, li) => {
           const stepsArr = lane.steps.map(Boolean);
           if (!stepsArr.length) return;
@@ -509,7 +522,7 @@ async function main(): Promise<number> {
                 const isLong = lsMask ? !!lsMask[onsetOrdinal % lsMask.length] : false;
                 onsetOrdinal++;
                 notes.push({
-                  pitch: laneNote(lane, li) + (accented ? 5 : 0),
+                  pitch: laneNote(lane, li) + (accented && !laneIsDrum(lane) ? 5 : 0),
                   velocity: accented ? 127 : 100,
                   startTick: Math.max(0, Math.round(cursor) + offTicks),
                   // Measured against the span to the NEXT onset, not the grid
@@ -534,7 +547,7 @@ async function main(): Promise<number> {
           const drumName = resolveDrum(laneNote(lane, li));
           laneLines.push(`${(poly.lanes.length > 1 ? lane.label : "pattern").padEnd(8)} note ${laneNote(lane, li)}`
             + (wavOut !== undefined ? ` (${drumName ? (KIT[drumName]?.label ?? drumName) : "no kit sound"})` : "")
-            + `  ${stepsArr.length} steps` + (accN ? `  ${accN} accented (→ note ${laneNote(lane, li) + 5})` : "")
+            + `  ${stepsArr.length} steps` + (accN ? (laneIsDrum(lane) ? `  ${accN} accented (louder; a drum keeps its note)` : `  ${accN} accented (→ note ${laneNote(lane, li) + 5})`) : "")
             + (offTicks ? `  offset ${offTicks > 0 ? "+" : ""}${offTicks} ticks` : "")
             + (pd && pd.depth > 0 ? `  PD ${Math.round(pd.depth * 100)}%` : "")
             + (lsSpec ? `  LS ${lsSpec.min === lsSpec.max ? `${lsSpec.min}:1` : `${lsSpec.min}..${lsSpec.max}:1`}`
