@@ -193,3 +193,41 @@ describe("StyleModel — learning and sampling a polyphonic (comping) corpus", (
     expect([...byOnset.values()].some((pcs) => pcs.length >= 2)).toBe(true);
   });
 });
+
+/**
+ * `--rhythm` takes USER INPUT, so it goes through the poly parser.
+ *
+ * It used `parseUPI` until 2026-08-02 and threw "did not parse as UPI" on
+ * lanes, scenes and progressive notation — all of which the rest of the suite
+ * plays. The layering rule (SERPE_DAW_FINDINGS F7): user input uses
+ * parsePolyUPI; only library internals may use the single-body parser.
+ */
+describe("--rhythm accepts what the rest of the suite plays", () => {
+  // The module-level comping bar, not the corpus fixture — that one is scoped
+  // to the StyleModel describe above.
+  const src = () => extractPhrase(compingBar(), opts);
+  const run = (rhythm: string) => groove(src(), { progression: "Dm7 | G7", seed: 5, rhythm });
+
+  it("takes a multi-lane spec, performing lane 1 and saying so", () => {
+    // A bass line has ONE rhythm at a time, so lane 1 is used and reported —
+    // flattening lanes into a union would invent onsets no lane has.
+    expect(run("kick=E(2,8) / hh=E(8,16)").notices.some((n) => /lane 1/.test(n))).toBe(true);
+  });
+
+  it("a multi-lane spec gives the same result as its lane 1 alone", () => {
+    expect(Array.from(run("kick=E(2,8) / hh=E(8,16)").smf)).toEqual(Array.from(run("E(2,8)").smf));
+  });
+
+  it("says nothing when there is only one lane", () => {
+    expect(run("E(2,8)").notices).toEqual([]);
+  });
+
+  it("takes scene notation, which the mono parser rejected outright", () => {
+    expect(() => run("E(3,8)|E(5,8)")).not.toThrow();
+  });
+
+  it("still refuses what genuinely does not parse", () => {
+    expect(() => run("E(3,")).toThrow(/did not parse as UPI/);
+    expect(() => run("")).toThrow(/did not parse as UPI/);
+  });
+});

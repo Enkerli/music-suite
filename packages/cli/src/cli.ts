@@ -795,6 +795,10 @@ async function main(): Promise<number> {
         writeFileSync(out, r.smf);
         log(`wrote ${out}: ${r.phrase.events.length} notes over ${r.frames.length} frames (trace header embedded)`);
       }
+      // Anything the pipeline wanted to say but that is not an error — e.g. a
+      // multi-lane --rhythm. The library returns these rather than printing;
+      // the CLI is where they become visible.
+      for (const n of r.notices ?? []) log(n);
       const traceOut = one(args, "trace");
       if (traceOut) {
         writeFileSync(traceOut, JSON.stringify(r.trace, null, 2) + "\n");

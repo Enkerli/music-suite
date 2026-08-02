@@ -527,6 +527,8 @@ export interface AccompanyResult {
   expression: ExpressChange[];
   /** Per-note articulations + breath envelopes (empty unless inflect). */
   inflections: NoteInflection[];
+  /** Non-error remarks the pipeline wants surfaced — see GrooveResult.notices. */
+  notices: string[];
 }
 
 /**

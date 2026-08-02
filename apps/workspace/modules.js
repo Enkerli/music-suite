@@ -1384,14 +1384,49 @@ export function wireVaneBus(bus, post) {
   return bus.subscribe((m) => { applyVaneParam(post, idToWasm, m) || applyVaneNote(post, m); });
 }
 
+/**
+ * A power button that LOOKS like what it is.
+ *
+ * `.ws-btn` is filled accent by default and `.ws-btn.ghost` is transparent, so
+ * a filled blue "power" sitting beside ghost buttons reads as already-on —
+ * which is exactly how Alex read it (2026-08-02), concluding the Vane module
+ * was broken when it had simply never been switched on. Filled means ON here,
+ * ghost means OFF, and the label says which.
+ *
+ * It is also a REAL toggle now. It only ever turned audio on before, so a
+ * control that looked like a switch had one position; pressing it again did
+ * nothing visible and taught nothing. Off suspends the context, which is also
+ * the polite thing to do with an audio graph nobody is listening to.
+ *
+ * `aria-pressed` because a toggle button is a toggle button.
+ */
+function powerButton(onToggle) {
+  const btn = el("button", { class: "ws-btn ghost", text: "⏻ power on",
+    "aria-pressed": "false", title: "Start audio (needs a click — browsers require a gesture)" });
+  btn.onclick = () => onToggle(btn.getAttribute("aria-pressed") !== "true");
+  /** Reflect the REAL context state, never the intent — a suspended context
+   *  that we asked to resume must not show as on. */
+  btn.setState = (on) => {
+    btn.className = on ? "ws-btn" : "ws-btn ghost";
+    btn.textContent = on ? "● audio on" : "⏻ power on";
+    btn.setAttribute("aria-pressed", on ? "true" : "false");
+    btn.title = on ? "Audio is running — click to suspend" : "Start audio (needs a click — browsers require a gesture)";
+  };
+  return btn;
+}
+
 export function vaneSynthModule(ctx, bodyEl) {
   let audioCtx = null, node = null, offBus = null;
-  const status = el("div", { class: "ws-readout", text: "⏻ power on, then play the bus (Keys, GloriArp, Player…)" });
+  const status = el("div", { class: "ws-readout", text: "off — click power, then play the bus (Keys, GloriArp, Player…)" });
   const post = (msg) => { if (node) node.port.postMessage(msg); };
 
   // The hard-won Vane lesson (apps/vane/synth-main.js): building once is not
   // enough — a suspended AudioContext must be resumed on a USER GESTURE, and
   // the status must stay honest (never claim ready while suspended).
+  const powerBtn = powerButton(async (wantOn) => {
+    if (!wantOn) { post({ type: "allOff" }); await audioCtx?.suspend(); paint(); return; }
+    await power();
+  });
   async function power() {
     try {
       if (!audioCtx) {
@@ -1415,14 +1450,16 @@ export function vaneSynthModule(ctx, bodyEl) {
   }
   function paint() {
     if (!audioCtx) return;
-    status.textContent = audioCtx.state === "running"
-      ? "● voice live — bus notes and Vane knobs sound here"
-      : "⏻ tap power again (audio suspended until a user gesture)";
+    const on = audioCtx.state === "running";
+    powerBtn.setState(on);
+    status.textContent = on
+      ? "voice live — bus notes and Vane knobs sound here"
+      : "suspended — click power to start";
   }
 
   bodyEl.append(
     el("div", { class: "ws-row" },
-      el("button", { class: "ws-btn", text: "⏻ power", onclick: power }),
+      powerBtn,
       el("button", { class: "ws-btn ghost", text: "silence", title: "All notes off",
         onclick: () => post({ type: "allOff" }) })),
     status,
@@ -1541,7 +1578,11 @@ export function libraryModule(ctx, bodyEl) {
 export function drumKitModule(ctx, bodyEl, state) {
   const S = (k, d) => state[k] ?? d;
   let audioCtx = null, gain = null, offBus = null, hits = 0;
-  const status = el("div", { class: "ws-readout", text: "⏻ power on, then play the bus (Pattern Player, Keys…)" });
+  const status = el("div", { class: "ws-readout", text: "off — click power, then play the bus (Pattern Player, Keys…)" });
+  const powerBtn = powerButton(async (wantOn) => {
+    if (!wantOn) { await audioCtx?.suspend(); paint(); return; }
+    await power();
+  });
   const level = el("input", { class: "ws-range", type: "range", min: 0, max: 1, step: 0.01,
     value: S("level", 0.8), "aria-label": "Level",
     oninput: () => { if (gain) gain.gain.value = Number(level.value); Object.assign(state, { level: Number(level.value) }); ctx.save(); } });
@@ -1598,9 +1639,11 @@ export function drumKitModule(ctx, bodyEl, state) {
   }
   function paint() {
     if (!audioCtx) return;
-    status.textContent = audioCtx.state === "running"
-      ? "● kit live — bus notes sound as drums by GM number"
-      : "⏻ tap power again (audio suspended until a user gesture)";
+    const on = audioCtx.state === "running";
+    powerBtn.setState(on);
+    status.textContent = on
+      ? "kit live — bus notes sound as drums by GM number"
+      : "suspended — click power to start";
   }
 
   // The kit, so it is obvious which note is which drum without reading a doc.
@@ -1610,8 +1653,7 @@ export function drumKitModule(ctx, bodyEl, state) {
     text: Object.values(KIT).map((d) => `${d.note} ${d.label.toLowerCase()}`).join("  ·  ") });
 
   bodyEl.append(
-    el("div", { class: "ws-row" },
-      el("button", { class: "ws-btn", text: "⏻ power", onclick: power }),
+    el("div", { class: "ws-row" }, powerBtn,
       el("label", { class: "ws-ctl", text: "level " }, level)),
     status,
     legend,

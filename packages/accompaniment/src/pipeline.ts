@@ -13,7 +13,7 @@
  */
 import { parseLeadsheet, realizeLeadsheet } from "@enkerli/theory";
 import { createSMF, type MidiNote, type MidiMarker, type MidiController } from "@enkerli/midi";
-import { parseUPI } from "@enkerli/upi";
+import { parseUPI, parsePolyUPI } from "@enkerli/upi";
 import type { AccompanimentPhrase, HarmonicFrame } from "./phrase.js";
 import { adaptBassPhrase } from "./bass.js";
 import { applyRhythm } from "./rhythm.js";
@@ -132,6 +132,18 @@ export interface GrooveResult {
   expression: ExpressChange[];
   /** Per-note articulations + breath envelopes (empty unless opts.inflect). */
   inflections: NoteInflection[];
+  /**
+   * Things the caller should be told but that are not errors — e.g. a
+   * multi-lane `--rhythm` where only lane 1 can be performed.
+   *
+   * Returned rather than printed: this package writes to no stream anywhere
+   * else, and a library that logs is a library you cannot embed quietly. The
+   * CLI prints these; the Workspace could show them.
+   *
+   * Called `notices`, not `notes` — in this package `notes` is MidiNote[], and
+   * a second meaning for the word in the same result object would be a trap.
+   */
+  notices: string[];
 }
 
 /**
@@ -140,13 +152,32 @@ export interface GrooveResult {
  */
 export function groove(sourceIn: AccompanimentPhrase, opts: GrooveOptions): GrooveResult {
   let source = sourceIn;
+  const notices: string[] = [];
   if (opts.rhythm !== undefined) {
-    const r = parseUPI(opts.rhythm, { n: 16 });
-    if (!r.ok || !r.steps.length) throw new Error(`accompany: --rhythm "${opts.rhythm}" did not parse as UPI${r.error ? ` — ${r.error}` : ""}`);
+    // parsePolyUPI, not parseUPI. This is USER INPUT — `--rhythm "<UPI>"` off
+    // the command line — and the mono parser rejects lanes, scenes (`|`) and
+    // progressive notation outright, so notation the rest of the suite plays
+    // came back "did not parse as UPI". The layering rule is: user input goes
+    // through the poly parser, library internals may use the single-body one
+    // (SERPE_DAW_FINDINGS F7).
+    //
+    // A bass line has ONE rhythm at a time, so a multi-lane spec uses lane 1
+    // and says so — the same convention the Workspace bus follows, where
+    // steps/mask are lane 1 and `lanes` carries the rest. Flattening the lanes
+    // into a union would invent onsets that no lane actually has.
+    const poly = parsePolyUPI(opts.rhythm, { n: 16 });
+    const r = poly.ok ? poly.lanes[0] : null;
+    if (!r || !r.steps.length)
+      throw new Error(`accompany: --rhythm "${opts.rhythm}" did not parse as UPI${poly.error ? ` — ${poly.error}` : ""}`);
+    if (poly.lanes.length > 1)
+      notices.push(`--rhythm: ${poly.lanes.length} lanes given, performing lane 1 (${r.label ?? "lane1"})`
+        + " — one voice has one rhythm");
+    const rSteps = r.steps.map(Number);
+    const rAccents = (r.accents ?? []).map(Number);
     source = applyRhythm(source, {
-      steps: r.steps,
-      ...(r.accents.some((x: number) => x) && { accents: r.accents }),
-      label: r.label ?? opts.rhythm,
+      steps: rSteps,
+      ...(rAccents.some((x: number) => x) && { accents: rAccents }),
+      label: r.source ?? opts.rhythm,
     });
   }
 
@@ -271,5 +302,5 @@ export function groove(sourceIn: AccompanimentPhrase, opts: GrooveOptions): Groo
     textEvents: [{ tick: 0, text: `GLORIARP:v1 TRACE ${JSON.stringify(embedded)}` }],
   });
 
-  return { phrase, trace, frames, smf, articulation, expression, inflections };
+  return { phrase, trace, frames, smf, articulation, expression, inflections, notices };
 }
