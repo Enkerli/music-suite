@@ -261,7 +261,7 @@ rhythm is right and only the accent is missing.
 
 ---
 
-## F5 — `S1` has a burst at ~102.7 Hz, and it is NOT the audio buffer
+## F5 — `S1`'s burst is a three-block period, seen at half spacing
 
 57 notes in 8 beats. The clip is not uniformly bursty: it opens with musically
 spaced onsets and then a burst starts partway in.
@@ -281,28 +281,39 @@ spaced onsets and then a burst starts partway in.
 stable: 0.019468 appears 12 times, 0.019469 seven times — a spread under one
 microsecond across 27 occurrences.
 
-### Corrected 2026-08-02: it is not a buffer
+### Corrected TWICE. It IS the buffer — 624 samples at 96 kHz
 
-An earlier version of this section said the gaps were "audio-buffer multiples,
-~468/936 samples". **That was wrong** — it came from rounding 0.0195 and then
-reading 468 as if it were a buffer size. It is not one, and precise arithmetic
-rules the explanation out:
+First I said "audio-buffer multiples, ~468/936 samples", from rounding the delta
+and reading 468 as a buffer size. Then I "corrected" that to *not a buffer*,
+having checked 44.1/48/88.2/96 kHz against 64/128/256/512/1024 and found no fit.
 
-| at 120 bpm the quantum is | samples |
-|---|---|
-| 44.1 kHz | 429.28 |
-| 48 kHz | 467.24 |
-| 96 kHz | 934.49 |
+**That second conclusion was wrong, and wrong for an instructive reason: I only
+tested POWER-OF-TWO block sizes.** Bitwig allows any size. Alex's session ran
+**624 samples**, which he reports as 6.50 ms — and 624 / 0.0065 s is exactly
+**96 kHz**, so the rate is settled too.
 
-Not a power of two, and **not even a whole number of samples** at any standard
-rate. Nor does inverting it help: for the quantum to be a real buffer the
-session tempo would have to have been ~36 bpm (512 @ 44.1 kHz) or ~66–72 bpm
-(1024) — and the tempo is constant at 120, since a burst that is constant in
-*beats* cannot have been recorded under tempo automation.
+Against that clock the numbers land:
 
-So whatever is firing at **~102.7 Hz** is not the block clock. Its stability
-argues against a wall-clock timer too: a `juce::Timer` jitters by milliseconds,
-and this does not.
+| | measured | in blocks | error |
+|---|---|---|---|
+| the quantum, 0.0194685 beats | 9.7342 ms | **1.4976** | 0.16% |
+| its double, 0.038966 beats | 19.483 ms | **2.9974** | 0.09% |
+
+So the burst period is **three blocks (19.5 ms)**, and it appears in the capture
+at **half that spacing**. A three-block period showing up every one-and-a-half
+blocks is what two sources interleaved looks like — which is Alex's own reading:
+*"it likely was an issue with the interaction between instances."*
+
+That fits the project (two Serpe instances, both CLAP) and it fits the mechanism
+already found and fixed: `processBlock` kept `lastProcessedStep` and four
+siblings in **function-local statics**, so each instance saw "the step changed"
+whenever the *other* one moved (Serpe `1eb66a5`).
+
+**Still not formally closed** — the headless two-instance probe did not multiply
+the note rate, so the reproduction is not in hand. But the arithmetic now
+supports the mechanism rather than ruling it out, and the fix is already in.
+**Re-testing in Bitwig with two instances on the current build is the check
+that would close it.**
 
 ### The other clip is the control, and it is perfect
 
