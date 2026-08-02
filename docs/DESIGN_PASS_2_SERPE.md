@@ -24,14 +24,21 @@ what the controls are called and how they look.
 |---|---|---|
 | section label | `PATTERN` | `LANES` |
 | polygon | `☑ polygon` — a checkbox | `△ all` — a pill |
-| view | `Both / Circle / Step` — 3-way | `Rows / Circle` — 2-way |
+| view | `Both / Circle / Step` — 3-way | `Both / Circle / Rows` — 3-way *(Both added 2026-08-02)* |
 | step numbers | `☐ step numbers` | *(absent)* |
 | accents | `✦ accent` — a pill | *(per-lane, in the rows below)* |
 | lane lock | *(n/a)* | `Polyrhythm / Polymeter` — 2-way, two-line |
 | kit | *(absent)* | `kit [GM ▾]` |
 
-"Both" and "Rows" name the same idea. Polygon is a checkbox on one side and a
-pill on the other. A reader learning the app learns it twice.
+**Decided 2026-08-02 (Alex): poly gets "Both" too.** Done — the rings and the
+per-lane cells now show together, as mono has always allowed. The two answer
+different questions (how lanes interlock vs which step is which) and having to
+choose was the odd part.
+
+What remains for the pass: the third option is called `Step` in mono and `Rows`
+in poly for the same thing, polygon is a checkbox on one side and a pill on the
+other, and the section is `PATTERN` or `LANES` depending. A reader still learns
+the app twice.
 
 **Worth deciding:** one header vocabulary that degrades gracefully, with the
 poly-only controls appearing rather than the whole row changing shape.
@@ -77,9 +84,14 @@ Each lane row wraps mid-control:
  ch [10]
 ```
 
-`ch` lands on its own line with its label clipped at the panel edge. Three of
-the controls (`●`, `☐`, `△`) carry no label at all — one is solo/mute, one is a
-per-lane toggle, one is the polygon toggle, and nothing on screen says so.
+`ch` lands on its own line with its label clipped at the panel edge.
+
+The three glyph controls (`●`, `☐`, `△`) show no VISIBLE label — but this is a
+visual problem only, not a screen-reader one: an accessibility pass on
+2026-08-02 found they are properly named ("Mute kick", "kick polygon overlay",
+"kick MIDI channel"). Corrected here because the first draft of this brief said
+they "carry no label at all", which was wrong and would have sent the designer
+looking for a bug that does not exist.
 
 ## 6. The library rows got dense — and that is my doing
 
@@ -128,6 +140,41 @@ this.
   state, not just "this is a button"**.
 
 ---
+
+---
+
+## Accessibility — audited 2026-08-02, mostly good
+
+Run with `mgifford/accessibility-skills` (`cli-audit`, Playwright + Axe) plus a
+manual accessibility-tree pass. **Zero automated violations, 38 passes**, and
+all 139 interactive elements have accessible names. The one "incomplete" is
+colour-contrast on decorative `aria-hidden` glyphs and on `<select>` elements
+whose text the OS renders — measured at 13.6:1, so nothing actionable.
+
+Fixed in the same pass (small, and none of it visual):
+
+- three decorative icons (play, stop, library search) were neither exposed nor
+  hidden; they sit inside buttons that already carry names, so they are now
+  `aria-hidden` + `focusable="false"` — the latter because SVG is focusable by
+  default in some engines and was adding empty tab stops
+- the Serpe logo had `aria-label` with no `role`, which is unreliable across
+  engines and duplicated the adjacent word "Serpe" where it did work; now
+  decorative
+- the play button now reports `aria-pressed` and its label follows state
+  (Play/Pause) rather than always saying "Play"
+- **the rings' description now includes duration.** It listed onsets and
+  accents only, and duration arcs are the identity view — with `LS(r){mask}` in
+  the notation, that omission was the difference between an open hat and a
+  closed one for anyone not looking at the screen. It also uses lane names now:
+
+  > 2 lanes. Lane 1 (kick): 3 of 8 steps, on 1, 4, 7. Lane 2 (hh): 8 of 16
+  > steps, on 1, 3, 5, 7, 9, 11, 13, 15; sustained on 1, 9.
+
+**Not yet done, and not automatable:** keyboard-only operation, real screen
+reader testing, and plain-language review. Alex is arranging those. The skills
+repo has `keyboard`, `manual-testing` and `plain-language` for exactly this, and
+they are the parts that decide whether the app is actually usable — the clean
+Axe run says only that nothing obvious is broken.
 
 ## Cross-references
 

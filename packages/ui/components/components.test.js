@@ -2,6 +2,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { createPcsRing, maskToPcs, pcsToMask } from "./pcs-ring.js";
 import { createPitchGrid, layoutCells } from "./pitch-grid.js";
+import { describeLanes } from "./rhythm-views.js";
 import { layoutNotes } from "./piano-roll.js";
 import { createSection } from "./section.js";
 import { createRangeSlider, midiName } from "./range-slider.js";
@@ -403,3 +404,41 @@ describe("global cluster (the shared frame)", () => {
 // save/recall surface — see components.css's note above the LibraryBrowser
 // block. library-drawer.js is retired; the cluster's Library slot (tested
 // above) now opens the browser in every adopting app.
+
+/**
+ * The rings' text alternative.
+ *
+ * `role="img"` + this string is the ONLY way the visualisation reaches someone
+ * not looking at it, so what it leaves out is not available anywhere else.
+ * Duration arcs are the identity view — an arc's length is how long that onset
+ * sounds — and until 2026-08-02 the description listed onsets and accents only.
+ * With `LS(r){mask}` in the notation that omission is the difference between an
+ * open hat and a closed one.
+ */
+describe("describeLanes — what the rings say when you cannot see them", () => {
+  it("names the lane, its density and where the onsets fall", () => {
+    const d = describeLanes([{ steps: [1, 0, 0, 1, 0, 0, 1, 0] }]);
+    expect(d).toBe("1 lane. Lane 1: 3 of 8 steps, on 1, 4, 7.");
+  });
+
+  it("reports SUSTAINED onsets — the arcs' own information", () => {
+    const d = describeLanes([{ steps: [1, 0, 1, 0], longs: [1, 0, 0, 0] }]);
+    expect(d).toContain("sustained on 1");
+  });
+
+  it("says nothing about duration when the pattern carries none", () => {
+    expect(describeLanes([{ steps: [1, 0, 1, 0] }])).not.toContain("sustained");
+  });
+
+  it("uses a lane's real label, and ignores the positional default", () => {
+    // `kick=E(3,8)` should say kick; a bare lane should not say "lane1" twice.
+    expect(describeLanes([{ label: "kick", steps: [1, 0] }])).toContain("Lane 1 (kick)");
+    expect(describeLanes([{ label: "lane1", steps: [1, 0] }])).toBe("1 lane. Lane 1: 1 of 2 steps, on 1.");
+  });
+
+  it("still reports accents and mute", () => {
+    const d = describeLanes([{ steps: [1, 0, 1, 0], accents: [0, 0, 1, 0] }], [true]);
+    expect(d).toContain("accented on 3");
+    expect(d).toContain("muted");
+  });
+});

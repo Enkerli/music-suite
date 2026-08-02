@@ -510,14 +510,22 @@ export function describeLanes(lanes = [], muted = []) {
   if (!lanes.length) return "Poly lane rings: no lanes";
   const parts = lanes.map((lane, i) => {
     const n = lane.steps.length;
-    const at = [], acc = [];
+    const at = [], acc = [], long = [];
     for (let s = 0; s < n; s++) {
       if (!lane.steps[s]) continue;
       at.push(s + 1);
       if (lane.accents && lane.accents[s]) acc.push(s + 1);
+      if (lane.longs && lane.longs[s]) long.push(s + 1);
     }
-    let t = `Lane ${i + 1}: ${at.length} of ${n} steps, on ${at.join(", ") || "none"}`;
+    const label = lane.label && !/^lane\d+$/i.test(lane.label) ? ` (${lane.label})` : "";
+    let t = `Lane ${i + 1}${label}: ${at.length} of ${n} steps, on ${at.join(", ") || "none"}`;
     if (acc.length) t += `; accented on ${acc.join(", ")}`;
+    // What the ARCS say, which is the whole reason they are the identity view:
+    // an arc's LENGTH is how long that onset sounds. A description that lists
+    // only onsets tells a screen-reader user the rhythm and withholds the
+    // articulation — and with LS(r){mask} in the notation, that is now the
+    // difference between an open hat and a closed one.
+    if (long.length) t += `; sustained on ${long.join(", ")}`;
     if (muted[i]) t += "; muted";
     return t;
   });

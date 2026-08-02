@@ -56,7 +56,10 @@ initTheme();
 
 // Inline SVG mark — a data-URL <img> with unescaped '#' hex colours renders in
 // Chrome but breaks in macOS WKWebView, so inject the markup directly.
-const ICON_SVG = `<svg viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg" aria-label="Serpe">
+// Decorative: the word "Serpe" is rendered next to it, so announcing the mark
+// as well would just repeat. Was aria-label="Serpe" with no role, which is the
+// worst of both — unreliable across engines AND duplicated when it did work.
+const ICON_SVG = `<svg viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false">
 <rect x="16" y="16" width="992" height="992" rx="208" fill="#f5f2eb"/>
 <rect x="16" y="16" width="992" height="992" rx="208" fill="none" stroke="#ddd6ca" stroke-width="12"/>
 <circle cx="512" cy="512" r="300" fill="none" stroke="#ddd6ca" stroke-width="14"/>
@@ -235,7 +238,12 @@ function PolyLanesPanel({ poly, lanePh, lanePolys, setLanePoly, polyLock, setPol
                           laneNote, laneChan, laneMuted, setLaneUi, isHost, polyLagMs, setPolyLagMs }) {
   const fmtOff = (o) => o == null ? '' : o.kind === 'ms'
     ? `@${o.ms >= 0 ? '+' : ''}${o.ms}ms` : `@${o.num >= 0 ? '+' : ''}${o.num}/${o.den}`;
-  const showCircle = polyView === 'circle';
+  // 'both' shows the rings AND the per-lane step cells, matching what mono has
+  // offered all along (Alex, 2026-08-02). The two views answer different
+  // questions — the rings show how lanes interlock, the cells show which step
+  // is which — and having to choose was the odd part.
+  const showCircle = polyView === 'circle' || polyView === 'both';
+  const showRows = polyView === 'rows' || polyView === 'both';
   return h('div', { className: 'viz poly-lanes' },
     h('div', { className: 'viz-head' },
       h('span', { className: 'es-eyebrow' }, 'Lanes'),
@@ -264,7 +272,7 @@ function PolyLanesPanel({ poly, lanePh, lanePolys, setLanePoly, polyLock, setPol
                          poly.lanes.forEach((l, i) => setLanePoly(i, !all)); } }, '△ all'),
       h('div', { className: 'seg', role: 'group', 'aria-label': 'Lane view',
         title: 'Rows: stacked step lanes. Circle: the same lanes as nested rings — under Step lock the rings still draw correctly, they just won’t stay lined up between realignments.' },
-        [['rows', 'Rows'], ['circle', 'Circle']].map(([v, t]) =>
+        [['both', 'Both'], ['circle', 'Circle'], ['rows', 'Rows']].map(([v, t]) =>
           h('button', { key: v, 'aria-pressed': polyView === v,
             onClick: () => setPolyView(v) }, t))),
       h('label', { className: 'poly-ctl', title: 'Drumkit note defaults by lane label; a lane’s own note input wins' }, 'kit ',
@@ -315,7 +323,7 @@ function PolyLanesPanel({ poly, lanePh, lanePolys, setLanePoly, polyLock, setPol
         lane.triggerIndex > 0 && h('span', { className: 'trig-chip', title: 'Trigger the engine is on for this lane' },
           h('span', { className: 'trig-n' }, `\u27F3 ${lane.triggerIndex}`),
           h('span', { className: 'trig-what' }, triggerConsequence(lane))),
-        !showCircle && h('div', { className: 'poly-cells', role: 'img',
+        showRows && h('div', { className: 'poly-cells', role: 'img',
           'aria-label': `${lane.label}: ${lane.steps.join('')} over ${lane.steps.length} steps` },
           lane.steps.map((s, c) =>
             h('span', {
@@ -1418,12 +1426,18 @@ function SerpeApp() {
     h('div', { className: 'serpe-top' },
       h('div', { className: 'title' }, h('span', { className: 'title-mark', dangerouslySetInnerHTML: { __html: ICON_SVG } }), 'Serpe'),
       h('div', { className: 'transport' },
-        h('button', { className: 'tbtn play' + (playing ? ' on' : ''), onClick: play, title: 'Play / pause', 'aria-label': 'Play' },
+        // The glyphs are DECORATIVE: each button already carries its own
+        // aria-label, so an exposed icon would be announced twice. aria-hidden
+        // plus focusable=false — SVG is focusable by default in some engines
+        // and would otherwise add empty tab stops between the transport
+        // buttons. (a11y pass, mgifford/accessibility-skills `svg`.)
+        h('button', { className: 'tbtn play' + (playing ? ' on' : ''), onClick: play,
+          title: playing ? 'Pause' : 'Play', 'aria-label': playing ? 'Pause' : 'Play', 'aria-pressed': playing ? 'true' : 'false' },
           playing
-            ? h('svg', { viewBox: '0 0 24 24', fill: 'currentColor' }, h('rect', { x: 6, y: 5, width: 4, height: 14 }), h('rect', { x: 14, y: 5, width: 4, height: 14 }))
-            : h('svg', { viewBox: '0 0 24 24', fill: 'currentColor' }, h('path', { d: 'M8 5v14l11-7z' }))),
+            ? h('svg', { viewBox: '0 0 24 24', fill: 'currentColor', 'aria-hidden': 'true', focusable: 'false' }, h('rect', { x: 6, y: 5, width: 4, height: 14 }), h('rect', { x: 14, y: 5, width: 4, height: 14 }))
+            : h('svg', { viewBox: '0 0 24 24', fill: 'currentColor', 'aria-hidden': 'true', focusable: 'false' }, h('path', { d: 'M8 5v14l11-7z' }))),
         h('button', { className: 'tbtn', onClick: stop, title: 'Stop', 'aria-label': 'Stop' },
-          h('svg', { viewBox: '0 0 24 24', fill: 'currentColor' }, h('rect', { x: 6, y: 6, width: 12, height: 12, rx: 2 })))),
+          h('svg', { viewBox: '0 0 24 24', fill: 'currentColor', 'aria-hidden': 'true', focusable: 'false' }, h('rect', { x: 6, y: 6, width: 12, height: 12, rx: 2 })))),
       h('div', { className: 'tempo', style: { opacity: synced ? 0.45 : 1 } },
         h('input', { className: 'es-control', type: 'number', min: 40, max: 240, value: tempo, disabled: synced,
           onChange: e => { const t = Math.max(40, Math.min(240, +e.target.value || 120)); setTempo(t); LS.set('tempo', t); if (juceAvailable()) sendBPM(t); }, 'aria-label': 'Tempo' }),
