@@ -13,6 +13,7 @@ import { APPS } from "@enkerli/library";
 import { parseUPI, parsePolyUPI, analyse, analyzeSyncopation, rotate, invert, complement, barlowTransform, mutatePattern, polyLaneAt } from "@enkerli/upi";
 import { createCircleView, createPolyCircleView } from "@enkerli/ui/rhythm-views";
 import { createBindingEngine, addBinding, removeBinding } from "@enkerli/control";
+import { VOICES, KIT, resolveDrum, drumForLabel } from "@enkerli/drumsynth";
 import { parseLeadsheet, detectChord, rootName, realizeLeadsheet } from "@enkerli/theory";
 import { generateLabels, realizeLabel } from "@enkerli/proggen";
 import transitionTables from "@enkerli/proggen/data/transitions.json";
@@ -205,13 +206,23 @@ export function patternModule(ctx, bodyEl, state) {
     lastSent = `${a0.n}:${a0.decimal}`;
     ctx.bus.publish(makeMessage(FROM, "pattern", {
       steps: a0.n, mask: a0.decimal, name: sp.lanes[0].source ?? input.value,
-      lanes: sp.lanes.map((l) => ({
+      lanes: sp.lanes.map((l) => {
+        // A lane LABELLED with a drum name states its note, so the Drum Kit
+        // module hears a kick as a kick. Same resolution `msuite upi --wav`
+        // uses, from the same table — this is what the protocol's optional
+        // per-lane `note` exists for, rather than every receiver guessing from
+        // position.
+        const drum = drumForLabel(l.label ?? "");
+        return {
         steps: l.steps.length,
         mask: maskOf(l.steps),
+        ...(drum ? { note: KIT[drum].note } : {}),
         ...(l.label ? { name: l.label } : {}),
         // Accents are per lane (D8); only sent when the lane has any.
         ...(l.accents?.some(Boolean) ? { accents: maskOf(l.accents) } : {}),
-      })),
+        // The durational layer, so the Player can ring an open hat.
+        ...(l.longs?.some(Boolean) ? { longs: maskOf(l.longs), lsRatio: l.longShort?.min ?? 2 } : {}),
+        }; }),
     }, { to: "*" }));
   }
 
@@ -1167,6 +1178,8 @@ export function playerModule(ctx, bodyEl, state) {
     lanes = src.map((L) => ({
       steps: bits(L.mask, L.steps),
       accents: L.accents ? bits(L.accents, L.steps) : null,
+      longs: L.longs ? bits(L.longs, L.steps) : null,
+      lsRatio: L.lsRatio ?? 2,
       name: L.name ?? null,
       note: Number.isInteger(L.note) ? L.note : null,
       idx: -1,
@@ -1195,6 +1208,15 @@ export function playerModule(ctx, bodyEl, state) {
     return (lanes[0].steps.length * stepMs()) / lane.steps.length;
   }
 
+  /** Relative length of the hit at this lane's current step. 1 without LS. */
+  function longScale(lane) {
+    if (!lane.longs) return 1;
+    const onsets = lane.steps.filter(Boolean).length || 1;
+    const longs = lane.steps.reduce((a, v, i) => a + (v && lane.longs[i] ? 1 : 0), 0);
+    const mean = (longs * lane.lsRatio + (onsets - longs)) / onsets;
+    return (lane.longs[lane.idx] ? lane.lsRatio : 1) / mean;
+  }
+
   function tickLane(li, at) {
     if (!running) return;
     const lane = lanes[li];
@@ -1209,7 +1231,10 @@ export function playerModule(ctx, bodyEl, state) {
       ctx.bus.publish(makeNote(FROM, {
         notes: [Math.min(127, base + (accented ? 5 : 0))],
         velocity: accented ? 127 : 100,
-        durationMs: Math.max(20, Math.round(laneStepMs(lane) * 0.9)),
+        // A LONG hit lasts `lsRatio` times a short one, normalised so the cycle
+        // still fills the same time — the rule `upi --wav` uses, so the
+        // Workspace and the file agree about which hat rings.
+        durationMs: Math.max(20, Math.round(laneStepMs(lane) * 0.9 * longScale(lane))),
       }, { to: to.value }));
     }
     if (li === 0) {
@@ -1509,9 +1534,95 @@ export function libraryModule(ctx, bodyEl) {
   return () => off();
 }
 
+// ── Drum Kit: the synthesised kit (@enkerli/drumsynth) in the page. Notes on
+// the bus become drums by GM number, so the Pattern Player driving
+// `kick=E(4,16) / hh=E(8,16)` is a drum machine with no second tab and no
+// samples. ─────────────────────────────────────────────────────────────────
+export function drumKitModule(ctx, bodyEl, state) {
+  const S = (k, d) => state[k] ?? d;
+  let audioCtx = null, gain = null, offBus = null, hits = 0;
+  const status = el("div", { class: "ws-readout", text: "⏻ power on, then play the bus (Pattern Player, Keys…)" });
+  const level = el("input", { class: "ws-range", type: "range", min: 0, max: 1, step: 0.01,
+    value: S("level", 0.8), "aria-label": "Level",
+    oninput: () => { if (gain) gain.gain.value = Number(level.value); Object.assign(state, { level: Number(level.value) }); ctx.save(); } });
+
+  /**
+   * Play one hit.
+   *
+   * Rendered offline into an AudioBuffer and fired through a BufferSource,
+   * rather than run in an AudioWorklet like Vane. Drums are one-shots with no
+   * held state, and a 400 ms hat is ~19k samples — microseconds of work — so a
+   * worklet would buy nothing and cost the whole wasm/module dance. Vane needs
+   * one because a breath-driven reed is continuous; this is not.
+   */
+  function play(drum, velocity, params) {
+    if (!audioCtx || audioCtx.state !== "running") return;
+    const voice = VOICES[drum];
+    if (!voice) return;
+    const sr = audioCtx.sampleRate;
+    // Long enough for the longest voice (crash, 1.4 s) plus the decay a note
+    // length may have asked for.
+    const secs = Math.min(3, Math.max(0.5, ((params?.decayMs ?? 400) / 1000) + 0.3));
+    const ab = audioCtx.createBuffer(1, Math.ceil(secs * sr), sr);
+    const buf = ab.getChannelData(0);
+    voice({ buf, at: 0, sr, velocity, seed: 1 + (hits++ * 2654435761) }, params ?? {});
+    const src = audioCtx.createBufferSource();
+    src.buffer = ab; src.connect(gain); src.start();
+  }
+
+  async function power() {
+    try {
+      if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        audioCtx.onstatechange = paint;
+        gain = audioCtx.createGain();
+        gain.gain.value = Number(level.value);
+        gain.connect(audioCtx.destination);
+        offBus = ctx.bus.subscribe((m) => {
+          if (m.type !== "note" || (m.to !== "drums" && m.to !== "*" && m.to !== "vane")) return;
+          const b = m.body || {};
+          if (b.gate === "off") return;            // one-shots have no note-off
+          for (const n of b.notes || []) {
+            const drum = resolveDrum(n);
+            if (!drum) continue;
+            // The note's own length drives the decay, exactly as `upi --wav`
+            // does it — so LS(4){1000} rings one hat in four here too.
+            play(drum, (b.velocity ?? 100) / 127,
+                 Number.isFinite(b.durationMs) ? { decayMs: Math.max(20, b.durationMs) } : undefined);
+          }
+        });
+      }
+      if (audioCtx.state !== "running") await audioCtx.resume();
+      paint();
+    } catch (e) { status.textContent = "✗ audio: " + (e && e.message || e); }
+  }
+  function paint() {
+    if (!audioCtx) return;
+    status.textContent = audioCtx.state === "running"
+      ? "● kit live — bus notes sound as drums by GM number"
+      : "⏻ tap power again (audio suspended until a user gesture)";
+  }
+
+  // The kit, so it is obvious which note is which drum without reading a doc.
+  // One readout line rather than per-sound elements: there is no chip style in
+  // workspace.css and inventing one here is how a design language rots.
+  const legend = el("div", { class: "ws-readout",
+    text: Object.values(KIT).map((d) => `${d.note} ${d.label.toLowerCase()}`).join("  ·  ") });
+
+  bodyEl.append(
+    el("div", { class: "ws-row" },
+      el("button", { class: "ws-btn", text: "⏻ power", onclick: power }),
+      el("label", { class: "ws-ctl", text: "level " }, level)),
+    status,
+    legend,
+    el("div", { class: "ws-readout", text: "synthesised, no samples — note length drives the decay, so an open hat rings" }));
+  return () => { offBus && offBus(); try { audioCtx && audioCtx.close(); } catch { /* already gone */ } };
+}
+
 export const MODULES = {
   "control-surface": { title: "Control Surface", make: controlSurfaceModule },
   "vane-synth": { title: "Vane Synth", make: vaneSynthModule },
+  "drum-kit": { title: "Drum Kit", make: drumKitModule },
   "pattern": { title: "Pattern (UPI)", make: patternModule },
   "pcs-pads": { title: "PCS Pads", make: pcsPadsModule },
   "voice-split": { title: "Voice Split", make: voiceSplitModule },

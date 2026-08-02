@@ -111,6 +111,18 @@ export interface PatternLane {
    */
   accents?: number;
   /**
+   * Durational layer, when the lane carries `LS(r){mask}`: `longs` is the
+   * per-step mask of which hits are LONG (leftmost = LSB, same convention as
+   * `accents`), `lsRatio` how much longer.
+   *
+   * Carried because a receiver that only gets onsets plays every hit the same
+   * length, and on drums that is the difference between an open hat and a
+   * closed one. `msuite upi --wav` already honours it; a Workspace that did not
+   * would show a pattern it cannot play.
+   */
+  longs?: number;
+  lsRatio?: number;
+  /**
    * MIDI note for this lane, when the sender has an opinion. Receivers
    * otherwise assign by position (base + index), which is what
    * `msuite upi --midi` does. Drum material is the case that needs it stated:
@@ -389,6 +401,10 @@ export function validateMessage(x: unknown): ValidationResult {
               err(`body.lanes[${i}].mask: non-negative integer required`);
             if (L.accents !== undefined && (!Number.isInteger(L.accents) || (L.accents as number) < 0))
               err(`body.lanes[${i}].accents: non-negative integer mask required`);
+            if (L.longs !== undefined && (!Number.isInteger(L.longs) || (L.longs as number) < 0))
+              err(`body.lanes[${i}].longs: non-negative integer mask required`);
+            if (L.lsRatio !== undefined && (typeof L.lsRatio !== "number" || !(L.lsRatio > 0)))
+              err(`body.lanes[${i}].lsRatio: positive number required`);
             if (L.note !== undefined && (!Number.isInteger(L.note) || (L.note as number) < 0 || (L.note as number) > 127))
               err(`body.lanes[${i}].note: integer 0–127 required`);
           });

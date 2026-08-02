@@ -201,6 +201,19 @@ It closes N1b's loose end: the hat examples are re-rendered through the kit, and
 `LS(4){1000}` audibly rings one hat in four. Closed and open are the same voice
 at different decays, so the durational mask is a real instruction to the synth.
 
+Also a **Drum Kit Workspace module**, so the workbench plays drums with no
+second tab and no samples. One-shots rendered into an AudioBuffer per hit rather
+than an AudioWorklet: a drum has no held state and a 400 ms hat is microseconds
+of work, so a worklet would buy nothing. Vane needs one because a breath-driven
+reed is continuous; this is not.
+
+Two things had to reach the bus for it to play what the notation says, and both
+are now in `PatternLane`: a labelled lane states its drum's GM note (so `kick=`
+is a kick rather than whatever position it sits in), and the durational layer
+travels as `longs` + `lsRatio` (so an open hat rings in the Workspace exactly as
+it does in `--wav`). A receiver that only got onsets played every hit the same
+length, which on drums is precisely the distinction that matters.
+
 **Next: D2**, which starts when Alex's curated MIDI arrives. D3 follows it.
 
 ### Tier 3 — representation
