@@ -2,7 +2,14 @@
 /**
  * A style → a pattern. (Priorities Tier 2, the end of D3.)
  *
- *   node tools/drum-generate.mjs style.json [--bars N] [--seed N] [--upi|--json]
+ *   node tools/drum-generate.mjs style.json [--bars N] [--seed N] [--pass N] [--json]
+ *
+ * SEED AND PASS, the same convention GloriArp uses ("every --pass is a fresh
+ * take"). A seed names the take; a pass is the next time round the loop, so the
+ * same style at the same seed gives a repeatable sequence of DIFFERENT bars
+ * rather than the same bar forever. `rng(seed, pass)` already had that
+ * signature — the second argument exists for exactly this — and it is the same
+ * mulberry32 the C++ engine now runs, so a seed means one thing suite-wide.
  *
  * CAN UPI HOLD THIS? That was the open question, and the answer is: it holds a
  * generated INSTANCE well and cannot hold the STYLE at all — which turns out to
@@ -41,8 +48,14 @@
 import { readFileSync } from "node:fs";
 import { rng } from "@enkerli/upi";
 
-/** Deterministic sampling: a seed names a take, as everywhere else in the suite. */
-function sampler(seed) { return rng(seed >>> 0, 0); }
+/**
+ * Deterministic sampling. A seed names a take; a pass is the next loop round.
+ *
+ * Same convention as `msuite accompany --seed/--pass`, and the same PRNG the
+ * plugin grows `*N` with since 2026-08-02 — so "seed 7" is one thing across the
+ * CLI, the webapp and the engine.
+ */
+function sampler(seed, pass) { return rng(seed >>> 0, pass >>> 0); }
 
 /**
  * Sample `bars` bars from a style.
@@ -50,8 +63,8 @@ function sampler(seed) { return rng(seed >>> 0, 0); }
  * Returns full events — slot, drum, velocity, push — losing nothing. The UPI
  * rendering below is a projection of this, not the other way round.
  */
-export function generate(style, { bars = 4, seed = 1 } = {}) {
-  const rand = sampler(seed);
+export function generate(style, { bars = 4, seed = 1, pass = 0 } = {}) {
+  const rand = sampler(seed, pass);
   const slotsPerBar = style.grid.slotsPerBar;
   if (!slotsPerBar) throw new Error(`style "${style.id}" has no bar length — meter was undetermined`);
 
@@ -69,7 +82,7 @@ export function generate(style, { bars = 4, seed = 1 } = {}) {
       }
     }
   }
-  return { style: style.id, bars, seed, slotsPerBar, perBeat: style.grid.perBeat, events };
+  return { style: style.id, bars, seed, pass, slotsPerBar, perBeat: style.grid.perBeat, events };
 }
 
 /**
@@ -123,14 +136,14 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   if (!file) { console.error("usage: drum-generate.mjs style.json [--bars N] [--seed N] [--json]"); process.exit(2); }
   const num = (f, d) => { const i = args.indexOf(f); return i >= 0 ? Number(args[i + 1]) : d; };
   const style = JSON.parse(readFileSync(file, "utf8"));
-  const take = generate(style, { bars: num("--bars", 4), seed: num("--seed", 1) });
+  const take = generate(style, { bars: num("--bars", 4), seed: num("--seed", 1), pass: num("--pass", 0) });
 
   if (args.includes("--json")) { console.log(JSON.stringify(take, null, 1)); process.exit(0); }
 
   const { upi, lost } = toUPI(take);
   console.log(upi);
   if (!args.includes("--quiet")) {
-    console.error(`\n# ${style.id} · seed ${take.seed} · ${take.slotsPerBar} slots/bar `
+    console.error(`\n# ${style.id} · seed ${take.seed} pass ${take.pass} · ${take.slotsPerBar} slots/bar `
       + `(${style.grid.beatsPerBar}/4 at ${style.grid.perBeat} per beat)`);
     if (lost.length) console.error(`# per-slot microtiming flattened to one offset per lane: `
       + lost.map((l) => `${l.drum} spread ${l.pushSpreadSlots} slots`).join(", "));

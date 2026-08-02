@@ -69,6 +69,30 @@ describe("style → pattern", () => {
     expect(upi).not.toContain("never");
   });
 
+  it("follows GloriArp's seed/pass convention — a pass is a fresh take", () => {
+    // "every --pass is a fresh take" (msuite accompany). Same seed, next pass:
+    // a different bar from the same distribution, repeatably. rng(seed, pass)
+    // already had that signature, and it is the same mulberry32 the C++ engine
+    // grows `*N` with, so a seed means one thing suite-wide.
+    const varied = { ...STYLE, voices: STYLE.voices.map((v) => ({ ...v, slots: v.slots.map((s) => ({ ...s, p: s.p ? 0.5 : 0 })) })) };
+    const p0 = toUPI(generate(varied, { bars: 1, seed: 7, pass: 0 })).upi;
+    const p1 = toUPI(generate(varied, { bars: 1, seed: 7, pass: 1 })).upi;
+    expect(p1).not.toBe(p0);
+    // ...and repeatable, so a take can be returned to.
+    expect(toUPI(generate(varied, { bars: 1, seed: 7, pass: 1 })).upi).toBe(p1);
+  });
+
+  it("keeps the style's near-certain hits across passes", () => {
+    // The identity of a groove is the slots it almost always plays. Those
+    // should survive a pass change; the 50/50 material is what varies.
+    const rides = [0, 1, 2].map((pass) => {
+      const { upi } = toUPI(generate(STYLE, { bars: 1, seed: 7, pass }));
+      return parsePolyUPI(upi, { n: 9 }).lanes.find((l) => l.label === "ride").steps.map(Number).join("");
+    });
+    expect(new Set(rides).size).toBe(1);
+    expect(rides[0]).toBe("100101100");
+  });
+
   it("is reproducible by seed, and different across seeds", () => {
     const a = toUPI(generate(STYLE, { bars: 1, seed: 7 })).upi;
     expect(toUPI(generate(STYLE, { bars: 1, seed: 7 })).upi).toBe(a);

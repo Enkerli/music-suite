@@ -54,9 +54,11 @@ const USAGE = `msuite <command> …\n  --version                      which buil
                                         LS(3) / LS(1.4..1.8, 70%) = note length
           --import <file|-> [--json]    named patterns → library items
   upi "<notation>" [--steps N] [--midi out.mid | --wav out.wav [--bpm N] [--bars N] [--note N] [--lock cycle|step]
-                                        [--gate 0..1+|staccato|tenuto|legato]]
+                                        [--gate 0..1+|staccato|tenuto|legato] [--accent-offset N]]
                                         --gate is how much of its step a note sounds (default 0.5,
                                         detached); >1 overlaps into the next — legato/melisma
+                                        --accent-offset transposes accents N semitones (default 0;
+                                        was 5 — wrong on a kit, where the note IS the drum)
                                         --wav renders through the synthesised kit (@enkerli/drumsynth):
                                         notes map to drums by GM number, note length drives the decay,
                                         so LS(4){1000} really does ring one hat in four
@@ -409,19 +411,27 @@ async function main(): Promise<number> {
           const d = drumForLabel(lane.label ?? "");
           return d ? KIT[d]!.note : note + li;
         };
-        // Is this lane a DRUM? It changes what an accent means.
+        // How far an accent transposes, in semitones. DEFAULT 0 (Alex,
+        // 2026-08-02).
         //
-        // An accent is normally louder AND transposed +5, matching the plugin's
-        // accentPitchOffset. On a drum kit that is wrong in a way that destroys
-        // the take: the note IS the instrument, so an accented ride (59) became
-        // 64 and resolved to nothing — silently dropped — and an accented snare
-        // (38) became 43 and played as a FLOOR TOM. Found by generating a
-        // pattern from a learned style and reading the render log.
+        // It was 5, from early sine-blip experiments where a pitch bump made an
+        // accent legible and which carried into the drum plugins. On a KIT it
+        // is actively wrong, because the note IS the instrument: an accented
+        // ride (59) became 64 and resolved to nothing — silently dropped — and
+        // an accented snare (38) became 43 and played as a floor tom. Every
+        // accented drum hit was silent or the wrong drum, found by reading the
+        // render log of the first pattern generated from a learned style.
         //
-        // Applies to --midi as much as --wav: a drum .mid with transposed
-        // accents is wrong in any DAW, not just here. Unlabelled lanes are
-        // unaffected, so the timing baseline does not move.
-        const laneIsDrum = (lane: { label?: string }) => drumForLabel(lane.label ?? "") !== null;
+        // Zero by default because velocity (and now duration) carry the accent
+        // audibly on their own. Still reachable — `--accent-offset 5` restores
+        // the old behaviour, and it remains a plugin parameter.
+        const accentOffset = one(args, "accent-offset") !== undefined
+          ? Number(one(args, "accent-offset")) : 0;
+        if (!Number.isFinite(accentOffset)) {
+          console.error(`upi --accent-offset: expected a number, got "${one(args, "accent-offset")}"`);
+          return 1;
+        }
+
         poly.lanes.forEach((lane, li) => {
           const stepsArr = lane.steps.map(Boolean);
           if (!stepsArr.length) return;
@@ -522,7 +532,7 @@ async function main(): Promise<number> {
                 const isLong = lsMask ? !!lsMask[onsetOrdinal % lsMask.length] : false;
                 onsetOrdinal++;
                 notes.push({
-                  pitch: laneNote(lane, li) + (accented && !laneIsDrum(lane) ? 5 : 0),
+                  pitch: laneNote(lane, li) + (accented ? accentOffset : 0),
                   velocity: accented ? 127 : 100,
                   startTick: Math.max(0, Math.round(cursor) + offTicks),
                   // Measured against the span to the NEXT onset, not the grid
@@ -547,7 +557,7 @@ async function main(): Promise<number> {
           const drumName = resolveDrum(laneNote(lane, li));
           laneLines.push(`${(poly.lanes.length > 1 ? lane.label : "pattern").padEnd(8)} note ${laneNote(lane, li)}`
             + (wavOut !== undefined ? ` (${drumName ? (KIT[drumName]?.label ?? drumName) : "no kit sound"})` : "")
-            + `  ${stepsArr.length} steps` + (accN ? (laneIsDrum(lane) ? `  ${accN} accented (louder; a drum keeps its note)` : `  ${accN} accented (→ note ${laneNote(lane, li) + 5})`) : "")
+            + `  ${stepsArr.length} steps` + (accN ? (accentOffset ? `  ${accN} accented (→ note ${laneNote(lane, li) + accentOffset})` : `  ${accN} accented (louder)`) : "")
             + (offTicks ? `  offset ${offTicks > 0 ? "+" : ""}${offTicks} ticks` : "")
             + (pd && pd.depth > 0 ? `  PD ${Math.round(pd.depth * 100)}%` : "")
             + (lsSpec ? `  LS ${lsSpec.min === lsSpec.max ? `${lsSpec.min}:1` : `${lsSpec.min}..${lsSpec.max}:1`}`

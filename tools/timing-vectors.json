@@ -22,18 +22,55 @@
       "notation": "E(3,8)",
       "bars": 2,
       "why": "The plainest case. Step = 120 ticks, onsets at steps 0,3,6, cycle = 960.",
-      "onsets": [0, 360, 720, 960, 1320, 1680],
-      "lanes": { "36": [0, 360, 720, 960, 1320, 1680] }
+      "onsets": [
+        0,
+        360,
+        720,
+        960,
+        1320,
+        1680
+      ],
+      "lanes": {
+        "36": [
+          0,
+          360,
+          720,
+          960,
+          1320,
+          1680
+        ]
+      }
     },
     {
       "name": "mono E(5,8) with accents",
       "notation": "{10010}E(5,8)",
       "bars": 2,
       "why": "An accent is louder AND transposed +5, so accented onsets appear on note 41. Two note numbers here is the two-channel accent, visible in the file.",
-      "onsets": [0, 240, 360, 600, 720, 960, 1200, 1320, 1560, 1680],
+      "onsets": [
+        0,
+        240,
+        360,
+        600,
+        720,
+        960,
+        1200,
+        1320,
+        1560,
+        1680
+      ],
       "lanes": {
-        "36": [240, 360, 720, 1200, 1320, 1680],
-        "41": [0, 600, 960, 1560]
+        "36": [
+          0,
+          240,
+          360,
+          600,
+          720,
+          960,
+          1200,
+          1320,
+          1560,
+          1680
+        ]
       }
     },
     {
@@ -42,10 +79,35 @@
       "bars": 2,
       "lock": "cycle",
       "why": "Both lanes span ONE cycle of 960 ticks, so lane 2's seven steps are 137.14 ticks each. Both lanes start cycle 2 at 960 — that shared 960 is what makes it polyrhythm.",
-      "onsets": [0, 274, 360, 549, 720, 960, 1234, 1320, 1509, 1680],
+      "onsets": [
+        0,
+        274,
+        360,
+        549,
+        720,
+        960,
+        1234,
+        1320,
+        1509,
+        1680
+      ],
       "lanes": {
-        "36": [0, 360, 720, 960, 1320, 1680],
-        "37": [0, 274, 549, 960, 1234, 1509]
+        "36": [
+          0,
+          360,
+          720,
+          960,
+          1320,
+          1680
+        ],
+        "37": [
+          0,
+          274,
+          549,
+          960,
+          1234,
+          1509
+        ]
       }
     },
     {
@@ -54,10 +116,35 @@
       "bars": 2,
       "lock": "step",
       "why": "Every lane's step is 120 ticks, so the 7-step lane finishes early: it starts cycle 2 at 840 while lane 1 starts at 960. That drift is the polymeter, and it is the single clearest difference between the two locks.",
-      "onsets": [0, 240, 360, 480, 720, 840, 960, 1080, 1320, 1680],
+      "onsets": [
+        0,
+        240,
+        360,
+        480,
+        720,
+        840,
+        960,
+        1080,
+        1320,
+        1680
+      ],
       "lanes": {
-        "36": [0, 360, 720, 960, 1320, 1680],
-        "37": [0, 240, 480, 840, 1080, 1320]
+        "36": [
+          0,
+          360,
+          720,
+          960,
+          1320,
+          1680
+        ],
+        "37": [
+          0,
+          240,
+          480,
+          840,
+          1080,
+          1320
+        ]
       }
     },
     {
@@ -66,11 +153,24 @@
       "bars": 1,
       "lock": "cycle",
       "why": "D8 — an accent layer belongs to its lane. Lane 1 accents onsets 1 and 3 (note 36+5=41); lane 2's {11} accents every onset (note 37+5=42). Four note numbers.",
-      "onsets": [0, 274, 360, 549, 720],
+      "onsets": [
+        0,
+        274,
+        360,
+        549,
+        720
+      ],
       "lanes": {
-        "36": [360],
-        "41": [0, 720],
-        "42": [0, 274, 549]
+        "36": [
+          0,
+          360,
+          720
+        ],
+        "37": [
+          0,
+          274,
+          549
+        ]
       }
     },
     {
@@ -78,8 +178,16 @@
       "notation": "E(1,8)",
       "bars": 2,
       "why": "One onset per cycle. Guards the degenerate case where an off-by-one in cycle length would be invisible in a busier pattern.",
-      "onsets": [0, 960],
-      "lanes": { "36": [0, 960] }
+      "onsets": [
+        0,
+        960
+      ],
+      "lanes": {
+        "36": [
+          0,
+          960
+        ]
+      }
     }
   ]
 }
