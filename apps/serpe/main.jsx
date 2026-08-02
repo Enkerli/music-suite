@@ -29,6 +29,7 @@ import { parseUPI, euclid, polygon, rotate, complement, invert,
          microtiming, timingScales,
          parseNamedPatterns, parseProgressive, progressiveAt } from '@enkerli/upi';
 import { createCircleView, createStepView, createPolyCircleView } from './engine/render.js';
+import { soundingPattern } from './engine/sounding.js';
 import { laneStepMs as computeLaneStepMs, laneOffsetMs as computeLaneOffsetMs } from './engine/poly-clock.js';
 import serpeManifest from './manifest.json';
 import { connectSerpe } from './control.js';
@@ -553,20 +554,15 @@ function SerpeApp() {
   const [midiAdvance, setMidiAdvance] = useState(() => LS.get('midiAdvance', false));
 
   const live = useRef({});
-  // The scheduler gets displayPoly, NOT the raw parse. They differ the moment a
-  // lane grows or rotates: `poly` is the pattern as TYPED, displayPoly is the
-  // pattern as SOUNDING (progression resolved at the current trigger, or the
-  // engine's own lanes in a plugin).
-  //
-  // Reading the raw parse here meant a lengthened lane played its base length
-  // forever while the rings drew the grown one — `100101010*3/101*2` ran its
-  // 9 and 3 steps in full, then kept running 9 and 3 after expanding to 12 and
-  // 5 (Alex, 2026-08-01). The lane clock has to tick the pattern that is
-  // actually sounding, which is also what the C++ does: processPolyLanes
-  // re-reads each lane's length from its live pattern every block.
-  live.current = { steps, accents, accentPattern, accText, editAccent, tempo, group, swing, waOn, waVol,
+  // What is SOUNDING — see engine/sounding.js for why this is one named source
+  // and not three fields assembled here. The scheduler below and the views
+  // above both read it; nothing else builds its own idea of "the pattern".
+  const sounding = soundingPattern({ steps, accents, poly, displayPoly });
+
+  live.current = { ...sounding,
+                   accentPattern, accText, editAccent, tempo, group, swing, waOn, waVol,
                    midiNote, accVel, unaccVel, accPitch, midiChan, midiInId, midiOutId,
-                   poly: displayPoly || poly, polyUi, polyLock, drumKit, midiAdvance, pdDepth, pdSeed, pdCycle };
+                   polyUi, polyLock, drumKit, midiAdvance, pdDepth, pdSeed, pdCycle };
 
   // Notes we've sent out recently, so we can drop their echo when the same port
   // is routed back into our input (e.g. IAC In == Out) — otherwise each output
@@ -1433,7 +1429,7 @@ function SerpeApp() {
             h('button', { key: v, className: 'upi-chip', onClick: () => applyChip(v) }, h('b', null, v), ' ' + t)))),
 
         poly
-        ? h(PolyLanesPanel, { poly: withPrecessedAccents(displayPoly || poly, laneAccOff), lanePh,
+        ? h(PolyLanesPanel, { poly: withPrecessedAccents(sounding.poly, laneAccOff), lanePh,
             polyLock, setPolyLock: v => {
               setPolyLock(v); LS.set('polyLock', v);
               if (cfg.host && juceAvailable()) sendParamActual('polyLock', v === 'step' ? 1 : 0);
