@@ -5,8 +5,13 @@ breath CC, no expression, no aftertouch. That is what a sequencer, a piano roll
 and most keyboards send, and it is the case Vane's synthetic breath exists for
 (`Vane/docs/sequencer-playability.md`).
 
-They come in pairs so the contrast is audible rather than asserted. Everything
-here is written by the shipped CLI — `node generate.mjs` rebuilds all six.
+They come in pairs so the contrast is audible rather than asserted — and each
+`.mid` ships with a `.wav` rendered through Vane, so you can hear the difference
+without installing the plugin or owning a breath controller.
+
+Everything here is generated: `node generate.mjs` rebuilds the MIDI through the
+shipped CLI, `node render-audio.mjs` renders the audio through the committed
+`apps/vane/synth/vane-dsp.wasm`.
 
 ## The files
 
@@ -15,18 +20,34 @@ two cycles, note 60.
 
 | file | gate | what it does |
 |---|---|---|
-| `rhythm-detached.mid` | 0.5 | the sequencer default — a fresh attack every note |
-| `rhythm-legato.mid` | 1.0 | each note lasts exactly until the next begins |
+| `rhythm-detached` | 0.5 | the sequencer default — a fresh attack every note |
+| `rhythm-legato` | 1.0 | each note lasts exactly until the next begins |
 
 **Melodic — several pitches, which is where melisma lives.** `Dm7 \| G7 \|
 Cmaj7 \| Cmaj7`, seed 7, in sax register (C4:C5).
 
 | file | gate | what it does |
 |---|---|---|
-| `line-detached.mid` | staccato | a separate breath per note |
-| `line-legato.mid` | 1.0 | one breath, notes abutting |
-| `line-overlap.mid` | 1.3 | one breath, notes overlapping |
-| `line-mixed.mid` | mixed | some slurred, some tongued |
+| `line-detached` | staccato | a separate breath per note |
+| `line-legato` | 1.0 | one breath, notes abutting |
+| `line-overlap` | 1.3 | one breath, notes overlapping |
+| `line-mixed` | mixed | some slurred, some tongued |
+
+## The audio
+
+Mono, 16-bit, 48 kHz, about 4.4 MB for the six. Mono is not a compromise: with
+unison off a Vane voice is a centre image (L == R exactly — one of the wasm
+regression checks), so stereo would be the same data twice.
+
+**One shared gain across the whole set**, not per-file normalisation. These
+files exist to be compared, and a detached take really is quieter than a slurred
+one over the same material — that difference IS the result, and normalising each
+to full scale would erase it:
+
+```
+rhythm-detached.wav  rms 0.188      rhythm-legato.wav  rms 0.260
+line-detached.wav    rms 0.231      line-legato.wav    rms 0.339
+```
 
 ## What they measure
 
@@ -73,8 +94,11 @@ legato. It matters more with a polyphonic receiver.
 ## Regenerating
 
 ```bash
-node examples/articulation/generate.mjs && node examples/articulation/verify.mjs
+node examples/articulation/generate.mjs && node examples/articulation/render-audio.mjs && node examples/articulation/verify.mjs
 ```
+
+`verify.mjs` and `render-audio.mjs` drive the engine through the same
+`engine.mjs`, so the audio is the measurement rather than an illustration of it.
 
 The `.mid` files are committed so they can just be dragged into a DAW. The
 generator is here so a change in the renderer shows up as a diff rather than as

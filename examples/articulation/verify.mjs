@@ -15,60 +15,12 @@
 // dump: a file can have perfect note lengths and still re-attack if the engine
 // hands off badly.
 
-import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { dirname, join, resolve } from "node:path";
-import { parseSMF } from "../../tools/midi-timing.mjs";
+import { dirname, join } from "node:path";
+import { play, SR } from "./engine.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
-const wasmBytes = readFileSync(resolve(here, "../../apps/vane/synth/vane-dsp.wasm"));
-
-const SR = 48000, BLOCK = 128;
-
-async function engine() {
-  const { instance } = await WebAssembly.instantiate(wasmBytes, {
-    wasi_snapshot_preview1: new Proxy({}, { get: () => () => 0 }),
-  });
-  // WASI-reactor convention — without _initialize the static tables are empty
-  // and every note plays at ~8 Hz. The worklet does the same.
-  if (instance.exports._initialize) instance.exports._initialize();
-  const e = instance.exports;
-  e.vane_init(SR);
-  e.vane_set_param(8, 0.8);       // output
-  e.vane_set_mono(1);             // mono: the bore and the breath hand off
-  for (let s = 0; s < 24; s++) e.vane_set_slot(s, 0, 0, 0, 0, 0);   // no mod routes
-  e.vane_set_param(30, 1);        // waveguide on
-  e.vane_set_param(55, 1);        // synthetic breath: Auto
-  return e;
-}
-const render = (e, n) => { e.vane_render(n); return new Float32Array(e.memory.buffer, e.vane_buffer(), n); };
-
-/** Play the file's events at their real times and return a per-block RMS envelope. */
-async function play(file) {
-  const smf = parseSMF(readFileSync(file));
-  const bpm = smf.tempos.length ? 60_000_000 / smf.tempos[0].usPerQuarter : 120;
-  const tickSec = 60 / bpm / smf.division;
-  const ev = [
-    ...smf.notes.map((n) => ({ at: n.tick * tickSec, on: true, note: n.note, vel: n.vel })),
-    ...smf.offs.map((o) => ({ at: o.tick * tickSec, on: false, note: o.note })),
-  ].sort((a, b) => a.at - b.at || (a.on ? 1 : -1));   // offs first at equal time
-
-  const e = await engine();
-  const end = ev[ev.length - 1].at + 1.0;
-  const env = [];
-  let k = 0;
-  for (let s = 0; s < end * SR; s += BLOCK) {
-    const t = s / SR;
-    while (k < ev.length && ev[k].at <= t) {
-      const x = ev[k++];
-      if (x.on) e.vane_note_on(x.note, x.vel, 2); else e.vane_note_off(x.note, 2);
-    }
-    const b = render(e, BLOCK);
-    let sq = 0; for (const v of b) sq += v * v;
-    env.push({ t, rms: Math.sqrt(sq / BLOCK) });
-  }
-  return { env, ev, tickSec };
-}
+const BLOCK = 128;
 
 /**
  * At each note boundary: how far did the level fall between the previous note
