@@ -51,7 +51,7 @@ const USAGE = `msuite <command> …\n  --version                      which buil
                                         PD(20%) = push/pull microtiming (timing);
                                         LS(3) / LS(1.4..1.8, 70%) = note length
           --import <file|-> [--json]    named patterns → library items
-  upi "<notation>" [--steps N] [--midi out.mid [--bpm N] [--bars N] [--note N]]
+  upi "<notation>" [--steps N] [--midi out.mid [--bpm N] [--bars N] [--note N] [--lock cycle|step]]
                                         the full Serpe UPI language: P(3,0)+P(5,0), E(3,8);12, {100}E(3,8), Morse…
                                         additive/aksak meters: A(2,2,2,3) or D:2,3 ...-
                                         (both = short-short-short-long, the Balkan 9/8)
@@ -322,12 +322,30 @@ async function main(): Promise<number> {
         const tpb = 480;
         const stepTicks = tpb / 4;               // one step = a 16th
 
-        // STEP LOCK (polymeter): every lane's step is the same length, so lanes
-        // of different lengths drift and realign at their lcm. Stated because
-        // the plugin's `Poly Lock` parameter DEFAULTS to Cycle (polyrhythm,
-        // every lane spanning one cycle) — so a capture taken with the default
-        // will not match this file. Render-side cycle lock is not implemented;
-        // set Poly Lock to Step when capturing against this baseline.
+        // LANE ALIGNMENT, matching the plugin's `Poly Lock` parameter:
+        //
+        //   cycle (default)  every lane spans the SAME cycle — polyrhythm. A
+        //                    7-step lane and an 8-step lane both take one
+        //                    cycle, so the 7-step lane's steps are longer.
+        //   step             every lane's step is the same length — polymeter.
+        //                    Lanes of different lengths drift and realign at
+        //                    their lcm.
+        //
+        // The default matches the PLUGIN's default deliberately. This renderer
+        // was step-only until 2026-08-02, which meant a capture taken with the
+        // plugin's own default could never match the file it was compared
+        // against — the baseline and the thing under test disagreed by
+        // construction, which is the least useful kind of test.
+        const lockArg = one(args, "lock") ?? "cycle";
+        if (lockArg !== "cycle" && lockArg !== "step") {
+          console.error(`upi --lock: expected "cycle" or "step", got "${lockArg}"`);
+          return 1;
+        }
+        const cycleLock = lockArg === "cycle";
+        // Under cycle lock every lane shares one cycle, lengthed by the FIRST
+        // lane — which is what the engine does (refSteps = lane 1's length).
+        const cycleSteps = poly.lanes[0]?.steps.length || nSteps;
+        const cycleTicks = cycleSteps * stepTicks;
         const notes: Array<{ pitch: number; velocity: number; startTick: number; durationTicks: number }> = [];
         const laneLines: string[] = [];
 
@@ -347,6 +365,12 @@ async function main(): Promise<number> {
               : Math.round((lane.offset.num / lane.offset.den) * tpb);
           }
 
+          // This lane's own step length. Under cycle lock it is the shared
+          // cycle divided by THIS lane's step count; under step lock every lane
+          // uses the same 16th. Kept fractional — positions round once at the
+          // note rather than accumulating a rounding error every step.
+          const laneStepTicks = cycleLock ? cycleTicks / stepsArr.length : stepTicks;
+
           let cursor = 0;
           for (let cycle = 0; cycle < bars; cycle++) {
             const scales = pd && pd.depth > 0
@@ -365,7 +389,7 @@ async function main(): Promise<number> {
                   durationTicks: Math.max(10, Math.round(stepTicks * 0.5)),
                 });
               }
-              cursor += stepTicks * (scales[i] ?? 1);
+              cursor += laneStepTicks * (scales[i] ?? 1);
             }
           }
           const accN = acc ? acc.filter(Boolean).length : 0;
@@ -377,7 +401,8 @@ async function main(): Promise<number> {
 
         notes.sort((a, b) => a.startTick - b.startTick);
         writeFileSync(String(midiOut), createSMF(notes, { bpm, ticksPerBeat: tpb, trackName: notation }));
-        console.log(`wrote ${midiOut} — ${notes.length} notes, ${bars} cycle(s) @ ${bpm}bpm, step lock`);
+        console.log(`wrote ${midiOut} — ${notes.length} notes, ${bars} cycle(s) @ ${bpm}bpm, `
+          + `${cycleLock ? `cycle lock · polyrhythm, cycle = ${cycleSteps} steps of lane 1` : "step lock · polymeter"}`);
         laneLines.forEach((l) => console.log(l));
         console.log(`ticks   ${notes.slice(0, 12).map((n) => n.startTick).join(" ")}${notes.length > 12 ? " …" : ""}`);
         return 0;
