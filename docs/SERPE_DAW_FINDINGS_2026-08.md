@@ -261,28 +261,63 @@ rhythm is right and only the accent is missing.
 
 ---
 
-## F5 — `S1` is not a pattern; it is one note per audio buffer
+## F5 — `S1` has a burst at ~102.7 Hz, and it is NOT the audio buffer
 
-57 notes in 8 beats, with inter-onset gaps clustering at **0.0195 and 0.039
-beats** — at the project's 120 BPM that is **9.75 ms and 19.5 ms**, or ~468 and
-~936 samples at 48 kHz. Those are audio-buffer multiples, not musical
-subdivisions. The rest of the clip is irregular (0.509, 0.744, 0.256) with two
-near-simultaneous notes at the very start (0.000011 and 0.000623).
+57 notes in 8 beats. The clip is not uniformly bursty: it opens with musically
+spaced onsets and then a burst starts partway in.
 
-So Serpe fired **once per processBlock** for stretches of that clip. Not a
-mis-timed pattern — a runaway trigger.
+```
+  0.000011   0.000623  (+0.000612 — a double-fire, 0.3 ms apart)
+  0.509678  (+0.509055)
+  1.018734  (+0.509056)
+  1.762835  (+0.744101)
+  2.252421  (+0.489586)
+  2.271918  (+0.019497)   <- the burst begins
+  2.291387  (+0.019469)
+  2.310855  (+0.019468)
+```
 
-Not yet reproduced. Alex could not export the `.mid` from this clip either, which
-may be a Bitwig 6.1b4 issue on top. Worth noting the beta: 6.1b4 is itself a
-moving target, and this is the only finding here that might not be ours.
+**The burst quantum is 0.0194685 beats = 9.734 ms**, and it is remarkably
+stable: 0.019468 appears 12 times, 0.019469 seven times — a spread under one
+microsecond across 27 occurrences.
 
-**What would settle it:** the trigger paths run on the audio thread and re-enter
-`parseAndApplyUPI` on every note-on and every tick edge. A stuck tick parameter,
-or MIDI feeding back into the same track, would produce exactly this. The tick
-edge is level-triggered against `lastTickState`; if a host writes that parameter
-every block, every block is an edge.
+### Corrected 2026-08-02: it is not a buffer
 
----
+An earlier version of this section said the gaps were "audio-buffer multiples,
+~468/936 samples". **That was wrong** — it came from rounding 0.0195 and then
+reading 468 as if it were a buffer size. It is not one, and precise arithmetic
+rules the explanation out:
+
+| at 120 bpm the quantum is | samples |
+|---|---|
+| 44.1 kHz | 429.28 |
+| 48 kHz | 467.24 |
+| 96 kHz | 934.49 |
+
+Not a power of two, and **not even a whole number of samples** at any standard
+rate. Nor does inverting it help: for the quantum to be a real buffer the
+session tempo would have to have been ~36 bpm (512 @ 44.1 kHz) or ~66–72 bpm
+(1024) — and the tempo is constant at 120, since a burst that is constant in
+*beats* cannot have been recorded under tempo automation.
+
+So whatever is firing at **~102.7 Hz** is not the block clock. Its stability
+argues against a wall-clock timer too: a `juce::Timer` jitters by milliseconds,
+and this does not.
+
+### The other clip is the control, and it is perfect
+
+`accentpat`, from the same plugin in the same project, sits **exactly** on the
+1/16 grid — worst deviation 0.000 milli-beats. `S1` is off-grid by up to 30.6.
+So one capture is quantised or generated and the other is raw. That difference
+is in the *recording path*, not the plugin, and it means the two clips are not
+directly comparable evidence.
+
+### Still needed to close it
+
+The one fact that would settle the buffer question is **Alex's actual Bitwig
+audio settings** — sample rate and block size at the time. If the block is 512
+at 48 kHz, the buffer explanation is dead on arrival and the ~102.7 Hz source
+has to be found elsewhere.
 
 ### A4, 2026-08-02 — narrowed, not solved
 
