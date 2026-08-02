@@ -22,6 +22,7 @@ const here = dirname(fileURLToPath(import.meta.url));
 const FILES = [
   "rhythm-detached.mid", "rhythm-legato.mid",
   "line-detached.mid", "line-legato.mid", "line-overlap.mid", "line-mixed.mid",
+  "hat-flat.mid", "hat-alternate.mid", "hat-backbeat.mid",
 ];
 
 function wavMono16(samples, sampleRate) {

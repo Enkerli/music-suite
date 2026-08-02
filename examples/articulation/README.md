@@ -33,9 +33,35 @@ Cmaj7 \| Cmaj7`, seed 7, in sax register (C4:C5).
 | `line-overlap` | 1.3 | one breath, notes overlapping |
 | `line-mixed` | mixed | some slurred, some tongued |
 
+**Durational — `LS(…)`, and the even-grid problem.** `E(8,16)` at 100 bpm, note 42.
+
+`LS(r)` says how much longer a long note is than a short one, reading the
+pattern's OWN inter-onset intervals. On an even grid there are none to read, so
+`E(8,16)LS(4)` renders identically to `E(8,16)` — pinned as a test. The
+`{mask}` form names which onsets are long, which is the only way to reach the
+case that wants it most: which hi-hats ring and which choke.
+
+| file | notation | what it does |
+|---|---|---|
+| `hat-flat` | `E(8,16)` | every hit the same |
+| `hat-alternate` | `E(8,16)LS(4){10}` | every other hit rings |
+| `hat-backbeat` | `E(8,16)LS(4){1000}` | one ring in four, overlapping the next hit |
+
+**`LS(r){mask}` is a PROPOSAL, not settled** — see `docs/PRIORITIES_2026-08.md`
+N1b. It extends the durational notation that already exists rather than adding a
+second one, and its mask is indexed over ONSETS (cycling), unlike the `{…}`
+accent prefix which is per step: a rest has no duration to lengthen.
+
 ## The audio
 
-Mono, 16-bit, 48 kHz, about 4.4 MB for the six. Mono is not a compromise: with
+**The hat examples are rendered through a SAX**, because the drum synth does not
+exist yet (priorities Tier 2, D1). The MIDI is correct — measured at 192/48
+ticks for `LS(4){10}` — but a reed model needs time to speak, so the 50 ms
+"choked" hits are nearly inaudible in `hat-alternate.wav` and `hat-backbeat.wav`.
+What those files demonstrate is the long notes ringing and overlapping. Re-render
+them once there is a drum synth; until then, read the ticks for the short hits.
+
+Mono, 16-bit, 48 kHz, about 6 MB for the nine. Mono is not a compromise: with
 unison off a Vane voice is a centre image (L == R exactly — one of the wasm
 regression checks), so stereo would be the same data twice.
 

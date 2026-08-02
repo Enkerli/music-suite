@@ -117,21 +117,51 @@ So Tier 1 is, in order:
 
 | | |
 |---|---|
-| **N1a** | Make `LS(…)` reach `upi --midi`, interacting sanely with `--gate` (`LS` shapes the *relative* lengths, `--gate` scales them) — and refuse rather than ignore what it cannot honour |
-| **N1b** | Then, and only then, ask what is still unsayable |
+| ~~**N1a**~~ | ~~Make `LS(…)` reach `upi --midi`~~ | **done** — LS redistributes, `--gate` scales, totals preserved so the two stay independent |
+| **N1b** | **Decision needed from Alex** — see below | prototyped and audible |
 
-The open-hat case is the test for N1b: `LS` says *this onset is longer than that
-one* in a repeating long/short foot. It does not obviously say *this particular
-hit rings and that one chokes*, which is per-onset and irregular — closer to how
-accents work (`{10010}`) than to a foot. If that gap is real after N1a, a
-mask-style spelling is the candidate, and it should be **simulated and listened
-to** before it is adopted. Alex's own condition: *"If we can simulate some of
-these options, it'd be easy to decide."* The gate → MIDI → wasm → audio rig built
-today is exactly that simulator, and `examples/articulation/` is the format for
-the answer.
+**N1a, as built.** `LS` now reaches the renderer. It redistributes time between
+long and short notes while PRESERVING the total, so `--gate` still means the
+same thing whatever the ratio is:
 
-INTENT L5 is at four incidents. A second way to say "long" alongside `LS` would
-be the fifth, so N1a exhausting the existing notation comes first on purpose.
+```
+E(3,8)         dur 180 120     (the spans themselves, × gate 0.5)
+E(3,8)LS(1)    dur 160         (flattened — equal notes over an uneven rhythm)
+E(3,8)LS(2)    dur 192 96
+E(3,8)LS(4)    dur 213 53      totals all 480
+```
+
+One consequence worth knowing: with `LS`, `--gate legato` connects *on average*
+but not note-by-note. `LS(1)` on an uneven rhythm gives equal durations, which
+cannot also each reach the next onset. That is arithmetic, not a bug.
+
+**N1b — the gap is real, and confirmed by test.** `E(8,16)LS(4)` renders
+identically to `E(8,16)`: LS reads the pattern's own inter-onset intervals, and
+an even grid has none. That is exactly the hi-hat case.
+
+**Proposed and prototyped: `LS(r){mask}`** — the mask names which onsets are
+long. `E(8,16)LS(4){1000}` gives one ringing hit in four, overlapping the next.
+Audible in `examples/articulation/hat-*.wav`.
+
+Why this spelling rather than a new one:
+
+- it extends the durational notation that already exists, so there is one way to
+  say "long" rather than two (L5 is at four incidents)
+- `LS(r)` derives long/short from the rhythm; `LS(r){mask}` states it. Same
+  concept, two sources
+- no new bracket is free anyway: `{…}` is accents, `[…]` is the array form,
+  `>` is progressive
+
+**What Alex needs to decide:**
+
+1. Is `LS(r){mask}` the spelling? It is implemented and reversible.
+2. The mask is indexed over **onsets** (cycling), unlike the accent prefix which
+   is per **step**. A rest has no duration to lengthen, so a per-step mask would
+   carry meaningless bits — but it is an inconsistency between two things that
+   look alike, and consistency may be worth more than tidiness here.
+3. The hat `.wav`s are rendered through a **sax**, since the drum synth is Tier 2.
+   The long notes ring convincingly; the 50 ms choked hits barely speak, because
+   a reed needs time. Worth re-rendering after D1.
 
 ### Tier 2 — the drum arc (the biggest new capability)
 

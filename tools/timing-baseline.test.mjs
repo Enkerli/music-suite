@@ -121,3 +121,72 @@ describe("upi --midi --gate — articulation", () => {
     expect(() => render(vec, join(dir, "g.mid"), ["--gate", "molto"])).toThrow();
   });
 });
+
+/**
+ * LS(…) — the durational layer, reaching the renderer since 2026-08-02.
+ *
+ * It parsed and computed all along (`msuite pattern "E(3,8)LS(2)"` prints
+ * `durate fixed 2:1 → [2 2 1]`); this renderer dropped it silently. These pin
+ * both that it arrives and how it divides responsibility with --gate.
+ */
+describe("upi --midi with LS(…) — the durational layer", () => {
+  const dir = mkdtempSync(join(tmpdir(), "ls-"));
+  const durs = (notation, extra = []) => {
+    const smf = render({ notation, bars: 1 }, join(dir, "ls.mid"), extra);
+    const l = lineArticulation(smf.notes, smf.offs);
+    return l.durations;
+  };
+
+  it("arrives at all — LS changes the note lengths", () => {
+    // The regression that matters: this used to be identical to no-LS output.
+    expect(durs("E(3,8)LS(4)")).not.toEqual(durs("E(3,8)"));
+  });
+
+  it("LS(1) flattens an uneven rhythm to equal note lengths", () => {
+    // E(3,8) has inter-onset spans 3,3,2 — unequal by construction. LS(1) says
+    // a long is exactly as long as a short, so the DURATIONS even out while the
+    // onsets stay where they are. That is the whole point of a durational layer
+    // being separate from the rhythm.
+    const d = durs("E(3,8)LS(1)");
+    expect(new Set(d).size).toBe(1);
+  });
+
+  it("a bigger ratio widens the long/short contrast", () => {
+    const spread = (n) => { const d = durs(n); return Math.max(...d) / Math.min(...d); };
+    expect(spread("E(3,8)LS(4)")).toBeGreaterThan(spread("E(3,8)LS(2)"));
+  });
+
+  it("PRESERVES the total, which is what keeps --gate independent", () => {
+    // LS redistributes time between long and short notes; --gate scales the
+    // whole. If LS also changed the total, `--gate legato` would mean something
+    // different depending on the ratio, and the two could not be reasoned about
+    // separately.
+    const total = (n) => durs(n).reduce((a, b) => a + b, 0);
+    const plain = total("E(3,8)");
+    for (const n of ["E(3,8)LS(1)", "E(3,8)LS(2)", "E(3,8)LS(4)"])
+      expect(Math.abs(total(n) - plain)).toBeLessThanOrEqual(3);   // integer ticks
+  });
+
+  it("--gate scales LS output without changing its proportions", () => {
+    const ratio = (extra) => { const d = durs("E(3,8)LS(3)", extra); return Math.max(...d) / Math.min(...d); };
+    expect(ratio([])).toBeCloseTo(ratio(["--gate", "legato"]), 1);
+  });
+
+  it("the dynamic form reproduces exactly", () => {
+    // Seeded, like progressive lengthening: a notation names a file.
+    expect(durs("E(5,16)LS(1.4..1.8,70%)")).toEqual(durs("E(5,16)LS(1.4..1.8,70%)"));
+  });
+
+  /**
+   * The limit, stated so it is not rediscovered as a bug.
+   *
+   * LS reads the pattern's own inter-onset intervals. On an EVEN grid every
+   * interval is the same, so there is no long and no short and LS has nothing
+   * to say — `E(8,16)LS(4)` is `E(8,16)`. That matters because the drum case
+   * that wants long/short most is exactly an even one: which hi-hats ring and
+   * which choke. See docs/PRIORITIES_2026-08.md N1b.
+   */
+  it("has NOTHING to say about an even grid — the open-hat gap", () => {
+    expect(durs("E(8,16)LS(4)")).toEqual(durs("E(8,16)"));
+  });
+});

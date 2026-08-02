@@ -231,8 +231,18 @@ function bitsFromValue(value, width) {
 // `\d+(\.\d+)?` not `[\d.]+`: the latter is greedy across the ".." range
 // separator and swallows "1.4..1.8" whole.
 const NUM = "\\d+(?:\\.\\d+)?";
+// The optional `{1010}` names WHICH onsets are long, for the case LS(…) alone
+// cannot reach: an EVEN grid. LS reads the pattern's own inter-onset intervals,
+// so on `E(8,16)` there is no long and no short and a ratio has nothing to act
+// on — measured, and pinned in tools/timing-baseline.test.mjs. That is exactly
+// the drum case: which hi-hats ring and which choke.
+//
+// Indexed over ONSETS, not steps, and cycling if shorter — unlike the `{…}`
+// accent prefix, which is per step. A rest has no duration to lengthen, so a
+// per-step mask would carry meaningless bits at every gap. Leftmost = LSB
+// as everywhere (D1): `LS(3){10}` makes the first onset of each pair long.
 const LS_SUFFIX = new RegExp(
-  `\\s*LS\\(\\s*(${NUM})\\s*(?:\\.\\.\\s*(${NUM})\\s*)?(?:,\\s*(${NUM}%?)\\s*)?\\)\\s*$`, "i");
+  `\\s*LS\\(\\s*(${NUM})\\s*(?:\\.\\.\\s*(${NUM})\\s*)?(?:,\\s*(${NUM}%?)\\s*)?\\)\\s*(?:\\{([01]+)\\}\\s*)?$`, "i");
 
 /* Microtiming suffix — `PD(20%)` or `PD(0.2)`, optionally `PD(20%, seed)`.
  * PD = participatory discrepancies (Keil): push/pull around the beat. Stripped
@@ -266,10 +276,12 @@ export function parseLongShortSuffix(text) {
   if (!Number.isFinite(min) || !Number.isFinite(max) || !Number.isFinite(depth)) {
     return { rest: String(text).trim(), longShort: null };
   }
+  const longMask = m[4] ? Array.from(m[4], (c) => (c === "1" ? 1 : 0)) : null;
   return {
     rest: text.slice(0, m.index).trim(),
     longShort: { min: Math.max(1, min), max: Math.max(Math.max(1, min), max),
-                 depth: Math.max(0, Math.min(1, depth)) },
+                 depth: Math.max(0, Math.min(1, depth)),
+                 ...(longMask ? { longMask } : {}) },
   };
 }
 

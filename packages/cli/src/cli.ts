@@ -410,6 +410,46 @@ async function main(): Promise<number> {
           // note rather than accumulating a rounding error every step.
           const laneStepTicks = cycleLock ? cycleTicks / stepsArr.length : stepTicks;
 
+          // LS(…) — the DURATIONAL layer, finally reaching the renderer.
+          //
+          // It parsed and computed here all along (`msuite pattern "E(3,8)LS(2)"`
+          // prints `durate fixed 2:1 → [2 2 1]`) and this renderer dropped it
+          // silently: no error, no long notes. Accepted-looking and inert, which
+          // is the dead-end the suite's own rule calls a bug.
+          //
+          // How it combines with --gate. LS says how much longer a LONG note is
+          // than a SHORT one; --gate says how much of the available time the
+          // notes take overall. So LS redistributes and gate scales, and they
+          // stay independent: the LS durations are normalised to the same total
+          // the plain inter-onset spans would have had, then gate scales that
+          // total. `--gate legato` still means "the line is connected" whatever
+          // LS is doing, and LS(1) flattens an uneven rhythm to equal note
+          // lengths without also making it quieter or shorter.
+          const lsSpec = (lane as unknown as {
+            longShort?: { min: number; max: number; depth: number; longMask?: number[] } | null;
+          }).longShort;
+          let lsScale: number[] | null = null;
+          if (lsSpec) {
+            const spans = stepsArr.map((_, i) => (stepsArr[i] ? interOnsetSteps(stepsArr, i) : 0));
+            const onsetCount = stepsArr.filter(Boolean).length;
+            // `LS(r){mask}` states WHICH onsets are long, for the even-grid case
+            // where the pattern's own intervals cannot say. Indexed over onsets
+            // and cycling, so `{10}` alternates however many hits there are.
+            const rel = lsSpec.longMask
+              ? Array.from({ length: onsetCount }, (_, k) =>
+                  (lsSpec.longMask![k % lsSpec.longMask!.length] ? lsSpec.min : 1))
+              : lsSpec.depth > 0 || lsSpec.max > lsSpec.min
+              ? dynamicDurations(stepsArr, { ratio: [lsSpec.min, lsSpec.max], depth: lsSpec.depth })
+              : durations(stepsArr, { ratio: lsSpec.min });
+            const onsetIdx = stepsArr.map((v, i) => (v ? i : -1)).filter((i) => i >= 0);
+            const totalSpan = spans.reduce((a, b) => a + b, 0);
+            const totalRel = rel.reduce((a, b) => a + b, 0);
+            if (totalRel > 0 && rel.length === onsetIdx.length) {
+              lsScale = stepsArr.map(() => 0);
+              onsetIdx.forEach((si, k) => { lsScale![si] = (rel[k]! * totalSpan) / totalRel; });
+            }
+          }
+
           let cursor = 0;
           for (let cycle = 0; cycle < bars; cycle++) {
             const scales = pd && pd.depth > 0
@@ -431,7 +471,8 @@ async function main(): Promise<number> {
                   // the step instead left `--gate legato` with a silent gap on
                   // any pattern whose onsets are not adjacent (E(4,8) is two
                   // steps apart, so "legato" sounded for half the distance).
-                  durationTicks: Math.max(10, Math.round(laneStepTicks * interOnsetSteps(stepsArr, i) * gate)),
+                  durationTicks: Math.max(10, Math.round(
+                    laneStepTicks * (lsScale ? lsScale[i]! : interOnsetSteps(stepsArr, i)) * gate)),
                 });
               }
               cursor += laneStepTicks * (scales[i] ?? 1);
@@ -441,7 +482,10 @@ async function main(): Promise<number> {
           laneLines.push(`${(poly.lanes.length > 1 ? lane.label : "pattern").padEnd(8)} note ${note + li}`
             + `  ${stepsArr.length} steps` + (accN ? `  ${accN} accented (→ note ${note + li + 5})` : "")
             + (offTicks ? `  offset ${offTicks > 0 ? "+" : ""}${offTicks} ticks` : "")
-            + (pd && pd.depth > 0 ? `  PD ${Math.round(pd.depth * 100)}%` : ""));
+            + (pd && pd.depth > 0 ? `  PD ${Math.round(pd.depth * 100)}%` : "")
+            + (lsSpec ? `  LS ${lsSpec.min === lsSpec.max ? `${lsSpec.min}:1` : `${lsSpec.min}..${lsSpec.max}:1`}`
+                        + (lsSpec.depth > 0 ? ` ${Math.round(lsSpec.depth * 100)}%` : "")
+                        + (lsSpec.longMask ? ` {${lsSpec.longMask.join("")}}` : "") : ""));
         });
 
         notes.sort((a, b) => a.startTick - b.startTick);

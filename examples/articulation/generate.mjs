@@ -49,6 +49,22 @@ const melodic = [
   ["line-mixed.mid",    "mixed",    "some slurred, some tongued"],
 ];
 
+// ── Durational layer. LS(…) says how much longer a LONG note is than a SHORT
+//    one; the {mask} form says WHICH onsets are long, which is the only way to
+//    reach an EVEN grid — LS alone reads the pattern's own intervals, and
+//    E(8,16) has none to read. This is the open-hat/closed-hat case, and it is
+//    a PROPOSED spelling (docs/PRIORITIES_2026-08.md N1b), not settled.
+const durational = [
+  ["hat-flat.mid",   "E(8,16)",           "every hit the same — LS has nothing to say here"],
+  ["hat-alternate.mid", "E(8,16)LS(4){10}",  "every other hit rings"],
+  ["hat-backbeat.mid",  "E(8,16)LS(4){1000}", "one ringing hit in four — it overlaps the next"],
+];
+
+for (const [file, notation] of durational)
+  execFileSync("node", [cli, "upi", notation, "--midi", out(file),
+    "--bpm", String(BPM), "--bars", "2", "--note", "42"],   // 42 = closed hat, GM
+    { stdio: "ignore" });
+
 for (const [file, gate] of rhythmic)
   execFileSync("node", [cli, "upi", "E(4,8)", "--midi", out(file),
     "--bpm", String(BPM), "--bars", "2", "--note", "60", "--gate", gate],
@@ -60,5 +76,5 @@ for (const [file, gate] of melodic)
     "--range", RANGE],
     { stdio: "ignore" });
 
-for (const [file, , why] of [...rhythmic, ...melodic])
+for (const [file, , why] of [...rhythmic, ...melodic, ...durational])
   console.log(`  ${file.padEnd(22)} ${why}`);
