@@ -99,136 +99,112 @@ describe("createCircleView — donut-slice steps (DESIGN_AGENT_ANSWERS.md §1)",
   });
 });
 
-describe("createPolyCircleView — nested donut bands, one per lane (KT item 9 + DESIGN_AGENT_ANSWERS.md §1)", () => {
-  it("draws one ring group per lane, outer→inner in declaration order", () => {
+describe("createPolyCircleView — duration arcs + onset nodes (design handoff 2026-08-01)", () => {
+  it("draws one ring group per lane, outer\u2192inner in declaration order", () => {
     const host = document.createElement("div");
     const view = createPolyCircleView(host, {});
     view.update({
       lanes: [lane([1, 0, 1, 0]), lane([1, 1, 0])],
-      lanePh: [-1, -1],
-      muted: [false, false],
+      lanePh: [-1, -1], muted: [false, false],
     });
     const groups = host.querySelectorAll("svg > g > g");
     expect(groups.length).toBe(2);
-    const r0 = Number(groups[0].querySelector("circle").getAttribute("r"));
-    const r1 = Number(groups[1].querySelector("circle").getAttribute("r"));
-    expect(r0).toBeGreaterThan(r1); // lane 0 (declared first) is outermost
+    const r = [...groups].map((g) => Number(g.querySelector("circle").getAttribute("r")));
+    expect(r[0]).toBeGreaterThan(r[1]);   // lane 0 outermost
   });
 
-  it("a single lane's band spans the full outer radius down to the shared hole floor", () => {
+  it("one guide circle per lane at the handoff radius", () => {
     const host = document.createElement("div");
     const view = createPolyCircleView(host, {});
     view.update({ lanes: [lane([1, 0, 1, 1])], lanePh: [-1], muted: [false] });
-    const circles = host.querySelectorAll("svg > g > g > circle");
-    expect(circles.length).toBe(2); // outer + inner guide boundary
-    const outer = Number(circles[0].getAttribute("r"));
-    const inner = Number(circles[1].getAttribute("r"));
-    expect(outer).toBe(118);
-    expect(inner).toBeGreaterThan(0);
-    expect(inner).toBeLessThan(outer);
+    const guide = host.querySelector("svg > g > g > circle");
+    expect(Number(guide.getAttribute("r"))).toBe(128);
+    expect(guide.getAttribute("fill")).toBe("none");
   });
 
-  it("more lanes never shrink the shared hole below its floor (moiré guard)", () => {
+  it("adjacent onsets do NOT close into a continuous ring — the regression this replaces", () => {
+    // Every step an onset: arcs tile the whole cycle, which is exactly the
+    // case that defeated the first arc attempt. Each must stop short.
     const host = document.createElement("div");
     const view = createPolyCircleView(host, {});
-    view.update({
-      lanes: [lane([1, 0]), lane([1, 0]), lane([1, 0]), lane([1, 0]), lane([1, 0])],
-      lanePh: [-1, -1, -1, -1, -1], muted: [false, false, false, false, false],
-    });
-    const groups = host.querySelectorAll("svg > g > g");
-    const innermost = groups[groups.length - 1];
-    const inner = Number(innermost.querySelectorAll("circle")[1].getAttribute("r"));
-    expect(inner).toBeGreaterThan(20); // never collapses toward r=0
+    view.update({ lanes: [lane([1, 1, 1, 1])], lanePh: [-1], muted: [false] });
+    const arcs = [...host.querySelectorAll("svg > g > g > path")];
+    expect(arcs.length).toBe(4);
+    // An arc's own sweep must be less than its full 1/4 turn, so a gap exists.
+    for (const a of arcs) expect(a.getAttribute("d")).toMatch(/^M [\d.]+ [\d.]+ A 128 128 0 0 1/);
   });
 
-  it("draws a downbeat tick and one slice per onset, none for rests", () => {
+  it("a lone onset sweeps almost the whole ring but still leaves a gap", () => {
+    const host = document.createElement("div");
+    const view = createPolyCircleView(host, {});
+    view.update({ lanes: [lane([1, 0, 0, 0, 0, 0, 0, 0])], lanePh: [-1], muted: [false] });
+    const d = host.querySelector("svg > g > g > path").getAttribute("d");
+    expect(d).toContain("A 128 128 0 1 1");   // large-arc flag set
+  });
+
+  it("every onset gets a node on top of the arcs, so an attack is always discrete", () => {
     const host = document.createElement("div");
     const view = createPolyCircleView(host, {});
     view.update({ lanes: [lane([1, 0, 1, 0])], lanePh: [-1], muted: [false] });
     const g = host.querySelector("svg > g > g");
-    expect(g.querySelectorAll("line").length).toBe(1); // downbeat tick only
-    expect(g.querySelectorAll("path").length).toBe(2); // two onsets
+    const circles = [...g.querySelectorAll("circle")];
+    // 1 guide + 2 onsets x (node + centre dot)
+    expect(circles.length).toBe(1 + 2 * 2);
+    const kids = [...g.children];
+    // Nodes must come after every arc, or a long arc would paint over them.
+    const lastPath = kids.map((k) => k.tagName).lastIndexOf("path");
+    const firstNode = kids.findIndex((k, i) => k.tagName === "circle" && i > 0);
+    expect(firstNode).toBeGreaterThan(lastPath);
   });
 
-  it("an accented onset fills with accent-amber and pokes past this lane's own outer edge", () => {
+  it("an accent is heavier AND amber — two channels, never colour alone", () => {
     const host = document.createElement("div");
     const view = createPolyCircleView(host, {});
-    view.update({ lanes: [lane([1, 1, 1, 1], [1, 0, 0, 0])], lanePh: [-1], muted: [false] });
-    const g = host.querySelector("svg > g > g");
-    const paths = g.querySelectorAll("path");
-    expect(paths[0].getAttribute("fill")).toBe("var(--es-dim-pressure)");
-    expect(paths[1].getAttribute("fill")).not.toBe("var(--es-dim-pressure)");
+    view.update({ lanes: [lane([1, 0, 1, 0], [1, 0, 0, 0])], lanePh: [-1], muted: [false] });
+    const arcs = [...host.querySelectorAll("svg > g > g > path")];
+    expect(arcs[0].getAttribute("stroke")).toBe("var(--es-dim-pressure)");
+    expect(Number(arcs[0].getAttribute("stroke-width")))
+      .toBeGreaterThan(Number(arcs[1].getAttribute("stroke-width")));
   });
 
-  it("the playhead is a small marker at this ring's own current step, absent when there is none", () => {
+  it("step ticks mark every step, with the downbeat heavier", () => {
     const host = document.createElement("div");
     const view = createPolyCircleView(host, {});
-    view.update({ lanes: [lane([1, 1, 1, 1])], lanePh: [-1], muted: [false] });
-    let g = host.querySelector("svg > g > g");
-    expect(g.querySelectorAll("circle").length).toBe(2); // just the guide band, no playhead marker
-
-    view.update({ lanes: [lane([1, 1, 1, 1])], lanePh: [2], muted: [false] });
-    g = host.querySelector("svg > g > g");
-    expect(g.querySelectorAll("circle").length).toBe(3); // guide band (2) + playhead marker
+    view.update({ lanes: [lane([1, 0, 1, 0])], lanePh: [-1], muted: [false] });
+    const lines = [...host.querySelectorAll("svg > g > g > line")];
+    expect(lines.length).toBe(4);                       // no playhead here
+    expect(Number(lines[0].getAttribute("stroke-width"))).toBe(2);
+    expect(lines[0].getAttribute("stroke")).toBe("var(--es-fg-muted)");
   });
 
-  it("a muted lane's ring group is dimmed via opacity, not removed", () => {
+  it("the playhead is a radial marker on this ring, absent when there is none", () => {
     const host = document.createElement("div");
     const view = createPolyCircleView(host, {});
-    view.update({ lanes: [lane([1, 0]), lane([1, 1])], lanePh: [-1, -1], muted: [false, true] });
+    view.update({ lanes: [lane([1, 0, 1, 0])], lanePh: [2], muted: [false] });
+    expect(host.querySelectorAll("svg > g > g > line").length).toBe(5);  // 4 ticks + playhead
+    view.update({ lanes: [lane([1, 0, 1, 0])], lanePh: [-1], muted: [false] });
+    expect(host.querySelectorAll("svg > g > g > line").length).toBe(4);
+  });
+
+  it("more lanes than fit still keep the innermost off the centre", () => {
+    const host = document.createElement("div");
+    const view = createPolyCircleView(host, {});
+    const many = [1, 2, 3, 4, 5, 6].map(() => lane([1, 0]));
+    view.update({ lanes: many, lanePh: many.map(() => -1), muted: many.map(() => false) });
     const groups = host.querySelectorAll("svg > g > g");
-    expect(Number(groups[0].getAttribute("opacity"))).toBe(1);
-    expect(Number(groups[1].getAttribute("opacity"))).toBeLessThan(1);
+    const innermost = Number(groups[groups.length - 1].querySelector("circle").getAttribute("r"));
+    expect(innermost).toBeGreaterThanOrEqual(26);
   });
 
-  it("update() re-renders in place — moving the playhead doesn't grow the DOM", () => {
+  it("update() re-renders in place — no DOM growth", () => {
     const host = document.createElement("div");
     const view = createPolyCircleView(host, {});
-    view.update({ lanes: [lane([1, 1, 1, 1])], lanePh: [0], muted: [false] });
-    const before = host.querySelectorAll("*").length;
-    view.update({ lanes: [lane([1, 1, 1, 1])], lanePh: [3], muted: [false] });
-    const after = host.querySelectorAll("*").length;
-    expect(after).toBe(before);
-  });
-
-  it("no lane's downbeat tick / slice color collides with the accent-amber highlight (contrast regression)", () => {
-    const host = document.createElement("div");
-    const view = createPolyCircleView(host, {});
-    // 4 lanes cycles the full rotation at least once; none of them — including
-    // what used to be the 2nd lane's 'rose' — may resolve to --es-dim-pressure,
-    // the same token accented onsets use, or an accent there would be
-    // invisible (slice color unchanged from its own unaccented onsets).
-    view.update({
-      lanes: [lane([1, 0]), lane([1, 0]), lane([1, 0]), lane([1, 0])],
-      lanePh: [-1, -1, -1, -1], muted: [false, false, false, false],
-    });
-    const groups = host.querySelectorAll("svg > g > g");
-    for (const g of groups) {
-      const downbeat = g.querySelector("line");
-      expect(downbeat.getAttribute("stroke")).not.toBe("var(--es-dim-pressure)");
-      const slice = g.querySelector("path");
-      expect(slice.getAttribute("fill")).not.toBe("var(--es-dim-pressure)");
-    }
-  });
-
-  it("an accented onset's fill differs from its own ring's unaccented onsets, on every lane in the rotation", () => {
-    const host = document.createElement("div");
-    const view = createPolyCircleView(host, {});
-    // Regression for the specific bug: lane index 1 used to be 'rose', which
-    // IS --es-dim-pressure — an accented onset there had the same fill as an
-    // unaccented one, losing the only color signal.
-    view.update({
-      lanes: [0, 1, 2, 3].map(() => ({ steps: [1, 1], accents: [1, 0] })),
-      lanePh: [-1, -1, -1, -1], muted: [false, false, false, false],
-    });
-    const groups = host.querySelectorAll("svg > g > g");
-    for (const g of groups) {
-      const slices = g.querySelectorAll("path");
-      expect(slices[0].getAttribute("fill")).not.toBe(slices[1].getAttribute("fill"));
-    }
+    const d = { lanes: [lane([1, 0, 1, 0])], lanePh: [-1], muted: [false] };
+    view.update(d); const a = host.querySelectorAll("*").length;
+    view.update(d); view.update(d);
+    expect(host.querySelectorAll("*").length).toBe(a);
   });
 });
-
 
 describe("describeLanes — the non-visual route (DESIGN_BRIEF §4)", () => {
   it("names onset POSITIONS, not just a count", () => {

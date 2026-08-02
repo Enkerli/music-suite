@@ -76,6 +76,41 @@ const laneColor = (lane) => ({
   moss: "var(--es-dim-expr)", plum: "var(--es-dim-slide)",
 }[lane] || "var(--es-accent)");
 
+
+// ── Duration arcs (design handoff 2026-08-01, docs/design/) ──────────────
+// Supersedes the fixed wedge for the POLY rings. Arcs were tried once before
+// and reverted (see the note above): onset-to-next-onset spans tile the cycle
+// exactly, so they always closed into a continuous ring with no gap to read.
+// The handoff solves that with two changes together — neither is optional:
+//   1. every arc stops `trimSteps` of a step short of the next onset, so
+//      consecutive arcs cannot touch;
+//   2. a filled onset NODE sits proud of the arc at its head, so an attack is
+//      a discrete mark even where arcs are long.
+//
+// `gate` is the hook Alex asked for: the fraction of the inter-onset interval
+// the note actually sounds. It is 1 today (arcs run to the next onset, less
+// the visual trim), and a real per-lane gate parameter can drive it later
+// without touching the geometry.
+function onsetArcPath(cx, cy, r, i, ioiSteps, n, { gate = 1, trimSteps = 0.4 } = {}) {
+  // Span in STEPS, then trimmed. Floored so a very short gate still draws a
+  // visible stub rather than collapsing to nothing.
+  const span = Math.max(0.12, ioiSteps * gate - trimSteps);
+  const a0 = ang(i, n);
+  const a1 = ang(i + span, n);           // ang is linear in i, so this is the trim
+  const [x0, y0] = pol(cx, cy, r, a0);
+  const [x1, y1] = pol(cx, cy, r, a1);
+  const large = span / n > 0.5 ? 1 : 0;  // sweep > 180°
+  return `M ${x0.toFixed(1)} ${y0.toFixed(1)} A ${r} ${r} 0 ${large} 1 ${x1.toFixed(1)} ${y1.toFixed(1)}`;
+}
+
+/** Steps from onset `i` to the next onset, wrapping; the full cycle when it is
+ *  the only onset (so a lone hit draws a near-complete ring with one gap). */
+function interOnsetSteps(steps, i) {
+  const n = steps.length;
+  for (let d = 1; d <= n; d++) if (steps[(i + d) % n]) return d;
+  return n;
+}
+
 export function createCircleView(host, opts = {}) {
   const state = { steps: [], accents: [], playhead: -1, showCog: true, showLabels: false, lane: "ink", ...opts };
   const svg = el("svg", { viewBox: "0 0 320 320", role: "img" });
@@ -298,47 +333,81 @@ export function createPolyCircleView(host, opts = {}) {
   // whole nested stack keeps ONE small hole at the center (R_INNER_FLOOR),
   // same reasoning as the mono ring's own hole — short, sparse lines near
   // the center instead of many rings' worth converging into a moiré knot.
-  const R_OUTER = 118, R_INNER_FLOOR = 30, RING_GAP = 3;
+  // Handoff geometry: outermost ring at 128, each inner lane 34 further in.
+  // Rings are STROKED arcs now, not filled bands, so a lane is one radius
+  // rather than an inner/outer pair. RING_STEP is clamped when there are more
+  // lanes than fit, keeping the innermost off the centre.
+  const R_OUTER = 128, RING_STEP = 34, R_INNER_FLOOR = 26;
+  const ARC_W = 11, ARC_W_ACCENT = ARC_W + 4;
+  const NODE_R = 7.5, NODE_R_ACCENT = 9;
   const accentAmber = "var(--es-dim-pressure)";
 
   function render() {
     const { lanes, lanePh, muted } = state;
     const cx = 160, cy = 160;
-    const pitch = (R_OUTER - R_INNER_FLOOR) / Math.max(1, lanes.length);
+    const step = lanes.length > 1
+      ? Math.min(RING_STEP, (R_OUTER - R_INNER_FLOOR) / (lanes.length - 1))
+      : RING_STEP;
     const kids = [];
     lanes.forEach((lane, li) => {
-      const outer = R_OUTER - li * pitch;
-      const inner = outer - pitch + RING_GAP;
+      const r = R_OUTER - li * step;
       const n = lane.steps.length || 1;
       const color = laneColor(POLY_RING_COLORS[li % POLY_RING_COLORS.length]);
       const ring = [];
-      // guide band — neutral token, not the lane's own hue (DESIGN_AGENT_ANSWERS.md
-      // §1's "Guide track": faint under the slices so empty lanes/rests stay visible).
-      ring.push(el("circle", { cx, cy, r: outer, fill: "none", stroke: "var(--es-border)", "stroke-width": 1 }));
-      ring.push(el("circle", { cx, cy, r: inner, fill: "none", stroke: "var(--es-border)", "stroke-width": 1 }));
-      // downbeat tick — anchors step 0 across all rings at 12 o'clock
-      const a0 = ang(0, n);
-      const [tx0, ty0] = pol(cx, cy, inner - 4, a0);
-      const [tx1, ty1] = pol(cx, cy, outer + 4, a0);
-      ring.push(el("line", { x1: tx0.toFixed(1), y1: ty0.toFixed(1), x2: tx1.toFixed(1), y2: ty1.toFixed(1), stroke: color, "stroke-width": 1.5 }));
-      // onset slices — same primitive as the mono ring (createCircleView):
-      // each step owns its own fixed 360/n wedge of THIS lane's own band.
+
+      // Guide track — the ring exists even when the lane is empty.
+      ring.push(el("circle", { cx, cy, r, fill: "none", stroke: "var(--es-border)", "stroke-width": 1 }));
+
+      // Step ticks, with step 0 pinned at 12 o'clock and drawn heavier: it is
+      // what lets the eye read one lane against another.
       for (let i = 0; i < n; i++) {
-        if (!lane.steps[i]) continue;
-        const acc = !!lane.accents[i];
-        ring.push(el("path", {
-          d: stepWedgePath(cx, cy, inner, acc ? outer + 4 : outer, i, n),
-          fill: acc ? accentAmber : color,
+        const a = ang(i, n);
+        const out = i === 0 ? 7 : 4;
+        const [x0, y0] = pol(cx, cy, r - out, a);
+        const [x1, y1] = pol(cx, cy, r + out, a);
+        ring.push(el("line", {
+          x1: x0.toFixed(1), y1: y0.toFixed(1), x2: x1.toFixed(1), y2: y1.toFixed(1),
+          stroke: i === 0 ? "var(--es-fg-muted)" : "var(--es-border-soft)",
+          "stroke-width": i === 0 ? 2 : 1,
         }));
       }
-      // playhead marker — this ring's own current step, regardless of
-      // on/off (a rest can still be "where the clock is"). A per-ring dot,
-      // not the shared cross-ring sweep line the answer describes, which
-      // needs a continuous cycle-phase the bridge doesn't send yet — noted
-      // as a follow-up, not silently dropped.
+
+      // Duration arcs, then the onset nodes ON TOP of them — the node has to
+      // win where a long arc from the previous onset runs underneath it.
+      const nodes = [];
+      for (let i = 0; i < n; i++) {
+        if (!lane.steps[i]) continue;
+        const acc = !!(lane.accents && lane.accents[i]);
+        ring.push(el("path", {
+          d: onsetArcPath(cx, cy, r, i, interOnsetSteps(lane.steps, i), n),
+          fill: "none",
+          stroke: acc ? accentAmber : color,
+          "stroke-width": acc ? ARC_W_ACCENT : ARC_W,
+          "stroke-linecap": "round",
+        }));
+        const [nx, ny] = pol(cx, cy, r, ang(i, n));
+        nodes.push(el("circle", {
+          cx: nx.toFixed(1), cy: ny.toFixed(1), r: acc ? NODE_R_ACCENT : NODE_R,
+          fill: acc ? accentAmber : color,
+          stroke: "var(--es-bg-raised)", "stroke-width": 2.5,
+        }));
+        nodes.push(el("circle", {
+          cx: nx.toFixed(1), cy: ny.toFixed(1), r: 2, fill: "var(--es-bg-raised)",
+        }));
+      }
+      ring.push(...nodes);
+
+      // Playhead — this lane's own step, on or off (a rest is still where the
+      // clock is). Per-lane rather than one shared sweep: under Polymeter the
+      // lanes genuinely are at different phases, which is the thing to show.
       if (lanePh[li] >= 0 && lanePh[li] < n) {
-        const [px, py] = pol(cx, cy, (inner + outer) / 2, ang(lanePh[li], n));
-        ring.push(el("circle", { cx: px, cy: py, r: 3, fill: "var(--es-fg)" }));
+        const a = ang(lanePh[li], n);
+        const [px0, py0] = pol(cx, cy, r - 11, a);
+        const [px1, py1] = pol(cx, cy, r + 11, a);
+        ring.push(el("line", {
+          x1: px0.toFixed(1), y1: py0.toFixed(1), x2: px1.toFixed(1), y2: py1.toFixed(1),
+          stroke: "var(--es-fg)", "stroke-width": 1.5,
+        }));
       }
       const g = el("g", { opacity: muted[li] ? 0.35 : 1 });
       g.append(...ring);
