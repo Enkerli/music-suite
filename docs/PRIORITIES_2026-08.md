@@ -64,12 +64,27 @@ of numbers — which is the explainability requirement (INTENT B5).
 
 | | | why now |
 |---|---|---|
-| **W1** | Vane Synth in the default Workspace layout | diagnosed; one-line-ish. Makes Workspace self-contained instead of needing a second tab |
-| **W2** | Multilane UPI in the Pattern **Player** | the Pattern *module* went poly on 08-01; the Player is still mono, so poly patterns display but do not play |
-| **W3** | Advance progressive patterns from Workspace | exists in Serpe, missing here; without it `>N`/`%N` are invisible in the workbench |
+| ~~**W1**~~ | ~~Vane Synth in the default Workspace layout~~ | **done** `3074129` — default is Pattern → Player → Vane Synth |
+| ~~**W2**~~ | ~~Multilane UPI in the Pattern **Player**~~ | **done** `3074129` — `PatternLane` on the bus, per-lane timers, cycle/step lock, per-lane accents |
+| ~~**W3**~~ | ~~Advance progressive patterns from Workspace~~ | **done** `3074129` — ↻ advance / ⤺ base / Enter, via the shared `polyLaneAt` |
 
-These three are hours, not days, and every later item is easier to see and hear
-with them done. Do them first regardless of what else gets picked up.
+Done 2026-08-02. Three things surfaced on the way and are worth carrying
+forward:
+
+- **`polyLaneAt` is not pure in the trigger index.** `*N` lengthening appends
+  random material by design. Serpe's `main.jsx` claimed purity outright and the
+  claim had been copied into Workspace; both corrected, and Workspace now caches
+  per (notation, trigger). **Open question for Alex:** should `*N` be seeded off
+  the trigger so a given trigger always gives the same pattern? It would make
+  the C++/JS parity story cleaner and make "trigger 3" name a pattern rather
+  than a length — at the cost of the re-roll variety the current design wants.
+  Not changed unilaterally.
+- Workspace had **no cache-bust on `bundle.js`**. A rebuild kept serving the
+  old bundle, so a landed fix looked like it had not landed — the hard-refresh
+  papercut, again. Stamped with a build id the way Vane already does. Worth
+  checking the other apps for the same gap during the audit.
+- The lcm readout was computed from typed lane lengths, so it went stale the
+  moment a lane grew. Now derived from the sounding lanes.
 
 ### Tier 1 — the articulation notation (mostly already exists)
 
