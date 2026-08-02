@@ -241,3 +241,56 @@ describe("describeLanes — the non-visual route (DESIGN_BRIEF §4)", () => {
       .toBe(describeLanes(lanes, [false, false]));
   });
 });
+
+describe("onset polygon — the didactic overlay (DESIGN_BRIEF §3.1 / B3)", () => {
+  it("is OFF unless asked for — it is a teaching layer, not the identity view", () => {
+    const host = document.createElement("div");
+    const view = createCircleView(host, {});
+    view.update({ steps: [1, 0, 1, 0, 1, 0], accents: [] });
+    expect(host.querySelectorAll("polygon, polyline").length).toBe(0);
+  });
+
+  it("draws one vertex per onset, on the ring, when switched on", () => {
+    const host = document.createElement("div");
+    const view = createCircleView(host, { showPolygon: true });
+    view.update({ steps: [1, 0, 1, 0, 1, 0], accents: [] });
+    const poly = host.querySelector("polygon");
+    expect(poly.getAttribute("points").split(" ").length).toBe(3);   // 3 onsets
+    expect(poly.getAttribute("fill")).toBe("none");                  // never a filled blob
+  });
+
+  it("degrades honestly: two onsets are a line, one is a point, none is nothing", () => {
+    const host = document.createElement("div");
+    const view = createCircleView(host, { showPolygon: true });
+    view.update({ steps: [1, 0, 1, 0], accents: [] });
+    expect(host.querySelector("polyline")).toBeTruthy();             // not a degenerate polygon
+    view.update({ steps: [0, 0, 0, 0], accents: [] });
+    expect(host.querySelectorAll("polygon, polyline").length).toBe(0);
+  });
+
+  it("poly draws ONE polygon per lane — the interlock is the whole point", () => {
+    // A triangle and a square sharing a circle is the thing arcs cannot show.
+    const host = document.createElement("div");
+    const view = createPolyCircleView(host, { showPolygon: true });
+    view.update({
+      lanes: [lane([1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0]), lane([1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0])],
+      lanePh: [-1, -1], muted: [false, false],
+    });
+    const polys = host.querySelectorAll("polygon");
+    expect(polys.length).toBe(2);
+    expect(polys[0].getAttribute("points").split(" ").length).toBe(3);  // triangle
+    expect(polys[1].getAttribute("points").split(" ").length).toBe(4);  // square
+    // Different radii — the lanes are separate rings, not one overlaid figure.
+    const y0 = polys[0].getAttribute("points").split(" ")[0];
+    const y1 = polys[1].getAttribute("points").split(" ")[0];
+    expect(y0).not.toBe(y1);
+  });
+
+  it("sits UNDER the onset nodes — an attack is never hidden by the teaching layer", () => {
+    const host = document.createElement("div");
+    const view = createCircleView(host, { showPolygon: true });
+    view.update({ steps: [1, 0, 1, 0], accents: [] });
+    const kids = [...host.querySelector("svg g").children].map((k) => k.tagName);
+    expect(kids.lastIndexOf("polyline")).toBeLessThan(kids.lastIndexOf("circle"));
+  });
+});

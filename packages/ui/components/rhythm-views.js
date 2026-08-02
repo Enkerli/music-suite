@@ -111,8 +111,52 @@ function interOnsetSteps(steps, i) {
   return n;
 }
 
+
+/**
+ * The onset polygon — a DIDACTIC OVERLAY, off by default.
+ *
+ * Joining a lane's onsets into a closed figure is the Lascabettes Rhythmic
+ * Circle idiom, and it was deliberately dropped as this suite's primary
+ * language: duration arcs say how long an onset SOUNDS, which a polygon cannot,
+ * and stacked polygons across lanes were judged noise. None of that changes.
+ *
+ * What it is good at is the one thing arcs are not: showing WHY two cycles
+ * interlock. E(3,12) against E(4,12) is a triangle and a square sharing a
+ * circle, and no amount of arc-reading makes that as immediate. So it comes
+ * back as a teaching layer ON TOP of the arcs — opt-in, never the identity
+ * view (INTENT B3, theory through practice; DESIGN_BRIEF §3.1).
+ *
+ * Shape is its own channel, so this does not rely on colour to be read.
+ */
+export function onsetPolygonPoints(cx, cy, r, steps, n) {
+  const pts = [];
+  for (let i = 0; i < n; i++) {
+    if (!steps[i]) continue;
+    const [x, y] = pol(cx, cy, r, ang(i, n));
+    pts.push(`${x.toFixed(1)},${y.toFixed(1)}`);
+  }
+  return pts;
+}
+
+/** The overlay element, or null when there is nothing meaningful to draw.
+ *  Two onsets give a line and one gives a dot — both are honest, so only an
+ *  empty lane is skipped. */
+function onsetPolygon(cx, cy, r, steps, n, stroke) {
+  const pts = onsetPolygonPoints(cx, cy, r, steps, n);
+  if (!pts.length) return null;
+  return el(pts.length > 2 ? "polygon" : "polyline", {
+    points: pts.join(" "),
+    fill: "none",
+    stroke,
+    "stroke-width": 1.5,
+    "stroke-dasharray": "4 3",
+    "stroke-linejoin": "round",
+    opacity: 0.85,
+  });
+}
+
 export function createCircleView(host, opts = {}) {
-  const state = { steps: [], accents: [], playhead: -1, showCog: true, showLabels: false, lane: "ink", ...opts };
+  const state = { steps: [], accents: [], playhead: -1, showCog: true, showLabels: false, showPolygon: false, lane: "ink", ...opts };
   const svg = el("svg", { viewBox: "0 0 320 320", role: "img" });
   svg.setAttribute("aria-label", "Rhythm circle");
   svg.style.width = "100%";
@@ -199,6 +243,12 @@ export function createCircleView(host, opts = {}) {
         stroke: "var(--es-bg-raised)", "stroke-width": 2.5,
       }));
       nodes.push(el("circle", { cx: nx.toFixed(1), cy: ny.toFixed(1), r: 2, fill: "var(--es-bg-raised)" }));
+    }
+    // Teaching overlay, between the arcs and the nodes: visible over the arc
+    // body, never over an attack.
+    if (state.showPolygon) {
+      const poly = onsetPolygon(cx, cy, R_OUTER, steps, n, "var(--es-fg-muted)");
+      if (poly) kids.push(poly);
     }
     // Nodes after every arc, or a long arc paints over the attack it belongs to.
     kids.push(...nodes);
@@ -329,7 +379,7 @@ export function createStepView(host, opts = {}) {
  * controls.
  */
 export function createPolyCircleView(host, opts = {}) {
-  const state = { lanes: [], lanePh: [], muted: [], ...opts };
+  const state = { lanes: [], lanePh: [], muted: [], showPolygon: false, ...opts };
   // 320 viewBox, same coordinate system as the mono ring (createCircleView)
   // — one unified family, DESIGN_AGENT_ANSWERS.md §1's "Ring geometry":
   // outermost R = 118 (as the mono ring), stepping inward by a FIXED
@@ -414,6 +464,12 @@ export function createPolyCircleView(host, opts = {}) {
         nodes.push(el("circle", {
           cx: nx.toFixed(1), cy: ny.toFixed(1), r: 2, fill: "var(--es-bg-raised)",
         }));
+      }
+      // Per lane, in the lane's own hue — the whole point across lanes is
+      // seeing a triangle and a square share one circle.
+      if (state.showPolygon) {
+        const poly = onsetPolygon(cx, cy, r, lane.steps, n, color);
+        if (poly) ring.push(poly);
       }
       ring.push(...nodes);
 

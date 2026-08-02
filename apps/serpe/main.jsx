@@ -240,7 +240,7 @@ function triggerConsequence(lane) {
   return `trigger ${n}`;
 }
 
-function PolyLanesPanel({ poly, lanePh, polyLock, setPolyLock, polyView, setPolyView, drumKit, setDrumKit, kitNames,
+function PolyLanesPanel({ poly, lanePh, showPolygon, setShowPolygon, polyLock, setPolyLock, polyView, setPolyView, drumKit, setDrumKit, kitNames,
                           laneNote, laneChan, laneMuted, setLaneUi, isHost, polyLagMs, setPolyLagMs }) {
   const fmtOff = (o) => o == null ? '' : o.kind === 'ms'
     ? `@${o.ms >= 0 ? '+' : ''}${o.ms}ms` : `@${o.num >= 0 ? '+' : ''}${o.num}/${o.den}`;
@@ -263,6 +263,13 @@ function PolyLanesPanel({ poly, lanePh, polyLock, setPolyLock, polyView, setPoly
             onClick: () => setPolyLock(v) },
             h('span', { className: 'seg-name' }, t),
             h('span', { className: 'seg-sub' }, sub)))),
+      // The interlock demo lives HERE more than in mono — a triangle against a
+      // square across two rings is the thing polygons are good for — so the
+      // toggle has to be reachable without switching back to a single lane.
+      h('label', { className: 'poly-ctl', style: { gap: 5 },
+        title: 'Join each lane\u2019s onsets into a figure. A teaching overlay; the arcs stay the pattern.' },
+        h('input', { type: 'checkbox', checked: !!showPolygon,
+          onChange: e => setShowPolygon(e.target.checked) }), 'polygon'),
       h('div', { className: 'seg', role: 'group', 'aria-label': 'Lane view',
         title: 'Rows: stacked step lanes. Circle: the same lanes as nested rings — under Step lock the rings still draw correctly, they just won’t stay lined up between realignments.' },
         [['rows', 'Rows'], ['circle', 'Circle']].map(([v, t]) =>
@@ -285,7 +292,7 @@ function PolyLanesPanel({ poly, lanePh, polyLock, setPolyLock, polyView, setPoly
                              : `polymeter · realigns every ${poly.lcm} steps`)),
     showCircle && h('div', { className: 'poly-rings' },
       h(EngineView, { create: createPolyCircleView, opts: {},
-        data: { lanes: poly.lanes, lanePh, muted: poly.lanes.map((l, i) => laneMuted(l, i)) } })),
+        data: { lanes: poly.lanes, lanePh, muted: poly.lanes.map((l, i) => laneMuted(l, i)), showPolygon } })),
     poly.lanes.map((lane, i) => {
       const muted = laneMuted(lane, i);
       return h('div', { key: lane.label, className: 'poly-lane' + (muted ? ' muted' : '') },
@@ -358,6 +365,12 @@ function SerpeApp() {
   const [lenUnit, setLenUnit] = useState(0);   // patternLengthUnit (0 Steps,1 Beats,2 Bars,3 Auto)
   const [lenVal, setLenVal]   = useState(4);   // patternLengthValue index (4 = "1")
   const [view, setView]       = useState('both');
+  // Polygon overlay: OFF by default and stored separately from the view mode,
+  // because it is a teaching layer over whichever view is showing, not a fourth
+  // view (DESIGN_BRIEF §3.1 / plan B3).
+  const [showPolygonRaw, setShowPolygonRaw] = useState(() => LS.get('polygon', '0') === '1');
+  const showPolygon = showPolygonRaw;
+  const setShowPolygon = (v) => { setShowPolygonRaw(v); LS.set('polygon', v ? '1' : '0'); };
   const [showLabels, setShowLabels] = useState(false);
 
   const [runtime, setRuntime] = useState(juceAvailable() ? 'plugin' : 'webapp');
@@ -1429,7 +1442,7 @@ function SerpeApp() {
             h('button', { key: v, className: 'upi-chip', onClick: () => applyChip(v) }, h('b', null, v), ' ' + t)))),
 
         poly
-        ? h(PolyLanesPanel, { poly: withPrecessedAccents(sounding.poly, laneAccOff), lanePh,
+        ? h(PolyLanesPanel, { poly: withPrecessedAccents(sounding.poly, laneAccOff), lanePh, showPolygon, setShowPolygon,
             polyLock, setPolyLock: v => {
               setPolyLock(v); LS.set('polyLock', v);
               if (cfg.host && juceAvailable()) sendParamActual('polyLock', v === 'step' ? 1 : 0);
@@ -1448,12 +1461,16 @@ function SerpeApp() {
               h('span', { 'aria-hidden': true }, '✦'), h('span', null, ' accent')),
             h('label', { className: 'iconbtn', style: { height: 30, fontSize: 12, gap: 6 } },
               h('input', { type: 'checkbox', checked: showLabels, onChange: e => setShowLabels(e.target.checked) }), ' step numbers'),
+            h('label', { className: 'iconbtn', style: { height: 30, fontSize: 12, gap: 6 },
+              title: 'Join the onsets into a figure — a triangle against a square is why two cycles interlock. A teaching overlay; the arcs stay the pattern.' },
+              h('input', { type: 'checkbox', checked: showPolygon,
+                onChange: e => setShowPolygon(e.target.checked) }), ' polygon'),
             h('div', { className: 'seg', role: 'group', 'aria-label': 'View' },
               ['both', 'circle', 'step'].map(v =>
                 h('button', { key: v, 'aria-pressed': view === v, onClick: () => setView(v) }, v[0].toUpperCase() + v.slice(1))))),
           h('div', { className: 'viz-body' },
             view !== 'step' && h('div', { className: 'viz-circle' },
-              h(EngineView, { create: createCircleView, opts: { showCog: true, onToggle: toggleStepAt }, data: { steps, accents, playhead, showLabels } })),
+              h(EngineView, { create: createCircleView, opts: { showCog: true, onToggle: toggleStepAt }, data: { steps, accents, playhead, showLabels, showPolygon } })),
             h('div', { className: 'viz-side' },
               view !== 'circle' && h(EngineView, { create: createStepView, opts: { group, onToggle: toggleStepAt }, data: { steps, accents, playhead, group } }),
               h('div', { className: 'readstrip' },
