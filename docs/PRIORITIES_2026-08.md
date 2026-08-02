@@ -71,14 +71,17 @@ of numbers — which is the explainability requirement (INTENT B5).
 Done 2026-08-02. Three things surfaced on the way and are worth carrying
 forward:
 
-- **`polyLaneAt` is not pure in the trigger index.** `*N` lengthening appends
-  random material by design. Serpe's `main.jsx` claimed purity outright and the
-  claim had been copied into Workspace; both corrected, and Workspace now caches
-  per (notation, trigger). **Open question for Alex:** should `*N` be seeded off
-  the trigger so a given trigger always gives the same pattern? It would make
-  the C++/JS parity story cleaner and make "trigger 3" name a pattern rather
-  than a length — at the cost of the re-roll variety the current design wants.
-  Not changed unilaterally.
+- ~~**`polyLaneAt` is not pure in the trigger index.**~~ **Resolved** `2b6523f`
+  — Alex: seed it. `*N` material now comes from a stream seeded by the base
+  pattern, so a trigger names a pattern, and each trigger EXTENDS the last
+  rather than re-rolling the whole tail. mulberry32 was extracted to
+  `packages/upi/src/rng.js` on the way; it had been inlined twice and the copies
+  had already drifted (`Math.imul` vs `*`).
+  **Still open:** the C++ engine grows `*N` with its own RNG, so a plugin
+  session and a standalone one produce different material for the same
+  notation. D3 means the engine wins where it is present, so nothing is broken
+  — but if the two should agree, the seed has to cross over. Worth a decision
+  during the audit.
 - Workspace had **no cache-bust on `bundle.js`**. A rebuild kept serving the
   old bundle, so a landed fix looked like it had not landed — the hard-refresh
   papercut, again. Stamped with a build id the way Vane already does. Worth
