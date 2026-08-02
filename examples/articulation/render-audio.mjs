@@ -22,8 +22,10 @@ const here = dirname(fileURLToPath(import.meta.url));
 const FILES = [
   "rhythm-detached.mid", "rhythm-legato.mid",
   "line-detached.mid", "line-legato.mid", "line-overlap.mid", "line-mixed.mid",
-  "hat-flat.mid", "hat-alternate.mid", "hat-backbeat.mid",
 ];
+// The hat-*.wav files are NOT rendered here. They come from the drum kit, via
+// `msuite upi --wav` in generate.mjs — a reed cannot articulate a 50 ms choke,
+// and pretending otherwise was the caveat this replaces.
 
 function wavMono16(samples, sampleRate) {
   const n = samples.length;

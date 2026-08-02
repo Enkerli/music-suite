@@ -44,6 +44,7 @@ const PKG_VERSION: string = (() => {
 import { wrapPattern } from "@enkerli/library";
 import type { TraceLevel } from "@enkerli/accompaniment";
 import { GATES } from "@enkerli/accompaniment";
+import { renderHits, wavMono16, resolveDrum, drumForLabel, KIT } from "@enkerli/drumsynth";
 import type { AppId, Destination, ParamMode } from "@enkerli/protocol";
 
 const USAGE = `msuite <command> …\n  --version                      which build, and which checkout it runs from
@@ -52,10 +53,13 @@ const USAGE = `msuite <command> …\n  --version                      which buil
                                         PD(20%) = push/pull microtiming (timing);
                                         LS(3) / LS(1.4..1.8, 70%) = note length
           --import <file|-> [--json]    named patterns → library items
-  upi "<notation>" [--steps N] [--midi out.mid [--bpm N] [--bars N] [--note N] [--lock cycle|step]
+  upi "<notation>" [--steps N] [--midi out.mid | --wav out.wav [--bpm N] [--bars N] [--note N] [--lock cycle|step]
                                         [--gate 0..1+|staccato|tenuto|legato]]
                                         --gate is how much of its step a note sounds (default 0.5,
                                         detached); >1 overlaps into the next — legato/melisma
+                                        --wav renders through the synthesised kit (@enkerli/drumsynth):
+                                        notes map to drums by GM number, note length drives the decay,
+                                        so LS(4){1000} really does ring one hat in four
                                         the full Serpe UPI language: P(3,0)+P(5,0), E(3,8);12, {100}E(3,8), Morse…
                                         additive/aksak meters: A(2,2,2,3) or D:2,3 ...-
                                         (both = short-short-short-long, the Balkan 9/8)
@@ -308,7 +312,13 @@ async function main(): Promise<number> {
       // --midi: render the pattern to an SMF, APPLYING any PD(…) microtiming,
       // so push/pull can be checked against real note ticks instead of by ear.
       const midiOut = one(args, "midi");
-      if (midiOut !== undefined) {
+      // --wav renders the SAME notes through the synthesised kit. Sharing the
+      // whole note-building path is the point: lane lock, accent precession and
+      // LS(…) get decided once, so a .wav and a .mid of the same notation
+      // cannot disagree. A second sequencer in the drum package would have been
+      // a second set of opinions about all three.
+      const wavOut = one(args, "wav");
+      if (midiOut !== undefined || wavOut !== undefined) {
         // Poly-aware since 2026-08-01. This used parseUPI, so it rendered MONO
         // ONLY — no lanes, no per-lane accents, and `E(3,8)|E(5,8)` was refused
         // outright. That mattered more than it looked: this file is meant to be
@@ -388,6 +398,17 @@ async function main(): Promise<number> {
         const notes: Array<{ pitch: number; velocity: number; startTick: number; durationTicks: number }> = [];
         const laneLines: string[] = [];
 
+        // A lane LABELLED with a drum name gets that drum's GM note, instead of
+        // the positional base+index. `kick=E(4,16) / hat=E(8,16)` already reads
+        // like a drum pattern; making someone also state note numbers for it
+        // would be busywork, and getting Kick/Crash/Snare out of lanes called
+        // kick/snare/hat is just wrong. Applies to --midi as well as --wav, so
+        // the two cannot disagree — and a .mid with real GM numbers is what any
+        // DAW drum instrument expects anyway.
+        const laneNote = (lane: { label?: string }, li: number) => {
+          const d = drumForLabel(lane.label ?? "");
+          return d ? KIT[d]!.note : note + li;
+        };
         poly.lanes.forEach((lane, li) => {
           const stepsArr = lane.steps.map(Boolean);
           if (!stepsArr.length) return;
@@ -488,7 +509,7 @@ async function main(): Promise<number> {
                 const isLong = lsMask ? !!lsMask[onsetOrdinal % lsMask.length] : false;
                 onsetOrdinal++;
                 notes.push({
-                  pitch: note + li + (accented ? 5 : 0),
+                  pitch: laneNote(lane, li) + (accented ? 5 : 0),
                   velocity: accented ? 127 : 100,
                   startTick: Math.max(0, Math.round(cursor) + offTicks),
                   // Measured against the span to the NEXT onset, not the grid
@@ -510,8 +531,10 @@ async function main(): Promise<number> {
             }
           }
           const accN = acc ? acc.filter(Boolean).length : 0;
-          laneLines.push(`${(poly.lanes.length > 1 ? lane.label : "pattern").padEnd(8)} note ${note + li}`
-            + `  ${stepsArr.length} steps` + (accN ? `  ${accN} accented (→ note ${note + li + 5})` : "")
+          const drumName = resolveDrum(laneNote(lane, li));
+          laneLines.push(`${(poly.lanes.length > 1 ? lane.label : "pattern").padEnd(8)} note ${laneNote(lane, li)}`
+            + (wavOut !== undefined ? ` (${drumName ? (KIT[drumName]?.label ?? drumName) : "no kit sound"})` : "")
+            + `  ${stepsArr.length} steps` + (accN ? `  ${accN} accented (→ note ${laneNote(lane, li) + 5})` : "")
             + (offTicks ? `  offset ${offTicks > 0 ? "+" : ""}${offTicks} ticks` : "")
             + (pd && pd.depth > 0 ? `  PD ${Math.round(pd.depth * 100)}%` : "")
             + (lsSpec ? `  LS ${lsSpec.min === lsSpec.max ? `${lsSpec.min}:1` : `${lsSpec.min}..${lsSpec.max}:1`}`
@@ -520,8 +543,31 @@ async function main(): Promise<number> {
         });
 
         notes.sort((a, b) => a.startTick - b.startTick);
-        writeFileSync(String(midiOut), createSMF(notes, { bpm, ticksPerBeat: tpb, trackName: notation }));
-        console.log(`wrote ${midiOut} — ${notes.length} notes, ${bars} cycle(s) @ ${bpm}bpm, `
+        if (midiOut !== undefined)
+          writeFileSync(String(midiOut), createSMF(notes, { bpm, ticksPerBeat: tpb, trackName: notation }));
+        if (wavOut !== undefined) {
+          const secPerTick = 60 / bpm / tpb;
+          const hits = notes.map((n) => ({
+            drum: n.pitch,
+            timeSec: n.startTick * secPerTick,
+            velocity: n.velocity / 127,
+            // An open hat is a LONG hat: the note's own duration drives the
+            // decay, so `LS(4){1000}` chokes and rings exactly where the ticks
+            // say it does. That is the whole reason the durational layer
+            // mattered for drums.
+            params: { decayMs: Math.max(20, n.durationTicks * secPerTick * 1000) },
+          })).filter((h) => resolveDrum(h.drum) !== null);
+          const buf = renderHits(hits, { sampleRate: 48000 });
+          // One gain over the whole render, chosen for headroom rather than
+          // normalised per file — comparing two renders is the usual reason to
+          // make them.
+          let pk = 0; for (const v of buf) pk = Math.max(pk, Math.abs(v));
+          const g = pk > 0.891 ? 0.891 / pk : 1;
+          if (g !== 1) for (let i = 0; i < buf.length; i++) buf[i]! *= g;
+          writeFileSync(String(wavOut), Buffer.from(wavMono16(buf, 48000)));
+        }
+        const wrote = [midiOut, wavOut].filter(Boolean).join(" + ");
+        console.log(`wrote ${wrote} — ${notes.length} notes, ${bars} cycle(s) @ ${bpm}bpm, `
           + `${cycleLock ? `cycle lock · polyrhythm, cycle = ${cycleSteps} steps of lane 1` : "step lock · polymeter"}`);
         laneLines.forEach((l) => console.log(l));
         console.log(`ticks   ${notes.slice(0, 12).map((n) => n.startTick).join(" ")}${notes.length > 12 ? " …" : ""}`);

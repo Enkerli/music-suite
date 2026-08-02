@@ -54,12 +54,16 @@ accent prefix which is per step: a rest has no duration to lengthen.
 
 ## The audio
 
-**The hat examples are rendered through a SAX**, because the drum synth does not
-exist yet (priorities Tier 2, D1). The MIDI is correct — measured at 192/48
-ticks for `LS(4){10}` — but a reed model needs time to speak, so the 50 ms
-"choked" hits are nearly inaudible in `hat-alternate.wav` and `hat-backbeat.wav`.
-What those files demonstrate is the long notes ringing and overlapping. Re-render
-them once there is a drum synth; until then, read the ticks for the short hits.
+The `line-*` and `rhythm-*` files are played by **Vane**; the `hat-*` files by
+the **synthesised kit** (`@enkerli/drumsynth`, via `msuite upi --wav`), because
+a reed cannot articulate a 50 ms choke and a hat can. The note's own length
+drives the hat's decay, so `LS(4){1000}` really does ring one hat in four:
+
+```
+hat-flat       █▅▃▂▁          █▅▃▂▁          █▅▃▂▁          █▅▃▂▁
+hat-alternate  █▆▄▃▂▂▁▁       ▆▂             █▆▄▃▂▁▁▁       ▆▂
+hat-backbeat   █▆▅▄▃▃▂▂▁▁▁    ▆▃▁            ▆▃▁            ▆▃▁
+```
 
 Mono, 16-bit, 48 kHz, about 6 MB for the nine. Mono is not a compromise: with
 unison off a Vane voice is a centre image (L == R exactly — one of the wasm

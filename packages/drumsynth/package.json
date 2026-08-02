@@ -1,0 +1,19 @@
+{
+  "name": "@enkerli/drumsynth",
+  "version": "0.1.0",
+  "description": "A small synthesised drum kit \u2014 x0x-style voices, no samples, each sound on its own pitch class. Renders hits to audio for the CLI, the examples and the Workspace.",
+  "license": "CC0-1.0",
+  "type": "module",
+  "main": "src/index.js",
+  "exports": {
+    ".": {
+      "source": "./src/index.js",
+      "default": "./src/index.js",
+      "types": "./index.d.ts"
+    }
+  },
+  "scripts": {
+    "test": "vitest run"
+  },
+  "types": "index.d.ts"
+}

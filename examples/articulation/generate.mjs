@@ -60,9 +60,14 @@ const durational = [
   ["hat-backbeat.mid",  "E(8,16)LS(4){1000}", "one ringing hit in four — it overlaps the next"],
 ];
 
+// Rendered through the synthesised kit as well as to MIDI. Until 2026-08-02
+// these were played by a SAX, because there was no drum synth — the long notes
+// rang convincingly and the 50 ms choked hits barely spoke, since a reed needs
+// time. A hat does not, which is the point of D1.
 for (const [file, notation] of durational)
-  execFileSync("node", [cli, "upi", notation, "--midi", out(file),
-    "--bpm", String(BPM), "--bars", "2", "--note", "42"],   // 42 = closed hat, GM
+  execFileSync("node", [cli, "upi", `hh=${notation}`, "--midi", out(file),
+    "--wav", out(file.replace(/\.mid$/, ".wav")),
+    "--bpm", String(BPM), "--bars", "2"],
     { stdio: "ignore" });
 
 for (const [file, gate] of rhythmic)

@@ -178,15 +178,30 @@ speak. Alex: "Tier 2 will help us make some decisions, including about hats."
 
 | | | notes |
 |---|---|---|
-| **D1** | Minimal drum synth — kick, snare, hats, cymbal, clap, toms | x0x-style synthesis avoids the sample-licensing question entirely (D7 discipline: nothing published that we cannot publish). Each sound on a pitch class, per Alex's "a MIDI note is a lane" |
+| ~~**D1**~~ | ~~Minimal drum synth~~ | **done** — `@enkerli/drumsynth`, eight sounds on eight pitch classes, `msuite upi --wav` |
 | **D2** | Drum MIDI → pattern, meter-aware | the hard part is not misreading triplets as swung sixteenths: score candidate grids, pick by fit, and **report the grid and the confidence** |
 | **D3** | Drop-a-folder learning, CLI first then a Workspace module | Alex's suggested entry point. Corpus stays local; only derived statistics ship (D7) |
 
-D1 first even though D2 is the foundation: it is self-contained, it makes every
-later result audible, and it does not wait on the MIDI files Alex is curating
-elsewhere. D2 starts when those arrive.
+**D1, as built.** Eight sounds on eight distinct pitch classes — the standard
+GM kit does not guarantee that (high tom 48 % 12 == 0 == kick), so there is no
+high tom. GM note numbers throughout, so somebody else's drum MIDI maps in with
+no translation table, which is what D2 needs.
 
-D1 also needs N1 decided, per the open-hat argument above.
+Synthesised, not sampled: "public domain drum samples" is a claim someone has
+to verify per file forever, and synthesis has no provenance to audit (D7). It
+also makes the sounds PARAMETERS, so a learned groove can vary its snare rather
+than replay one recording.
+
+`msuite upi --wav` shares the ENTIRE note-building path with `--midi` — lane
+lock, accent precession, `LS(…)` — so a `.wav` and a `.mid` of the same notation
+cannot disagree. A lane labelled `kick=` or `hh=` gets that drum's GM note
+rather than the positional base+index.
+
+It closes N1b's loose end: the hat examples are re-rendered through the kit, and
+`LS(4){1000}` audibly rings one hat in four. Closed and open are the same voice
+at different decays, so the durational mask is a real instruction to the synth.
+
+**Next: D2**, which starts when Alex's curated MIDI arrives. D3 follows it.
 
 ### Tier 3 — representation
 
