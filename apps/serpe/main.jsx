@@ -29,6 +29,7 @@ import { parseUPI, euclid, polygon, rotate, complement, invert,
          microtiming, timingScales,
          parseNamedPatterns, parseProgressive, progressiveAt } from '@enkerli/upi';
 import { createCircleView, createStepView, createPolyCircleView } from '@enkerli/ui/rhythm-views';
+import { upiFamily, patternFacets } from './library-facets.js';
 import { soundingPattern } from './engine/sounding.js';
 import { laneStepMs as computeLaneStepMs, laneOffsetMs as computeLaneOffsetMs } from './engine/poly-clock.js';
 import serpeManifest from './manifest.json';
@@ -137,16 +138,6 @@ function applyAccents(steps, pattern, off = 0) {
 
 // An imperative SVG view (render.js) wrapped as a React component.
 /** Generator family of a UPI string (for the browser's badge + facet). */
-function upiFamily(u) {
-  const s = (u || '').trim();
-  if (/^E\(/i.test(s)) return 'Euclidean';
-  if (/^P\(/i.test(s)) return 'Polygon';
-  if (/^R\(/i.test(s)) return 'Random';
-  if (/^[BWD]\(/i.test(s)) return 'Barlow';
-  if (/^0x|:\d/.test(s)) return 'Numeric';
-  if (/^[[{]/.test(s)) return 'Explicit';
-  return 'Other';
-}
 
 /** The pattern library as the shared @enkerli/ui LibraryBrowser (Design pass ·
  *  Q2), in compact mode for Serpe's 340px rail. Consolidates the old three tabs
@@ -1329,7 +1320,23 @@ function SerpeApp() {
     ['{10010}E(5,8)', 'accented cinquillo'], ['0x94:8', 'tresillo (hex)'],
     ['[0,3,6,9]:12', 'even four'], ['E(2,3)', 'duple-against-triple'],
   ];
-  const patInfo = (u) => { try { const p = parseUPI(u, { n: 16 }); if (!p.ok) return null; const a = analyse(p.steps); return `${a.k}/${a.n}`; } catch { return null; } };
+  /**
+   * `k/n` for the library — per LANE, and poly-aware.
+   *
+   * This used parseUPI, and `saveToLibrary` gates on it, so until 2026-08-02
+   * a poly pattern, a scene chain and a progressive pattern could not be saved
+   * AT ALL: the button silently did nothing for three whole classes of
+   * notation Serpe plays. The library predates poly and nobody re-read the
+   * gate when poly arrived.
+   */
+  const patInfo = (u) => {
+    try {
+      const p = parsePolyUPI(u, { n: 16 });
+      if (!p.ok || !p.lanes.length) return null;
+      const per = p.lanes.slice(0, 3).map((l) => { const a = analyse(l.steps); return `${a.k}/${a.n}`; });
+      return per.join(' · ') + (p.lanes.length > 3 ? ` +${p.lanes.length - 3}` : '');
+    } catch { return null; }
+  };
   const loadPattern = (u) => { resetProgressive(); setAccText(''); setUpiText(u); };
   function saveToLibrary() {
     const u = upiText.trim(); if (!u || !patInfo(u)) return;
@@ -1377,18 +1384,9 @@ function SerpeApp() {
       // What IS this rhythm? Recognition + durational reading ride as tags so
       // the browser can filter by them (the capability the original RPE's
       // database had via its own `euclidean` field). Cheap: only on re-memo.
-      let reading = null, foot = null;
-      try {
-        const p = parseUPI(u, { n: 16 });
-        if (p.ok) {
-          const st = p.steps.map(Boolean);
-          const id = identify(st);
-          reading = id.best ? id.best.formula : null;
-          const f = longShort(st).foot;
-          foot = f && f !== 'none' && f !== 'mixed' && f !== 'complex' ? f : null;
-        }
-      } catch { /* unparseable entries still list, just without analysis */ }
-      const tags = [name && name !== u ? name : null, info, reading, foot].filter(Boolean);
+      const { readings, feet, layers } = patternFacets(u);
+      const tags = [name && name !== u ? name : null, info,
+                    ...readings, ...feet, ...layers].filter(Boolean);
       return { id: source[0] + i, name: name || u, upi: u, source, family: upiFamily(u), tags };
     };
     return [
