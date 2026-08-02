@@ -282,6 +282,10 @@ export function createPolyCircleView(host, opts = {}) {
   // bound — caps the readable lane count at ~5, which is fine; beyond
   // that the caller already has the linear createStepView to fall back to.
   const svg = el("svg", { viewBox: "0 0 320 320", role: "img" });
+  // Placeholder until the first render; describeLanes() replaces it with a
+  // sentence. "Poly lane rings" told a screen-reader user only that a picture
+  // exists — DESIGN_BRIEF §4 asks for the non-visual route to be designed
+  // ALONGSIDE the visual one, and this is the cheapest half of it.
   svg.setAttribute("aria-label", "Poly lane rings");
   svg.style.width = "100%";
   svg.style.height = "auto";
@@ -341,7 +345,37 @@ export function createPolyCircleView(host, opts = {}) {
       kids.push(g);
     });
     visuals.replaceChildren(...kids);
+    svg.setAttribute("aria-label", describeLanes(lanes, muted));
   }
   render();
   return { update(next) { Object.assign(state, next); render(); }, el: svg };
+}
+
+
+/**
+ * The rings, in words. Read by a screen reader in place of the SVG, carrying
+ * the same facts the picture does: how many lanes, how long each is, where its
+ * onsets fall, and which are accented.
+ *
+ * Onset POSITIONS, not just counts: "3 onsets in 8 steps" is true of a great
+ * many different rhythms, and which ones is the whole point of the view.
+ * Steps are spoken from 1; the code is 0-based everywhere else, and INTENT D1
+ * is a rule about bit order, not about how you say a step number out loud.
+ */
+export function describeLanes(lanes = [], muted = []) {
+  if (!lanes.length) return "Poly lane rings: no lanes";
+  const parts = lanes.map((lane, i) => {
+    const n = lane.steps.length;
+    const at = [], acc = [];
+    for (let s = 0; s < n; s++) {
+      if (!lane.steps[s]) continue;
+      at.push(s + 1);
+      if (lane.accents && lane.accents[s]) acc.push(s + 1);
+    }
+    let t = `Lane ${i + 1}: ${at.length} of ${n} steps, on ${at.join(", ") || "none"}`;
+    if (acc.length) t += `; accented on ${acc.join(", ")}`;
+    if (muted[i]) t += "; muted";
+    return t;
+  });
+  return `${lanes.length} lane${lanes.length === 1 ? "" : "s"}. ${parts.join(". ")}.`;
 }

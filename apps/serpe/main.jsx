@@ -232,10 +232,21 @@ function PolyLanesPanel({ poly, lanePh, polyLock, setPolyLock, polyView, setPoly
   return h('div', { className: 'viz poly-lanes' },
     h('div', { className: 'viz-head' },
       h('span', { className: 'es-eyebrow' }, 'Lanes'),
-      h('div', { className: 'seg', role: 'group', 'aria-label': 'Timing lock',
-        title: 'Cycle: all lanes span the same cycle (polyrhythm — 15 against 16 is a cross-rhythm). Step: all steps equal (polymeter — lanes drift and realign).' },
-        [['cycle', 'Cycle'], ['step', 'Step']].map(([v, t]) =>
-          h('button', { key: v, 'aria-pressed': polyLock === v, onClick: () => setPolyLock(v) }, t))),
+      // Named by WHAT IT DOES, not by the mechanism. This read 'Timing lock'
+      // with options 'Cycle' and 'Step' — neither word said polyrhythm or
+      // polymeter, and Alex concluded from a DAW session that polymeter was
+      // not implemented at all when it was simply the non-default choice of a
+      // control naming neither mode (DESIGN_BRIEF §3.3). Values are unchanged:
+      // 'cycle'/'step' still go to state, localStorage and the host parameter,
+      // so this is a label change and nothing else.
+      h('div', { className: 'seg seg-2line', role: 'group', 'aria-label': 'Lane alignment' },
+        [['cycle', 'Polyrhythm', 'one shared cycle'],
+         ['step', 'Polymeter', 'shared step · drifts']].map(([v, t, sub]) =>
+          h('button', { key: v, 'aria-pressed': polyLock === v,
+            'aria-label': `${t} — ${sub}`, title: sub,
+            onClick: () => setPolyLock(v) },
+            h('span', { className: 'seg-name' }, t),
+            h('span', { className: 'seg-sub' }, sub)))),
       h('div', { className: 'seg', role: 'group', 'aria-label': 'Lane view',
         title: 'Rows: stacked step lanes. Circle: the same lanes as nested rings — under Step lock the rings still draw correctly, they just won’t stay lined up between realignments.' },
         [['rows', 'Rows'], ['circle', 'Circle']].map(([v, t]) =>

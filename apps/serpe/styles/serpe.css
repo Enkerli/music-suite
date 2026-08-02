@@ -333,3 +333,17 @@ select.es-control {
            background: var(--es-fg-muted); }
 .pd-mark.early { background: var(--es-accent, #3b6ea8); }
 .pd-mark.late  { background: var(--es-dim-pressure, #b5651d); }
+
+/* Two-line segmented control — the Lane alignment pair (DESIGN_BRIEF §3.3).
+   A subtitle under the name because "Polyrhythm" and "Polymeter" name the
+   modes correctly but do not, on their own, say what changes. Tokens only;
+   no new colours or type. */
+.seg-2line button { display: flex; flex-direction: column; align-items: center; gap: 1px; line-height: 1.15; }
+.seg-2line .seg-name { font-weight: 600; }
+.seg-2line .seg-sub {
+  font-size: 0.72em;
+  color: var(--es-fg-muted);
+  font-variant-numeric: tabular-nums;
+}
+/* The pressed segment must not lose its subtitle to low contrast. */
+.seg-2line button[aria-pressed="true"] .seg-sub { color: inherit; opacity: 0.85; }

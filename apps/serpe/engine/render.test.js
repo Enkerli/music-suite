@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { describe, it, expect } from "vitest";
-import { createCircleView, createPolyCircleView } from "./render.js";
+import { createCircleView, createPolyCircleView, describeLanes } from "./render.js";
 
 const lane = (steps, accents = steps.map(() => 0)) => ({ steps, accents });
 
@@ -226,5 +226,40 @@ describe("createPolyCircleView — nested donut bands, one per lane (KT item 9 +
       const slices = g.querySelectorAll("path");
       expect(slices[0].getAttribute("fill")).not.toBe(slices[1].getAttribute("fill"));
     }
+  });
+});
+
+
+describe("describeLanes — the non-visual route (DESIGN_BRIEF §4)", () => {
+  it("names onset POSITIONS, not just a count", () => {
+    // "3 of 8 steps" is true of many different rhythms; which ones is the
+    // entire point of the picture this text stands in for.
+    expect(describeLanes([lane([1, 0, 0, 1, 0, 0, 1, 0])], [false]))
+      .toBe("1 lane. Lane 1: 3 of 8 steps, on 1, 4, 7.");
+  });
+
+  it("speaks accents separately — two channels in text too", () => {
+    expect(describeLanes([lane([1, 0, 1, 0], [1, 0, 0, 0])], [false]))
+      .toBe("1 lane. Lane 1: 2 of 4 steps, on 1, 3; accented on 1.");
+  });
+
+  it("says which lane is muted, and keeps lanes in ring order", () => {
+    const t = describeLanes([lane([1, 0]), lane([1, 0, 1])], [false, true]);
+    expect(t).toContain("2 lanes.");
+    expect(t).toContain("Lane 2: 2 of 3 steps, on 1, 3; muted");
+  });
+
+  it("does not pretend an empty lane has onsets", () => {
+    expect(describeLanes([lane([0, 0, 0, 0])], [false]))
+      .toBe("1 lane. Lane 1: 0 of 4 steps, on none.");
+  });
+
+  it("is what the SVG actually carries, not a parallel string", () => {
+    const host = document.createElement("div");
+    const view = createPolyCircleView(host, {});
+    const lanes = [lane([1, 0, 1, 0]), lane([1, 0, 0])];
+    view.update({ lanes, lanePh: [-1, -1], muted: [false, false] });
+    expect(host.querySelector("svg").getAttribute("aria-label"))
+      .toBe(describeLanes(lanes, [false, false]));
   });
 });
