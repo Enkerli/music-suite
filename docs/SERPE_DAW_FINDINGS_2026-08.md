@@ -284,6 +284,43 @@ every block, every block is an edge.
 
 ---
 
+### A4, 2026-08-02 — narrowed, not solved
+
+**Still open.** What the investigation established:
+
+- **Alex's project runs TWO Serpe instances**, both CLAP
+  (`Suitest.dawproject` names `com.enkerli.serpe` twice). That matters because
+  the next finding needs more than one.
+- **`processBlock` kept five per-instance values in function-local statics** —
+  `lastBPM`, `lastProcessedStep`, `processedFirstStepThisBuffer`, and the two
+  pattern-length trackers. Function-local statics have static *storage*, so
+  every Serpe in the process shared one copy: instance A's step boundary was
+  also B's. Fixed (Serpe `1eb66a5`), because per-instance state in a
+  process-wide place is wrong regardless — the third instance of that shape in
+  this file, after F1's maps and the offset-engine pointer.
+- **It is NOT demonstrated to cause F5.** Two reproduction attempts failed: two
+  instances over 240 blocks gave 3 note-ons alone and 4 with a neighbour, with
+  and without a host transport. It fits the symptom and it did not reproduce
+  it, and those are different claims.
+
+**Tooling that came out of it, and will outlast this hunt:**
+
+- `tools/midi-timing.mjs` reads any `.mid` in ticks and compares two of them.
+- The probe grew a **`FakePlayHead`**. Without one, a headless probe silently
+  exercises the internal-timing path, so the DAW-synchronised branch — where
+  the step bookkeeping lives — never runs at all. Worth remembering the next
+  time something "cannot be reproduced outside the DAW": it may never have been
+  asked to.
+- `serpe-two-instance-rate` stays as a guard: it fails if a neighbouring
+  instance ever multiplies an instance's note rate.
+
+**Where I would look next**, in order: whether the capture's ~468/936-sample
+gaps match Bitwig's actual buffer at that session's sample rate (they are close
+to 512 at 48k but not equal, and the difference may name the real clock);
+whether MIDI was routed back into the same track; and the `tickResetCounter`
+loop, which re-asserts the tick parameter every 20 blocks and is the one place
+that deliberately writes a parameter from the audio thread.
+
 ## F6 — Polymeter exists. It is a parameter, and it is not the default
 
 Alex: *"`E(3,8)/E(3,7)` syncs every bar when that should depend on the pattern

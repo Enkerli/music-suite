@@ -58,7 +58,12 @@ tables as vectors — same discipline as `serpe_conformance`. Cover: plain mono,
 `PD(…)` microtiming, poly step-lock drift (`E(3,8)/E(3,7)` → lane 2 starts its
 second cycle at 840 while lane 1 starts at 960), per-lane `@` offsets, accents.
 
-### A4. F5 — the S1 runaway
+### A4. F5 — the S1 runaway *(attempted 2026-08-02 — narrowed, still open)*
+Found and fixed five process-wide statics in `processBlock` along the way
+(Serpe `1eb66a5`) and confirmed Alex's project runs two Serpe instances — but
+**two reproduction attempts failed**, so the static is not shown to be the
+cause. See SERPE_DAW_FINDINGS F5 for where to look next.
+
 Only after A2. The capture showed inter-onset gaps of **0.0195 / 0.039 beats**
 = 9.75/19.5 ms at 120 BPM ≈ 468/936 samples — buffer multiples, not
 subdivisions. Suspects, in order: the tick edge is level-triggered against
@@ -167,9 +172,9 @@ Also worth resolving: the relationship between this catalogue and `SHORTHAND` in
 
 | | |
 |---|---|
-| 1 | **A1** lock-mode reconcile — blocks everything in A |
-| 2 | **A2 + A3** analyser and baseline vectors |
-| 3 | **A4** F5, now measurable |
+| ~~1~~ | ~~**A1** lock-mode reconcile~~ — done, `81bcf92` |
+| ~~2~~ | ~~**A2 + A3** analyser and baseline vectors~~ — done, `44f6e62` / `35700f7` |
+| 3 | **A4** F5 — attempted, narrowed, still open |
 | 4 | **B1** mono arcs (cheap, self-contained; good filler between A stages) |
 | 5 | **D** bell catalogue (content, no machinery) |
 | 6 | **C1** drum→pattern quantization |
