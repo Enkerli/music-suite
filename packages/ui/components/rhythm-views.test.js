@@ -286,6 +286,18 @@ describe("onset polygon — the didactic overlay (DESIGN_BRIEF §3.1 / B3)", () 
     expect(y0).not.toBe(y1);
   });
 
+  it("takes a PER-LANE array — you rarely want the figure on every ring", () => {
+    const host = document.createElement("div");
+    const view = createPolyCircleView(host, {});
+    const two = { lanes: [lane([1, 0, 1, 0]), lane([1, 0, 0])], lanePh: [-1, -1], muted: [false, false] };
+    view.update({ ...two, showPolygon: [true, false] });
+    expect(host.querySelectorAll("polygon, polyline").length).toBe(1);
+    view.update({ ...two, showPolygon: true });          // boolean still means all
+    expect(host.querySelectorAll("polygon, polyline").length).toBe(2);
+    view.update({ ...two, showPolygon: [false, false] });
+    expect(host.querySelectorAll("polygon, polyline").length).toBe(0);
+  });
+
   it("sits UNDER the onset nodes — an attack is never hidden by the teaching layer", () => {
     const host = document.createElement("div");
     const view = createCircleView(host, { showPolygon: true });

@@ -467,7 +467,13 @@ export function createPolyCircleView(host, opts = {}) {
       }
       // Per lane, in the lane's own hue — the whole point across lanes is
       // seeing a triangle and a square share one circle.
-      if (state.showPolygon) {
+      //
+      // `showPolygon` is a boolean OR an array indexed by lane: with three
+      // lanes up you usually want the figure on one or two of them, not all —
+      // three overlaid dashed polygons are the noise this idiom was dropped
+      // for in the first place (Alex, 2026-08-02: "the toggle can be per-lane").
+      const wantPoly = Array.isArray(state.showPolygon) ? !!state.showPolygon[li] : !!state.showPolygon;
+      if (wantPoly) {
         const poly = onsetPolygon(cx, cy, r, lane.steps, n, color);
         if (poly) ring.push(poly);
       }

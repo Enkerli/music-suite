@@ -240,7 +240,7 @@ function triggerConsequence(lane) {
   return `trigger ${n}`;
 }
 
-function PolyLanesPanel({ poly, lanePh, showPolygon, setShowPolygon, polyLock, setPolyLock, polyView, setPolyView, drumKit, setDrumKit, kitNames,
+function PolyLanesPanel({ poly, lanePh, lanePolys, setLanePoly, polyLock, setPolyLock, polyView, setPolyView, drumKit, setDrumKit, kitNames,
                           laneNote, laneChan, laneMuted, setLaneUi, isHost, polyLagMs, setPolyLagMs }) {
   const fmtOff = (o) => o == null ? '' : o.kind === 'ms'
     ? `@${o.ms >= 0 ? '+' : ''}${o.ms}ms` : `@${o.num >= 0 ? '+' : ''}${o.num}/${o.den}`;
@@ -266,10 +266,11 @@ function PolyLanesPanel({ poly, lanePh, showPolygon, setShowPolygon, polyLock, s
       // The interlock demo lives HERE more than in mono — a triangle against a
       // square across two rings is the thing polygons are good for — so the
       // toggle has to be reachable without switching back to a single lane.
-      h('label', { className: 'poly-ctl', style: { gap: 5 },
-        title: 'Join each lane\u2019s onsets into a figure. A teaching overlay; the arcs stay the pattern.' },
-        h('input', { type: 'checkbox', checked: !!showPolygon,
-          onChange: e => setShowPolygon(e.target.checked) }), 'polygon'),
+      h('button', { className: 'poly-mute', style: { width: 'auto', padding: '0 8px' },
+        'aria-pressed': poly.lanes.every((l, i) => lanePolys[i]),
+        title: 'Polygon overlay on every lane at once — each lane also has its own toggle below',
+        onClick: () => { const all = poly.lanes.every((l, i) => lanePolys[i]);
+                         poly.lanes.forEach((l, i) => setLanePoly(i, !all)); } }, '△ all'),
       h('div', { className: 'seg', role: 'group', 'aria-label': 'Lane view',
         title: 'Rows: stacked step lanes. Circle: the same lanes as nested rings — under Step lock the rings still draw correctly, they just won’t stay lined up between realignments.' },
         [['rows', 'Rows'], ['circle', 'Circle']].map(([v, t]) =>
@@ -292,7 +293,8 @@ function PolyLanesPanel({ poly, lanePh, showPolygon, setShowPolygon, polyLock, s
                              : `polymeter · realigns every ${poly.lcm} steps`)),
     showCircle && h('div', { className: 'poly-rings' },
       h(EngineView, { create: createPolyCircleView, opts: {},
-        data: { lanes: poly.lanes, lanePh, muted: poly.lanes.map((l, i) => laneMuted(l, i)), showPolygon } })),
+        data: { lanes: poly.lanes, lanePh, muted: poly.lanes.map((l, i) => laneMuted(l, i)),
+                showPolygon: poly.lanes.map((l, i) => !!lanePolys[i]) } })),
     poly.lanes.map((lane, i) => {
       const muted = laneMuted(lane, i);
       return h('div', { key: lane.label, className: 'poly-lane' + (muted ? ' muted' : '') },
@@ -303,6 +305,11 @@ function PolyLanesPanel({ poly, lanePh, showPolygon, setShowPolygon, polyLock, s
           h('span', { className: 'poly-label' }, lane.label),
           h('span', { className: 'poly-src es-num' }, lane.parsedLabel),
           lane.offset && h('span', { className: 'poly-off es-num', title: 'Micro-timing (Keil) offset' }, fmtOff(lane.offset)),
+          h('label', { className: 'poly-ctl', style: { gap: 4 },
+            title: `Join ${lane.label}\u2019s onsets into a figure — a teaching overlay, the arcs stay the pattern` },
+            h('input', { type: 'checkbox', checked: !!lanePolys[i],
+              'aria-label': `${lane.label} polygon overlay`,
+              onChange: e => setLanePoly(i, e.target.checked) }), '\u25b3'),
           h('label', { className: 'poly-ctl' }, 'note ',
             h('input', { className: 'es-control poly-num', type: 'number', min: 0, max: 127,
               value: laneNote(lane, i), 'aria-label': `${lane.label} MIDI note`,
@@ -368,9 +375,20 @@ function SerpeApp() {
   // Polygon overlay: OFF by default and stored separately from the view mode,
   // because it is a teaching layer over whichever view is showing, not a fourth
   // view (DESIGN_BRIEF §3.1 / plan B3).
+  // Mono keeps one boolean; poly keeps one per lane, because with three lanes
+  // up you usually want the figure on one or two — three overlaid dashed
+  // polygons are the noise the idiom was dropped for (Alex, 2026-08-02).
   const [showPolygonRaw, setShowPolygonRaw] = useState(() => LS.get('polygon', '0') === '1');
   const showPolygon = showPolygonRaw;
   const setShowPolygon = (v) => { setShowPolygonRaw(v); LS.set('polygon', v ? '1' : '0'); };
+  const [lanePolys, setLanePolys] = useState(() => {
+    try { return JSON.parse(LS.get('lanePolys', '[]')) || []; } catch { return []; }
+  });
+  const setLanePoly = (i, v) => setLanePolys((prev) => {
+    const next = prev.slice(); next[i] = v;
+    LS.set('lanePolys', JSON.stringify(next));
+    return next;
+  });
   const [showLabels, setShowLabels] = useState(false);
 
   const [runtime, setRuntime] = useState(juceAvailable() ? 'plugin' : 'webapp');
@@ -1442,7 +1460,7 @@ function SerpeApp() {
             h('button', { key: v, className: 'upi-chip', onClick: () => applyChip(v) }, h('b', null, v), ' ' + t)))),
 
         poly
-        ? h(PolyLanesPanel, { poly: withPrecessedAccents(sounding.poly, laneAccOff), lanePh, showPolygon, setShowPolygon,
+        ? h(PolyLanesPanel, { poly: withPrecessedAccents(sounding.poly, laneAccOff), lanePh, lanePolys, setLanePoly,
             polyLock, setPolyLock: v => {
               setPolyLock(v); LS.set('polyLock', v);
               if (cfg.host && juceAvailable()) sendParamActual('polyLock', v === 'step' ? 1 : 0);
