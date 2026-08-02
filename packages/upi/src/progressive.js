@@ -26,6 +26,7 @@
  * progressive.test.js — see the header there for how the vectors were taken.
  */
 import { barlowTransform, euclideanRhythm, euclideanComplement, bellCurveRandomSteps } from "./rhythm.js";
+import { rng, seedFromSteps } from "./rng.js";
 // The package's own rotate, so progressive offset turns the same way as the
 // UI's Rotate transform.
 //
@@ -111,14 +112,14 @@ function transformStep(steps, type, target) {
  * @param {(s:string)=>{steps:number[]}} opts.parseBase  parser for the base
  *        string (inject upi.js's parse; kept out of here so this module stays
  *        free of a circular import)
- * @param {() => number} [opts.random]  RNG for `*N` lengthening. Lengthening
- *        is random by design and is NOT reproducible between runs — that
- *        matches the engine, and rhythm patterns are documented elsewhere
- *        anyway. Injectable purely so tests can pin it.
+ * @param {() => number} [opts.random]  RNG for `*N` lengthening. Defaults to a
+ *        stream seeded from the BASE PATTERN — see the note in the lengthening
+ *        branch. Injectable so tests can pin it, and so a caller that wants
+ *        genuinely fresh material each time can pass `Math.random`.
  * @returns {{steps:number[], index:number, label:string}}
  */
 export function progressiveAt(desc, n, opts = {}) {
-  const { parseBase, random = Math.random } = opts;
+  const { parseBase } = opts;
   if (typeof parseBase !== "function") throw new TypeError("progressiveAt needs opts.parseBase");
   const idx = Math.max(1, Math.floor(n));
   const parsed = parseBase(desc.base);
@@ -136,6 +137,25 @@ export function progressiveAt(desc, n, opts = {}) {
     // Same phase rule, hence `i = 1`: trigger 1 is the bare base and the first
     // growth lands on trigger 2. The engine no longer applies an initial
     // lengthening on setup either.
+    //
+    // SEEDED FROM THE BASE PATTERN, not from a global RNG (2026-08-02, Alex's
+    // call). Two consequences, and the second is the real reason:
+    //
+    //   · a given trigger now names a PATTERN, not just a length. Serpe and
+    //     Workspace both display "trigger N" as though it identified what you
+    //     are hearing, and with Math.random it did not — the same trigger
+    //     re-rolled on every recompute, which made the readout a small lie and
+    //     made a session impossible to return to.
+    //
+    //   · the stream advances ACROSS the loop rather than restarting, so
+    //     trigger N is trigger N-1 plus one new chunk. The lane GROWS. With a
+    //     fresh RNG per call the whole tail was re-rolled every advance, so a
+    //     lane never settled into anything — you could not learn a pattern that
+    //     rewrote its own history each time it got longer.
+    //
+    // Different patterns still grow differently (the seed is the base's bits),
+    // and a caller wanting non-reproducible material passes opts.random.
+    const random = opts.random ?? rng(seedFromSteps(base, desc.step));
     let out = base.slice();
     for (let i = 1; i < idx; i++) out = out.concat(bellCurveRandomSteps(desc.step, random));
     return { steps: out, index: idx, label: desc.source };

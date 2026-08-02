@@ -16,6 +16,7 @@
  * so the analysis must not require them.
  */
 import { intervals, onsetIndices } from "./analysis.js";
+import { rng } from "./rng.js";
 
 /** Classic two-value feet, named. Keys are the L/S string, cyclically. */
 const FEET = {
@@ -167,15 +168,9 @@ export function dynamicDurations(steps, opts = {}) {
     return ls.types.map((t) => (t === "long" ? unit * mid : unit));
   }
 
-  // mulberry32, inlined — @enkerli/upi stays dependency-free by design.
-  let s = (seed * 0x9e3779b1 + pass * 0x85ebca6b) >>> 0;
-  const rnd = () => {
-    s = (s + 0x6d2b79f5) >>> 0;
-    let t = s;
-    t = Math.imul(t ^ (t >>> 15), t | 1);
-    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
+  // Shared with microtiming and progressive lengthening (rng.js). This was a
+  // second inlined copy that used `*` where the other used Math.imul.
+  const rnd = rng(seed, pass);
 
   const n = steps.length;
   const on = onsetIndices(steps);

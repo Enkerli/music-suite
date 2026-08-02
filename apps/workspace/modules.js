@@ -100,8 +100,6 @@ export function patternModule(ctx, bodyEl, state) {
   // 2, which is the first transformed cycle. Not persisted: a session resumes
   // at the base, which is the honest place to resume.
   let trigger = 1;
-  // Resolved lanes for the current (notation, trigger). See soundingLanes.
-  let soundingCache = null, soundingKey = null;
   // What we last put on the bus. The bus echoes our own publish back to us,
   // and the incoming path can only carry ONE mask — so without this the echo
   // immediately overwrote a freshly drawn poly with a single flattened lane.
@@ -142,24 +140,18 @@ export function patternModule(ctx, bodyEl, state) {
    * triggered once, and publishing the typed parse would put a pattern on the
    * bus that never advances.
    *
-   * CACHED per trigger, because polyLaneAt is NOT pure for `*N`: lengthening
-   * appends random material by design, so calling it twice at trigger 3 gives
-   * two different patterns. Without the cache, pressing ▶ send twice would
-   * publish something different from what is drawn, and the Player would play
-   * a pattern the ring never showed. Advancing clears it — a new trigger is
-   * supposed to bring new material.
+   * polyLaneAt is pure in the trigger index — including `*N`, whose generated
+   * material is seeded from the base pattern (2026-08-02). So the readout can
+   * show the trigger number and mean it: replaying a number replays a pattern,
+   * and no cache is needed to keep the ring and the bus agreeing.
    *
    * Trigger 1 is the BARE BASE (INTENT D6).
    */
   function soundingLanes(p) {
     if (!p.lanes.some((l) => l.progressive)) return p.lanes;
-    const key = `${input.value}@${trigger}`;
-    if (soundingKey === key && soundingCache) return soundingCache;
-    soundingKey = key;
-    soundingCache = p.lanes.map((lane) => (lane.progressive
+    return p.lanes.map((lane) => (lane.progressive
       ? { ...lane, steps: polyLaneAt(lane, trigger), triggerIndex: trigger }
       : { ...lane, triggerIndex: trigger }));
-    return soundingCache;
   }
 
   function send() {

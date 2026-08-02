@@ -504,14 +504,16 @@ function SerpeApp() {
     // STANDALONE: no engine to report lane state, so derive it here. Each lane
     // resolves its own progression at the shared trigger ordinal.
     //
-    // polyLaneAt is pure in that index for `>N` and `@N` — but NOT for `*N`.
-    // Lengthening appends bellCurveRandomSteps, which is random BY DESIGN
-    // (progressive.test.js asserts only its phase and length), so the same
-    // trigger re-rolls new material on every recompute. The chip shows the
-    // trigger it was derived from, and for a lengthening lane that identifies
-    // the LENGTH, not the exact steps. useMemo is what keeps it stable between
-    // renders here; do not read the stability as a property of polyLaneAt.
-    // (Corrected 2026-08-02 — this comment previously claimed purity outright.)
+    // polyLaneAt is pure in that index, so replaying the same number always
+    // gives the same pattern and the chip below can show the number it was
+    // derived from rather than a tally kept beside it.
+    //
+    // True of `*N` too, but only since 2026-08-02: lengthening appended
+    // Math.random material, so this comment was wrong when it was first
+    // written — the same trigger re-rolled on every recompute and useMemo was
+    // the only thing hiding it. The generated material is now seeded from the
+    // base pattern, and progressive.test.js pins both the reproducibility and
+    // the fact that each trigger EXTENDS the last instead of rewriting it.
     if (!engineLanes || !Array.isArray(engineLanes.patterns)) {
       if (!poly.lanes.some((l) => l.progressive)) return poly;
       return {

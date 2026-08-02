@@ -139,6 +139,43 @@ describe("progressive offset — bit-identical to the C++ engine", () => {
 });
 
 describe("progressive lengthening", () => {
+  // Seeded from the base pattern since 2026-08-02. Before that it used
+  // Math.random, so a given trigger did not name a pattern — Serpe and
+  // Workspace both showed "trigger N" as though it did, and the same trigger
+  // re-rolled on every recompute.
+  it("is REPRODUCIBLE: the same trigger always gives the same pattern", () => {
+    const d = parseProgressive("E(3,8)*4");
+    const a = progressiveAt(d, 3, { parseBase }).steps;
+    const b = progressiveAt(d, 3, { parseBase }).steps;
+    expect(a).toEqual(b);
+  });
+
+  it("GROWS: each trigger extends the one before rather than re-rolling it", () => {
+    // The musical point. With a fresh RNG per call the whole tail was
+    // regenerated on every advance, so a lane rewrote its own history each time
+    // it got longer and never settled into anything learnable.
+    const d = parseProgressive("E(3,8)*4");
+    const t2 = progressiveAt(d, 2, { parseBase }).steps;
+    const t3 = progressiveAt(d, 3, { parseBase }).steps;
+    expect(t3.slice(0, t2.length)).toEqual(t2);
+  });
+
+  it("gives DIFFERENT patterns different material", () => {
+    // Seeded from the base's own bits, so reproducible does not mean identical
+    // across patterns.
+    const a = progressiveAt(parseProgressive("E(3,8)*4"), 3, { parseBase }).steps;
+    const b = progressiveAt(parseProgressive("E(5,8)*4"), 3, { parseBase }).steps;
+    expect(a.length).toBe(b.length);
+    expect(a).not.toEqual(b);
+  });
+
+  it("still takes an injected RNG, for a caller that wants fresh material", () => {
+    const d = parseProgressive("E(3,8)*4");
+    const ones = progressiveAt(d, 3, { parseBase, random: () => 0.99 }).steps;
+    const zeros = progressiveAt(d, 3, { parseBase, random: () => 0.01 }).steps;
+    expect(ones).not.toEqual(zeros);
+  });
+
   it("grows by `step` steps per trigger, keeping the base as a prefix", () => {
     const random = () => 0.5;                       // pinned only for the test
     const d = parseProgressive("E(3,8)*4");

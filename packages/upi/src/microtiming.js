@@ -32,18 +32,8 @@
  * zeros, i.e. dead-straight timing.
  */
 import { onsetIndices } from "./analysis.js";
+import { rng } from "./rng.js";
 
-/** mulberry32, inlined — this package stays dependency-free by design. */
-function rng(seed, pass) {
-  let s = (Math.imul(seed | 0, 0x9e3779b1) + Math.imul(pass | 0, 0x85ebca6b)) >>> 0;
-  return () => {
-    s = (s + 0x6d2b79f5) >>> 0;
-    let t = s;
-    t = Math.imul(t ^ (t >>> 15), t | 1);
-    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-}
 
 /**
  * How far a single onset may be displaced, in fractions of a step, and how
