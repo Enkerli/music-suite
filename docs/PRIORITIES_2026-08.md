@@ -77,11 +77,14 @@ forward:
   rather than re-rolling the whole tail. mulberry32 was extracted to
   `packages/upi/src/rng.js` on the way; it had been inlined twice and the copies
   had already drifted (`Math.imul` vs `*`).
-  **Still open:** the C++ engine grows `*N` with its own RNG, so a plugin
-  session and a standalone one produce different material for the same
-  notation. D3 means the engine wins where it is present, so nothing is broken
-  — but if the two should agree, the seed has to cross over. Worth a decision
-  during the audit.
+  **Closed 2026-08-02** (Serpe `0366d06`): the engine grows `*N` the same way
+  now, pinned by a new `serpe_lengthening_conformance` target (21 vectors from
+  `@enkerli/upi`).
+  Getting there changed the JS seeding SHAPE — each chunk is seeded from the
+  pattern so far rather than from one stream opened at the base. Same
+  reproducibility and same growth, but STATELESS, which is what let the engine
+  match at three append sites without restructuring its lengthening state or
+  its saved-state format.
 - Workspace had **no cache-bust on `bundle.js`**. A rebuild kept serving the
   old bundle, so a landed fix looked like it had not landed — the hard-refresh
   papercut, again. Stamped with a build id the way Vane already does. Worth

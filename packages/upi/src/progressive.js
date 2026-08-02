@@ -153,11 +153,22 @@ export function progressiveAt(desc, n, opts = {}) {
     //     lane never settled into anything — you could not learn a pattern that
     //     rewrote its own history each time it got longer.
     //
-    // Different patterns still grow differently (the seed is the base's bits),
-    // and a caller wanting non-reproducible material passes opts.random.
-    const random = opts.random ?? rng(seedFromSteps(base, desc.step));
+    // Each chunk is seeded from the pattern SO FAR, not from one stream opened
+    // at the base. Both give reproducibility and both make trigger N extend
+    // trigger N-1 — but this one is STATELESS: the next chunk depends only on
+    // what is already there, so a caller can append incrementally without
+    // tracking how many triggers have passed.
+    //
+    // That is what lets the C++ engine agree with this (2026-08-02). It grows
+    // by appending, in two places (mono, and per lane per scene), and neither
+    // keeps a trigger ordinal — matching a single advancing stream would have
+    // meant restructuring that state and the plugin's saved-state format. This
+    // costs nothing here and makes the engine's side a local change.
     let out = base.slice();
-    for (let i = 1; i < idx; i++) out = out.concat(bellCurveRandomSteps(desc.step, random));
+    for (let i = 1; i < idx; i++) {
+      const random = opts.random ?? rng(seedFromSteps(out, desc.step));
+      out = out.concat(bellCurveRandomSteps(desc.step, random));
+    }
     return { steps: out, index: idx, label: desc.source };
   }
 
