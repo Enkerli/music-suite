@@ -137,9 +137,18 @@ export function hat(ctx, p = {}) {
 }
 
 export const closedHat = (ctx, p = {}) => hat(ctx, { decayMs: 55, ...p });
+/** The foot. Shorter and darker than a stick-struck closed hat: the cymbals
+ *  clamp rather than ring, and there is no stick attack on top. */
+export const pedalHat = (ctx, p = {}) =>
+  hat(ctx, { decayMs: 38, toneHz: 6200, q: 1.1, gain: 0.5, ...p });
 export const openHat = (ctx, p = {}) => hat(ctx, { decayMs: 420, ...p });
 export const crash = (ctx, p = {}) =>
   hat(ctx, { decayMs: 1400, toneHz: 5200, q: 0.7, gain: 0.55, ...p });
+/** Ride: a defined stick PING over a short wash, not a crash's spread. Between
+ *  a hat and a crash in length, and narrower in the band than either — the
+ *  point of a ride is that repeated hits stay distinguishable. */
+export const ride = (ctx, p = {}) =>
+  hat(ctx, { decayMs: 320, toneHz: 7000, q: 2.2, gain: 0.5, ...p });
 
 export function clap(ctx, p = {}) {
   const { buf, at, sr, velocity = 1, seed = 3 } = ctx;
@@ -165,7 +174,7 @@ export function clap(ctx, p = {}) {
 
 /** name → voice. Kept beside the kit so a sound cannot exist without a synth. */
 export const VOICES = {
-  kick, snare, clap, closedHat, openHat, crash,
+  kick, snare, clap, closedHat, openHat, pedalHat, ride, crash,
   lowTom: (ctx, p = {}) => tom(ctx, { startHz: 190, endHz: 105, ...p }),
   midTom: (ctx, p = {}) => tom(ctx, { startHz: 280, endHz: 160, ...p }),
 };

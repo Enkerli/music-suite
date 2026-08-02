@@ -28,11 +28,29 @@ describe("the kit", () => {
     for (const [, d] of Object.entries(KIT)) expect(d.pc).toBe(d.note % 12);
   });
 
-  it("folds an unknown note to its pitch class rather than dropping it", () => {
+  it("maps out-of-kit notes BY MEANING before falling back to arithmetic", () => {
+    // The pitch-class fallback is musically wrong for real drum notes and was
+    // silently so: EZdrummer puts the pedal hat at 21, 21 % 12 == 9, so it
+    // resolved to a mid tom. 11% of a jazz-waltz corpus rendered as a tom with
+    // nothing said. Confirmed against the community EZdrummer sheet: A-1 is
+    // the closed pedal.
+    expect(resolveDrum(21)).toBe("pedalHat");
+    expect(resolveDrum(44)).toBe("pedalHat");   // GM pedal hi-hat
+    expect(resolveDrum(51)).toBe("ride");       // THE ride note in practice, though the kit puts ride at 59
+    expect(resolveDrum(35)).toBe("kick");
+    expect(resolveDrum(48)).toBe("midTom");
+  });
+
+  it("gives the pedal hat its own pitch class, not a tom's", () => {
+    expect(KIT.pedalHat.note).toBe(44);
+    expect(KIT.pedalHat.pc).toBe(8);
+    expect(KIT.pedalHat.pc).not.toBe(KIT.midTom.pc);
+  });
+
+  it("folds a genuinely unknown note to its pitch class rather than dropping it", () => {
     // Real drum MIDI has three toms, two crashes, a ride and a cowbell. Landing
     // a GM high tom (48) on the kick is wrong, but silence on someone's first
     // file would be worse — and it is documented, not accidental.
-    expect(resolveDrum(48)).toBe("kick");
     expect(resolveDrum(42)).toBe("closedHat");
     expect(resolveDrum(1.5)).toBeNull();
   });
@@ -71,6 +89,23 @@ describe("the voices", () => {
   // The reason the durational layer mattered for drums: closed and open are the
   // SAME voice at different decays, so `LS(r){mask}` choosing which hits ring
   // is a real instruction to the synth, not a label.
+  it("the cymbals form a length family, shortest foot to longest crash", () => {
+    const len = (n) => { const b = renderHits([{ drum: n, timeSec: 0 }], { tailSec: 2 });
+      let last = 0; b.forEach((v, i) => { if (Math.abs(v) > 0.002) last = i; }); return last; };
+    // A ride must be shorter than an open hat and far shorter than a crash, or
+    // repeated ride hits smear into a wash — which is what happened when note
+    // 51 resolved to a crash and 40% of a jazz corpus rendered as one.
+    expect(len("ride")).toBeGreaterThan(len("closedHat"));
+    expect(len("ride")).toBeLessThan(len("crash"));
+  });
+
+  it("the pedal hat is the shortest of the three — the foot clamps", () => {
+    const len = (n) => { const b = renderHits([{ drum: n, timeSec: 0 }], { tailSec: 2 });
+      let last = 0; b.forEach((v, i) => { if (Math.abs(v) > 0.002) last = i; }); return last; };
+    expect(len("pedalHat")).toBeLessThan(len("closedHat"));
+    expect(len("closedHat")).toBeLessThan(len("openHat"));
+  });
+
   it("an open hat rings and a closed hat chokes", () => {
     const closed = lengthAbove(renderHits([{ drum: "closedHat", timeSec: 0 }], { tailSec: 2 }));
     const open = lengthAbove(renderHits([{ drum: "openHat", timeSec: 0 }], { tailSec: 2 }));
