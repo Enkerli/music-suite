@@ -66,7 +66,10 @@ const PARAM_MAP = { Cutoff: 1, Reso: 2, Output: 8, VelVCA: 9, Glide: 10,
                     UniVox: 39, UniDet: 40, UniWid: 41, UniMode: 42,
                     TrChoice: 43, TrGain: 44, TrDecay: 45, TrTrigger: 46, TrVar: 47,
                     TrFilt: 48, TrDyn: 49, TrReso: 50, TrDamp: 51, TrMorph: 52,
-                    GlideMode: 53, GlideCurve: 54 };
+                    GlideMode: 53, GlideCurve: 54,
+                    // Synthetic breath — the stand-in wind source for note-only
+                    // input (a sequencer sends no breath, expression or pressure).
+                    SbMode: 55, SbAtk: 56, SbDec: 57, SbSus: 58, SbRel: 59 };
 
 // Rotating-chord sequence parsing — the plugin's parseChordInterval semantics:
 // ';' separates harmony voices, ',' separates steps; each step is decimal

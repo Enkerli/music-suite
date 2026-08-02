@@ -689,7 +689,8 @@ const state = {
           Glide:0,GlideMode:0,GlideCurve:0,MasterTune:0,UniVox:0,UniDet:14,UniWid:0.7,UniMode:0,
           VowelEn:0,VowelMode:0,Vowel:0.5,VowFront:0.5,VowRound:0,VowelAmt:1,VowelBite:0.5,VowelMove:0,
           WaveguideOn:0,WgEmbouchure:0.5,WgReedStiff:0.5,WgReedAperture:0.5,WgBoreDamping:0.2,
-          WgBellBright:0.7,WgConical:0.62,WgBreathNoise:0.05,WgGrowl:0.0 },
+          WgBellBright:0.7,WgConical:0.62,WgBreathNoise:0.05,WgGrowl:0.0,
+          SbMode:1,SbAtk:35,SbDec:120,SbSus:0.80,SbRel:180 },
   slots: Array.from({length:NUM_SLOTS},()=>({src:0,dst:0,amt:0,curve:0,scale:0,atk:5,rel:80,on:true,anchors:[]})),
   voices:[],   // live per-note MPE expression: [{note,hz,level,pressure,slide,bend,vel}]
   aux:[],      // controller-profile aux sources: [{label, cc}] (from controllerState)
@@ -1059,6 +1060,8 @@ const FMT={ Cutoff:v=>Math.round(v)+' Hz', Detune:v=>v.toFixed(0)+' ¢', MasterT
   WgReedAperture:v=>Math.round(v*100)+'%', WgBoreDamping:v=>Math.round(v*100)+'%',
   WgBellBright:v=>Math.round(v*100)+'%', WgConical:v=>Math.round(v*100)+'%',
   WgBreathNoise:v=>Math.round(v*100)+'%', WgGrowl:v=>Math.round(v*100)+'%',
+  SbAtk:v=>Math.round(v)+' ms', SbDec:v=>Math.round(v)+' ms',
+  SbSus:v=>Math.round(v*100)+'%', SbRel:v=>Math.round(v)+' ms',
   default:v=>v.toFixed(2) };
 const RANGE={ Morph:[0,1,.001], PW:[0.5,0.999,.001], Fold:[0,1,.01], Inharm:[0,1,.01], Sync:[1,8,.01], Noise:[0,1,.01], Detune:[-100,100,1],
               TrGain:[0,2,.01], TrDecay:[10,2000,1], TrVar:[0,1,.01], TrDyn:[0,1,.01], TrReso:[0,1,.01], TrDamp:[0,1,.01], TrMorph:[0,50,1],
@@ -1066,9 +1069,12 @@ const RANGE={ Morph:[0,1,.001], PW:[0.5,0.999,.001], Fold:[0,1,.01], Inharm:[0,1
   UniDet:[0,50,1], UniWid:[0,1,.01],
   Vowel:[0,1,.01], VowFront:[0,1,.01], VowRound:[0,1,.01], VowelAmt:[0,1,.01], VowelBite:[0,1,.01], VowelMove:[0,1,.01],
   WgEmbouchure:[0,1,.01], WgReedStiff:[0,1,.01], WgReedAperture:[0,1,.01], WgBoreDamping:[0,1,.01],
-  WgBellBright:[0,1,.01], WgConical:[0,1,.01], WgBreathNoise:[0,1,.01], WgGrowl:[0,1,.01] };
+  WgBellBright:[0,1,.01], WgConical:[0,1,.01], WgBreathNoise:[0,1,.01], WgGrowl:[0,1,.01],
+  SbAtk:[1,500,1], SbDec:[1,1000,1], SbSus:[0,1,.01], SbRel:[1,2000,5] };
 // Sliders that map exponentially (log) — most of the musical action is low.
-const LOGK={ Cutoff:true, TrDecay:true };
+// Log sliders — most of the musical action is at the low end. The synthetic
+// breath times match the plugin's 0.4 skew on the same parameters.
+const LOGK={ Cutoff:true, TrDecay:true, SbAtk:true, SbDec:true, SbRel:true };
 function toNorm(key,v){ const [a,b]=RANGE[key]; if(LOGK[key]&&a>0&&v>0) return clamp(Math.log(v/a)/Math.log(b/a),0,1); return clamp((v-a)/(b-a),0,1); }
 function toVal(key,n){ const [a,b]=RANGE[key]; n=clamp(n,0,1); return (LOGK[key]&&a>0)? a*Math.pow(b/a,n) : a+n*(b-a); }
 
@@ -1136,6 +1142,15 @@ function renderPatch(){
         ${pslider('WgReedAperture','Reed Aperture','--vn-expr')}${pslider('WgBoreDamping','Bore Damping','--vn-expr')}
         ${pslider('WgBellBright','Bell Brightness','--vn-expr')}${pslider('WgConical','Conical Amount','--vn-expr')}
         ${pslider('WgBreathNoise','Breath Noise','--vn-expr')}${pslider('WgGrowl','Growl','--vn-expr')}
+        <div class="pslider" style="grid-column:1/-1">
+          <div class="top"><span class="lbl">Synthetic Breath</span></div>
+          <div class="seg" style="width:100%">${["Off","Auto","Always"].map((n,i)=>`<button class="${Math.round(state.patch.SbMode)===i?'active':''}" onclick="setChoice('SbMode',${i})" style="flex:1">${n}</button>`).join('')}</div>
+          <div class="num" style="color:var(--vn-muted);font-size:12px;padding-top:5px">A sequencer, a piano roll and most keyboards send notes but no breath, so the reed gets nothing and stays silent. This blows it with an envelope instead. <b style="color:var(--vn-text)">Auto</b> steps aside as soon as a real breath, expression or pressure message arrives. It joins the same maximum as every other breath source, so it never overrides someone actually blowing — and a slur keeps one breath across several notes.</div>
+        </div>
+        ${Math.round(state.patch.SbMode)!==0 ? `
+          ${pslider('SbAtk','Breath Attack','--vn-breath')}${pslider('SbDec','Breath Decay','--vn-breath')}
+          ${pslider('SbSus','Breath Sustain','--vn-breath')}${pslider('SbRel','Breath Release','--vn-breath')}
+        ` : ''}
       ` : ''}
     </div>
     <div class="group ${collapsed['Filter']?'collapsed':''}" data-grp="Filter">${gh('Filter')}
