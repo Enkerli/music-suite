@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { describe, it, expect } from "vitest";
-import { createCircleView, createPolyCircleView, describeLanes } from "./render.js";
+import { createCircleView, createPolyCircleView, describeLanes } from "./rhythm-views.js";
 
 const lane = (steps, accents = steps.map(() => 0)) => ({ steps, accents });
 

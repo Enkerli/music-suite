@@ -28,7 +28,7 @@ import { parseUPI, euclid, polygon, rotate, complement, invert,
          longShort, durations, dynamicDurations, identify,
          microtiming, timingScales,
          parseNamedPatterns, parseProgressive, progressiveAt } from '@enkerli/upi';
-import { createCircleView, createStepView, createPolyCircleView } from './engine/render.js';
+import { createCircleView, createStepView, createPolyCircleView } from '@enkerli/ui/rhythm-views';
 import { soundingPattern } from './engine/sounding.js';
 import { laneStepMs as computeLaneStepMs, laneOffsetMs as computeLaneOffsetMs } from './engine/poly-clock.js';
 import serpeManifest from './manifest.json';
@@ -217,7 +217,7 @@ function EngineView({ create, opts, data }) {
 // (a lane's own note input always wins). Routing stays UI state.
 //
 // Rows/Circle (KT item 9): a second, purely visual reading of the SAME
-// lanes as nested rings (engine/render.js createPolyCircleView). Works
+// lanes as nested rings (@enkerli/ui rhythm-views createPolyCircleView). Works
 // under EITHER lock — the ring geometry comes from the parsed pattern
 // (lane.steps/accents), not from how it's scheduled, so it's just as valid
 // under step lock as cycle lock (v2: the earlier cycle-lock-only gate is

@@ -50,7 +50,7 @@ are now real in the plugin's own C++ scheduler, not just the webapp's.
   logic, not a port (detailed sizing in the audit doc's "Follow-up"
   section).
 - **Item 9 — Serpe concentric circles.** `createPolyCircleView` in
-  `engine/render.js`, a Rows/Circle toggle in `PolyLanesPanel`. v1 shipped
+  `@enkerli/ui/rhythm-views`, a Rows/Circle toggle in `PolyLanesPanel`. v1 shipped
   cycle-lock-only with a 4-color rotation; v2 (same day, on review) fixed
   a real contrast bug and dropped an unnecessary restriction — both below.
 

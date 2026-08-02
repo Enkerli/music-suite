@@ -10,7 +10,8 @@ import { sliderToNative, nativeToSlider, paramSet, commandInvoke, formatValue } 
 import { makeMessage, makeNote } from "@enkerli/protocol";
 import { VoiceSplitter, MonoMerge } from "@enkerli/voice-routing";
 import { APPS } from "@enkerli/library";
-import { parseUPI, analyse, analyzeSyncopation, rotate, invert, complement, barlowTransform, mutatePattern } from "@enkerli/upi";
+import { parseUPI, parsePolyUPI, analyse, analyzeSyncopation, rotate, invert, complement, barlowTransform, mutatePattern } from "@enkerli/upi";
+import { createCircleView, createPolyCircleView } from "@enkerli/ui/rhythm-views";
 import { createBindingEngine, addBinding, removeBinding } from "@enkerli/control";
 import { parseLeadsheet, detectChord, rootName, realizeLeadsheet } from "@enkerli/theory";
 import { generateLabels, realizeLabel } from "@enkerli/proggen";
@@ -85,29 +86,93 @@ export function controlSurfaceModule(ctx, bodyEl, state) {
 export function patternModule(ctx, bodyEl, state) {
   const input = el("input", { class: "ws-text", type: "text", value: state.upi ?? "E(3,8)",
     "aria-label": "UPI notation", spellcheck: "false" });
-  const lane = el("div", { class: "ws-lane", "aria-hidden": "true" });
-  const info = el("div", { class: "ws-readout" });
+  const lanes = el("div", { class: "ws-lanes", "aria-hidden": "true" });
+  const ring = el("div", { class: "ws-ring" });
+  const info = el("div", { class: "ws-readout", role: "status", "aria-live": "polite" });
 
-  function draw(steps, note) {
-    lane.replaceChildren(...steps.map((s) => el("span", { class: `ws-step${s ? " on" : ""}` })));
-    info.textContent = note;
+  // Steps AND circle, both wanted (DESIGN_BRIEF §3.4). The renderers are
+  // Serpe's, now shared from @enkerli/ui/rhythm-views rather than
+  // reimplemented here — one rhythm language across the suite, so a duration
+  // arc means the same thing wherever it is drawn.
+  state.view = state.view ?? "both";
+  let view = null, viewIsPoly = null;
+  // What we last put on the bus. The bus echoes our own publish back to us,
+  // and the incoming path can only carry ONE mask — so without this the echo
+  // immediately overwrote a freshly drawn poly with a single flattened lane.
+  // It was invisible before this module drew lanes at all.
+  let lastSent = null;
+
+  function showRing(poly) {
+    const wantPoly = poly.lanes.length > 1;
+    if (!view || viewIsPoly !== wantPoly) {
+      view = (wantPoly ? createPolyCircleView : createCircleView)(ring, {});
+      viewIsPoly = wantPoly;
+    }
+    if (wantPoly) {
+      view.update({ lanes: poly.lanes, lanePh: poly.lanes.map(() => -1), muted: poly.lanes.map(() => false) });
+    } else {
+      const l = poly.lanes[0];
+      view.update({ steps: l.steps, accents: l.accents ?? [], playhead: -1, showCog: true });
+    }
   }
+
+  function drawLanes(poly) {
+    lanes.replaceChildren(...poly.lanes.map((l) => {
+      const row = el("div", { class: "ws-lane" });
+      row.append(...l.steps.map((s, i) => el("span", {
+        class: `ws-step${s ? " on" : ""}${l.accents && l.accents[i] ? " acc" : ""}`,
+      })));
+      return row;
+    }));
+  }
+
   function send() {
-    const r = parseUPI(input.value, { n: 16 });
-    if (!r.ok) { info.textContent = "unparsed"; return; }
+    // parsePolyUPI, not parseUPI: the mono parser rejects '|' outright and
+    // knows nothing of lanes or progression, so this module could take none of
+    // the notation the rest of the suite plays. Layering rule — anything
+    // reading USER INPUT uses parsePolyUPI; only library internals use the
+    // single-body parser (SERPE_DAW_FINDINGS F7).
+    const p = parsePolyUPI(input.value, { n: 16 });
+    if (!p.ok) { info.textContent = p.error ?? "unparsed"; return; }
     state.upi = input.value; ctx.save();
-    const a = analyse(r.steps);
-    draw(r.steps, `${a.n} steps · ${a.k} onsets · mask ${a.decimal} (${a.hex})`);
-    ctx.bus.publish(makeMessage(FROM, "pattern", { steps: a.n, mask: a.decimal, name: r.label }, { to: "*" }));
+
+    drawLanes(p);
+    showRing(p);
+
+    const parts = p.lanes.map((l, i) => {
+      const a = analyse(l.steps);
+      const extra = [];
+      if (l.sceneCount > 1) extra.push(`scene ${(l.sceneIndex ?? 0) + 1}/${l.sceneCount}`);
+      if (l.progressive) extra.push(l.progressive.kind);
+      if (l.accentPattern?.length) extra.push(`{${l.accentPattern.join("")}}`);
+      return `${p.lanes.length > 1 ? `lane ${i + 1}: ` : ""}${a.n} steps · ${a.k} onsets`
+        + (extra.length ? ` · ${extra.join(" · ")}` : "");
+    });
+    info.textContent = parts.join("   |   ")
+      + (p.lanes.length > 1 ? `   ·   realign every ${p.lcm}` : "");
+
+    // The bus contract is one mask, so poly publishes LANE 1 and says so in
+    // the readout rather than silently flattening lanes into one number.
+    const a0 = analyse(p.lanes[0].steps);
+    lastSent = `${a0.n}:${a0.decimal}`;
+    ctx.bus.publish(makeMessage(FROM, "pattern",
+      { steps: a0.n, mask: a0.decimal, name: p.lanes[0].source ?? input.value }, { to: "*" }));
   }
+
   input.addEventListener("keydown", (e) => { if (e.key === "Enter") send(); });
   bodyEl.append(
     el("div", { class: "ws-row" }, input, el("button", { class: "ws-btn", text: "▶ send", onclick: send })),
-    lane, info);
+    ring, lanes, info);
+
   const off = ctx.bus.subscribe((m) => {
     if (m.type !== "pattern") return;
+    // Our own echo — the local render is strictly richer (lanes, accents,
+    // scenes), so redrawing it from one mask would be a downgrade.
+    if (`${m.body.steps}:${m.body.mask}` === lastSent) return;
     const steps = Array.from({ length: m.body.steps }, (_, i) => (m.body.mask >> i) & 1); // leftmost = LSB
-    draw(steps, `via bus ← ${m.from}: ${m.body.name ?? ""} (mask ${m.body.mask})`);
+    const asPoly = { ok: true, lanes: [{ steps, accents: steps.map(() => 0) }], lcm: m.body.steps };
+    drawLanes(asPoly); showRing(asPoly);
+    info.textContent = `via bus ← ${m.from}: ${m.body.name ?? ""} (mask ${m.body.mask})`;
   });
   send();
   return off;

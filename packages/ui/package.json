@@ -4,39 +4,40 @@
   "description": "Design tokens and shared web components for the Enkerli music suite (browsers and JUCE WebViews)",
   "license": "CC0-1.0",
   "exports": {
-    "./tokens.css": "./tokens/tokens.css",
     "./components.css": "./tokens/components.css",
-    "./theme": {
-      "types": "./theme.d.ts",
-      "default": "./theme.js"
-    },
-    "./pcs-ring": "./components/pcs-ring.js",
-    "./pitch-grid": "./components/pitch-grid.js",
-    "./piano-roll": "./components/piano-roll.js",
-    "./section": "./components/section.js",
-    "./range-slider": "./components/range-slider.js",
-    "./knob": "./components/knob.js",
-    "./pitch-class-colors": "./components/pitch-class-colors.js",
-    "./naming": {
-      "types": "./naming.d.ts",
-      "default": "./naming.js"
-    },
-    "./leadsheet-editor": "./components/leadsheet-editor.js",
-    "./global-cluster": "./components/global-cluster.js",
-    "./icons/*": "./icons/*",
     "./confirm": {
       "types": "./confirm.d.ts",
       "default": "./confirm.js"
     },
+    "./fonts.css": "./fonts.css",
+    "./global-cluster": "./components/global-cluster.js",
+    "./icons/*": "./icons/*",
+    "./knob": "./components/knob.js",
+    "./leadsheet-editor": "./components/leadsheet-editor.js",
     "./library-browser": {
       "types": "./components/library-browser.d.ts",
       "default": "./components/library-browser.js"
+    },
+    "./naming": {
+      "types": "./naming.d.ts",
+      "default": "./naming.js"
+    },
+    "./pcs-ring": "./components/pcs-ring.js",
+    "./piano-roll": "./components/piano-roll.js",
+    "./pitch-class-colors": "./components/pitch-class-colors.js",
+    "./pitch-grid": "./components/pitch-grid.js",
+    "./range-slider": "./components/range-slider.js",
+    "./rhythm-views": "./components/rhythm-views.js",
+    "./section": "./components/section.js",
+    "./theme": {
+      "types": "./theme.d.ts",
+      "default": "./theme.js"
     },
     "./toast": {
       "types": "./components/toast.d.ts",
       "default": "./components/toast.js"
     },
-    "./fonts.css": "./fonts.css"
+    "./tokens.css": "./tokens/tokens.css"
   },
   "files": [
     "tokens",
@@ -52,6 +53,7 @@
     "fonts"
   ],
   "dependencies": {
-    "@enkerli/theory": "*"
+    "@enkerli/theory": "*",
+    "@enkerli/upi": "*"
   }
 }

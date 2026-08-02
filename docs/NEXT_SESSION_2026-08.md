@@ -27,7 +27,7 @@ Ground truth this plan is built on:
   session, so a Bitwig capture→assert loop is cheap.
 - `parseNamedPatterns` already exists (`packages/upi/src/named.js`); the shipped
   vocabulary is only `tresillo`/`cinquillo`/polygons in `upi.js` `SHORTHAND`.
-- `onsetArcPath` + `interOnsetSteps` exist in `apps/serpe/engine/render.js`.
+- `onsetArcPath` + `interOnsetSteps` exist in `packages/ui/components/rhythm-views.js`.
 
 ---
 

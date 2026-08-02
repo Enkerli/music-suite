@@ -159,3 +159,9 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .ws-hold-pad, .ws-hold-pad-ring-stroke { transition: none; }
 }
+
+/* Pattern module: steps AND circle (DESIGN_BRIEF §3.4). The ring is the shared
+   Serpe renderer, so a duration arc means the same thing here as there. */
+.ws-ring { max-width: 220px; margin: 6px auto 2px; }
+.ws-lanes { display: flex; flex-direction: column; gap: 4px; }
+.ws-step.acc { background: var(--es-dim-pressure, #c8791f); border-color: transparent; }

@@ -21,7 +21,7 @@ text, not logic.
 ## Resolved — the arc conflict
 
 **The handoff asks to replace the ring's onset wedges with duration arcs.**
-`engine/render.js` carries the opposite instruction, dated 2026-07-21:
+`@enkerli/ui/rhythm-views` (then `engine/render.js`) carries the opposite instruction, dated 2026-07-21:
 
 > *An earlier pass tried "onset-to-next-onset" arcs; screenshots showed that
 > model always fills the WHOLE circle for any pattern with 1+ onset (a cyclic

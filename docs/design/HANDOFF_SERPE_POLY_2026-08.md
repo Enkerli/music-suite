@@ -9,7 +9,7 @@ Implements the four priority items from `docs/DESIGN_BRIEF.md` §3–4 for Serpe
 - **§4** A non-visual (screen-reader) route authored alongside every visual.
 
 ## About the Design Files
-The bundled file is a **design reference created in HTML** — a live, theme-aware prototype showing intended look and behavior, **not production code to copy directly**. The task is to **recreate these designs in the Serpe codebase's existing environment** (framework-agnostic SVG/DOM helpers already live in `serpe/render.js`) using its established patterns. The renderer logic in the prototype is directly portable — it reuses the repo's own `ang(i,n)` / `pol(cx,cy,r,a)` geometry and the `@enkerli/ui` tokens — but it should be reworked into `createCircleView` rather than pasted.
+The bundled file is a **design reference created in HTML** — a live, theme-aware prototype showing intended look and behavior, **not production code to copy directly**. The task is to **recreate these designs in the Serpe codebase's existing environment** (framework-agnostic SVG/DOM helpers, since 2026-08-02 shared from `@enkerli/ui/rhythm-views` — the handoff was written when they lived in `serpe/render.js`) using its established patterns. The renderer logic in the prototype is directly portable — it reuses the repo's own `ang(i,n)` / `pol(cx,cy,r,a)` geometry and the `@enkerli/ui` tokens — but it should be reworked into `createCircleView` rather than pasted.
 
 ## Fidelity
 **High-fidelity.** Final colors, typography, spacing, geometry, and interactions, all drawn from the live `tokens.css` / `components.css`. Recreate pixel-close using the suite's existing token variables — do not introduce new colors or type.
@@ -66,7 +66,7 @@ gap = 0.4 * TAU / n             // arc trim so onsets stay discrete
 
 ## Files
 - `Poly & Explainability - Design Pass · August 2026.html` — the live prototype (this bundle). Drives Figures 1–5.
-- Reference: `serpe/render.js` (`ang`/`pol`, `createCircleView` to be replaced), `tokens.css`, `components.css` in the repo root.
+- Reference: `@enkerli/ui/rhythm-views` (`ang`/`pol`, `createCircleView`; was `serpe/render.js` when this was written), `tokens.css`, `components.css` in the repo root.
 - Companion doc: `docs/DESIGN_AGENT_ANSWERS.md` (Serpe arcs, MIDIcurator knobs, PitchFold hold pad, MTILT wordmark).
 
 ## Handoff sequence (cheap-first)
