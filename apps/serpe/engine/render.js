@@ -168,20 +168,40 @@ export function createCircleView(host, opts = {}) {
       }));
     }
 
-    // onset slices — each step owns its own fixed 360/n wedge of the donut
-    // band, delimited from its neighbors by a small gap; a rest draws
-    // nothing (the bare guide band shows through). Accented slices poke
-    // out past R_OUTER — color AND shape, never color alone.
+    // Onsets: a DURATION ARC from each onset to the next, with a filled node
+    // at its head — the same language as the poly rings, so the two views are
+    // one family rather than two idioms (design handoff 2026-08-01, Alex:
+    // "duration arcs are an improvement, now that their issues have been
+    // solved"). The arc says how long the onset sounds; the node says an
+    // attack happened here, which a long arc alone cannot.
+    //
+    // Replaces the fixed 360/n wedge. Arcs were reverted once because
+    // onset-to-next-onset spans tile the cycle exactly and closed into a
+    // continuous ring; onsetArcPath's trim plus the node are what fixed that,
+    // and the all-onset case is pinned in the tests.
     const onsets = [];
+    const nodes = [];
     for (let i = 0; i < n; i++) {
       if (!steps[i]) continue;
       onsets.push(i);
       const acc = !!accents[i];
       kids.push(el("path", {
-        d: stepWedgePath(cx, cy, R_INNER, acc ? R_OUTER + 8 : R_OUTER, i, n),
-        fill: acc ? accentAmber : accent,
+        d: onsetArcPath(cx, cy, R_OUTER, i, interOnsetSteps(steps, i), n),
+        fill: "none",
+        stroke: acc ? accentAmber : accent,
+        "stroke-width": acc ? 15 : 11,
+        "stroke-linecap": "round",
       }));
+      const [nx, ny] = pol(cx, cy, R_OUTER, ang(i, n));
+      nodes.push(el("circle", {
+        cx: nx.toFixed(1), cy: ny.toFixed(1), r: acc ? 9 : 7.5,
+        fill: acc ? accentAmber : accent,
+        stroke: "var(--es-bg-raised)", "stroke-width": 2.5,
+      }));
+      nodes.push(el("circle", { cx: nx.toFixed(1), cy: ny.toFixed(1), r: 2, fill: "var(--es-bg-raised)" }));
     }
+    // Nodes after every arc, or a long arc paints over the attack it belongs to.
+    kids.push(...nodes);
 
     // center of gravity vector
     if (state.showCog && onsets.length >= 1) {

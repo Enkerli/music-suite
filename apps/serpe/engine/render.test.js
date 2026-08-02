@@ -27,14 +27,18 @@ describe("createCircleView — donut-slice steps (DESIGN_AGENT_ANSWERS.md §1)",
     expect(host.querySelectorAll("svg polygon").length).toBe(0);
   });
 
-  it("a lone onset in a multi-step ring is a SMALL delimited slice, not a near-full ring", () => {
+  it("a lone onset sweeps almost the whole ring — the arc IS its duration", () => {
+    // The exact opposite of what the wedge model asserted here, and
+    // deliberately so: one onset in eight steps sounds until it comes round
+    // again, so its arc spans nearly the full cycle and takes the large-arc
+    // flag. It still stops short, which is what keeps the ring from closing.
     const host = document.createElement("div");
     const view = createCircleView(host, {});
     view.update({ steps: [1, 0, 0, 0, 0, 0, 0, 0], accents: [0] });
-    const wedge = host.querySelector("svg path");
-    expect(wedge).toBeTruthy();
-    // 1 of 8 steps = 45°, well under 180° — no large-arc-flag needed.
-    expect(wedge.getAttribute("d")).toMatch(/A [\d.]+ [\d.]+ 0 0 1/);
+    const arc = host.querySelector("svg path");
+    expect(arc.getAttribute("d")).toMatch(/A 118 118 0 1 1/);
+    expect(arc.getAttribute("fill")).toBe("none");
+    expect(arc.getAttribute("stroke-linecap")).toBe("round");
   });
 
   it("a single-step pattern (n=1) still closes correctly (needs the large-arc flag)", () => {
@@ -45,19 +49,17 @@ describe("createCircleView — donut-slice steps (DESIGN_AGENT_ANSWERS.md §1)",
     expect(wedge.getAttribute("d")).toMatch(/A [\d.]+ [\d.]+ 0 1 1/);
   });
 
-  it("an accented onset fills with the accent-amber token and pokes out further — two channels, not color alone", () => {
+  it("an accented onset is amber AND heavier — two channels, not colour alone", () => {
     const host = document.createElement("div");
     const view = createCircleView(host, {});
     view.update({ steps: [1, 0, 1, 0], accents: [1, 0, 0, 0] });
-    const wedges = host.querySelectorAll("svg path");
-    expect(wedges[0].getAttribute("fill")).toBe("var(--es-dim-pressure)"); // accented
-    expect(wedges[1].getAttribute("fill")).not.toBe("var(--es-dim-pressure)"); // plain
-    // "pokes out further": the accented wedge's outer radius (118+8=126) is
-    // larger than the plain wedge's (118) — present as bigger coordinates
-    // in its arc's radius parameter.
-    const accentedR = Number(wedges[0].getAttribute("d").match(/A ([\d.]+)/)[1]);
-    const plainR = Number(wedges[1].getAttribute("d").match(/A ([\d.]+)/)[1]);
-    expect(accentedR).toBeGreaterThan(plainR);
+    const arcs = host.querySelectorAll("svg path");
+    expect(arcs[0].getAttribute("stroke")).toBe("var(--es-dim-pressure)");
+    expect(arcs[1].getAttribute("stroke")).not.toBe("var(--es-dim-pressure)");
+    // The second channel is WEIGHT now, not radius — a wedge could poke out,
+    // a stroked arc gets thicker.
+    expect(Number(arcs[0].getAttribute("stroke-width")))
+      .toBeGreaterThan(Number(arcs[1].getAttribute("stroke-width")));
   });
 
   it("adjacent onsets are delimited — their slices don't touch (real gap, not a continuous ring)", () => {
@@ -77,12 +79,12 @@ describe("createCircleView — donut-slice steps (DESIGN_AGENT_ANSWERS.md §1)",
     const host = document.createElement("div");
     const view = createCircleView(host, { lane: "moss", showCog: false });
     view.update({ steps: [1, 0], accents: [0, 0] });
-    const guides = host.querySelectorAll("svg circle");
+    // Onset NODES are circles too now, so select the guides by their token
+    // rather than by counting every circle in the view.
+    const guides = [...host.querySelectorAll("svg circle")]
+      .filter((c) => c.getAttribute("stroke") === "var(--es-border)");
     expect(guides.length).toBe(2);
-    for (const g of guides) {
-      expect(g.getAttribute("stroke")).toBe("var(--es-border)");
-      expect(g.getAttribute("stroke-width")).toBe("1");
-    }
+    for (const g of guides) expect(g.getAttribute("stroke-width")).toBe("1");
     const radii = [...guides].map((g) => Number(g.getAttribute("r"))).sort((x, y) => x - y);
     expect(radii[0]).toBeGreaterThan(0); // the hole itself is never r=0 (no moiré-prone center convergence)
     expect(radii[1]).toBeGreaterThan(radii[0]);
