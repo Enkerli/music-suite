@@ -281,3 +281,42 @@ describe("offsetTicks (frac → ticks; ms handled by the scheduler)", () => {
     expect(offsetTicks(null, 480)).toBe(0);
   });
 });
+
+/**
+ * `LS(r){mask}` and `{mask}` are the SAME KIND of layer, and must behave the
+ * same way.
+ *
+ * Alex, 2026-08-02: the durational mask "sure should index onsets… which is
+ * actually the same thing for accents!" It is — accents cycle over onsets and
+ * are projected onto steps for consumers, and these pin that the durational
+ * mask does it identically rather than inventing a second rule.
+ */
+describe("durational mask and accent mask agree", () => {
+  it("both index ONSETS, not steps", () => {
+    // E(5,8) is 10110110 — onsets at 0,2,3,5,6. A 5-bit mask therefore lands on
+    // steps 0 and 5, NOT on steps 0 and 3 as a per-step reading would give.
+    const a = parseUPI("{10010}E(5,8)", { n: 8 });
+    const l = parseUPI("E(5,8)LS(4){10010}", { n: 8 });
+    expect(a.steps.map(Number).join("")).toBe("10110110");
+    expect(a.accents.join("")).toBe("10000100");
+    expect(l.longs.join("")).toBe("10000100");
+    expect(l.longs).toEqual(a.accents);
+  });
+
+  it("both CYCLE the mask over the onsets when it is shorter", () => {
+    const a = parseUPI("{10}E(4,8)", { n: 8 });
+    const l = parseUPI("E(4,8)LS(3){10}", { n: 8 });
+    expect(l.longs).toEqual(a.accents);
+  });
+
+  it("neither marks a rest — a rest has no accent and no duration", () => {
+    const l = parseUPI("E(3,8)LS(3){111}", { n: 8 });
+    l.steps.forEach((v, i) => { if (!v) expect(l.longs[i]).toBe(0); });
+  });
+
+  it("they compose: a hit can be accented, long, both or neither", () => {
+    const p = parseUPI("{1000}E(4,8)LS(3){10}", { n: 8 });
+    expect(p.accents.reduce((a, b) => a + b, 0)).toBe(1);
+    expect(p.longs.reduce((a, b) => a + b, 0)).toBe(2);
+  });
+});

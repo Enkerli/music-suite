@@ -6,6 +6,7 @@ import { join, resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseSMF, onsetTicks, byNote, lineArticulation } from "./midi-timing.mjs";
 
+
 /**
  * The timing baseline: what `msuite upi --midi` must produce, in ticks.
  *
@@ -188,5 +189,41 @@ describe("upi --midi with LS(…) — the durational layer", () => {
    */
   it("has NOTHING to say about an even grid — the open-hat gap", () => {
     expect(durs("E(8,16)LS(4)")).toEqual(durs("E(8,16)"));
+  });
+});
+
+/**
+ * Accents PRECESS across cycles, and so does the durational mask.
+ *
+ * A mask that does not divide the onset count keeps counting: `{10}` over five
+ * onsets starts cycle 2 on bit 1, not bit 0. The C++ engine has always done
+ * this — upi.js says so in as many words — and this renderer restarted the
+ * count every cycle, so a capture of `{10}E(5,8)` could never match the
+ * baseline it exists to be compared against. Same class as the lock-mode
+ * mismatch A1 was filed for.
+ */
+describe("upi --midi — masks precess across cycles", () => {
+  const dir = mkdtempSync(join(tmpdir(), "prec-"));
+  const accentedTicks = (notation, bars) => {
+    const smf = render({ notation, bars }, join(dir, "p.mid"));
+    // An accent is note+5 at velocity 127, matching the plugin.
+    return smf.notes.filter((n) => n.vel === 127).map((n) => n.tick);
+  };
+
+  it("{10} over five onsets carries the count into the next cycle", () => {
+    // Cycle 1 onsets 0..4 → bits 1,0,1,0,1 → accents at 0, 360, 720.
+    // Cycle 2 starts at onset 5 → bits 0,1,0,1,0 → accents at 1200, 1560.
+    // Restarting the count would accent 960, 1320, 1680 instead.
+    expect(accentedTicks("{10}E(5,8)", 3))
+      .toEqual([0, 360, 720, 1200, 1560, 1920, 2280, 2640]);
+  });
+
+  it("a mask that DOES divide evenly is unaffected", () => {
+    // 5 bits over 5 onsets: every cycle starts on bit 0 either way. This is
+    // why {10010}E(5,8) never showed the bug.
+    const one = accentedTicks("{10010}E(5,8)", 1);
+    const two = accentedTicks("{10010}E(5,8)", 2);
+    expect(two.slice(0, one.length)).toEqual(one);
+    expect(two.slice(one.length)).toEqual(one.map((t) => t + 960));
   });
 });

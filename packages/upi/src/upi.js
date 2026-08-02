@@ -318,10 +318,24 @@ export function parseUPI(input, ctx = { n: 16 }) {
       for (let i = 0; i < n; i++)
         if (steps[i]) { acc[i] = accents[onset % accents.length] ? 1 : 0; onset++; }
     }
+    // `LS(r){mask}` says WHICH onsets are long, for the even grid where the
+    // pattern's own intervals cannot say (E(8,16) has no long and no short).
+    // Projected here EXACTLY like accents — same onset cycling, same per-step
+    // output — because they are the same kind of layer and a consumer should
+    // not have to learn two shapes. `longs` is to `longShort.longMask` what
+    // `accents` is to `accentPattern`.
+    let longs = null;
+    if (longShortSpec?.longMask?.length) {
+      longs = new Array(n).fill(0);
+      let onset = 0;
+      for (let i = 0; i < n; i++)
+        if (steps[i]) { longs[i] = longShortSpec.longMask[onset % longShortSpec.longMask.length] ? 1 : 0; onset++; }
+    }
     // accentPattern is the raw {…} layer; the UI re-applies it with a live offset
     // so the displayed accents precess across cycles in step with playback.
     return { steps: steps.map(Number), accents: acc, accentPattern: accents,
-             longShort: longShortSpec, microtiming: microtimingSpec,
+             longShort: longShortSpec, ...(longs ? { longs } : {}),
+             microtiming: microtimingSpec,
              label, ok: true };
   };
 

@@ -152,16 +152,27 @@ Why this spelling rather than a new one:
 - no new bracket is free anyway: `{…}` is accents, `[…]` is the array form,
   `>` is progressive
 
-**What Alex needs to decide:**
+**Settled 2026-08-02.** Alex: the mask is fine, and it should index onsets —
+"which is actually the same thing for accents!"
 
-1. Is `LS(r){mask}` the spelling? It is implemented and reversible.
-2. The mask is indexed over **onsets** (cycling), unlike the accent prefix which
-   is per **step**. A rest has no duration to lengthen, so a per-step mask would
-   carry meaningless bits — but it is an inconsistency between two things that
-   look alike, and consistency may be worth more than tidiness here.
-3. The hat `.wav`s are rendered through a **sax**, since the drum synth is Tier 2.
-   The long notes ring convincingly; the 50 ms choked hits barely speak, because
-   a reed needs time. Worth re-rendering after D1.
+He was right, and checking it was worth it. Accents were ALREADY onset-indexed:
+`{10010}E(5,8)` has onsets at 0,2,3,5,6 and accents land on steps 0 and 5, i.e.
+onsets 0 and 3. The parser cycles the mask over onsets and projects onto steps
+for consumers. The durational mask now does exactly the same, ships the same
+pair of layers (`longs` to `longShort.longMask` as `accents` is to
+`accentPattern`), and four tests pin the equivalence.
+
+That comparison found a real bug in passing: **the file renderer did not precess
+either mask across cycles.** A mask that does not divide the onset count keeps
+counting — `{10}` over five onsets starts cycle 2 on bit 1 — and the C++ engine
+has always done this while `upi --midi` restarted every cycle. So a capture of
+`{10}E(5,8)` could never have matched its own baseline. Same class as the
+lock-mode mismatch A1 was filed for, and it would have surfaced as an
+unexplainable DAW anomaly. Fixed and pinned.
+
+Still worth re-doing after Tier 2: the hat `.wav`s are rendered through a
+**sax**, so the long notes ring convincingly and the 50 ms choked hits barely
+speak. Alex: "Tier 2 will help us make some decisions, including about hats."
 
 ### Tier 2 — the drum arc (the biggest new capability)
 

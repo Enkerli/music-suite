@@ -435,10 +435,7 @@ async function main(): Promise<number> {
             // `LS(r){mask}` states WHICH onsets are long, for the even-grid case
             // where the pattern's own intervals cannot say. Indexed over onsets
             // and cycling, so `{10}` alternates however many hits there are.
-            const rel = lsSpec.longMask
-              ? Array.from({ length: onsetCount }, (_, k) =>
-                  (lsSpec.longMask![k % lsSpec.longMask!.length] ? lsSpec.min : 1))
-              : lsSpec.depth > 0 || lsSpec.max > lsSpec.min
+            const rel = lsSpec.depth > 0 || lsSpec.max > lsSpec.min
               ? dynamicDurations(stepsArr, { ratio: [lsSpec.min, lsSpec.max], depth: lsSpec.depth })
               : durations(stepsArr, { ratio: lsSpec.min });
             const onsetIdx = stepsArr.map((v, i) => (v ? i : -1)).filter((i) => i >= 0);
@@ -449,7 +446,31 @@ async function main(): Promise<number> {
               onsetIdx.forEach((si, k) => { lsScale![si] = (rel[k]! * totalSpan) / totalRel; });
             }
           }
+          // The mask form is resolved per CYCLE, below, because it precesses.
+          const lsMask = lsSpec?.longMask ?? null;
+          const onsetsPerCycle = stepsArr.filter(Boolean).length;
+          const spanTotal = stepsArr.reduce((a, _v, i) => a + (stepsArr[i] ? interOnsetSteps(stepsArr, i) : 0), 0);
+          /** Sum of the relative lengths for the cycle containing this ordinal. */
+          const maskCycleTotal = (ord: number) => {
+            if (!lsMask || !onsetsPerCycle) return 1;
+            const first = Math.floor(ord / onsetsPerCycle) * onsetsPerCycle;
+            let t = 0;
+            for (let k = 0; k < onsetsPerCycle; k++)
+              t += lsMask[(first + k) % lsMask.length] ? lsSpec!.min : 1;
+            return t || 1;
+          };
 
+          // Onset ordinal ACROSS cycles, so both masks precess.
+          //
+          // `{10}` over a 5-onset cycle does not divide evenly, so cycle 2 must
+          // start at onset 5 — mask bit 1, not bit 0. The C++ engine has always
+          // done this (upi.js: "the onset counter keeps going, so accents
+          // precess"); this renderer restarted the count every cycle, so a
+          // capture of `{10}E(5,8)` could never match the baseline it is
+          // supposed to be compared against. Found 2026-08-02 while checking
+          // that the durational mask matched the accent mask — it did, and both
+          // were wrong here in the same way.
+          let onsetOrdinal = 0;
           let cursor = 0;
           for (let cycle = 0; cycle < bars; cycle++) {
             const scales = pd && pd.depth > 0
@@ -460,7 +481,12 @@ async function main(): Promise<number> {
                 // An accent is LOUDER AND TRANSPOSED, matching the plugin
                 // (accentVelocity / accentPitchOffset, +5 by default). A file
                 // that only raised velocity would not match a capture.
-                const accented = !!(acc && acc[i]);
+                const accPat = (lane as unknown as { accentPattern?: number[] | null }).accentPattern;
+                const accented = accPat && accPat.length
+                  ? !!accPat[onsetOrdinal % accPat.length]
+                  : !!(acc && acc[i]);
+                const isLong = lsMask ? !!lsMask[onsetOrdinal % lsMask.length] : false;
+                onsetOrdinal++;
                 notes.push({
                   pitch: note + li + (accented ? 5 : 0),
                   velocity: accented ? 127 : 100,
@@ -471,8 +497,13 @@ async function main(): Promise<number> {
                   // the step instead left `--gate legato` with a silent gap on
                   // any pattern whose onsets are not adjacent (E(4,8) is two
                   // steps apart, so "legato" sounded for half the distance).
-                  durationTicks: Math.max(10, Math.round(
-                    laneStepTicks * (lsScale ? lsScale[i]! : interOnsetSteps(stepsArr, i)) * gate)),
+                  // The mask form scales this onset directly: a long is
+                  // `min` times a short, normalised so a cycle still fills the
+                  // same total the plain spans would have.
+                  durationTicks: Math.max(10, Math.round(laneStepTicks * gate * (
+                    lsMask
+                      ? (isLong ? lsSpec!.min : 1) * (spanTotal / maskCycleTotal(onsetOrdinal - 1))
+                      : lsScale ? lsScale[i]! : interOnsetSteps(stepsArr, i)))),
                 });
               }
               cursor += laneStepTicks * (scales[i] ?? 1);

@@ -84,7 +84,8 @@ const lcm2 = (a, b) => (a / gcd2(a, b)) * b;
 
 /**
  * Parse poly notation → { ok, lanes, lcm, error? }. Each lane:
- * { label, steps, accents, accentPattern, offset, source, ok, error? }.
+ * { label, steps, accents, accentPattern, longShort, longs, microtiming,
+ *   offset, source, ok, error? }.
  * A failed lane fails the whole parse (never half a groove on the wire).
  */
 /**
@@ -160,6 +161,9 @@ export function parsePolyUPI(input, ctx = { n: 16 }, sceneIndices = []) {
       // point of poly — one lane pushes while another stays straight.
       microtiming: parsed.microtiming ?? null,
       longShort: parsed.longShort ?? null,
+      // The step-projection of `LS(r){mask}`, carried alongside `accents` for
+      // the same reason: a lane's consumers read projections, not raw layers.
+      longs: parsed.longs ?? null,
       offset,
       // Keeps the `%N`, so a re-parse can tell E(3,8)%2 from E(3,8) — the
       // plugin uses exactly that comparison to decide restart vs advance.
