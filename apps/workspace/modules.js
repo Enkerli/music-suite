@@ -10,7 +10,7 @@ import { sliderToNative, nativeToSlider, paramSet, commandInvoke, formatValue } 
 import { makeMessage, makeNote } from "@enkerli/protocol";
 import { VoiceSplitter, MonoMerge } from "@enkerli/voice-routing";
 import { APPS } from "@enkerli/library";
-import { parseUPI, parsePolyUPI, analyse, analyzeSyncopation, rotate, invert, complement, barlowTransform, mutatePattern } from "@enkerli/upi";
+import { parseUPI, parsePolyUPI, analyse, analyzeSyncopation, rotate, invert, complement, barlowTransform, mutatePattern, polyLaneAt } from "@enkerli/upi";
 import { createCircleView, createPolyCircleView } from "@enkerli/ui/rhythm-views";
 import { createBindingEngine, addBinding, removeBinding } from "@enkerli/control";
 import { parseLeadsheet, detectChord, rootName, realizeLeadsheet } from "@enkerli/theory";
@@ -96,6 +96,12 @@ export function patternModule(ctx, bodyEl, state) {
   // arc means the same thing wherever it is drawn.
   state.view = state.view ?? "both";
   let view = null, viewIsPoly = null;
+  // Progressive trigger ordinal. 1 is the BARE BASE (D6) — advancing moves to
+  // 2, which is the first transformed cycle. Not persisted: a session resumes
+  // at the base, which is the honest place to resume.
+  let trigger = 1;
+  // Resolved lanes for the current (notation, trigger). See soundingLanes.
+  let soundingCache = null, soundingKey = null;
   // What we last put on the bus. The bus echoes our own publish back to us,
   // and the incoming path can only carry ONE mask — so without this the echo
   // immediately overwrote a freshly drawn poly with a single flattened lane.
@@ -126,6 +132,36 @@ export function patternModule(ctx, bodyEl, state) {
     }));
   }
 
+  /**
+   * Resolve every progressive lane at the current trigger — the SOUNDING
+   * pattern, not the typed one.
+   *
+   * Same shape as Serpe's standalone path (main.jsx displayPoly), calling the
+   * same shared polyLaneAt rather than re-deriving it: a lane that carries
+   * `>N`/`%N`/`+N`/`*N` is a different length or turned the moment it has been
+   * triggered once, and publishing the typed parse would put a pattern on the
+   * bus that never advances.
+   *
+   * CACHED per trigger, because polyLaneAt is NOT pure for `*N`: lengthening
+   * appends random material by design, so calling it twice at trigger 3 gives
+   * two different patterns. Without the cache, pressing ▶ send twice would
+   * publish something different from what is drawn, and the Player would play
+   * a pattern the ring never showed. Advancing clears it — a new trigger is
+   * supposed to bring new material.
+   *
+   * Trigger 1 is the BARE BASE (INTENT D6).
+   */
+  function soundingLanes(p) {
+    if (!p.lanes.some((l) => l.progressive)) return p.lanes;
+    const key = `${input.value}@${trigger}`;
+    if (soundingKey === key && soundingCache) return soundingCache;
+    soundingKey = key;
+    soundingCache = p.lanes.map((lane) => (lane.progressive
+      ? { ...lane, steps: polyLaneAt(lane, trigger), triggerIndex: trigger }
+      : { ...lane, triggerIndex: trigger }));
+    return soundingCache;
+  }
+
   function send() {
     // parsePolyUPI, not parseUPI: the mono parser rejects '|' outright and
     // knows nothing of lanes or progression, so this module could take none of
@@ -136,10 +172,15 @@ export function patternModule(ctx, bodyEl, state) {
     if (!p.ok) { info.textContent = p.error ?? "unparsed"; return; }
     state.upi = input.value; ctx.save();
 
-    drawLanes(p);
-    showRing(p);
+    // Everything below reads the SOUNDING lanes — draw, readout and bus alike.
+    // Serpe learned this the hard way three times in two days: a view that
+    // takes the typed parse shows the base forever while the pattern moves.
+    const sp = { ...p, lanes: soundingLanes(p) };
 
-    const parts = p.lanes.map((l, i) => {
+    drawLanes(sp);
+    showRing(sp);
+
+    const parts = sp.lanes.map((l, i) => {
       const a = analyse(l.steps);
       const extra = [];
       if (l.sceneCount > 1) extra.push(`scene ${(l.sceneIndex ?? 0) + 1}/${l.sceneCount}`);
@@ -148,20 +189,62 @@ export function patternModule(ctx, bodyEl, state) {
       return `${p.lanes.length > 1 ? `lane ${i + 1}: ` : ""}${a.n} steps · ${a.k} onsets`
         + (extra.length ? ` · ${extra.join(" · ")}` : "");
     });
+    const anyProg = p.lanes.some((l) => l.progressive);
+    // lcm of the SOUNDING lengths, not the typed ones. A lengthening lane is
+    // longer than it was written the moment it advances, so `p.lcm` goes stale
+    // on the first ↻ — it kept reading "realign every 9" for lanes that had
+    // grown to 12 and 5.
+    const gcd = (a, b) => (b ? gcd(b, a % b) : a);
+    const lcm = sp.lanes.reduce((m, l) => (m * l.steps.length) / gcd(m, l.steps.length), 1);
     info.textContent = parts.join("   |   ")
-      + (p.lanes.length > 1 ? `   ·   realign every ${p.lcm}` : "");
+      + (sp.lanes.length > 1 ? `   ·   realign every ${lcm}` : "")
+      + (anyProg ? `   ·   trigger ${trigger}${trigger === 1 ? " (base)" : ""}` : "");
+    // Both controls are meaningless without progression — hidden rather than
+    // disabled, since a permanently dead button reads as broken.
+    advBtn.style.display = anyProg ? "" : "none";
+    resetBtn.style.display = anyProg ? "" : "none";
 
-    // The bus contract is one mask, so poly publishes LANE 1 and says so in
-    // the readout rather than silently flattening lanes into one number.
-    const a0 = analyse(p.lanes[0].steps);
+    // Every lane goes on the bus (protocol PatternLane, 2026-08-02). steps/mask
+    // stay LANE 1 so a mono receiver written before poly existed still hears
+    // something musical rather than a flattened union — lanes[0] must agree
+    // with them, and the protocol validates that.
+    const maskOf = (arr) => arr.reduce((m, v, i) => m + (v ? 2 ** i : 0), 0);   // leftmost = LSB
+    const a0 = analyse(sp.lanes[0].steps);
     lastSent = `${a0.n}:${a0.decimal}`;
-    ctx.bus.publish(makeMessage(FROM, "pattern",
-      { steps: a0.n, mask: a0.decimal, name: p.lanes[0].source ?? input.value }, { to: "*" }));
+    ctx.bus.publish(makeMessage(FROM, "pattern", {
+      steps: a0.n, mask: a0.decimal, name: sp.lanes[0].source ?? input.value,
+      lanes: sp.lanes.map((l) => ({
+        steps: l.steps.length,
+        mask: maskOf(l.steps),
+        ...(l.label ? { name: l.label } : {}),
+        // Accents are per lane (D8); only sent when the lane has any.
+        ...(l.accents?.some(Boolean) ? { accents: maskOf(l.accents) } : {}),
+      })),
+    }, { to: "*" }));
   }
 
-  input.addEventListener("keydown", (e) => { if (e.key === "Enter") send(); });
+  // Enter re-sends AND advances, matching Serpe: in a progressive pattern the
+  // re-trigger IS the advance, and having to press two things to hear the next
+  // cycle is the thing that made this feel broken in the webapp.
+  input.addEventListener("keydown", (e) => {
+    if (e.key !== "Enter") return;
+    const p = parsePolyUPI(input.value, { n: 16 });
+    if (p.ok && p.lanes.some((l) => l.progressive) && input.value === state.upi) trigger += 1;
+    send();
+  });
+  const advBtn = el("button", {
+    class: "ws-btn", text: "↻ advance", title: "Next trigger — the pattern's progression moves on",
+    style: "display:none",
+    onclick: () => { trigger += 1; send(); },
+  });
+  const resetBtn = el("button", {
+    class: "ws-btn ghost", text: "⤺ base", title: "Back to trigger 1, the bare base",
+    style: "display:none",
+    onclick: () => { trigger = 1; send(); },
+  });
   bodyEl.append(
     el("div", { class: "ws-row" }, input, el("button", { class: "ws-btn", text: "▶ send", onclick: send })),
+    el("div", { class: "ws-row" }, advBtn, resetBtn),
     ring, lanes, info);
 
   const off = ctx.bus.subscribe((m) => {
@@ -1063,47 +1146,104 @@ export function keysModule(ctx, bodyEl, state) {
 // plugin the notes exit as host MIDI: an instant metronome/drum lane.
 export function playerModule(ctx, bodyEl, state) {
   const S = (k, d) => state[k] ?? d;
-  let steps = null, label = "—";
-  let timer = null, idx = -1, running = false;
+  // One entry per lane: its steps, its accents, and its own phase. Lanes
+  // advance INDEPENDENTLY (INTENT D5) — each gets its own timer chain rather
+  // than sharing one counter, which is what makes 3-against-4 actually
+  // interlock instead of quantising to a common grid.
+  let lanes = [], label = "—";
+  let timers = [], running = false;
+
   const bpm = el("input", { class: "ws-text ws-num", type: "number", min: 30, max: 300, value: S("bpm", 120), "aria-label": "BPM" });
   const note = el("input", { class: "ws-text ws-num", type: "number", min: 0, max: 127, value: S("note", 37), "aria-label": "MIDI note" });
+  const lock = el("select", { class: "ws-select", "aria-label": "Lane lock" },
+    ...[["cycle", "polyrhythm"], ["step", "polymeter"]].map(([v, t]) =>
+      el("option", { value: v, text: t, ...(v === S("lock", "cycle") ? { selected: "" } : {}) })));
   const to = el("select", { class: "ws-select", "aria-label": "Send to" },
     ...[["vane", "vane"], ["*", "all"]].map(([v, t]) => el("option", { value: v, text: t, ...(v === S("to", "vane") ? { selected: "" } : {}) })));
   const status = el("div", { class: "ws-readout", text: "waiting for a pattern on the bus…" });
 
+  const bits = (mask, n) => Array.from({ length: n }, (_, i) => Math.floor(mask / 2 ** i) % 2); // leftmost = LSB
+
   const off = ctx.bus.subscribe((m) => {
     if (m.type !== "pattern" || !m.body) return;
-    const n = m.body.steps;
-    steps = Array.from({ length: n }, (_, i) => Math.floor(m.body.mask / 2 ** i) % 2); // leftmost = LSB
-    label = m.body.name || `${n} steps`;
-    if (!running) status.textContent = `pattern: ${label} — press ▶`;
+    const b = m.body;
+    // Poly-aware since 2026-08-02. Falls back to steps/mask so a mono sender
+    // (or an older one) still plays — the protocol guarantees lanes[0] and
+    // steps/mask describe the same lane, so this is a choice of detail, not of
+    // meaning.
+    const src = Array.isArray(b.lanes) && b.lanes.length ? b.lanes : [{ steps: b.steps, mask: b.mask, name: b.name }];
+    lanes = src.map((L) => ({
+      steps: bits(L.mask, L.steps),
+      accents: L.accents ? bits(L.accents, L.steps) : null,
+      name: L.name ?? null,
+      note: Number.isInteger(L.note) ? L.note : null,
+      idx: -1,
+    }));
+    label = b.name || `${b.steps} steps`;
+    if (!running) status.textContent = `pattern: ${label}${lanes.length > 1 ? ` · ${lanes.length} lanes` : ""} — press ▶`;
   });
 
-  function tick(at) {
-    if (!running || !steps) return;
-    idx = (idx + 1) % steps.length;
-    if (steps[idx]) {
-      Object.assign(state, { bpm: Number(bpm.value), note: Number(note.value), to: to.value }); ctx.save();
+  const stepMs = () => 60000 / (Number(bpm.value) || 120) / 4;   // a 16th
+
+  /**
+   * How long ONE step of this lane lasts.
+   *
+   *   cycle (default)  every lane spans the same cycle, lengthed by lane 1 —
+   *                    polyrhythm. A 7-step lane against an 8-step lane has
+   *                    longer steps.
+   *   step             every lane's step is a 16th — polymeter. Lanes of
+   *                    different lengths drift and realign at their lcm.
+   *
+   * Default is `cycle` to match the plugin's Poly Lock and `msuite upi --midi
+   * --lock`. Three renderings of the same notation disagreeing about this is
+   * exactly the bug A1 was filed for.
+   */
+  function laneStepMs(lane) {
+    if (lock.value === "step" || !lanes.length) return stepMs();
+    return (lanes[0].steps.length * stepMs()) / lane.steps.length;
+  }
+
+  function tickLane(li, at) {
+    if (!running) return;
+    const lane = lanes[li];
+    if (!lane) return;
+    lane.idx = (lane.idx + 1) % lane.steps.length;
+    if (lane.steps[lane.idx]) {
+      const accented = !!(lane.accents && lane.accents[lane.idx]);
+      // Accent = louder AND transposed, matching the plugin and `upi --midi`
+      // (accentVelocity / accentPitchOffset +5). A receiver that only heard a
+      // velocity change would not match a capture.
+      const base = lane.note ?? (Number(note.value) || 37) + li;
       ctx.bus.publish(makeNote(FROM, {
-        notes: [Number(note.value) || 37], velocity: 100,
-        durationMs: Math.max(20, Math.round(stepMs() * 0.9)),
+        notes: [Math.min(127, base + (accented ? 5 : 0))],
+        velocity: accented ? 127 : 100,
+        durationMs: Math.max(20, Math.round(laneStepMs(lane) * 0.9)),
       }, { to: to.value }));
     }
-    status.textContent = `▶ ${label} · step ${idx + 1}/${steps.length}`;
-    const next = at + stepMs();
-    timer = setTimeout(() => tick(next), Math.max(0, next - Date.now()));
+    if (li === 0) {
+      Object.assign(state, { bpm: Number(bpm.value), note: Number(note.value), to: to.value, lock: lock.value });
+      ctx.save();
+      status.textContent = `▶ ${label} · `
+        + lanes.map((l) => `${l.idx + 1}/${l.steps.length}`).join(" · ");
+    }
+    const next = at + laneStepMs(lane);
+    timers[li] = setTimeout(() => tickLane(li, next), Math.max(0, next - Date.now()));
   }
-  const stepMs = () => 60000 / (Number(bpm.value) || 120) / 4; // 16ths
+
   function play() {
-    if (!steps) { status.textContent = "no pattern yet — send one from the Pattern module"; return; }
-    stop(); running = true; idx = -1; tick(Date.now());
+    if (!lanes.length) { status.textContent = "no pattern yet — send one from the Pattern module"; return; }
+    stop();
+    running = true;
+    const now = Date.now();
+    lanes.forEach((l, i) => { l.idx = -1; tickLane(i, now); });
   }
-  function stop() { running = false; clearTimeout(timer); }
+  function stop() { running = false; timers.forEach(clearTimeout); timers = []; }
 
   bodyEl.append(
     el("div", { class: "ws-row", style: "flex-wrap:wrap" },
       el("label", { class: "ws-ctl", text: "bpm " }, bpm),
       el("label", { class: "ws-ctl", text: "note " }, note),
+      el("label", { class: "ws-ctl", text: "lanes " }, lock),
       el("label", { class: "ws-ctl", text: "to " }, to)),
     el("div", { class: "ws-row" },
       el("button", { class: "ws-btn", text: "▶ play", onclick: play }),

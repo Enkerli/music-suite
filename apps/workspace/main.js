@@ -162,10 +162,23 @@ function main() {
         defs.sort((a, b) => (a.y ?? 0) - (b.y ?? 0) || (a.x ?? 0) - (b.x ?? 0));
       for (const d of defs) addModule(d.type, d);
     }
-    else { addModule("control-surface", { app: "vane", span: "t" });
-           addModule("pattern", {});
-           addModule("bindings", {});
-           addModule("monitor", {}); }
+    else {
+      // A default layout that MAKES SOUND. Until 2026-08-02 this opened with
+      // Control Surface, Pattern, Bindings and Monitor — no synth and no
+      // player, so typing a UPI pattern published a `pattern` message that
+      // nothing turned into notes and nothing sounded. The workbench looked
+      // mute, and the only way to hear anything was a second Vane tab.
+      //
+      // Pattern → Player → Vane Synth is the whole chain, so the first thing a
+      // person does in Workspace can be heard in Workspace. (The synth still
+      // needs its ⏻ — starting audio without a gesture is not ours to do.)
+      addModule("control-surface", { app: "vane", span: "t" });
+      addModule("pattern", {});
+      addModule("player", {});
+      addModule("vane-synth", {});
+      addModule("bindings", {});
+      addModule("monitor", {});
+    }
   }
 
   if (juceAvailable()) {

@@ -93,12 +93,50 @@ export interface ProgressionBody {
 }
 
 /** Serpe-style rhythm pattern. */
-export interface PatternBody {
-  /** Step count (mask bits beyond steps are meaningless). */
+/**
+ * One lane of a poly pattern. Lanes advance INDEPENDENTLY (INTENT D5) and each
+ * carries its own accents (D8) — an accent mask on the pattern as a whole would
+ * be the wrong shape.
+ */
+export interface PatternLane {
+  /** This lane's own step count — lanes need not agree. */
   steps: number;
-  /** Rhythm mask, leftmost = LSB (onset i = bit i). Tresillo/8 = 73. */
+  /** Rhythm mask, leftmost = LSB. */
+  mask: number;
+  /** Lane label as the notation spelled it (`kick=E(4,16)` → "kick"). */
+  name?: string;
+  /**
+   * Accent mask, leftmost = LSB, over this lane's steps. Per-lane by
+   * construction: D8.
+   */
+  accents?: number;
+  /**
+   * MIDI note for this lane, when the sender has an opinion. Receivers
+   * otherwise assign by position (base + index), which is what
+   * `msuite upi --midi` does. Drum material is the case that needs it stated:
+   * a kick is a particular pitch, not "lane 0".
+   */
+  note?: number;
+}
+
+export interface PatternBody {
+  /**
+   * Step count of LANE 1 (mask bits beyond steps are meaningless).
+   *
+   * `steps`/`mask` describe lane 1 alone and are required, so a mono receiver
+   * written before poly existed still hears something musical rather than a
+   * flattened union of every lane. `lanes` carries the whole truth.
+   */
+  steps: number;
+  /** Rhythm mask of LANE 1, leftmost = LSB (onset i = bit i). Tresillo/8 = 73. */
   mask: number;
   name?: string;
+  /**
+   * Every lane, lane 1 first. Optional: a mono sender omits it. When present,
+   * `lanes[0]` MUST agree with `steps`/`mask` — validated, because two
+   * descriptions of the same lane are exactly the kind of pair that drifts.
+   */
+  lanes?: PatternLane[];
 }
 
 // ── Control & interop plane bodies (docs/CONTROL_PLANE.md) ───────────────────
@@ -332,12 +370,35 @@ export function validateMessage(x: unknown): ValidationResult {
       case "progression":
         if (!isPlainObject(b.prog)) err("body.prog: the canonical Progression object required");
         break;
-      case "pattern":
+      case "pattern": {
         if (!Number.isInteger(b.steps) || (b.steps as number) < 1 || (b.steps as number) > 128)
           err("body.steps: integer 1–128 required");
         if (!Number.isInteger(b.mask) || (b.mask as number) < 0)
           err("body.mask: non-negative integer required (leftmost = LSB)");
+        if (b.lanes !== undefined) {
+          if (!Array.isArray(b.lanes) || b.lanes.length === 0) {
+            err("body.lanes: non-empty array of lanes required when present");
+            break;
+          }
+          if ((b.lanes as unknown[]).length > 16) err("body.lanes: at most 16 lanes");
+          (b.lanes as Record<string, unknown>[]).forEach((L, i) => {
+            if (!isPlainObject(L)) { err(`body.lanes[${i}]: object required`); return; }
+            if (!Number.isInteger(L.steps) || (L.steps as number) < 1 || (L.steps as number) > 128)
+              err(`body.lanes[${i}].steps: integer 1–128 required`);
+            if (!Number.isInteger(L.mask) || (L.mask as number) < 0)
+              err(`body.lanes[${i}].mask: non-negative integer required`);
+            if (L.accents !== undefined && (!Number.isInteger(L.accents) || (L.accents as number) < 0))
+              err(`body.lanes[${i}].accents: non-negative integer mask required`);
+            if (L.note !== undefined && (!Number.isInteger(L.note) || (L.note as number) < 0 || (L.note as number) > 127))
+              err(`body.lanes[${i}].note: integer 0–127 required`);
+          });
+          // lanes[0] IS lane 1 — the compat fields must not disagree with it.
+          const first = (b.lanes as Record<string, unknown>[])[0];
+          if (isPlainObject(first) && (first.steps !== b.steps || first.mask !== b.mask))
+            err("body.lanes[0] must match body.steps/body.mask — they describe the same lane");
+        }
         break;
+      }
       case "manifest":
         validateManifestBody(b, err);
         break;

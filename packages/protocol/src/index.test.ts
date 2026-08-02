@@ -59,6 +59,20 @@ describe("validateMessage", () => {
   it("pattern bounds its steps", () => {
     expect(validateMessage(makeMessage("serpe", "pattern", { steps: 0, mask: 1 })).ok).toBe(false);
     expect(validateMessage(makeMessage("serpe", "pattern", { steps: 8, mask: 73 })).ok).toBe(true);
+    // Poly lanes (2026-08-02). steps/mask stay lane 1 so a mono receiver still
+    // hears something musical; lanes carries the whole truth.
+    const poly = (lanes: unknown) => validateMessage(makeMessage("serpe", "pattern", { steps: 8, mask: 73, lanes }));
+    expect(poly([{ steps: 8, mask: 73 }, { steps: 7, mask: 37, name: "snare" }]).ok).toBe(true);
+    expect(poly([{ steps: 8, mask: 73, accents: 5, note: 38 }]).ok).toBe(true);
+    // lanes[0] and steps/mask describe the SAME lane — two descriptions that
+    // can disagree are exactly what drifts, so disagreement is rejected.
+    expect(poly([{ steps: 8, mask: 99 }]).ok).toBe(false);
+    expect(poly([{ steps: 4, mask: 73 }]).ok).toBe(false);
+    expect(poly([]).ok).toBe(false);
+    expect(poly([{ steps: 8, mask: 73 }, { steps: 0, mask: 1 }]).ok).toBe(false);
+    expect(poly([{ steps: 8, mask: 73, note: 200 }]).ok).toBe(false);
+    expect(poly([{ steps: 8, mask: 73, accents: -1 }]).ok).toBe(false);
+    expect(poly("nope").ok).toBe(false);
   });
 });
 
