@@ -16,6 +16,29 @@ describe("soundingPattern — one source for what plays and what draws", () => {
     expect(out.poly).toBe(grown);
   });
 
+  it("THROWS when a progressive lane arrives with no displayPoly", () => {
+    // The wiring mistake this module exists to make impossible. There is no
+    // correct rendering of this state: the typed parse never advances, so
+    // whatever is drawn or played is wrong from the second trigger on.
+    const typed = { lanes: [lane([1, 0, 1], { kind: "lengthen", step: 2 })] };
+    expect(() => soundingPattern({ poly: typed, displayPoly: null }))
+      .toThrow(/no displayPoly was supplied/);
+  });
+
+  it("does not throw once the sounding poly is supplied", () => {
+    const typed = { lanes: [lane([1, 0, 1], { kind: "offset", step: 2 })] };
+    const sounding = { lanes: [lane([1, 1, 0], { kind: "offset", step: 2 })] };
+    expect(() => soundingPattern({ poly: typed, displayPoly: sounding })).not.toThrow();
+  });
+
+  it("never fires for the states the app is actually in", () => {
+    // Mono (no poly at all), and poly with no progression on any lane. If
+    // either of these threw, the guard would be worse than the bug.
+    expect(() => soundingPattern({ steps: [1, 0], accents: [0, 0] })).not.toThrow();
+    expect(() => soundingPattern({ poly: { lanes: [lane([1, 0]), lane([1, 0, 1])] } })).not.toThrow();
+    expect(() => soundingPattern()).not.toThrow();
+  });
+
   it("falls back to the typed parse only when they cannot differ", () => {
     const typed = { lanes: [lane([1, 0, 1, 0])] };   // no progression anywhere
     expect(hasProgression(typed)).toBe(false);

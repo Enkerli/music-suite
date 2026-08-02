@@ -30,7 +30,31 @@
  * So: **the scheduler and the views both take their pattern from here, and
  * nothing else assembles one.** If you find yourself reaching for `poly` or a
  * raw parse result to decide what to play or draw, that is the bug.
+ *
+ * And it is ENFORCED, not just documented — see the invariant in
+ * soundingPattern(). Every one of the three bugs above was a silent wrong
+ * answer, which is the kind this codebase keeps paying for: a comment asking
+ * for care is not a guard, and the reader who needs it is the one who has not
+ * read it.
  */
+
+/**
+ * Development build?
+ *
+ * esbuild replaces the literal `process.env.NODE_ENV` at build time, so this
+ * resolves to a constant. It is NOT dead-code-eliminated, though — checked
+ * 2026-08-01, and the throw is still present in the minified production
+ * bundle. Wrapping the read in a try/catch defeats esbuild's constant folding,
+ * and that is a trade worth making: the guard costs a branch and a string,
+ * while a bare `process.env.NODE_ENV` would be a ReferenceError at module load
+ * in any host that neither defines `process` nor performs the substitution —
+ * i.e. the app would not open at all.
+ *
+ * So: dev THROWS, production LOGS. Both paths ship; only the behaviour differs.
+ */
+const IS_DEV = (() => {
+  try { return process.env.NODE_ENV !== "production"; } catch { return true; }
+})();
 
 /**
  * @param {object}   src
@@ -42,6 +66,26 @@
  * @returns {{steps: number[], accents: number[], poly: object|null}}
  */
 export function soundingPattern({ steps, accents, poly, displayPoly } = {}) {
+  // THE INVARIANT. A lane that carries progression cannot be represented by
+  // the typed parse: it is a different length, or turned, the moment it has
+  // been triggered once. Arriving here without a displayPoly means the caller
+  // is about to play or draw the base forever, which is precisely the
+  // 100101010*3/101*2 bug — and that one shipped, was heard, and had to be
+  // reported before anyone found it.
+  //
+  // Dev throws: this is a wiring mistake with no correct rendering, and a
+  // console line is exactly what got missed three times. Production logs and
+  // carries on with the best available pattern — a truncated cycle is bad, an
+  // app that will not open is worse, and a listener should not lose a session
+  // to our bookkeeping.
+  if (!displayPoly && hasProgression(poly)) {
+    const msg =
+      "soundingPattern: a lane carries progression but no displayPoly was supplied — " +
+      "this would play/draw the TYPED pattern, which never advances. " +
+      "See apps/serpe/engine/sounding.js.";
+    if (IS_DEV) throw new Error(msg);
+    console.error(msg);
+  }
   return {
     steps: steps ?? [],
     accents: accents ?? [],
