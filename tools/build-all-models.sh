@@ -65,10 +65,10 @@ PACKS=(
 for entry in "${PACKS[@]}"; do
   pack="${entry%%:*}"; prefix="${entry##*:}"
   if [ ! -d "$LIB/$pack" ]; then say "      SKIP $pack — not found"; continue; fi
-  before=$(ls "$ROOT/comp-models"/*.json 2>/dev/null | wc -l | tr -d ' ')
   run node tools/comp-learn.mjs "$LIB/$pack" --by-groove --prefix "$prefix" --frame Cm7 -o "$ROOT/comp-models"
-  after=$(ls "$ROOT/comp-models"/*.json 2>/dev/null | wc -l | tr -d ' ')
-  say "      $pack → $((after - before)) models ($prefix-*)"
+  # Count this prefix, not the directory delta: a re-run overwrites the same
+  # filenames, so a delta reads 0 for a pack that wrote every one of its models.
+  say "      $pack → $(ls "$ROOT/comp-models/$prefix"-*.json 2>/dev/null | wc -l | tr -d ' ') models ($prefix-*)"
 done
 say ""
 
