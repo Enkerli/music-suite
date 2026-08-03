@@ -90,9 +90,10 @@ export function barQuartersFrom(name) {
   const m = /(\d{1,2})[-\/](\d)\b/.exec(name);
   if (m) {
     const [num, den] = [Number(m[1]), Number(m[2])];
-    if (num > 0 && [2, 4, 8, 16].includes(den)) return { bar: (num / den) * 4, source: `filename ${num}/${den}` };
+    if (num > 0 && [2, 4, 8, 16].includes(den))
+      return { bar: (num / den) * 4, numerator: num, denominator: den, source: `filename ${num}/${den}` };
   }
-  return { bar: 4, source: "assumed 4/4" };
+  return { bar: 4, numerator: 4, denominator: 4, source: "assumed 4/4" };
 }
 
 /**
@@ -251,6 +252,10 @@ export function learnFromFiles(files, opts = {}) {
       perBeat,
       barQuarters: meter.bar,
       slotsPerBar,
+      /* Kept as numerator/denominator too, not only as quarters: a phrase for
+         GloriArp needs the actual time signature, and 12/8 and 6/4 are both
+         six quarters. */
+      meter: { numerator: meter.numerator, denominator: meter.denominator },
       meterSource: meter.source,
       fit: +fits[0].err.toFixed(4),
       alternatives: fits.slice(1, 3).map((f) => ({ perBeat: f.div, fit: +f.err.toFixed(4) })),

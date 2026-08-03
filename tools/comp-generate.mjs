@@ -92,7 +92,11 @@ export function generate(style, { bars = 4, seed = 1, pass = 0, morph = 0, morph
   }
   return {
     style: style.id, bars, seed, pass, morph: { hits: mHits, dynamics: mDyn },
-    slotsPerBar: n, perBeat: style.grid.perBeat, barQuarters: style.grid.barQuarters, events,
+    slotsPerBar: n, perBeat: style.grid.perBeat, barQuarters: style.grid.barQuarters,
+    /* Carried through so toPhrase can state a real time signature — 12/8 and
+       6/4 are both six quarters and a phrase has to say which. */
+    meter: style.grid.meter ?? null,
+    events,
   };
 }
 
@@ -134,6 +138,146 @@ export function toStrumNotes(take, { base = DEFAULT_BASE, division = 96 } = {}) 
   return notes.sort((a, b) => a.startTick - b.startTick || a.pitch - b.pitch);
 }
 
+/**
+ * A take → a GloriArp `AccompanimentPhrase`.
+ *
+ * WHY THIS IS NOT JUST A RENAME. A comp style is a DISTRIBUTION and GloriArp
+ * imports PHRASES, which are concrete events — the same split the drum work
+ * hit ("a style does not play; you sample it"). Handing a style file straight
+ * to GloriArp fails validation because it is the wrong kind of object, not
+ * because a field is missing. So: sample first, then convert.
+ *
+ * The chord is the other half. A slot has no pitch — that is the whole point of
+ * the loop language — so pitches only exist once a chord is supplied. Without
+ * one this still emits a valid phrase, with `voice` and a chord-relative
+ * `degree` per event and no `note`, which the schema explicitly allows.
+ *
+ * WHAT IS INFERRED, and marked as such with `confidence`:
+ *   · the VOICING. Strum's real one is not in the MIDI — the probe showed C
+ *     major coming out as C3 C3 G3 C4 E4 G4, with slots 6 and 5 on the same
+ *     string. The default here is an honest stack of chord tones, not that
+ *     shape, so degrees carry confidence 0.5 rather than pretending.
+ *   · ARTICULATION. A phrase event has no field for "palm mute", so the mutes
+ *     become short quiet full strums and the distinction is recorded in
+ *     `annotations` rather than silently dropped. This is the lossy step, and
+ *     it is the exact analogue of per-slot microtiming in the drum styles.
+ */
+export function toPhrase(take, { chord = null, ticksPerBeat = 96, voicing = null, id = null } = {}) {
+  const slotTicks = ticksPerBeat / take.perBeat;
+  const nVoices = ARPEGGIO_OFFSETS.length;
+
+  /* A default voicing: chord tones stacked upward, doubling from the bottom.
+     Not Strum's shape — see above — but a defensible close position. */
+  const pcs = chord?.pcs ?? null;
+  /* Built by climbing, not by arithmetic on octaves. Placing voice v at
+     `12*(oct+1)+pcs[v % n]` reads fine and is wrong whenever the pitch classes
+     wrap: Am7 is [9,0,4,7], so voice 1 would land on C3 BELOW the A3 bass. Each
+     voice is instead the next note above the previous one with the wanted
+     pitch class, which ascends by construction for any chord. */
+  const stack = (() => {
+    if (voicing || !pcs?.length) return null;
+    const out = [];
+    let prev = 12 * ((chord.bassOctave ?? 3) + 1) + pcs[0] - 1;
+    for (let v = 0; v < nVoices; v++) {
+      const pc = pcs[v % pcs.length];
+      let n = prev + ((pc - prev) % 12 + 12) % 12;
+      if (n <= prev) n += 12;
+      out.push(n); prev = n;
+    }
+    return out;
+  })();
+  const voiceNote = (v) => (voicing ? voicing[v] ?? null : stack ? stack[v] ?? null : null);
+  const degreeOf = (v) => (pcs?.length ? (v % pcs.length) + 1 : v + 1);
+
+  const events = [];
+  const push = (v, tick, vel, durTicks) => {
+    const note = voiceNote(v);
+    const e = {
+      onset: Math.max(0, Math.round(tick)),
+      duration: Math.max(1, Math.round(durTicks)),
+      velocity: Math.max(1, Math.min(127, Math.round(vel))),
+      voice: v,
+      chordRelation: {
+        degree: degreeOf(v), alteration: 0,
+        octave: note != null ? Math.floor(note / 12) : (chord?.bassOctave ?? 3) + 1,
+        category: "chord-tone",
+        confidence: voicing ? 0.9 : 0.5,     // a supplied voicing is trusted; the default stack is a guess
+      },
+    };
+    if (note != null && note >= 0 && note <= 127) { e.note = note; e.pitchClass = ((note % 12) + 12) % 12; }
+    events.push(e);
+  };
+
+  const sweep = (lo, hi, dir, spreadQ, at, vel, dur) => {
+    const vs = [];
+    for (let v = lo; v <= hi; v++) vs.push(v);
+    if (dir === "up") vs.reverse();
+    const spreadTicks = dir === "flat" ? 0 : spreadQ * ticksPerBeat;
+    const step = vs.length > 1 ? spreadTicks / (vs.length - 1) : 0;
+    vs.forEach((v, i) => push(v, at + i * step, vel * (1 - 0.06 * i), dur));
+  };
+
+  const DAMPED = { "Palm mute": 0.75, "Mute": 0.6, "Muffled down": 0.85, "Muffled up": 0.85 };
+  for (const e of take.events) {
+    const at = (e.bar * take.slotsPerBar + e.slot + e.push) * slotTicks;
+    const full = slotTicks * 0.9;
+    if (e.kind === "strum") {
+      sweep(e.run[0], e.run[1], e.dir, e.spread, at, e.velocity, full);
+    } else if (e.kind.startsWith("pluck")) {
+      push(e.voice, at, e.velocity, full);
+    } else if (e.action === "Downstroke" || e.action === "Upstroke") {
+      sweep(0, nVoices - 1, e.action === "Downstroke" ? "down" : "up", 0.03, at, e.velocity, full);
+    } else if (DAMPED[e.action] != null) {
+      /* Damped: the whole hand, short and quieter. The articulation itself is
+         not representable — see annotations. */
+      sweep(0, nVoices - 1, e.action === "Muffled up" ? "up" : "down", 0.02, at,
+        e.velocity * DAMPED[e.action], slotTicks * 0.25);
+    } else if (e.action === "Alternate bass") {
+      push(0, at, e.velocity, full);
+    }
+  }
+  events.sort((a, b) => a.onset - b.onset || (a.note ?? 0) - (b.note ?? 0));
+
+  const lengthTicks = Math.round(take.bars * take.slotsPerBar * slotTicks);
+  const phrase = {
+    v: 1,
+    id: id ?? `${take.style}-s${take.seed}p${take.pass}`,
+    role: "comping",
+    lengthTicks,
+    ticksPerBeat,
+    meter: take.meter ?? { numerator: 4, denominator: 4 },
+    source: { note: "sampled from a comping style learned from a local corpus; not the corpus" },
+    events,
+    annotations: {
+      style: take.style,
+      seed: String(take.seed), pass: String(take.pass),
+      voicing: voicing ? "supplied" : pcs ? "default stack of chord tones (inferred)" : "none — events carry voice and degree only",
+      /* Named rather than dropped: the same discipline as the drum generator
+         reporting the microtiming it flattened. */
+      lossy: "articulation (palm mute / mute / muffled) has no field in a phrase; damped gestures became short quiet full strums",
+    },
+  };
+  if (chord && pcs?.length) {
+    phrase.harmonicFrames = [{
+      start: 0, end: lengthTicks,
+      chord: { symbol: chord.symbol, rootPc: chord.rootPc, pcs },
+    }];
+  }
+  return phrase;
+}
+
+/** "Cm7" → the pcs a phrase frame needs. Small on purpose: this is a bridge to
+ *  GloriArp, not a theory engine — @enkerli/theory owns that. */
+export function chordSpec(name) {
+  const m = /^([A-G])([#b]?)(maj7|m7|m|7|dim|aug|sus4|sus2)?$/.exec(name.trim());
+  if (!m) throw new Error(`unreadable chord: ${name} (try C, Am, F7, Cmaj7, Gm7)`);
+  const rootPc = ({ C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 }[m[1]]
+    + (m[2] === "#" ? 1 : m[2] === "b" ? -1 : 0) + 12) % 12;
+  const iv = { undefined: [0, 4, 7], m: [0, 3, 7], 7: [0, 4, 7, 10], m7: [0, 3, 7, 10],
+    maj7: [0, 4, 7, 11], dim: [0, 3, 6], aug: [0, 4, 8], sus4: [0, 5, 7], sus2: [0, 2, 7] }[m[3]];
+  return { symbol: name, rootPc, pcs: iv.map((i) => (rootPc + i) % 12), bassOctave: 3 };
+}
+
 if (import.meta.url === `file://${process.argv[1]}`) {
   const args = process.argv.slice(2);
   const file = args.find((a) => !a.startsWith("-"));
@@ -148,6 +292,30 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     bars: num("--bars", 2), seed: num("--seed", 1), pass: num("--pass", 0), morph: num("--morph", 0),
   });
   if (args.includes("--json")) { console.log(JSON.stringify(take, null, 1)); process.exit(0); }
+
+  /* A phrase for GloriArp. Validated here with GloriArp's own validator rather
+     than "looks right to me" — an import error is the whole reason this exists. */
+  if (args.includes("--phrase")) {
+    const chordName = opt("--chord", null);
+    const phrase = toPhrase(take, {
+      chord: chordName ? chordSpec(chordName) : null,
+      ticksPerBeat: num("--tpq", 96),
+    });
+    const { validatePhrase } = await import("@enkerli/accompaniment");
+    const v = validatePhrase(phrase);
+    if (!v.ok) {
+      console.error(`the phrase this produced is INVALID — that is a bug here, not in GloriArp:`);
+      v.errors.forEach((e) => console.error(`  ${e}`));
+      process.exit(1);
+    }
+    const dest = opt("--phrase", null) && !opt("--phrase", "").startsWith("-") ? opt("--phrase") : opt("-o", null);
+    const text = JSON.stringify(phrase, null, 2) + "\n";
+    if (dest) { writeFileSync(dest, text); console.log(`${phrase.id} · ${phrase.events.length} events · `
+      + `${phrase.meter.numerator}/${phrase.meter.denominator} · ${phrase.lengthTicks} ticks`
+      + `${chordName ? ` · ${chordName}` : " · no chord, voice+degree only"} → ${dest}`); }
+    else console.log(text);
+    process.exit(0);
+  }
 
   const division = 96;
   const notes = toStrumNotes(take, { division });

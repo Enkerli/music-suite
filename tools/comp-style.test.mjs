@@ -1,7 +1,8 @@
 import { describe, it, expect } from "vitest";
 import { detectBase, classify, barQuartersFrom, learnFromFiles } from "./comp-style.mjs";
 import { STRUM_KEY_NAMES, ARPEGGIO_OFFSETS, DEFAULT_BASE } from "./strum-playable.mjs";
-import { generate, toStrumNotes } from "./comp-generate.mjs";
+import { generate, toStrumNotes, toPhrase, chordSpec } from "./comp-generate.mjs";
+import { validatePhrase } from "@enkerli/accompaniment";
 
 const at = (base, off, tick, vel = 100) => ({ note: base + off, tick, vel, channel: 1 });
 
@@ -32,14 +33,24 @@ describe("detectBase", () => {
 
 describe("barQuartersFrom", () => {
   it("reads a stated meter, counting x/8 in quarters", () => {
-    expect(barQuartersFrom("Mister Blisters 12-8 195-bpm")).toEqual({ bar: 6, source: "filename 12/8" });
-    expect(barQuartersFrom("Impressions 9-8 90-bpm")).toEqual({ bar: 4.5, source: "filename 9/8" });
-    expect(barQuartersFrom("Avrilson 6-8 82-bpm")).toEqual({ bar: 3, source: "filename 6/8" });
-    expect(barQuartersFrom("Becky 3-4 132-bpm")).toEqual({ bar: 3, source: "filename 3/4" });
+    expect(barQuartersFrom("Mister Blisters 12-8 195-bpm"))
+      .toEqual({ bar: 6, numerator: 12, denominator: 8, source: "filename 12/8" });
+    expect(barQuartersFrom("Impressions 9-8 90-bpm"))
+      .toEqual({ bar: 4.5, numerator: 9, denominator: 8, source: "filename 9/8" });
+    expect(barQuartersFrom("Becky 3-4 132-bpm"))
+      .toEqual({ bar: 3, numerator: 3, denominator: 4, source: "filename 3/4" });
+  });
+
+  it("keeps 12/8 and 6/4 apart though both are six quarters", () => {
+    // Only the quarters were stored at first, which a phrase cannot use.
+    const a = barQuartersFrom("X 12-8 100-bpm"), b = barQuartersFrom("X 6-4 100-bpm");
+    expect(a.bar).toBe(b.bar);
+    expect([a.numerator, a.denominator]).not.toEqual([b.numerator, b.denominator]);
   });
 
   it("says so when it is assuming", () => {
-    expect(barQuartersFrom("Andalusia 170-BPM")).toEqual({ bar: 4, source: "assumed 4/4" });
+    expect(barQuartersFrom("Andalusia 170-BPM"))
+      .toEqual({ bar: 4, numerator: 4, denominator: 4, source: "assumed 4/4" });
   });
 });
 
@@ -124,6 +135,67 @@ describe("generate", () => {
 
   it("refuses a style with no bar length", () => {
     expect(() => generate({ id: "x", grid: {}, slots: [] })).toThrow(/no bar length/);
+  });
+});
+
+describe("toPhrase — the GloriArp bridge", () => {
+  const style = {
+    id: "t", kind: "comp-style", version: 1,
+    grid: { perBeat: 2, barQuarters: 6, slotsPerBar: 12, meter: { numerator: 12, denominator: 8 } },
+    slots: [
+      { slot: 0, p: 1, kinds: { pluck1: 1 }, velocity: { mean: 100, sd: 0 }, push: 0, pushSd: 0, strum: null },
+      { slot: 3, p: 1, kinds: { strum: 1 }, velocity: { mean: 90, sd: 0 }, push: 0, pushSd: 0,
+        strum: { runs: { "3-5": 1 }, direction: { down: 1 }, spreadQuarters: { mean: 0.04, sd: 0 } } },
+      { slot: 6, p: 1, kinds: { "Palm mute": 1 }, velocity: { mean: 80, sd: 0 }, push: 0, pushSd: 0, strum: null },
+    ],
+  };
+  const take = () => generate(style, { bars: 2, seed: 4 });
+
+  it("passes GloriArp's own validator, with and without a chord", () => {
+    // The import error that started this: a style is a distribution and
+    // GloriArp takes phrases, so it must be SAMPLED first.
+    expect(validatePhrase(toPhrase(take(), { chord: chordSpec("Am7") })).ok).toBe(true);
+    expect(validatePhrase(toPhrase(take(), { chord: null })).ok).toBe(true);
+  });
+
+  it("carries the real time signature, not just the bar length", () => {
+    // 12/8 and 6/4 are both six quarters; a phrase has to say which.
+    expect(toPhrase(take(), {}).meter).toEqual({ numerator: 12, denominator: 8 });
+  });
+
+  it("stacks the default voicing ASCENDING even when the pitch classes wrap", () => {
+    // Am7 is [9,0,4,7]: naive octave arithmetic puts voice 1 (C3) below the
+    // A3 bass. Every voice must be higher than the one under it.
+    const p = toPhrase(take(), { chord: chordSpec("Am7") });
+    const byVoice = new Map();
+    for (const e of p.events) if (!byVoice.has(e.voice)) byVoice.set(e.voice, e.note);
+    const notes = [...byVoice].sort((a, b) => a[0] - b[0]).map(([, n]) => n);
+    expect(notes).toEqual([57, 60, 64, 67, 69, 72]);          // A3 C4 E4 G4 A4 C5
+    expect(notes.every((n, i) => !i || n > notes[i - 1])).toBe(true);
+  });
+
+  it("omits note but keeps voice and degree when there is no chord", () => {
+    const p = toPhrase(take(), { chord: null });
+    expect(p.events.every((e) => e.note === undefined)).toBe(true);
+    expect(p.events.every((e) => Number.isInteger(e.chordRelation.degree))).toBe(true);
+    expect(p.harmonicFrames).toBeUndefined();
+  });
+
+  it("marks the default voicing as inferred, not asserted", () => {
+    // Strum's real voicing is not in the MIDI — the probe showed C major as
+    // C3 C3 G3 C4 E4 G4, which no stack produces. Say so rather than imply it.
+    const guessed = toPhrase(take(), { chord: chordSpec("C") });
+    expect(guessed.events[0].chordRelation.confidence).toBe(0.5);
+    const told = toPhrase(take(), { chord: chordSpec("C"), voicing: [48, 55, 60, 64, 67, 72] });
+    expect(told.events[0].chordRelation.confidence).toBe(0.9);
+  });
+
+  it("expands a damped action to the whole hand, short", () => {
+    const p = toPhrase(take(), { chord: chordSpec("C") });
+    const slotTicks = 96 / 2;
+    const muted = p.events.filter((e) => Math.abs(e.onset - 6 * slotTicks) < slotTicks / 2);
+    expect(muted).toHaveLength(6);                              // six voices
+    expect(muted.every((e) => e.duration < slotTicks * 0.5)).toBe(true);
   });
 });
 
