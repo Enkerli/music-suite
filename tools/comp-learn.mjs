@@ -44,7 +44,7 @@ import { learnStyleModel, validateModel, serializeModel } from "@enkerli/accompa
 import { parseSMF } from "./midi-timing.mjs";
 import { detectBase, barQuartersFrom, gesturesOf, classify } from "./comp-style.mjs";
 import { ARPEGGIO_OFFSETS } from "./strum-playable.mjs";
-import { chordSpec } from "./comp-generate.mjs";
+import { chordSpec, voicingStack } from "./comp-generate.mjs";
 
 export const SLOT_TICKS = 120;
 const N_VOICES = ARPEGGIO_OFFSETS.length;
@@ -88,6 +88,15 @@ function loopToPhrase(smf, base, { pcs, chord, perBeat, meter, ticksPerBeat, id 
   const toModel = (srcTick) => (srcTick / smf.division) * perBeat * SLOT_TICKS;
   const events = [];
   let lastTick = 0;
+  /* Voice → pitch on the frame chord.
+     An earlier version emitted no `note` at all, on the reasoning that the
+     loops carry no pitch and writing one would put a fiction into `notes`
+     where it reads like an observation. Principled, and wrong in practice:
+     GloriArp's samplePhrase draws from `notes`, so a model with none is one it
+     cannot play, and the whole point was to feed GloriArp. Both go in — the
+     realized pitch so it plays today, the degree so it can be moved to another
+     chord — and `source` says which of the two was observed. */
+  const stack = voicingStack(pcs, N_VOICES, 12 * ((chord.bassOctave ?? 3) + 1) + pcs[0]);
 
   for (const g of gesturesOf(smf, base)) {
     const cls = classify(g, base);
@@ -104,17 +113,20 @@ function loopToPhrase(smf, base, { pcs, chord, perBeat, meter, ticksPerBeat, id 
       const duration = Math.max(1, Math.round(toModel(src.tick + (durs.get(src) ?? 0)) - onset));
       lastTick = Math.max(lastTick, onset + duration);
       const degree = pcs.length ? (v % pcs.length) + 1 : v + 1;
+      const note = Math.max(0, Math.min(127, stack[v] ?? stack[stack.length - 1]));
       events.push({
         onset: Math.max(0, Math.round(onset)),
         duration,
         velocity: Math.max(1, Math.min(127, src.vel)),
         voice: v,
-        /* No `note`: the loop has no pitch, and inventing one here would put a
-           fiction into `notes` that reads exactly like an observation. The
-           model carries function; realizeDegrees supplies pitch. */
+        note,
+        pitchClass: ((note % 12) + 12) % 12,
         chordRelation: {
-          degree, alteration: 0, octave: 3 + Math.floor(v / Math.max(1, pcs.length)),
-          category: "chord-tone", confidence: 0.5,
+          degree, alteration: 0, octave: Math.floor(note / 12),
+          category: "chord-tone",
+          /* 0.5, not 1: the voicing is a default stack, not Strum's own. The
+             probe showed C major as C3 C3 G3 C4 E4 G4, which no stack gives. */
+          confidence: 0.5,
         },
       });
     }
@@ -174,8 +186,12 @@ export function learnCompModel(files, { chord, id, label = null, note = null } =
     id, role: "comping", grid,
     source: {
       note: note ?? `learned from ${usable.length} local loops; statistics only, not the loops. `
-        + `Slots are voicing positions, so degrees follow the voice index and this corpus `
-        + `contains no non-chord tones. Frame ${chord.symbol} is a CHOSEN reference, not one the source stated.`,
+        + `OBSERVED: onset, velocity, duration (the loops' own note-offs, which is where the `
+        + `palm-mute/open distinction lives), microtiming, and which voicing position sounded. `
+        + `NOT observed: pitch. Slots are voicing positions, so the frame ${chord.symbol} is a `
+        + `CHOSEN reference, \`notes\` are that frame realized as a default stack, and degrees `
+        + `follow the voice index — this corpus cannot contain a non-chord tone. `
+        + `Use realizeDegrees to move it to another chord.`,
     },
   });
   return { model, perBeat, grid, ticksPerBeat, loops: usable.length, slotsPerBar };

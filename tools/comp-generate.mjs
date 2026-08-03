@@ -29,6 +29,30 @@ import { STRUM_KEY_NAMES, ARPEGGIO_OFFSETS, DEFAULT_BASE } from "./strum-playabl
 
 const offsetOfName = (name) => STRUM_KEY_NAMES.indexOf(name);
 
+/**
+ * A close-position voicing: chord tones stacked upward from `bassNote`.
+ *
+ * Built by climbing rather than by octave arithmetic. Placing voice v at
+ * `12*(oct+1)+pcs[v % n]` reads fine and is wrong whenever the pitch classes
+ * wrap — Am7 is [9,0,4,7], so voice 1 would land on C3 BELOW the A3 bass. Each
+ * voice is the next note above the previous one with the wanted class, which
+ * ascends for any chord and any inversion.
+ *
+ * Shared because comp-generate and comp-learn both need the identical stack,
+ * and two copies of a rule drift (INTENT L5).
+ */
+export function voicingStack(pcs, nVoices, bassNote) {
+  const out = [];
+  let prev = bassNote - 1;
+  for (let v = 0; v < nVoices; v++) {
+    const pc = pcs[v % pcs.length];
+    let n = prev + ((((pc - prev) % 12) + 12) % 12);
+    if (n <= prev) n += 12;
+    out.push(n); prev = n;
+  }
+  return out;
+}
+
 /** Weighted choice over a {key: probability} map, using one draw. */
 function pick(dist, r) {
   const entries = Object.entries(dist ?? {});
@@ -178,18 +202,8 @@ export function toPhrase(take, { chord = null, ticksPerBeat = 96, voicing = null
      wrap: Am7 is [9,0,4,7], so voice 1 would land on C3 BELOW the A3 bass. Each
      voice is instead the next note above the previous one with the wanted
      pitch class, which ascends by construction for any chord. */
-  const stack = (() => {
-    if (voicing || !pcs?.length) return null;
-    const out = [];
-    let prev = 12 * ((chord.bassOctave ?? 3) + 1) + pcs[0] - 1;
-    for (let v = 0; v < nVoices; v++) {
-      const pc = pcs[v % pcs.length];
-      let n = prev + ((pc - prev) % 12 + 12) % 12;
-      if (n <= prev) n += 12;
-      out.push(n); prev = n;
-    }
-    return out;
-  })();
+  const stack = voicing || !pcs?.length ? null
+    : voicingStack(pcs, nVoices, 12 * ((chord.bassOctave ?? 3) + 1) + pcs[0]);
   const voiceNote = (v) => (voicing ? voicing[v] ?? null : stack ? stack[v] ?? null : null);
   const degreeOf = (v) => (pcs?.length ? (v % pcs.length) + 1 : v + 1);
 
