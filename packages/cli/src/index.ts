@@ -924,3 +924,11 @@ export {
   listMidiPorts, resolveMidiPort, noteMessageToMidi, createMidiPlayer,
   type MidiPort, type MidiPlayer, type MidiPlayerOptions, type MidiConvertOptions, type TimedMidi,
 } from "./midiout.js";
+
+/* Comping loops (voicing slots rather than pitches) → a GloriArp style model.
+   Kept beside learnStyle: same destination, different source material. */
+export {
+  learnCompModel, detectBase, meterFromName, voicingStack, voicesOfGesture,
+  STRUM_KEY_NAMES, ARPEGGIO_OFFSETS, SLOT_TICKS,
+  type LearnCompOptions, type LearnCompResult,
+} from "./comping.js";

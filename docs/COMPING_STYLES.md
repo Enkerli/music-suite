@@ -29,33 +29,48 @@ Strum loops ──comp-learn.mjs────────────────
 
 Two routes to the same destination, kept in parallel on purpose.
 
-| tool | what it does |
+| where | what it does |
 |---|---|
-| `strum-playable.mjs` | holds a chord under a loop so it plays; `--probe` fires all 13 keys |
-| `comp-style.mjs` | loops → a **gesture** style (strums as run + direction + spread) |
-| `comp-generate.mjs` | a gesture style → a take, as MIDI or as a phrase |
-| `comp-model.mjs` | a gesture style → a GloriArp style model |
-| `comp-learn.mjs` | loops → a GloriArp style model, **one step** |
-| `comp-style-audit.mjs` | the share/don't-share gate — is output distinct and abstract? |
-| `build-all-models.sh` | the whole local set, one command |
+| **`msuite style comp`** | **loops → a GloriArp style model. The one to reach for.** |
+| `msuite style learn` | the sibling, for clips whose notes really are pitches |
+| `tools/strum-playable.mjs` | holds a chord under a loop so it plays; `--probe` fires all 13 keys |
+| `tools/comp-style.mjs` | loops → a **gesture** style (strums as run + direction + spread) |
+| `tools/comp-generate.mjs` | a gesture style → a take, as MIDI or as a phrase |
+| `tools/comp-model.mjs` | a gesture style → a style model (the long way round) |
+| `tools/comp-learn.mjs` | the bulk path: a whole pack, grouped by groove |
+| `tools/comp-style-audit.mjs` | the share/don't-share gate — is output distinct and abstract? |
+| `tools/build-all-models.sh` | the whole local set, one command |
 
-**`comp-learn` is the short path** and the one to reach for. The gesture format
-still earns its place: it is the only representation that keeps a strum as a
-sweep rather than six onsets, which is what cross-style work ("a jazz waltz,
-funkier") will need.
+The learning lives in `@enkerli/cli` (`src/comping.ts`), beside `learnStyle`:
+same destination, different source material. `comp-learn.mjs` is a thin wrapper
+over it for the bulk path, **not** a second implementation — two copies of a
+rule drift, and this suite has the scars (INTENT L5). They produce numerically
+identical models.
+
+The gesture format still earns its place: it is the only representation that
+keeps a strum as a sweep rather than six onsets, which is what cross-style work
+("a jazz waltz, funkier") will need.
 
 ## Running it
 
 ```bash
+# one style, the normal path
+msuite style comp "<loops-or-dir>" --chord Cm7 --id funk-comp-90 -o model.json
+
+# a whole pack, one model per groove
+node tools/comp-learn.mjs "<pack>" --by-groove --prefix funk-comp --frame Cm7 -o models/
+
 # everything, from every local corpus
 bash tools/build-all-models.sh
-
-# one pack, degree-aware models
-node tools/comp-learn.mjs "<pack>" --by-groove --prefix funk-comp --frame Cm7 -o models/
 
 # is a corpus safe to derive shareable styles from?
 node tools/comp-style-audit.mjs "<pack>" --takes 200
 ```
+
+`--chord` means the same thing for `style comp` as for `style learn` — both
+resolve it through the leadsheet parser — but it means something different
+*about the music*: for `learn` it is the chord the clips were played against,
+for `comp` it is a reference we picked, because the loops state none.
 
 Output lands in `corpora/gloriarp-models/` — see the README there for what is in
 each folder and which parts were observed rather than chosen.

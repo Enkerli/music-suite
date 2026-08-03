@@ -24,7 +24,7 @@ import { join, dirname } from "node:path";
 import { createInterface } from "node:readline";
 import {
   chordInfo, patternInfo, upiInfo, isPolyUpi, polyUpiInfo, generateInfo, smfFromBars, renderVane,
-  accompany, learnStyle, noteNameToMidi, notesFromPhrase, performPhrase, startBridge,
+  accompany, learnStyle, learnCompModel, noteNameToMidi, notesFromPhrase, performPhrase, startBridge,
   listMidiPorts, resolveMidiPort, createMidiPlayer,
   sendMessage, toNdjson, parseNdjson, summarizeMessage, describeManifest,
   bundledManifestPath, MANIFEST_APPS, paramsFromStream, vaneParamIdMap,
@@ -84,6 +84,14 @@ const USAGE = `msuite <command> …\n  --version                      which buil
                                         micro-timing distributions + note vocabulary. Statistics
                                         only — the clips never leave your machine. The model then
                                         feeds accompany --source; every --pass is a fresh take
+  style comp <loops-or-dir…> --chord <sym> --id <name> -o model.json
+                                        the same, for COMPING LOOPS whose notes are voicing SLOTS
+                                        rather than pitches (AAS Strum GS-2 "MIDI Drag" and the
+                                        like). Measures onset/velocity/duration/micro-timing and
+                                        which slot sounded; the chord here is a REFERENCE you pick,
+                                        since the loops state none. The model also keeps chord
+                                        degrees, so it can be realized over any other chord.
+                                        See docs/COMPING_STYLES.md
   accompany [--progression "<bars>"] [-o bass.mid] [--role bass] [--bars N]
             [--source walking-bass|funk-ghost|bossa|two-feel|phrase.json] [--rhythm "<UPI>"] [--seed N]
             [--gate staccato|tenuto|legato|mixed|0..1+] [--dynamics 0..1] [--rests 0..1] [--anticipation 0..1]
@@ -780,10 +788,12 @@ async function main(): Promise<number> {
     case "style": {
       // msuite style learn <files-or-dir…> --chord Bb7 --id name -o model.json
       const sub = args.positional[0];
-      if (sub !== "learn")
-        throw new Error('style: the verb is `style learn <files-or-dir…> --chord <sym> --id <name> -o model.json`');
+      if (sub !== "learn" && sub !== "comp")
+        throw new Error('style: the verb is `style learn <files-or-dir…> --chord <sym> --id <name> -o model.json`\n'
+          + '       or `style comp <loops-or-dir…> --chord <sym> --id <name> -o model.json` for '
+          + 'Strum-style comping loops, whose notes are voicing slots rather than pitches');
       const inputs = args.positional.slice(1);
-      if (!inputs.length) throw new Error("style learn: give it .mid files or a directory of them");
+      if (!inputs.length) throw new Error(`style ${sub}: give it .mid files or a directory of them`);
       const files: string[] = [];
       for (const inp of inputs) {
         if (statSync(inp).isDirectory())
@@ -791,6 +801,38 @@ async function main(): Promise<number> {
         else files.push(inp);
       }
       const chord = one(args, "chord");
+
+      if (sub === "comp") {
+        // msuite style comp <loops-or-dir…> --chord Cm7 --id name -o model.json
+        //
+        // The comping sibling of `style learn`. Its input is loops that carry
+        // no pitch — thirteen keys addressing voicing slots — so the chord here
+        // is a CHOSEN reference that fixes which pitches land in `notes`, not
+        // one the loops were played against. The model also keeps `degrees`, so
+        // realizeDegrees can move it elsewhere. docs/COMPING_STYLES.md.
+        if (!chord) throw new Error('style comp: --chord is required (the reference chord to realize the '
+          + 'voicing slots against, e.g. --chord "Cm7") — these loops state no chord of their own');
+        const r = learnCompModel({
+          files, chord, id: one(args, "id") ?? "comp-style",
+          ...(one(args, "label") !== undefined && { label: one(args, "label")! }),
+          ...(one(args, "tonic") !== undefined && { tonic: one(args, "tonic")! }),
+          ...(one(args, "mode") !== undefined && { mode: one(args, "mode") as "major" | "minor" }),
+        });
+        const covered = r.model.slots.filter((s) => s.count > 0).length;
+        const withDeg = r.model.slots.filter((s) => s.degrees && Object.keys(s.degrees).length).length;
+        console.log(`style comp: ${r.loops} loop(s)${r.skipped ? `, ${r.skipped} skipped (not loop language)` : ""} `
+          + `→ ${r.model.meter.numerator}/${r.model.meter.denominator} (${r.meterSource}), grid ${r.grid}, `
+          + `${r.model.ticksPerBeat} tpb, ${r.model.slots.length} slots (${covered} played, ${withDeg} with degrees)`);
+        const out = one(args, "out");
+        if (out) {
+          writeFileSync(out, r.modelJson);
+          console.log(`wrote ${out} — statistics only, the loops stay on this machine.`);
+          console.log(`the ${r.model.frame.symbol} frame is a chosen reference; the model carries degrees, so it can be `
+            + `realized over any chord.`);
+        }
+        return 0;
+      }
+
       if (!chord) throw new Error('style learn: --chord is required (the one chord the clips were played against, e.g. --chord "Bb7")');
       const id = one(args, "id") ?? "learned-style";
       const r = learnStyle({
