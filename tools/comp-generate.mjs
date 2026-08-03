@@ -162,8 +162,12 @@ export function toStrumNotes(take, { base = DEFAULT_BASE, division = 96 } = {}) 
  *     `annotations` rather than silently dropped. This is the lossy step, and
  *     it is the exact analogue of per-slot microtiming in the drum styles.
  */
-export function toPhrase(take, { chord = null, ticksPerBeat = 96, voicing = null, id = null } = {}) {
-  const slotTicks = ticksPerBeat / take.perBeat;
+export function toPhrase(take, { chord = null, ticksPerBeat = 96, voicing = null, id = null, slotTicks: slotTicksIn = null } = {}) {
+  /* `slotTicks` can be given explicitly because GloriArp's StyleModel counts a
+     beat as one DENOMINATOR unit, not a quarter. In 12/8 its grid is per
+     eighth, so ticksPerBeat/perBeat — which is per quarter — is half of what
+     the model expects and every onset would land on the wrong slot. */
+  const slotTicks = slotTicksIn ?? ticksPerBeat / take.perBeat;
   const nVoices = ARPEGGIO_OFFSETS.length;
 
   /* A default voicing: chord tones stacked upward, doubling from the bottom.

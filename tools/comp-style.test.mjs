@@ -2,7 +2,8 @@ import { describe, it, expect } from "vitest";
 import { detectBase, classify, barQuartersFrom, learnFromFiles } from "./comp-style.mjs";
 import { STRUM_KEY_NAMES, ARPEGGIO_OFFSETS, DEFAULT_BASE } from "./strum-playable.mjs";
 import { generate, toStrumNotes, toPhrase, chordSpec } from "./comp-generate.mjs";
-import { validatePhrase } from "@enkerli/accompaniment";
+import { validatePhrase, validateModel, samplePhrase } from "@enkerli/accompaniment";
+import { gridFor, toStyleModel } from "./comp-model.mjs";
 
 const at = (base, off, tick, vel = 100) => ({ note: base + off, tick, vel, channel: 1 });
 
@@ -196,6 +197,69 @@ describe("toPhrase — the GloriArp bridge", () => {
     const muted = p.events.filter((e) => Math.abs(e.onset - 6 * slotTicks) < slotTicks / 2);
     expect(muted).toHaveLength(6);                              // six voices
     expect(muted.every((e) => e.duration < slotTicks * 0.5)).toBe(true);
+  });
+});
+
+describe("comp-model — the GloriArp style-model bridge", () => {
+  const styleWith = (slotsPerBar, meter, perBeat) => ({
+    id: "t", kind: "comp-style", version: 1,
+    grid: { perBeat, barQuarters: 4, slotsPerBar, meter },
+    slots: [
+      { slot: 0, p: 1, kinds: { pluck1: 1 }, velocity: { mean: 100, sd: 2 }, push: 0, pushSd: 0, strum: null },
+      { slot: 2, p: 0.8, kinds: { strum: 1 }, velocity: { mean: 90, sd: 3 }, push: 0, pushSd: 0.02,
+        strum: { runs: { "2-5": 1 }, direction: { down: 1 }, spreadQuarters: { mean: 0.04, sd: 0.01 } } },
+    ],
+  });
+
+  it("computes grid as slots per DENOMINATOR unit, not per quarter", () => {
+    // The trap: a model's beat is one denominator unit, so a 12-slot 12/8 bar
+    // is grid 1 (per eighth) while a 12-slot 3/4 bar is grid 4 (sixteenths).
+    // Getting it wrong does not throw — it silently misplaces every onset.
+    expect(gridFor(styleWith(12, { numerator: 12, denominator: 8 }, 2))).toBe(1);
+    expect(gridFor(styleWith(12, { numerator: 3, denominator: 4 }, 4))).toBe(4);
+    expect(gridFor(styleWith(16, { numerator: 4, denominator: 4 }, 4))).toBe(4);
+    expect(gridFor(styleWith(18, { numerator: 9, denominator: 8 }, 4))).toBe(2);
+  });
+
+  it("refuses a bar whose slots do not divide the beats evenly", () => {
+    expect(() => gridFor(styleWith(10, { numerator: 4, denominator: 4 }, 4))).toThrow(/whole slots per beat/);
+  });
+
+  it("produces a model GloriArp validates and can sample", () => {
+    const { model } = toStyleModel(styleWith(16, { numerator: 4, denominator: 4 }, 4),
+      { chord: chordSpec("Am7"), takes: 8, bars: 2 });
+    expect(validateModel(model).ok).toBe(true);
+    expect(model.role).toBe("comping");
+    expect(model.ticksPerBeat).toBe(480);       // 120 a slot × grid 4, as Funkastic's files use
+    expect(model.takes).toBe(8);
+    const p = samplePhrase(model, { seed: 1, pass: 0 });
+    expect(validatePhrase(p).ok).toBe(true);
+    expect(p.events.length).toBeGreaterThan(0);
+  });
+
+  it("lands 12/8 onsets on real slots rather than half of them", () => {
+    // With ticksPerBeat/perBeat instead of explicit slot ticks, every onset in
+    // a 12/8 model came out at half its slot index.
+    const { model, ticksPerBeat } = toStyleModel(styleWith(12, { numerator: 12, denominator: 8 }, 2),
+      { chord: chordSpec("C"), takes: 4, bars: 1 });
+    expect(ticksPerBeat).toBe(120);
+    expect(model.slots.length).toBe(1 * 12 * 1);           // bars × numerator × grid
+    // Slot 2 fires in the style, so slot 2 must carry counts — not slot 1.
+    expect(model.slots[2].count).toBeGreaterThan(0);
+    expect(model.slots[0].count).toBeGreaterThan(0);
+  });
+
+  it("refuses to invent a frame chord", () => {
+    expect(() => toStyleModel(styleWith(16, { numerator: 4, denominator: 4 }, 4), { takes: 2 }))
+      .toThrow(/frame chord is required/);
+  });
+
+  it("records that the frame was chosen, not observed", () => {
+    // Funkastic's models mean "the clips really were played over C-9". A
+    // comping style has no harmony at all, so the frame is our pick.
+    const { model } = toStyleModel(styleWith(16, { numerator: 4, denominator: 4 }, 4),
+      { chord: chordSpec("Cm7"), takes: 4 });
+    expect(model.source.note).toMatch(/CHOSEN reference, not one the source stated/);
   });
 });
 
