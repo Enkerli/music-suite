@@ -48,7 +48,7 @@
  * to feed a MIDI writer instead.
  */
 
-import { rng } from "@enkerli/upi";
+import { morpher } from "@enkerli/upi";
 
 /**
  * Deterministic sampling. A seed names a take; a pass is the next loop round.
@@ -56,31 +56,12 @@ import { rng } from "@enkerli/upi";
  * Same convention as `msuite accompany --seed/--pass`, and the same PRNG the
  * plugin grows `*N` with since 2026-08-02 — so "seed 7" is one thing across the
  * CLI, the webapp and the engine.
- */
-function sampler(seed, pass) { return rng(seed >>> 0, pass >>> 0); }
-
-/**
- * Morph — how much of a take is re-rolled on each pass.
  *
- * GloriArp's model, same meaning: 0 means every pass is the same bar, 1 means
- * every pass is independent, and in between a FRACTION of the decisions get a
- * new answer while the rest stand. That is what makes a groove drift rather
- * than jump, which is the whole appeal (KNOWLEDGE_TRANSFER item 5 —
- * Troublemaker/Rozeta-style continuous mutation, one decision at a time).
- *
- * Both streams are drawn from on EVERY decision, even when only one is used.
- * Consuming them unevenly would make the result depend on how many earlier
- * decisions happened to morph, and a take would stop being reproducible.
+ * `morpher` used to be defined here. It moved to @enkerli/upi beside `rng`,
+ * because it is a seeding convention rather than a drum one and the comping
+ * styles need the identical rule — a second copy would have drifted, which is
+ * the whole history of INTENT L5.
  */
-function morpher(seed, pass, rate) {
-  const base = sampler(seed, 0);        // the pass-0 take, the thing being drifted from
-  const mut  = sampler(seed, pass);     // where this pass wants to go
-  const pick = sampler(seed ^ 0x9e3779b9, pass);
-  return () => {
-    const a = base(), b = mut(), p = pick();
-    return pass > 0 && p < rate ? b : a;
-  };
-}
 
 /**
  * Sample `bars` bars from a style.

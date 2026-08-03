@@ -37,3 +37,30 @@ export function seedFromSteps(steps, salt = 0) {
   }
   return h >>> 0;
 }
+
+/**
+ * Morph — how much of a take is re-rolled on each pass.
+ *
+ * GloriArp's model, same meaning everywhere: 0 means every pass is the same
+ * bar, 1 means every pass is independent, and in between a FRACTION of the
+ * decisions get a new answer while the rest stand. That is what makes a groove
+ * drift rather than jump.
+ *
+ * Both streams are drawn from on EVERY decision, even when only one is used.
+ * Consuming them unevenly would make the result depend on how many earlier
+ * decisions happened to morph, and a take would stop being reproducible.
+ *
+ * Lives here, beside `rng`, because it is a seeding convention rather than a
+ * drum one — it started private to `@enkerli/drumsynth` and the comping styles
+ * needed the identical rule. A second copy would have drifted (INTENT L5, five
+ * incidents and counting), and "same seed, same take" has to hold suite-wide.
+ */
+export function morpher(seed, pass, rate) {
+  const base = rng(seed >>> 0, 0);                    // the pass-0 take, drifted from
+  const mut = rng(seed >>> 0, pass >>> 0);            // where this pass wants to go
+  const pick = rng((seed ^ 0x9e3779b9) >>> 0, pass >>> 0);
+  return () => {
+    const a = base(), b = mut(), p = pick();
+    return pass > 0 && p < rate ? b : a;
+  };
+}

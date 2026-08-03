@@ -28,19 +28,45 @@ import { parseSMF } from "./midi-timing.mjs";
 import { createSMF } from "@enkerli/midi";
 
 /**
- * The Strumming Keys, from the GS-2 manual. Six of them address strings; the
- * other seven are whole-hand actions, which is why they only ever appear alone
- * — a downstroke is one event that strums the entire chord.
+ * The Strumming Keys, from the GS-2 manual, as OFFSETS from the base key.
+ *
+ * Six of them address voicing slots; the other seven are whole-hand actions,
+ * which is why those only ever appear alone — a downstroke is one event that
+ * strums the entire chord.
+ *
+ * Offsets rather than absolute notes because the base moves between packs:
+ * most sit at C5 (72), but Pop Rocks is the identical thirteen keys based at
+ * C1. A pack can even mix the two. Hard-coding 72 would have silently thrown
+ * away every transposed loop as "not this language".
  */
-export const STRUMMING_KEYS = {
-  72: "Downstroke", 73: "Palm mute", 74: "Upstroke", 75: "Alternate bass",
-  76: "Arpeggio 6 (bass)", 77: "Arpeggio 5", 78: "Muffled down",
-  79: "Arpeggio 4", 80: "Muffled up", 81: "Arpeggio 3", 82: "Mute",
-  83: "Arpeggio 2", 84: "Arpeggio 1",
-};
+export const STRUM_KEY_NAMES = [
+  "Downstroke", "Palm mute", "Upstroke", "Alternate bass",
+  "Arpeggio 6 (bass)", "Arpeggio 5", "Muffled down",
+  "Arpeggio 4", "Muffled up", "Arpeggio 3", "Mute",
+  "Arpeggio 2", "Arpeggio 1",
+];
 
-/** The six string slots, low to high. Slot 6 is the bass of the VOICING, which
- *  Movable-Root may put on string 5 — the loop addresses slots, not frets. */
+/** The default base — C5, what Strum writes unless a pack says otherwise. */
+export const DEFAULT_BASE = 72;
+
+/**
+ * Offsets of the six voicing slots, ASCENDING — index 0 is the bass.
+ *
+ * Ascending offset is ascending pitch, so this reads slot 6, 5, 4, 3, 2, 1:
+ * Strum numbers the slots downward from the top string, the array counts up
+ * from the bottom, and the confusion is worth naming once here rather than
+ * rediscovering it at every call site. Slot 6 is the bass of the VOICING, which
+ * Movable-Root may put on string 5 — slots, not frets.
+ */
+export const ARPEGGIO_OFFSETS = STRUM_KEY_NAMES
+  .map((n, i) => (n.startsWith("Arpeggio") ? i : -1))
+  .filter((i) => i >= 0);           // [4, 5, 7, 9, 11, 12]
+
+/** Absolute-note view at the default base, kept for callers that want it. */
+export const STRUMMING_KEYS = Object.fromEntries(
+  STRUM_KEY_NAMES.map((name, i) => [DEFAULT_BASE + i, name]));
+
+/** The six slot notes at the default base, low to high. */
 export const ARPEGGIO_SLOTS = [76, 77, 79, 81, 83, 84];
 
 const WHITE = new Set([0, 2, 4, 5, 7, 9, 11]);

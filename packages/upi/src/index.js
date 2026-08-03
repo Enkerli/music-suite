@@ -52,7 +52,7 @@ export {
 } from "./longshort.js";
 // The suite's one seeded PRNG (mulberry32) — shared so callers that need a
 // reproducible stream do not inline a fourth copy. See rng.js on why.
-export { rng, seedFromSteps } from "./rng.js";
+export { rng, seedFromSteps, morpher } from "./rng.js";
 
 export {
   // named-pattern import: "Fume-Fume: [0,2,4,7,9]/12", one line or a block
