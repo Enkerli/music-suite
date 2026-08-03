@@ -34,9 +34,11 @@ export {
 } from "./pipeline.js";
 export { computeFeatures, type PhraseFeatures } from "./features.js";
 export {
-  createStyleModel, addTake, learnStyleModel, samplePhrase,
+  createStyleModel, addTake, learnStyleModel, samplePhrase, realizeDegrees,
   serializeModel, parseModel, validateModel, looksLikeModel, MODEL_SCHEMA_V,
+  degreeKey, parseDegreeKey,
   type StyleModel, type SlotStats, type VoiceStats, type LearnOptions, type SampleOptions,
+  type RealizeOptions,
 } from "./model.js";
 export {
   adaptBassPhrase, ENGINE, ENGINE_VERSION,

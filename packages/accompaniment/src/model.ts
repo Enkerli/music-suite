@@ -47,13 +47,31 @@
 import { mulberry32 } from "@enkerli/proggen";
 import type {
   AccompanimentPhrase, AccompanimentRole, FrameChord, HarmonicFrame, Meter, ProvenanceRef,
+  ChordRelation, ChordRelationCategory, PhraseEvent,
 } from "./phrase.js";
+import { PHRASE_SCHEMA_V } from "./phrase.js";
 import { extractPhrase, type InputNote } from "./extract.js";
 
 export const MODEL_SCHEMA_V = 1;
 
 /** One (slot, voice) line's distribution — the same shape a slot itself
  *  keeps in aggregate, minus `covered` (voices share the parent slot's). */
+/**
+ * A chord relation as a histogram key: `degree:alteration:category`.
+ *
+ * "3:0:chord-tone" is the third tone of the chord; "0:-1:chromatic-approach"
+ * is a semitone below its target and belongs to no chord tone. Verbose on
+ * purpose — it is a JSON key that has to survive being read by a human two
+ * years from now, and every part of it is needed to realize the note again.
+ */
+export const degreeKey = (r: ChordRelation): string =>
+  `${r.degree}:${r.alteration}:${r.category}`;
+
+export const parseDegreeKey = (k: string): { degree: number; alteration: number; category: string } => {
+  const [d, a, ...rest] = k.split(":");
+  return { degree: Number(d), alteration: Number(a), category: rest.join(":") };
+};
+
 export interface VoiceStats {
   count: number;
   velSum: number;
@@ -62,6 +80,8 @@ export interface VoiceStats {
   devSum: number;
   devSqSum: number;
   notes: Record<string, number>;
+  /** Chord-relative vocabulary at this line — see `degrees` on SlotStats. */
+  degrees?: Record<string, number>;
 }
 
 export interface SlotStats {
@@ -77,6 +97,19 @@ export interface SlotStats {
   devSqSum: number;
   /** Absolute MIDI note → count (the note-choice vocabulary at this slot). */
   notes: Record<string, number>;
+  /**
+   * Chord-relative vocabulary → count, keyed by `degreeKey`.
+   *
+   * `notes` says which PITCHES were played; this says which FUNCTIONS. The
+   * difference is what survives reharmonization: a model that only knows it
+   * played 57 can be transposed, while one that knows it played the root can
+   * be voice-led onto a chord that has no 57 in it.
+   *
+   * Optional and additive — models learned before this existed simply lack it,
+   * and every consumer that reads `notes` is unaffected. Populated whenever the
+   * phrase's events carry `chordRelation`, which extraction already produces.
+   */
+  degrees?: Record<string, number>;
   /** Per-voice stats — present only once the corpus shows polyphony. */
   voices?: Record<string, VoiceStats>;
 }
@@ -154,18 +187,25 @@ export function addTake(model: StyleModel, phrase: AccompanimentPhrase): StyleMo
   for (let i = 0; i < Math.min(takeSlots, model.slots.length); i++) model.slots[i]!.covered++;
 
   for (const e of phrase.events) {
-    if (e.note === undefined) continue;
+    /* A note-less event used to be skipped outright, which silently dropped
+       every chord-relative phrase — the ones that say "the third" rather than
+       "note 64". Those are exactly what a functional model wants, so an event
+       now counts as long as it carries a note OR a chord relation. Nothing
+       regresses: phrases from extraction always have notes. */
+    if (e.note === undefined && e.chordRelation === undefined) continue;
     const slot = Math.round(e.onset / slotTicks);
     if (slot < 0 || slot >= model.slots.length) continue;
     const s = model.slots[slot]!;
     const dev = e.onset - slot * slotTicks;
+    const dk = e.chordRelation ? degreeKey(e.chordRelation) : null;
     s.count++;
     s.velSum += e.velocity;
     s.velSqSum += e.velocity * e.velocity;
     s.durSum += e.duration;
     s.devSum += dev;
     s.devSqSum += dev * dev;
-    s.notes[String(e.note)] = (s.notes[String(e.note)] ?? 0) + 1;
+    if (e.note !== undefined) s.notes[String(e.note)] = (s.notes[String(e.note)] ?? 0) + 1;
+    if (dk) { s.degrees ??= {}; s.degrees[dk] = (s.degrees[dk] ?? 0) + 1; }
 
     if (e.voice !== undefined) {
       s.voices ??= {};
@@ -177,7 +217,8 @@ export function addTake(model: StyleModel, phrase: AccompanimentPhrase): StyleMo
       v.durSum += e.duration;
       v.devSum += dev;
       v.devSqSum += dev * dev;
-      v.notes[String(e.note)] = (v.notes[String(e.note)] ?? 0) + 1;
+      if (e.note !== undefined) v.notes[String(e.note)] = (v.notes[String(e.note)] ?? 0) + 1;
+      if (dk) { v.degrees ??= {}; v.degrees[dk] = (v.degrees[dk] ?? 0) + 1; }
     }
   }
   model.takes++;
@@ -350,6 +391,102 @@ export function samplePhrase(model: StyleModel, opts: SampleOptions): Accompanim
 }
 
 // ── (De)serialization — the shareable artifact is STATISTICS, never clips ────
+
+export interface RealizeOptions {
+  /** The chord to play the model's FUNCTIONS on — need not resemble the frame. */
+  chord: FrameChord;
+  seed: number;
+  pass?: number;
+  /** Lowest note of the voicing stack. Voices climb from here. */
+  bassNote?: number;
+  /** Onset-probability scale, as in samplePhrase. */
+  density?: number;
+  id?: string;
+}
+
+/**
+ * Realize a model's chord-relative content onto ANY chord.
+ *
+ * `samplePhrase` replays the pitches the corpus played, which is right when you
+ * want the model's own sound and wrong when the chord has changed underneath —
+ * a model of note 57 cannot be voice-led onto a chord with no 57 in it. This
+ * reads `degrees` instead, so "the third, an octave up" stays the third.
+ *
+ * Register comes from the VOICE INDEX, pitch class from the sampled degree:
+ * voice v sits in the octave band `bass + floor(v / |pcs|) * 12` and takes the
+ * lowest note at or above it with the wanted class. Within a band the voices
+ * are not forced into ascending order — the degrees are sampled independently,
+ * and reordering them would silently contradict what was sampled. The bands
+ * keep the overall shape; they do not pretend to be a voicing algorithm.
+ *
+ * Requires a model with `degrees`. Models that predate it should go through
+ * `samplePhrase`, and this says so rather than silently returning nothing.
+ */
+export function realizeDegrees(model: StyleModel, opts: RealizeOptions): AccompanimentPhrase {
+  const withDegrees = model.slots.filter((s) => s.degrees && Object.keys(s.degrees).length);
+  if (!withDegrees.length)
+    throw new Error(`model "${model.id}" carries no chord-relative degrees — use samplePhrase, `
+      + `or relearn it from phrases whose events have chordRelation`);
+
+  const rng = mulberry32(((((opts.seed >>> 0) * 2654435761) ^ (((opts.pass ?? 0) + 1) * 40503)) >>> 0));
+  const slotTicks = model.ticksPerBeat / model.grid;
+  const density = opts.density ?? 1;
+  const pcs = opts.chord.pcs;
+  const events: PhraseEvent[] = [];
+
+  const bass = opts.bassNote ?? 48;
+  const perOctave = Math.max(1, pcs.length);
+  const noteForVoice = (v: number, pc: number): number => {
+    const band = bass + Math.floor(v / perOctave) * 12;
+    return band + ((((pc - band) % 12) + 12) % 12);
+  };
+
+  for (let i = 0; i < model.slots.length; i++) {
+    const s = model.slots[i]!;
+    if (!s.covered || !s.count || !s.degrees) continue;
+    const lines: Array<{ stats: SlotStats | VoiceStats; voice?: number }> = s.voices
+      ? Object.entries(s.voices).map(([v, st]) => ({ stats: st, voice: Number(v) }))
+      : [{ stats: s }];
+
+    for (const { stats, voice } of lines) {
+      if (!stats.count || !stats.degrees) continue;
+      if (rng() >= Math.min(1, (stats.count / s.covered) * density)) continue;
+      const total = Object.values(stats.degrees).reduce((a, b) => a + b, 0);
+      let x = rng() * total, key = Object.keys(stats.degrees)[0]!;
+      for (const [k, c] of Object.entries(stats.degrees)) { x -= c; if (x <= 0) { key = k; break; } }
+      const { degree, alteration, category } = parseDegreeKey(key);
+
+      /* Degree 0 means "no chord tone" — an NCT. It keeps its alteration
+         relative to the chord root, which is the only anchor available once
+         the original target is gone. */
+      const pc = degree > 0
+        ? (pcs[(degree - 1) % pcs.length]! + alteration + 12) % 12
+        : (opts.chord.rootPc + alteration + 12) % 12;
+
+      const note = Math.max(0, Math.min(127, noteForVoice(voice ?? 0, pc)));
+      events.push({
+        onset: i * slotTicks + Math.round(stats.devSum / Math.max(1, stats.count)),
+        duration: Math.max(1, Math.round(stats.durSum / stats.count)),
+        velocity: Math.max(1, Math.min(127, Math.round(stats.velSum / stats.count))),
+        note, pitchClass: pc,
+        ...(voice !== undefined && { voice }),
+        chordRelation: { degree, alteration, octave: Math.floor(note / 12), category: category as ChordRelationCategory },
+      });
+    }
+  }
+  events.sort((a, b) => a.onset - b.onset || (a.note ?? 0) - (b.note ?? 0));
+
+  return {
+    v: PHRASE_SCHEMA_V,
+    id: opts.id ?? `${model.id}-on-${opts.chord.symbol}-s${opts.seed}`,
+    role: model.role,
+    lengthTicks: Math.max(1, model.slots.length * slotTicks),
+    ticksPerBeat: model.ticksPerBeat,
+    meter: model.meter,
+    events,
+    harmonicFrames: [{ start: 0, end: model.slots.length * slotTicks, chord: opts.chord }],
+  };
+}
 
 export function serializeModel(model: StyleModel): string {
   return JSON.stringify(model, null, 2) + "\n";
