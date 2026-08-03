@@ -28,7 +28,7 @@ The ` 2` / ` 3` suffixes are macOS duplicate-file naming. The harmonisation
 happens in the plugin, downstream of the MIDI — so there is nothing to diff, and
 the comparison approach cannot recover a chord.
 
-## 2. There is no pitch content at all
+## 2. The notes are strings, and six of them are decoded
 
 Across **all 84 files**, exactly thirteen distinct note numbers appear:
 
@@ -36,15 +36,61 @@ Across **all 84 files**, exactly thirteen distinct note numbers appear:
 72 73 74 75 76 77 78 79 80 81 82 83 84        (C5 … C6, contiguous, no gaps)
 ```
 
-Twelve different grooves, seven variants each, and not one note outside a
-one-octave block starting exactly at C5. Real guitar comping would spread over
-forty semitones or more. This is an **index space** — voicing or articulation
-slots the plugin reads — not pitch.
+Twelve grooves, seven loops each, and not one note outside a one-octave block
+starting at C5. So this is an index space, not pitch — and the index is
+readable. **Six of the thirteen are the guitar's strings.**
 
-So the loop has no chord to extract. Its chord is whatever the plugin is told,
-which is exactly why one file can serve E7 and E♭maj7sus2.
+The source is **AAS Strum GS-2** in Loop mode, and these files came out of its
+`MIDI Drag` button: they are Strum's own loop language, not a performance.
+Alex, playing Mister Blisters Loop C in F: *"I get string 6 then a strum on
+strings 3-2-1."* Loop C's first bar is `76` alone, then repeated `78`, then
+`81 83 84` together. That reads directly:
 
-**Consequence for the kit:** these must never go through `resolveDrum`. Note 72
+```
+76  77  79  81  83  84        ← the six string slots
+ 6   5   4   3   2   1        ← low to high
+```
+
+Three independent measurements agree:
+
+- **98.2% of every cluster in the corpus (381 of 388) is drawn entirely from
+  those six notes.** The other seven note numbers essentially never appear in a
+  chord — 72, 73, 74, 75, 78, 80 and 82 are 98–100% solo.
+- **74% of those clusters are contiguous string runs** — `77,79` is strings 5-4,
+  `81,83,84` is 3-2-1, `79,81,83,84` is 4-3-2-1. That is what a strum is: a pick
+  crossing adjacent strings. The remaining quarter skip a string, which is also
+  what real voicings do.
+- **Mean rank within the cluster rises monotonically** across 77 → 79 → 81 → 83
+  → 84 (0.10, 0.48, 0.59, 1.12, 1.49), exactly as a low-to-high ordering must.
+
+The strums are also directional and tight: **112 downstrokes (6→1), 76 upstrokes
+(1→6)**, 95 simultaneous, mean spread 2.7 ticks — 0.028 of a quarter.
+
+### The slots are voicing-relative, not physical
+
+Alex again: *"with some other notes, the 6th string shifts to the 5th one."*
+That is Strum's `Movable-Root` voicing deciding where the root sits, and it means
+slot 6 is better read as **"lowest sounding voice of the chord"** than as a
+physical string. The loop addresses *slots*; the voicing supplies the pitch.
+
+Which is the useful finding, and the answer to the original question: the loop is
+**pitch-free and chord-relative by design**. There is no chord to recover because
+the chord was never in there — and that is precisely what makes the material
+usable. Alex's own guess, "chord degree, in a somewhat obfuscated way", is right.
+
+### The other seven
+
+72, 73, 74, 75, 78, 80, 82 are always solo, and louder than the strums (mean
+velocity 95–96 against 74–88). Note 72 is the single most common event in the
+corpus (447 of them). They are almost certainly articulation keys — mutes, dead
+notes, slaps — but **which is which cannot be read off the MIDI**, and guessing
+would be inventing. Playing them one at a time in Strum answers it in a minute.
+
+Grooves use different subsets, and that is itself a style signature: `Lone Star`
+uses 72 73 74 76 78 80 82 and never strums at all, while `Impressions` uses ten
+of the thirteen.
+
+**One caution for the kit:** these must never go through `resolveDrum`. Note 72
 is `72 % 12 == 0` → kick. The whole corpus would render as drums.
 
 ## 3. The meter is real; the grid is not
@@ -80,25 +126,40 @@ Two smaller notes on the rhythm:
 
 ## What this means for learning from them
 
-The drum-style machinery is the wrong tool here, and for a specific reason: a
-drum style is **per-slot probabilities**, and quantising this material to slots
-would throw away the 0.15-quarter deviations that are the entire comping feel.
-The waltz corpus survived that treatment because it was tight (median 0.057
-slots off); this one would not.
+This is for **GloriArp**, not the kit — and the corpus turns out to be an
+unusually good fit for it, because the separation GloriArp needs is already done.
 
-What fits is closer to what GloriArp already does for phrases —
-`learnStyleModel` keeps per-slot onset, velocity, duration AND micro-timing
-distributions, so the deviation is retained rather than rounded away. The
-adaptation needed is:
+A comping loop here is **six lanes** (the string slots) carrying onsets,
+velocities and stroke direction, with **no harmony of its own**. GloriArp
+supplies the chord; the loop supplies which voice, when, and how hard. That is
+the same pattern-times-harmony split the suite already runs on, arriving
+pre-separated — the reason a single file can serve E7 and E♭maj7sus2.
 
-1. **Voices are indices, not drums.** The style's `voices` key is already just a
-   name per lane; it needs to stop assuming a kit.
-2. **Keep onset offsets continuous.** Slot probability plus a micro-timing
-   distribution per slot, as the drum styles already carry in `push` — but here
-   it is the primary content rather than a nuance.
-3. **Take the meter from the filename.** 12-8, 9-8, 6-8, 3-4 are all stated,
-   and the timekeeper heuristic cannot find a bar in a guitar part because there
-   is no timekeeper voice. Using stated metadata is not cheating.
+Six lanes with per-lane onsets is also, structurally, a **poly pattern**, which
+the engine already plays (INTENT D5, D8). The nearest existing relative is
+Funkastic, the clav comping generator.
 
-Generic names when these ship, same as the drum styles, and for the same reason:
+Three things the machinery needs:
+
+1. **Lanes are voicing slots, not drums.** `learnStyle` calls `resolveDrum` and
+   assumes a kit. The slot index is the lane; the pitch comes from the chord at
+   play time, not from the style.
+2. **Keep onset offsets continuous.** Per-slot probability alone would quantise
+   away the 0.15-quarter deviations that are the comping feel — the waltzes
+   survived that because they were tight (0.057 slots), this would not.
+   `learnStyleModel` already keeps micro-timing distributions; here they are the
+   primary content rather than a nuance.
+3. **Keep the strum as one gesture.** A strum is a contiguous run of slots
+   spread over ~2.7 ticks with a direction. Stored as six independent lane
+   onsets it survives, but stored as a *gesture* — run, direction, spread — it
+   can be regenerated over a different voicing, which is what makes cross-style
+   work ("a jazz waltz, funkier") possible.
+
+Meter comes from the filename: 12-8, 9-8, 6-8, 3-4 are all stated, and the
+timekeeper heuristic cannot find a bar in a guitar part because there is no
+timekeeper voice. Using stated metadata is not cheating.
+
+Open question, cheap to answer: what the seven non-string notes articulate.
+
+Generic names when these ship, same as the drum styles and for the same reason:
 so nobody mistakes a style for the library it was learned from.
