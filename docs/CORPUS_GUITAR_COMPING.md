@@ -78,17 +78,64 @@ Which is the useful finding, and the answer to the original question: the loop i
 the chord was never in there — and that is precisely what makes the material
 usable. Alex's own guess, "chord degree, in a somewhat obfuscated way", is right.
 
-### The other seven
+### The full map, from the manual
 
-72, 73, 74, 75, 78, 80, 82 are always solo, and louder than the strums (mean
-velocity 95–96 against 74–88). Note 72 is the single most common event in the
-corpus (447 of them). They are almost certainly articulation keys — mutes, dead
-notes, slaps — but **which is which cannot be read off the MIDI**, and guessing
-would be inventing. Playing them one at a time in Strum answers it in a minute.
+The GS-2 panel names all thirteen Strumming Keys, and the statistics above
+turn out to have predicted it exactly:
+
+| note | key | measured |
+|---|---|---|
+| 72 | Downstroke | 444 solo — the commonest event in the corpus |
+| 73 | Palm mute | 238 solo |
+| 74 | Upstroke | 139 solo |
+| 75 | Alternate bass | 10 solo |
+| **76** | **Arpeggio 6 (bass)** | cluster member, lowest rank |
+| **77** | **Arpeggio 5** | cluster, rank 0.10 |
+| 78 | Muffled down | 47 solo |
+| **79** | **Arpeggio 4** | cluster, rank 0.48 |
+| 80 | Muffled up | 81 solo |
+| **81** | **Arpeggio 3** | cluster, rank 0.59 |
+| 82 | Mute | 67 solo |
+| **83** | **Arpeggio 2** | cluster, rank 1.12 |
+| **84** | **Arpeggio 1** | cluster, rank 1.49 |
+
+The six cluster notes are exactly the six **Arpeggio** keys, in order. Every
+always-solo note is a whole-hand action — which is *why* it is always solo: a
+downstroke is one event that strums the entire chord, so it has nothing to
+co-occur with. The measurement even predicted that 72 would dominate the corpus,
+before the label was known.
+
+They are called *Arpeggio* keys, which is a pleasing thing to discover on the way
+to teaching an arpeggiator.
 
 Grooves use different subsets, and that is itself a style signature: `Lone Star`
 uses 72 73 74 76 78 80 82 and never strums at all, while `Impressions` uses ten
 of the thirteen.
+
+### Why the loop files will not play
+
+A dragged loop contains Strumming Keys *only*. Nothing sounds in any play mode
+because **no chord is held** — the file says how to play and never what. The
+Chord Keys are a separate region, and the panel spells quality positionally:
+
+```
+root alone            major
++ 1st BLACK on left   minor
++ 1st WHITE on left   seventh
++ both                minor seventh
+```
+
+`tools/strum-playable.mjs` holds a chord under a loop for its full length, which
+makes the file self-contained and the decoding above testable by ear:
+
+```bash
+node tools/strum-playable.mjs "<loop>.mid" --chord Fm7 -o out.mid   # play it
+node tools/strum-playable.mjs --probe --chord C -o probe.mid        # 13 keys, one per beat
+```
+
+The probe is the decisive experiment: one labelled key per beat, in order. If
+beat 5 is not the bass string and beat 13 is not the top one, this document is
+wrong. Output is corpus-derived — keep it out of the repo (D7).
 
 **One caution for the kit:** these must never go through `resolveDrum`. Note 72
 is `72 % 12 == 0` → kick. The whole corpus would render as drums.
