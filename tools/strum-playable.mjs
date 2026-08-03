@@ -22,7 +22,7 @@
  * output does not.
  */
 
-import { readFileSync, writeFileSync } from "node:fs";
+import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import { basename } from "node:path";
 import { parseSMF } from "./midi-timing.mjs";
 import { createSMF } from "@enkerli/midi";
@@ -183,11 +183,26 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     process.exit(0);
   }
 
-  if (!file) {
+  const usage = () => {
     console.error("usage: strum-playable.mjs <loop.mid> --chord Cm7 [--octave 4] [-o out.mid]");
     console.error("       strum-playable.mjs --probe --chord C [-o probe.mid]");
+  };
+  if (!file) { usage(); process.exit(2); }
+
+  /* A missing input used to surface as a raw ENOENT stack trace, which buries
+     the one thing worth saying. The placeholder case is called out by name
+     because documentation examples get pasted verbatim — and did. */
+  if (/<[^>]*>/.test(file)) {                  // "<loop>.mid" — angle brackets anywhere
+    console.error(`"${file}" is a placeholder, not a filename — substitute a real loop.\n`);
+    usage();
     process.exit(2);
   }
+  if (!existsSync(file)) {
+    console.error(`no such file: ${file}\n`);
+    usage();
+    process.exit(2);
+  }
+
   const out = opt("-o", file.replace(/\.mid$/i, "") + ` [${opt("--chord", "C")}].mid`);
   /* These loops carry no tempo meta, so a bare read plays them at 120 — wrong
      enough to make an A/B against the plugin meaningless. The tempo IS stated,

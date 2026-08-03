@@ -128,14 +128,22 @@ root alone            major
 `tools/strum-playable.mjs` holds a chord under a loop for its full length, which
 makes the file self-contained and the decoding above testable by ear:
 
+Both commands below are runnable as written. `$C` is the corpus, which lives
+outside the repo — and so does everything these commands write, because the
+output carries corpus content (D7). Note the explicit `-o`: without one, the
+loop form writes next to its input, and the probe writes into the current
+directory, which is the repo if that is where you are standing.
+
 ```bash
-node tools/strum-playable.mjs "<loop>.mid" --chord Fm7 -o out.mid   # play it
-node tools/strum-playable.mjs --probe --chord C -o probe.mid        # 13 keys, one per beat
+C=~/Desktop/"Jazz Progs and Gen"/corpora/guitar-comping-ternary
+mkdir -p "$C/_playable"
+node tools/strum-playable.mjs "$C/Mister Blisters 12-8 195-bpm C.mid" --chord Fm7 -o "$C/_playable/blisters-C [Fm7].mid"
+node tools/strum-playable.mjs --probe --chord C -o "$C/_playable/strum-key-probe [C].mid"
 ```
 
 The probe is the decisive experiment: one labelled key per beat, in order. If
 beat 5 is not the bass string and beat 13 is not the top one, this document is
-wrong. Output is corpus-derived — keep it out of the repo (D7).
+wrong.
 
 **One caution for the kit:** these must never go through `resolveDrum`. Note 72
 is `72 % 12 == 0` → kick. The whole corpus would render as drums.
