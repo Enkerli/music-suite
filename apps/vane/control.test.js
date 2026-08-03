@@ -138,3 +138,89 @@ describe("applyVaneNote — plays the voice", () => {
     expect(post.mock.calls.some((c) => c[0].type === "param" && c[0].id === 10)).toBe(false);
   });
 });
+
+import { applyArticulationTimbre, ARTICULATION_TIMBRE } from "./control.js";
+import { vaneIdToWasm as _idmap } from "./control.js";
+
+describe("articulation → timbre (GloriArp driving Vane)", () => {
+  const ids = _idmap();
+  const valueOf = (post, id) => post.mock.calls.map((c) => c[0]).find((m) => m.type === "param" && m.id === id)?.value;
+
+  it("posts nothing at depth 0 — Vane sounds exactly as before", () => {
+    const post = vi.fn();
+    expect(applyArticulationTimbre(post, "sforzando", 0)).toBe(false);
+    expect(applyArticulationTimbre(post, "sforzando", undefined)).toBe(false);
+    expect(post).not.toHaveBeenCalled();
+  });
+
+  it("opens the tone on a sforzando and pulls it back on a ghost", () => {
+    const bright = ids["wg-bell-bright"], growl = ids["wg-growl"], air = ids["wg-breath-noise"];
+    const sf = vi.fn(); applyArticulationTimbre(sf, "sforzando", 1);
+    const gh = vi.fn(); applyArticulationTimbre(gh, "ghost", 1);
+    expect(valueOf(sf, growl)).toBeGreaterThan(valueOf(gh, growl));
+    expect(valueOf(sf, bright)).toBeGreaterThan(valueOf(gh, bright));
+    // A ghost is airier, not just quieter.
+    expect(valueOf(gh, air)).toBeGreaterThan(valueOf(sf, air));
+  });
+
+  it("scales with depth, from the manifest defaults", () => {
+    const growl = ids["wg-growl"];
+    const half = vi.fn(); applyArticulationTimbre(half, "sforzando", 0.5);
+    const full = vi.fn(); applyArticulationTimbre(full, "sforzando", 1);
+    expect(valueOf(half, growl)).toBeCloseTo(valueOf(full, growl) / 2, 5);
+    // tenuto is the neutral: every value lands back on the manifest default.
+    const neutral = vi.fn(); applyArticulationTimbre(neutral, "tenuto", 1);
+    expect(valueOf(neutral, ids["wg-bell-bright"])).toBeCloseTo(0.7, 5);
+    expect(valueOf(neutral, growl)).toBeCloseTo(0, 5);
+  });
+
+  it("never leaves the model's safe range, at any depth", () => {
+    for (const name of Object.keys(ARTICULATION_TIMBRE)) {
+      for (const d of [0.25, 0.5, 1]) {
+        const post = vi.fn(); applyArticulationTimbre(post, name, d);
+        for (const m of post.mock.calls.map((c) => c[0])) {
+          expect(m.value).toBeGreaterThanOrEqual(0);
+          expect(m.value).toBeLessThanOrEqual(1);
+        }
+      }
+    }
+  });
+
+  it("never touches bore damping", () => {
+    // It can cut the model so far it needs a long rest before speaking again,
+    // which is the last thing an automatic modulation should reach for.
+    const bore = ids["wg-bore-damping"];
+    for (const name of Object.keys(ARTICULATION_TIMBRE)) {
+      const post = vi.fn(); applyArticulationTimbre(post, name, 1);
+      expect(post.mock.calls.map((c) => c[0].id)).not.toContain(bore);
+    }
+  });
+
+  it("re-posts on EVERY note, so a sforzando's growl cannot stick", () => {
+    // These are persistent synth params. Posting only on change would leave
+    // the accent's growl running under the next twenty notes — the same leak
+    // glide-time already documents.
+    const growl = ids["wg-growl"];
+    const post = vi.fn();
+    applyVaneNote(post, makeNote("gloriarp", { notes: [60], velocity: 90, durationMs: 100,
+      articulation: "sforzando", timbre: 1 }, { to: "vane" }));
+    const loud = valueOf(post, growl);
+    post.mockClear();
+    applyVaneNote(post, makeNote("gloriarp", { notes: [62], velocity: 60, durationMs: 100,
+      articulation: "legato-inside", timbre: 1 }, { to: "vane" }));
+    expect(valueOf(post, growl)).toBeLessThan(loud);
+  });
+
+  it("ignores an unknown articulation rather than guessing", () => {
+    const post = vi.fn();
+    expect(applyArticulationTimbre(post, "spiccato", 1)).toBe(false);
+    expect(post).not.toHaveBeenCalled();
+  });
+
+  it("a note without a timbre depth posts no timbre params at all", () => {
+    const post = vi.fn();
+    applyVaneNote(post, makeNote("gloriarp", { notes: [60], velocity: 90, durationMs: 50,
+      articulation: "sforzando" }, { to: "vane" }));
+    expect(post.mock.calls.map((c) => c[0]).some((m) => m.type === "param" && m.id === ids["wg-growl"])).toBe(false);
+  });
+});

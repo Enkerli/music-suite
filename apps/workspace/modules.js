@@ -936,7 +936,9 @@ export function createGroovePlayer({ bus, now = () => Date.now(), schedule = (fn
   let timers = [];
   let running = false;
   const stop = () => { running = false; timers.forEach(clear); timers = []; };
-  function start(phraseOrFn, { bpm = 100, loop = false, to = "vane", onPass } = {}) {
+  // `extra` is read FRESH per note, like every other knob: it is a function so
+  // turning timbre mid-loop lands on the next note rather than the next start.
+  function start(phraseOrFn, { bpm = 100, loop = false, to = "vane", onPass, extra } = {}) {
     stop();
     running = true;
     const build = typeof phraseOrFn === "function" ? phraseOrFn : () => phraseOrFn;
@@ -967,6 +969,7 @@ export function createGroovePlayer({ bus, now = () => Date.now(), schedule = (fn
             notes: [e.note], velocity: e.velocity,
             durationMs: Math.max(1, Math.round(e.duration * msPerTick)),
             ...(inf && { articulation: inf.articulation, env: inf.envelope, attack: inf.attack, glideMs: inf.glideMs ?? 0 }),
+            ...(extra ? extra() : null),
           }, { to }));
         }, Math.max(0, at - now())));
       });
@@ -1052,6 +1055,11 @@ function gloriarpModule(ctx, bodyEl, state) {
   const pocket = knob("pocket", "pocket", 0);
   const morph = knob("morph", "morph", 0);
   const inflect = knob("inflect", "inflect", 0);
+  // Timbre: how far the ARTICULATION colours Vane's tone, on top of tonguing.
+  // 0 by default, so Vane sounds exactly as it did until this is turned up.
+  // It rides on the note (like attack/glide/env), so it only reaches an
+  // instrument that knows what to do with it.
+  const timbre = knob("timbre", "timbre", 0);
   const loopBox = el("input", { type: "checkbox", ...(S("loop", true) ? { checked: "" } : {}), "aria-label": "Loop" });
 
   function build(pass = 0) {
@@ -1096,6 +1104,10 @@ function gloriarpModule(ctx, bodyEl, state) {
       build(passNo); // validate now so an immediate error is immediate
       player.start((i) => build(passNo + i), {
         bpm: Number(bpm.value) || 100, loop: loopBox.checked,
+        extra: () => {
+          const t = Number(timbre.input.value) || 0;
+          return t > 0 ? { timbre: t } : null;
+        },
         onPass: (i, phrase, err) => {
           const n = passNo + i;
           if (err) { status.textContent = `✗ pass ${n + 1}: ${err.message || err} — keeping last good take`; return; }
@@ -1157,7 +1169,7 @@ function gloriarpModule(ctx, bodyEl, state) {
       el("label", { class: "ws-ctl", text: "gate " }, gate),
       dynamics.row, rests.row, anticipation.row),
     el("div", { class: "ws-row", style: "flex-wrap:wrap" },
-      variety.row, pocket.row, morph.row, inflect.row),
+      variety.row, pocket.row, morph.row, inflect.row, timbre.row),
     el("div", { class: "ws-row", style: "flex-wrap:wrap" },
       el("button", { class: "ws-btn", text: "▶ play", onclick: play }),
       el("button", { class: "ws-btn", text: "■ stop", onclick: stop }),
