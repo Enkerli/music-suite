@@ -38,7 +38,7 @@ drawnqurve) are the same code the plugins embed.
 | proggen | ProgGenie's progression engine: Markov/trigram generation, curation, voicing |
 | accompaniment | GloriArp's engine: curated phrases reharmonized across a progression, seeded |
 | control | Binding layer: keyboard / MIDI-CC / MIDI-note → param/command via tool manifests |
-| drumsynth | A small synthesised drum kit — x0x-style voices, no samples, eight sounds on eight distinct pitch classes. Renders hits for `msuite upi --wav`, the examples and the Workspace |
+| drumsynth | A small synthesised drum kit — x0x-style voices, no samples, ten sounds on ten distinct pitch classes. Renders hits for `msuite upi --wav`, the examples and the Workspace |
 | voice-routing | Voice routing primitives: round-robin Voice Split + priority note-stealing Mono Merge (extracted from PitchFold, KT item 8) |
 | protocol | SysEx-JSON message protocol: versioned envelope, 7-bit codec, chunking |
 | library | LIS-informed content envelope (identity, provenance, facets) |

@@ -1,5 +1,5 @@
 /**
- * The kit — six-ish sounds, each on its own PITCH CLASS.
+ * The kit — ten sounds, each on its own PITCH CLASS.
  *
  * Alex's framing for the drum work: "in drum contexts, MIDI notes are lanes",
  * and each sound is assigned to a pitch class. So the kit is defined by its GM
