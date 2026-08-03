@@ -46,10 +46,11 @@ drawnqurve) are the same code the plugins embed.
 | codegen | Lua/C++ generation from theory data |
 | cli | `msuite` — the headless tools (below) |
 
-## `msuite` CLI (14 commands)
+## `msuite` CLI (15 commands)
 
-`accompany` · `bind` · `bridge` · `chord` · `describe` · `generate` ·
-`pattern` · `play` · `recv` · `render` · `send` · `smf` · `style` ·
+`accompany` · `bind` · `bridge` · `chord` · `describe` · `drums` ·
+`generate` · `pattern` · `play` · `recv` · `render` · `send` · `smf` ·
+`style` ·
 `upi` — matrix of what runs where: [HEADLESS.md](HEADLESS.md).
 
 ## Workspace modules (19, `apps/workspace/modules.js` `MODULES`)

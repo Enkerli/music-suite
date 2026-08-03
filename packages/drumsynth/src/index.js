@@ -17,6 +17,9 @@
 
 export { KIT, BY_NOTE, BY_PC, KIT_PCS, resolveDrum, drumForLabel } from "./kit.js";
 export { VOICES } from "./voices.js";
+// Style → pattern. Pure; learning lives in tools/drum-style.mjs (it needs the
+// SMF analysers, which are tools rather than package code).
+export { generate, toUPI } from "./style.js";
 
 import { VOICES } from "./voices.js";
 import { resolveDrum } from "./kit.js";

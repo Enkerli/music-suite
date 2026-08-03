@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { generate, toUPI } from "./drum-generate.mjs";
+import { generate, toUPI } from "@enkerli/drumsynth";
 import { parsePolyUPI } from "@enkerli/upi";
 import { drumForLabel } from "@enkerli/drumsynth";
 
@@ -69,17 +69,45 @@ describe("style → pattern", () => {
     expect(upi).not.toContain("never");
   });
 
-  it("follows GloriArp's seed/pass convention — a pass is a fresh take", () => {
-    // "every --pass is a fresh take" (msuite accompany). Same seed, next pass:
-    // a different bar from the same distribution, repeatably. rng(seed, pass)
-    // already had that signature, and it is the same mulberry32 the C++ engine
-    // grows `*N` with, so a seed means one thing suite-wide.
+  it("follows GloriArp's seed/pass/morph convention", () => {
+    // "--morph 0..1 re-rolls that much per pass. 0 = every pass identical."
+    // So a pass ALONE changes nothing — morph is the dial, and pass is what it
+    // acts on. This test asserted the opposite before morph existed, which was
+    // the pre-morph contract and is now wrong by design.
     const varied = { ...STYLE, voices: STYLE.voices.map((v) => ({ ...v, slots: v.slots.map((s) => ({ ...s, p: s.p ? 0.5 : 0 })) })) };
-    const p0 = toUPI(generate(varied, { bars: 1, seed: 7, pass: 0 })).upi;
-    const p1 = toUPI(generate(varied, { bars: 1, seed: 7, pass: 1 })).upi;
-    expect(p1).not.toBe(p0);
-    // ...and repeatable, so a take can be returned to.
-    expect(toUPI(generate(varied, { bars: 1, seed: 7, pass: 1 })).upi).toBe(p1);
+    const at = (pass, morph) => toUPI(generate(varied, { bars: 1, seed: 7, pass, morph })).upi;
+
+    expect(at(1, 0)).toBe(at(0, 0));          // morph 0: the loop repeats
+    expect(at(1, 1)).not.toBe(at(0, 1));      // morph 1: every pass unrelated
+    expect(at(1, 0.5)).not.toBe(at(0, 0.5));  // in between: it drifts
+    expect(at(2, 0.5)).toBe(at(2, 0.5));      // and any take can be returned to
+  });
+
+  it("morphs the two axes independently", () => {
+    // Asserted on the EVENTS, not the UPI. morphDynamics moves velocities, and
+    // UPI carries only an accent bit — so a dynamics morph is invisible in the
+    // notation unless it happens to flip a hit across its lane's midpoint. On
+    // the real corpus it does (ride 101101001 held while its mask went {10101}
+    // → {10010} → {11100}, sd there being ~10); this fixture's sd of 3 is too
+    // tight for that, and testing through the lossy projection would have made
+    // a working feature look broken.
+    const takes = [0, 1, 2].map((pass) =>
+      generate(STYLE, { bars: 1, seed: 7, pass, morphHits: 0, morphDynamics: 1 }));
+    const slotsOf = (t) => t.events.map((e) => `${e.drum}:${e.slot}`).sort().join(" ");
+    const velsOf = (t) => t.events.map((e) => e.velocity).join(" ");
+    expect(new Set(takes.map(slotsOf)).size).toBe(1);            // rhythm held
+    expect(new Set(takes.map(velsOf)).size).toBeGreaterThan(1);  // dynamics wandered
+  });
+
+  it("morphing hits alone leaves the dynamics rule intact", () => {
+    const a = generate(STYLE, { bars: 1, seed: 7, pass: 1, morphHits: 1, morphDynamics: 0 });
+    const b = generate(STYLE, { bars: 1, seed: 7, pass: 2, morphHits: 1, morphDynamics: 0 });
+    // Different bars, but every hit still drawn from its own slot's velocity
+    // distribution — a morph must not make a ghost note loud.
+    for (const t of [a, b]) for (const e of t.events) {
+      const slot = STYLE.voices.find((v) => v.drum === e.drum)?.slots.find((s) => s.slot === e.slot);
+      if (slot?.velocity) expect(Math.abs(e.velocity - slot.velocity.mean)).toBeLessThanOrEqual(slot.velocity.sd + 1);
+    }
   });
 
   it("keeps the style's near-certain hits across passes", () => {

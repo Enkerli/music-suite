@@ -44,7 +44,7 @@ const PKG_VERSION: string = (() => {
 import { wrapPattern } from "@enkerli/library";
 import type { TraceLevel } from "@enkerli/accompaniment";
 import { GATES } from "@enkerli/accompaniment";
-import { renderHits, wavMono16, resolveDrum, drumForLabel, KIT } from "@enkerli/drumsynth";
+import { renderHits, wavMono16, resolveDrum, drumForLabel, KIT, generate as drumGenerate, toUPI as drumToUPI } from "@enkerli/drumsynth";
 import type { AppId, Destination, ParamMode } from "@enkerli/protocol";
 
 const USAGE = `msuite <command> …\n  --version                      which build, and which checkout it runs from
@@ -71,6 +71,13 @@ const USAGE = `msuite <command> …\n  --version                      which buil
                                         a progression from the corpus statistics → Roman bars (or realized SMF with -o)
                                         piped (or --bars-only): bare bar notation, ready for | msuite accompany
   smf "<bars>" -o <file.mid> [--tonic C] [--mode major|minor] [--bpm N] [--beats-per-chord N]
+  drums gen <style.json> [--bars N] [--seed N] [--pass N] [--morph 0..1]
+            [--morph-hits 0..1] [--morph-dynamics 0..1]
+                                        a learned drum style → a poly UPI pattern. Seed names the
+                                        take, pass is the next loop round, morph is how much
+                                        re-rolls per pass (0 = every pass identical, 1 = unrelated;
+                                        in between the groove DRIFTS). Learn one first with
+                                        node tools/drum-style.mjs <dir> --each -o styles/
   style learn <files-or-dir…> --chord <sym> --id <name> -o model.json [--role bass] [--grid 4]
                                         learn a STYLE MODEL from your own MIDI clips, all played
                                         against one chord: per-slot onset/velocity/duration/
@@ -148,7 +155,7 @@ function parseArgs(argv: string[]): Args {
     const a = argv[i]!;
     if (a.startsWith("--")) {
       const name = a.slice(2);
-      const boolean = ["pcs", "notes", "help", "stream", "validate", "explain", "play", "bars-only", "loop", "list", "json"].includes(name);
+      const boolean = ["pcs", "notes", "help", "stream", "validate", "explain", "play", "bars-only", "loop", "list", "json", "quiet"].includes(name);
       const value = boolean ? "true" : argv[++i];
       if (value === undefined) throw new Error(`--${name} needs a value`);
       if (!flags.has(name)) flags.set(name, []);
@@ -725,6 +732,41 @@ async function main(): Promise<number> {
       console.log(`wrote ${out}: ${r.chordCount} chords, ${r.bytes.length} bytes (embedded Progression included)`);
       return 0;
     }
+    case "drums": {
+      // msuite drums gen <style.json> [--bars N] [--seed N] [--pass N] [--morph 0..1]
+      //
+      // Named `drums <verb>` rather than `drumgen` to match `style learn`,
+      // which is the same shape: a noun for the material, a verb for what to do
+      // with it. Learning stays in tools/drum-style.mjs for now — it needs the
+      // SMF analysers, which are tools rather than package code.
+      const sub = args.positional[0];
+      if (sub !== "gen")
+        throw new Error("drums: the verb is `drums gen <style.json>` "
+          + "(learn a style first with `node tools/drum-style.mjs <dir> --each -o styles/`)");
+      const styleFile = args.positional[1];
+      if (!styleFile) throw new Error("drums gen: give it a style .json");
+      const style = JSON.parse(readFileSync(styleFile, "utf8"));
+      const n = (f: string, d: number) => one(args, f) !== undefined ? Number(one(args, f)) : d;
+      const take = drumGenerate(style, {
+        bars: n("bars", 4), seed: n("seed", 1), pass: n("pass", 0),
+        morph: n("morph", 0),
+        ...(one(args, "morph-hits") !== undefined && { morphHits: n("morph-hits", 0) }),
+        ...(one(args, "morph-dynamics") !== undefined && { morphDynamics: n("morph-dynamics", 0) }),
+      });
+      const { upi, lost } = drumToUPI(take);
+      console.log(upi);
+      if (!args.flags.has("quiet")) {
+        const m = take.morph;
+        console.log(`# ${style.id} · seed ${take.seed} pass ${take.pass}`
+          + (m.hits || m.dynamics ? ` · morph hits ${m.hits} dynamics ${m.dynamics}` : "")
+          + ` · ${take.slotsPerBar} slots/bar (${style.grid.beatsPerBar}/4 at ${style.grid.perBeat} per beat)`);
+        if (lost.length) console.log(`# per-slot microtiming flattened to one offset per lane: `
+          + lost.map((l) => `${l.drum} spread ${l.pushSpreadSlots} slots`).join(", "));
+        console.log(`# pipe into: msuite upi "<that>" --wav take.wav --bpm ${style.id.match(/\d+/)?.[0] ?? 120}`);
+      }
+      return 0;
+    }
+
     case "style": {
       // msuite style learn <files-or-dir…> --chord Bb7 --id name -o model.json
       const sub = args.positional[0];
