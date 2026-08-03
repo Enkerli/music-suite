@@ -1,7 +1,8 @@
 // @vitest-environment happy-dom
 import { describe, it, expect, vi } from "vitest";
 import { SuiteBus } from "./bus.js";
-import { controlSurfaceModule, patternModule, monitorModule, summarize, pcsPadsModule, voiceSplitModule, monoMergeModule } from "./modules.js";
+import { makeMessage } from "@enkerli/protocol";
+import { controlSurfaceModule, patternModule, monitorModule, summarize, pcsPadsModule, voiceSplitModule, monoMergeModule, transformsModule} from "./modules.js";
 
 const ctx = () => {
   const bus = new SuiteBus();
@@ -1152,5 +1153,93 @@ describe("Mono Merge module (docs/DESIGN_AGENT_ANSWERS.md §4 — hold to force 
     const outs = seen.filter((m) => m.from === "external");
     expect(outs.length).toBe(1);
     expect(outs[0].body.notes).toEqual([62]);
+  });
+});
+
+/**
+ * Transforms are LANE-AWARE. They read steps/mask and republished one lane, so
+ * a drum pattern lost every lane but the first — data loss, not a gap.
+ */
+describe("transforms module — poly", () => {
+  const mount = () => {
+    const bus = new SuiteBus();
+    const seen = [];
+    bus.subscribe((m) => seen.push(m));
+    const body = document.createElement("div");
+    const cleanup = transformsModule({ bus, save() {} }, body, {});
+    // A two-lane pattern, as Drum Style publishes.
+    bus.publish(makeMessage("external", "pattern", {
+      steps: 4, mask: 0b0101, name: "t",
+      lanes: [{ steps: 4, mask: 0b0101, name: "ride", note: 59 },
+              { steps: 4, mask: 0b0011, name: "snare", note: 38 }],
+    }));
+    return { bus, seen, body, cleanup };
+  };
+  const last = (seen) => seen.filter((m) => m.type === "pattern").pop();
+  const press = (body, glyph) =>
+    [...body.querySelectorAll("button")].find((b) => b.textContent.trim() === glyph)
+      .dispatchEvent(new MouseEvent("click"));
+
+  it("keeps every lane through a transform", () => {
+    const { seen, body, cleanup } = mount();
+    press(body, "↔");
+    expect(last(seen).body.lanes).toHaveLength(2);
+    expect(last(seen).body.lanes.map((l) => l.name)).toEqual(["ride", "snare"]);
+    cleanup();
+  });
+
+  it("keeps each lane's drum note, so the kit still hears a snare", () => {
+    const { seen, body, cleanup } = mount();
+    press(body, "⟳");
+    expect(last(seen).body.lanes.map((l) => l.note)).toEqual([59, 38]);
+    cleanup();
+  });
+
+  it("scoped to ONE lane, leaves the others exactly as they were", () => {
+    const { seen, body, cleanup } = mount();
+    const scope = body.querySelector('[aria-label="Apply transform to"]');
+    scope.value = "1"; scope.dispatchEvent(new Event("change"));
+    press(body, "¬");                                  // complement the snare only
+    const lanes = last(seen).body.lanes;
+    expect(lanes[0].mask).toBe(0b0101);                // ride untouched
+    expect(lanes[1].mask).toBe(0b1100);                // snare complemented
+    cleanup();
+  });
+
+  it("offers a scope for every lane, by name", () => {
+    const { body, cleanup } = mount();
+    const opts = [...body.querySelector('[aria-label="Apply transform to"]').options].map((o) => o.text);
+    expect(opts).toEqual(["all lanes", "ride", "snare"]);
+    cleanup();
+  });
+
+  it("MUTATE works — it returns an object, not an array", () => {
+    // mutatePattern returns { mutated, … }. This handed the object straight to
+    // the publisher, so the button threw into the console and looked inert.
+    //
+    // Asserted on the STATUS, not on "did it publish". The guard added
+    // alongside this fix catches a throwing transform and republishes the
+    // pattern unchanged — which is the right behaviour and also means a
+    // publish-happened assertion passes with the bug still in. The status is
+    // where the failure actually surfaces.
+    const { body, cleanup } = mount();
+    press(body, "⚄");
+    const status = body.textContent;
+    expect(status).not.toMatch(/could not be applied/);
+    expect(status).toMatch(/mut/);
+    cleanup();
+  });
+
+  it("does not re-ingest its own output", () => {
+    // The guard compared m.from to FROM + ":transforms" and FROM is "external",
+    // so it never matched and the module rebuilt its own scope selector
+    // underneath the user on every transform.
+    const { seen, body, cleanup } = mount();
+    press(body, "↔");
+    const scope = body.querySelector('[aria-label="Apply transform to"]');
+    scope.value = "1"; scope.dispatchEvent(new Event("change"));
+    press(body, "↔");
+    expect(last(seen).body.name).toMatch(/\(snare\)/);
+    cleanup();
   });
 });

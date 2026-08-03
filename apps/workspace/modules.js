@@ -257,10 +257,29 @@ export function patternModule(ctx, bodyEl, state) {
     // Our own echo — the local render is strictly richer (lanes, accents,
     // scenes), so redrawing it from one mask would be a downgrade.
     if (`${m.body.steps}:${m.body.mask}` === lastSent) return;
-    const steps = Array.from({ length: m.body.steps }, (_, i) => (m.body.mask >> i) & 1); // leftmost = LSB
-    const asPoly = { ok: true, lanes: [{ steps, accents: steps.map(() => 0) }], lcm: m.body.steps };
+    // Read the LANES. This took only steps/mask, so a poly pattern arriving
+    // from Drum Style (or anywhere else) drew as one bare lane and the rest
+    // vanished — the module predates the `lanes` field it now receives.
+    const bits = (mask, n) => Array.from({ length: n }, (_, i) => Math.floor(mask / 2 ** i) % 2);
+    const src = Array.isArray(m.body.lanes) && m.body.lanes.length
+      ? m.body.lanes
+      : [{ steps: m.body.steps, mask: m.body.mask, name: m.body.name }];
+    const gcd = (a, b) => (b ? gcd(b, a % b) : a);
+    const asPoly = {
+      ok: true,
+      lanes: src.map((L, i) => ({
+        label: L.name ?? `lane${i + 1}`,
+        steps: bits(L.mask, L.steps),
+        accents: L.accents ? bits(L.accents, L.steps) : bits(0, L.steps),
+        ...(L.longs ? { longs: bits(L.longs, L.steps) } : {}),
+      })),
+      lcm: src.reduce((acc, L) => (acc * L.steps) / gcd(acc, L.steps), 1),
+    };
     drawLanes(asPoly); showRing(asPoly);
-    info.textContent = `via bus ← ${m.from}: ${m.body.name ?? ""} (mask ${m.body.mask})`;
+    info.textContent = `via bus ← ${m.from}: ${m.body.name ?? ""}`
+      + (asPoly.lanes.length > 1
+        ? `   ·   ${asPoly.lanes.map((l) => `${l.label} ${l.steps.filter(Boolean).length}/${l.steps.length}`).join("  ")}`
+        : `   ·   ${asPoly.lanes[0].steps.filter(Boolean).length}/${asPoly.lanes[0].steps.length}`);
   });
   send();
   return off;
@@ -679,6 +698,19 @@ function bindingsModule(ctx, bodyEl, state) {
   // the field up by its name, which is a fair thing for a test to do.
   const keyHint = el("div", { class: "ws-readout", id: "ws-keyhint", style: "text-align:left",
     text: "Tab moves on · Escape clears" });
+  // The defaults are EXAMPLES, and saying so matters more than it looks. They
+  // act on Serpe, which is only listening if a Serpe tab is open, and `[` / `]`
+  // need AltGr on many layouts — which makes the combo `alt+[`, so the bare
+  // binding never matches. Both make the feature look broken rather than
+  // unconfigured (Alex, 2026-08-02: "'[' and ']' aren't obvious on my
+  // keyboard… and they don't work in Workspace").
+  //
+  // The bare-letter line is the a11y half: a screen reader in browse mode
+  // intercepts single letters before the page sees them, so such a binding
+  // simply never fires for that user. A modifier is the thing to reach for.
+  const notes = el("div", { class: "ws-readout", style: "text-align:left" },
+    el("div", { text: "The three defaults are examples — they act on Serpe, so they do nothing unless a Serpe tab is open." }),
+    el("div", { text: "Prefer a modifier: a bare letter never reaches a screen-reader user in browse mode, and a key needing AltGr (like [ or ]) arrives as alt+[ and will not match." }));
   const keyInput = el("input", { class: "ws-text", type: "text", readonly: "",
     placeholder: "press a key…", "aria-label": "Trigger key",
     "aria-describedby": "ws-keyhint",
@@ -727,7 +759,12 @@ function bindingsModule(ctx, bodyEl, state) {
     persist();
   } });
 
-  bodyEl.append(list, el("div", { class: "ws-row", style: "flex-wrap:wrap" }, keyInput, appSel, actSel, addBtn), keyHint);
+  const clearBtn = el("button", { class: "ws-btn ghost", text: "clear all",
+    title: "Remove every binding, including the examples",
+    onclick: () => { map = { ...map, bindings: [] }; persist(); } });
+  bodyEl.append(list,
+    el("div", { class: "ws-row", style: "flex-wrap:wrap" }, keyInput, appSel, actSel, addBtn, clearBtn),
+    keyHint, notes);
 
   function persist() { state.map = map; engine.setMap(map); ctx.save(); render(); }
   function render() {
@@ -1217,7 +1254,14 @@ export function playerModule(ctx, bodyEl, state) {
   let timers = [], running = false;
 
   const bpm = el("input", { class: "ws-text ws-num", type: "number", min: 30, max: 300, value: S("bpm", 120), "aria-label": "BPM" });
-  const note = el("input", { class: "ws-text ws-num", type: "number", min: 0, max: 127, value: S("note", 37), "aria-label": "MIDI note" });
+  // Labelled as a fallback, because for most patterns it now IS one: a lane
+  // that names its drum carries its own GM note, and this is only consulted for
+  // lanes that do not. It read "note 37" while playing a full GM-mapped kit,
+  // which invited the reasonable conclusion that everything was on note 37.
+  const note = el("input", { class: "ws-text ws-num", type: "number", min: 0, max: 127, value: S("note", 37),
+    "aria-label": "Base MIDI note for lanes that do not name one",
+    title: "Used only by lanes with no note of their own; lane 2 gets this +1, and so on" });
+  const noteWrap = el("label", { class: "ws-ctl", text: "note " }, note);
   const lock = el("select", { class: "ws-select", "aria-label": "Lane lock" },
     ...[["cycle", "polyrhythm"], ["step", "polymeter"]].map(([v, t]) =>
       el("option", { value: v, text: t, ...(v === S("lock", "cycle") ? { selected: "" } : {}) })));
@@ -1247,6 +1291,13 @@ export function playerModule(ctx, bodyEl, state) {
       note: Number.isInteger(L.note) ? L.note : null,
       idx: -1,
     }));
+    // Say whether the base note is in play at all, so "note 37" stops looking
+    // like a claim about the whole pattern.
+    const named = lanes.filter((l) => l.note != null).length;
+    noteWrap.style.opacity = named === lanes.length ? "0.45" : "1";
+    noteWrap.title = named === lanes.length
+      ? "unused — every lane names its own drum"
+      : `used by ${lanes.length - named} of ${lanes.length} lanes`;
     label = b.name || `${b.steps} steps`;
     if (!running) status.textContent = `pattern: ${label}${lanes.length > 1 ? ` · ${lanes.length} lanes` : ""} — press ▶`;
   });
@@ -1322,7 +1373,7 @@ export function playerModule(ctx, bodyEl, state) {
   bodyEl.append(
     el("div", { class: "ws-row", style: "flex-wrap:wrap" },
       el("label", { class: "ws-ctl", text: "bpm " }, bpm),
-      el("label", { class: "ws-ctl", text: "note " }, note),
+      noteWrap,
       el("label", { class: "ws-ctl", text: "lanes " }, lock),
       el("label", { class: "ws-ctl", text: "to " }, to)),
     el("div", { class: "ws-row" },
@@ -1533,39 +1584,115 @@ export function vaneSynthModule(ctx, bodyEl) {
 // ── Pattern Transforms: Serpe's verbs on whatever pattern the bus carries —
 // rotate, invert, complement, Barlow dilute/concentrate, mutate. Each result
 // is republished, so Pattern redraws, Analysis re-reads, Player re-plays.
-export function transformsModule(ctx, bodyEl) {
-  let steps = null, name = "—";
-  const status = el("div", { class: "ws-readout", text: "waiting for a pattern on the bus…" });
-  const off = ctx.bus.subscribe((m) => {
-    if (m.type !== "pattern" || !m.body || m.from === FROM + ":transforms") return;
-    steps = Array.from({ length: m.body.steps }, (_, i) => Math.floor(m.body.mask / 2 ** i) % 2);
-    name = m.body.name || `${m.body.steps} steps`;
-    status.textContent = `pattern: ${name}`;
-  });
-  function publish(next, label) {
-    steps = next; name = label;
-    const mask = next.reduce((acc, s, i) => acc + (s ? 2 ** i : 0), 0); // leftmost = LSB
-    ctx.bus.publish(makeMessage(FROM, "pattern", { steps: next.length, mask, name: label }));
-    status.textContent = `→ ${label}`;
+export function transformsModule(ctx, bodyEl, state) {
+  // POLY-AWARE since 2026-08-02. It read steps/mask and republished a single
+  // lane, so putting a drum pattern through any transform silently discarded
+  // every lane but the first — data loss, not a missing feature.
+  //
+  // SCOPE is Alex's framing: "reverse makes most sense globally, though it can
+  // be fun to apply it per-lane; mutate is most fun per-lane". So the buttons
+  // stay as they are and the scope is the new control — all lanes, or one.
+  const S = (k, d) => state?.[k] ?? d;
+  let lanes = null, name = "\u2014";
+  // Signature of what we last published. The guard here was
+  // `m.from === FROM + ":transforms"`, and FROM is "external" — so it never
+  // matched and the module re-ingested its own output on every transform,
+  // rebuilding its own scope selector underneath the user. The Pattern module
+  // already solved this with a signature; same approach.
+  let lastSent = null;
+  const scope = el("select", { class: "ws-select", "aria-label": "Apply transform to",
+    onchange: () => { if (state) { state.scope = scope.value; ctx.save(); } } });
+  const status = el("div", { class: "ws-readout", text: "waiting for a pattern on the bus\u2026" });
+  const bits = (mask, n) => Array.from({ length: n }, (_, i) => Math.floor(mask / 2 ** i) % 2);
+  const maskOf = (arr) => arr.reduce((m, v, i) => m + (v ? 2 ** i : 0), 0);
+
+  function fillScope() {
+    const want = S("scope", "all");
+    scope.replaceChildren(
+      el("option", { value: "all", text: "all lanes", ...(want === "all" ? { selected: "" } : {}) }),
+      ...(lanes ?? []).map((l, i) => el("option", { value: String(i), text: l.label,
+        ...(want === String(i) ? { selected: "" } : {}) })));
+    scope.style.display = (lanes?.length ?? 0) > 1 ? "" : "none";
   }
-  const need = () => { if (!steps) status.textContent = "no pattern yet — send one first"; return !!steps; };
-  const btn = (text, title, fn) => el("button", { class: "ws-btn", text, title,
-    onclick: () => { if (need()) fn(); } });
-  const k = () => steps.reduce((a, s) => a + s, 0);
+  fillScope();
+
+  const off = ctx.bus.subscribe((m) => {
+    if (m.type !== "pattern" || !m.body) return;
+    if (`${m.body.steps}:${m.body.mask}:${m.body.name}` === lastSent) return;
+    const src = Array.isArray(m.body.lanes) && m.body.lanes.length
+      ? m.body.lanes : [{ steps: m.body.steps, mask: m.body.mask, name: m.body.name }];
+    lanes = src.map((L, i) => ({
+      label: L.name ?? `lane${i + 1}`, steps: bits(L.mask, L.steps),
+      accents: L.accents ?? null, note: L.note ?? null,
+    }));
+    name = m.body.name || `${m.body.steps} steps`;
+    fillScope();
+    status.textContent = `pattern: ${name}${lanes.length > 1 ? ` \u00b7 ${lanes.length} lanes` : ""}`;
+  });
+
+  /** Apply `fn` to every lane, or only the selected one. */
+  function apply(fn, label) {
+    if (!lanes) { status.textContent = "no pattern yet \u2014 send one first"; return; }
+    const which = scope.value === "all" ? lanes.map((_, i) => i) : [Number(scope.value)];
+    // A transform that throws used to take the whole click with it, silently:
+    // the error went to the console and the module looked inert.
+    //
+    // A non-array result counts as failure too. The first version of this guard
+    // only set `failed` in the catch, so a transform returning the WRONG SHAPE
+    // — which is exactly what mutatePattern does, `{ mutated, … }` — was
+    // quietly swallowed and reported as success. That is a worse bug than the
+    // one the guard was added for, and it survived a test written to catch it.
+    let failed = false;
+    const guard = (st) => {
+      let out;
+      try { out = fn(st); } catch { failed = true; return st; }
+      if (!Array.isArray(out) || out.length !== st.length) { failed = true; return st; }
+      return out;
+    };
+    // Accents index ONSETS (D8), so a transform that moves or adds onsets makes
+    // the existing mask mean something else. Cleared on the lanes that changed,
+    // and reported, rather than carried forward pointing at the wrong hits.
+    let clearedAccents = false;
+    lanes = lanes.map((l, i) => {
+      if (!which.includes(i)) return l;
+      if (l.accents != null) clearedAccents = true;
+      return { ...l, steps: guard(l.steps), accents: null };
+    });
+    const scopeLabel = scope.value === "all" ? "" : ` (${lanes[Number(scope.value)].label})`;
+    name = `${label}${scopeLabel} ${name}`;
+    lastSent = `${lanes[0].steps.length}:${maskOf(lanes[0].steps)}:${name}`;
+    ctx.bus.publish(makeMessage(FROM, "pattern", {
+      steps: lanes[0].steps.length, mask: maskOf(lanes[0].steps), name,
+      lanes: lanes.map((l) => ({
+        steps: l.steps.length, mask: maskOf(l.steps), name: l.label,
+        ...(l.note != null ? { note: l.note } : {}),
+        ...(l.accents != null ? { accents: l.accents } : {}),
+      })),
+    }));
+    status.textContent = failed ? `\u2717 ${label} could not be applied to this pattern`
+      : `\u2192 ${name}` + (clearedAccents ? " \u00b7 accents cleared (onsets moved)" : "");
+  }
+
+  const btn = (text, title, fn) => el("button", { class: "ws-btn", text, title, onclick: fn });
+  const kOf = (st) => st.reduce((a, x) => a + x, 0);
 
   bodyEl.append(
+    el("div", { class: "ws-row" }, el("label", { class: "ws-ctl", text: "apply to " }, scope)),
     el("div", { class: "ws-row", style: "flex-wrap:wrap" },
-      btn("⟲", "Rotate one step earlier", () => publish(rotate(steps, -1), `rot−1 ${name}`)),
-      btn("⟳", "Rotate one step later", () => publish(rotate(steps, 1), `rot+1 ${name}`)),
-      btn("¬", "Complement (onsets ↔ rests)", () => publish(complement(steps), `comp ${name}`)),
-      btn("↔", "Reverse (retrograde)", () => publish(invert(steps), `rev ${name}`)),
-      btn("−1", "Barlow dilute: drop the most dispensable onset", () => {
-        if (k() > 1) publish(barlowTransform(steps, k() - 1), `dilute ${name}`);
-      }),
-      btn("+1", "Barlow concentrate: add at the most indispensable rest", () => {
-        if (k() < steps.length) publish(barlowTransform(steps, k() + 1), `concen ${name}`);
-      }),
-      btn("⚄", "Mutate (balanced, 30%)", () => publish(mutatePattern(steps, 0.3), `mut ${name}`))),
+      btn("\u27f2", "Rotate one step earlier", () => apply((st) => rotate(st, -1), "rot\u22121")),
+      btn("\u27f3", "Rotate one step later", () => apply((st) => rotate(st, 1), "rot+1")),
+      btn("\u00ac", "Complement (onsets \u2194 rests)", () => apply((st) => complement(st), "comp")),
+      btn("\u2194", "Reverse (retrograde)", () => apply((st) => invert(st), "rev")),
+      btn("\u22121", "Barlow dilute: drop the most dispensable onset",
+        () => apply((st) => (kOf(st) > 1 ? barlowTransform(st, kOf(st) - 1) : st), "dilute")),
+      btn("+1", "Barlow concentrate: add at the most indispensable rest",
+        () => apply((st) => (kOf(st) < st.length ? barlowTransform(st, kOf(st) + 1) : st), "concen")),
+      // mutatePattern returns { mutated, ... }, NOT an array — so this used to
+      // hand an object to the publisher and throw "Invalid original pattern"
+      // into the console while the button appeared to do nothing. Broken in the
+      // mono module too, before any of the poly work.
+      btn("\u2684", "Mutate (balanced, 30%)",
+        () => apply((st) => mutatePattern(st, 0.3).mutated, "mut"))),
     status);
   return () => off();
 }
@@ -1697,9 +1824,22 @@ export function drumStyleModule(ctx, bodyEl, state) {
     el("div", { class: "ws-row" },
       el("label", { class: "ws-ctl", text: "morph " }, morph),
       el("button", { class: "ws-btn", text: "▶ send", onclick: send }),
-      el("button", { class: "ws-btn ghost", text: "↻ next pass",
-        title: "Advance one loop pass — with morph above 0 the groove drifts",
-        onclick: () => { pass.value = String((+pass.value || 0) + 1); send(); } })),
+      // Three "next" buttons, because they answer different questions. Pass is
+      // "the loop comes round again". Seed is "a different take of the same
+      // style". Morph steps the DIAL rather than the take, so you can hear the
+      // drift open up without typing numbers.
+      el("button", { class: "ws-btn ghost", text: "↻ pass",
+        title: "Next loop pass — with morph above 0 the groove drifts",
+        onclick: () => { pass.value = String((+pass.value || 0) + 1); send(); } }),
+      el("button", { class: "ws-btn ghost", text: "↻ seed",
+        title: "A different take of the same style, back at pass 0",
+        onclick: () => { seed.value = String((+seed.value || 0) + 1); pass.value = "0"; send(); } }),
+      el("button", { class: "ws-btn ghost", text: "↻ morph",
+        title: "More drift per pass — steps 0 → 0.25 → 0.5 → 0.75 → 1 → 0",
+        onclick: () => {
+          const next = +(+morph.value || 0) + 0.25;
+          morph.value = String(next > 1 ? 0 : next); send();
+        } })),
     status, upiOut,
     el("div", { class: "ws-readout", text: "statistics learned from MIDI — seed names the take, morph is how much re-rolls per pass" }));
   return () => {};
