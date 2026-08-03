@@ -57,9 +57,10 @@ const GLIDE_TIME = vaneIdToWasm()["glide-time"] ?? 10;
 const BELL_BRIGHT = vaneIdToWasm()["wg-bell-bright"] ?? 28;
 const GROWL = vaneIdToWasm()["wg-growl"] ?? 31;
 const BREATH_NOISE = vaneIdToWasm()["wg-breath-noise"] ?? 30;
+const EMBOUCHURE = vaneIdToWasm()["wg-embouchure"] ?? 22;
 
 /** The manifest's own defaults — the neutral each offset is measured from. */
-const TIMBRE_BASE = { bright: 0.7, growl: 0, air: 0.05 };
+const TIMBRE_BASE = { bright: 0.7, growl: 0, air: 0.05, embouchure: 0.5 };
 
 /**
  * Articulation → timbre, for a wind model.
@@ -87,21 +88,36 @@ export const ARTICULATION_TIMBRE = {
 const clamp01 = (x) => Math.max(0, Math.min(1, x));
 
 /**
- * Post the timbre for one note's articulation.
+ * Post the timbre for one note's articulation, in its register.
+ *
+ * `register` is -1..+1 around middle C (two octaves per unit): the same
+ * sforzando is not the same SOUND at the top of the horn as at the bottom.
+ * Going up, the embouchure firms and the bell brightens; going down, both
+ * relax. The articulation offsets sit on top of that slope, and everything is
+ * still scaled by the one `depth`, so 0 posts nothing.
  *
  * Posted on EVERY inflected note while depth > 0, never only when it changes:
  * these are persistent synth params, so a sforzando's growl would otherwise
  * stay on the next twenty notes. Exactly the leak glide-time already documents.
  */
-export function applyArticulationTimbre(post, articulation, depth) {
+export function applyArticulationTimbre(post, articulation, depth, register = 0) {
   const d = Number.isFinite(depth) ? clamp01(depth) : 0;
   if (!d) return false;
   const t = ARTICULATION_TIMBRE[articulation];
   if (!t) return false;
-  post({ type: "param", id: BELL_BRIGHT, value: clamp01(TIMBRE_BASE.bright + t.bright * d) });
+  const reg = Number.isFinite(register) ? Math.max(-1, Math.min(1, register)) : 0;
+  post({ type: "param", id: BELL_BRIGHT, value: clamp01(TIMBRE_BASE.bright + (t.bright + reg * 0.08) * d) });
   post({ type: "param", id: GROWL, value: clamp01(TIMBRE_BASE.growl + t.growl * d) });
   post({ type: "param", id: BREATH_NOISE, value: clamp01(TIMBRE_BASE.air + t.air * d) });
+  post({ type: "param", id: EMBOUCHURE, value: clamp01(TIMBRE_BASE.embouchure + reg * 0.12 * d) });
   return true;
+}
+
+/** MIDI notes → the -1..+1 register term (middle C centered, ±2 octaves). */
+export function registerOf(notes) {
+  if (!Array.isArray(notes) || !notes.length) return 0;
+  const mean = notes.reduce((a, n) => a + n, 0) / notes.length;
+  return Math.max(-1, Math.min(1, (mean - 60) / 24));
 }
 
 /**
@@ -135,9 +151,11 @@ export function applyVaneNote(post, msg, schedule = (fn, ms) => setTimeout(fn, m
   // puffs, a marcato releases clean. Vane's amp envelope IS breath, so this
   // is per-note dynamics for real, not just a louder noteOn.
   if (Number.isFinite(b.attack)) post({ type: "param", id: TRANSIENT_GAIN, value: b.attack });
-  // Timbre: the articulation colours the TONE, not just the tongue. Off unless
-  // the sender asks for a depth, so nothing changes for existing callers.
-  applyArticulationTimbre(post, b.articulation, b.timbre);
+  // Timbre: the articulation colours the TONE, not just the tongue — and in
+  // its register, since a high sforzando is a different sound from a low one.
+  // Off unless the sender asks for a depth, so nothing changes for existing
+  // callers.
+  applyArticulationTimbre(post, b.articulation, b.timbre, registerOf(notes));
   // Slides: Vane glides automatically on any connected note-change (breath
   // still flowing) — glide-time is the ONLY thing that decides whether that
   // transition is instant or an audible portamento. Posted EXPLICITLY on

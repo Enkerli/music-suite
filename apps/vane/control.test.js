@@ -224,3 +224,50 @@ describe("articulation → timbre (GloriArp driving Vane)", () => {
     expect(post.mock.calls.map((c) => c[0]).some((m) => m.type === "param" && m.id === ids["wg-growl"])).toBe(false);
   });
 });
+
+import { registerOf } from "./control.js";
+
+describe("register coupling — the same articulation, higher up the horn", () => {
+  const ids = _idmap();
+  const emb = ids["wg-embouchure"], bright = ids["wg-bell-bright"];
+  const valOf = (post, id) => post.mock.calls.map((c) => c[0]).find((m) => m.type === "param" && m.id === id)?.value;
+
+  it("maps notes to -1..+1 around middle C, and clamps", () => {
+    expect(registerOf([60])).toBe(0);
+    expect(registerOf([84])).toBe(1);
+    expect(registerOf([36])).toBe(-1);
+    expect(registerOf([24])).toBe(-1);          // clamped, not -1.5
+    expect(registerOf([48, 72])).toBe(0);       // a chord uses its mean
+    expect(registerOf([])).toBe(0);
+  });
+
+  it("firms the embouchure going up and relaxes it going down", () => {
+    const hi = vi.fn(); applyArticulationTimbre(hi, "tenuto", 1, 1);
+    const mid = vi.fn(); applyArticulationTimbre(mid, "tenuto", 1, 0);
+    const lo = vi.fn(); applyArticulationTimbre(lo, "tenuto", 1, -1);
+    expect(valOf(hi, emb)).toBeGreaterThan(valOf(mid, emb));
+    expect(valOf(mid, emb)).toBeGreaterThan(valOf(lo, emb));
+    expect(valOf(mid, emb)).toBeCloseTo(0.5, 5);   // register 0 = the default
+    expect(valOf(hi, bright)).toBeGreaterThan(valOf(lo, bright));
+  });
+
+  it("reaches the voice from the note itself — a high note plays firmer", () => {
+    const hi = vi.fn(), lo = vi.fn();
+    applyVaneNote(hi, makeNote("gloriarp", { notes: [84], velocity: 90, durationMs: 100,
+      articulation: "tenuto", timbre: 1 }, { to: "vane" }));
+    applyVaneNote(lo, makeNote("gloriarp", { notes: [36], velocity: 90, durationMs: 100,
+      articulation: "tenuto", timbre: 1 }, { to: "vane" }));
+    expect(valOf(hi, emb)).toBeGreaterThan(valOf(lo, emb));
+  });
+
+  it("stays in range even where articulation and register pull together", () => {
+    // sforzando at the very top and ghost at the very bottom are the extremes.
+    for (const [art, reg] of [["sforzando", 1], ["ghost", -1], ["sforzando", -1], ["ghost", 1]]) {
+      const post = vi.fn(); applyArticulationTimbre(post, art, 1, reg);
+      for (const m of post.mock.calls.map((c) => c[0])) {
+        expect(m.value).toBeGreaterThanOrEqual(0);
+        expect(m.value).toBeLessThanOrEqual(1);
+      }
+    }
+  });
+});

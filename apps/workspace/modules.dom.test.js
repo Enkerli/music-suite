@@ -1423,3 +1423,24 @@ describe("GloriArp morph tells you when it cannot do anything", () => {
     off();
   });
 });
+
+describe("GloriArp timbre knob honesty", () => {
+  it("says timbre needs inflect when timbre is up and inflect is 0", async () => {
+    const { MODULES } = await import("./modules.js");
+    const { ctxObj } = ctx();
+    const body = document.createElement("div");
+    const off = MODULES["gloriarp"].make(ctxObj, body, {});
+    const byLabel = (l) => [...body.querySelectorAll("input")].find((i) => i.getAttribute("aria-label") === l);
+    const btn = (t) => [...body.querySelectorAll("button")].find((b) => b.textContent.includes(t));
+
+    byLabel("timbre").value = "0.8";                 // inflect stays 0
+    btn("▶ play").dispatchEvent(new MouseEvent("click"));
+    expect(body.textContent).toMatch(/timbre needs inflect > 0/);
+
+    byLabel("inflect").value = "1";
+    btn("↻ pass").dispatchEvent(new MouseEvent("click"));
+    expect(body.textContent).not.toMatch(/timbre needs inflect/);
+    btn("■ stop").dispatchEvent(new MouseEvent("click"));
+    off();
+  });
+});

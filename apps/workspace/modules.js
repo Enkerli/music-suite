@@ -1111,8 +1111,13 @@ function gloriarpModule(ctx, bodyEl, state) {
         onPass: (i, phrase, err) => {
           const n = passNo + i;
           if (err) { status.textContent = `✗ pass ${n + 1}: ${err.message || err} — keeping last good take`; return; }
+          /* Timbre rides on the ARTICULATION, and articulations only ship on
+             inflected notes — so timbre with inflect at 0 is a knob doing
+             nothing. Same trap as morph with nothing to re-roll: say so. */
+          const timbreInert = Number(timbre.input.value) > 0 && !Number(inflect.input.value);
           status.textContent = `▶ pass ${n + 1} · seed ${seed.value} · ${phrase.events.length} notes · ${progression.value}`
-            + (Number(morph.input.value) > 0 ? " · morphing" : "") + (loopBox.checked ? " · looping (tweaks land next pass)" : "");
+            + (Number(morph.input.value) > 0 ? " · morphing" : "") + (loopBox.checked ? " · looping (tweaks land next pass)" : "")
+            + (timbreInert ? " · timbre needs inflect > 0" : "");
         },
       });
     } catch (e) { status.textContent = "✗ " + (e && e.message || e); }
