@@ -24,6 +24,7 @@ ROOT="${1:-$HOME/Desktop/Jazz Progs and Gen/corpora}"
 SUITE="$HOME/Documents/Coding/music-suite"
 LIB="$ROOT/MIDI Library"
 STYLES="$ROOT/comp-styles"
+MODELS="$ROOT/gloriarp-models"
 LOG="$ROOT/build-models.log"
 
 cd "$SUITE" || exit 1
@@ -41,9 +42,9 @@ say ""
 # seventh sits neutrally under most of this material.
 say "[1/3] comp styles → models (frame Cm7)"
 if [ -d "$STYLES" ]; then
-  mkdir -p "$STYLES/models"
-  run node tools/comp-model.mjs "$STYLES" --each --chord Cm7 -o "$STYLES/models"
-  say "      $(ls "$STYLES/models"/*.json 2>/dev/null | wc -l | tr -d ' ') models in comp-styles/models/"
+  mkdir -p "$MODELS/comp-via-style"
+  run node tools/comp-model.mjs "$STYLES" --each --chord Cm7 -o "$MODELS/comp-via-style"
+  say "      $(ls "$MODELS/comp-via-style"/*.json 2>/dev/null | wc -l | tr -d ' ') models in gloriarp-models/comp-via-style/"
 else
   say "      SKIP — $STYLES not found"
 fi
@@ -51,7 +52,7 @@ say ""
 
 # ── 2. strum loops → degree-aware models, one step ───────────────────────────
 say "[2/3] strum loops → degree-aware models"
-mkdir -p "$ROOT/comp-models"
+mkdir -p "$MODELS/comp-direct"
 # pack name : id prefix
 PACKS=(
   "All That Jazz:jazz-comp"
@@ -65,10 +66,10 @@ PACKS=(
 for entry in "${PACKS[@]}"; do
   pack="${entry%%:*}"; prefix="${entry##*:}"
   if [ ! -d "$LIB/$pack" ]; then say "      SKIP $pack — not found"; continue; fi
-  run node tools/comp-learn.mjs "$LIB/$pack" --by-groove --prefix "$prefix" --frame Cm7 -o "$ROOT/comp-models"
+  run node tools/comp-learn.mjs "$LIB/$pack" --by-groove --prefix "$prefix" --frame Cm7 -o "$MODELS/comp-direct"
   # Count this prefix, not the directory delta: a re-run overwrites the same
   # filenames, so a delta reads 0 for a pack that wrote every one of its models.
-  say "      $pack → $(ls "$ROOT/comp-models/$prefix"-*.json 2>/dev/null | wc -l | tr -d ' ') models ($prefix-*)"
+  say "      $pack → $(ls "$MODELS/comp-direct/$prefix"-*.json 2>/dev/null | wc -l | tr -d ' ') models ($prefix-*)"
 done
 say ""
 
@@ -76,7 +77,7 @@ say ""
 # These DID get played against a chord, so the frame is an observation. The
 # symbols match the models Alex already has: C-9, C-11, E♭7.
 say "[3/3] Funkastic / Troublemaker clips → models"
-mkdir -p "$ROOT/instrument-models"
+mkdir -p "$MODELS/instrument"
 CLIPS=(
   "funka:Eb7:funkastic-eb7"
   "tm303:Cm9:troublemaker-acid-cm9"
@@ -86,7 +87,7 @@ for entry in "${CLIPS[@]}"; do
   IFS=: read -r dir chord id <<< "$entry"
   if [ ! -d "$SUITE/$dir" ]; then say "      SKIP $dir — not found"; continue; fi
   if run node packages/cli/dist/cli.js style learn "$SUITE/$dir" \
-        --chord "$chord" --id "$id" -o "$ROOT/instrument-models/$id.json"; then
+        --chord "$chord" --id "$id" -o "$MODELS/instrument/$id.json"; then
     n=$(ls "$SUITE/$dir"/*.mid 2>/dev/null | wc -l | tr -d ' ')
     say "      $dir ($n clips, $chord) → $id.json"
   else
@@ -96,7 +97,7 @@ done
 say ""
 
 say "done $(date '+%Y-%m-%d %H:%M:%S')"
-say "  comp-styles/models   $(ls "$STYLES/models"/*.json 2>/dev/null | wc -l | tr -d ' ')"
-say "  comp-models          $(ls "$ROOT/comp-models"/*.json 2>/dev/null | wc -l | tr -d ' ')"
-say "  instrument-models    $(ls "$ROOT/instrument-models"/*.json 2>/dev/null | wc -l | tr -d ' ')"
+say "  gloriarp-models/comp-direct     $(ls "$MODELS/comp-direct"/*.json 2>/dev/null | wc -l | tr -d ' ')"
+say "  gloriarp-models/comp-via-style  $(ls "$MODELS/comp-via-style"/*.json 2>/dev/null | wc -l | tr -d ' ')"
+say "  gloriarp-models/instrument      $(ls "$MODELS/instrument"/*.json 2>/dev/null | wc -l | tr -d ' ')"
 say "  full log: $LOG"

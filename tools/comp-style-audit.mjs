@@ -2,8 +2,11 @@
 /**
  * Is a comping style ABSTRACT, and is what it generates DISTINCT?
  *
- *   node tools/comp-style-audit.mjs style.json --source <dir-of-loops>
- *   node tools/comp-style-audit.mjs styles/ --source <packs>/ --each
+ *   node tools/comp-style-audit.mjs <loop-dir> [--takes 200] [--bars 4]
+ *
+ * It groups the directory by groove, learns each style, and audits it against
+ * the very loops it came from — no pairing step, because an earlier version
+ * tried to match finished styles to their loops by filename and got it wrong.
  *
  * The gate before a learned style may be shared. Alex set the condition:
  * "check that what they generate is distinct and abstract. If not, we'll keep
@@ -25,8 +28,8 @@
  * slot — because that is what a listener would recognise as "the same bar".
  */
 
-import { readFileSync, readdirSync, statSync } from "node:fs";
-import { join, basename } from "node:path";
+import { readFileSync, readdirSync } from "node:fs";
+import { join } from "node:path";
 import { parseSMF } from "./midi-timing.mjs";
 import { detectBase, classify, gesturesOf, learnFromFiles } from "./comp-style.mjs";
 import { generate } from "./comp-generate.mjs";
@@ -67,10 +70,6 @@ export function audit(style, sourceFiles, { takes = 200, bars = 4 } = {}) {
     for (const fp of fingerprints(smf, base, slotsPerBar, perBeat)) source.add(fp);
   }
 
-  /* How many distinct bars are consistent with the style? Each slot
-     contributes its own branching: the fire/don't-fire choice when p is not 0
-     or 1, times the number of gestures it might pick. Logs, because the raw
-     number overflows immediately — which is itself the point. */
   /* Count the numbers the style actually stores, by walking the JSON, rather
      than adding up a formula. A hand-rolled count of "how big is this thing"
      is the easiest number in the report to get quietly wrong, and it is the
@@ -80,6 +79,10 @@ export function audit(style, sourceFiles, { takes = 200, bars = 4 } = {}) {
     : 0;
   const numbers = countNumbers(style.slots);
 
+  /* How many distinct bars are consistent with the style? Each slot
+     contributes its own branching: the fire/don't-fire choice when p is not 0
+     or 1, times the number of gestures it might pick. Logs, because the raw
+     number overflows immediately — which is itself the point. */
   let log2Space = 0, probabilistic = 0;
   for (const s of style.slots) {
     const kinds = Object.keys(s.kinds ?? {}).length;

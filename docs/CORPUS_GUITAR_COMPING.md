@@ -234,27 +234,33 @@ Six lanes with per-lane onsets is also, structurally, a **poly pattern**, which
 the engine already plays (INTENT D5, D8). The nearest existing relative is
 Funkastic, the clav comping generator.
 
-Three things the machinery needs:
+Three things the machinery needed, all since built:
 
-1. **Lanes are voicing slots, not drums.** `learnStyle` calls `resolveDrum` and
-   assumes a kit. The slot index is the lane; the pitch comes from the chord at
-   play time, not from the style.
-2. **Keep onset offsets continuous.** Per-slot probability alone would quantise
+1. **Lanes are voicing slots, not drums.** The slot index is the lane; the pitch
+   comes from the chord at play time. → `comp-style.mjs`, `comp-learn.mjs`.
+2. **Onset offsets stay continuous.** Per-slot probability alone would quantise
    away the 0.15-quarter deviations that are the comping feel — the waltzes
    survived that because they were tight (0.057 slots), this would not.
-   `learnStyleModel` already keeps micro-timing distributions; here they are the
-   primary content rather than a nuance.
-3. **Keep the strum as one gesture.** A strum is a contiguous run of slots
-   spread over ~2.7 ticks with a direction. Stored as six independent lane
-   onsets it survives, but stored as a *gesture* — run, direction, spread — it
-   can be regenerated over a different voicing, which is what makes cross-style
-   work ("a jazz waltz, funkier") possible.
+3. **The strum stays one gesture** — run, direction, spread — so it can be
+   re-spread over a different voicing, which is what makes cross-style work
+   possible. → `comp-style.mjs`'s gesture layer.
 
 Meter comes from the filename: 12-8, 9-8, 6-8, 3-4 are all stated, and the
 timekeeper heuristic cannot find a bar in a guitar part because there is no
 timekeeper voice. Using stated metadata is not cheating.
 
-Open question, cheap to answer: what the seven non-string notes articulate.
+The open question — what the seven non-string keys articulate — was answered by
+the GS-2 panel and confirmed by the probe above. They are whole-hand actions,
+and the mutes turn out to be a **duration** distinction rather than a separate
+articulation: across the library the damped keys sit at 0.12–0.15 quarters and
+the open ones at 0.18–0.20. That is measured, not assumed, and it is the part a
+clav needs as much as a guitar does.
 
 Generic names when these ship, same as the drum styles and for the same reason:
 so nobody mistakes a style for the library it was learned from.
+
+---
+
+**The toolchain built on these findings, and how to run it, is in
+[COMPING_STYLES.md](COMPING_STYLES.md).** This document is the evidence; that
+one is the map.
