@@ -53,9 +53,10 @@ drawnqurve) are the same code the plugins embed.
 `style` ·
 `upi` — matrix of what runs where: [HEADLESS.md](HEADLESS.md).
 
-## Workspace modules (19, `apps/workspace/modules.js` `MODULES`)
+## Workspace modules (20, `apps/workspace/modules.js` `MODULES`)
 
-Control Surface · Vane Synth · Drum Kit · Pattern (UPI) · PCS Pads · Voice Split ·
+Control Surface · Vane Synth · Drum Kit · Drum Style · Pattern (UPI) · PCS Pads ·
+Voice Split ·
 Mono Merge · Pattern Transforms · Pattern Player · Rhythm Analysis ·
 Progression · GloriArp · Keys · Chord Namer · Recorder · Library ·
 Bindings · Bus Monitor · Bridge (CLI)

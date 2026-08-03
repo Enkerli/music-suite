@@ -25,9 +25,21 @@ export const KINDS = [
 ] as const;
 export type Kind = (typeof KINDS)[number];
 
+/**
+ * Addressable destinations on the control plane. A message's `to` must be one
+ * of these or `*` — anything else is rejected by validateMessage.
+ *
+ * `drums` is not an app with a window; it is the synthesised kit
+ * (@enkerli/drumsynth), addressable the same way `vane` is because it is the
+ * same kind of thing — an instrument that takes notes. Added 2026-08-02, when
+ * pointing the Pattern Player at the Workspace's Drum Kit module produced
+ * silence: the notes were being published and DROPPED by validation, with
+ * nothing said, because "drums" was not a destination anyone had declared.
+ */
 export const APPS = [
   "proggenie", "midicurator", "serpe", "vane", "drawnqurve",
-  "pitchfold", "exquisite-fingerings", "pickpcs", "chord-dictionary", "external",
+  "pitchfold", "exquisite-fingerings", "pickpcs", "chord-dictionary",
+  "drums", "external",
 ] as const;
 export type AppId = (typeof APPS)[number];
 

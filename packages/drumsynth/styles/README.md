@@ -26,7 +26,22 @@ Nine slots because 3/4 in triplets is nine. Every one of these came back as
 question for this material by measurement rather than assumption
 (`tools/drum-grid.mjs`).
 
-## Why they are shareable when the source is not
+## Why the names are generic
+
+Not to hide where they came from — the note above says plainly that they were
+learned from a commercial library. It is so that **nobody mistakes these for the
+originals**. Somebody who wants the high-quality source material should go and
+buy it, and a file called `waltzing-90.json` sitting in a repo invites exactly
+the wrong assumption about what it is and what it substitutes for.
+
+`jazz-waltz-90` says what the music is. The tempo is a fact about the material;
+the folder name was a product's preset name.
+
+The closest honest analogy is not a dataset or a model dump. It is closer to
+having learned to play jazz waltz from scores, and now holding an abstract
+method from that playing. What is here is the method.
+
+## What it means that they are abstract
 
 The transform is one-way, and measurably so. For `jazz-waltz-90`:
 

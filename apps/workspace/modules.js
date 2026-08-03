@@ -13,7 +13,9 @@ import { APPS } from "@enkerli/library";
 import { parseUPI, parsePolyUPI, analyse, analyzeSyncopation, rotate, invert, complement, barlowTransform, mutatePattern, polyLaneAt } from "@enkerli/upi";
 import { createCircleView, createPolyCircleView } from "@enkerli/ui/rhythm-views";
 import { createBindingEngine, addBinding, removeBinding } from "@enkerli/control";
-import { VOICES, KIT, resolveDrum, drumForLabel } from "@enkerli/drumsynth";
+import { VOICES, KIT, resolveDrum, drumForLabel,
+         generate as drumGenerate, toUPI as drumToUPI } from "@enkerli/drumsynth";
+import { DRUM_STYLES } from "./drum-styles.js";
 import { parseLeadsheet, detectChord, rootName, realizeLeadsheet } from "@enkerli/theory";
 import { generateLabels, realizeLabel } from "@enkerli/proggen";
 import transitionTables from "@enkerli/proggen/data/transitions.json";
@@ -1119,7 +1121,10 @@ export function keysModule(ctx, bodyEl, state) {
   const vel = el("input", { class: "ws-text ws-num", type: "number", min: 1, max: 127, value: S("vel", 96), "aria-label": "Velocity" });
   const dur = el("input", { class: "ws-text ws-num", type: "number", min: 30, max: 4000, value: S("dur", 300), "aria-label": "Duration (ms)" });
   const to = el("select", { class: "ws-select", "aria-label": "Send to" },
-    ...[["vane", "vane"], ["*", "all"]].map(([v, t]) => el("option", { value: v, text: t, ...(v === S("to", "vane") ? { selected: "" } : {}) })));
+    // `drums` addresses the Drum Kit module specifically. Without it the only
+    // way to reach the kit was `all`, which also sounds Vane — so a drum
+    // pattern played a pitched reed alongside it.
+    ...[["vane", "vane"], ["drums", "drums"], ["*", "all"]].map(([v, t]) => el("option", { value: v, text: t, ...(v === S("to", "vane") ? { selected: "" } : {}) })));
   const keys = el("div", { class: "ws-keys", role: "group", "aria-label": "Keyboard" });
 
   function playPc(pc) {
@@ -1162,7 +1167,10 @@ export function playerModule(ctx, bodyEl, state) {
     ...[["cycle", "polyrhythm"], ["step", "polymeter"]].map(([v, t]) =>
       el("option", { value: v, text: t, ...(v === S("lock", "cycle") ? { selected: "" } : {}) })));
   const to = el("select", { class: "ws-select", "aria-label": "Send to" },
-    ...[["vane", "vane"], ["*", "all"]].map(([v, t]) => el("option", { value: v, text: t, ...(v === S("to", "vane") ? { selected: "" } : {}) })));
+    // `drums` addresses the Drum Kit module specifically. Without it the only
+    // way to reach the kit was `all`, which also sounds Vane — so a drum
+    // pattern played a pitched reed alongside it.
+    ...[["vane", "vane"], ["drums", "drums"], ["*", "all"]].map(([v, t]) => el("option", { value: v, text: t, ...(v === S("to", "vane") ? { selected: "" } : {}) })));
   const status = el("div", { class: "ws-readout", text: "waiting for a pattern on the bus…" });
 
   const bits = (mask, n) => Array.from({ length: n }, (_, i) => Math.floor(mask / 2 ** i) % 2); // leftmost = LSB
@@ -1571,6 +1579,77 @@ export function libraryModule(ctx, bodyEl) {
   return () => off();
 }
 
+// ── Drum Style: a learned style, sampled into a pattern, on the bus.
+//
+// The whole D2/D3 playflow in the page — pick a style, turn seed/pass/morph,
+// and the pattern goes out for the Player to run and the Kit to sound. What the
+// CLI does as `msuite drums gen`, with the dials where you can hear them move.
+// ──────────────────────────────────────────────────────────────────────────
+export function drumStyleModule(ctx, bodyEl, state) {
+  const S = (k, d) => state[k] ?? d;
+  const ids = Object.keys(DRUM_STYLES).sort();
+  const pick = el("select", { class: "ws-select", "aria-label": "Style" },
+    ...ids.map((id) => el("option", { value: id, text: id, ...(id === S("style", ids[0]) ? { selected: "" } : {}) })));
+  const seed = el("input", { class: "ws-text ws-num", type: "number", min: 0, max: 9999, value: S("seed", 1), "aria-label": "Seed" });
+  const pass = el("input", { class: "ws-text ws-num", type: "number", min: 0, max: 999, value: S("pass", 0), "aria-label": "Pass" });
+  const morph = el("input", { class: "ws-slider", type: "range", min: 0, max: 1, step: 0.05,
+    value: S("morph", 0), "aria-label": "Morph" });
+  const status = el("div", { class: "ws-readout", role: "status", "aria-live": "polite", text: "pick a style and send" });
+  const upiOut = el("div", { class: "ws-readout", style: "word-break:break-all" });
+
+  function send() {
+    const style = DRUM_STYLES[pick.value];
+    if (!style) return;
+    Object.assign(state, { style: pick.value, seed: +seed.value, pass: +pass.value, morph: +morph.value });
+    ctx.save();
+    let take, out;
+    try {
+      take = drumGenerate(style, { bars: 1, seed: +seed.value, pass: +pass.value, morph: +morph.value });
+      out = drumToUPI(take);
+    } catch (e) { status.textContent = "✗ " + (e && e.message || e); return; }
+
+    // Published as a `pattern` with LANES, the same shape the Pattern module
+    // sends — so the Player and anything else on the bus need know nothing
+    // about styles. Each lane states its drum's GM note, so the Kit hears a
+    // kick as a kick rather than by position.
+    const poly = parsePolyUPI(out.upi, { n: take.slotsPerBar });
+    if (!poly.ok) { status.textContent = "✗ generated pattern did not parse: " + (poly.error ?? ""); return; }
+    const maskOf = (arr) => arr.reduce((m, v, i) => m + (v ? 2 ** i : 0), 0);
+    const first = poly.lanes[0];
+    ctx.bus.publish(makeMessage(FROM, "pattern", {
+      steps: first.steps.length, mask: maskOf(first.steps), name: `${style.id} s${seed.value}p${pass.value}`,
+      lanes: poly.lanes.map((l) => {
+        const drum = drumForLabel(l.label ?? "");
+        return {
+          steps: l.steps.length, mask: maskOf(l.steps),
+          ...(drum ? { note: KIT[drum].note } : {}),
+          ...(l.label ? { name: l.label } : {}),
+          ...(l.accents?.some(Boolean) ? { accents: maskOf(l.accents) } : {}),
+        };
+      }),
+    }, { to: "*" }));
+
+    upiOut.textContent = out.upi;
+    status.textContent = `${style.id} · ${take.slotsPerBar} slots (${style.grid.beatsPerBar}/4) · `
+      + `seed ${take.seed} pass ${take.pass}${take.morph.hits ? ` morph ${take.morph.hits}` : ""}`;
+  }
+
+  bodyEl.append(
+    el("div", { class: "ws-row", style: "flex-wrap:wrap" },
+      el("label", { class: "ws-ctl", text: "style " }, pick),
+      el("label", { class: "ws-ctl", text: "seed " }, seed),
+      el("label", { class: "ws-ctl", text: "pass " }, pass)),
+    el("div", { class: "ws-row" },
+      el("label", { class: "ws-ctl", text: "morph " }, morph),
+      el("button", { class: "ws-btn", text: "▶ send", onclick: send }),
+      el("button", { class: "ws-btn ghost", text: "↻ next pass",
+        title: "Advance one loop pass — with morph above 0 the groove drifts",
+        onclick: () => { pass.value = String((+pass.value || 0) + 1); send(); } })),
+    status, upiOut,
+    el("div", { class: "ws-readout", text: "statistics learned from MIDI — seed names the take, morph is how much re-rolls per pass" }));
+  return () => {};
+}
+
 // ── Drum Kit: the synthesised kit (@enkerli/drumsynth) in the page. Notes on
 // the bus become drums by GM number, so the Pattern Player driving
 // `kick=E(4,16) / hh=E(8,16)` is a drum machine with no second tab and no
@@ -1578,7 +1657,7 @@ export function libraryModule(ctx, bodyEl) {
 export function drumKitModule(ctx, bodyEl, state) {
   const S = (k, d) => state[k] ?? d;
   let audioCtx = null, gain = null, offBus = null, hits = 0;
-  const status = el("div", { class: "ws-readout", text: "off — click power, then play the bus (Pattern Player, Keys…)" });
+  const status = el("div", { class: "ws-readout", text: "off — click power, then send to \u2018drums\u2019 (Pattern Player, Keys…)" });
   const powerBtn = powerButton(async (wantOn) => {
     if (!wantOn) { await audioCtx?.suspend(); paint(); return; }
     await power();
@@ -1620,7 +1699,11 @@ export function drumKitModule(ctx, bodyEl, state) {
         gain.gain.value = Number(level.value);
         gain.connect(audioCtx.destination);
         offBus = ctx.bus.subscribe((m) => {
-          if (m.type !== "note" || (m.to !== "drums" && m.to !== "*" && m.to !== "vane")) return;
+          // `drums` and `all` only. It used to accept `vane` too, so that the
+          // Player's default target would reach it — but now that `drums` is a
+          // real option, accepting `vane` means choosing Vane sounds the kit as
+          // well. One target, one instrument; the readout says which.
+          if (m.type !== "note" || (m.to !== "drums" && m.to !== "*")) return;
           const b = m.body || {};
           if (b.gate === "off") return;            // one-shots have no note-off
           for (const n of b.notes || []) {
@@ -1642,7 +1725,7 @@ export function drumKitModule(ctx, bodyEl, state) {
     const on = audioCtx.state === "running";
     powerBtn.setState(on);
     status.textContent = on
-      ? "kit live — bus notes sound as drums by GM number"
+      ? "kit live — listening on \u2018drums\u2019 and \u2018all\u2019"
       : "suspended — click power to start";
   }
 
@@ -1665,6 +1748,7 @@ export const MODULES = {
   "control-surface": { title: "Control Surface", make: controlSurfaceModule },
   "vane-synth": { title: "Vane Synth", make: vaneSynthModule },
   "drum-kit": { title: "Drum Kit", make: drumKitModule },
+  "drum-style": { title: "Drum Style", make: drumStyleModule },
   "pattern": { title: "Pattern (UPI)", make: patternModule },
   "pcs-pads": { title: "PCS Pads", make: pcsPadsModule },
   "voice-split": { title: "Voice Split", make: voiceSplitModule },

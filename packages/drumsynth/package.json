@@ -10,7 +10,8 @@
       "source": "./src/index.js",
       "default": "./src/index.js",
       "types": "./index.d.ts"
-    }
+    },
+    "./styles/*": "./styles/*"
   },
   "scripts": {
     "test": "vitest run"
