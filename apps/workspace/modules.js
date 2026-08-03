@@ -336,7 +336,14 @@ export function pcsPadsModule(ctx, bodyEl, state) {
         } },
         el("div", { class: "ws-pad-name", text: pad.label }),
         el("div", { class: "ws-pad-sub", text: `${PC_NAMES[((pad.root % 12) + 12) % 12]} · ${countBits(pad.mask)} notes` })),
-      el("button", { class: "ws-pad-learn", text: "↓", title: "Learn: store the last scale heard on the bus into this pad",
+      // Named per PAD. Eight buttons all announcing "Learn: store the last
+      // scale heard on the bus into this pad" gave a screen-reader user eight
+      // identical stops with nothing to tell them apart — the same shape as
+      // MIDIcurator's kebabs, and axe passes it for the same reason: the button
+      // HAS a name.
+      el("button", { class: "ws-pad-learn", text: "↓",
+        title: `Learn into ${pad.label}: store the last scale heard on the bus`,
+        "aria-label": `Learn into pad ${i + 1}, ${pad.label}`,
         onclick: () => {
           if (!lastHeard) { status.textContent = "nothing heard on the bus yet"; return; }
           state.pads[i] = { mask: lastHeard.mask, root: lastHeard.root ?? 0, label: lastHeard.name || "Custom" };
@@ -637,7 +644,17 @@ function comboFromKeyEvent(e) {
   if (!["control", "alt", "meta", "shift"].includes(k)) parts.push(k);
   return parts.join("+");
 }
-const isTyping = (t) => t && /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName);
+/**
+ * Is the user typing rather than triggering?
+ *
+ * `contenteditable` and `role="textbox"` are included even though nothing in
+ * Workspace uses either today: the cost is one test, and the failure mode if
+ * one appears later is that a key binding eats every letter someone types into
+ * it, which nobody would connect back to this line.
+ */
+const isTyping = (t) => !!t && (/^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName)
+  || t.isContentEditable === true
+  || t.getAttribute?.("role") === "textbox");
 const actionLabel = (a) => a.command ? `${a.app}.${a.command}${a.args ? `(${Object.entries(a.args).map(([k, v]) => `${k}=${v}`).join(",")})` : ""}` : `${a.app}.${a.param}=${a.value}`;
 
 function bindingsModule(ctx, bodyEl, state) {
@@ -657,8 +674,32 @@ function bindingsModule(ctx, bodyEl, state) {
 
   const list = el("div", { class: "ws-controls" });
   const captured = { combo: "" };
-  const keyInput = el("input", { class: "ws-text", type: "text", readonly: "", placeholder: "press a key…", "aria-label": "Trigger key" });
-  keyInput.addEventListener("keydown", (e) => { e.preventDefault(); captured.combo = comboFromKeyEvent(e); keyInput.value = captured.combo; });
+  // A label NAMES; a description EXPLAINS. The hint went into the aria-label
+  // briefly and made the announcement a sentence — and broke a test that looked
+  // the field up by its name, which is a fair thing for a test to do.
+  const keyHint = el("div", { class: "ws-readout", id: "ws-keyhint", style: "text-align:left",
+    text: "Tab moves on · Escape clears" });
+  const keyInput = el("input", { class: "ws-text", type: "text", readonly: "",
+    placeholder: "press a key…", "aria-label": "Trigger key",
+    "aria-describedby": "ws-keyhint",
+    title: "Press the key you want to bind. Tab moves on; Escape clears." });
+  keyInput.addEventListener("keydown", (e) => {
+    // Tab and Escape are NOT capturable, and that is the whole point.
+    //
+    // This preventDefault'd every key, so once focus landed here a keyboard-only
+    // user could not leave — Tab was swallowed along with everything else. A
+    // keyboard trap, WCAG 2.1.2 Level A, and axe reported zero violations on
+    // this page because no automated rule can see it (a11y pass 2026-08-02).
+    //
+    // Tab therefore moves focus as normal and Escape clears the field. Every
+    // other key is captured, which still covers everything anyone would
+    // sensibly bind.
+    if (e.key === "Tab") return;
+    if (e.key === "Escape") { e.preventDefault(); captured.combo = ""; keyInput.value = ""; return; }
+    e.preventDefault();
+    captured.combo = comboFromKeyEvent(e);
+    keyInput.value = captured.combo;
+  });
   const appSel = el("select", { class: "ws-select", "aria-label": "Target app", onchange: () => fillActions() },
     ...Object.keys(MANIFESTS).map((a) => el("option", { value: a, text: a })));
   const actSel = el("select", { class: "ws-select", "aria-label": "Action" });
@@ -686,7 +727,7 @@ function bindingsModule(ctx, bodyEl, state) {
     persist();
   } });
 
-  bodyEl.append(list, el("div", { class: "ws-row", style: "flex-wrap:wrap" }, keyInput, appSel, actSel, addBtn));
+  bodyEl.append(list, el("div", { class: "ws-row", style: "flex-wrap:wrap" }, keyInput, appSel, actSel, addBtn), keyHint);
 
   function persist() { state.map = map; engine.setMap(map); ctx.save(); render(); }
   function render() {
@@ -699,7 +740,21 @@ function bindingsModule(ctx, bodyEl, state) {
   }
   render();
 
-  const onKey = (e) => { if (isTyping(e.target)) return; engine.handle({ kind: "key", combo: comboFromKeyEvent(e) }); };
+  // `e.repeat` ignored: a held key used to fire the bound action on every
+  // repeat, so leaning on a key machine-gunned it. That is a problem for
+  // anyone whose keypresses are long — a motor impairment, sticky keys, or an
+  // on-screen keyboard — and it is not what any of these actions mean.
+  //
+  // No preventDefault here, deliberately: a binding OBSERVES the key rather
+  // than consuming it, so the browser and any assistive technology keep their
+  // own shortcuts. A screen reader in browse mode intercepts bare letters
+  // before the page sees them, which means such a binding simply will not fire
+  // for that user — a gap in what they can reach, not a hazard, and the reason
+  // a modifier is the safer thing to bind.
+  const onKey = (e) => {
+    if (e.repeat || isTyping(e.target)) return;
+    engine.handle({ kind: "key", combo: comboFromKeyEvent(e) });
+  };
   window.addEventListener("keydown", onKey);
   return () => {
     window.removeEventListener("keydown", onKey);

@@ -138,6 +138,79 @@ describe("bindings module", () => {
     cleanup();
   });
 
+  /**
+   * Keyboard behaviour, which no automated rule can see.
+   *
+   * Axe reported ZERO violations on this page while the trigger field was a
+   * keyboard trap. These are the checks that actually stand between the
+   * bindings feature and someone who navigates by keyboard or uses assistive
+   * technology (a11y pass 2026-08-02).
+   */
+  it("does NOT trap the keyboard — Tab leaves the trigger field", () => {
+    // It preventDefault'd every key, so once focus landed there a keyboard-only
+    // user could not get out without a mouse. WCAG 2.1.2, Level A.
+    const { body, cleanup } = mount();
+    const f = body.querySelector('[aria-label="Trigger key"]');
+    const tab = new KeyboardEvent("keydown", { key: "Tab", cancelable: true, bubbles: true });
+    f.dispatchEvent(tab);
+    expect(tab.defaultPrevented).toBe(false);
+    cleanup();
+  });
+
+  it("Escape clears the field rather than being captured as a binding", () => {
+    const { body, cleanup } = mount();
+    const f = body.querySelector('[aria-label="Trigger key"]');
+    f.dispatchEvent(new KeyboardEvent("keydown", { key: "j", cancelable: true, bubbles: true }));
+    expect(f.value).toBe("j");
+    f.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", cancelable: true, bubbles: true }));
+    expect(f.value).toBe("");
+    cleanup();
+  });
+
+  it("still captures ordinary keys, and swallows them so they do not also type", () => {
+    const { body, cleanup } = mount();
+    const f = body.querySelector('[aria-label="Trigger key"]');
+    const e = new KeyboardEvent("keydown", { key: "g", cancelable: true, bubbles: true });
+    f.dispatchEvent(e);
+    expect(f.value).toBe("g");
+    expect(e.defaultPrevented).toBe(true);
+    cleanup();
+  });
+
+  it("a HELD key fires the action once, not once per repeat", () => {
+    // Leaning on a bound key machine-gunned it. That matters for anyone whose
+    // keypresses are long — a motor impairment, sticky keys, an on-screen
+    // keyboard — and no action here means "do this forty times".
+    const { seen, body, cleanup } = mount();
+    body.querySelector('[aria-label="Trigger key"]').dispatchEvent(new KeyboardEvent("keydown", { key: "i" }));
+    const appSel = body.querySelector('[aria-label="Target app"]');
+    appSel.value = "serpe"; appSel.dispatchEvent(new Event("change"));
+    body.querySelector('[aria-label="Action"]').value = "cmd:complement";
+    body.querySelectorAll(".ws-btn")[0].dispatchEvent(new MouseEvent("click"));
+    const before = seen.length;
+    window.dispatchEvent(new KeyboardEvent("keydown", { key: "i" }));
+    for (let k = 0; k < 4; k++) window.dispatchEvent(new KeyboardEvent("keydown", { key: "i", repeat: true }));
+    expect(seen.length - before).toBe(1);
+    cleanup();
+  });
+
+  it("a binding does not consume the key — the browser and AT keep theirs", () => {
+    // Observing rather than swallowing is deliberate: a screen reader's own
+    // shortcuts must keep working, and a bare-letter binding that a reader
+    // intercepts in browse mode simply will not fire, which is a gap in reach
+    // rather than a hazard.
+    const { body, cleanup } = mount();
+    body.querySelector('[aria-label="Trigger key"]').dispatchEvent(new KeyboardEvent("keydown", { key: "i" }));
+    const appSel = body.querySelector('[aria-label="Target app"]');
+    appSel.value = "serpe"; appSel.dispatchEvent(new Event("change"));
+    body.querySelector('[aria-label="Action"]').value = "cmd:complement";
+    body.querySelectorAll(".ws-btn")[0].dispatchEvent(new MouseEvent("click"));
+    const e = new KeyboardEvent("keydown", { key: "i", cancelable: true, bubbles: true });
+    window.dispatchEvent(e);
+    expect(e.defaultPrevented).toBe(false);
+    cleanup();
+  });
+
   it("adding a binding wires a new key to a command", () => {
     const { seen, body, cleanup } = mount();
     body.querySelector('[aria-label="Trigger key"]').dispatchEvent(new KeyboardEvent("keydown", { key: "i" }));

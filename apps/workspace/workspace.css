@@ -57,7 +57,9 @@ body {
   border-bottom: 1px solid var(--es-border-soft, #e7e2d8);
   touch-action: none; user-select: none;
 }
-.ws-title { font-weight: 600; font-size: 13px; margin-right: auto; }
+/* An h2 since 2026-08-02 (heading navigation); the reset gives headings a
+   margin and a larger size, so both are neutralised here. */
+.ws-title { font-weight: 600; font-size: 13px; margin: 0; margin-right: auto; line-height: inherit; }
 .ws-x {
   border: none; background: transparent; color: var(--es-fg-muted, #6b6559);
   cursor: pointer; font-size: 13px; line-height: 1; padding: 4px 6px; border-radius: 6px;

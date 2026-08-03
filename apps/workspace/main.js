@@ -96,7 +96,12 @@ function main() {
       } });
     const panel = el("section", { class: "ws-module", "aria-label": meta.title },
       el("header", { class: "ws-head" },
-        el("span", { class: "ws-title", text: meta.title }),
+        // An h2, not a span. The sections already carry accessible names, so
+        // region navigation worked — but the page had exactly ONE heading for
+        // eighteen panels, and heading navigation is the way most screen-reader
+        // users move around a page. Now both routes work (a11y pass
+        // 2026-08-02). Styling is unchanged: .ws-title sets its own size.
+        el("h2", { class: "ws-title", text: meta.title }),
         el("button", { class: "ws-order", text: "◀", title: "Move earlier", "aria-label": `Move ${meta.title} earlier`,
           onclick: () => move(id, -1) }),
         el("button", { class: "ws-order", text: "▶", title: "Move later", "aria-label": `Move ${meta.title} later`,
