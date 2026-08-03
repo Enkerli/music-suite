@@ -1,0 +1,402 @@
+{
+ "id": "jazz-waltz-90",
+ "kind": "drum-style",
+ "version": 1,
+ "learnedFrom": {
+  "files": 12,
+  "note": "learned from a commercial jazz-waltz MIDI library; statistics only, the source is not distributed"
+ },
+ "grid": {
+  "perBeat": 3,
+  "beatsPerBar": 3,
+  "slotsPerBar": 9,
+  "meterConfidence": 0.58
+ },
+ "bars": 128,
+ "swing": [
+  {
+   "nominal": 0.333,
+   "played": 0.3209,
+   "n": 102
+  },
+  {
+   "nominal": 0.667,
+   "played": 0.6735,
+   "n": 513
+  }
+ ],
+ "voices": [
+  {
+   "drum": "ride",
+   "note": 59,
+   "hits": 519,
+   "slots": [
+    {
+     "slot": 0,
+     "p": 0.945,
+     "velocity": {
+      "mean": 105.165,
+      "sd": 6.077,
+      "n": 121
+     },
+     "push": 0.012
+    },
+    {
+     "slot": 2,
+     "p": 0.391,
+     "velocity": {
+      "mean": 90.74,
+      "sd": 13.661,
+      "n": 50
+     },
+     "push": 0.016
+    },
+    {
+     "slot": 3,
+     "p": 0.93,
+     "velocity": {
+      "mean": 99.95,
+      "sd": 7.367,
+      "n": 119
+     },
+     "push": 0.016
+    },
+    {
+     "slot": 5,
+     "p": 0.547,
+     "velocity": {
+      "mean": 95.957,
+      "sd": 15.295,
+      "n": 70
+     },
+     "push": 0.032
+    },
+    {
+     "slot": 6,
+     "p": 0.805,
+     "velocity": {
+      "mean": 102.087,
+      "sd": 7.276,
+      "n": 103
+     },
+     "push": 0.006
+    },
+    {
+     "slot": 8,
+     "p": 0.438,
+     "velocity": {
+      "mean": 89.107,
+      "sd": 15.614,
+      "n": 56
+     },
+     "push": 0.009
+    }
+   ]
+  },
+  {
+   "drum": "snare",
+   "note": 38,
+   "hits": 494,
+   "slots": [
+    {
+     "slot": 0,
+     "p": 0.492,
+     "velocity": {
+      "mean": 73.667,
+      "sd": 27.261,
+      "n": 63
+     },
+     "push": 0.019
+    },
+    {
+     "slot": 1,
+     "p": 0.234,
+     "velocity": {
+      "mean": 38.167,
+      "sd": 19.147,
+      "n": 30
+     },
+     "push": -0.018
+    },
+    {
+     "slot": 2,
+     "p": 0.539,
+     "velocity": {
+      "mean": 68.928,
+      "sd": 30.843,
+      "n": 69
+     },
+     "push": -0.007
+    },
+    {
+     "slot": 3,
+     "p": 0.352,
+     "velocity": {
+      "mean": 68.956,
+      "sd": 26.301,
+      "n": 45
+     },
+     "push": 0.007
+    },
+    {
+     "slot": 4,
+     "p": 0.188,
+     "velocity": {
+      "mean": 39.625,
+      "sd": 16.7,
+      "n": 24
+     },
+     "push": -0.057
+    },
+    {
+     "slot": 5,
+     "p": 0.727,
+     "velocity": {
+      "mean": 86.978,
+      "sd": 27.278,
+      "n": 93
+     },
+     "push": 0.057
+    },
+    {
+     "slot": 6,
+     "p": 0.555,
+     "velocity": {
+      "mean": 60.141,
+      "sd": 29.166,
+      "n": 71
+     },
+     "push": -0.007
+    },
+    {
+     "slot": 7,
+     "p": 0.258,
+     "velocity": {
+      "mean": 31.273,
+      "sd": 19.962,
+      "n": 33
+     },
+     "push": -0.086
+    },
+    {
+     "slot": 8,
+     "p": 0.516,
+     "velocity": {
+      "mean": 74.803,
+      "sd": 23.663,
+      "n": 66
+     },
+     "push": 0.013
+    }
+   ]
+  },
+  {
+   "drum": "kick",
+   "note": 36,
+   "hits": 191,
+   "slots": [
+    {
+     "slot": 0,
+     "p": 0.414,
+     "velocity": {
+      "mean": 80.868,
+      "sd": 12.749,
+      "n": 53
+     },
+     "push": 0
+    },
+    {
+     "slot": 1,
+     "p": 0.047,
+     "velocity": {
+      "mean": 79.833,
+      "sd": 15.071,
+      "n": 6
+     },
+     "push": 0.074
+    },
+    {
+     "slot": 2,
+     "p": 0.234,
+     "velocity": {
+      "mean": 87.167,
+      "sd": 18.842,
+      "n": 30
+     },
+     "push": 0.012
+    },
+    {
+     "slot": 3,
+     "p": 0.109,
+     "velocity": {
+      "mean": 100.429,
+      "sd": 12.676,
+      "n": 14
+     },
+     "push": -0.02
+    },
+    {
+     "slot": 4,
+     "p": 0.016,
+     "velocity": {
+      "mean": 66.5,
+      "sd": 5.5,
+      "n": 2
+     },
+     "push": 0.205
+    },
+    {
+     "slot": 5,
+     "p": 0.273,
+     "velocity": {
+      "mean": 83.229,
+      "sd": 14.844,
+      "n": 35
+     },
+     "push": 0.017
+    },
+    {
+     "slot": 6,
+     "p": 0.094,
+     "velocity": {
+      "mean": 83.667,
+      "sd": 8.74,
+      "n": 12
+     },
+     "push": -0.015
+    },
+    {
+     "slot": 7,
+     "p": 0.031,
+     "velocity": {
+      "mean": 80.5,
+      "sd": 9.314,
+      "n": 4
+     },
+     "push": 0.002
+    },
+    {
+     "slot": 8,
+     "p": 0.273,
+     "velocity": {
+      "mean": 75.6,
+      "sd": 12.511,
+      "n": 35
+     },
+     "push": 0.008
+    }
+   ]
+  },
+  {
+   "drum": "pedalHat",
+   "note": 44,
+   "hits": 143,
+   "slots": [
+    {
+     "slot": 0,
+     "p": 0.031,
+     "velocity": {
+      "mean": 91,
+      "sd": 0,
+      "n": 4
+     },
+     "push": 0.013
+    },
+    {
+     "slot": 3,
+     "p": 0.969,
+     "velocity": {
+      "mean": 87.718,
+      "sd": 3.507,
+      "n": 124
+     },
+     "push": 0.03
+    },
+    {
+     "slot": 6,
+     "p": 0.117,
+     "velocity": {
+      "mean": 86.8,
+      "sd": 1.939,
+      "n": 15
+     },
+     "push": 0.011
+    }
+   ]
+  },
+  {
+   "drum": "midTom",
+   "note": 45,
+   "hits": 10,
+   "slots": [
+    {
+     "slot": 4,
+     "p": 0.008,
+     "velocity": {
+      "mean": 57,
+      "sd": 0,
+      "n": 1
+     },
+     "push": 0
+    },
+    {
+     "slot": 5,
+     "p": 0.031,
+     "velocity": {
+      "mean": 96.25,
+      "sd": 7.293,
+      "n": 4
+     },
+     "push": 0.018
+    },
+    {
+     "slot": 7,
+     "p": 0.016,
+     "velocity": {
+      "mean": 70,
+      "sd": 13,
+      "n": 2
+     },
+     "push": 0.028
+    },
+    {
+     "slot": 8,
+     "p": 0.023,
+     "velocity": {
+      "mean": 93.667,
+      "sd": 4.922,
+      "n": 3
+     },
+     "push": -0.027
+    }
+   ]
+  },
+  {
+   "drum": "lowTom",
+   "note": 41,
+   "hits": 2,
+   "slots": [
+    {
+     "slot": 2,
+     "p": 0.008,
+     "velocity": {
+      "mean": 81,
+      "sd": 0,
+      "n": 1
+     },
+     "push": 0.019
+    },
+    {
+     "slot": 8,
+     "p": 0.008,
+     "velocity": {
+      "mean": 105,
+      "sd": 0,
+      "n": 1
+     },
+     "push": -0.028
+    }
+   ]
+  }
+ ]
+}

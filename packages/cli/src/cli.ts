@@ -19,8 +19,8 @@
  * carry the @enkerli/protocol message model over an ordinary Unix pipe
  * (docs/CONTROL_PLANE.md — the headless half of the control & interop plane).
  */
-import { readFileSync, writeFileSync, createWriteStream, readdirSync, statSync } from "node:fs";
-import { join } from "node:path";
+import { readFileSync, writeFileSync, createWriteStream, readdirSync, statSync, existsSync } from "node:fs";
+import { join, dirname } from "node:path";
 import { createInterface } from "node:readline";
 import {
   chordInfo, patternInfo, upiInfo, isPolyUpi, polyUpiInfo, generateInfo, smfFromBars, renderVane,
@@ -743,8 +743,18 @@ async function main(): Promise<number> {
       if (sub !== "gen")
         throw new Error("drums: the verb is `drums gen <style.json>` "
           + "(learn a style first with `node tools/drum-style.mjs <dir> --each -o styles/`)");
-      const styleFile = args.positional[1];
-      if (!styleFile) throw new Error("drums gen: give it a style .json");
+      // A bare name resolves against the styles that ship with the drum
+      // package, so `drums gen jazz-waltz-90` works with no path. A path still
+      // wins, for styles someone has learned themselves.
+      const shipped = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "drumsynth", "styles");
+      const named = args.positional[1];
+      if (!named) {
+        let have: string[] = [];
+        try { have = readdirSync(shipped).filter((f) => f.endsWith(".json")).map((f) => f.replace(/\.json$/, "")); } catch { /* none */ }
+        throw new Error(`drums gen: give it a style — a path, or one of: ${have.join(", ") || "(none shipped)"}`);
+      }
+      const styleFile = existsSync(named) ? named : join(shipped, `${named}.json`);
+      if (!existsSync(styleFile)) throw new Error(`drums gen: no style "${named}" (looked in ${shipped})`);
       const style = JSON.parse(readFileSync(styleFile, "utf8"));
       const n = (f: string, d: number) => one(args, f) !== undefined ? Number(one(args, f)) : d;
       const take = drumGenerate(style, {

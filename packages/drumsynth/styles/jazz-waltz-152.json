@@ -1,0 +1,452 @@
+{
+ "id": "jazz-waltz-152",
+ "kind": "drum-style",
+ "version": 1,
+ "learnedFrom": {
+  "files": 14,
+  "note": "learned from a commercial jazz-waltz MIDI library; statistics only, the source is not distributed"
+ },
+ "grid": {
+  "perBeat": 3,
+  "beatsPerBar": 3,
+  "slotsPerBar": 9,
+  "meterConfidence": 0.71
+ },
+ "bars": 152,
+ "swing": [
+  {
+   "nominal": 0.333,
+   "played": 0.3275,
+   "n": 175
+  },
+  {
+   "nominal": 0.667,
+   "played": 0.6775,
+   "n": 533
+  }
+ ],
+ "voices": [
+  {
+   "drum": "ride",
+   "note": 59,
+   "hits": 604,
+   "slots": [
+    {
+     "slot": 0,
+     "p": 0.888,
+     "velocity": {
+      "mean": 95.415,
+      "sd": 14.562,
+      "n": 135
+     },
+     "push": 0.01
+    },
+    {
+     "slot": 1,
+     "p": 0.092,
+     "velocity": {
+      "mean": 97.429,
+      "sd": 11.721,
+      "n": 14
+     },
+     "push": -0.081
+    },
+    {
+     "slot": 2,
+     "p": 0.395,
+     "velocity": {
+      "mean": 82.133,
+      "sd": 17.421,
+      "n": 60
+     },
+     "push": 0.012
+    },
+    {
+     "slot": 3,
+     "p": 0.868,
+     "velocity": {
+      "mean": 89.144,
+      "sd": 16.574,
+      "n": 132
+     },
+     "push": 0.059
+    },
+    {
+     "slot": 4,
+     "p": 0.105,
+     "velocity": {
+      "mean": 93,
+      "sd": 8.276,
+      "n": 16
+     },
+     "push": -0.026
+    },
+    {
+     "slot": 5,
+     "p": 0.467,
+     "velocity": {
+      "mean": 93.507,
+      "sd": 19.146,
+      "n": 71
+     },
+     "push": 0.074
+    },
+    {
+     "slot": 6,
+     "p": 0.724,
+     "velocity": {
+      "mean": 93.864,
+      "sd": 15.073,
+      "n": 110
+     },
+     "push": 0.004
+    },
+    {
+     "slot": 7,
+     "p": 0.072,
+     "velocity": {
+      "mean": 103.182,
+      "sd": 10.356,
+      "n": 11
+     },
+     "push": -0.083
+    },
+    {
+     "slot": 8,
+     "p": 0.362,
+     "velocity": {
+      "mean": 84.455,
+      "sd": 20.753,
+      "n": 55
+     },
+     "push": 0.016
+    }
+   ]
+  },
+  {
+   "drum": "snare",
+   "note": 38,
+   "hits": 513,
+   "slots": [
+    {
+     "slot": 0,
+     "p": 0.362,
+     "velocity": {
+      "mean": 71.655,
+      "sd": 26.169,
+      "n": 55
+     },
+     "push": -0.012
+    },
+    {
+     "slot": 1,
+     "p": 0.151,
+     "velocity": {
+      "mean": 56.957,
+      "sd": 21.912,
+      "n": 23
+     },
+     "push": 0.023
+    },
+    {
+     "slot": 2,
+     "p": 0.388,
+     "velocity": {
+      "mean": 65.763,
+      "sd": 22.95,
+      "n": 59
+     },
+     "push": 0.019
+    },
+    {
+     "slot": 3,
+     "p": 0.401,
+     "velocity": {
+      "mean": 67.82,
+      "sd": 18.07,
+      "n": 61
+     },
+     "push": 0.034
+    },
+    {
+     "slot": 4,
+     "p": 0.217,
+     "velocity": {
+      "mean": 46,
+      "sd": 14.637,
+      "n": 33
+     },
+     "push": -0.013
+    },
+    {
+     "slot": 5,
+     "p": 0.539,
+     "velocity": {
+      "mean": 80.098,
+      "sd": 22.242,
+      "n": 82
+     },
+     "push": 0.076
+    },
+    {
+     "slot": 6,
+     "p": 0.434,
+     "velocity": {
+      "mean": 70.303,
+      "sd": 21.105,
+      "n": 66
+     },
+     "push": -0.009
+    },
+    {
+     "slot": 7,
+     "p": 0.283,
+     "velocity": {
+      "mean": 46.07,
+      "sd": 22.3,
+      "n": 43
+     },
+     "push": -0.013
+    },
+    {
+     "slot": 8,
+     "p": 0.599,
+     "velocity": {
+      "mean": 67.473,
+      "sd": 24.69,
+      "n": 91
+     },
+     "push": 0.001
+    }
+   ]
+  },
+  {
+   "drum": "kick",
+   "note": 36,
+   "hits": 204,
+   "slots": [
+    {
+     "slot": 0,
+     "p": 0.283,
+     "velocity": {
+      "mean": 84.512,
+      "sd": 20.985,
+      "n": 43
+     },
+     "push": 0.002
+    },
+    {
+     "slot": 1,
+     "p": 0.039,
+     "velocity": {
+      "mean": 87.833,
+      "sd": 9.547,
+      "n": 6
+     },
+     "push": -0.035
+    },
+    {
+     "slot": 2,
+     "p": 0.204,
+     "velocity": {
+      "mean": 79,
+      "sd": 16.048,
+      "n": 31
+     },
+     "push": 0.002
+    },
+    {
+     "slot": 3,
+     "p": 0.099,
+     "velocity": {
+      "mean": 89.333,
+      "sd": 17.884,
+      "n": 15
+     },
+     "push": 0.054
+    },
+    {
+     "slot": 4,
+     "p": 0.046,
+     "velocity": {
+      "mean": 79.857,
+      "sd": 5.083,
+      "n": 7
+     },
+     "push": -0.004
+    },
+    {
+     "slot": 5,
+     "p": 0.25,
+     "velocity": {
+      "mean": 72.947,
+      "sd": 22.358,
+      "n": 38
+     },
+     "push": 0.063
+    },
+    {
+     "slot": 6,
+     "p": 0.191,
+     "velocity": {
+      "mean": 91.414,
+      "sd": 15.659,
+      "n": 29
+     },
+     "push": -0.004
+    },
+    {
+     "slot": 7,
+     "p": 0.039,
+     "velocity": {
+      "mean": 73.333,
+      "sd": 15.074,
+      "n": 6
+     },
+     "push": 0.086
+    },
+    {
+     "slot": 8,
+     "p": 0.191,
+     "velocity": {
+      "mean": 81.931,
+      "sd": 15.029,
+      "n": 29
+     },
+     "push": 0.002
+    }
+   ]
+  },
+  {
+   "drum": "pedalHat",
+   "note": 44,
+   "hits": 168,
+   "slots": [
+    {
+     "slot": 0,
+     "p": 0.026,
+     "velocity": {
+      "mean": 94,
+      "sd": 0,
+      "n": 4
+     },
+     "push": 0.006
+    },
+    {
+     "slot": 3,
+     "p": 0.868,
+     "velocity": {
+      "mean": 92.129,
+      "sd": 3.417,
+      "n": 132
+     },
+     "push": 0.068
+    },
+    {
+     "slot": 4,
+     "p": 0.105,
+     "velocity": {
+      "mean": 92.125,
+      "sd": 3.407,
+      "n": 16
+     },
+     "push": -0.028
+    },
+    {
+     "slot": 6,
+     "p": 0.105,
+     "velocity": {
+      "mean": 90.125,
+      "sd": 1.965,
+      "n": 16
+     },
+     "push": 0.006
+    }
+   ]
+  },
+  {
+   "drum": "midTom",
+   "note": 45,
+   "hits": 18,
+   "slots": [
+    {
+     "slot": 0,
+     "p": 0.007,
+     "velocity": {
+      "mean": 65,
+      "sd": 0,
+      "n": 1
+     },
+     "push": 0.003
+    },
+    {
+     "slot": 2,
+     "p": 0.02,
+     "velocity": {
+      "mean": 83.333,
+      "sd": 4.497,
+      "n": 3
+     },
+     "push": -0.005
+    },
+    {
+     "slot": 3,
+     "p": 0.013,
+     "velocity": {
+      "mean": 87.5,
+      "sd": 9.5,
+      "n": 2
+     },
+     "push": 0.036
+    },
+    {
+     "slot": 5,
+     "p": 0.046,
+     "velocity": {
+      "mean": 84.143,
+      "sd": 9.403,
+      "n": 7
+     },
+     "push": 0.071
+    },
+    {
+     "slot": 8,
+     "p": 0.033,
+     "velocity": {
+      "mean": 83,
+      "sd": 11.507,
+      "n": 5
+     },
+     "push": 0.018
+    }
+   ]
+  },
+  {
+   "drum": "lowTom",
+   "note": 41,
+   "hits": 2,
+   "slots": [
+    {
+     "slot": 5,
+     "p": 0.007,
+     "velocity": {
+      "mean": 80,
+      "sd": 0,
+      "n": 1
+     },
+     "push": -0.078
+    },
+    {
+     "slot": 8,
+     "p": 0.007,
+     "velocity": {
+      "mean": 89,
+      "sd": 0,
+      "n": 1
+     },
+     "push": 0.044
+    }
+   ]
+  }
+ ]
+}

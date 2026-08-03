@@ -3,7 +3,7 @@
  * A folder of drum MIDI → a STYLE. (Priorities Tier 2, D3.)
  *
  *   node tools/drum-style.mjs <dir> [-o style.json]
- *   node tools/drum-style.mjs <dir-of-dirs> --each -o styles/
+ *   node tools/drum-style.mjs <dir-of-dirs> --each -o styles/ [--prefix name] [--note text]
  *
  * WHY A STYLE AND NOT PATTERNS. Alex, on handing over a licensed EZdrummer
  * library: "we should use these for testing and learning. They shouldn't appear
@@ -140,13 +140,27 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   const out = oi >= 0 ? args[oi + 1] : null;
   if (!target) { console.error("usage: drum-style.mjs <dir> [--each] [-o out]"); process.exit(2); }
 
+  // A generic id, so a shared style is named for what it IS rather than for
+  // the product whose presets it was learned from. `--prefix jazz-waltz` over a
+  // folder called "Waltzing 90" gives `jazz-waltz-90`: the tempo is a fact
+  // about the material, the folder name is somebody's branding.
+  const pi = args.indexOf("--prefix");
+  const prefix = pi >= 0 ? args[pi + 1] : null;
+  const ni = args.indexOf("--note");
+  const note = ni >= 0 ? args[ni + 1] : null;
+  const idFor = (d) => {
+    if (!prefix) return basename(d);
+    const tempo = basename(d).match(/(\d+)\s*$/)?.[1];
+    return tempo ? `${prefix}-${tempo}` : `${prefix}-${basename(d).toLowerCase().replace(/\W+/g, "-")}`;
+  };
+
   const dirs = args.includes("--each")
     ? readdirSync(target).map((e) => join(target, e)).filter((p) => statSync(p).isDirectory())
     : [target];
 
   for (const d of dirs.sort()) {
     let style;
-    try { style = learnStyle(d); }
+    try { style = learnStyle(d, { id: idFor(d), ...(note ? { note } : {}) }); }
     catch (e) { console.error(`skip ${basename(d)}: ${e.message}`); continue; }
     const json = JSON.stringify(style, null, 1) + "\n";
     if (out) {
