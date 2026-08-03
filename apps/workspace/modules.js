@@ -16,6 +16,8 @@ import { createBindingEngine, addBinding, removeBinding } from "@enkerli/control
 import { VOICES, KIT, resolveDrum, drumForLabel,
          generate as drumGenerate, toUPI as drumToUPI } from "@enkerli/drumsynth";
 import { DRUM_STYLES } from "./drum-styles.js";
+import { midiSupported, midiActive, startWebMidi, selectMidiInput, selectMidiOutput,
+  sendNoteOut, sendAllOff } from "./webmidi-bridge.js";
 import { parseLeadsheet, detectChord, rootName, realizeLeadsheet } from "@enkerli/theory";
 import { generateLabels, realizeLabel } from "@enkerli/proggen";
 import transitionTables from "@enkerli/proggen/data/transitions.json";
@@ -1939,8 +1941,86 @@ export function drumKitModule(ctx, bodyEl, state) {
   return () => { offBus && offBus(); try { audioCtx && audioCtx.close(); } catch { /* already gone */ } };
 }
 
+// ── MIDI I/O: real MIDI in the browser ───────────────────────────────────────
+// The workspace has had MIDI since the plugin shipped, but only in the plugin:
+// the host supplied it. In a tab there was none, which made the bus look like
+// the only way out of the workspace. This module is the standalone half.
+//
+// It changes nothing downstream, on purpose. Bus notes go out through
+// `sendNoteOut`, which takes the same body the plugin bridge takes; MIDI in is
+// re-dispatched as the same `enkerli-midi` page events the plugin relays, so
+// the Bindings module's control-map path is untouched and already works.
+//
+// Enabling is a BUTTON rather than something that happens on load: Web MIDI
+// prompts for permission, and a page that asks before the user has done
+// anything gets refused out of reflex.
+export function midiIoModule(ctx, bodyEl, state = {}) {
+  const S = (k, d) => state[k] ?? d;
+  const status = el("div", { class: "ws-readout", role: "status", "aria-live": "polite",
+    text: midiSupported() ? "off — enable to route real MIDI" : "Web MIDI is not available in this browser" });
+  const inSel = el("select", { class: "ws-select", "aria-label": "MIDI input",
+    onchange: () => { selectMidiInput(inSel.value); Object.assign(state, { input: inSel.value }); ctx.save(); } });
+  const outSel = el("select", { class: "ws-select", "aria-label": "MIDI output",
+    onchange: () => { selectMidiOutput(outSel.value); Object.assign(state, { output: outSel.value }); ctx.save(); } });
+  let offBus = null, sent = 0, received = 0;
+
+  const fill = (sel, ports, want) => {
+    sel.replaceChildren(el("option", { value: "", text: "— none —" }),
+      ...ports.map((p) => el("option", { value: p.id, text: p.name || p.id })));
+    if (want && ports.some((p) => p.id === want)) sel.value = want;
+  };
+  const paint = () => {
+    status.textContent = midiActive()
+      ? `on — out ${outSel.selectedOptions[0]?.text ?? "none"} · in ${inSel.selectedOptions[0]?.text ?? "none"}`
+        + ` · ${sent} sent, ${received} received`
+      : (midiSupported() ? "off — enable to route real MIDI" : "Web MIDI is not available in this browser");
+  };
+
+  const enableBtn = el("button", { class: "ws-btn", text: "⏻ enable MIDI",
+    title: "Asks the browser for MIDI access",
+    onclick: async () => {
+      enableBtn.disabled = true;
+      const r = await startWebMidi({
+        onDevices: (ports) => { fill(inSel, ports.inputs, inSel.value); fill(outSel, ports.outputs, outSel.value); paint(); },
+        onMidiIn: (detail) => {
+          received++;
+          /* The same event the plugin relays, so Bindings needs no branch. */
+          try { window.dispatchEvent(new CustomEvent("enkerli-midi", { detail })); } catch { /* teardown */ }
+          paint();
+        },
+      });
+      if (!r.ok) { status.textContent = r.error; enableBtn.disabled = false; return; }
+      fill(inSel, r.ports.inputs, S("input", ""));
+      fill(outSel, r.ports.outputs, S("output", ""));
+      selectMidiInput(inSel.value); selectMidiOutput(outSel.value);
+      enableBtn.textContent = "⏻ MIDI on";
+      /* Subscribe only once MIDI is live: subscribing earlier would count
+         notes as "sent" that went nowhere. */
+      offBus ??= ctx.bus.subscribe((m) => {
+        if (m.type !== "note" || !m.body || !Array.isArray(m.body.notes)) return;
+        sendNoteOut(m.body);
+        sent += m.body.notes.length;
+        paint();
+      });
+      paint();
+    } });
+
+  bodyEl.append(
+    el("div", { class: "ws-row" }, enableBtn,
+      el("button", { class: "ws-btn ghost", text: "✋ all off",
+        title: "Panic — note-offs on every sounding note",
+        onclick: () => { sendAllOff(); paint(); } })),
+    el("div", { class: "ws-row" }, el("span", { class: "ws-label", text: "out" }), outSel),
+    el("div", { class: "ws-row" }, el("span", { class: "ws-label", text: "in" }), inSel),
+    status);
+
+  /* Leave nothing ringing when the panel closes. */
+  return () => { offBus?.(); sendAllOff(); };
+}
+
 export const MODULES = {
   "control-surface": { title: "Control Surface", make: controlSurfaceModule },
+  "midi-io": { title: "MIDI I/O", make: midiIoModule },
   "vane-synth": { title: "Vane Synth", make: vaneSynthModule },
   "drum-kit": { title: "Drum Kit", make: drumKitModule },
   "drum-style": { title: "Drum Style", make: drumStyleModule },

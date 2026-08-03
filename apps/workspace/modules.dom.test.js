@@ -1243,3 +1243,43 @@ describe("transforms module — poly", () => {
     cleanup();
   });
 });
+
+describe("MIDI I/O module (the webapp's standalone MIDI, not the plugin's)", () => {
+  it("renders enable / panic / port pickers and says it is off", async () => {
+    const { MODULES } = await import("./modules.js");
+    const { ctxObj } = ctx();
+    const body = document.createElement("div");
+    const off = MODULES["midi-io"].make(ctxObj, body, {});
+    const labels = [...body.querySelectorAll("button")].map((b) => b.textContent);
+    expect(labels.some((t) => /enable MIDI/.test(t))).toBe(true);
+    expect(labels.some((t) => /all off/.test(t))).toBe(true);
+    // Both directions get a picker, each with a name a screen reader can use.
+    expect([...body.querySelectorAll("select")].map((s) => s.getAttribute("aria-label")))
+      .toEqual(["MIDI output", "MIDI input"]);
+    // happy-dom has no Web MIDI, which is the same situation as Safari — the
+    // module must SAY so rather than looking broken or throwing on import.
+    expect(body.querySelector(".ws-readout").textContent).toMatch(/not available|enable to route/);
+    off();
+  });
+
+  it("does not touch the bus until MIDI is live", async () => {
+    // Subscribing at construction would count notes as "sent" that went
+    // nowhere, and would make the readout lie about a MIDI-less browser.
+    const { MODULES } = await import("./modules.js");
+    const { bus, ctxObj } = ctx();
+    const body = document.createElement("div");
+    const off = MODULES["midi-io"].make(ctxObj, body, {});
+    const before = body.querySelector(".ws-readout").textContent;
+    bus.publish(makeMessage("note", { notes: [60], velocity: 90, durationMs: 100 }, { from: "external" }));
+    expect(body.querySelector(".ws-readout").textContent).toBe(before);
+    off();
+  });
+
+  it("cleans up without throwing when the panel is removed", async () => {
+    const { MODULES } = await import("./modules.js");
+    const { ctxObj } = ctx();
+    const body = document.createElement("div");
+    const off = MODULES["midi-io"].make(ctxObj, body, {});
+    expect(() => off()).not.toThrow();
+  });
+});
