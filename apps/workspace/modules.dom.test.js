@@ -354,7 +354,7 @@ describe("GloriArp module (the standalone accompaniment surface)", () => {
     expect([...body.querySelectorAll("option")].map((o) => o.value)).toContain("funk-ghost");
     const play = [...body.querySelectorAll("button")].find((b) => b.textContent.includes("play"));
     play.dispatchEvent(new MouseEvent("click"));
-    expect(body.textContent).toMatch(/▶ pass 1 · \d+ notes · Dm7/);
+    expect(body.textContent).toMatch(/▶ pass 1 · seed 42 · \d+ notes · Dm7/);
     expect(state.progression).toBe("Dm7 | G7 | Cmaj7 | A7"); // persisted
     off();
   });
@@ -398,7 +398,7 @@ describe("GloriArp module (the standalone accompaniment surface)", () => {
     // The imported MODEL actually drives play (samples per pass, not a crash).
     const play = [...body.querySelectorAll("button")].find((b) => b.textContent.includes("play"));
     play.dispatchEvent(new MouseEvent("click"));
-    expect(body.textContent).toMatch(/▶ pass 1 · \d+ notes/);
+    expect(body.textContent).toMatch(/▶ pass 1 · seed \d+ · \d+ notes/);
     off();
   });
 
@@ -1281,5 +1281,145 @@ describe("MIDI I/O module (the webapp's standalone MIDI, not the plugin's)", () 
     const body = document.createElement("div");
     const off = MODULES["midi-io"].make(ctxObj, body, {});
     expect(() => off()).not.toThrow();
+  });
+});
+
+describe("GloriArp pass / seed / morph buttons", () => {
+  const mk = async (state = {}) => {
+    const { MODULES } = await import("./modules.js");
+    const { bus, ctxObj } = ctx();
+    const body = document.createElement("div");
+    const off = MODULES["gloriarp"].make(ctxObj, body, state);
+    const btn = (t) => [...body.querySelectorAll("button")].find((b) => b.textContent.includes(t));
+    const num = (label) => [...body.querySelectorAll("input")].find((i) => i.getAttribute("aria-label") === label);
+    return { bus, body, off, btn, num, state };
+  };
+
+  it("offers all three, next to play and stop", async () => {
+    const { body, off, btn } = await mk();
+    expect(btn("↻ pass")).toBeTruthy();
+    expect(btn("↻ seed")).toBeTruthy();
+    expect(btn("↻ morph")).toBeTruthy();
+    // Titles carry the meaning; each answers a different question.
+    expect(btn("↻ seed").getAttribute("title")).toMatch(/different take/i);
+    off();
+  });
+
+  it("↻ pass moves the loop on and says which pass it is now", async () => {
+    const { body, off, btn } = await mk();
+    btn("▶ play").dispatchEvent(new MouseEvent("click"));
+    expect(body.textContent).toMatch(/▶ pass 1 ·/);
+    btn("↻ pass").dispatchEvent(new MouseEvent("click"));
+    expect(body.textContent).toMatch(/▶ pass 2 ·/);
+    btn("↻ pass").dispatchEvent(new MouseEvent("click"));
+    expect(body.textContent).toMatch(/▶ pass 3 ·/);
+    off();
+  });
+
+  it("↻ seed takes a different take and goes back to pass 1", async () => {
+    const { body, off, btn, num } = await mk();
+    btn("↻ pass").dispatchEvent(new MouseEvent("click"));   // away from the start
+    const before = Number(num("Seed").value);
+    btn("↻ seed").dispatchEvent(new MouseEvent("click"));
+    expect(Number(num("Seed").value)).toBe(before + 1);
+    expect(body.textContent).toMatch(new RegExp(`▶ pass 1 · seed ${before + 1} ·`));
+    off();
+  });
+
+  it("↻ morph steps the dial and wraps, rather than running past 1", async () => {
+    const { off, btn, num, state } = await mk();
+    const morph = num("morph");
+    expect(Number(morph.value)).toBe(0);
+    for (const want of [0.25, 0.5, 0.75, 1]) {
+      btn("↻ morph").dispatchEvent(new MouseEvent("click"));
+      expect(Number(morph.value)).toBeCloseTo(want, 5);
+    }
+    btn("↻ morph").dispatchEvent(new MouseEvent("click"));
+    expect(Number(morph.value)).toBe(0);                    // wraps, not 1.25
+    expect(state.morph).toBe(0);                            // and is persisted
+    off();
+  });
+
+  it("resumes at the stored pass instead of silently rewinding", async () => {
+    // A panel closed mid-drift and reopened should not quietly restart the
+    // groove — the pass IS the state you were listening to.
+    const { body, off, btn } = await mk({ passNo: 4 });
+    btn("▶ play").dispatchEvent(new MouseEvent("click"));
+    expect(body.textContent).toMatch(/▶ pass 5 ·/);
+    off();
+  });
+
+  it("exports the pass being heard, not pass 0", async () => {
+    const { off, btn, state } = await mk();
+    btn("↻ pass").dispatchEvent(new MouseEvent("click"));
+    btn("↻ pass").dispatchEvent(new MouseEvent("click"));
+    expect(state.passNo).toBe(2);
+    off();
+  });
+});
+
+describe("GloriArp ↻ pass changes the MUSIC, not just the label", () => {
+  // The status line computes its pass number separately from the phrase, so a
+  // broken offset shows the right number over the wrong take. Dropping the
+  // `passNo + i` offset once left every label test green, which is exactly the
+  // failure a label test cannot see. This one listens to the bus instead.
+  it("publishes a different take after ↻ pass (morph > 0)", async () => {
+    vi.useFakeTimers();
+    try {
+      const { MODULES } = await import("./modules.js");
+      const { bus, ctxObj } = ctx();
+      const notes = [];
+      bus.subscribe((m) => { if (m.type === "note") notes.push(m.body.notes.join(",")); });
+      const body = document.createElement("div");
+      const off = MODULES["gloriarp"].make(ctxObj, body, {});
+      const btn = (t) => [...body.querySelectorAll("button")].find((b) => b.textContent.includes(t));
+      const byLabel = (l) => [...body.querySelectorAll("input")].find((i) => i.getAttribute("aria-label") === l);
+
+      // One pass at a time, and enough morph that consecutive passes must
+      // differ — at morph 0 every pass is the same bar by design, so the test
+      // would prove nothing.
+      byLabel("Loop").checked = false;
+      byLabel("morph").value = "1";
+      // Morph re-rolls the EXPRESSION stage, and that stage only runs when
+      // there is something to vary — with variety/pocket/rests all 0 (the
+      // defaults) morph has nothing to act on and every pass is identical.
+      byLabel("variety").value = "0.6";
+
+      btn("▶ play").dispatchEvent(new MouseEvent("click"));
+      vi.advanceTimersByTime(60_000);
+      const first = notes.join("|");
+      expect(first.length).toBeGreaterThan(0);
+
+      notes.length = 0;
+      btn("↻ pass").dispatchEvent(new MouseEvent("click"));
+      vi.advanceTimersByTime(60_000);
+      const second = notes.join("|");
+      expect(second.length).toBeGreaterThan(0);
+      expect(second).not.toBe(first);
+
+      off();
+    } finally { vi.useRealTimers(); }
+  });
+});
+
+describe("GloriArp morph tells you when it cannot do anything", () => {
+  it("says what to raise when variety, pocket and rests are all 0", async () => {
+    // The trap: morph only re-rolls the expression stage, and that stage does
+    // not run when there is nothing to vary. At the DEFAULTS that is the case,
+    // so the button would look broken to anyone who tried it first.
+    const { MODULES } = await import("./modules.js");
+    const { ctxObj } = ctx();
+    const body = document.createElement("div");
+    const off = MODULES["gloriarp"].make(ctxObj, body, {});
+    const btn = (t) => [...body.querySelectorAll("button")].find((b) => b.textContent.includes(t));
+    const byLabel = (l) => [...body.querySelectorAll("input")].find((i) => i.getAttribute("aria-label") === l);
+
+    btn("↻ morph").dispatchEvent(new MouseEvent("click"));
+    expect(body.querySelector(".ws-readout").textContent).toMatch(/nothing to re-roll yet/);
+
+    byLabel("variety").value = "0.5";
+    btn("↻ morph").dispatchEvent(new MouseEvent("click"));
+    expect(body.querySelector(".ws-readout").textContent).not.toMatch(/nothing to re-roll/);
+    off();
   });
 });

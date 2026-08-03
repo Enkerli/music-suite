@@ -1081,20 +1081,32 @@ function gloriarpModule(ctx, bodyEl, state) {
     if (!source) throw new Error(`unknown style "${style.value}"`);
     return groove(source, opts);
   }
-  function play() {
+  // Where the loop currently is. The player counts its own passes from 0, so
+  // starting elsewhere is an OFFSET rather than a change to the player: it
+  // asks for pass i, it gets `passNo + i`. Persisted, so closing the panel
+  // mid-drift and coming back does not silently rewind the groove.
+  let passNo = Number(S("passNo", 0)) || 0;
+
+  function playFrom(p) {
+    passNo = Math.max(0, p);
+    Object.assign(state, { passNo });
+    ctx.save();
+    player.stop();
     try {
-      build(0); // validate now so an immediate error is immediate
-      player.start((pass) => build(pass), {
+      build(passNo); // validate now so an immediate error is immediate
+      player.start((i) => build(passNo + i), {
         bpm: Number(bpm.value) || 100, loop: loopBox.checked,
-        onPass: (pass, phrase, err) => {
-          if (err) { status.textContent = `✗ pass ${pass + 1}: ${err.message || err} — keeping last good take`; return; }
-          status.textContent = `▶ pass ${pass + 1} · ${phrase.events.length} notes · ${progression.value}`
+        onPass: (i, phrase, err) => {
+          const n = passNo + i;
+          if (err) { status.textContent = `✗ pass ${n + 1}: ${err.message || err} — keeping last good take`; return; }
+          status.textContent = `▶ pass ${n + 1} · seed ${seed.value} · ${phrase.events.length} notes · ${progression.value}`
             + (Number(morph.input.value) > 0 ? " · morphing" : "") + (loopBox.checked ? " · looping (tweaks land next pass)" : "");
         },
       });
     } catch (e) { status.textContent = "✗ " + (e && e.message || e); }
   }
-  function stop() { player.stop(); status.textContent = "stopped"; }
+  function play() { playFrom(passNo); }
+  function stop() { player.stop(); status.textContent = `stopped at pass ${passNo + 1}`; }
 
   // ProgGenie (or anything) → this module: a `progression` message on the bus
   // carries the canonical Progression; adopt it as the bar-notation text. If
@@ -1113,9 +1125,12 @@ function gloriarpModule(ctx, bodyEl, state) {
   });
   function download() {
     try {
-      const r = build();
+      // The pass you are HEARING, not pass 0 — now that ↻ pass moves the loop,
+      // exporting the first take instead would quietly hand back a different
+      // groove from the one that made you reach for the button.
+      const r = build(passNo);
       const safeStyle = style.value.replace(/[^A-Za-z0-9_-]+/g, "-");
-      const name = `gloriarp-${safeStyle}-s${seed.value}.mid`;
+      const name = `gloriarp-${safeStyle}-s${seed.value}${passNo ? `p${passNo}` : ""}.mid`;
       // Plugin: a blob: anchor kills the page under the juce:// scheme
       // (TESTING.md) — the bytes go over the bridge to a native save
       // (FileChooser on desktop, share sheet on iPadOS) instead.
@@ -1143,10 +1158,40 @@ function gloriarpModule(ctx, bodyEl, state) {
       dynamics.row, rests.row, anticipation.row),
     el("div", { class: "ws-row", style: "flex-wrap:wrap" },
       variety.row, pocket.row, morph.row, inflect.row),
-    el("div", { class: "ws-row" },
+    el("div", { class: "ws-row", style: "flex-wrap:wrap" },
       el("button", { class: "ws-btn", text: "▶ play", onclick: play }),
       el("button", { class: "ws-btn", text: "■ stop", onclick: stop }),
       el("label", { class: "ws-ctl" }, loopBox, " loop"),
+      // The same three questions Drum Style answers, asked of a groove that
+      // LOOPS rather than fires once — so they jump the loop instead of
+      // re-sending. Pass is "come round again"; seed is "a different take of
+      // the same style", back at the start; morph steps the DIAL, and since
+      // morph is how much re-rolls BETWEEN passes it only shows once the loop
+      // moves on, which is why it lands next pass rather than restarting.
+      el("button", { class: "ws-btn ghost", text: "↻ pass",
+        title: "Jump to the next pass — with morph above 0 the groove drifts",
+        onclick: () => playFrom(passNo + 1) }),
+      el("button", { class: "ws-btn ghost", text: "↻ seed",
+        title: "A different take of the same style, back at pass 1",
+        onclick: () => { seed.value = String((Number(seed.value) || 0) + 1); playFrom(0); } }),
+      el("button", { class: "ws-btn ghost", text: "↻ morph",
+        title: "More drift per pass — steps 0 → 0.25 → 0.5 → 0.75 → 1 → 0; lands on the next pass",
+        onclick: () => {
+          const next = (Number(morph.input.value) || 0) + 0.25;
+          morph.input.value = String(next > 1 ? 0 : next);
+          Object.assign(state, { morph: Number(morph.input.value) }); ctx.save();
+          /* Morph re-rolls the expression stage, and that stage only runs when
+             something is there to vary. With variety, pocket and rests all at
+             0 — the defaults — morph has nothing to act on and every pass comes
+             out identical, which reads as a dead button rather than a groove
+             that was never going to move. Say so instead. */
+          const inert = !Number(variety.input.value) && !Number(pocket.input.value) && !Number(rests.input.value);
+          status.textContent = inert
+            ? `morph ${morph.input.value} — but nothing to re-roll yet: raise variety, pocket or rests`
+            : player.isRunning()
+              ? `morph ${morph.input.value} — lands at the next pass`
+              : `morph ${morph.input.value} — press ▶ or ↻ pass to hear it`;
+        } }),
       el("button", { class: "ws-btn", text: "⬇ .mid", title: "Download the identical take the CLI would write — for a DAW or plugin", onclick: download })),
     status);
   return () => { player.stop(); offProg && offProg(); offFileOpened(); };
