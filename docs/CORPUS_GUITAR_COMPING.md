@@ -145,6 +145,46 @@ The probe is the decisive experiment: one labelled key per beat, in order. If
 beat 5 is not the bass string and beat 13 is not the top one, this document is
 wrong.
 
+### The probe was run, and it confirms all of it
+
+Recorded off Strum over a C chord and measured from the audio — new partials
+appearing at each attack, so sustain from the previous key cannot be mistaken
+for the current one:
+
+| beat | key | measured |
+|---|---|---|
+| 1 | Downstroke | 131 196 262 330 393 — **the whole chord** |
+| 2 | Palm mute | broadband, damped, no clear pitch |
+| 3 | Upstroke | 261 328 394 522 661 783 — chord, **treble strings only** |
+| 4 | Alternate bass | 100 Hz **G2** — the fifth below the root, alone |
+| 5 | **Arpeggio 6 (bass)** | **130.83 Hz — C3** |
+| 6 | **Arpeggio 5** | **130.83 Hz — C3** |
+| 7 | Muffled down | broadband, inharmonic |
+| 8 | **Arpeggio 4** | **196 Hz — G3** |
+| 9 | Muffled up | broadband, inharmonic |
+| 10 | **Arpeggio 3** | **262 Hz — C4** |
+| 11 | Mute | short, dull, no clear pitch |
+| 12 | **Arpeggio 2** | **330 Hz — E4** |
+| 13 | **Arpeggio 1** | **393 Hz — G4** |
+
+The six Arpeggio slots ascend — C3, C3, G3, C4, E4, G4 — which is a C major
+guitar voicing read low to high. Every action key does what it is called: the
+alternate bass is the fifth, alone; the upstroke carries only the treble strings
+because that is where an upstroke starts.
+
+Two details worth keeping:
+
+- **The downstroke's partials are exactly the slot pitches.** Measured
+  independently: 130.9, 196.1, 261.8, 329.9, 392.7 against 130.8, 196.0, 261.6,
+  329.6, 392.0. A strum *is* the slots sounded together — confirmed from the
+  audio, not assumed.
+- **Slots 6 and 5 are the same pitch to 0.02 Hz** (130.83 both). Not a
+  coincidence and not a doubling: for this voicing the sixth string is not
+  played, so the bass slot renders on the fifth. That is Alex's original
+  observation — *"the 6th string shifts to the 5th one"* — measured. It is also
+  the clearest possible demonstration that these are **voicing slots, not
+  strings**.
+
 **One caution for the kit:** these must never go through `resolveDrum`. Note 72
 is `72 % 12 == 0` → kick. The whole corpus would render as drums.
 
