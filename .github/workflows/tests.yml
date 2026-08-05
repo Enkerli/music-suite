@@ -1,0 +1,59 @@
+name: tests
+
+# The suite had never run in CI. The only workflow was the Pages deploy, which
+# installs, typechecks and builds the site but runs no tests — so 1886 tests
+# across two engines held in deliberate parity (the JS in packages/upi and the
+# C++ UPIParser in rhythm_pattern_explorer) were local-only. Silent drift
+# between those two is the failure mode this project keeps finding by hand;
+# leaving the one instrument that catches it off the runner made that a matter
+# of whoever remembered.
+#
+# Deliberately a SEPARATE workflow from deploy-pages.yml, for two reasons:
+#   - that one only fires on push to main, and only for paths that can change
+#     the published site. `tools/` is (correctly) not among them, yet it holds
+#     the drum-grid, timing-baseline and bridge-audit tests — so a change there
+#     could break tests without triggering any workflow at all.
+#   - it has no pull_request trigger, so a PR got no checks whatsoever.
+#
+# Publishing is NOT gated on this. A failing unit test rarely makes the
+# showcase site wrong, and blocking a docs deploy on an unrelated red test is
+# the kind of coupling that gets a workflow disabled. If gating is wanted
+# later, the honest way is a `needs:` on a shared job, not a second copy of
+# this one.
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+# A newer push to the same ref makes the older run irrelevant.
+concurrency:
+  group: tests-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          # Matches deploy-pages.yml. The suite was verified green on 20 as
+          # well as on the 22 used locally, so the two runners agree.
+          node-version: 20
+          cache: npm
+      - name: Install workspace dependencies
+        run: npm ci
+      # `pretest` runs build-packages (tsc -b) first, so this both emits the
+      # shared packages' compiled output — which several tests import — and
+      # runs the suite. No separate typecheck step needed here.
+      #
+      # tools/bridge-audit.test.mjs self-skips: it needs the plugin repos
+      # checked out beside this one and CI cannot see them (BUILD.md §4). That
+      # is 3 of the 1889 tests, and it is why the guard against half-wired
+      # bridge events does not actually run anywhere yet.
+      - name: Run the test suite
+        run: npm test
