@@ -57,3 +57,70 @@ jobs:
       # bridge events does not actually run anywhere yet.
       - name: Run the test suite
         run: npm test
+
+  # ── The bridge audit, which until now ran nowhere ────────────────────────
+  # It needs the plugin repos: the JS half of every bridge is here in apps/,
+  # but the C++ half (emitEvent / withEventListener) is in seven separate
+  # repos, and tools/bridge-audit.mjs resolves them as SIBLINGS of this one.
+  # No sibling checkout, no audit — so the guard against half-wired events was
+  # skipping in every environment, including a developer's, since the layout
+  # it wants is not the one a plain clone gives you.
+  #
+  # A separate job because of that layout: actions/checkout cannot write
+  # outside $GITHUB_WORKSPACE, so this repo moves down one level to make room
+  # for the siblings beside it. Keeping it out of the `test` job leaves that
+  # one fast and unaffected.
+  bridge:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: music-suite
+      # A shell loop rather than seven actions/checkout blocks: all seven are
+      # public, so no token is involved, and the audit reads only <repo>/Source
+      # — 1.5 MB of the ~20 MB these repos come to. Partial + sparse clone
+      # fetches just that. If one is ever made private this step fails loudly,
+      # which is the right outcome: a silently unscanned plugin is exactly the
+      # blindness the audit exists to prevent.
+      - name: Clone the plugin repos beside it (Source trees only)
+        run: |
+          set -euo pipefail
+          for r in rhythm_pattern_explorer PitchFold Vane DrawnQurve \
+                   midicurator-plugin workspace-plugin progression-studio-plugin; do
+            git clone --depth 1 --filter=blob:none --sparse \
+              "https://github.com/Enkerli/$r.git" "$r"
+            git -C "$r" sparse-checkout set Source
+          done
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: music-suite/package-lock.json
+      - name: Install workspace dependencies
+        working-directory: music-suite
+        run: npm ci
+      # Guards the guard. bridge-audit.mjs reports a plugin it cannot find as
+      # `skipped` and carries on, and the test would still pass — so a clone
+      # that half-worked would look green while auditing nothing. In CI all
+      # seven must have been read.
+      - name: Every plugin must actually have been scanned
+        working-directory: music-suite
+        run: |
+          node -e '
+            const { execFileSync } = require("node:child_process");
+            let out;
+            try { out = execFileSync("node", ["tools/bridge-audit.mjs", "--json"], { encoding: "utf8" }); }
+            catch (e) { out = e.stdout; }   // exit 1 when drops exist, which is normal
+            const { results } = JSON.parse(out);
+            const skipped = results.filter((r) => r.skipped);
+            if (skipped.length) {
+              console.error("NOT SCANNED: " + skipped.map((r) => `${r.name} (${r.skipped})`).join(", "));
+              process.exit(1);
+            }
+            console.log(`all ${results.length} plugins scanned`);
+          '
+      # Runs the audit as a test: fails on a NEW event wired at only one end,
+      # while the known drops stay listed in the test rather than blocking.
+      - name: Bridge audit
+        working-directory: music-suite
+        run: npx vitest run tools/bridge-audit.test.mjs

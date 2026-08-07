@@ -43,7 +43,14 @@ import { join, dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const SUITE = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const SIBLINGS = resolve(SUITE, "..");
+// The plugin repos are expected BESIDE this one. That assumption is why the
+// audit spent its life skipping: a plain clone does not produce that layout,
+// and neither does any checkout that puts the repos in different trees — so
+// the check quietly reported "no sibling checkout" and passed. $BRIDGE_SIBLINGS
+// overrides the search root, which is how to run it without symlinking.
+const SIBLINGS = process.env.BRIDGE_SIBLINGS
+  ? resolve(process.env.BRIDGE_SIBLINGS)
+  : resolve(SUITE, "..");
 
 /** Each plugin repo and the app whose JS it embeds. */
 const PLUGINS = [

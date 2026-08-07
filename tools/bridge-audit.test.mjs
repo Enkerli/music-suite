@@ -6,8 +6,16 @@
  * run on pre-existing debt would just get the test skipped. What this catches
  * is a NEW one, which is the case that actually costs an evening.
  *
- * Skips entirely when the plugin repos are not checked out beside music-suite —
- * CI here cannot see them (BUILD.md §4).
+ * Skips entirely when the plugin repos are not checked out beside music-suite,
+ * which is the normal state of a plain clone. Set $BRIDGE_SIBLINGS to point at
+ * wherever they live, or leave it and accept the skip.
+ *
+ * CI no longer accepts the skip. The `bridge` job in .github/workflows/tests.yml
+ * clones all seven (public, Source trees only) into the sibling layout and then
+ * asserts that none was reported as skipped — because these three tests PASS
+ * while a repo is missing, auditing nothing and looking green. That was the
+ * state of this file from the day it was written until 2026-08-05: the guard
+ * against half-wired events was itself wired at only one end.
  */
 import { describe, it, expect } from "vitest";
 import { execFileSync } from "node:child_process";
