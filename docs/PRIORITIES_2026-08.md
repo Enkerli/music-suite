@@ -1,7 +1,65 @@
-# Reprioritization — 2026-08-02
+# Reprioritization — 2026-08-02, refreshed 2026-08-07
 
 Supersedes the sequencing table in `NEXT_SESSION_2026-08.md` (its A1–A3 and B1
 are done; A4 and the C/D/E tracks are folded in below).
+
+---
+
+> ## Refresh — 2026-08-07
+>
+> **The direction has changed, and it has a brief of its own: [`WIND_JAM.md`](WIND_JAM.md).**
+> Alex has moved his playing attention to the **Diosynth** windsynth — MIDI
+> much like the Sylphyo, plus USB-audio — and wants interactive accompaniment
+> and automated backing tracks around it. That reorders what is below more than
+> it adds to it.
+>
+> **What shipped in the 32 commits since 08-02**, checked against the tree
+> rather than remembered:
+>
+> | | |
+> |---|---|
+> | **D2** — drum MIDI → grid/meter | **done.** `tools/drum-grid.mjs`, scores candidate grids and reports the fit rather than snapping (the triplet-vs-swung-sixteenth trap the plan named before any data existed) |
+> | Comping toolchain | **done and beyond D3's sketch** — corpus decoded, `style comp`, `comp-learn`, `comp-model`, styles → GloriArp phrases |
+> | Workspace MIDI I/O in a tab | **done** (`9edcc49`) — this is the piece Track B of WIND_JAM stands on |
+> | Vane articulation + register coupling | **done** — articulation colours the tone, not just the tonguing |
+> | Serpe per-instance state | **done** — progressive/poly state off process-wide statics, survives a save |
+> | CI runs the tests | **done** — the suite had never run on a runner |
+> | Bridge audit | **done** — it had never run *anywhere*; now 7 repos in CI, and it cannot pass while blind |
+> | Progressive-offset parity | **done** — the probe was reading the wrong layer; `serpe_progressive_offset_conformance` pins it, 33 vectors |
+>
+> **Still open below, unchanged:** D3 (drop-a-folder drum learning), P1
+> (weighted PCS), A4/F5 (two Serpe instances in a DAW), A5 (`.dawproject`),
+> E2 (Vane patch lab), C3 (GloriArp learning), Tier 5 (the audit).
+>
+> **Re-ranked by the new direction:**
+>
+> 1. **WIND_JAM B0** — a CC-level MIDI monitor. Nothing else in the wind arc is
+>    honest without it, and it is what answers "why was the Dio unconvincing"
+>    with data. Also wire Vane's `requestMidiProbe`, which the bridge audit
+>    reports as a listener nothing calls.
+> 2. **WIND_JAM A1** — `msuite backing`: bass + comp + drums in one command.
+>    Mostly assembly of parts that already exist, needs no controller input,
+>    and is usable the same evening.
+> 3. **P1 — weighted pitch-class sets.** Unchanged in value: still the one item
+>    that collapses two threads (PCS-as-histogram, drum-corpus output) into one
+>    type. It slips behind the two above only because they serve the playflow
+>    Alex is actually in.
+> 4. **WIND_JAM B1/B2** — breath onto the bus, then breath → accompaniment
+>    intensity: the first thing that feels interactive.
+>
+> **Demoted:** Tier 4's DAW-conducting items (A4/F5, A5) stay parked — they
+> need Alex at a DAW, and his hands are on a windsynth. Tier 5's audit should
+> now follow the wind arc rather than precede it, for the same reason it was
+> told to follow Tier 0–1: the workbench changing shape changes what is worth
+> auditing.
+>
+> **Doc debt, named:** `docs/` holds 47 files, six of them forward-looking and
+> partly superseding each other (`PRIORITIES`, this file,
+> `NEXT_SESSION_2026-08`, `MASTER_PLAN`, `SERPE_NEXT`, `GLORIARP_NEXT`). This
+> refresh was written in place rather than as a 48th file. Consolidating the
+> six is worth an hour, and is not urgent.
+
+---
 
 Alex added twelve items on 2026-08-02. Merging them with what was open changes
 the order substantially, because three of the new items turn out to be the same

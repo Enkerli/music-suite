@@ -1,5 +1,17 @@
 # GloriArp next arc — from proof-of-concept to living grooves
 
+> **2026-08-07 — the next arc is interactive, and it is briefed in
+> [`WIND_JAM.md`](WIND_JAM.md).** Everything below generates: the accompaniment
+> is a function of a progression, a seed and a pass. The Diosynth arc asks it to
+> become a function of *what the player is doing too* — breath first, since it
+> is continuous and needs no heuristic. Nothing below is superseded; GloriArp is
+> the generator that arc feeds.
+>
+> Two things in this file are load-bearing for it. `--inflect` already writes
+> breath as CC2 and per-note envelopes, so the suite's model of breath as an
+> expressive axis exists — outbound. And `extractPhrase` + the style models mean
+> "learn what I play" has a landing place when phrase awareness (B3) arrives.
+
 *2026-07-20, from the user's field verdict: "The funk groove is quite decent
 and I want to get more of these." The proof-of-concept holds; this note
 captures the whole requested direction, decides what each piece means

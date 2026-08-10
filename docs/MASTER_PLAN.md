@@ -1,5 +1,11 @@
 # Master plan
 
+> **2026-08-07.** §4's immediate next actions predate the Diosynth direction.
+> Current sequencing lives in [`PRIORITIES_2026-08.md`](PRIORITIES_2026-08.md)
+> (refreshed 08-07) and the arc itself in [`WIND_JAM.md`](WIND_JAM.md). The
+> roadmap spine in §1 and the product layer in §2 still stand — what changed is
+> the order, not the destination.
+
 *Started 2026-07-14. The **public** counterpart to the private
 `SUITE_AUDIT_AND_PLAN.md` (see [HANDOFF.md](../HANDOFF.md) §5) — that file
 stays the planning document of record for the corpus-bound work; this one
