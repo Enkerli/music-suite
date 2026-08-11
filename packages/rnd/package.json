@@ -1,0 +1,22 @@
+{
+  "name": "@enkerli/rnd",
+  "version": "0.1.0",
+  "description": "Wire codec for the Cymaforma RND Synth: 32-bit seeds, SysEx status frames, and the CC/note control map",
+  "type": "module",
+  "license": "Unlicense",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./vectors/*": "./vectors/*"
+  },
+  "files": ["dist", "vectors"],
+  "scripts": {
+    "build": "tsc -b",
+    "test": "vitest run"
+  }
+}

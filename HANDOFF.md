@@ -39,6 +39,7 @@ Three principles that override habit:
 | **progression-studio-plugin** (ProgGenie) | github.com/Enkerli/progression-studio-plugin | Thin shell (~1.1k LOC) over `apps/progression-studio` |
 | **midicurator-plugin** | github.com/Enkerli/midicurator-plugin | Thin shell (~1.1k LOC) over `apps/MIDIcurator` |
 | **workspace-plugin** | github.com/Enkerli/workspace-plugin (local: `~/Desktop/workspace-plugin`) | Thin shell (~450 LOC) over `apps/workspace`: the bus's edges become host MIDI (docs/WORKSPACE_PLUGIN.md). Promoted from staging 2026-07-19 |
+| **rnd-companion** | github.com/Enkerli/rnd-companion | Companion for the Cymaforma RND Synth hardware (AUv3/AU/VST3/CLAP/LV2 + standalone). Its `docs/PROTOCOL.md` documents the device's undocumented SysEx, confirmed against hardware captures; `packages/rnd` here is the TypeScript twin of its C++ codec, checked against shared vectors |
 | manifold, vane-wavetable-library, JazzPatterns | GitHub (Enkerli) | Data repos: controller capabilities (YAML), wavetable bank + provenance metadata, melodic vocabulary (ODbL — keep the notice) |
 | **Jazz Progs and Gen** | **local only, no remote — by design** | See §5. The planning document of record lives here |
 

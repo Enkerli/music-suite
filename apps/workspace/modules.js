@@ -19,6 +19,12 @@ import { DRUM_STYLES } from "./drum-styles.js";
 import { midiSupported, midiActive, startWebMidi, selectMidiInput, selectMidiOutput,
   sendNoteOut, sendAllOff } from "./webmidi-bridge.js";
 import { parseLeadsheet, detectChord, rootName, realizeLeadsheet } from "@enkerli/theory";
+import {
+  applyMessage as rndApplyMessage, decodeSysex as rndDecodeSysex, emptyStatus as rndEmptyStatus,
+  encodeSeed as rndEncodeSeed, encodeUnlockAndDump as rndEncodeUnlockAndDump,
+  formatSeed as rndFormatSeed, parseSeed as rndParseSeed, rootName as rndRootName,
+  scaleName as rndScaleName,
+} from "@enkerli/rnd";
 import { generateLabels, realizeLabel } from "@enkerli/proggen";
 import transitionTables from "@enkerli/proggen/data/transitions.json";
 import vaneManifest from "../vane/manifest.json";
@@ -2080,6 +2086,117 @@ export function midiIoModule(ctx, bodyEl, state = {}) {
   return () => { offBus?.(); sendAllOff(); };
 }
 
+
+// ── RND Companion: a hardware seed on the plane ───────────────────────────────
+// The Cymaforma RND broadcasts its 32-bit seed over SysEx whenever the knob
+// turns — no polling, no request. This module watches for that and publishes it
+// as a SuiteMessage, so a seed change can drive anything else on the bus; and
+// sends seeds back the other way. The codec is @enkerli/rnd, the same one the
+// plugin and the CLI use, checked against the same vectors.
+//
+// Web MIDI with sysex: true, so Chromium only. Firefox asks; Safari has no Web
+// MIDI at all. The plugin is the answer where this isn't available.
+
+export function rndCompanionModule(ctx, bodyEl, state) {
+  let access = null;
+  let input = null;
+  let output = null;
+  let status = rndEmptyStatus();
+  let lastPublishedSeed = null;
+
+  const statusEl = el("div", { class: "ws-readout", "aria-live": "polite", text: "not connected" });
+  const seedEl = el("div", { class: "ws-mono ws-seed", text: "--" });
+  const seedInput = el("input", { type: "text", class: "ws-input", "aria-label": "Seed",
+    placeholder: "0x00000000 or a decimal number", value: state.seed ?? "" });
+
+  const connectBtn = el("button", { class: "ws-btn", text: "Connect",
+    onclick: () => connect().catch((e) => setStatus(String(e.message ?? e))) });
+
+  const sendBtn = el("button", { class: "ws-btn", text: "Send", disabled: "",
+    onclick: () => {
+      const value = rndParseSeed(seedInput.value);
+      if (value === null) { setStatus(`"${seedInput.value}" is not a seed`); return; }
+      state.seed = rndFormatSeed(value); ctx.save();
+      send(rndEncodeSeed(value));
+      setStatus(`sent ${rndFormatSeed(value)}`);
+    } });
+
+  // Costs a brief audible mute, so it is a button and never a timer.
+  const readBtn = el("button", { class: "ws-btn", text: "Read", disabled: "",
+    onclick: () => { send(rndEncodeUnlockAndDump()); setStatus("asked for a dump (device mutes briefly)"); } });
+
+  bodyEl.append(
+    el("div", { class: "ws-row" }, connectBtn, statusEl),
+    seedEl,
+    el("div", { class: "ws-row" }, seedInput, sendBtn, readBtn),
+  );
+
+  function setStatus(text) { statusEl.textContent = text; }
+
+  function send(bytes) {
+    if (!output) { setStatus("no RND output — Connect first"); return; }
+    output.send(Uint8Array.from(bytes));
+  }
+
+  async function connect() {
+    if (!navigator.requestMIDIAccess) throw new Error("Web MIDI unavailable (use Chromium)");
+
+    access = await navigator.requestMIDIAccess({ sysex: true });
+    access.onstatechange = bind;
+    bind();
+  }
+
+  function bind() {
+    // The manufacturer tag alone is not proof of an RND (0x6F is an allocated
+    // single-byte id, not the non-commercial slot), so match the port name too.
+    const named = (ports) => [...ports.values()].find((p) => /RND/i.test(p.name ?? ""));
+
+    if (input) input.onmidimessage = null;
+    input = named(access.inputs) ?? null;
+    output = named(access.outputs) ?? null;
+    if (input) input.onmidimessage = onMidi;
+
+    const ready = Boolean(input && output);
+    sendBtn.disabled = !ready;
+    readBtn.disabled = !ready;
+    setStatus(ready ? (output.name ?? "connected") : "no port named RND");
+  }
+
+  function onMidi(ev) {
+    const message = rndDecodeSysex(ev.data);
+    if (!message) return;
+
+    status = rndApplyMessage(status, message);
+    render();
+
+    // Only a seed CHANGE goes on the bus. The device repeats its whole status
+    // hundreds of times a second once poked; publishing that would flood every
+    // other module on the plane.
+    if (status.seed !== undefined && status.seed !== lastPublishedSeed) {
+      lastPublishedSeed = status.seed;
+      ctx.bus.publish(makeMessage("param", FROM, "*", {
+        id: "rnd.seed", value: status.seed, label: rndFormatSeed(status.seed),
+      }));
+    }
+  }
+
+  function render() {
+    seedEl.textContent = status.seed === undefined ? "--" : rndFormatSeed(status.seed);
+
+    const bits = [];
+    if (status.scaleIndex !== undefined) bits.push(rndScaleName(status.scaleIndex));
+    if (status.root !== undefined) bits.push(`root ${rndRootName(status.root)} when read`);
+    if (status.tempoBpm !== undefined) bits.push(`${status.tempoBpm} BPM as reported`);
+    if (status.engines.length) bits.push(status.engines.map((e) => e.name).join(", "));
+    if (bits.length) setStatus(bits.join(" · "));
+  }
+
+  return () => {
+    if (input) input.onmidimessage = null;
+    if (access) access.onstatechange = null;
+  };
+}
+
 export const MODULES = {
   "control-surface": { title: "Control Surface", make: controlSurfaceModule },
   "midi-io": { title: "MIDI I/O", make: midiIoModule },
@@ -2100,6 +2217,7 @@ export const MODULES = {
   "recorder": { title: "Recorder", make: recorderModule },
   "library": { title: "Library", make: libraryModule },
   "bindings": { title: "Bindings", make: bindingsModule },
+  "rnd-companion": { title: "RND Companion", make: rndCompanionModule },
   "monitor": { title: "Bus Monitor", make: monitorModule },
   "bridge": { title: "Bridge (CLI)", make: bridgeModule },
 };

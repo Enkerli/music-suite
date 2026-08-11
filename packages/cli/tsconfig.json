@@ -4,7 +4,27 @@
     "rootDir": "src",
     "outDir": "dist"
   },
-  "references": [{ "path": "../theory" }, { "path": "../midi" }, { "path": "../accompaniment" }, { "path": "../voice-routing" }],
-  "include": ["src"],
-  "exclude": ["src/**/*.test.ts"]
+  "references": [
+    {
+      "path": "../theory"
+    },
+    {
+      "path": "../midi"
+    },
+    {
+      "path": "../accompaniment"
+    },
+    {
+      "path": "../voice-routing"
+    },
+    {
+      "path": "../rnd"
+    }
+  ],
+  "include": [
+    "src"
+  ],
+  "exclude": [
+    "src/**/*.test.ts"
+  ]
 }

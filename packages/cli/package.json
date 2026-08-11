@@ -22,6 +22,7 @@
     "@enkerli/proggen": "*",
     "@enkerli/accompaniment": "*",
     "@enkerli/voice-routing": "*",
-    "@enkerli/drumsynth": "*"
+    "@enkerli/drumsynth": "*",
+    "@enkerli/rnd": "*"
   }
 }

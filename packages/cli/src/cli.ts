@@ -32,6 +32,8 @@ import {
   type SendOptions, type ControlMap, type InputEvent,
 } from "./index.js";
 import { VoiceSplitter } from "@enkerli/voice-routing";
+import { RND_USAGE, runRndPure, readSysexStream, writeRawMidi, describeStatus } from "./rnd.js";
+import { applyMessage, decodeSysex, emptyStatus, encodeSeed, formatSeed, hasManufacturerTag, parseSeed, summarize } from "@enkerli/rnd";
 import { parsePolyUPI, identify, longShort, durations, dynamicDurations, parseNamedPatterns, describeNamedPattern, parseLongShortSuffix, parseUPI, microtiming, timingScales, parseProgressive, progressiveAt, interOnsetSteps } from "@enkerli/upi";
 import { createSMF } from "@enkerli/midi";
 import { execFileSync } from "node:child_process";
@@ -163,7 +165,7 @@ function parseArgs(argv: string[]): Args {
     const a = argv[i]!;
     if (a.startsWith("--")) {
       const name = a.slice(2);
-      const boolean = ["pcs", "notes", "help", "stream", "validate", "explain", "play", "bars-only", "loop", "list", "json", "quiet"].includes(name);
+      const boolean = ["pcs", "notes", "help", "stream", "validate", "explain", "play", "bars-only", "loop", "list", "json", "quiet", "all"].includes(name);
       const value = boolean ? "true" : argv[++i];
       if (value === undefined) throw new Error(`--${name} needs a value`);
       if (!flags.has(name)) flags.set(name, []);
@@ -252,7 +254,7 @@ async function main(): Promise<number> {
   if (!cmd || cmd === "--help" || cmd === "help") { console.log(USAGE); return 0; }
   if (cmd === "--version" || cmd === "-v" || cmd === "version") { console.log(versionReport()); return 0; }
   const args = parseArgs(rest);
-  if (args.flags.has("help")) { console.log(USAGE); return 0; }
+  if (args.flags.has("help") && cmd !== "rnd") { console.log(USAGE); return 0; }
 
   switch (cmd) {
     case "chord": {
@@ -1161,6 +1163,57 @@ async function main(): Promise<number> {
       for (const l of lines) console.log(l);
       return 0;
     }
+    case "rnd": {
+      const sub = args.positional[0] ?? "";
+      if (!sub || args.flags.has("help")) { console.log(RND_USAGE); return sub ? 0 : 1; }
+
+      const rest2 = args.positional.slice(1);
+      const pure = runRndPure(sub, rest2, args.flags);
+      if (pure) { for (const l of pure.lines) console.log(l); return pure.code; }
+
+      const port = one(args, "port");
+      if (!port) throw new Error(`rnd ${sub}: --port <rawmidi path> is required\n${RND_USAGE}`);
+
+      if (sub === "send") {
+        const value = parseSeed(rest2[0] ?? "");
+        if (value === null) throw new Error(`rnd send: "${rest2[0] ?? ""}" is not a seed`);
+        await writeRawMidi(port, encodeSeed(value));
+        console.log(`sent ${formatSeed(value)} to ${port}`);
+        return 0;
+      }
+
+      if (sub === "watch") {
+        // The device repeats its whole status hundreds of times a second once
+        // poked, so only changes are printed unless --all is given.
+        const showEverything = args.flags.has("all");
+        let status = emptyStatus();
+        let lastSeed: number | undefined;
+
+        const controller = new AbortController();
+        process.on("SIGINT", () => controller.abort());
+
+        await readSysexStream(port, (bytes) => {
+          const message = decodeSysex(bytes);
+          if (!message) {
+            if (hasManufacturerTag(bytes)) console.error(`damaged frame: ${toHexBytes(bytes)}`);
+            return;
+          }
+
+          status = applyMessage(status, message);
+          if (showEverything) { console.log(summarize(message)); return; }
+
+          if (status.seed !== undefined && status.seed !== lastSeed) {
+            lastSeed = status.seed;
+            console.log(formatSeed(status.seed));
+          }
+        }, controller.signal);
+
+        for (const l of describeStatus(status)) console.error(l);
+        return 0;
+      }
+
+      throw new Error(`rnd: unknown subcommand "${sub}"\n${RND_USAGE}`);
+    }
     default:
       throw new Error(`unknown command "${cmd}"\n${USAGE}`);
   }
@@ -1171,6 +1224,10 @@ async function main(): Promise<number> {
 // process.stdout.write() throw EPIPE. Node's default is an unhandled 'error'
 // event — a raw stack trace for something that isn't a bug. Exit quietly
 // instead, the way well-behaved Unix tools do; anything else still throws.
+function toHexBytes(bytes: ArrayLike<number>): string {
+  return Array.from(bytes).map((b) => b.toString(16).padStart(2, "0").toUpperCase()).join(" ");
+}
+
 process.stdout.on("error", (err: NodeJS.ErrnoException) => {
   if (err.code === "EPIPE") process.exit(0);
   throw err;

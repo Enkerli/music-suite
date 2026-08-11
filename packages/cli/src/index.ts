@@ -932,3 +932,4 @@ export {
   STRUM_KEY_NAMES, ARPEGGIO_OFFSETS, SLOT_TICKS,
   type LearnCompOptions, type LearnCompResult,
 } from "./comping.js";
+export * from "./rnd.js";

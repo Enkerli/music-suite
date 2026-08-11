@@ -1,0 +1,85 @@
+{
+  "_comment": [
+    "Cross-language vectors for the RND wire codec. The other implementation is",
+    "C++ in the rnd-companion repo (Source/Protocol/RndProtocol.cpp), checked by",
+    "Tests/ProtocolTests.cpp against these same values. Change one, change both.",
+    "",
+    "Everything here was observed, not specified: the 'captured' frames are",
+    "verbatim bytes from a Cymaforma RND Synth, and the two 'foreign' frames are",
+    "verbatim from Logic Pro, kept because telling somebody else's SysEx from our",
+    "own damaged SysEx is a distinction the probe got wrong once."
+  ],
+
+  "seeds": [
+    { "value": 0, "septets": [0, 0, 0, 0, 0], "text": "0x00000000" },
+    { "value": 127, "septets": [127, 0, 0, 0, 0], "text": "0x0000007f" },
+    { "value": 128, "septets": [0, 1, 0, 0, 0], "text": "0x00000080" },
+    { "value": 268435455, "septets": [127, 127, 127, 127, 0], "text": "0x0fffffff" },
+    { "value": 4294967295, "septets": [127, 127, 127, 127, 15], "text": "0xffffffff" },
+    { "value": 2856594663, "septets": [103, 89, 16, 82, 10], "text": "0xaa442ce7" },
+    { "value": 267242409, "septets": [41, 23, 55, 127, 0], "text": "0x0fedcba9" }
+  ],
+
+  "captured": [
+    {
+      "hex": "F0 6F 62 78 10 67 59 10 52 0A F7",
+      "decoded": { "kind": "seed", "seed": 2856594663 },
+      "summary": "seed 0xaa442ce7"
+    },
+    {
+      "hex": "F0 6F 62 78 20 F7",
+      "decoded": { "kind": "dumpBegin" },
+      "summary": "dump begin"
+    },
+    {
+      "hex": "F0 6F 62 78 21 02 7D 00 02 11 F7",
+      "decoded": { "kind": "globals", "patchMode": 2, "tempoBpm": 125, "root": 2, "scaleIndex": 17 },
+      "summary": "globals: mode 2, 125 BPM, root D, prometheus"
+    },
+    {
+      "hex": "F0 6F 62 78 22 00 00 01 46 4D 00 F7",
+      "decoded": { "kind": "trackEngine", "trackIndex": 0, "unknownA": 0, "unknownB": 1, "engineName": "FM" },
+      "summary": "track 0 engine \"FM\" (0, 1)"
+    },
+    {
+      "hex": "F0 6F 62 78 22 00 02 00 50 6C 75 63 6B 65 64 20 53 74 72 69 6E 67 00 F7",
+      "decoded": { "kind": "trackEngine", "trackIndex": 0, "unknownA": 2, "unknownB": 0, "engineName": "Plucked String" },
+      "summary": "track 0 engine \"Plucked String\" (2, 0)"
+    },
+    {
+      "hex": "F0 6F 62 78 22 01 00 01 41 63 69 64 20 28 33 30 33 29 00 F7",
+      "decoded": { "kind": "trackEngine", "trackIndex": 1, "unknownA": 0, "unknownB": 1, "engineName": "Acid (303)" },
+      "summary": "track 1 engine \"Acid (303)\" (0, 1)"
+    }
+  ],
+
+  "encoded": [
+    { "what": "seed", "seed": 2856594663, "hex": "F0 6F 62 78 10 67 59 10 52 0A F7" },
+    { "what": "unlockAndDump", "hex": "F0 6F 62 78 11 00 F7" }
+  ],
+
+  "rejected": [
+    { "hex": "", "why": "empty" },
+    { "hex": "F0 43 00 01 10 F7", "why": "another manufacturer" },
+    { "hex": "F0 6F 62 78 7A F7", "why": "unknown command" },
+    { "hex": "F0 6F 62 78 10 01 F7", "why": "seed payload too short" },
+    { "hex": "F0 6F 62 78 21 02 7D F7", "why": "globals payload too short" },
+    { "hex": "F0 6F 62 78 20 01 F7", "why": "dumpBegin must be empty" },
+    { "hex": "F0 6F 62 78 11 00 F7", "why": "host-to-device only" }
+  ],
+
+  "foreign": [
+    { "hex": "F0 7F 00 04 03 00 40 F7", "label": "universal real-time SysEx", "source": "Logic Pro master fine tuning" },
+    { "hex": "F0 7E 7F 08 01 00 F7", "label": "universal non-real-time SysEx", "source": "Logic Pro MIDI tuning (truncated)" },
+    { "hex": "F0 41 10 42 12 F7", "label": "manufacturer 0x41 SysEx", "source": "synthetic" }
+  ],
+
+  "damagedButOurs": [
+    { "hex": "F0 6F 62 78 10 67 F7", "why": "our tag, truncated seed payload" }
+  ],
+
+  "scaleCc": {
+    "_comment": "CC9 band midpoints, equal to floor(3.2 + 6.4 * index)",
+    "midpoints": [3, 9, 16, 22, 28, 35, 41, 48, 54, 60, 67, 73, 80, 86, 92, 99, 105, 112, 118, 124]
+  }
+}

@@ -18,7 +18,8 @@
     "@enkerli/theory": "*",
     "@enkerli/ui": "*",
     "@enkerli/voice-routing": "*",
-    "@enkerli/drumsynth": "*"
+    "@enkerli/drumsynth": "*",
+    "@enkerli/rnd": "*"
   },
   "devDependencies": {
     "esbuild": "^0.24.0"
