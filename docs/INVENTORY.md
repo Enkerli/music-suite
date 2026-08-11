@@ -26,7 +26,7 @@ drawnqurve · pickpcs · chord-dictionary · exquisite · style-gallery
 — see GLOSSARY.md for what each one is; four (serpe, pitchfold, vane,
 drawnqurve) are the same code the plugins embed.
 
-## Packages (15, `@enkerli/*`, TypeScript/JS)
+## Packages (16, `@enkerli/*`, TypeScript/JS)
 
 | Package | One line (from its manifest) |
 |---|---|
@@ -44,23 +44,25 @@ drawnqurve) are the same code the plugins embed.
 | library | LIS-informed content envelope (identity, provenance, facets) |
 | corpus-tools | Lead-sheet corpus pipeline (no corpus data ships) |
 | codegen | Lua/C++ generation from theory data |
+| rnd | Cymaforma RND Synth wire codec: 32-bit seeds over SysEx, status frames, CC/note map. Twin of the C++ in the rnd-companion repo, pinned to it by shared vectors |
 | cli | `msuite` — the headless tools (below) |
 
-## `msuite` CLI (15 commands)
+## `msuite` CLI (16 commands)
 
 `accompany` · `bind` · `bridge` · `chord` · `describe` · `drums` ·
-`generate` · `pattern` · `play` · `recv` · `render` · `send` · `smf` ·
-`style` ·
+`generate` · `pattern` · `play` · `recv` · `render` · `rnd` · `send` ·
+`smf` · `style` ·
 `upi` — matrix of what runs where: [HEADLESS.md](HEADLESS.md).
 
-## Workspace modules (21, `apps/workspace/modules.js` `MODULES`)
+## Workspace modules (22, `apps/workspace/modules.js` `MODULES`)
 
 Control Surface · MIDI I/O · Vane Synth · Drum Kit · Drum Style · Pattern (UPI) ·
 PCS Pads · Voice Split ·
 Mono Merge · Pattern Transforms · Pattern Player · Rhythm Analysis ·
 Progression · GloriArp · Keys · Chord Namer · Recorder · Library ·
-Bindings · Bus Monitor · Bridge (CLI)
-*(PCS Pads · Voice Split · Mono Merge are the KT-item-8 additions.)*
+Bindings · RND Companion · Bus Monitor · Bridge (CLI)
+*(PCS Pads · Voice Split · Mono Merge are the KT-item-8 additions.
+RND Companion talks to Cymaforma RND hardware over Web MIDI.)*
 
 ## Data & foundation repos
 
