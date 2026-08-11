@@ -196,8 +196,13 @@ function mount(host, bridge) {
         sysex: true,
         inputs: state.ports.inputs,
         outputs: state.ports.outputs,
-        selectedInId: state.ports.selectedIn ?? null,
-        selectedOutId: state.ports.selectedOut ?? null,
+        selectedInId: state.ports.selectedIn || null,
+        selectedOutId: state.ports.selectedOut || null,
+        // With a noneOption the shared endpoint() reports "Connected" only when
+        // something really is selected, and its <select> gets an option whose
+        // value is "" -- so an unselected picker shows "Not connected" instead
+        // of rendering blank with selectedIndex -1.
+        noneOption: "Not connected",
         onSelectIn: (id) => bridge.send("openInput", { id }),
         onSelectOut: (id) => bridge.send("openOutput", { id }),
         badge: bridge.kind === "juce" ? "Plugin" : undefined,
