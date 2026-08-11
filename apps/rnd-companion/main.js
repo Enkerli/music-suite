@@ -47,7 +47,7 @@ function injectStyles() {
   }
 }
 
-export function mount(host, bridge) {
+function mount(host, bridge) {
   injectStyles();
   initTheme();
 
@@ -58,7 +58,14 @@ export function mount(host, bridge) {
     transport: "direct",
     selected: null,
     filters: { unrated: true, keep: true, pass: false },
-    build: { ui: host.dataset.build ?? "dev", native: null },
+    // In a plugin build the bundle stamps itself through esbuild --inject
+    // (write-build-tag.cmake); the webapp substitutes __BUILD_ID__ into the
+    // page with sed. The plugin embeds the SOURCE index.html, so its data-build
+    // is still the placeholder -- take the injected tag first.
+    build: { ui: globalThis.__BUILD_TAG__
+                 ?? (host.dataset.build?.includes("__BUILD_ID__") ? "dev" : host.dataset.build)
+                 ?? "dev",
+             native: null },
     mixTouched: false,
   };
 

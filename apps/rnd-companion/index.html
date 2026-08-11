@@ -9,7 +9,12 @@
   <!-- The shell the app fills in. Everything below main.js is built from the
        suite's shipping components, so a design change to tokens.css or
        components.css lands here without anyone porting it by hand. -->
+  <noscript>RND Companion needs JavaScript.</noscript>
   <div id="app" data-build="__BUILD_ID__"></div>
-  <script type="module" src="bundle.js"></script>
+  <!-- Classic script, NOT type="module": an inline ES module served through
+       JUCE's resource provider stays silently blank in WKWebView on iPadOS
+       (enkerli-juce TESTING.md, device-verified). ?v= busts the cache, without
+       which a rebuilt bundle looks like the fix never landed. -->
+  <script src="bundle.js?v=__BUILD_ID__"></script>
 </body>
 </html>
