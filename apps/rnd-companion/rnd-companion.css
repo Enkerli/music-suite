@@ -1,0 +1,74 @@
+/* Layout only. Every colour, radius, font and control height comes from
+   tokens.css / components.css — if a value appears here that could have been a
+   token, that is a bug. */
+
+body { margin: 0; background: var(--es-bg); color: var(--es-fg); font-family: var(--es-font-sans); }
+#app { display: flex; flex-direction: column; gap: var(--es-gap); padding: var(--es-space-4); min-height: 100vh; box-sizing: border-box; }
+
+.rc-header { display: flex; align-items: center; gap: var(--es-space-3); flex-wrap: wrap; }
+.rc-mark { width: 24px; height: 24px; border-radius: 7px; background: var(--es-bg-raised);
+           border: 1px solid var(--es-border-strong);
+           background-image: radial-gradient(circle at 30% 30%, var(--es-fg) 2px, transparent 2px),
+                             radial-gradient(circle at 70% 30%, var(--es-fg) 2px, transparent 2px),
+                             radial-gradient(circle at 30% 70%, var(--es-fg) 2px, transparent 2px),
+                             radial-gradient(circle at 70% 70%, var(--es-fg) 2px, transparent 2px),
+                             radial-gradient(circle at 50% 50%, var(--es-pc-2, #228833) 3px, transparent 3px); }
+.rc-appname { font-weight: 700; }
+.rc-route { min-width: 160px; }
+.rc-connection { color: var(--es-fg-muted); font-size: var(--es-text-sm); }
+.rc-connection.is-connected { color: var(--es-dim-expr); font-weight: 600; }
+.rc-cluster-host { margin-left: auto; }
+
+.rc-columns { display: grid; grid-template-columns: 1fr 1fr; gap: var(--es-gap); align-items: start; }
+.rc-col { display: flex; flex-direction: column; gap: var(--es-gap); }
+#app.rc-library-hidden .rc-columns { grid-template-columns: 1fr; }
+#app.rc-library-hidden .rc-library { display: none; }
+@media (max-width: 860px) { .rc-columns { grid-template-columns: 1fr; } }
+
+.es-panel { background: var(--es-bg-raised); border: 1px solid var(--es-border-soft);
+            border-radius: var(--es-radius-md); padding: var(--es-space-4);
+            display: flex; flex-direction: column; gap: var(--es-space-2); }
+
+.rc-seed { font-family: var(--es-font-mono); font-size: var(--es-text-xl); font-weight: 700;
+           font-variant-numeric: tabular-nums; }
+.rc-detail { color: var(--es-fg-2); font-size: var(--es-text-sm); display: flex; flex-direction: column; gap: 2px; }
+.rc-row { display: flex; align-items: center; gap: var(--es-space-2); flex-wrap: wrap; }
+.rc-seedinput { flex: 1 1 180px; font-family: var(--es-font-mono); }
+.rc-narrow { max-width: 88px; }
+
+.rc-mixrow { display: grid; grid-template-columns: 64px 1fr 48px; align-items: center; gap: var(--es-space-2); }
+.rc-range { width: 100%; }
+.rc-mixvalue { font-family: var(--es-font-mono); font-variant-numeric: tabular-nums; text-align: right; }
+/* Send-only controls start dimmed: 100 and 40 are our defaults, not a reading
+   of the hardware, and the panel must not imply otherwise. */
+.rc-untouched .rc-mixrow { opacity: 0.55; }
+
+.rc-hint { margin: 0; font-size: var(--es-text-xs); color: var(--es-fg-muted); display: flex; gap: 6px; align-items: baseline; }
+.rc-caution { color: var(--es-dim-pressure); }
+.es-dot { width: 6px; height: 6px; border-radius: 50%; display: inline-block; flex: none; }
+.rc-dot-caution { background: var(--es-dim-pressure); }
+.rc-dot-affirm { background: var(--es-dim-expr); }
+
+.rc-list { border: 1px solid var(--es-border); border-radius: var(--es-radius-sm);
+           background: var(--es-bg-sunken); overflow-y: auto; max-height: 46vh; }
+.rc-item { display: grid; grid-template-columns: 116px 1fr 20px; align-items: center;
+           gap: var(--es-space-2); padding: 0 var(--es-space-2);
+           min-height: var(--es-ctl-h); border-left: 3px solid var(--es-fg-faint);
+           border-bottom: 1px solid var(--es-border-soft); cursor: pointer; }
+.rc-item:last-child { border-bottom: none; }
+.rc-item.is-selected { background: color-mix(in srgb, var(--es-accent) 12%, transparent); }
+.rc-item.rc-keep { border-left-color: var(--es-dim-expr); }
+.rc-item.rc-pass { border-left-color: var(--es-danger); }
+.rc-item-seed { font-family: var(--es-font-mono); font-size: var(--es-text-sm); font-variant-numeric: tabular-nums; }
+.rc-item-desc { color: var(--es-fg-2); font-size: var(--es-text-sm); }
+.rc-item-mark { font-size: var(--es-text-xs); font-weight: 700; text-align: right; color: var(--es-fg-muted); }
+.rc-keep .rc-item-mark { color: var(--es-dim-expr); }
+.rc-pass .rc-item-mark { color: var(--es-danger); }
+
+.rc-actions { justify-content: flex-start; }
+.rc-danger { border-color: var(--es-danger); color: var(--es-danger); }
+
+.rc-log { margin: 0; padding: var(--es-space-2); background: var(--es-bg-sunken);
+          border: 1px solid var(--es-border); border-radius: var(--es-radius-sm);
+          font-family: var(--es-font-mono); font-size: var(--es-text-xs);
+          color: var(--es-fg-muted); max-height: 120px; overflow-y: auto; white-space: pre-wrap; }

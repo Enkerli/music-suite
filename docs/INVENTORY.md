@@ -19,12 +19,13 @@ that adds or removes a deliverable. Vocabulary lives in
 | MIDIcurator | `aumi Mcur` | AU·VST3·Standalone·AUv3 | Clip library and curation; host-synced auditioning; file-backed library |
 | Suite Workspace | `aumi Wksp` | AU·VST3·Standalone·AUv3; LV2·VST3·CLAP·Standalone on Linux | The workspace webapp in a DAW: bus notes out as host MIDI, host MIDI in to bindings |
 
-## Webapps (11, on Pages: `…/music-suite/apps/<slug>/`)
+## Webapps (12, on Pages: `…/music-suite/apps/<slug>/`)
 
 workspace · proggenie · midicurator · serpe · pitchfold · vane ·
-drawnqurve · pickpcs · chord-dictionary · exquisite · style-gallery
-— see GLOSSARY.md for what each one is; four (serpe, pitchfold, vane,
-drawnqurve) are the same code the plugins embed.
+drawnqurve · pickpcs · chord-dictionary · exquisite · style-gallery ·
+rnd-companion
+— see GLOSSARY.md for what each one is; five (serpe, pitchfold, vane,
+drawnqurve, rnd-companion) are the same code the plugins embed.
 
 ## Packages (16, `@enkerli/*`, TypeScript/JS)
 
