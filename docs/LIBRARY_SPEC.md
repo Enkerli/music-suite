@@ -131,7 +131,10 @@ A library on disk is: `library-index.json` (array of envelopes with
   carry provenance to their source phrase, seed, and engine version)
 - `app`: `proggenie` · `midicurator` · `serpe` · `vane` · `drawnqurve` ·
   `pitchfold` · `exquisite-fingerings` · `pickpcs` · `chord-dictionary` ·
-  `external`
+  `drums` · `rnd-companion` · `external`
+  (`drums` is the synthesised kit, not a windowed app; `rnd-companion` is the
+  Cymaforma RND hardware companion, which saves captured seeds as `patch`
+  items)
 - `facets.status`: `stub` · `draft` · `complete` · `verified`
   (adopted from manifold's schema, which already uses exactly this)
 - `provenance.sources[].licenseStatus`: `verified` ·

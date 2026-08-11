@@ -12,11 +12,22 @@
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
     },
-    "./vectors/*": "./vectors/*"
+    "./vectors/*": "./vectors/*",
+    "./library": {
+      "source": "./src/library.ts",
+      "types": "./dist/library.d.ts",
+      "default": "./dist/library.js"
+    }
   },
-  "files": ["dist", "vectors"],
+  "files": [
+    "dist",
+    "vectors"
+  ],
   "scripts": {
     "build": "tsc -b",
     "test": "vitest run"
+  },
+  "dependencies": {
+    "@enkerli/library": "*"
   }
 }

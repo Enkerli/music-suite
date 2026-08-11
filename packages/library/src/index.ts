@@ -39,7 +39,7 @@ export type Kind = (typeof KINDS)[number];
 export const APPS = [
   "proggenie", "midicurator", "serpe", "vane", "drawnqurve",
   "pitchfold", "exquisite-fingerings", "pickpcs", "chord-dictionary",
-  "drums", "external",
+  "drums", "rnd-companion", "external",
 ] as const;
 export type AppId = (typeof APPS)[number];
 
