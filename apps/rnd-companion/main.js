@@ -307,7 +307,11 @@ function mount(host, bridge) {
         noneOption: "Not connected",
         onSelectIn: (id) => bridge.send("openInput", { id }),
         onSelectOut: (id) => bridge.send("openOutput", { id }),
-        badge: bridge.kind === "juce" ? "Plugin" : undefined,
+        // "Native", not "Plugin": the standalone runs on the same JUCE bridge
+        // and was being badged PLUGIN in its own window. What the badge is
+        // really distinguishing is who owns the ports -- us, rather than the
+        // browser's Web MIDI -- and that is true of both builds.
+        badge: bridge.kind === "juce" ? "Native" : undefined,
       },
       densityTarget: host,
       library: { count: state.items.length, onToggle: () => host.classList.toggle("rc-library-hidden") },

@@ -39,7 +39,14 @@ function el(tag, className, html) {
 
 /** One .es-device-select endpoint (In or Out) inside the MIDI panel. */
 function endpoint({ label, kind, ports, selectedId, sysex, noneOption, onSelect }) {
-  const connected = ports.length > 0 && (!!selectedId || !noneOption);
+  // A port that is SELECTED is not necessarily a port that is THERE. Hardware
+  // MIDI ports are exclusive on ALSA and WinMM, so a DAW taking the device
+  // makes it disappear from the list while our selection still names it. The
+  // old test was "is anything selected", which in that state reported
+  // "Connected · SysEx" over a <select> rendering blank -- confident and wrong,
+  // about the one device the panel exists to talk to.
+  const present = ports.some((p) => p.id === selectedId);
+  const connected = ports.length > 0 && (noneOption ? present : true);
   const box = el("div", "es-device-select");
   box.dataset.state = ports.length ? (connected ? "connected" : "available") : "empty";
   const head = el("div", "es-device-select-head");
@@ -60,7 +67,10 @@ function endpoint({ label, kind, ports, selectedId, sysex, noneOption, onSelect 
     const opt = (text, value) => Object.assign(document.createElement("option"), { textContent: text, value });
     if (noneOption) sel.append(opt(noneOption, ""));
     for (const p of ports) sel.append(opt(p.name, p.id));
-    sel.value = selectedId ?? "";
+    // Same reason: assigning an id with no matching <option> leaves the select
+    // showing nothing at all. Fall back to the none option so a vanished
+    // device reads as disconnected rather than as an empty box.
+    sel.value = present ? selectedId : "";
     sel.addEventListener("change", () => onSelect?.(sel.value || null));
     box.append(sel);
   } else {
