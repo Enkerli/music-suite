@@ -57,7 +57,11 @@ function mount(host, bridge) {
     ports: { inputs: [], outputs: [], connected: false },
     transport: "direct",
     selected: null,
-    filters: { unrated: true, keep: true, pass: false },
+    checked: new Set(),   // multi-select
+    muted: new Set(),     // track indices silenced for the audition seed
+    query: "",
+    facet: null,          // {key, value} — one facet at a time keeps it legible
+    filters: { unrated: true, keep: true, pass: true },
     // In a plugin build the bundle stamps itself through esbuild --inject
     // (write-build-tag.cmake); the webapp substitutes __BUILD_ID__ into the
     // page with sed. The plugin embeds the SOURCE index.html, so its data-build
@@ -151,29 +155,122 @@ function mount(host, bridge) {
     el("p", { class: "rc-hint rc-caution", text:
       "Scale and root lock on the hardware and change what a seed produces. Power-cycle to clear." }));
 
+  // ── Track audition ───────────────────────────────────────────────────────
+  // The RND gives every track its own volume, so one voice of a seed can be
+  // heard alone. That matters for curation: a seed is often worth keeping for
+  // one of its four voices, and "which ones" is part of what you learned.
+  const trackRow = el("div", { class: "rc-tracks" });
+  const trackPanel = el("section", { class: "es-panel rc-audition" },
+    el("div", { class: "es-eyebrow", text: "Tracks" }),
+    trackRow,
+    el("p", { class: "rc-hint rc-muted", text:
+      "Mute or solo a track to audition it. What you leave muted is remembered against the seed." }));
+
+  function auditionSeed() {
+    // Track state belongs to whichever seed you are listening to: the selected
+    // library entry if there is one, otherwise whatever the device is playing.
+    return state.selected ?? state.status.seed ?? null;
+  }
+
+  function trackCount() {
+    const item = state.items.find((i) => libraryItemToSeed(i)?.seed === auditionSeed());
+    return item?.payload?.captured?.engines?.length || state.status.engines?.length || 0;
+  }
+
+  function pushMutes() {
+    const seed = auditionSeed();
+    bridge.send("setTrackMutes", {
+      ...(seed != null ? { seed } : {}),
+      muted: [...state.muted].sort((a, b) => a - b),
+      trackCount: Math.max(1, trackCount()),
+    });
+  }
+
+  function renderTracks() {
+    const count = trackCount();
+    const seed = auditionSeed();
+    const item = state.items.find((i) => libraryItemToSeed(i)?.seed === seed);
+    const names = item?.payload?.captured?.engines ?? state.status.engines ?? [];
+
+    if (!count) {
+      trackRow.replaceChildren(el("span", { class: "rc-hint rc-muted",
+        text: "No tracks known yet — send a seed or read the device." }));
+      return;
+    }
+
+    const soloed = state.muted.size === count - 1;
+
+    trackRow.replaceChildren(...Array.from({ length: count }, (_, i) => {
+      const muted = state.muted.has(i);
+      const only = !muted && soloed;
+
+      return el("div", { class: `rc-track${muted ? " is-muted" : ""}${only ? " is-solo" : ""}` },
+        el("span", { class: "rc-track-n", text: String(i + 1) }),
+        el("span", { class: "rc-track-name", text: names[i] ?? `Track ${i + 1}` }),
+        el("button", { class: "es-btn es-small", text: muted ? "Unmute" : "Mute",
+          "aria-pressed": String(muted),
+          onclick: () => {
+            if (muted) state.muted.delete(i); else state.muted.add(i);
+            pushMutes(); renderTracks(); renderLibrary();
+          } }),
+        el("button", { class: "es-btn es-small", text: only ? "All" : "Solo",
+          "aria-pressed": String(only),
+          onclick: () => {
+            // Solo is mute-the-others; pressing it again lets everyone back in.
+            state.muted = only ? new Set()
+                               : new Set(Array.from({ length: count }, (_, k) => k).filter((k) => k !== i));
+            pushMutes(); renderTracks(); renderLibrary();
+          } }));
+    }));
+  }
+
   // ── Library ──────────────────────────────────────────────────────────────
   const libraryEyebrow = el("div", { class: "es-eyebrow" });
-  const libraryList = el("div", { class: "rc-list", role: "listbox", tabindex: "0",
-    "aria-label": "Seed library" });
+  const searchInput = el("input", { class: "es-control rc-search", type: "search",
+    placeholder: "Search seed, scale, root, engine, note", "aria-label": "Search the library",
+    oninput: () => { state.query = searchInput.value.trim().toLowerCase(); renderLibrary(); } });
+
+  const facetRow = el("div", { class: "rc-facets" });
+  const libraryList = el("div", { class: "rc-list", role: "listbox", "aria-multiselectable": "true",
+    tabindex: "0", "aria-label": "Seed library" });
+
   const noteInput = el("input", { class: "es-control", type: "text",
     placeholder: "Note on the selected seed", "aria-label": "Note",
     onchange: () => state.selected != null
       && bridge.send("setNote", { seed: state.selected, note: noteInput.value }) });
 
-  const act = (seed) => ({ seed });
+  const bulkBar = el("div", { class: "rc-bulk", hidden: "" });
+
+  // Acting on the checked set when there is one, and on the focused row
+  // otherwise, is what makes one set of buttons serve both.
+  const targets = () => (state.checked.size ? [...state.checked]
+                        : state.selected != null ? [state.selected] : []);
+
+  const bulkAct = (fn) => () => { for (const seed of targets()) fn(seed); };
+
   const libraryPanel = el("section", { class: "es-panel rc-library" },
     libraryEyebrow,
+    el("div", { class: "rc-row" }, searchInput),
+    facetRow,
+    bulkBar,
     libraryList,
     noteInput,
     el("div", { class: "rc-row rc-actions" },
       el("button", { class: "es-btn es-primary", text: "Keep",
-        onclick: () => state.selected != null && bridge.send("rate", { ...act(state.selected), rating: "keep" }) }),
+        onclick: bulkAct((seed) => bridge.send("rate", { seed, rating: "keep" })) }),
       el("button", { class: "es-btn", text: "Pass",
-        onclick: () => state.selected != null && bridge.send("rate", { ...act(state.selected), rating: "pass" }) }),
+        onclick: bulkAct((seed) => bridge.send("rate", { seed, rating: "pass" })) }),
+      el("button", { class: "es-btn", text: "Unrate",
+        onclick: bulkAct((seed) => bridge.send("rate", { seed, rating: "unrated" })) }),
       el("button", { class: "es-btn", text: "Send",
         onclick: () => state.selected != null && bridge.send("sendSeed", { seed: state.selected }) }),
       el("button", { class: "es-btn rc-danger", text: "Remove",
-        onclick: () => state.selected != null && bridge.send("remove", act(state.selected)) })),
+        onclick: bulkAct((seed) => bridge.send("remove", { seed })) })),
+    el("div", { class: "rc-row" },
+      el("button", { class: "es-btn es-small", text: "Export",
+        onclick: () => bridge.send("exportLibrary") }),
+      el("button", { class: "es-btn es-small", text: "Import",
+        onclick: () => bridge.send("importLibrary") })),
     el("p", { class: "rc-hint" },
       el("span", { class: "es-dot rc-dot-affirm", "aria-hidden": "true" }),
       "Remove undoes from a toast — no confirm dialog."));
@@ -182,7 +279,7 @@ function mount(host, bridge) {
 
   host.replaceChildren(header,
     el("div", { class: "rc-columns" },
-      el("div", { class: "rc-col" }, devicePanel, live),
+      el("div", { class: "rc-col" }, devicePanel, trackPanel, live),
       libraryPanel),
     logView);
 
@@ -237,48 +334,150 @@ function mount(host, bridge) {
     if (s.seed != null) seedInput.value = formatSeed(s.seed);
   }
 
+  function describe(item, seed) {
+    const c = item.payload?.captured;
+    return {
+      short: c ? `${rootName(c.rootWhenCaptured)} ${scaleName(c.scaleIndex)}` : "no status captured",
+      full: c
+        ? `${rootName(c.rootWhenCaptured)} ${scaleName(c.scaleIndex)}, ${c.tempoBpm} BPM` +
+          (c.engines?.length ? `, ${c.engines.join(", ")}` : "")
+        : "no status captured",
+      engines: c?.engines ?? [],
+      muted: seed.status ? [] : (item.payload?.mutedTracks ?? []),
+    };
+  }
+
+  /// Everything a person might reasonably type: the seed, the scale and root
+  /// names, an engine, their own note. Facets carry the readable names for
+  /// exactly this reason.
+  function matches(item, seed, text) {
+    if (!text) return true;
+    const f = item.facets ?? {};
+    return [formatSeed(seed.seed), f.scale, f.rootName, f.engines, seed.note,
+            String(f.tempoBpm ?? "")]
+      .filter(Boolean).join(" ").toLowerCase().includes(text);
+  }
+
   function visibleItems() {
     return state.items
       .map((item) => ({ item, seed: libraryItemToSeed(item) }))
-      .filter(({ seed }) => seed && state.filters[seed.rating === "unrated" ? "unrated" : seed.rating]);
+      .filter(({ item, seed }) => {
+        if (!seed) return false;
+        if (!state.filters[seed.rating]) return false;
+        if (!matches(item, seed, state.query)) return false;
+        if (state.facet && String(item.facets?.[state.facet.key]) !== String(state.facet.value)) return false;
+        return true;
+      });
+  }
+
+  function renderFacets() {
+    const counts = new Map();   // "key\u0000value" -> n
+    const bump = (key, value) => {
+      if (value == null || value === "") return;
+      const id = `${key}\u0000${value}`;
+      counts.set(id, (counts.get(id) ?? 0) + 1);
+    };
+
+    for (const item of state.items) {
+      bump("scale", item.facets?.scale);
+      bump("rootName", item.facets?.rootName);
+      if (item.facets?.partial) bump("partial", true);
+    }
+
+    const chips = [...counts.entries()]
+      .map(([id, n]) => { const [key, value] = id.split("\u0000"); return { key, value, n }; })
+      .sort((a, b) => b.n - a.n || a.value.localeCompare(b.value))
+      .slice(0, 6);
+
+    const chip = (label, on, onclick, title) =>
+      el("button", { class: `es-btn es-small rc-chip${on ? " is-on" : ""}`,
+        "aria-pressed": String(on), title, text: label, onclick });
+
+    facetRow.replaceChildren(
+      // Rating filters first: they are the question asked most often.
+      ...["keep", "unrated", "pass"].map((rating) =>
+        chip(rating === "unrated" ? "New" : rating[0].toUpperCase() + rating.slice(1),
+             state.filters[rating],
+             () => { state.filters[rating] = !state.filters[rating]; renderLibrary(); },
+             `Show ${rating} seeds`)),
+      el("span", { class: "rc-facet-sep", "aria-hidden": "true" }),
+      ...chips.map(({ key, value, n }) => {
+        const on = state.facet?.key === key && String(state.facet.value) === String(value);
+        const label = key === "partial" ? `part-muted ${n}` : `${value} ${n}`;
+        return chip(label, on,
+          () => { state.facet = on ? null : { key, value }; renderLibrary(); },
+          `Only seeds where ${key} is ${value}`);
+      }));
   }
 
   function renderLibrary() {
     const rows = visibleItems();
-    libraryEyebrow.textContent = `Library · ${rows.length}`;
+    libraryEyebrow.textContent = `Library · ${rows.length}${rows.length !== state.items.length ? ` of ${state.items.length}` : ""}`;
+    renderFacets();
 
     libraryList.replaceChildren(...rows.map(({ item, seed }) => {
-      const mark = seed.rating === "keep" ? "K" : seed.rating === "pass" ? "P" : "–";
-      const captured = item.payload?.captured;
-      const short = captured
-        ? `${rootName(captured.rootWhenCaptured)} ${scaleName(captured.scaleIndex)}`
-        : "no status captured";
+      const d = describe(item, seed);
+      const isSelected = state.selected === seed.seed;
+      const isChecked = state.checked.has(seed.seed);
+      const muted = item.payload?.mutedTracks ?? [];
 
-      // The full description is the accessible name and the tooltip: the row
-      // shows the short form, but nothing is hidden from a screen reader.
-      const full = captured
-        ? `${short}, ${captured.tempoBpm} BPM${captured.engines?.length ? ", " + captured.engines.join(", ") : ""}`
-        : short;
+      const box = el("input", { type: "checkbox", class: "rc-check",
+        "aria-label": `Select ${formatSeed(seed.seed)}`,
+        ...(isChecked ? { checked: "" } : {}),
+        onclick: (e) => {
+          e.stopPropagation();
+          if (state.checked.has(seed.seed)) state.checked.delete(seed.seed);
+          else state.checked.add(seed.seed);
+          renderLibrary();
+        } });
+
+      // Rating as a WORD in its own colour, not a letter at the far edge, plus
+      // a thick left bar. At a glance, across a full list: which did I keep.
+      const ratingChip = el("span", { class: `rc-rating rc-rating-${seed.rating}`,
+        text: seed.rating === "keep" ? "Keep" : seed.rating === "pass" ? "Pass" : "New" });
 
       return el("div", {
-        class: `rc-item rc-${seed.rating}${state.selected === seed.seed ? " is-selected" : ""}`,
+        class: `rc-item rc-${seed.rating}${isSelected ? " is-selected" : ""}${isChecked ? " is-checked" : ""}`,
         role: "option", tabindex: "-1",
-        "aria-selected": String(state.selected === seed.seed),
-        "aria-label": `${formatSeed(seed.seed)}, ${seed.rating}, ${full}`,
-        title: full,
-        onclick: () => { state.selected = seed.seed; noteInput.value = seed.note ?? ""; renderLibrary(); },
+        "aria-selected": String(isSelected),
+        "aria-label": `${formatSeed(seed.seed)}, ${seed.rating}, ${d.full}` +
+                      (muted.length ? `, ${muted.length} track(s) muted` : "") +
+                      (seed.note ? `, note: ${seed.note}` : ""),
+        title: d.full + (seed.note ? `\n${seed.note}` : ""),
+        onclick: () => {
+          state.selected = seed.seed;
+          state.muted = new Set(muted);
+          noteInput.value = seed.note ?? "";
+          renderLibrary();
+          renderTracks();
+        },
         ondblclick: () => bridge.send("sendSeed", { seed: seed.seed }),
       },
+        box,
+        ratingChip,
         el("span", { class: "rc-item-seed num", text: formatSeed(seed.seed) }),
-        el("span", { class: "rc-item-desc", text: short }),
-        el("span", { class: "rc-item-mark", text: mark, "aria-hidden": "true" }));
+        el("span", { class: "rc-item-desc", text: d.short }),
+        el("span", { class: "rc-item-engines", text: d.engines.join(" · ") }),
+        muted.length
+          ? el("span", { class: "rc-item-partial", title: `${muted.length} track(s) muted`,
+                         text: `${d.engines.length - muted.length}/${d.engines.length}` })
+          : null);
     }));
 
-    cluster?.update({ library: { count: rows.length, onToggle: () => host.classList.toggle("rc-library-hidden") } });
+    bulkBar.hidden = state.checked.size === 0;
+    bulkBar.replaceChildren(
+      el("span", { text: `${state.checked.size} selected` }),
+      el("button", { class: "es-btn es-small", text: "Clear",
+        onclick: () => { state.checked.clear(); renderLibrary(); } }),
+      el("button", { class: "es-btn es-small", text: "Select all shown",
+        onclick: () => { for (const { seed } of visibleItems()) state.checked.add(seed.seed); renderLibrary(); } }));
+
+    cluster?.update({ library: { count: state.items.length,
+      onToggle: () => host.classList.toggle("rc-library-hidden") } });
   }
 
   // ── Native → UI ──────────────────────────────────────────────────────────
-  bridge.on("status", (s) => { state.status = s ?? {}; renderStatus(); });
+  bridge.on("status", (s) => { state.status = s ?? {}; renderStatus(); renderTracks(); });
   bridge.on("library", (payload) => { state.items = payload?.items ?? []; renderLibrary(); });
   bridge.on("log", (payload) => log(typeof payload === "string" ? payload : payload?.text ?? ""));
   bridge.on("ports", (p) => { state.ports = p ?? { inputs: [], outputs: [] }; renderPorts(); });
@@ -294,6 +493,7 @@ function mount(host, bridge) {
   renderCluster();
   renderStatus();
   renderLibrary();
+  renderTracks();
   renderPorts();
 
   bridge.send("uiReady", { theme: resolvedTheme() });

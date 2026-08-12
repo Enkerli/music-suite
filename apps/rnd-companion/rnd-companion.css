@@ -50,7 +50,11 @@ body { margin: 0; background: var(--es-bg); color: var(--es-fg); font-family: va
 .rc-dot-affirm { background: var(--es-dim-expr); }
 
 .rc-list { border: 1px solid var(--es-border); border-radius: var(--es-radius-sm);
-           background: var(--es-bg-sunken); overflow-y: auto; max-height: 46vh; }
+           background: var(--es-bg-sunken); overflow-y: auto;
+           /* The list is the part that gives: the rating actions below it must
+              stay reachable without scrolling the page. */
+           flex: 1 1 auto; min-height: 140px; max-height: 40vh; }
+.rc-library { max-height: calc(100vh - 140px); }
 .rc-item { display: grid; grid-template-columns: 116px 1fr 20px; align-items: center;
            gap: var(--es-space-2); padding: 0 var(--es-space-2);
            min-height: var(--es-ctl-h); border-left: 3px solid var(--es-fg-faint);
@@ -72,3 +76,57 @@ body { margin: 0; background: var(--es-bg); color: var(--es-fg); font-family: va
           border: 1px solid var(--es-border); border-radius: var(--es-radius-sm);
           font-family: var(--es-font-mono); font-size: var(--es-text-xs);
           color: var(--es-fg-muted); max-height: 120px; overflow-y: auto; white-space: pre-wrap; }
+
+/* ── Library: rating first ────────────────────────────────────────────────
+   The question asked of this list most often is "which did I keep". Rating is
+   therefore a word in its own colour AND a thick left bar AND a row tint —
+   three channels, none of them colour alone, all readable while scanning. */
+/* minmax(0,…) on both flexible columns: without the 0 minimum a grid track
+   refuses to shrink below its content, so the description wrapped to three
+   lines and every row was a different height. */
+.rc-item { grid-template-columns: auto 44px 112px minmax(0, 1.2fr) minmax(0, 1fr) auto;
+           border-left-width: 4px; align-items: center; }
+.rc-item > * { min-width: 0; }
+.rc-item-desc { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rc-item.rc-keep { background: color-mix(in srgb, var(--es-dim-expr) 7%, transparent); }
+.rc-item.rc-pass { opacity: 0.62; }
+.rc-item.is-checked { background: color-mix(in srgb, var(--es-accent) 16%, transparent); }
+.rc-check { width: 18px; height: 18px; }
+
+.rc-rating { font-size: var(--es-text-xs); font-weight: 700; letter-spacing: 0.03em;
+             text-transform: uppercase; }
+.rc-rating-keep { color: var(--es-dim-expr); }
+.rc-rating-pass { color: var(--es-danger); }
+.rc-rating-unrated { color: var(--es-fg-muted); }
+
+.rc-item-engines { color: var(--es-fg-muted); font-size: var(--es-text-xs);
+                   overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: right; }
+/* Engine names are the first thing worth losing when space runs out — the
+   rating, seed and scale are not. */
+@media (max-width: 1100px) { .rc-item-engines { display: none; } }
+/* "2/4" — how much of this seed you actually kept. */
+.rc-item-partial { font-family: var(--es-font-mono); font-size: var(--es-text-xs);
+                   color: var(--es-dim-pressure); font-variant-numeric: tabular-nums; }
+
+.rc-search { width: 100%; }
+.rc-facets { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.rc-chip.is-on { background: var(--es-accent); color: var(--es-accent-fg); border-color: var(--es-accent); }
+.rc-facet-sep { width: 1px; height: 18px; background: var(--es-border); margin: 0 4px; }
+
+.rc-bulk { display: flex; align-items: center; gap: var(--es-space-2);
+           font-size: var(--es-text-sm); color: var(--es-fg-2);
+           padding: var(--es-space-2); border-radius: var(--es-radius-sm);
+           background: color-mix(in srgb, var(--es-accent) 10%, transparent); }
+.rc-bulk[hidden] { display: none; }
+
+/* ── Track audition ──────────────────────────────────────────────────────── */
+.rc-tracks { display: flex; flex-direction: column; gap: 6px; }
+.rc-track { display: grid; grid-template-columns: 20px 1fr auto auto; align-items: center;
+            gap: var(--es-space-2); padding: 4px var(--es-space-2);
+            border: 1px solid var(--es-border-soft); border-radius: var(--es-radius-sm);
+            background: var(--es-bg-sunken); }
+.rc-track-n { font-family: var(--es-font-mono); font-size: var(--es-text-xs); color: var(--es-fg-muted); }
+.rc-track-name { font-size: var(--es-text-sm); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rc-track.is-muted { opacity: 0.5; }
+.rc-track.is-muted .rc-track-name { text-decoration: line-through; }
+.rc-track.is-solo { border-color: var(--es-dim-expr); }
