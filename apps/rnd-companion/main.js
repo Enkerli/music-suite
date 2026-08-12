@@ -66,10 +66,15 @@ function mount(host, bridge) {
     // (write-build-tag.cmake); the webapp substitutes __BUILD_ID__ into the
     // page with sed. The plugin embeds the SOURCE index.html, so its data-build
     // is still the placeholder -- take the injected tag first.
+    // The native half comes from the editor's user script, which BridgedWebView
+    // injects before the page loads. It used to start null and wait for a
+    // "build" bridge event that no editor has ever sent, so the header chip
+    // silently showed the UI tag alone -- a stamp that says nothing about the
+    // binary, in the one place you look to find out what binary you are running.
     build: { ui: globalThis.__BUILD_TAG__
                  ?? (host.dataset.build?.includes("__BUILD_ID__") ? "dev" : host.dataset.build)
                  ?? "dev",
-             native: null },
+             native: globalThis.__CPP_BUILD_TAG__ ?? null },
     mixTouched: false,
   };
 
@@ -482,7 +487,13 @@ function mount(host, bridge) {
   bridge.on("log", (payload) => log(typeof payload === "string" ? payload : payload?.text ?? ""));
   bridge.on("ports", (p) => { state.ports = p ?? { inputs: [], outputs: [] }; renderPorts(); });
   bridge.on("transport", (p) => { routeSelect.value = p?.transport ?? "direct"; });
-  bridge.on("build", (p) => { state.build.native = p?.native ?? null; renderCluster(); });
+  // An editor may publish the stamp explicitly; falling back to the injected
+  // value means an event carrying no native field cannot blank out what the
+  // user script already told us.
+  bridge.on("build", (p) => {
+    state.build.native = p?.native ?? globalThis.__CPP_BUILD_TAG__ ?? null;
+    renderCluster();
+  });
 
   function renderPorts() {
     connectionWord.textContent = state.ports.connected ? (state.ports.outputName ?? "Connected") : "Not connected";
