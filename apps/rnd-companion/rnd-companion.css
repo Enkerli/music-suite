@@ -62,12 +62,12 @@ body { margin: 0; background: var(--es-bg); color: var(--es-fg); font-family: va
 .rc-item:last-child { border-bottom: none; }
 .rc-item.is-selected { background: color-mix(in srgb, var(--es-accent) 12%, transparent); }
 .rc-item.rc-keep { border-left-color: var(--es-dim-expr); }
-.rc-item.rc-pass { border-left-color: var(--es-danger); }
+.rc-item.rc-pass { border-left-color: var(--es-fg-faint); }
 .rc-item-seed { font-family: var(--es-font-mono); font-size: var(--es-text-sm); font-variant-numeric: tabular-nums; }
 .rc-item-desc { color: var(--es-fg-2); font-size: var(--es-text-sm); }
 .rc-item-mark { font-size: var(--es-text-xs); font-weight: 700; text-align: right; color: var(--es-fg-muted); }
 .rc-keep .rc-item-mark { color: var(--es-dim-expr); }
-.rc-pass .rc-item-mark { color: var(--es-danger); }
+.rc-pass .rc-item-mark { color: var(--es-fg-muted); }
 
 .rc-actions { justify-content: flex-start; }
 .rc-danger { border-color: var(--es-danger); color: var(--es-danger); }
@@ -88,16 +88,37 @@ body { margin: 0; background: var(--es-bg); color: var(--es-fg); font-family: va
            border-left-width: 4px; align-items: center; }
 .rc-item > * { min-width: 0; }
 .rc-item-desc { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.rc-item.rc-keep { background: color-mix(in srgb, var(--es-dim-expr) 7%, transparent); }
-.rc-item.rc-pass { opacity: 0.62; }
+.rc-item.rc-keep { background: color-mix(in srgb, var(--es-dim-expr) 13%, transparent); }
+.rc-item.rc-pass { opacity: 0.5; }
 .rc-item.is-checked { background: color-mix(in srgb, var(--es-accent) 16%, transparent); }
 .rc-check { width: 18px; height: 18px; }
 
+/* The hierarchy runs keep > pass > unrated, and it used to run backwards.
+   PASS was rendered in --es-danger, making the seeds you had rejected the only
+   red thing on screen; unrated printed a bold uppercase NEW on every row, which
+   is most rows, so the default state was also the busiest. KEEP -- the one you
+   scan for -- was pale green text that scored 2.98:1 on paper, below AA.
+
+   Now: unrated says nothing, pass recedes, keep is the only badge with a fill. */
 .rc-rating { font-size: var(--es-text-xs); font-weight: 700; letter-spacing: 0.03em;
              text-transform: uppercase; }
-.rc-rating-keep { color: var(--es-dim-expr); }
-.rc-rating-pass { color: var(--es-danger); }
-.rc-rating-unrated { color: var(--es-fg-muted); }
+
+/* A filled pill, so it reads as a mark rather than as coloured text. The tint
+   is theme-invariant and always pale, so the ink is mixed from the same green
+   rather than taken from --es-fg: a token that flips with the theme would go
+   pale-on-pale in dark. This lands about 9:1 in both themes. */
+.rc-rating-keep { background: var(--es-dim-expr-tint);
+                  color: color-mix(in srgb, var(--es-dim-expr) 40%, #000);
+                  padding: 1px 7px; border-radius: 999px; }
+
+/* Grey, not red. Red is for destructive actions -- the Remove button -- and a
+   seed you passed on is not a warning, it is something to look past. */
+.rc-rating-pass { color: var(--es-fg-muted); font-weight: 600; }
+
+/* Invisible rather than absent: the column keeps its width so seeds and
+   descriptions stay aligned down the list. The row's aria-label still carries
+   the rating, so nothing is lost to a screen reader. */
+.rc-rating-unrated { visibility: hidden; }
 
 .rc-item-engines { color: var(--es-fg-muted); font-size: var(--es-text-xs);
                    overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: right; }
