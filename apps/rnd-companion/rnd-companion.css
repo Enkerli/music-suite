@@ -88,9 +88,34 @@ body { margin: 0; background: var(--es-bg); color: var(--es-fg); font-family: va
            border-left-width: 4px; align-items: center; }
 .rc-item > * { min-width: 0; }
 .rc-item-desc { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.rc-item.rc-keep { background: color-mix(in srgb, var(--es-dim-expr) 13%, transparent); }
-.rc-item.rc-pass { opacity: 0.5; }
-.rc-item.is-checked { background: color-mix(in srgb, var(--es-accent) 16%, transparent); }
+/* Banded rows, in the spreadsheet sense: the row itself carries the state, so a
+   kept seed is found by looking down the list rather than by reading it. A 13%
+   wash was too polite to do that job.
+
+   Mixed against transparent rather than set to the flat tint token, because the
+   tint is theme-invariant: a fixed pale band would sit under light ink in dark
+   mode. This way the band deepens with the surface and the row text keeps its
+   contrast in both themes. */
+.rc-item.rc-keep { background: color-mix(in srgb, var(--es-dim-expr) 26%, transparent); }
+
+/* Passed rows recede but stay banded, so the list still reads as rows rather
+   than as a column of floating text. */
+.rc-item.rc-pass { opacity: 0.5;
+                   background: color-mix(in srgb, var(--es-fg) 5%, transparent); }
+
+/* Unrated rows get the plain alternating band -- the actual Excel behaviour --
+   which is what makes a wide row trackable from seed to engine names. Rated
+   rows have a band of their own and opt out. */
+.rc-item:nth-child(even):not(.rc-keep):not(.rc-pass) {
+  background: color-mix(in srgb, var(--es-fg) 4%, transparent); }
+
+/* ORDER MATTERS, and it was wrong: .is-selected was declared above the rating
+   bands, so selecting a kept row changed nothing you could see -- the later,
+   equally specific .rc-keep rule simply won. Selection and checking are things
+   you are doing right now; they outrank a stored rating and are declared last
+   to say so. */
+.rc-item.is-selected { background: color-mix(in srgb, var(--es-accent) 20%, transparent); }
+.rc-item.is-checked  { background: color-mix(in srgb, var(--es-accent) 30%, transparent); }
 .rc-check { width: 18px; height: 18px; }
 
 /* The hierarchy runs keep > pass > unrated, and it used to run backwards.
