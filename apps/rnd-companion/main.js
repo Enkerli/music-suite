@@ -20,7 +20,7 @@ import tokensCss from "@enkerli/ui/tokens.css";
 import componentsCss from "@enkerli/ui/components.css";
 import { createGlobalCluster } from "@enkerli/ui/global-cluster";
 import { initTheme, resolvedTheme } from "@enkerli/ui/theme";
-import { formatSeed, parseSeed, rootName, scaleName, NUM_SCALES, NUM_ROOTS } from "@enkerli/rnd";
+import { formatSeed, parseSeed, rootName, scaleName, NUM_SCALES, NUM_ROOTS, MAX_TRACKS } from "@enkerli/rnd";
 import { libraryItemToSeed } from "@enkerli/rnd/library";
 
 import { createRndBridge } from "./bridge.js";
@@ -182,12 +182,16 @@ function mount(host, bridge) {
     return item?.payload?.captured?.engines?.length || state.status.engines?.length || 0;
   }
 
-  function pushMutes() {
+  // count is overridable because the engine list is empty in the moment right
+  // after a seed is sent — the device has not described the new patch yet.
+  // Restoring volumes then would only reach track 1 and leave the rest silent,
+  // so callers in that position pass MAX_TRACKS.
+  function pushMutes(count = trackCount()) {
     const seed = auditionSeed();
     bridge.send("setTrackMutes", {
       ...(seed != null ? { seed } : {}),
       muted: [...state.muted].sort((a, b) => a - b),
-      trackCount: Math.max(1, trackCount()),
+      trackCount: Math.max(1, count),
     });
   }
 
@@ -486,7 +490,38 @@ function mount(host, bridge) {
   }
 
   // ── Native → UI ──────────────────────────────────────────────────────────
-  bridge.on("status", (s) => { state.status = s ?? {}; renderStatus(); renderTracks(); });
+  bridge.on("status", (s) => {
+    const previousSeed = state.status.seed;
+    state.status = s ?? {};
+
+    // The device has moved to a different seed, so that is what you are
+    // listening to now. state.selected used to survive this: it is set by
+    // clicking a library row and nothing ever cleared it, so auditionSeed()
+    // went on naming the old entry and the Tracks panel kept showing its
+    // engines while the hardware played something else.
+    //
+    // Worse, the mute set survived too. Mute all four, send a new seed, and
+    // the device stayed silent with nothing on screen saying why — the volumes
+    // are hardware state and a new seed does not reset them.
+    if (state.status.seed != null && state.status.seed !== previousSeed) {
+      const entry = state.items.find((i) => libraryItemToSeed(i)?.seed === state.status.seed);
+      const remembered = entry?.payload?.mutedTracks ?? [];
+      const changed = remembered.length !== state.muted.size
+                      || remembered.some((t) => !state.muted.has(t));
+
+      state.selected = null;
+      state.muted = new Set(remembered);
+      noteInput.value = entry?.payload?.note ?? "";
+
+      // Only when it differs, so the device's own repeated status broadcast
+      // does not turn into a stream of volume messages.
+      if (changed) pushMutes(MAX_TRACKS);
+      renderLibrary();
+    }
+
+    renderStatus();
+    renderTracks();
+  });
   bridge.on("library", (payload) => { state.items = payload?.items ?? []; renderLibrary(); });
   bridge.on("log", (payload) => log(typeof payload === "string" ? payload : payload?.text ?? ""));
   bridge.on("ports", (p) => { state.ports = p ?? { inputs: [], outputs: [] }; renderPorts(); });

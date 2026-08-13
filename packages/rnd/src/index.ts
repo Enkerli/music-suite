@@ -248,6 +248,15 @@ export const MIX_CHANNELS = [1, 2, 3, 4, 5] as const;
 export const NUM_SCALES = 20;
 export const NUM_ROOTS = 12;
 
+/**
+ * Tracks the device can drive, one per takeover channel. Mirrors
+ * `rnd::maxTracks` in the C++ twin. Addressing a track the current seed does
+ * not use is harmless — the CC lands on a channel with nothing behind it —
+ * which makes this the safe count to use when restoring volumes for a seed
+ * whose engine list has not arrived yet.
+ */
+export const MAX_TRACKS = 4;
+
 /** The device's own CC9 band midpoints; equals floor(3.2 + 6.4 * index). */
 const SCALE_CC_MIDPOINTS = [
   3, 9, 16, 22, 28, 35, 41, 48, 54, 60, 67, 73, 80, 86, 92, 99, 105, 112, 118, 124,
