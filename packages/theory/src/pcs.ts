@@ -7,9 +7,18 @@
  *   k=3 augmented · k=4 dim7 · k=5 major pentatonic · k=6 whole tone ·
  *   k=7 major scale · k=8 octatonic (half-whole)
  *
- * Bitmask convention (suite-wide): leftmost = LSB, pitch class i contributes 2^i
- * (pc 0 contributes 2^11), so C major scale = 2773 — see PCS_SCHEMA.md
- * in PickPCS.
+ * Bitmask convention (suite-wide): leftmost = LSB, pitch class i contributes
+ * 2^i, so pc 0 contributes 1 and the C major scale is **2741**.
+ *
+ * This comment used to read "(pc 0 contributes 2^11), so C major scale = 2773",
+ * which described neither the code beneath it nor the suite's convention. Both
+ * halves are fossils of the 2026-06-10 MSB-first unification that was reverted
+ * twelve days later (CONVENTIONS.md records the flip and the reversion): 2773
+ * is C major read MSB-first, and it is also — read the right way round — the
+ * bitmask of C Lydian, which is the sort of wrong number that looks plausible
+ * to somebody checking. Found in 2026-09 by a Swift port asserting the value
+ * from this comment and disagreeing with the code. See PCS_SCHEMA.md in
+ * PickPCS, which may carry the same fossil.
  */
 
 import { mod12 } from "./pitch.js";
