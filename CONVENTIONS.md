@@ -118,3 +118,11 @@ Both domains originally read leftmost = LSB. On 2026-06-10 the suite was unified
 strictly left to right, the low bit first (`0x1` = step 0 / pitch class 0).
 `@enkerli/theory`'s codecs (`patternToDecimal`, `patternFromHex`, `pcsToDecimal`,
 …) and `packages/theory/vectors/*.json` are the reference.
+
+For the notation *above* those codecs — UPI's `0x…`, `o…`, `d…`, `[i,j,k]:n`
+and bare bit-string forms — `packages/upi/vectors/upi.json` is the reference,
+and it carries `0x94` and `0x49` side by side precisely because reading the
+digits the other way round is the mistake this section exists to prevent. It
+also records the widths, which are the second thing a port gets wrong: `d73` is
+seven steps and `d73:8` is eight, so a decimal form without an explicit width
+loses the pattern's final rest.

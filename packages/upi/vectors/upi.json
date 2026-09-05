@@ -1,0 +1,1393 @@
+{
+ "description": "Cross-language vectors for @enkerli/upi — Serpe's UPI notation and the readings taken over a parsed pattern. @enkerli/theory's rhythm.json holds the algorithms (Bjorklund, Barlow tables, complement, codecs); this holds the layer above them, which had no coverage beyond poly.json. Steps are bit-strings, leftmost = LSB: the first character is step 0, hex digits are little-endian, and tresillo is 10010010 = 0x94 = d73. That convention is the single thing a port into a new language silently inverts, which is why the numeric forms are here. Out of scope, deliberately: R(k,n) and mutatePattern, both of which draw from Math.random and would pin nothing; and the DOM visualisers, which are app-side by design. Regenerate with gen-upi-vectors.mjs; upi.test.js asserts this file stays reproduced.",
+ "groups": {
+  "notation": [
+   {
+    "input": "E(3,8)",
+    "ok": true,
+    "note": "the tresillo, and the pattern every other case is checked against",
+    "steps": "10010010",
+    "label": "E(3,8)"
+   },
+   {
+    "input": "E(5,8)",
+    "ok": true,
+    "note": "cinquillo",
+    "steps": "10110110",
+    "label": "E(5,8)"
+   },
+   {
+    "input": "E(5,16)",
+    "ok": true,
+    "note": "the default Serpe loads with",
+    "steps": "1001001001001000",
+    "label": "E(5,16)"
+   },
+   {
+    "input": "E(3,8,2)",
+    "ok": true,
+    "note": "rotation is a third argument, not a separate operator",
+    "steps": "10100100",
+    "label": "E(3,8,2)"
+   },
+   {
+    "input": "E(3,8,-2)",
+    "ok": true,
+    "note": "and it goes both ways",
+    "steps": "01001010",
+    "label": "E(3,8,-2)"
+   },
+   {
+    "input": "E(0,8)",
+    "ok": true,
+    "note": "no onsets is a pattern, not an error",
+    "steps": "00000000",
+    "label": "E(0,8)"
+   },
+   {
+    "input": "E(8,8)",
+    "ok": true,
+    "note": "and so is every step",
+    "steps": "11111111",
+    "label": "E(8,8)"
+   },
+   {
+    "input": "E(9,8)",
+    "ok": true,
+    "note": "more onsets than steps — saturates rather than failing",
+    "steps": "11111111",
+    "label": "E(9,8)"
+   },
+   {
+    "input": "P(3,0)",
+    "ok": true,
+    "note": "a bare k-gon is k steps — its own resolution, not ctx.n",
+    "steps": "111",
+    "label": "P(3,0)"
+   },
+   {
+    "input": "P(3,1)",
+    "ok": true,
+    "note": "offset",
+    "steps": "111",
+    "label": "P(3,1)"
+   },
+   {
+    "input": "P(5,0)",
+    "ok": true,
+    "steps": "11111",
+    "label": "P(5,0)"
+   },
+   {
+    "input": "P(3,1,4)",
+    "ok": true,
+    "note": "triangle x4 — 12 steps, still exactly even",
+    "steps": "010001000100",
+    "label": "P(3,1,4)"
+   },
+   {
+    "input": "P(7,2)",
+    "ok": true,
+    "note": "seven steps, not sixteen",
+    "steps": "1111111",
+    "label": "P(7,2)"
+   },
+   {
+    "input": "B(3,8)",
+    "ok": true,
+    "note": "concentrate to 3 by indispensability, from the downbeat",
+    "steps": "10001001",
+    "label": "B(3,8)"
+   },
+   {
+    "input": "W(3,8)",
+    "ok": true,
+    "note": "Wolrab — the same, anti-indispensability",
+    "steps": "11010000",
+    "label": "W(3,8)"
+   },
+   {
+    "input": "D(3,8)",
+    "ok": true,
+    "note": "Dilcue — complement of E(n-k,n)",
+    "steps": "01001001",
+    "label": "D(3,8)"
+   },
+   {
+    "input": "A(2,2,2,3)",
+    "ok": true,
+    "note": "aksak 9/8",
+    "steps": "101010100",
+    "label": "A(2,2,2,3)"
+   },
+   {
+    "input": "A(3,3,2)",
+    "ok": true,
+    "steps": "10010010",
+    "label": "A(3,3,2)"
+   },
+   {
+    "input": "M:...-",
+    "ok": true,
+    "note": "explicit prefix",
+    "steps": "11110",
+    "label": "♪ M:...-"
+   },
+   {
+    "input": ".-",
+    "ok": true,
+    "note": "a bare dot-dash string",
+    "steps": "110",
+    "label": "♪ .-"
+   },
+   {
+    "input": "sos",
+    "ok": true,
+    "note": "a bare letter word",
+    "steps": "111101010111",
+    "label": "♪ sos"
+   },
+   {
+    "input": "D:1,3 -.-",
+    "ok": true,
+    "note": "custom durations, the webapp's spelling",
+    "steps": "1001100",
+    "label": "D:1,3 -.-"
+   },
+   {
+    "input": "L:1,3 -.-",
+    "ok": true,
+    "note": "and the C++ engine's — both accepted in both, which the divergence between them used to cost real confusion",
+    "steps": "1001100",
+    "label": "D:1,3 -.-"
+   },
+   {
+    "input": "P(3,0)+P(5,0)",
+    "ok": true,
+    "note": "polygons land on lcm(3,5)=15",
+    "steps": "100101100110100",
+    "label": "P(3,0)+P(5,0)"
+   },
+   {
+    "input": "P(3,1)+P(5,0)+P(2,5)",
+    "ok": true,
+    "note": "perfectly balanced across 30 — only because each polygon spans the cycle once",
+    "steps": "110001100001100000101100100000",
+    "label": "P(3,1)+P(5,0)+P(2,5)"
+   },
+   {
+    "input": "E(3,8)+P(3,0)",
+    "ok": true,
+    "note": "a shape and a pattern, projected rather than tiled",
+    "steps": "100000001100000010100000",
+    "label": "E(3,8)+P(3,0)"
+   },
+   {
+    "input": "E(3,8)-E(2,8)",
+    "ok": true,
+    "note": "subtraction",
+    "steps": "00010010",
+    "label": "E(3,8)-E(2,8)"
+   },
+   {
+    "input": "E(3,8)+2",
+    "ok": false,
+    "note": "REFUSED, and deliberately: a numeric term is a progressive offset, handled by the progressive layer, not a combination",
+    "error": "Unrecognised pattern"
+   },
+   {
+    "input": "E(3,8);12",
+    "ok": true,
+    "steps": "100001000100",
+    "label": "E(3,8);12"
+   },
+   {
+    "input": "E(3,8);-12",
+    "ok": true,
+    "note": "counter-clockwise",
+    "steps": "100100001000",
+    "label": "E(3,8);-12"
+   },
+   {
+    "input": "P(3,0);8",
+    "ok": true,
+    "note": "a triangle on an eight-step grid",
+    "steps": "10010100",
+    "label": "P(3,0);8"
+   },
+   {
+    "input": "tresillo;12",
+    "ok": true,
+    "note": "shorthand resolves before quantization",
+    "steps": "100001000100",
+    "label": "E(3,8);12"
+   },
+   {
+    "input": "{10}E(3,8)",
+    "ok": true,
+    "note": "three onsets, a two-long accent cycle: 1,0,1",
+    "steps": "10010010",
+    "label": "E(3,8)",
+    "accentPattern": "10",
+    "accents": "10000010"
+   },
+   {
+    "input": "{100}E(3,8);12",
+    "ok": true,
+    "note": "accent prefix over a quantized base",
+    "steps": "100001000100",
+    "label": "E(3,8);12",
+    "accentPattern": "100",
+    "accents": "100000000000"
+   },
+   {
+    "input": "{1011}E(5,16)",
+    "ok": true,
+    "steps": "1001001001001000",
+    "label": "E(5,16)",
+    "accentPattern": "1011",
+    "accents": "1000001001001000"
+   },
+   {
+    "input": "0x94",
+    "ok": true,
+    "note": "tresillo — hex digits little-endian, first step's nibble leftmost",
+    "steps": "10010010",
+    "label": "0x94"
+   },
+   {
+    "input": "0x94:8",
+    "ok": true,
+    "note": "explicit width, same answer",
+    "steps": "10010010",
+    "label": "0x94"
+   },
+   {
+    "input": "0x49",
+    "ok": true,
+    "note": "the SAME digits read the other way round are a different pattern, which is what the convention is for",
+    "steps": "00101001",
+    "label": "0x49"
+   },
+   {
+    "input": "0x1:4",
+    "ok": true,
+    "note": "step 0 alone",
+    "steps": "1000",
+    "label": "0x1"
+   },
+   {
+    "input": "o111:8",
+    "ok": true,
+    "note": "tresillo in octal — digits little-endian too",
+    "steps": "10010010",
+    "label": "o111"
+   },
+   {
+    "input": "o111",
+    "ok": true,
+    "note": "and without a width it is 9 steps, not 8: the width comes from the digit count (3 bits each), so the pattern gains a rest",
+    "steps": "100100100",
+    "label": "o111"
+   },
+   {
+    "input": "o222",
+    "ok": true,
+    "note": "not a tresillo — 0o222 sets bits 1,4,7, so this is the tresillo rotated by one over 9 steps. Here because it is the shape of mistake a port makes and then cannot see",
+    "steps": "010010010",
+    "label": "o222"
+   },
+   {
+    "input": "d73",
+    "ok": true,
+    "note": "73 is tresillo's value, but the width is its bit length, so this is 7 steps and the pattern has lost its final rest",
+    "steps": "1001001",
+    "label": "d73"
+   },
+   {
+    "input": "d73:8",
+    "ok": true,
+    "note": "which is why a decimal form usually wants an explicit width",
+    "steps": "10010010",
+    "label": "d73"
+   },
+   {
+    "input": "[0,3,6]:8",
+    "ok": true,
+    "note": "onset indices",
+    "steps": "10010010",
+    "label": "[0,3,6]:8"
+   },
+   {
+    "input": "[0,3,6]",
+    "ok": true,
+    "note": "width from the largest index",
+    "steps": "1001001",
+    "label": "[0,3,6]:7"
+   },
+   {
+    "input": "10010010",
+    "ok": true,
+    "note": "a bare bit-string is itself",
+    "steps": "10010010",
+    "label": "10010010"
+   },
+   {
+    "input": "b10010010",
+    "ok": true,
+    "note": "and the b prefix is optional",
+    "steps": "10010010",
+    "label": "10010010"
+   },
+   {
+    "input": "tresillo",
+    "ok": true,
+    "steps": "10010010",
+    "label": "E(3,8)"
+   },
+   {
+    "input": "cinquillo",
+    "ok": true,
+    "steps": "10110110",
+    "label": "E(5,8)"
+   },
+   {
+    "input": "tri",
+    "ok": true,
+    "note": "P(3,0)",
+    "steps": "111",
+    "label": "P(3,0)"
+   },
+   {
+    "input": "hept",
+    "ok": true,
+    "note": "P(7,0)",
+    "steps": "1111111",
+    "label": "P(7,0)"
+   },
+   {
+    "input": "E(3,8) LS(1..3,50%)",
+    "ok": true,
+    "note": "durational suffix",
+    "steps": "10010010",
+    "label": "E(3,8)",
+    "longShort": {
+     "min": 1,
+     "max": 3,
+     "depth": 0.5
+    }
+   },
+   {
+    "input": "E(8,16) LS(1..2){1010}",
+    "ok": true,
+    "note": "which onsets are long, for a grid whose own intervals cannot say",
+    "steps": "1010101010101010",
+    "label": "E(8,16)",
+    "longs": "1000100010001000",
+    "longShort": {
+     "min": 1,
+     "max": 2,
+     "depth": 1,
+     "longMask": [
+      1,
+      0,
+      1,
+      0
+     ]
+    }
+   },
+   {
+    "input": "E(3,8) PD(20%)",
+    "ok": true,
+    "note": "microtiming",
+    "steps": "10010010",
+    "label": "E(3,8)",
+    "microtiming": {
+     "depth": 0.2,
+     "seed": 1
+    }
+   },
+   {
+    "input": "E(3,8) PD(20%, 7)",
+    "ok": true,
+    "note": "with a seed",
+    "steps": "10010010",
+    "label": "E(3,8)",
+    "microtiming": {
+     "depth": 0.2,
+     "seed": 7
+    }
+   },
+   {
+    "input": "nonsense(((",
+    "ok": false,
+    "note": "unparseable",
+    "error": "Unrecognised pattern"
+   },
+   {
+    "input": "",
+    "ok": false,
+    "note": "empty",
+    "error": "Unrecognised pattern"
+   },
+   {
+    "input": "E(3,)",
+    "ok": false,
+    "note": "malformed arguments fall through to the bit-string matcher and fail",
+    "error": "Unrecognised pattern"
+   }
+  ],
+  "analysis": [
+   {
+    "input": "E(3,8)",
+    "steps": "10010010",
+    "n": 8,
+    "k": 3,
+    "density": 0.375,
+    "onsets": [
+     0,
+     3,
+     6
+    ],
+    "intervals": [
+     3,
+     3,
+     2
+    ],
+    "evenness": 0.833333,
+    "balanced": false,
+    "cog": {
+     "magnitude": 0.138071,
+     "angleSteps": 7
+    },
+    "binary": "10010010",
+    "hex": "0x94",
+    "decimal": 73
+   },
+   {
+    "input": "E(5,8)",
+    "steps": "10110110",
+    "n": 8,
+    "k": 5,
+    "density": 0.625,
+    "onsets": [
+     0,
+     2,
+     3,
+     5,
+     6
+    ],
+    "intervals": [
+     2,
+     1,
+     2,
+     1,
+     2
+    ],
+    "evenness": 0.7,
+    "balanced": false,
+    "cog": {
+     "magnitude": 0.082843,
+     "angleSteps": 4
+    },
+    "binary": "10110110",
+    "hex": "0xD6",
+    "decimal": 109
+   },
+   {
+    "input": "E(5,16)",
+    "steps": "1001001001001000",
+    "n": 16,
+    "k": 5,
+    "density": 0.3125,
+    "onsets": [
+     0,
+     3,
+     6,
+     9,
+     12
+    ],
+    "intervals": [
+     3,
+     3,
+     3,
+     3,
+     4
+    ],
+    "evenness": 0.9,
+    "balanced": false,
+    "cog": {
+     "magnitude": 0.070231,
+     "angleSteps": 6
+    },
+    "binary": "1001001001001000",
+    "hex": "0x9421",
+    "decimal": 4681
+   },
+   {
+    "input": "E(4,16)",
+    "steps": "1000100010001000",
+    "n": 16,
+    "k": 4,
+    "density": 0.25,
+    "onsets": [
+     0,
+     4,
+     8,
+     12
+    ],
+    "intervals": [
+     4,
+     4,
+     4,
+     4
+    ],
+    "evenness": 1,
+    "balanced": true,
+    "cog": {
+     "magnitude": 0,
+     "angleSteps": 5.760039
+    },
+    "binary": "1000100010001000",
+    "hex": "0x1111",
+    "decimal": 4369
+   },
+   {
+    "input": "P(3,0)",
+    "steps": "111",
+    "n": 3,
+    "k": 3,
+    "density": 1,
+    "onsets": [
+     0,
+     1,
+     2
+    ],
+    "intervals": [
+     1,
+     1,
+     1
+    ],
+    "evenness": 1,
+    "balanced": true,
+    "cog": {
+     "magnitude": 0,
+     "angleSteps": 1.125
+    },
+    "binary": "111",
+    "hex": "0x7",
+    "decimal": 7
+   },
+   {
+    "input": "P(3,1)+P(5,0)",
+    "steps": "110100100101100",
+    "n": 15,
+    "k": 7,
+    "density": 0.466667,
+    "onsets": [
+     0,
+     1,
+     3,
+     6,
+     9,
+     11,
+     12
+    ],
+    "intervals": [
+     1,
+     2,
+     3,
+     3,
+     2,
+     1,
+     3
+    ],
+    "evenness": 0.657143,
+    "balanced": false,
+    "cog": {
+     "magnitude": 0.142857,
+     "angleSteps": 13.5
+    },
+    "binary": "110100100101100",
+    "hex": "0xB4A1",
+    "decimal": 6731
+   },
+   {
+    "input": "P(3,1)+P(5,0)+P(2,5)",
+    "steps": "110001100001100000101100100000",
+    "n": 30,
+    "k": 10,
+    "density": 0.333333,
+    "onsets": [
+     0,
+     1,
+     5,
+     6,
+     11,
+     12,
+     18,
+     20,
+     21,
+     24
+    ],
+    "intervals": [
+     1,
+     4,
+     1,
+     5,
+     1,
+     6,
+     2,
+     1,
+     3,
+     6
+    ],
+    "evenness": 0.4,
+    "balanced": true,
+    "cog": {
+     "magnitude": 0,
+     "angleSteps": 9.036246
+    },
+    "binary": "110001100001100000101100100000",
+    "hex": "0x3681431",
+    "decimal": 20191331
+   },
+   {
+    "input": "10000000",
+    "steps": "10000000",
+    "n": 8,
+    "k": 1,
+    "density": 0.125,
+    "onsets": [
+     0
+    ],
+    "intervals": [
+     8
+    ],
+    "evenness": 1,
+    "balanced": false,
+    "cog": {
+     "magnitude": 1,
+     "angleSteps": 0
+    },
+    "binary": "10000000",
+    "hex": "0x1",
+    "decimal": 1
+   },
+   {
+    "input": "11111111",
+    "steps": "11111111",
+    "n": 8,
+    "k": 8,
+    "density": 1,
+    "onsets": [
+     0,
+     1,
+     2,
+     3,
+     4,
+     5,
+     6,
+     7
+    ],
+    "intervals": [
+     1,
+     1,
+     1,
+     1,
+     1,
+     1,
+     1,
+     1
+    ],
+    "evenness": 1,
+    "balanced": true,
+    "cog": {
+     "magnitude": 0,
+     "angleSteps": 4.484476
+    },
+    "binary": "11111111",
+    "hex": "0xFF",
+    "decimal": 255
+   },
+   {
+    "input": "A(2,2,2,3)",
+    "steps": "101010100",
+    "n": 9,
+    "k": 4,
+    "density": 0.444444,
+    "onsets": [
+     0,
+     2,
+     4,
+     6
+    ],
+    "intervals": [
+     2,
+     2,
+     2,
+     3
+    ],
+    "evenness": 0.833333,
+    "balanced": false,
+    "cog": {
+     "magnitude": 0.133022,
+     "angleSteps": 3
+    },
+    "binary": "101010100",
+    "hex": "0x55",
+    "decimal": 85
+   },
+   {
+    "input": "[0,1,2,3]:16",
+    "steps": "1111000000000000",
+    "n": 16,
+    "k": 4,
+    "density": 0.25,
+    "onsets": [
+     0,
+     1,
+     2,
+     3
+    ],
+    "intervals": [
+     1,
+     1,
+     1,
+     13
+    ],
+    "evenness": 0,
+    "balanced": false,
+    "cog": {
+     "magnitude": 0.906127,
+     "angleSteps": 1.5
+    },
+    "binary": "1111000000000000",
+    "hex": "0xF",
+    "decimal": 15
+   }
+  ],
+  "longShort": [
+   {
+    "input": "E(3,8)",
+    "steps": "10010010",
+    "intervals": [
+     3,
+     3,
+     2
+    ],
+    "short": 2,
+    "long": 3,
+    "ratio": 1.5,
+    "types": [
+     "long",
+     "long",
+     "short"
+    ],
+    "pattern": "LLS",
+    "morse": "--.",
+    "foot": "antibacchic",
+    "isochronous": false,
+    "durations": [
+     1.5,
+     1.5,
+     1
+    ],
+    "interOnsetSteps": [
+     3,
+     3,
+     2
+    ]
+   },
+   {
+    "input": "E(5,8)",
+    "steps": "10110110",
+    "intervals": [
+     2,
+     1,
+     2,
+     1,
+     2
+    ],
+    "short": 1,
+    "long": 2,
+    "ratio": 2,
+    "types": [
+     "long",
+     "short",
+     "long",
+     "short",
+     "long"
+    ],
+    "pattern": "LSLSL",
+    "morse": "-.-.-",
+    "foot": "mixed",
+    "isochronous": false,
+    "durations": [
+     2,
+     1,
+     2,
+     1,
+     2
+    ],
+    "interOnsetSteps": [
+     2,
+     1,
+     2,
+     1,
+     2
+    ]
+   },
+   {
+    "input": "E(5,16)",
+    "steps": "1001001001001000",
+    "intervals": [
+     3,
+     3,
+     3,
+     3,
+     4
+    ],
+    "short": 3,
+    "long": 4,
+    "ratio": 1.333333,
+    "types": [
+     "short",
+     "short",
+     "short",
+     "short",
+     "long"
+    ],
+    "pattern": "SSSSL",
+    "morse": "....-",
+    "foot": "mixed",
+    "isochronous": false,
+    "durations": [
+     1,
+     1,
+     1,
+     1,
+     1.333333
+    ],
+    "interOnsetSteps": [
+     3,
+     3,
+     3,
+     3,
+     4
+    ]
+   },
+   {
+    "input": "E(8,16)",
+    "steps": "1010101010101010",
+    "intervals": [
+     2,
+     2,
+     2,
+     2,
+     2,
+     2,
+     2,
+     2
+    ],
+    "short": 2,
+    "long": 2,
+    "ratio": 1,
+    "types": [
+     "equal",
+     "equal",
+     "equal",
+     "equal",
+     "equal",
+     "equal",
+     "equal",
+     "equal"
+    ],
+    "pattern": "EEEEEEEE",
+    "morse": "========",
+    "foot": "isochronous",
+    "isochronous": true,
+    "durations": [
+     1,
+     1,
+     1,
+     1,
+     1,
+     1,
+     1,
+     1
+    ],
+    "interOnsetSteps": [
+     2,
+     2,
+     2,
+     2,
+     2,
+     2,
+     2,
+     2
+    ]
+   },
+   {
+    "input": "A(2,2,2,3)",
+    "steps": "101010100",
+    "intervals": [
+     2,
+     2,
+     2,
+     3
+    ],
+    "short": 2,
+    "long": 3,
+    "ratio": 1.5,
+    "types": [
+     "short",
+     "short",
+     "short",
+     "long"
+    ],
+    "pattern": "SSSL",
+    "morse": "...-",
+    "foot": "mixed",
+    "isochronous": false,
+    "durations": [
+     1,
+     1,
+     1,
+     1.5
+    ],
+    "interOnsetSteps": [
+     2,
+     2,
+     2,
+     3
+    ]
+   },
+   {
+    "input": "P(3,0)",
+    "steps": "111",
+    "intervals": [
+     1,
+     1,
+     1
+    ],
+    "short": 1,
+    "long": 1,
+    "ratio": 1,
+    "types": [
+     "equal",
+     "equal",
+     "equal"
+    ],
+    "pattern": "EEE",
+    "morse": "===",
+    "foot": "isochronous",
+    "isochronous": true,
+    "durations": [
+     1,
+     1,
+     1
+    ],
+    "interOnsetSteps": [
+     1,
+     1,
+     1
+    ]
+   },
+   {
+    "input": "10000000",
+    "steps": "10000000",
+    "intervals": [],
+    "short": null,
+    "long": null,
+    "ratio": null,
+    "types": [],
+    "pattern": "",
+    "morse": "",
+    "foot": "none",
+    "isochronous": false,
+    "durations": [],
+    "interOnsetSteps": [
+     8
+    ]
+   }
+  ],
+  "syncopation": [
+   {
+    "input": "E(3,8)",
+    "steps": "10010010",
+    "weightedNoteToBeats": 0.2,
+    "offBeatRatio": 0.333,
+    "expectancyViolation": 0.367,
+    "rhythmicDisplacement": 0.167,
+    "crossRhythmic": 0.7,
+    "barlowIndispensability": 0.5,
+    "overallSyncopation": 0.368,
+    "level": "moderate"
+   },
+   {
+    "input": "E(5,8)",
+    "steps": "10110110",
+    "weightedNoteToBeats": 0.24,
+    "offBeatRatio": 0.4,
+    "expectancyViolation": 0.42,
+    "rhythmicDisplacement": 0.2,
+    "crossRhythmic": 0.45,
+    "barlowIndispensability": 0.6,
+    "overallSyncopation": 0.379,
+    "level": "moderate"
+   },
+   {
+    "input": "10000000",
+    "steps": "10000000",
+    "weightedNoteToBeats": 0,
+    "offBeatRatio": 0,
+    "expectancyViolation": 0.1,
+    "rhythmicDisplacement": 0,
+    "crossRhythmic": 0.7,
+    "barlowIndispensability": 0,
+    "overallSyncopation": 0.125,
+    "level": "low"
+   },
+   {
+    "input": "01010101",
+    "steps": "01010101",
+    "weightedNoteToBeats": 0.6,
+    "offBeatRatio": 1,
+    "expectancyViolation": 0.58,
+    "rhythmicDisplacement": 0.625,
+    "crossRhythmic": 0.3,
+    "barlowIndispensability": 0.719,
+    "overallSyncopation": 0.633,
+    "level": "high"
+   },
+   {
+    "input": "E(5,16)",
+    "steps": "1001001001001000",
+    "weightedNoteToBeats": 0.28,
+    "offBeatRatio": 0.6,
+    "expectancyViolation": 0.516,
+    "rhythmicDisplacement": 0.2,
+    "crossRhythmic": 0.7,
+    "barlowIndispensability": 0.65,
+    "overallSyncopation": 0.482,
+    "level": "moderate"
+   },
+   {
+    "input": "A(2,2,2,3)",
+    "steps": "101010100",
+    "weightedNoteToBeats": 0.3,
+    "offBeatRatio": 0.75,
+    "expectancyViolation": 0.64,
+    "rhythmicDisplacement": 0.167,
+    "crossRhythmic": 0.3,
+    "barlowIndispensability": 0.583,
+    "overallSyncopation": 0.458,
+    "level": "moderate"
+   }
+  ],
+  "recognition": [
+   {
+    "input": "E(3,8)",
+    "steps": "10010010",
+    "euclidean": {
+     "beats": 3,
+     "steps": 8,
+     "offset": 0,
+     "formula": "E(3,8)"
+    },
+    "barlow": null,
+    "best": {
+     "formula": "E(3,8)",
+     "exact": true
+    },
+    "decomposeCount": 1
+   },
+   {
+    "input": "E(5,16)",
+    "steps": "1001001001001000",
+    "euclidean": {
+     "beats": 5,
+     "steps": 16,
+     "offset": 0,
+     "formula": "E(5,16)"
+    },
+    "barlow": null,
+    "best": {
+     "formula": "E(5,16)",
+     "exact": true
+    },
+    "decomposeCount": 1
+   },
+   {
+    "input": "P(3,0)",
+    "steps": "111",
+    "euclidean": {
+     "beats": 3,
+     "steps": 3,
+     "offset": 0,
+     "formula": "E(3,3)"
+    },
+    "barlow": {
+     "formula": "B(3,3)"
+    },
+    "best": {
+     "formula": "E(3,3)",
+     "exact": true
+    },
+    "decomposeCount": 7
+   },
+   {
+    "input": "P(3,1)+P(5,0)",
+    "steps": "110100100101100",
+    "euclidean": null,
+    "barlow": null,
+    "best": {
+     "formula": "E(5,15) + E(3,15,1)",
+     "exact": true
+    },
+    "decomposeCount": 5
+   },
+   {
+    "input": "10010010",
+    "steps": "10010010",
+    "euclidean": {
+     "beats": 3,
+     "steps": 8,
+     "offset": 0,
+     "formula": "E(3,8)"
+    },
+    "barlow": null,
+    "best": {
+     "formula": "E(3,8)",
+     "exact": true
+    },
+    "decomposeCount": 1
+   },
+   {
+    "input": "10110110",
+    "steps": "10110110",
+    "euclidean": {
+     "beats": 5,
+     "steps": 8,
+     "offset": 0,
+     "formula": "E(5,8)"
+    },
+    "barlow": null,
+    "best": {
+     "formula": "E(5,8)",
+     "exact": true
+    },
+    "decomposeCount": 8
+   },
+   {
+    "input": "10001001",
+    "steps": "10001001",
+    "euclidean": null,
+    "barlow": {
+     "formula": "B(3,8)"
+    },
+    "best": {
+     "formula": "B(3,8)",
+     "exact": true
+    },
+    "decomposeCount": 4
+   },
+   {
+    "input": "11111111",
+    "steps": "11111111",
+    "euclidean": {
+     "beats": 8,
+     "steps": 8,
+     "offset": 0,
+     "formula": "E(8,8)"
+    },
+    "barlow": {
+     "formula": "B(8,8)"
+    },
+    "best": {
+     "formula": "E(8,8)",
+     "exact": true
+    },
+    "decomposeCount": 8
+   }
+  ],
+  "progressive": [
+   {
+    "input": "E(3,8)>8",
+    "kind": "transform",
+    "base": "E(3,8)",
+    "type": "b",
+    "target": 8,
+    "step": null,
+    "at": [
+     {
+      "trigger": 1,
+      "steps": "10010010",
+      "label": "E(3,8)>8"
+     },
+     {
+      "trigger": 2,
+      "steps": "10010011",
+      "label": "E(3,8)>8"
+     },
+     {
+      "trigger": 3,
+      "steps": "10011011",
+      "label": "E(3,8)>8"
+     },
+     {
+      "trigger": 5,
+      "steps": "11111011",
+      "label": "E(3,8)>8"
+     }
+    ]
+   },
+   {
+    "input": "E(3,8)%4",
+    "kind": "offset",
+    "base": "E(3,8)",
+    "type": null,
+    "target": null,
+    "step": 4,
+    "at": [
+     {
+      "trigger": 1,
+      "steps": "10010010",
+      "label": "E(3,8)%4"
+     },
+     {
+      "trigger": 2,
+      "steps": "00101001",
+      "label": "E(3,8)%4"
+     },
+     {
+      "trigger": 3,
+      "steps": "10010010",
+      "label": "E(3,8)%4"
+     },
+     {
+      "trigger": 5,
+      "steps": "10010010",
+      "label": "E(3,8)%4"
+     }
+    ]
+   },
+   {
+    "input": "E(3,8)+2",
+    "kind": "offset",
+    "base": "E(3,8)",
+    "type": null,
+    "target": null,
+    "step": 2,
+    "at": [
+     {
+      "trigger": 1,
+      "steps": "10010010",
+      "label": "E(3,8)+2"
+     },
+     {
+      "trigger": 2,
+      "steps": "10100100",
+      "label": "E(3,8)+2"
+     },
+     {
+      "trigger": 3,
+      "steps": "00101001",
+      "label": "E(3,8)+2"
+     },
+     {
+      "trigger": 5,
+      "steps": "10010010",
+      "label": "E(3,8)+2"
+     }
+    ]
+   },
+   {
+    "input": "E(3,8)*2",
+    "kind": "lengthen",
+    "base": "E(3,8)",
+    "type": null,
+    "target": null,
+    "step": 2,
+    "at": [
+     {
+      "trigger": 1,
+      "steps": "10010010",
+      "label": "E(3,8)*2"
+     },
+     {
+      "trigger": 2,
+      "steps": "1001001001",
+      "label": "E(3,8)*2"
+     },
+     {
+      "trigger": 3,
+      "steps": "100100100110",
+      "label": "E(3,8)*2"
+     },
+     {
+      "trigger": 5,
+      "steps": "1001001001100110",
+      "label": "E(3,8)*2"
+     }
+    ]
+   },
+   {
+    "input": "E(5,16)+3",
+    "kind": "offset",
+    "base": "E(5,16)",
+    "type": null,
+    "target": null,
+    "step": 3,
+    "at": [
+     {
+      "trigger": 1,
+      "steps": "1001001001001000",
+      "label": "E(5,16)+3"
+     },
+     {
+      "trigger": 2,
+      "steps": "0001001001001001",
+      "label": "E(5,16)+3"
+     },
+     {
+      "trigger": 3,
+      "steps": "0010001001001001",
+      "label": "E(5,16)+3"
+     },
+     {
+      "trigger": 5,
+      "steps": "0010010010001001",
+      "label": "E(5,16)+3"
+     }
+    ]
+   }
+  ],
+  "named": [
+   {
+    "line": "Fume-Fume: [0,2,4,7,9]/12",
+    "ok": true,
+    "name": "Fume-Fume",
+    "steps": "101010010100"
+   },
+   {
+    "line": "Tresillo: 10010010",
+    "ok": true,
+    "name": "Tresillo",
+    "steps": "10010010"
+   },
+   {
+    "line": "Bembe: [0,2,4,5,7,9,11]/12",
+    "ok": true,
+    "name": "Bembe",
+    "steps": "101011010101"
+   },
+   {
+    "line": "not a named pattern",
+    "ok": false,
+    "throws": true
+   }
+  ]
+ }
+}
