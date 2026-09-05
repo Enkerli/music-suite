@@ -7,8 +7,10 @@ import {
   degreeChords,
   fifthsIndexToChromatic,
   pcsToBitmask,
+  romanNumeral,
   scaleFamily,
   type DegreeChordType,
+  type DegreeQuality,
 } from "./pcs.js";
 
 describe("circle of fifths mapping", () => {
@@ -45,6 +47,13 @@ describe("degree chords (vectors)", () => {
       const scale = scaleFamily(d.k, d.root);
       const chords = degreeChords(scale, d.type as DegreeChordType);
       expect(chords.map((c) => c.numeral)).toEqual(d.numerals);
+      // The whole result, not only what it prints. The numerals alone left the
+      // pitch classes, the bitmasks and the classifier's verdict uncovered,
+      // which is most of what a port has to reproduce.
+      expect(chords.map((c) => ({
+        degree: c.degree, rootPc: c.rootPc, pcs: c.pcs, bitmask: c.bitmask,
+        quality: c.info.quality, chordRoot: c.info.root, name: c.info.name,
+      }))).toEqual(d.degrees);
     });
   }
 
@@ -96,4 +105,47 @@ describe("consonance", () => {
     expect(consonance([5])).toBe(1);
     expect(consonance([])).toBe(1);
   });
+});
+
+// ── The groups added when the PCS engine was ported to Swift ───────────────
+//
+// Each of these was uncovered: `consonance` and `classifyDegreeChord` had
+// hand-written spot checks and no vector, `romanNumeral` had neither, and the
+// fifths mapping was checked by a round-trip property — which is also true of
+// the identity function. Regenerate with vectors/gen-pcs-vectors.mjs.
+
+describe("circle of fifths (vectors)", () => {
+  for (const f of vectors.fifths) {
+    it(`index ${f.index}`, () => {
+      expect(fifthsIndexToChromatic(f.index)).toBe(f.chromatic);
+      expect(chromaticToFifthsIndex(f.chromatic)).toBe(f.backToIndex);
+    });
+  }
+});
+
+describe("consonance (vectors)", () => {
+  for (const c of vectors.consonance) {
+    it(c.note, () => {
+      expect(Number(consonance(c.pcs).toFixed(6))).toBe(c.value);
+    });
+  }
+});
+
+describe("classifyDegreeChord (vectors)", () => {
+  for (const c of vectors.classify) {
+    it(c.note, () => {
+      const info = classifyDegreeChord(c.pcs);
+      expect(info.quality).toBe(c.quality);
+      expect(info.root).toBe(c.root);
+      expect(info.name).toBe(c.name);
+    });
+  }
+});
+
+describe("romanNumeral (vectors)", () => {
+  for (const n of vectors.numerals) {
+    it(`degree ${n.degree} ${n.quality ?? "null"}`, () => {
+      expect(romanNumeral(n.degree, n.quality as DegreeQuality | null)).toBe(n.numeral);
+    });
+  }
 });
