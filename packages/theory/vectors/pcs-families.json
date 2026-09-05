@@ -1,147 +1,2706 @@
 {
-  "description": "Cross-language vectors for Euclidean scale families and degree chords, ported from PickPCS. Bitmask convention: leftmost = LSB, pitch class i contributes 2^i ([0,4,7] = 145).jsx.",
-  "families": [
+ "description": "Cross-language vectors for Euclidean scale families, degree chords, the circle-of-fifths mapping, set consonance and the degree-chord classifier — ported from PickPCS. Bitmask convention: leftmost = LSB, pitch class i contributes 2^i ([0,4,7] = 145). Widened from seven families and three numeral lists when the PCS engine was ported to Swift for PitchFold: consonance and classifyDegreeChord had no coverage at all, and degreeChords was checked only by the strings it prints. Regenerate with gen-pcs-vectors.mjs; do not hand-edit.",
+ "families": [
+  {
+   "k": 3,
+   "root": 0,
+   "pcs": [
+    0,
+    4,
+    8
+   ],
+   "bitmask": 273,
+   "name": "augmented"
+  },
+  {
+   "k": 3,
+   "root": 5,
+   "pcs": [
+    5,
+    9,
+    1
+   ],
+   "bitmask": 546,
+   "name": "augmented"
+  },
+  {
+   "k": 3,
+   "root": 11,
+   "pcs": [
+    11,
+    3,
+    7
+   ],
+   "bitmask": 2184,
+   "name": "augmented"
+  },
+  {
+   "k": 4,
+   "root": 0,
+   "pcs": [
+    0,
+    3,
+    6,
+    9
+   ],
+   "bitmask": 585,
+   "name": "diminished seventh"
+  },
+  {
+   "k": 4,
+   "root": 5,
+   "pcs": [
+    5,
+    8,
+    11,
+    2
+   ],
+   "bitmask": 2340,
+   "name": "diminished seventh"
+  },
+  {
+   "k": 4,
+   "root": 11,
+   "pcs": [
+    11,
+    2,
+    5,
+    8
+   ],
+   "bitmask": 2340,
+   "name": "diminished seventh"
+  },
+  {
+   "k": 5,
+   "root": 0,
+   "pcs": [
+    0,
+    2,
+    4,
+    7,
+    9
+   ],
+   "bitmask": 661,
+   "name": "major pentatonic"
+  },
+  {
+   "k": 5,
+   "root": 5,
+   "pcs": [
+    5,
+    7,
+    9,
+    0,
+    2
+   ],
+   "bitmask": 677,
+   "name": "major pentatonic"
+  },
+  {
+   "k": 5,
+   "root": 11,
+   "pcs": [
+    11,
+    1,
+    3,
+    6,
+    8
+   ],
+   "bitmask": 2378,
+   "name": "major pentatonic"
+  },
+  {
+   "k": 6,
+   "root": 0,
+   "pcs": [
+    0,
+    2,
+    4,
+    6,
+    8,
+    10
+   ],
+   "bitmask": 1365,
+   "name": "whole tone"
+  },
+  {
+   "k": 6,
+   "root": 5,
+   "pcs": [
+    5,
+    7,
+    9,
+    11,
+    1,
+    3
+   ],
+   "bitmask": 2730,
+   "name": "whole tone"
+  },
+  {
+   "k": 6,
+   "root": 11,
+   "pcs": [
+    11,
+    1,
+    3,
+    5,
+    7,
+    9
+   ],
+   "bitmask": 2730,
+   "name": "whole tone"
+  },
+  {
+   "k": 7,
+   "root": 0,
+   "pcs": [
+    0,
+    2,
+    4,
+    5,
+    7,
+    9,
+    11
+   ],
+   "bitmask": 2741,
+   "name": "major scale"
+  },
+  {
+   "k": 7,
+   "root": 5,
+   "pcs": [
+    5,
+    7,
+    9,
+    10,
+    0,
+    2,
+    4
+   ],
+   "bitmask": 1717,
+   "name": "major scale"
+  },
+  {
+   "k": 7,
+   "root": 11,
+   "pcs": [
+    11,
+    1,
+    3,
+    4,
+    6,
+    8,
+    10
+   ],
+   "bitmask": 3418,
+   "name": "major scale"
+  },
+  {
+   "k": 8,
+   "root": 0,
+   "pcs": [
+    0,
+    2,
+    3,
+    5,
+    6,
+    8,
+    9,
+    11
+   ],
+   "bitmask": 2925,
+   "name": "octatonic (half-whole)"
+  },
+  {
+   "k": 8,
+   "root": 5,
+   "pcs": [
+    5,
+    7,
+    8,
+    10,
+    11,
+    1,
+    2,
+    4
+   ],
+   "bitmask": 3510,
+   "name": "octatonic (half-whole)"
+  },
+  {
+   "k": 8,
+   "root": 11,
+   "pcs": [
+    11,
+    1,
+    2,
+    4,
+    5,
+    7,
+    8,
+    10
+   ],
+   "bitmask": 3510,
+   "name": "octatonic (half-whole)"
+  },
+  {
+   "k": 2,
+   "root": 0,
+   "pcs": [],
+   "bitmask": 0,
+   "name": "outside k=3..8"
+  },
+  {
+   "k": 9,
+   "root": 0,
+   "pcs": [],
+   "bitmask": 0,
+   "name": "outside k=3..8"
+  }
+ ],
+ "degreeChords": [
+  {
+   "scale": "C major",
+   "k": 7,
+   "root": 0,
+   "type": "triads",
+   "numerals": [
+    "I",
+    "ii",
+    "iii",
+    "IV",
+    "V",
+    "vi",
+    "VII°"
+   ],
+   "degrees": [
     {
-      "k": 3,
-      "root": 0,
-      "pcs": [
-        0,
-        4,
-        8
-      ],
-      "bitmask": 273,
-      "name": "augmented"
+     "degree": 0,
+     "rootPc": 0,
+     "pcs": [
+      0,
+      4,
+      7
+     ],
+     "bitmask": 145,
+     "quality": "maj",
+     "chordRoot": 0,
+     "name": "Cmaj"
     },
     {
-      "k": 4,
-      "root": 0,
-      "pcs": [
-        0,
-        3,
-        6,
-        9
-      ],
-      "bitmask": 585,
-      "name": "diminished seventh"
+     "degree": 1,
+     "rootPc": 2,
+     "pcs": [
+      2,
+      5,
+      9
+     ],
+     "bitmask": 548,
+     "quality": "min",
+     "chordRoot": 2,
+     "name": "Dmin"
     },
     {
-      "k": 5,
-      "root": 0,
-      "pcs": [
-        0,
-        2,
-        4,
-        7,
-        9
-      ],
-      "bitmask": 661,
-      "name": "major pentatonic"
+     "degree": 2,
+     "rootPc": 4,
+     "pcs": [
+      4,
+      7,
+      11
+     ],
+     "bitmask": 2192,
+     "quality": "min",
+     "chordRoot": 4,
+     "name": "Emin"
     },
     {
-      "k": 6,
-      "root": 0,
-      "pcs": [
-        0,
-        2,
-        4,
-        6,
-        8,
-        10
-      ],
-      "bitmask": 1365,
-      "name": "whole tone"
+     "degree": 3,
+     "rootPc": 5,
+     "pcs": [
+      0,
+      5,
+      9
+     ],
+     "bitmask": 545,
+     "quality": "maj",
+     "chordRoot": 5,
+     "name": "Fmaj"
     },
     {
-      "k": 7,
-      "root": 0,
-      "pcs": [
-        0,
-        2,
-        4,
-        5,
-        7,
-        9,
-        11
-      ],
-      "bitmask": 2741,
-      "name": "major scale"
+     "degree": 4,
+     "rootPc": 7,
+     "pcs": [
+      2,
+      7,
+      11
+     ],
+     "bitmask": 2180,
+     "quality": "maj",
+     "chordRoot": 7,
+     "name": "Gmaj"
     },
     {
-      "k": 8,
-      "root": 0,
-      "pcs": [
-        0,
-        2,
-        3,
-        5,
-        6,
-        8,
-        9,
-        11
-      ],
-      "bitmask": 2925,
-      "name": "octatonic half-whole"
+     "degree": 5,
+     "rootPc": 9,
+     "pcs": [
+      0,
+      4,
+      9
+     ],
+     "bitmask": 529,
+     "quality": "min",
+     "chordRoot": 9,
+     "name": "Amin"
     },
     {
-      "k": 7,
-      "root": 7,
-      "pcs": [
-        7,
-        9,
-        11,
-        0,
-        2,
-        4,
-        6
-      ],
-      "bitmask": 2773,
-      "name": "G major scale"
+     "degree": 6,
+     "rootPc": 11,
+     "pcs": [
+      2,
+      5,
+      11
+     ],
+     "bitmask": 2084,
+     "quality": "dim",
+     "chordRoot": 11,
+     "name": "Bdim"
     }
-  ],
-  "degreeChords": [
+   ]
+  },
+  {
+   "scale": "C major",
+   "k": 7,
+   "root": 0,
+   "type": "sus",
+   "numerals": [
+    "Isus",
+    "IIsus",
+    "IIIsus",
+    "IVsus",
+    "Vsus",
+    "VIsus",
+    "VIIsus"
+   ],
+   "degrees": [
     {
-      "scale": "C major",
-      "k": 7,
-      "root": 0,
-      "type": "triads",
-      "numerals": [
-        "I",
-        "ii",
-        "iii",
-        "IV",
-        "V",
-        "vi",
-        "VII°"
-      ]
+     "degree": 0,
+     "rootPc": 0,
+     "pcs": [
+      0,
+      5,
+      7
+     ],
+     "bitmask": 161,
+     "quality": "sus4",
+     "chordRoot": 0,
+     "name": "Csus4"
     },
     {
-      "scale": "C major",
-      "k": 7,
-      "root": 0,
-      "type": "sevenths",
-      "numerals": [
-        "I∆",
-        "ii-7",
-        "iii-7",
-        "IV∆",
-        "V7",
-        "vi-7",
-        "viiø7"
-      ]
+     "degree": 1,
+     "rootPc": 2,
+     "pcs": [
+      2,
+      7,
+      9
+     ],
+     "bitmask": 644,
+     "quality": "sus4",
+     "chordRoot": 2,
+     "name": "Dsus4"
     },
     {
-      "scale": "C whole tone",
-      "k": 6,
-      "root": 0,
-      "type": "triads",
-      "numerals": [
-        "I",
-        "II",
-        "III",
-        "IV",
-        "V",
-        "VI"
-      ]
+     "degree": 2,
+     "rootPc": 4,
+     "pcs": [
+      4,
+      9,
+      11
+     ],
+     "bitmask": 2576,
+     "quality": "sus4",
+     "chordRoot": 4,
+     "name": "Esus4"
+    },
+    {
+     "degree": 3,
+     "rootPc": 5,
+     "pcs": [
+      0,
+      5,
+      11
+     ],
+     "bitmask": 2081,
+     "quality": "set",
+     "chordRoot": null,
+     "name": "C-F-B"
+    },
+    {
+     "degree": 4,
+     "rootPc": 7,
+     "pcs": [
+      0,
+      2,
+      7
+     ],
+     "bitmask": 133,
+     "quality": "sus4",
+     "chordRoot": 7,
+     "name": "Gsus4"
+    },
+    {
+     "degree": 5,
+     "rootPc": 9,
+     "pcs": [
+      2,
+      4,
+      9
+     ],
+     "bitmask": 532,
+     "quality": "sus4",
+     "chordRoot": 9,
+     "name": "Asus4"
+    },
+    {
+     "degree": 6,
+     "rootPc": 11,
+     "pcs": [
+      4,
+      5,
+      11
+     ],
+     "bitmask": 2096,
+     "quality": "set",
+     "chordRoot": null,
+     "name": "E-F-B"
     }
-  ]
+   ]
+  },
+  {
+   "scale": "C major",
+   "k": 7,
+   "root": 0,
+   "type": "sevenths",
+   "numerals": [
+    "I∆",
+    "ii-7",
+    "iii-7",
+    "IV∆",
+    "V7",
+    "vi-7",
+    "viiø7"
+   ],
+   "degrees": [
+    {
+     "degree": 0,
+     "rootPc": 0,
+     "pcs": [
+      0,
+      4,
+      7,
+      11
+     ],
+     "bitmask": 2193,
+     "quality": "maj7",
+     "chordRoot": 0,
+     "name": "Cmaj7"
+    },
+    {
+     "degree": 1,
+     "rootPc": 2,
+     "pcs": [
+      0,
+      2,
+      5,
+      9
+     ],
+     "bitmask": 549,
+     "quality": "min7",
+     "chordRoot": 2,
+     "name": "Dmin7"
+    },
+    {
+     "degree": 2,
+     "rootPc": 4,
+     "pcs": [
+      2,
+      4,
+      7,
+      11
+     ],
+     "bitmask": 2196,
+     "quality": "min7",
+     "chordRoot": 4,
+     "name": "Emin7"
+    },
+    {
+     "degree": 3,
+     "rootPc": 5,
+     "pcs": [
+      0,
+      4,
+      5,
+      9
+     ],
+     "bitmask": 561,
+     "quality": "maj7",
+     "chordRoot": 5,
+     "name": "Fmaj7"
+    },
+    {
+     "degree": 4,
+     "rootPc": 7,
+     "pcs": [
+      2,
+      5,
+      7,
+      11
+     ],
+     "bitmask": 2212,
+     "quality": "7",
+     "chordRoot": 7,
+     "name": "G7"
+    },
+    {
+     "degree": 5,
+     "rootPc": 9,
+     "pcs": [
+      0,
+      4,
+      7,
+      9
+     ],
+     "bitmask": 657,
+     "quality": "min7",
+     "chordRoot": 9,
+     "name": "Amin7"
+    },
+    {
+     "degree": 6,
+     "rootPc": 11,
+     "pcs": [
+      2,
+      5,
+      9,
+      11
+     ],
+     "bitmask": 2596,
+     "quality": "halfDim7",
+     "chordRoot": 11,
+     "name": "BhalfDim7"
+    }
+   ]
+  },
+  {
+   "scale": "F major",
+   "k": 7,
+   "root": 5,
+   "type": "triads",
+   "numerals": [
+    "I",
+    "ii",
+    "iii",
+    "IV",
+    "V",
+    "vi",
+    "VII°"
+   ],
+   "degrees": [
+    {
+     "degree": 0,
+     "rootPc": 5,
+     "pcs": [
+      0,
+      5,
+      9
+     ],
+     "bitmask": 545,
+     "quality": "maj",
+     "chordRoot": 5,
+     "name": "Fmaj"
+    },
+    {
+     "degree": 1,
+     "rootPc": 7,
+     "pcs": [
+      2,
+      7,
+      10
+     ],
+     "bitmask": 1156,
+     "quality": "min",
+     "chordRoot": 7,
+     "name": "Gmin"
+    },
+    {
+     "degree": 2,
+     "rootPc": 9,
+     "pcs": [
+      0,
+      4,
+      9
+     ],
+     "bitmask": 529,
+     "quality": "min",
+     "chordRoot": 9,
+     "name": "Amin"
+    },
+    {
+     "degree": 3,
+     "rootPc": 10,
+     "pcs": [
+      2,
+      5,
+      10
+     ],
+     "bitmask": 1060,
+     "quality": "maj",
+     "chordRoot": 10,
+     "name": "B♭maj"
+    },
+    {
+     "degree": 4,
+     "rootPc": 0,
+     "pcs": [
+      0,
+      4,
+      7
+     ],
+     "bitmask": 145,
+     "quality": "maj",
+     "chordRoot": 0,
+     "name": "Cmaj"
+    },
+    {
+     "degree": 5,
+     "rootPc": 2,
+     "pcs": [
+      2,
+      5,
+      9
+     ],
+     "bitmask": 548,
+     "quality": "min",
+     "chordRoot": 2,
+     "name": "Dmin"
+    },
+    {
+     "degree": 6,
+     "rootPc": 4,
+     "pcs": [
+      4,
+      7,
+      10
+     ],
+     "bitmask": 1168,
+     "quality": "dim",
+     "chordRoot": 4,
+     "name": "Edim"
+    }
+   ]
+  },
+  {
+   "scale": "F major",
+   "k": 7,
+   "root": 5,
+   "type": "sus",
+   "numerals": [
+    "Isus",
+    "IIsus",
+    "IIIsus",
+    "IVsus",
+    "Vsus",
+    "VIsus",
+    "VIIsus"
+   ],
+   "degrees": [
+    {
+     "degree": 0,
+     "rootPc": 5,
+     "pcs": [
+      0,
+      5,
+      10
+     ],
+     "bitmask": 1057,
+     "quality": "sus4",
+     "chordRoot": 5,
+     "name": "Fsus4"
+    },
+    {
+     "degree": 1,
+     "rootPc": 7,
+     "pcs": [
+      0,
+      2,
+      7
+     ],
+     "bitmask": 133,
+     "quality": "sus4",
+     "chordRoot": 7,
+     "name": "Gsus4"
+    },
+    {
+     "degree": 2,
+     "rootPc": 9,
+     "pcs": [
+      2,
+      4,
+      9
+     ],
+     "bitmask": 532,
+     "quality": "sus4",
+     "chordRoot": 9,
+     "name": "Asus4"
+    },
+    {
+     "degree": 3,
+     "rootPc": 10,
+     "pcs": [
+      4,
+      5,
+      10
+     ],
+     "bitmask": 1072,
+     "quality": "set",
+     "chordRoot": null,
+     "name": "E-F-B♭"
+    },
+    {
+     "degree": 4,
+     "rootPc": 0,
+     "pcs": [
+      0,
+      5,
+      7
+     ],
+     "bitmask": 161,
+     "quality": "sus4",
+     "chordRoot": 0,
+     "name": "Csus4"
+    },
+    {
+     "degree": 5,
+     "rootPc": 2,
+     "pcs": [
+      2,
+      7,
+      9
+     ],
+     "bitmask": 644,
+     "quality": "sus4",
+     "chordRoot": 2,
+     "name": "Dsus4"
+    },
+    {
+     "degree": 6,
+     "rootPc": 4,
+     "pcs": [
+      4,
+      9,
+      10
+     ],
+     "bitmask": 1552,
+     "quality": "set",
+     "chordRoot": null,
+     "name": "E-A-B♭"
+    }
+   ]
+  },
+  {
+   "scale": "F major",
+   "k": 7,
+   "root": 5,
+   "type": "sevenths",
+   "numerals": [
+    "I∆",
+    "ii-7",
+    "iii-7",
+    "IV∆",
+    "V7",
+    "vi-7",
+    "viiø7"
+   ],
+   "degrees": [
+    {
+     "degree": 0,
+     "rootPc": 5,
+     "pcs": [
+      0,
+      4,
+      5,
+      9
+     ],
+     "bitmask": 561,
+     "quality": "maj7",
+     "chordRoot": 5,
+     "name": "Fmaj7"
+    },
+    {
+     "degree": 1,
+     "rootPc": 7,
+     "pcs": [
+      2,
+      5,
+      7,
+      10
+     ],
+     "bitmask": 1188,
+     "quality": "min7",
+     "chordRoot": 7,
+     "name": "Gmin7"
+    },
+    {
+     "degree": 2,
+     "rootPc": 9,
+     "pcs": [
+      0,
+      4,
+      7,
+      9
+     ],
+     "bitmask": 657,
+     "quality": "min7",
+     "chordRoot": 9,
+     "name": "Amin7"
+    },
+    {
+     "degree": 3,
+     "rootPc": 10,
+     "pcs": [
+      2,
+      5,
+      9,
+      10
+     ],
+     "bitmask": 1572,
+     "quality": "maj7",
+     "chordRoot": 10,
+     "name": "B♭maj7"
+    },
+    {
+     "degree": 4,
+     "rootPc": 0,
+     "pcs": [
+      0,
+      4,
+      7,
+      10
+     ],
+     "bitmask": 1169,
+     "quality": "7",
+     "chordRoot": 0,
+     "name": "C7"
+    },
+    {
+     "degree": 5,
+     "rootPc": 2,
+     "pcs": [
+      0,
+      2,
+      5,
+      9
+     ],
+     "bitmask": 549,
+     "quality": "min7",
+     "chordRoot": 2,
+     "name": "Dmin7"
+    },
+    {
+     "degree": 6,
+     "rootPc": 4,
+     "pcs": [
+      2,
+      4,
+      7,
+      10
+     ],
+     "bitmask": 1172,
+     "quality": "halfDim7",
+     "chordRoot": 4,
+     "name": "EhalfDim7"
+    }
+   ]
+  },
+  {
+   "scale": "C whole tone",
+   "k": 6,
+   "root": 0,
+   "type": "triads",
+   "numerals": [
+    "I",
+    "II",
+    "III",
+    "IV",
+    "V",
+    "VI"
+   ],
+   "degrees": [
+    {
+     "degree": 0,
+     "rootPc": 0,
+     "pcs": [
+      0,
+      4,
+      8
+     ],
+     "bitmask": 273,
+     "quality": "aug",
+     "chordRoot": 0,
+     "name": "Caug"
+    },
+    {
+     "degree": 1,
+     "rootPc": 2,
+     "pcs": [
+      2,
+      6,
+      10
+     ],
+     "bitmask": 1092,
+     "quality": "aug",
+     "chordRoot": 2,
+     "name": "Daug"
+    },
+    {
+     "degree": 2,
+     "rootPc": 4,
+     "pcs": [
+      0,
+      4,
+      8
+     ],
+     "bitmask": 273,
+     "quality": "aug",
+     "chordRoot": 0,
+     "name": "Caug"
+    },
+    {
+     "degree": 3,
+     "rootPc": 6,
+     "pcs": [
+      2,
+      6,
+      10
+     ],
+     "bitmask": 1092,
+     "quality": "aug",
+     "chordRoot": 2,
+     "name": "Daug"
+    },
+    {
+     "degree": 4,
+     "rootPc": 8,
+     "pcs": [
+      0,
+      4,
+      8
+     ],
+     "bitmask": 273,
+     "quality": "aug",
+     "chordRoot": 0,
+     "name": "Caug"
+    },
+    {
+     "degree": 5,
+     "rootPc": 10,
+     "pcs": [
+      2,
+      6,
+      10
+     ],
+     "bitmask": 1092,
+     "quality": "aug",
+     "chordRoot": 2,
+     "name": "Daug"
+    }
+   ]
+  },
+  {
+   "scale": "C whole tone",
+   "k": 6,
+   "root": 0,
+   "type": "sus",
+   "numerals": [
+    "Isus",
+    "IIsus",
+    "IIIsus",
+    "IVsus",
+    "Vsus",
+    "VIsus"
+   ],
+   "degrees": [
+    {
+     "degree": 0,
+     "rootPc": 0,
+     "pcs": [
+      0,
+      6,
+      8
+     ],
+     "bitmask": 321,
+     "quality": "set",
+     "chordRoot": null,
+     "name": "C-F♯-A♭"
+    },
+    {
+     "degree": 1,
+     "rootPc": 2,
+     "pcs": [
+      2,
+      8,
+      10
+     ],
+     "bitmask": 1284,
+     "quality": "set",
+     "chordRoot": null,
+     "name": "D-A♭-B♭"
+    },
+    {
+     "degree": 2,
+     "rootPc": 4,
+     "pcs": [
+      0,
+      4,
+      10
+     ],
+     "bitmask": 1041,
+     "quality": "set",
+     "chordRoot": null,
+     "name": "C-E-B♭"
+    },
+    {
+     "degree": 3,
+     "rootPc": 6,
+     "pcs": [
+      0,
+      2,
+      6
+     ],
+     "bitmask": 69,
+     "quality": "set",
+     "chordRoot": null,
+     "name": "C-D-F♯"
+    },
+    {
+     "degree": 4,
+     "rootPc": 8,
+     "pcs": [
+      2,
+      4,
+      8
+     ],
+     "bitmask": 276,
+     "quality": "set",
+     "chordRoot": null,
+     "name": "D-E-A♭"
+    },
+    {
+     "degree": 5,
+     "rootPc": 10,
+     "pcs": [
+      4,
+      6,
+      10
+     ],
+     "bitmask": 1104,
+     "quality": "set",
+     "chordRoot": null,
+     "name": "E-F♯-B♭"
+    }
+   ]
+  },
+  {
+   "scale": "C whole tone",
+   "k": 6,
+   "root": 0,
+   "type": "sevenths",
+   "numerals": [
+    "I",
+    "II",
+    "III",
+    "IV",
+    "V",
+    "VI"
+   ],
+   "degrees": [
+    {
+     "degree": 0,
+     "rootPc": 0,
+     "pcs": [
+      0,
+      0,
+      4,
+      8
+     ],
+     "bitmask": 273,
+     "quality": "set",
+     "chordRoot": null,
+     "name": "C-C-E-A♭"
+    },
+    {
+     "degree": 1,
+     "rootPc": 2,
+     "pcs": [
+      2,
+      2,
+      6,
+      10
+     ],
+     "bitmask": 1092,
+     "quality": "set",
+     "chordRoot": null,
+     "name": "D-D-F♯-B♭"
+    },
+    {
+     "degree": 2,
+     "rootPc": 4,
+     "pcs": [
+      0,
+      4,
+      4,
+      8
+     ],
+     "bitmask": 273,
+     "quality": "set",
+     "chordRoot": null,
+     "name": "C-E-E-A♭"
+    },
+    {
+     "degree": 3,
+     "rootPc": 6,
+     "pcs": [
+      2,
+      6,
+      6,
+      10
+     ],
+     "bitmask": 1092,
+     "quality": "set",
+     "chordRoot": null,
+     "name": "D-F♯-F♯-B♭"
+    },
+    {
+     "degree": 4,
+     "rootPc": 8,
+     "pcs": [
+      0,
+      4,
+      8,
+      8
+     ],
+     "bitmask": 273,
+     "quality": "set",
+     "chordRoot": null,
+     "name": "C-E-A♭-A♭"
+    },
+    {
+     "degree": 5,
+     "rootPc": 10,
+     "pcs": [
+      2,
+      6,
+      10,
+      10
+     ],
+     "bitmask": 1092,
+     "quality": "set",
+     "chordRoot": null,
+     "name": "D-F♯-B♭-B♭"
+    }
+   ]
+  },
+  {
+   "scale": "C octatonic (half-whole)",
+   "k": 8,
+   "root": 0,
+   "type": "triads",
+   "numerals": [
+    "I°",
+    "II°",
+    "III°",
+    "IV°",
+    "V°",
+    "VI°",
+    "VII°",
+    "VIII°"
+   ],
+   "degrees": [
+    {
+     "degree": 0,
+     "rootPc": 0,
+     "pcs": [
+      0,
+      3,
+      6
+     ],
+     "bitmask": 73,
+     "quality": "dim",
+     "chordRoot": 0,
+     "name": "Cdim"
+    },
+    {
+     "degree": 1,
+     "rootPc": 2,
+     "pcs": [
+      2,
+      5,
+      8
+     ],
+     "bitmask": 292,
+     "quality": "dim",
+     "chordRoot": 2,
+     "name": "Ddim"
+    },
+    {
+     "degree": 2,
+     "rootPc": 3,
+     "pcs": [
+      3,
+      6,
+      9
+     ],
+     "bitmask": 584,
+     "quality": "dim",
+     "chordRoot": 3,
+     "name": "E♭dim"
+    },
+    {
+     "degree": 3,
+     "rootPc": 5,
+     "pcs": [
+      5,
+      8,
+      11
+     ],
+     "bitmask": 2336,
+     "quality": "dim",
+     "chordRoot": 5,
+     "name": "Fdim"
+    },
+    {
+     "degree": 4,
+     "rootPc": 6,
+     "pcs": [
+      0,
+      6,
+      9
+     ],
+     "bitmask": 577,
+     "quality": "dim",
+     "chordRoot": 6,
+     "name": "F♯dim"
+    },
+    {
+     "degree": 5,
+     "rootPc": 8,
+     "pcs": [
+      2,
+      8,
+      11
+     ],
+     "bitmask": 2308,
+     "quality": "dim",
+     "chordRoot": 8,
+     "name": "A♭dim"
+    },
+    {
+     "degree": 6,
+     "rootPc": 9,
+     "pcs": [
+      0,
+      3,
+      9
+     ],
+     "bitmask": 521,
+     "quality": "dim",
+     "chordRoot": 9,
+     "name": "Adim"
+    },
+    {
+     "degree": 7,
+     "rootPc": 11,
+     "pcs": [
+      2,
+      5,
+      11
+     ],
+     "bitmask": 2084,
+     "quality": "dim",
+     "chordRoot": 11,
+     "name": "Bdim"
+    }
+   ]
+  },
+  {
+   "scale": "C octatonic (half-whole)",
+   "k": 8,
+   "root": 0,
+   "type": "sus",
+   "numerals": [
+    "Isus",
+    "IIsus",
+    "IIIsus",
+    "IVsus",
+    "Vsus",
+    "VIsus",
+    "VIIsus",
+    "VIIIsus"
+   ],
+   "degrees": [
+    {
+     "degree": 0,
+     "rootPc": 0,
+     "pcs": [
+      0,
+      5,
+      6
+     ],
+     "bitmask": 97,
+     "quality": "set",
+     "chordRoot": null,
+     "name": "C-F-F♯"
+    },
+    {
+     "degree": 1,
+     "rootPc": 2,
+     "pcs": [
+      2,
+      6,
+      8
+     ],
+     "bitmask": 324,
+     "quality": "set",
+     "chordRoot": null,
+     "name": "D-F♯-A♭"
+    },
+    {
+     "degree": 2,
+     "rootPc": 3,
+     "pcs": [
+      3,
+      8,
+      9
+     ],
+     "bitmask": 776,
+     "quality": "set",
+     "chordRoot": null,
+     "name": "E♭-A♭-A"
+    },
+    {
+     "degree": 3,
+     "rootPc": 5,
+     "pcs": [
+      5,
+      9,
+      11
+     ],
+     "bitmask": 2592,
+     "quality": "set",
+     "chordRoot": null,
+     "name": "F-A-B"
+    },
+    {
+     "degree": 4,
+     "rootPc": 6,
+     "pcs": [
+      0,
+      6,
+      11
+     ],
+     "bitmask": 2113,
+     "quality": "set",
+     "chordRoot": null,
+     "name": "C-F♯-B"
+    },
+    {
+     "degree": 5,
+     "rootPc": 8,
+     "pcs": [
+      0,
+      2,
+      8
+     ],
+     "bitmask": 261,
+     "quality": "set",
+     "chordRoot": null,
+     "name": "C-D-A♭"
+    },
+    {
+     "degree": 6,
+     "rootPc": 9,
+     "pcs": [
+      2,
+      3,
+      9
+     ],
+     "bitmask": 524,
+     "quality": "set",
+     "chordRoot": null,
+     "name": "D-E♭-A"
+    },
+    {
+     "degree": 7,
+     "rootPc": 11,
+     "pcs": [
+      3,
+      5,
+      11
+     ],
+     "bitmask": 2088,
+     "quality": "set",
+     "chordRoot": null,
+     "name": "E♭-F-B"
+    }
+   ]
+  },
+  {
+   "scale": "C octatonic (half-whole)",
+   "k": 8,
+   "root": 0,
+   "type": "sevenths",
+   "numerals": [
+    "I°7",
+    "II°7",
+    "III°7",
+    "IV°7",
+    "V°7",
+    "VI°7",
+    "VII°7",
+    "VIII°7"
+   ],
+   "degrees": [
+    {
+     "degree": 0,
+     "rootPc": 0,
+     "pcs": [
+      0,
+      3,
+      6,
+      9
+     ],
+     "bitmask": 585,
+     "quality": "dim7",
+     "chordRoot": 0,
+     "name": "Cdim7"
+    },
+    {
+     "degree": 1,
+     "rootPc": 2,
+     "pcs": [
+      2,
+      5,
+      8,
+      11
+     ],
+     "bitmask": 2340,
+     "quality": "dim7",
+     "chordRoot": 2,
+     "name": "Ddim7"
+    },
+    {
+     "degree": 2,
+     "rootPc": 3,
+     "pcs": [
+      0,
+      3,
+      6,
+      9
+     ],
+     "bitmask": 585,
+     "quality": "dim7",
+     "chordRoot": 0,
+     "name": "Cdim7"
+    },
+    {
+     "degree": 3,
+     "rootPc": 5,
+     "pcs": [
+      2,
+      5,
+      8,
+      11
+     ],
+     "bitmask": 2340,
+     "quality": "dim7",
+     "chordRoot": 2,
+     "name": "Ddim7"
+    },
+    {
+     "degree": 4,
+     "rootPc": 6,
+     "pcs": [
+      0,
+      3,
+      6,
+      9
+     ],
+     "bitmask": 585,
+     "quality": "dim7",
+     "chordRoot": 0,
+     "name": "Cdim7"
+    },
+    {
+     "degree": 5,
+     "rootPc": 8,
+     "pcs": [
+      2,
+      5,
+      8,
+      11
+     ],
+     "bitmask": 2340,
+     "quality": "dim7",
+     "chordRoot": 2,
+     "name": "Ddim7"
+    },
+    {
+     "degree": 6,
+     "rootPc": 9,
+     "pcs": [
+      0,
+      3,
+      6,
+      9
+     ],
+     "bitmask": 585,
+     "quality": "dim7",
+     "chordRoot": 0,
+     "name": "Cdim7"
+    },
+    {
+     "degree": 7,
+     "rootPc": 11,
+     "pcs": [
+      2,
+      5,
+      8,
+      11
+     ],
+     "bitmask": 2340,
+     "quality": "dim7",
+     "chordRoot": 2,
+     "name": "Ddim7"
+    }
+   ]
+  },
+  {
+   "scale": "C major pentatonic",
+   "k": 5,
+   "root": 0,
+   "type": "triads",
+   "numerals": [
+    "i",
+    "IIsus",
+    "IIIsus",
+    "IV",
+    "Vsus"
+   ],
+   "degrees": [
+    {
+     "degree": 0,
+     "rootPc": 0,
+     "pcs": [
+      0,
+      4,
+      9
+     ],
+     "bitmask": 529,
+     "quality": "min",
+     "chordRoot": 9,
+     "name": "Amin"
+    },
+    {
+     "degree": 1,
+     "rootPc": 2,
+     "pcs": [
+      0,
+      2,
+      7
+     ],
+     "bitmask": 133,
+     "quality": "sus4",
+     "chordRoot": 7,
+     "name": "Gsus4"
+    },
+    {
+     "degree": 2,
+     "rootPc": 4,
+     "pcs": [
+      2,
+      4,
+      9
+     ],
+     "bitmask": 532,
+     "quality": "sus4",
+     "chordRoot": 9,
+     "name": "Asus4"
+    },
+    {
+     "degree": 3,
+     "rootPc": 7,
+     "pcs": [
+      0,
+      4,
+      7
+     ],
+     "bitmask": 145,
+     "quality": "maj",
+     "chordRoot": 0,
+     "name": "Cmaj"
+    },
+    {
+     "degree": 4,
+     "rootPc": 9,
+     "pcs": [
+      2,
+      7,
+      9
+     ],
+     "bitmask": 644,
+     "quality": "sus4",
+     "chordRoot": 2,
+     "name": "Dsus4"
+    }
+   ]
+  },
+  {
+   "scale": "C major pentatonic",
+   "k": 5,
+   "root": 0,
+   "type": "sus",
+   "numerals": [
+    "Isus",
+    "IIsus",
+    "IIIsus",
+    "IVsus",
+    "Vsus"
+   ],
+   "degrees": [
+    {
+     "degree": 0,
+     "rootPc": 0,
+     "pcs": [
+      0,
+      7,
+      9
+     ],
+     "bitmask": 641,
+     "quality": "set",
+     "chordRoot": null,
+     "name": "C-G-A"
+    },
+    {
+     "degree": 1,
+     "rootPc": 2,
+     "pcs": [
+      0,
+      2,
+      9
+     ],
+     "bitmask": 517,
+     "quality": "set",
+     "chordRoot": null,
+     "name": "C-D-A"
+    },
+    {
+     "degree": 2,
+     "rootPc": 4,
+     "pcs": [
+      0,
+      2,
+      4
+     ],
+     "bitmask": 21,
+     "quality": "set",
+     "chordRoot": null,
+     "name": "C-D-E"
+    },
+    {
+     "degree": 3,
+     "rootPc": 7,
+     "pcs": [
+      2,
+      4,
+      7
+     ],
+     "bitmask": 148,
+     "quality": "set",
+     "chordRoot": null,
+     "name": "D-E-G"
+    },
+    {
+     "degree": 4,
+     "rootPc": 9,
+     "pcs": [
+      4,
+      7,
+      9
+     ],
+     "bitmask": 656,
+     "quality": "set",
+     "chordRoot": null,
+     "name": "E-G-A"
+    }
+   ]
+  },
+  {
+   "scale": "C major pentatonic",
+   "k": 5,
+   "root": 0,
+   "type": "sevenths",
+   "numerals": [
+    "I",
+    "II",
+    "III",
+    "iv-7",
+    "V"
+   ],
+   "degrees": [
+    {
+     "degree": 0,
+     "rootPc": 0,
+     "pcs": [
+      0,
+      2,
+      4,
+      9
+     ],
+     "bitmask": 533,
+     "quality": "set",
+     "chordRoot": null,
+     "name": "C-D-E-A"
+    },
+    {
+     "degree": 1,
+     "rootPc": 2,
+     "pcs": [
+      0,
+      2,
+      4,
+      7
+     ],
+     "bitmask": 149,
+     "quality": "set",
+     "chordRoot": null,
+     "name": "C-D-E-G"
+    },
+    {
+     "degree": 2,
+     "rootPc": 4,
+     "pcs": [
+      2,
+      4,
+      7,
+      9
+     ],
+     "bitmask": 660,
+     "quality": "set",
+     "chordRoot": null,
+     "name": "D-E-G-A"
+    },
+    {
+     "degree": 3,
+     "rootPc": 7,
+     "pcs": [
+      0,
+      4,
+      7,
+      9
+     ],
+     "bitmask": 657,
+     "quality": "min7",
+     "chordRoot": 9,
+     "name": "Amin7"
+    },
+    {
+     "degree": 4,
+     "rootPc": 9,
+     "pcs": [
+      0,
+      2,
+      7,
+      9
+     ],
+     "bitmask": 645,
+     "quality": "set",
+     "chordRoot": null,
+     "name": "C-D-G-A"
+    }
+   ]
+  }
+ ],
+ "fifths": [
+  {
+   "index": 0,
+   "chromatic": 0,
+   "backToIndex": 0
+  },
+  {
+   "index": 1,
+   "chromatic": 7,
+   "backToIndex": 1
+  },
+  {
+   "index": 2,
+   "chromatic": 2,
+   "backToIndex": 2
+  },
+  {
+   "index": 3,
+   "chromatic": 9,
+   "backToIndex": 3
+  },
+  {
+   "index": 4,
+   "chromatic": 4,
+   "backToIndex": 4
+  },
+  {
+   "index": 5,
+   "chromatic": 11,
+   "backToIndex": 5
+  },
+  {
+   "index": 6,
+   "chromatic": 6,
+   "backToIndex": 6
+  },
+  {
+   "index": 7,
+   "chromatic": 1,
+   "backToIndex": 7
+  },
+  {
+   "index": 8,
+   "chromatic": 8,
+   "backToIndex": 8
+  },
+  {
+   "index": 9,
+   "chromatic": 3,
+   "backToIndex": 9
+  },
+  {
+   "index": 10,
+   "chromatic": 10,
+   "backToIndex": 10
+  },
+  {
+   "index": 11,
+   "chromatic": 5,
+   "backToIndex": 11
+  }
+ ],
+ "consonance": [
+  {
+   "pcs": [
+    0,
+    4,
+    7
+   ],
+   "note": "major triad",
+   "value": 0.9
+  },
+  {
+   "pcs": [
+    0,
+    3,
+    7
+   ],
+   "note": "minor triad — same interval classes as the major",
+   "value": 0.9
+  },
+  {
+   "pcs": [
+    0,
+    4,
+    8
+   ],
+   "note": "augmented",
+   "value": 0.9
+  },
+  {
+   "pcs": [
+    0,
+    3,
+    6
+   ],
+   "note": "diminished",
+   "value": 0.65
+  },
+  {
+   "pcs": [
+    0,
+    5,
+    7
+   ],
+   "note": "sus4",
+   "value": 0.75
+  },
+  {
+   "pcs": [
+    0,
+    4,
+    7,
+    11
+   ],
+   "note": "major seventh",
+   "value": 0.766667
+  },
+  {
+   "pcs": [
+    0,
+    4,
+    7,
+    10
+   ],
+   "note": "dominant seventh",
+   "value": 0.683333
+  },
+  {
+   "pcs": [
+    0,
+    2,
+    4,
+    5,
+    7,
+    9,
+    11
+   ],
+   "note": "major scale",
+   "value": 0.642857
+  },
+  {
+   "pcs": [
+    0,
+    1,
+    2
+   ],
+   "note": "chromatic cluster — the dark end",
+   "value": 0.083333
+  },
+  {
+   "pcs": [
+    0,
+    6
+   ],
+   "note": "tritone alone",
+   "value": 0.35
+  },
+  {
+   "pcs": [
+    0,
+    7
+   ],
+   "note": "fifth alone — the bright end",
+   "value": 1
+  },
+  {
+   "pcs": [
+    0
+   ],
+   "note": "one pitch class is trivially consonant",
+   "value": 1
+  },
+  {
+   "pcs": [],
+   "note": "and so is none",
+   "value": 1
+  },
+  {
+   "pcs": [
+    0,
+    12,
+    24
+   ],
+   "note": "octave equivalence: three Cs are one pitch class",
+   "value": 1
+  }
+ ],
+ "classify": [
+  {
+   "pcs": [
+    0,
+    4,
+    7
+   ],
+   "note": "root position",
+   "quality": "maj",
+   "root": 0,
+   "name": "Cmaj"
+  },
+  {
+   "pcs": [
+    4,
+    7,
+    0
+   ],
+   "note": "same set, written in another order",
+   "quality": "maj",
+   "root": 0,
+   "name": "Cmaj"
+  },
+  {
+   "pcs": [
+    4,
+    7,
+    12
+   ],
+   "note": "and with an octave in it",
+   "quality": "maj",
+   "root": 12,
+   "name": "Cmaj"
+  },
+  {
+   "pcs": [
+    0,
+    3,
+    7
+   ],
+   "note": "minor",
+   "quality": "min",
+   "root": 0,
+   "name": "Cmin"
+  },
+  {
+   "pcs": [
+    0,
+    3,
+    6
+   ],
+   "note": "diminished",
+   "quality": "dim",
+   "root": 0,
+   "name": "Cdim"
+  },
+  {
+   "pcs": [
+    0,
+    4,
+    8
+   ],
+   "note": "augmented — symmetrical, so the root it picks is a choice",
+   "quality": "aug",
+   "root": 0,
+   "name": "Caug"
+  },
+  {
+   "pcs": [
+    0,
+    5,
+    7
+   ],
+   "note": "sus4",
+   "quality": "sus4",
+   "root": 0,
+   "name": "Csus4"
+  },
+  {
+   "pcs": [
+    0,
+    4,
+    7,
+    11
+   ],
+   "note": "sevenths are tried before triads",
+   "quality": "maj7",
+   "root": 0,
+   "name": "Cmaj7"
+  },
+  {
+   "pcs": [
+    0,
+    3,
+    6,
+    9
+   ],
+   "note": "dim7 — every member is an equally good root",
+   "quality": "dim7",
+   "root": 0,
+   "name": "Cdim7"
+  },
+  {
+   "pcs": [
+    0,
+    3,
+    7,
+    11
+   ],
+   "note": "minMaj7",
+   "quality": "minMaj7",
+   "root": 0,
+   "name": "CminMaj7"
+  },
+  {
+   "pcs": [
+    0,
+    3,
+    6,
+    10
+   ],
+   "note": "half-diminished",
+   "quality": "halfDim7",
+   "root": 0,
+   "name": "ChalfDim7"
+  },
+  {
+   "pcs": [
+    0,
+    1,
+    2
+   ],
+   "note": "no reading — falls back to 'set'",
+   "quality": "set",
+   "root": null,
+   "name": "C-C♯-D"
+  },
+  {
+   "pcs": [
+    0,
+    4
+   ],
+   "note": "fewer than three has no reading at all",
+   "quality": null,
+   "root": null,
+   "name": ""
+  },
+  {
+   "pcs": [
+    0,
+    2,
+    4,
+    5,
+    7,
+    9,
+    11
+   ],
+   "note": "a whole scale is a set, not a chord",
+   "quality": "set",
+   "root": null,
+   "name": "C-D-E-F-G-A-B"
+  }
+ ],
+ "numerals": [
+  {
+   "degree": 0,
+   "quality": "maj",
+   "numeral": "I"
+  },
+  {
+   "degree": 0,
+   "quality": "min",
+   "numeral": "i"
+  },
+  {
+   "degree": 0,
+   "quality": "dim",
+   "numeral": "I°"
+  },
+  {
+   "degree": 0,
+   "quality": "aug",
+   "numeral": "I"
+  },
+  {
+   "degree": 0,
+   "quality": "sus4",
+   "numeral": "Isus"
+  },
+  {
+   "degree": 0,
+   "quality": "maj7",
+   "numeral": "I∆"
+  },
+  {
+   "degree": 0,
+   "quality": "7",
+   "numeral": "I7"
+  },
+  {
+   "degree": 0,
+   "quality": "min7",
+   "numeral": "i-7"
+  },
+  {
+   "degree": 0,
+   "quality": "halfDim7",
+   "numeral": "iø7"
+  },
+  {
+   "degree": 0,
+   "quality": "dim7",
+   "numeral": "I°7"
+  },
+  {
+   "degree": 0,
+   "quality": "minMaj7",
+   "numeral": "i"
+  },
+  {
+   "degree": 0,
+   "quality": "set",
+   "numeral": "I"
+  },
+  {
+   "degree": 0,
+   "quality": null,
+   "numeral": "I"
+  },
+  {
+   "degree": 1,
+   "quality": "maj",
+   "numeral": "II"
+  },
+  {
+   "degree": 1,
+   "quality": "min",
+   "numeral": "ii"
+  },
+  {
+   "degree": 1,
+   "quality": "dim",
+   "numeral": "II°"
+  },
+  {
+   "degree": 1,
+   "quality": "aug",
+   "numeral": "II"
+  },
+  {
+   "degree": 1,
+   "quality": "sus4",
+   "numeral": "IIsus"
+  },
+  {
+   "degree": 1,
+   "quality": "maj7",
+   "numeral": "II∆"
+  },
+  {
+   "degree": 1,
+   "quality": "7",
+   "numeral": "II7"
+  },
+  {
+   "degree": 1,
+   "quality": "min7",
+   "numeral": "ii-7"
+  },
+  {
+   "degree": 1,
+   "quality": "halfDim7",
+   "numeral": "iiø7"
+  },
+  {
+   "degree": 1,
+   "quality": "dim7",
+   "numeral": "II°7"
+  },
+  {
+   "degree": 1,
+   "quality": "minMaj7",
+   "numeral": "ii"
+  },
+  {
+   "degree": 1,
+   "quality": "set",
+   "numeral": "II"
+  },
+  {
+   "degree": 1,
+   "quality": null,
+   "numeral": "II"
+  },
+  {
+   "degree": 2,
+   "quality": "maj",
+   "numeral": "III"
+  },
+  {
+   "degree": 2,
+   "quality": "min",
+   "numeral": "iii"
+  },
+  {
+   "degree": 2,
+   "quality": "dim",
+   "numeral": "III°"
+  },
+  {
+   "degree": 2,
+   "quality": "aug",
+   "numeral": "III"
+  },
+  {
+   "degree": 2,
+   "quality": "sus4",
+   "numeral": "IIIsus"
+  },
+  {
+   "degree": 2,
+   "quality": "maj7",
+   "numeral": "III∆"
+  },
+  {
+   "degree": 2,
+   "quality": "7",
+   "numeral": "III7"
+  },
+  {
+   "degree": 2,
+   "quality": "min7",
+   "numeral": "iii-7"
+  },
+  {
+   "degree": 2,
+   "quality": "halfDim7",
+   "numeral": "iiiø7"
+  },
+  {
+   "degree": 2,
+   "quality": "dim7",
+   "numeral": "III°7"
+  },
+  {
+   "degree": 2,
+   "quality": "minMaj7",
+   "numeral": "iii"
+  },
+  {
+   "degree": 2,
+   "quality": "set",
+   "numeral": "III"
+  },
+  {
+   "degree": 2,
+   "quality": null,
+   "numeral": "III"
+  },
+  {
+   "degree": 3,
+   "quality": "maj",
+   "numeral": "IV"
+  },
+  {
+   "degree": 3,
+   "quality": "min",
+   "numeral": "iv"
+  },
+  {
+   "degree": 3,
+   "quality": "dim",
+   "numeral": "IV°"
+  },
+  {
+   "degree": 3,
+   "quality": "aug",
+   "numeral": "IV"
+  },
+  {
+   "degree": 3,
+   "quality": "sus4",
+   "numeral": "IVsus"
+  },
+  {
+   "degree": 3,
+   "quality": "maj7",
+   "numeral": "IV∆"
+  },
+  {
+   "degree": 3,
+   "quality": "7",
+   "numeral": "IV7"
+  },
+  {
+   "degree": 3,
+   "quality": "min7",
+   "numeral": "iv-7"
+  },
+  {
+   "degree": 3,
+   "quality": "halfDim7",
+   "numeral": "ivø7"
+  },
+  {
+   "degree": 3,
+   "quality": "dim7",
+   "numeral": "IV°7"
+  },
+  {
+   "degree": 3,
+   "quality": "minMaj7",
+   "numeral": "iv"
+  },
+  {
+   "degree": 3,
+   "quality": "set",
+   "numeral": "IV"
+  },
+  {
+   "degree": 3,
+   "quality": null,
+   "numeral": "IV"
+  },
+  {
+   "degree": 4,
+   "quality": "maj",
+   "numeral": "V"
+  },
+  {
+   "degree": 4,
+   "quality": "min",
+   "numeral": "v"
+  },
+  {
+   "degree": 4,
+   "quality": "dim",
+   "numeral": "V°"
+  },
+  {
+   "degree": 4,
+   "quality": "aug",
+   "numeral": "V"
+  },
+  {
+   "degree": 4,
+   "quality": "sus4",
+   "numeral": "Vsus"
+  },
+  {
+   "degree": 4,
+   "quality": "maj7",
+   "numeral": "V∆"
+  },
+  {
+   "degree": 4,
+   "quality": "7",
+   "numeral": "V7"
+  },
+  {
+   "degree": 4,
+   "quality": "min7",
+   "numeral": "v-7"
+  },
+  {
+   "degree": 4,
+   "quality": "halfDim7",
+   "numeral": "vø7"
+  },
+  {
+   "degree": 4,
+   "quality": "dim7",
+   "numeral": "V°7"
+  },
+  {
+   "degree": 4,
+   "quality": "minMaj7",
+   "numeral": "v"
+  },
+  {
+   "degree": 4,
+   "quality": "set",
+   "numeral": "V"
+  },
+  {
+   "degree": 4,
+   "quality": null,
+   "numeral": "V"
+  },
+  {
+   "degree": 5,
+   "quality": "maj",
+   "numeral": "VI"
+  },
+  {
+   "degree": 5,
+   "quality": "min",
+   "numeral": "vi"
+  },
+  {
+   "degree": 5,
+   "quality": "dim",
+   "numeral": "VI°"
+  },
+  {
+   "degree": 5,
+   "quality": "aug",
+   "numeral": "VI"
+  },
+  {
+   "degree": 5,
+   "quality": "sus4",
+   "numeral": "VIsus"
+  },
+  {
+   "degree": 5,
+   "quality": "maj7",
+   "numeral": "VI∆"
+  },
+  {
+   "degree": 5,
+   "quality": "7",
+   "numeral": "VI7"
+  },
+  {
+   "degree": 5,
+   "quality": "min7",
+   "numeral": "vi-7"
+  },
+  {
+   "degree": 5,
+   "quality": "halfDim7",
+   "numeral": "viø7"
+  },
+  {
+   "degree": 5,
+   "quality": "dim7",
+   "numeral": "VI°7"
+  },
+  {
+   "degree": 5,
+   "quality": "minMaj7",
+   "numeral": "vi"
+  },
+  {
+   "degree": 5,
+   "quality": "set",
+   "numeral": "VI"
+  },
+  {
+   "degree": 5,
+   "quality": null,
+   "numeral": "VI"
+  },
+  {
+   "degree": 6,
+   "quality": "maj",
+   "numeral": "VII"
+  },
+  {
+   "degree": 6,
+   "quality": "min",
+   "numeral": "vii"
+  },
+  {
+   "degree": 6,
+   "quality": "dim",
+   "numeral": "VII°"
+  },
+  {
+   "degree": 6,
+   "quality": "aug",
+   "numeral": "VII"
+  },
+  {
+   "degree": 6,
+   "quality": "sus4",
+   "numeral": "VIIsus"
+  },
+  {
+   "degree": 6,
+   "quality": "maj7",
+   "numeral": "VII∆"
+  },
+  {
+   "degree": 6,
+   "quality": "7",
+   "numeral": "VII7"
+  },
+  {
+   "degree": 6,
+   "quality": "min7",
+   "numeral": "vii-7"
+  },
+  {
+   "degree": 6,
+   "quality": "halfDim7",
+   "numeral": "viiø7"
+  },
+  {
+   "degree": 6,
+   "quality": "dim7",
+   "numeral": "VII°7"
+  },
+  {
+   "degree": 6,
+   "quality": "minMaj7",
+   "numeral": "vii"
+  },
+  {
+   "degree": 6,
+   "quality": "set",
+   "numeral": "VII"
+  },
+  {
+   "degree": 6,
+   "quality": null,
+   "numeral": "VII"
+  },
+  {
+   "degree": 7,
+   "quality": "maj",
+   "numeral": "VIII"
+  },
+  {
+   "degree": 7,
+   "quality": "min",
+   "numeral": "viii"
+  },
+  {
+   "degree": 7,
+   "quality": "dim",
+   "numeral": "VIII°"
+  },
+  {
+   "degree": 7,
+   "quality": "aug",
+   "numeral": "VIII"
+  },
+  {
+   "degree": 7,
+   "quality": "sus4",
+   "numeral": "VIIIsus"
+  },
+  {
+   "degree": 7,
+   "quality": "maj7",
+   "numeral": "VIII∆"
+  },
+  {
+   "degree": 7,
+   "quality": "7",
+   "numeral": "VIII7"
+  },
+  {
+   "degree": 7,
+   "quality": "min7",
+   "numeral": "viii-7"
+  },
+  {
+   "degree": 7,
+   "quality": "halfDim7",
+   "numeral": "viiiø7"
+  },
+  {
+   "degree": 7,
+   "quality": "dim7",
+   "numeral": "VIII°7"
+  },
+  {
+   "degree": 7,
+   "quality": "minMaj7",
+   "numeral": "viii"
+  },
+  {
+   "degree": 7,
+   "quality": "set",
+   "numeral": "VIII"
+  },
+  {
+   "degree": 7,
+   "quality": null,
+   "numeral": "VIII"
+  }
+ ]
 }
