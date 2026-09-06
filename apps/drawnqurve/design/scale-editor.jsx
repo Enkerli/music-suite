@@ -294,7 +294,8 @@ function ChromaticWheel({ lane, updateLane, paper = window.PAPER, size = 240, us
           fontSize: 10, fill: paper.ink50, letterSpacing: 1.2,
         }}>{window.pitchName(scaleRoot, useFlats)} ROOT</text>
         {/* Interval bitmask — decimal value, left-to-right, matching the
-            native editor's display (e.g. 2773 = C Ionian).  The same value
+            native editor's display (e.g. 2741 = C Ionian; 2773 is Lydian).  The
+            same value
             is editable in the scale panel's mask input field. */}
         <text x={r} y={r + 22} textAnchor="middle" style={{
           fontFamily: 'ui-monospace, "SF Mono", Menlo, monospace',

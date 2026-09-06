@@ -472,7 +472,7 @@ function JuceIPadStudio({ width = 1024, height = 768 }) {
                   </div>
 
                   {/* Editable decimal bitmask — type a value 0..4095 (e.g.
-                      2773 = C Ionian) to set the pitch-class set directly. */}
+                      2741 = C Ionian) to set the pitch-class set directly. */}
                   <ScaleMaskInput lane={focusLane} updateLane={eng.updateLane} paper={paper} />
 
                   <div style={{
