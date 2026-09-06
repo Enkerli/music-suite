@@ -119,6 +119,25 @@ strictly left to right, the low bit first (`0x1` = step 0 / pitch class 0).
 `@enkerli/theory`'s codecs (`patternToDecimal`, `patternFromHex`, `pcsToDecimal`,
 …) and `packages/theory/vectors/*.json` are the reference.
 
+**One value keeps being written down wrong, in prose, in four separate files:
+the C major scale is 2741, not 2773.** Every implementation has always been
+right; only the comments were wrong, four times, the same way. It recurs because
+2773 is not a nonsense number — it is what you get reading C major's bit string
+backwards, and read the right way round it is C **Lydian**, which is also
+`M13♯11`'s pitch-class set in the chord dictionary. A wrong number that is a
+different real thing survives review in a way that a wrong number never does.
+
+The check, when you are about to write one of these down:
+
+| | leftmost-LSB bit string | value |
+|---|---|---|
+| C major / Ionian | `101011010101` | 2741 = `0xAB5` |
+| C Lydian | `101010110101` | 2773 = `0xAD5` |
+
+They are each other's reverse. If a comment says the major scale is 2773, it is
+describing the MSB-first convention this suite abandoned on 2026-06-22 — or it
+is describing Lydian.
+
 For the notation *above* those codecs — UPI's `0x…`, `o…`, `d…`, `[i,j,k]:n`
 and bare bit-string forms — `packages/upi/vectors/upi.json` is the reference,
 and it carries `0x94` and `0x49` side by side precisely because reading the
