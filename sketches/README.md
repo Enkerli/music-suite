@@ -11,7 +11,7 @@ the usual ceremony. Until then it's allowed to be scrappy.
 
 | Sketch | What | Status |
 |---|---|---|
-| [twirl/](twirl/) | DRUW/Playground-ish gesture toy: draw or shake, hear it, it loops on its own clock; drag, turn, stretch, toybox | v1, playable on iPad |
+| [twirl/](twirl/) | DRUW/Playground-ish gesture toy: draw or shake, hear it, it loops on its own clock; drag, turn, resize to retime, edit notes, toybox, scenes | v2, playable on iPad |
 
 Parked threads that came up alongside the sketches (deliberately *not*
 mixed in) are in [THREADS.md](THREADS.md).

@@ -29,57 +29,84 @@ sound. No plugging.
 - **DrawnQurve**, but 2D. A qurve is a function of time (1D). Twirl wants
   spirals and loops-the-loop, and those aren't functions.
 
-## What it does (v1)
+## What it does (v2)
 
-Open `index.html` (or the published link). A spiral, a star and a shaker
-are already on the page. Touch anywhere to start the sound.
+Open `index.html` (or the published link). The first time, a spiral, a
+dropped line and a shaker are on the page; after that, **your last sheet
+comes back**. Touch anywhere to start the sound.
 
 | You do | It does |
 |---|---|
-| Touch down | A drum hit (height picks kick / snare / hat) |
-| Move | A note every *stride* of distance **or** every ~50° of turning. Straight lines are sparse; curls are dense. **A spiral is an arpeggio.** |
+| Touch down | A drum hit |
+| Move | A note every grid column's width of distance **or** every ~50° of turning. **A spiral is an arpeggio.** |
 | Move → right / ↑ up / ← left / ↓ down | pluck / bell / blip / drum. Direction picks the voice, Playground-style |
-| **Shake a finger** (three quick short back-and-forths) | Shaker mode: every reversal is a shaker hit, and how hard you shake sets the accents. A longer move goes back to drawing |
-| Height | Pitch, on the chosen grid (faint lines = grid steps, labelled at each period) |
+| **Scribble fast back and forth** (two quick short reversals) | Shaker mode: every reversal is a shaker hit, accents from how hard you shake. The wiggles that led into it are dropped. A long move goes back to drawing |
+| Height | Pitch on the grid's horizontal lines. **Drums are pitched too**: hats at the top, tuned snare in the middle, tuned kick/tom at the bottom |
 | Left ↔ right | Stereo position |
 | Speed | Loudness |
-| Lift | The stroke becomes a loop. Length = the gesture's duration rounded **up to whole beats** → polymeter |
+| Lift | The stroke becomes a loop. Length = duration rounded **up to whole beats** → polymeter |
 | **Drag a loop** | Moves it. Up/down transposes it |
-| **Two fingers on a loop** | Turn and stretch it. **Turning re-voices it** (direction picks the voice, after rotation); stretching widens its pitch range |
+| **Two fingers on a loop** | Turn it and resize it. **Bigger = slower, smaller = faster**: ½, ⅔, ¾, 1, 4⁄3, 1½, 2 (free-running if the division is Free) |
 | Tap a loop | Mute / unmute |
+| **Double-tap a loop** | Change how it moves on its own: still → drift → spin → jitter |
 | Hold a loop | Erase it |
+| **Edit on**: tap a path / tap a note / drag a note | Add a note there / remove it / reshape the path around it (soft falloff) |
 
 Controls:
-- **Grid**: DrawnQurve's scale families (pentatonic, diatonic modes,
-  colour scales, chord arps) plus microtonal grids (5-, 7-, 19-EDO,
-  harmonics 8–15, Bohlen–Pierce over the 3:1 tritave). **Root** transposes.
+- **Grid** (horizontal lines): DrawnQurve's scale families plus microtonal
+  grids (5-, 7-, 19-EDO, harmonics 8–15, Bohlen–Pierce). **Root**
+  transposes. **Range** sets how many octaves (periods) the sheet covers,
+  so the line count follows the note range, as in DrawnQurve.
+- **Division** (vertical lines): Free, 1/4, 1/8, 1/8T, 1/16, 1/16T, 1/32.
+  One bar spans the sheet. The division is the snap, and a column's width
+  is the distance between notes, so finer division = finer timing *and*
+  denser notes.
 - **Loop** off is the rhythmic MVP: play live, nothing repeats.
-- **Snap** quantises to 16ths, HLO-style.
-- **Morph** (on by default): every pass, each loop takes a small random
-  step in rotation, size and position, and eases toward it. Since pitch is
-  height and voice is direction, its melody and orchestration drift *as you
-  watch*. Off = freeze where they are. Held loops don't morph.
-- **Walk** shifts everything along a four-step progression every two bars.
-- **Drone** adds a root + fifth bed that follows Walk.
-- **Toybox**: Spiral, Ring, Star, Figure 8, Zigzag, Shaker (one of a few
-  accent "feels", 1–3 beats long), Dice. Toys run through the same tracer as
-  fingers, so they obey the same rules, and you can drag and turn them too.
+- **Morph**: each loop moves according to its own temperament (still,
+  drift, spin, jitter; random at birth, changed by double-tap). Off =
+  freeze where they are. Held loops don't move.
+- **Revoice** (off by default): off, a loop keeps the voices you drew
+  however it turns, so a dropped line stays drums and its turning walks
+  the drums through pitches. On, turning re-orchestrates it (v1 behaviour).
+- **Walk**, **Drone**: as before.
+- **Toybox**: Spiral, Ring, Star, Figure 8, Zigzag, Drop (a straight line
+  down: all drums, set to spin), Shaker, Dice.
+- **Scenes**: six slots. Empty slot: tap to save. Full slot: tap to recall,
+  hold to overwrite. Thumbnails show the shapes. The current sheet also
+  autosaves every few seconds and comes back on reload. All stored in
+  this browser only (`localStorage`).
 
 All sound is synthesised in Web Audio (no samples to load, same stance as
-`@enkerli/drumsynth`), with a dotted-eighth feedback delay on a send
-(a loopy delay, because of course).
+`@enkerli/drumsynth`), with a dotted-eighth feedback delay on a send.
 
-### What changed from v0, and why
+### What changed, and why
 
-- v0's Drift nudged pitches invisibly, so loops felt static ("the paths
-  don't morph much"). v1 moves the **shape**, and the sound follows from
-  the shape. Cause and effect are visible.
-- You expected to move and stretch figures. Now you can, and because
-  every mapping is computed *after* the transform, handling a loop is
-  playing it.
-- The toybox replaces Surprise, which was a single random spiral.
-- Shaking is a gesture, not a button, as in the toyboxes and shakers that
-  inspired it.
+**v1** (after v0): v0's Drift nudged pitches invisibly, so loops felt
+static. v1 moved the *shape*, with the sound following. Loops became
+movable and turnable; a toybox replaced Surprise; shaking became a gesture;
+grids arrived.
+
+**v2** (after v1):
+- *"Shakers are hard to pick up."* Two reversals now trigger it (was
+  three), with looser thresholds, and pre-shake wiggles no longer leave
+  stray notes behind. Toys can't accidentally become shakers.
+- *"Size could be associated with timing."* Resizing now retimes, snapped
+  to musical ratios, phase-continuous. Morph no longer changes size, so
+  size only changes when you change it.
+- *"The grid could be similar to DrawnQurve."* Range = Y subdivisions,
+  Division = X subdivisions, and the X lines mean something (snap + note
+  density) rather than decorating.
+- *"Sounds stay the same as the figure rotates."* Revoice toggle, off by
+  default.
+- *"Other ways to modify elements."* Edit mode: add, remove, reshape.
+- *"Movements apply differently to different objects."* Temperaments.
+- *"Recording and recalling."* Scenes + autosave. Audio recording to a
+  file is not in yet (an embedded page can't download files; it would work
+  from the standalone file).
+
+The scheduler was rewritten to be stateless per lookahead window (it
+derives every event in `[cursor, horizon)` from start, length and
+time-scale), which is what makes retiming and recalling safe.
 
 ## Design choices worth arguing with
 
@@ -90,23 +117,29 @@ All sound is synthesised in Web Audio (no samples to load, same stance as
    last few pixels, so finger jitter doesn't flip voices.
 3. **Loops replay the *recorded* timing** (snapped or not), and the playhead
    rides along the drawn path. The loop is your gesture, not an abstraction
-   of it.
+   of it. Resizing scales that timing; it never re-quantises it.
 4. **Pitch is stored as height, not as a note**, and read after the loop's
    transform. Changing grid remaps every loop instantly; moving, stretching
    and Morph are all just geometry.
 5. **Loop length rounds up to whole beats.** Bars would be tidier; beats
-   give polymeter, which is the fun part.
+   give polymeter, which is the fun part. Resize ratios then add
+   polyrhythm on top (a 3-beat loop at ⅔ is 2 beats of triplet feel).
+6. **Size = time, not pitch range.** Resizing still spreads a loop over
+   more pitch lines (height is height), but the main thing it changes is
+   speed. An open question: should resizing *only* change time and keep
+   the pitch spread?
 
 ## Known limits
 
 - No MIDI out (WebKit). Sound is in-page only. See "bridges" below.
-- No save / recall. Close the tab, lose the loops.
+- Scenes live in this browser only; no export/import yet.
+- No audio recording yet.
 - Max 14 loops; oldest goes first.
-- Pinch is tested with synthetic touches in Chromium, not yet on the iPad.
-- Drum voice by height thirds is blunt.
-- Tested in headless Chromium, not yet on the iPad itself. iOS Safari
-  needs the first touch to unlock audio; if it stays silent, tap
-  "Start sound".
+- Shake, pinch and double-tap are tested with synthetic touches in
+  Chromium, not yet on the iPad. Thresholds will likely need tuning.
+- The toolbar wraps to two rows below ~1300px wide.
+- iOS Safari needs the first touch to unlock audio; if it stays silent,
+  tap "Start sound".
 
 ## Next, roughly in order of fun per hour
 
@@ -115,13 +148,12 @@ All sound is synthesised in Web Audio (no samples to load, same stance as
   Then DRUW-style "generate a map" = scatter widgets.
 - **Loops that collide.** When a loop's playhead crosses another loop's
   path, trigger that point. Rube Goldberg, but out of your own scribbles.
-- **Time transforms per loop**: halve/double speed, reverse. (Spatial
-  move/turn/stretch landed in v1.)
+- **Reverse a loop** (flip it? a mirror gesture would be natural).
+- **Scene export/import** as a file or a copyable string, then audio
+  recording from the standalone page.
 - **Shaker as performance**: the shake's own timing unquantised, or a
   "swing" amount, so a shaker loop can lope instead of tick.
-- **Grid on the x axis too**: vertical lines as durations, so the sheet is
-  a full note/duration grid (DrawnQurve's x divisions).
-- **Life-like evolution** beyond Drift: loops that breed (splice two paths),
+- **Life-like evolution** beyond temperaments: loops that breed (splice two paths),
   or fade unless touched.
 - **Texture mode**: a voice that's continuous rather than per-event (a
   granular smear following the finger, Ribbons-like).
