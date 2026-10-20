@@ -6,9 +6,10 @@
 <style>
 /*
  * Twirl — a gesture toy. Layout: one full-bleed sheet of paper you draw on,
- * a floating control strip at the top, a quiet legend + loop list at the bottom.
+ * a floating control strip at the top, a toybox tray that slides up from the
+ * bottom, and a quiet legend + loop list along the bottom edge.
  * Palette is the suite's "paper & ink" (packages/ui/tokens/tokens.css), with
- * the four voices borrowing Vane's per-dimension accent colours.
+ * the voices borrowing Vane's per-dimension accent colours.
  */
 :root {
   --paper: #f5f2eb;
@@ -21,10 +22,11 @@
   --accent: #2f66a5;
   --accent-fg: #ffffff;
   /* one colour per voice (and one shape per voice, so colour is never alone) */
-  --pluck: #3f7cc0;   /* → right  · breath blue   */
-  --bell:  #23887a;   /* ↑ up     · expr teal     */
-  --blip:  #9a4fb6;   /* ← left   · slide purple  */
+  --pluck: #3f7cc0;   /* → right  · breath blue    */
+  --bell:  #23887a;   /* ↑ up     · expr teal      */
+  --blip:  #9a4fb6;   /* ← left   · slide purple   */
   --drum:  #c27424;   /* ↓ down   · pressure amber */
+  --shake: #a07a12;   /* shaken   · bend gold      */
 
   --font-hand: "Caveat", "Segoe Script", cursive;
   --font-sans: "Inter Tight", -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
@@ -35,7 +37,7 @@
     --paper: #1a1814; --raised: #221f1a; --ink: #e8e1d2; --ink-muted: #908672;
     --rule: #38332b; --rule-soft: #2b2620; --rule-strong: #736958;
     --accent: #6da3df; --accent-fg: #14130f;
-    --pluck: #7fb0e6; --bell: #5cc4b0; --blip: #c48ad8; --drum: #e6a35c;
+    --pluck: #7fb0e6; --bell: #5cc4b0; --blip: #c48ad8; --drum: #e6a35c; --shake: #e0bd5a;
     color-scheme: dark;
   }
 }
@@ -43,7 +45,7 @@
   --paper: #1a1814; --raised: #221f1a; --ink: #e8e1d2; --ink-muted: #908672;
   --rule: #38332b; --rule-soft: #2b2620; --rule-strong: #736958;
   --accent: #6da3df; --accent-fg: #14130f;
-  --pluck: #7fb0e6; --bell: #5cc4b0; --blip: #c48ad8; --drum: #e6a35c;
+  --pluck: #7fb0e6; --bell: #5cc4b0; --blip: #c48ad8; --drum: #e6a35c; --shake: #e0bd5a;
   color-scheme: dark;
 }
 
@@ -89,9 +91,9 @@ body {
   border: 1px solid var(--rule-strong); border-radius: 10px;
   cursor: pointer;
 }
-.btn[aria-pressed="true"] { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+.btn[aria-pressed="true"], .btn[aria-expanded="true"] { background: var(--ink); color: var(--paper); border-color: var(--ink); }
 .btn.primary { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); }
-.btn:focus-visible, .sel:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+.btn:focus-visible, .sel:focus-visible, .toy:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
 .tempo {
   display: inline-flex; align-items: center; gap: 6px;
   min-height: 40px; padding: 0 10px;
@@ -101,18 +103,46 @@ body {
 .tempo input { width: 96px; accent-color: var(--accent); }
 .spacer { flex: 1; }
 
+/* ── toybox tray ───────────────────────────────────────────────────────── */
+.toybox {
+  position: fixed; left: 0; right: 0;
+  bottom: calc(var(--foot-h, 64px) + 8px);   /* always just above the footer, whatever it wraps to */
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  display: flex; justify-content: center;
+  pointer-events: none;
+}
+.tray {
+  pointer-events: auto;
+  display: flex; flex-wrap: wrap; justify-content: center; gap: 6px;
+  padding: 8px;
+  max-width: 100%;
+  background: var(--raised); border: 1px solid var(--rule); border-radius: 16px;
+  box-shadow: 0 8px 30px rgb(0 0 0 / 0.14);
+}
+.toy {
+  display: grid; justify-items: center; gap: 2px;
+  width: 72px; padding: 8px 4px 6px;
+  font: 600 0.75rem/1.1 var(--font-sans); color: var(--ink);
+  background: transparent; border: 1px solid transparent; border-radius: 12px;
+  cursor: pointer;
+}
+.toy:hover { border-color: var(--rule); }
+.toy:active { background: var(--rule-soft); }
+.toy svg { width: 34px; height: 34px; fill: none; stroke: var(--ink); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
 /* ── bottom: loop list + legend ────────────────────────────────────────── */
 .foot {
   position: fixed; left: 0; right: 0; bottom: 0;
   padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 12px);
   padding-left: max(16px, env(safe-area-inset-left, 0px));
   padding-right: max(16px, env(safe-area-inset-right, 0px));
-  display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-end; gap: 10px;
+  display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-end; gap: 6px 16px;
   pointer-events: none;
-  font: 400 0.75rem/1.3 var(--font-mono);
+  font: 400 0.75rem/1.35 var(--font-mono);
   color: var(--ink-muted);
 }
-.legend { display: flex; flex-wrap: wrap; gap: 12px; }
+.legend { display: flex; flex-wrap: wrap; gap: 4px 12px; justify-content: flex-end; }
 .legend span { display: inline-flex; align-items: center; gap: 5px; }
 .legend svg { width: 12px; height: 12px; }
 #loops { font-variant-numeric: tabular-nums; }
@@ -121,7 +151,7 @@ body {
 /* ── first-frame hint ──────────────────────────────────────────────────── */
 .hint {
   position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%);
-  width: min(420px, calc(100% - 32px));
+  width: min(440px, calc(100% - 32px));
   padding: 18px 20px;
   background: var(--raised); border: 1px solid var(--rule); border-radius: 14px;
   box-shadow: 0 8px 30px rgb(0 0 0 / 0.12);
@@ -136,6 +166,8 @@ body {
   .wordmark { font-size: 1.6rem; }
   .tempo input { width: 70px; }
   .btn, .sel { padding: 0 9px; }
+  .toy { width: 62px; flex: none; }
+  .tray { flex-wrap: nowrap; justify-content: flex-start; overflow-x: auto; }
 }
 </style>
 
@@ -147,86 +179,125 @@ body {
   <label class="tempo" for="bpm"><span id="bpmVal">96</span> bpm
     <input id="bpm" type="range" min="60" max="160" step="1" value="96">
   </label>
-  <select class="sel" id="mood" aria-label="Scale">
-    <option value="penta">Pentatonic</option>
-    <option value="dorian">Dorian</option>
-    <option value="lydian">Lydian</option>
-    <option value="hira">Hirajōshi</option>
-    <option value="whole">Whole tone</option>
-  </select>
+  <select class="sel" id="grid" aria-label="Pitch grid"></select>
+  <select class="sel" id="root" aria-label="Root"></select>
   <button class="btn" id="loopBtn" type="button" aria-pressed="true" title="Gestures keep replaying">Loop</button>
   <button class="btn" id="snapBtn" type="button" aria-pressed="true" title="Snap hits to sixteenth notes">Snap</button>
-  <button class="btn" id="driftBtn" type="button" aria-pressed="false" title="Loops slowly wander, one note at a time">Drift</button>
+  <button class="btn" id="morphBtn" type="button" aria-pressed="true" title="Loops slowly turn, breathe and wander, so their notes change">Morph</button>
   <button class="btn" id="walkBtn" type="button" aria-pressed="false" title="Every two bars, everything shifts along a little progression">Walk</button>
   <button class="btn" id="droneBtn" type="button" aria-pressed="false" title="A soft root-and-fifth underneath">Drone</button>
   <span class="spacer"></span>
-  <button class="btn" id="surprise" type="button" title="Add a machine-drawn spiral">Surprise</button>
+  <button class="btn" id="toyBtn" type="button" aria-expanded="false" aria-controls="toybox">Toybox</button>
   <button class="btn" id="clear" type="button">Clear</button>
 </div>
 
-<div class="foot">
+<div class="toybox" id="toybox" hidden>
+  <div class="tray" role="group" aria-label="Toys: tap one to drop it on the sheet">
+    <button class="toy" type="button" data-toy="spiral"><svg viewBox="0 0 34 34"><path d="M17 17c1-1 3 0 3 2s-3 4-5 3-4-4-2-7 7-4 9-1 3 8-1 11-11 3-13-2-1-11 4-13"/></svg>Spiral</button>
+    <button class="toy" type="button" data-toy="ring"><svg viewBox="0 0 34 34"><circle cx="17" cy="17" r="11"/></svg>Ring</button>
+    <button class="toy" type="button" data-toy="star"><svg viewBox="0 0 34 34"><path d="M17 4l3.6 8.6 9.2.6-7 6 2.3 9-8.1-4.9-8.1 4.9 2.3-9-7-6 9.2-.6z"/></svg>Star</button>
+    <button class="toy" type="button" data-toy="eight"><svg viewBox="0 0 34 34"><path d="M17 17c4-6 11-6 11 0s-7 6-11 0-11-6-11 0 7 6 11 0z"/></svg>Figure 8</button>
+    <button class="toy" type="button" data-toy="zigzag"><svg viewBox="0 0 34 34"><path d="M3 22l5-10 5 10 5-10 5 10 5-10 3 6"/></svg>Zigzag</button>
+    <button class="toy" type="button" data-toy="shaker"><svg viewBox="0 0 34 34"><ellipse cx="17" cy="12" rx="7" ry="8"/><path d="M17 20v10M10 7l-3-2M24 7l3-2M27 13h3M4 13h3"/></svg>Shaker</button>
+    <button class="toy" type="button" data-toy="dice"><svg viewBox="0 0 34 34"><rect x="6" y="6" width="22" height="22" rx="4"/><circle cx="12" cy="12" r="1.6" fill="currentColor"/><circle cx="17" cy="17" r="1.6" fill="currentColor"/><circle cx="22" cy="22" r="1.6" fill="currentColor"/></svg>Dice</button>
+  </div>
+</div>
+
+<div class="foot" id="foot">
   <div id="loops" aria-live="polite"></div>
-  <div class="legend" aria-label="Direction sets the voice">
+  <div class="legend" aria-label="What sets each sound">
     <span><svg viewBox="0 0 12 12"><circle cx="6" cy="6" r="4.5" fill="var(--pluck)"/></svg>→ pluck</span>
     <span><svg viewBox="0 0 12 12"><circle cx="6" cy="6" r="4" fill="none" stroke="var(--bell)" stroke-width="2"/></svg>↑ bell</span>
     <span><svg viewBox="0 0 12 12"><path d="M6 1.5 L10.5 10 L1.5 10 Z" fill="var(--blip)"/></svg>← blip</span>
     <span><svg viewBox="0 0 12 12"><rect x="2" y="2" width="8" height="8" fill="var(--drum)"/></svg>↓ drum</span>
-    <span>height = pitch · tap a loop to mute · hold to erase</span>
+    <span><svg viewBox="0 0 12 12"><path d="M6 1 L11 6 L6 11 L1 6 Z" fill="var(--shake)"/></svg>shake a finger</span>
+    <span>drag a loop to move · two fingers turn &amp; stretch · tap mutes · hold erases</span>
   </div>
 </div>
 
 <div class="hint" id="hint">
   <h1>Draw something.</h1>
-  <p>Every stroke plays as you draw it, then keeps looping on its own clock. Spirals climb and tumble through the scale; strokes of different lengths drift in and out of phase.</p>
-  <p class="small">Two example twirls are already on the page. Touch anywhere to start the sound.</p>
+  <p>Every stroke plays as you draw it, then keeps looping on its own clock. Spirals climb and tumble through the scale. Shake a finger for a shaker. Drag a loop to move it; turn it with two fingers to change its voices.</p>
+  <p class="small">A spiral, a star and a shaker are already on the page. Touch anywhere to start the sound.</p>
 </div>
 
 <script>
 "use strict";
 /* =============================================================================
- * Twirl — the smallest DRUW/Playground-ish toy I could make that is still fun.
+ * Twirl v1 — a DRUW/Playground-ish gesture toy.
  *
  *   gesture ──► Tracer ──► events ──► Voice (Web Audio)
  *                 │                     ▲
  *                 └──► Loop ──► Scheduler (lookahead, per-loop clock)
+ *                       ▲
+ *        drag / pinch / Morph move the loop's TRANSFORM, never its points
  *
- * The sound design rules, all of which live in ONE place each:
+ * The rules, each in ONE place:
  *   - WHEN a note happens: every `stride` of distance, or every ~50° of
- *     turning (Tracer). So straight lines are sparse, curls are dense —
- *     a spiral is an arpeggio. Snap rounds that moment to a 16th.
- *   - WHICH voice: the direction you were moving (voiceForHeading).
- *   - WHICH pitch: how high on the sheet (degreeFor), in the chosen scale.
- *     Drums use height as kick / snare / hat instead.
- *   - HOW LONG a loop is: the gesture's duration rounded up to whole beats
- *     (finishStroke). Different lengths = polymeter for free.
+ *     turning (Tracer). A spiral is an arpeggio. Rapid back-and-forth flips
+ *     the Tracer into shaker mode: every reversal is a shaker hit.
+ *   - WHICH voice: the direction of travel (voiceForHeading), measured
+ *     AFTER the loop's rotation. Turning a loop re-voices it.
+ *   - WHICH pitch: the event's height on the sheet AFTER the loop's
+ *     transform (degreeAt), in the chosen grid. Moving a loop transposes it.
+ *   - HOW LONG a loop is: gesture duration rounded up to whole beats.
  * ========================================================================== */
 
-/* ── 1. Musical material ─────────────────────────────────────────────────── */
+/* ── 1. Pitch grids ──────────────────────────────────────────────────────── */
+// Each grid is a list of steps in cents within a repeating period. The 12-TET
+// ones come from DrawnQurve's scale masks (apps/drawnqurve/design/tokens.jsx;
+// leftmost = LSB, so bit i = pitch class i, per CONVENTIONS.md).
 
-// `walk` = diatonic shifts applied every two bars when Walk is on (index into
-// the scale, not semitones, so everything stays in the mode).
-const MOODS = {
-  penta:  { scale: [0, 2, 4, 7, 9],           walk: [0, 3, 1, 2] },
-  dorian: { scale: [0, 2, 3, 5, 7, 9, 10],    walk: [0, 5, 3, 4] },
-  lydian: { scale: [0, 2, 4, 6, 7, 9, 11],    walk: [0, 4, 1, 5] },
-  hira:   { scale: [0, 2, 3, 7, 8],           walk: [0, 3, 1, 4] },
-  whole:  { scale: [0, 2, 4, 6, 8, 10],       walk: [0, 2, 4, 1] },
-};
-const OCTAVES = 3;          // the sheet spans three octaves of the scale
-const BASE_MIDI = 48;       // C3 at the bottom of the sheet
-const BAR = 4;              // beats per bar (only used by Walk + Surprise)
+const fromMask = (mask) => [...Array(12).keys()].filter((i) => mask & (1 << i)).map((i) => i * 100);
+const edo = (n) => [...Array(n).keys()].map((i) => (1200 * i) / n);
+
+const GRIDS = [
+  { id: "pentMaj",  family: "Pentatonic", name: "Major pentatonic", steps: fromMask(0x295) },
+  { id: "pentMin",  family: "Pentatonic", name: "Minor pentatonic", steps: fromMask(0x4A9) },
+  { id: "suspended",family: "Pentatonic", name: "Suspended",        steps: fromMask(0x4A5) },
+  { id: "hira",     family: "Pentatonic", name: "Hirajōshi",        steps: fromMask(0x18D) },
+  { id: "ionian",   family: "Diatonic",   name: "Ionian",           steps: fromMask(0xAB5) },
+  { id: "dorian",   family: "Diatonic",   name: "Dorian",           steps: fromMask(0x6AD) },
+  { id: "phrygian", family: "Diatonic",   name: "Phrygian",         steps: fromMask(0x5AB) },
+  { id: "lydian",   family: "Diatonic",   name: "Lydian",           steps: fromMask(0xAD5) },
+  { id: "mixo",     family: "Diatonic",   name: "Mixolydian",       steps: fromMask(0x6B5) },
+  { id: "aeolian",  family: "Diatonic",   name: "Aeolian",          steps: fromMask(0x5AD) },
+  { id: "harmMinor",family: "Colour",     name: "Harmonic minor",   steps: fromMask(0x9AD) },
+  { id: "jazzMinor",family: "Colour",     name: "Jazz minor",       steps: fromMask(0xAAD) },
+  { id: "blues",    family: "Colour",     name: "Blues",            steps: fromMask(0x4E9) },
+  { id: "wholeTone",family: "Colour",     name: "Whole tone",       steps: fromMask(0x555) },
+  { id: "dimHW",    family: "Colour",     name: "Diminished HW",    steps: fromMask(0x6DB) },
+  { id: "maj7",     family: "Chordal",    name: "Maj 7 arp",        steps: fromMask(0x891) },
+  { id: "min7",     family: "Chordal",    name: "Min 7 arp",        steps: fromMask(0x489) },
+  { id: "edo5",     family: "Microtonal", name: "5-EDO (slendro-ish)", steps: edo(5) },
+  { id: "edo7",     family: "Microtonal", name: "7-EDO",            steps: edo(7) },
+  { id: "edo19",    family: "Microtonal", name: "19-EDO",           steps: edo(19) },
+  { id: "harm",     family: "Microtonal", name: "Harmonics 8–15",   steps: [8, 9, 10, 11, 12, 13, 14, 15].map((n) => 1200 * Math.log2(n / 8)) },
+  { id: "bp",       family: "Microtonal", name: "Bohlen–Pierce",    steps: [...Array(13).keys()].map((i) => (1200 * Math.log2(3) * i) / 13), period: 1200 * Math.log2(3) },
+];
+const GRID = Object.fromEntries(GRIDS.map((g) => [g.id, g]));
+const ROOTS = ["C", "C♯", "D", "E♭", "E", "F", "F♯", "G", "A♭", "A", "B♭", "B"];  // context-free display
+
+const BAR = 4;                // beats per bar (Walk, toybox timing)
+const BASE_MIDI = 48;         // C3 at the bottom of the sheet (before Root)
 const MAX_LOOP_BEATS = 16;
-const MAX_LOOPS = 12;
+const MAX_LOOPS = 14;
 
 const state = {
-  bpm: 96,
-  mood: "penta",
-  loop: true,
-  snap: true,
-  drift: false,
-  walk: false,
-  drone: false,
+  bpm: 96, grid: "pentMaj", root: 0,
+  loop: true, snap: true, morph: true, walk: false, drone: false,
 };
+
+const gridNow = () => GRID[state.grid];
+const periodOf = (g) => g.period || 1200;
+/** Big grids get fewer periods so the bands stay finger-sized. */
+const periodsShown = (g) => (g.steps.length > 8 ? 2 : 3);
+const bandCount = () => gridNow().steps.length * periodsShown(gridNow());
+/** Walk: four diatonic-ish shifts, scaled to however many steps the grid has. */
+function walkShift(step) {
+  const n = gridNow().steps.length;
+  return [0, Math.round((n * 5) / 7), Math.round((n * 3) / 7), Math.round((n * 4) / 7)][step] % n;
+}
 
 /* ── 2. Clock ────────────────────────────────────────────────────────────── */
 // One shared beat clock on the AudioContext timeline. Changing tempo rebases
@@ -241,10 +312,11 @@ const timeAt = (b) => t0 + b / bps();
 const nowBeat = () => beatAt(nowAudio());
 const snapUp = (b) => Math.ceil(b * 4 - 0.15) / 4;   // next 16th, forgiving if just late
 const snapNear = (b) => Math.round(b * 4) / 4;
+const walkStep = (b) => Math.floor(b / (2 * BAR)) % 4;
 
 /* ── 3. Sound ────────────────────────────────────────────────────────────── */
 
-let master, delaySend, noiseBuf, drone = null;
+let master, delaySend, delayLine, noiseBuf, drone = null;
 
 function ensureAudio() {
   if (!ctx) {
@@ -259,20 +331,19 @@ function ensureAudio() {
 
     // A loopy dotted-eighth delay, darkened each time round.
     delaySend = ctx.createGain(); delaySend.gain.value = 0.28;
-    const dl = ctx.createDelay(2), fb = ctx.createGain(), lp = ctx.createBiquadFilter();
-    dl.delayTime.value = 0.75 / bps();
+    delayLine = ctx.createDelay(2);
+    const fb = ctx.createGain(), lp = ctx.createBiquadFilter();
+    delayLine.delayTime.value = 0.75 / bps();
     fb.gain.value = 0.38; lp.type = "lowpass"; lp.frequency.value = 2400;
-    delaySend.connect(dl).connect(lp).connect(fb).connect(dl);
+    delaySend.connect(delayLine).connect(lp).connect(fb).connect(delayLine);
     lp.connect(master);
-    ensureAudio.delay = dl;
 
     noiseBuf = ctx.createBuffer(1, ctx.sampleRate, ctx.sampleRate);
     const d = noiseBuf.getChannelData(0);
     for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
 
     // Seed loops were laid out on a pre-audio clock; move them onto this one.
-    const shift = Math.ceil(nowBeat() / BAR) * BAR;
-    loops.forEach((lp) => { lp.start = shift; lp.pass = 0; lp.idx = 0; });
+    loops.forEach((lp) => { lp.start = 0; lp.pass = 0; lp.idx = 0; });
     setDrone(state.drone);
   }
   if (ctx.state !== "running") ctx.resume();
@@ -291,6 +362,11 @@ function env(g, t, peak, decay, attack = 0.004) {
   g.gain.setValueAtTime(0.0001, t);
   g.gain.exponentialRampToValueAtTime(peak, t + attack);
   g.gain.exponentialRampToValueAtTime(0.0001, t + attack + decay);
+}
+function noise(t, dur) {
+  const n = ctx.createBufferSource();
+  n.buffer = noiseBuf; n.start(t, Math.random() * 0.8); n.stop(t + dur);
+  return n;
 }
 
 const VOICES = {
@@ -329,75 +405,173 @@ const VOICES = {
     o.connect(g); out(g, pan * 0.3, 0.1); o.start(t); o.stop(t + 0.45);
   },
   snare(t, vel, pan) {
-    const n = ctx.createBufferSource(), f = ctx.createBiquadFilter(), g = ctx.createGain();
-    n.buffer = noiseBuf; f.type = "bandpass"; f.frequency.value = 1900; f.Q.value = 0.8;
+    const f = ctx.createBiquadFilter(), g = ctx.createGain();
+    f.type = "bandpass"; f.frequency.value = 1900; f.Q.value = 0.8;
     env(g, t, 0.5 * vel, 0.17, 0.001);
-    n.connect(f).connect(g); out(g, pan, 0.35); n.start(t); n.stop(t + 0.22);
+    noise(t, 0.22).connect(f).connect(g); out(g, pan, 0.35);
     const o = ctx.createOscillator(), og = ctx.createGain();
     o.type = "triangle"; o.frequency.value = 190; env(og, t, 0.3 * vel, 0.09, 0.001);
     o.connect(og); out(og, pan, 0.2); o.start(t); o.stop(t + 0.12);
   },
   hat(t, vel, pan) {
-    const n = ctx.createBufferSource(), f = ctx.createBiquadFilter(), g = ctx.createGain();
-    n.buffer = noiseBuf; f.type = "highpass"; f.frequency.value = 7200;
+    const f = ctx.createBiquadFilter(), g = ctx.createGain();
+    f.type = "highpass"; f.frequency.value = 7200;
     env(g, t, 0.28 * vel, 0.05, 0.001);
-    n.connect(f).connect(g); out(g, pan, 0.3); n.start(t, Math.random() * 0.5); n.stop(t + 0.08);
+    noise(t, 0.08).connect(f).connect(g); out(g, pan, 0.3);
+  },
+  /** Beads hitting a shell: a soft-attack noise grain plus a smaller rattle.
+   *  `bright` (0..1, from height) is the size of the shaker. */
+  shake(t, vel, pan, bright) {
+    const jitter = (Math.random() - 0.5) * 0.006;
+    for (const [dt, amp] of [[0, 1], [0.011 + Math.random() * 0.006, 0.35]]) {
+      const bp = ctx.createBiquadFilter(), hp = ctx.createBiquadFilter(), g = ctx.createGain();
+      bp.type = "bandpass"; bp.Q.value = 1.4;
+      bp.frequency.value = (3200 + 5200 * bright) * (0.92 + Math.random() * 0.16);
+      hp.type = "highpass"; hp.frequency.value = 1800;
+      const at = t + jitter + dt;
+      env(g, at, 0.5 * vel * amp, 0.045 + 0.07 * vel, 0.007);
+      noise(at, 0.16).connect(bp).connect(hp).connect(g); out(g, pan, 0.25);
+    }
   },
 };
 
-/* ── 4. Mapping: gesture → note ──────────────────────────────────────────── */
+/* ── 4. Loops and their transforms ───────────────────────────────────────── */
 
-/** Direction of travel picks the voice. Heading is in radians, 0 = right, + = up. */
+/**
+ * A stroke and a loop are the same object; a loop is a stroke that finished.
+ * Points and events are stored as drawn (normalized 0..1 to the sheet). What
+ * moves is the transform: user placement (tx, ty, rot, s) composed with an
+ * animated Morph offset (m, easing toward mt).
+ *
+ * @typedef Loop
+ * @property {{x:number,y:number,b:number}[]} pts   b = beat offset in the loop
+ * @property {object[]} events   sorted by .off
+ * @property {{x:number,y:number}} c   centroid (normalized) — the pivot
+ * @property {number} start  absolute beat where pass 0 began
+ * @property {number} L      length in whole beats
+ * @property {number} pass   which repetition the scheduler is filling
+ * @property {number} idx    next event index within that pass
+ */
+function newStroke(start) {
+  return {
+    pts: [], events: [], start, L: 1, pass: 0, idx: 0, muted: false,
+    c: { x: 0.5, y: 0.5 },
+    tx: 0, ty: 0, rot: 0, s: 1,
+    m:  { tx: 0, ty: 0, rot: 0, s: 1 },
+    mt: { tx: 0, ty: 0, rot: 0, s: 1 },
+  };
+}
+const totalRot = (lp) => lp.rot + lp.m.rot;
+
+/** Drawn (normalized) → where it is now (px). The only geometry function. */
+function place(lp, x, y, W, H) {
+  const cx = lp.c.x * W, cy = lp.c.y * H;
+  const dx = x * W - cx, dy = y * H - cy;
+  const r = totalRot(lp), s = lp.s * lp.m.s;
+  const cos = Math.cos(r), sin = Math.sin(r);
+  return [
+    cx + (lp.tx + lp.m.tx) * W + s * (dx * cos + dy * sin),
+    cy + (lp.ty + lp.m.ty) * H + s * (-dx * sin + dy * cos),
+  ];
+}
+
+const loops = [];
+const strokes = new Map();     // pointerId → live stroke
+let fading = [];               // erased loops and Loop-off strokes, fading out
+
+function finishStroke(s) {
+  if (!s.events.length) return false;
+  s.events.sort((a, b) => a.off - b.off);
+  // Two identical voices on the same 16th just sound like a flam: keep one.
+  s.events = s.events.filter((e, i, arr) => !(i && arr[i - 1].off === e.off && arr[i - 1].fixed === e.fixed && arr[i - 1].heading === e.heading));
+  const lastOff = s.events[s.events.length - 1].off;
+  const lastPt = s.pts[s.pts.length - 1].b;
+  s.L = Math.min(MAX_LOOP_BEATS, Math.max(1, Math.floor(lastOff) + 1, Math.ceil(lastPt)));
+  s.events = s.events.filter((e) => e.off < s.L);
+  let sx = 0, sy = 0;
+  for (const p of s.pts) { sx += p.x; sy += p.y; }
+  s.c = { x: sx / s.pts.length, y: sy / s.pts.length };
+  s.pass = 1; s.idx = 0;                       // pass 0 already sounded live
+  loops.push(s);
+  while (loops.length > MAX_LOOPS) fadeOut(loops.shift());
+  renderLoopList();
+  return true;
+}
+
+/** Morph: each pass, nudge where the loop is heading. The frame loop eases
+ *  toward it, so pitch and voice change gradually, and you can see why. */
+function morphStep(lp) {
+  const r = () => Math.random() - 0.5;
+  const mt = lp.mt;
+  mt.rot += r() * 0.7;                                          // ±20°
+  mt.s = Math.min(1.45, Math.max(0.7, mt.s * (1 + r() * 0.25)));
+  mt.tx = Math.min(0.2, Math.max(-0.2, mt.tx + r() * 0.07));
+  mt.ty = Math.min(0.2, Math.max(-0.2, mt.ty + r() * 0.07));
+}
+function easeMorph(lp, dt) {
+  const k = Math.min(1, dt * 0.9);
+  for (const key of ["tx", "ty", "rot", "s"]) lp.m[key] += (lp.mt[key] - lp.m[key]) * k;
+}
+
+/* ── 5. Mapping: where an event is now → which sound ─────────────────────── */
+
+/** Direction of travel picks the voice. Heading in radians, 0 = right, + = up. */
 function voiceForHeading(h) {
-  if (h === null) return "drum";            // the first touch of a stroke is a hit
-  const a = (h * 180) / Math.PI;
+  const a = ((((h * 180) / Math.PI) % 360) + 540) % 360 - 180;   // wrap to (-180, 180]
   if (a > -45 && a <= 45) return "pluck";
   if (a > 45 && a <= 135) return "bell";
   if (a > -135 && a <= -45) return "drum";
   return "blip";
 }
-const walkStep = (b) => Math.floor(b / (2 * BAR)) % 4;
-const bandCount = () => MOODS[state.mood].scale.length * OCTAVES;
+const voiceOf = (lp, ev) => ev.fixed || voiceForHeading(ev.heading + totalRot(lp));
 
-/** Height on the sheet → scale degree (0 = bottom), plus any drift and walk. */
-function degreeFor(ev, b) {
+/** Height (0 = top, 1 = bottom) → band index from the bottom, plus Walk. */
+function degreeAt(yN, b) {
   const N = bandCount();
-  let d = Math.min(N - 1, Math.max(0, Math.floor((1 - ev.y) * N) + ev.drift));
-  if (state.walk) d += MOODS[state.mood].walk[walkStep(b)];
+  let d = Math.min(N - 1, Math.max(0, Math.floor((1 - yN) * N)));
+  if (state.walk) d += walkShift(walkStep(b));
   return d;
 }
 function midiForDegree(d) {
-  const sc = MOODS[state.mood].scale;
-  return BASE_MIDI + 12 * Math.floor(d / sc.length) + sc[d % sc.length];
+  const g = gridNow(), n = g.steps.length;
+  return BASE_MIDI + state.root + (periodOf(g) * Math.floor(d / n) + g.steps[d % n]) / 100;
 }
 
-/** Sound one event at audio time t (b = its beat, for Walk). */
-function play(ev, t, b) {
+/** Sound one event of loop `lp` at audio time t (b = its beat, for Walk). */
+function play(lp, ev, t, b) {
   if (!ctx) return;
-  const pan = Math.max(-0.85, Math.min(0.85, ev.x * 1.7 - 0.85));
-  if (ev.voice === "drum") {
-    const kind = ev.y > 0.66 ? "kick" : ev.y > 0.33 ? "snare" : "hat";
+  const W = sheet.clientWidth, H = sheet.clientHeight;
+  const [px, py] = place(lp, ev.x, ev.y, W, H);
+  const xN = Math.min(1, Math.max(0, px / W)), yN = Math.min(1, Math.max(0, py / H));
+  const pan = xN * 1.7 - 0.85;
+  const voice = voiceOf(lp, ev);
+  if (voice === "shake") VOICES.shake(t, ev.vel, pan, 1 - yN);
+  else if (voice === "drum") {
+    const kind = yN > 0.66 ? "kick" : yN > 0.33 ? "snare" : "hat";
     VOICES[kind](t, ev.vel, pan);
-  } else {
-    VOICES[ev.voice](t, midiForDegree(degreeFor(ev, b)), ev.vel, pan);
-  }
+  } else VOICES[voice](t, midiForDegree(degreeAt(yN, b)), ev.vel, pan);
 }
 
-/* ── 5. Tracer: turning a stream of points into note events ──────────────── */
+/* ── 6. Tracer: a stream of points → note events ─────────────────────────── */
 // Fires on the first point, then whenever enough distance has been covered
 // or enough turning has accumulated. Heading is measured from the previous
-// event's position (not the last 3px), so the voice reflects the stroke's
-// real direction rather than finger jitter.
+// event's position (not the last few px), so finger jitter doesn't flip voices.
+//
+// It also tracks "legs" (runs in one direction). Three quick, short legs in a
+// row = a shake: from then on, every reversal is a shaker hit, until a leg
+// gets long again and it goes back to drawing.
 
 const TURN_TRIGGER = (50 * Math.PI) / 180;
 
 class Tracer {
   constructor(stridePx) {
     this.stride = stridePx;
+    this.shakeLeg = stridePx * 1.6;            // legs shorter than this can be a shake
     this.prev = null; this.anchor = null;
     this.dist = 0; this.turn = 0; this.segHeading = null;
+    this.leg = null; this.legStart = 0; this.reversals = []; this.shaking = false;
   }
-  /** @returns {null | {heading:number|null, speed:number}} speed in px/ms */
+  /** @returns {null | {heading:number|null, speed:number, shake?:true}} speed in px/ms */
   push(x, y, ms) {
     if (!this.prev) {
       this.prev = { x, y, ms }; this.anchor = { x, y, ms };
@@ -405,6 +579,34 @@ class Tracer {
     }
     const dx = x - this.prev.x, dy = y - this.prev.y, seg = Math.hypot(dx, dy);
     if (seg < 6) return null;
+    this.prev = { x, y, ms };
+
+    // Legs and reversals (for shaking).
+    let reversed = null;
+    if (!this.leg) { this.leg = { x: dx, y: dy }; this.legStart = ms; }
+    else {
+      const ll = Math.hypot(this.leg.x, this.leg.y);
+      const cos = (this.leg.x * dx + this.leg.y * dy) / (ll * seg);
+      if (cos < -0.3 && ll > 8) {
+        reversed = { ms, len: ll, speed: ll / Math.max(16, ms - this.legStart) };
+        this.reversals.push(reversed);
+        this.leg = { x: dx, y: dy }; this.legStart = ms;
+      } else { this.leg.x += dx; this.leg.y += dy; }
+    }
+    if (!this.shaking && this.reversals.length >= 3) {
+      const last3 = this.reversals.slice(-3);
+      if (last3[2].ms - last3[0].ms < 900 && last3.every((r) => r.len < this.shakeLeg)) this.shaking = true;
+    }
+    if (this.shaking) {
+      if (Math.hypot(this.leg.x, this.leg.y) > this.shakeLeg * 1.5) {   // long leg: drawing again
+        this.shaking = false; this.reversals = [];
+        this.anchor = { x, y, ms }; this.dist = 0; this.turn = 0;
+      } else {
+        return reversed ? { heading: null, speed: reversed.speed, shake: true } : null;
+      }
+    }
+
+    // Distance and turning (for drawing).
     const h = Math.atan2(-dy, dx);
     if (this.segHeading !== null) {
       let dh = h - this.segHeading;
@@ -412,7 +614,7 @@ class Tracer {
       while (dh < -Math.PI) dh += 2 * Math.PI;
       this.turn += Math.abs(dh);
     }
-    this.segHeading = h; this.dist += seg; this.prev = { x, y, ms };
+    this.segHeading = h; this.dist += seg;
     const curled = this.turn >= TURN_TRIGGER && this.dist >= this.stride * 0.3;
     if (this.dist < this.stride && !curled) return null;
 
@@ -428,50 +630,11 @@ function makeEvent(hit, xN, yN) {
   return {
     off: 0,                                   // beat offset inside the loop (set later)
     x: xN, y: yN,
-    voice: voiceForHeading(hit.heading),
+    heading: hit.heading ?? 0,                // as drawn; the loop's rotation is added later
+    fixed: hit.shake ? "shake" : hit.heading === null ? "drum" : null,
     vel: Math.max(0.35, Math.min(1, 0.35 + hit.speed * 0.45)),
-    drift: 0,                                 // degrees wandered by Drift
     flashAt: -1,                              // audio time of the last strike (for drawing)
   };
-}
-
-/* ── 6. Loops ────────────────────────────────────────────────────────────── */
-
-/**
- * @typedef Loop
- * @property {{x:number,y:number,b:number}[]} pts   normalized path, b = beat offset
- * @property {object[]} events   sorted by .off
- * @property {number} start      absolute beat where pass 0 began
- * @property {number} L          length in whole beats
- * @property {number} pass       which repetition the scheduler is filling
- * @property {number} idx        next event index within that pass
- */
-const loops = [];
-const strokes = new Map();     // pointerId → live stroke
-let fading = [];               // strokes from Loop-off mode, fading out
-
-function finishStroke(s) {
-  if (!s.events.length) return;
-  s.events.sort((a, b) => a.off - b.off);
-  // Two identical voices on the same 16th just sound like a flam: keep one.
-  s.events = s.events.filter((e, i, arr) => !(i && arr[i - 1].off === e.off && arr[i - 1].voice === e.voice));
-  const lastOff = s.events[s.events.length - 1].off;
-  const lastPt = s.pts[s.pts.length - 1].b;
-  s.L = Math.min(MAX_LOOP_BEATS, Math.max(1, Math.floor(lastOff) + 1, Math.ceil(lastPt)));
-  s.events = s.events.filter((e) => e.off < s.L);
-  s.pass = 1; s.idx = 0;                       // pass 0 already sounded live
-  s.muted = false; s.born = nowAudio();
-  loops.push(s);
-  while (loops.length > MAX_LOOPS) loops.shift();
-  renderLoopList();
-}
-
-/** Drift: each pass, a few melodic notes step up or down one scale degree. */
-function evolve(lp) {
-  for (const ev of lp.events) {
-    if (ev.voice === "drum" || Math.random() > 0.22) continue;
-    ev.drift = Math.max(-3, Math.min(3, ev.drift + (Math.random() < 0.5 ? -1 : 1)));
-  }
 }
 
 /* ── 7. Scheduler (classic lookahead: wake often, schedule a little ahead) ── */
@@ -490,11 +653,11 @@ function schedule() {
       if (b >= hb) break;
       if (b >= nb - 0.05 && !lp.muted) {
         const t = Math.max(now, timeAt(b));
-        play(ev, t, b); ev.flashAt = t;
+        play(lp, ev, t, b); ev.flashAt = t;
       }
       if (++lp.idx >= lp.events.length) {
         lp.idx = 0; lp.pass++;
-        if (state.drift) evolve(lp);
+        if (state.morph && !lp.held) morphStep(lp);
       }
     }
   }
@@ -515,7 +678,7 @@ function setDrone(on) {
     a.type = b.type = "triangle";
     a.connect(f); b.connect(f); f.connect(g); out(g, 0, 0.3);
     a.start(); b.start();
-    drone = { g, a, b, step: -1 };
+    drone = { g, a, b, key: "" };
     updateDrone(nowBeat(), true);
   } else if (!on && drone) {
     const d = drone; drone = null;
@@ -525,57 +688,84 @@ function setDrone(on) {
 }
 function updateDrone(b, force = false) {
   if (!drone) return;
-  const step = state.walk ? walkStep(b) : 0;
-  if (step === drone.step && !force) return;
-  drone.step = step;
-  const sc = MOODS[state.mood].scale, deg = MOODS[state.mood].walk[step] * (state.walk ? 1 : 0);
-  const root = BASE_MIDI - 12 + sc[deg % sc.length] + 12 * Math.floor(deg / sc.length);
+  const shift = state.walk ? walkShift(walkStep(b)) : 0;
+  const key = `${state.grid}/${state.root}/${shift}`;
+  if (key === drone.key && !force) return;
+  drone.key = key;
+  const root = midiForDegree(shift) - 12;
   drone.a.frequency.setTargetAtTime(mtof(root), ctx.currentTime, 0.25);
-  drone.b.frequency.setTargetAtTime(mtof(root + 7), ctx.currentTime, 0.25);
+  drone.b.frequency.setTargetAtTime(mtof(root + 7.02), ctx.currentTime, 0.25);
 }
 
-/* ── 9. Surprise: a machine-drawn twirl, through the same Tracer ─────────── */
+/* ── 9. Toybox: ready-made shapes, through the same Tracer ───────────────── */
+// Each toy is a parametric path (u: 0..1 → px) and a length in beats. Running
+// it through the Tracer means toys obey exactly the rules your fingers do.
 
-function genTwirl({ cx, cy, r, turns, beats, ccw, startBeat }) {
-  const W = sheet.clientWidth, H = sheet.clientHeight;
-  const tr = new Tracer(stridePx());
-  const s = { pts: [], events: [], start: startBeat };
-  const n = Math.round(60 * turns);
-  const msPerBeat = 60000 / state.bpm;
-  for (let i = 0; i <= n; i++) {
-    const u = i / n;
-    const th = (ccw ? 1 : -1) * u * turns * 2 * Math.PI + Math.random() * 0.02;
-    const rr = r * (0.15 + 0.85 * u);
-    const x = cx + rr * Math.cos(th), y = cy - rr * Math.sin(th);
-    const b = u * beats;
-    s.pts.push({ x: x / W, y: y / H, b });
-    const hit = tr.push(x, y, b * msPerBeat);
-    if (hit) {
-      const ev = makeEvent(hit, x / W, y / H);
-      ev.off = state.snap ? snapNear(b) : b;
-      s.events.push(ev);
+const TOYS = {
+  spiral: (r, ccw) => ({ beats: [3, 5, 7][Math.floor(Math.random() * 3)] - 0.3, n: 160,
+    at: (u) => { const th = (ccw ? 1 : -1) * u * 2.4 * 2 * Math.PI, rr = r * (0.15 + 0.85 * u); return [rr * Math.cos(th), -rr * Math.sin(th)]; } }),
+  ring: (r, ccw) => ({ beats: 3.8, n: 120,
+    at: (u) => { const th = (ccw ? 1 : -1) * u * 2 * Math.PI; return [r * Math.cos(th), -r * Math.sin(th)]; } }),
+  star: (r) => ({ beats: 4.8, n: 200,
+    at: (u) => {
+      const k = u * 10, i = Math.floor(k) % 10, f = k - Math.floor(k);
+      const vert = (j) => { const a = Math.PI / 2 + (j * Math.PI) / 5, rr = j % 2 ? r * 0.42 : r; return [rr * Math.cos(a), -rr * Math.sin(a)]; };
+      const A = vert(i), B = vert((i + 1) % 10);
+      return [A[0] + (B[0] - A[0]) * f, A[1] + (B[1] - A[1]) * f];
+    } }),
+  eight: (r) => ({ beats: 5.8, n: 180,
+    at: (u) => { const t = u * 2 * Math.PI; return [r * 1.3 * Math.sin(t), r * 0.7 * Math.sin(t) * Math.cos(t)]; } }),
+  zigzag: (r) => ({ beats: 2.8, n: 140,
+    at: (u) => { const legs = 6, k = u * legs, f = k - Math.floor(k), up = Math.floor(k) % 2; return [(u - 0.5) * r * 2.6, (up ? 1 - 2 * f : 2 * f - 1) * r * 0.55]; } }),
+};
+
+/** "Simple yet expressive": a few accent shapes for one beat of 16ths. */
+const SHAKER_FEELS = [
+  [1, 0.4, 0.65, 0.4],
+  [0.45, 0.35, 1, 0.4],
+  [1, 0.35, 0.35, 0.8, 0.35, 0.35, 1, 0.35],        // 3-3-2 across two beats
+  [0.9, 0.3, 0.55, 0.75],
+];
+
+function nextStart() { return ctx ? Math.ceil(nowBeat()) : 0; }
+
+function dropToy(kind, where) {
+  const W = sheet.clientWidth, H = sheet.clientHeight, m = Math.min(W, H);
+  if (kind === "dice") kind = ["spiral", "ring", "star", "eight", "zigzag", "shaker"][Math.floor(Math.random() * 6)];
+  const cx = where ? where[0] : W * (0.2 + Math.random() * 0.6);
+  const cy = where ? where[1] : H * (0.25 + Math.random() * 0.5);
+  const s = newStroke(nextStart());
+
+  if (kind === "shaker") {
+    const feel = SHAKER_FEELS[Math.floor(Math.random() * SHAKER_FEELS.length)];
+    const beats = feel.length > 4 ? 2 : [1, 2, 3][Math.floor(Math.random() * 3)];
+    const amp = 16;
+    for (let k = 0; k < beats * 4; k++) {
+      const b = k / 4, x = cx + (k % 2 ? amp : -amp), y = cy + Math.sin(k * 1.7) * 4;
+      s.pts.push({ x: x / W, y: y / H, b });
+      s.events.push({ off: b, x: x / W, y: y / H, heading: 0, fixed: "shake",
+        vel: feel[k % feel.length] * (0.85 + Math.random() * 0.15), flashAt: -1 });
+    }
+    s.pts.push({ x: (cx - amp) / W, y: cy / H, b: beats - 0.01 });
+  } else {
+    const toy = TOYS[kind](m * (0.09 + Math.random() * 0.1), Math.random() < 0.5);
+    const tr = new Tracer(stridePx());
+    const msPerBeat = 60000 / state.bpm;
+    for (let i = 0; i <= toy.n; i++) {
+      const u = i / toy.n, [ox, oy] = toy.at(u), x = cx + ox, y = cy + oy, b = u * toy.beats;
+      s.pts.push({ x: x / W, y: y / H, b });
+      const hit = tr.push(x, y, b * msPerBeat * 0.6);       // a touch brisker than real time: livelier velocities
+      if (hit) {
+        const ev = makeEvent(hit, x / W, y / H);
+        ev.off = state.snap ? snapNear(b) : b;
+        s.events.push(ev);
+      }
     }
   }
-  finishStroke(s);
-  const lp = loops[loops.length - 1];
-  if (lp === s) lp.pass = 0;                  // a machine twirl has not sounded yet
+  if (finishStroke(s)) s.pass = 0;              // a toy hasn't sounded yet
 }
 
-function surprise() {
-  const W = sheet.clientWidth, H = sheet.clientHeight, m = Math.min(W, H);
-  const lengths = [2, 3, 5, 6, 7];
-  genTwirl({
-    cx: W * (0.2 + Math.random() * 0.6),
-    cy: H * (0.25 + Math.random() * 0.55),
-    r: m * (0.08 + Math.random() * 0.14),
-    turns: 1.2 + Math.random() * 2.2,
-    beats: lengths[Math.floor(Math.random() * lengths.length)] - 0.3,
-    ccw: Math.random() < 0.5,
-    startBeat: Math.ceil(nowBeat() / BAR) * BAR,
-  });
-}
-
-/* ── 10. Touch handling ──────────────────────────────────────────────────── */
+/* ── 10. Touch: draw, shake, drag, turn, stretch ─────────────────────────── */
 
 const sheet = document.getElementById("sheet");
 const g2 = sheet.getContext("2d");
@@ -585,20 +775,22 @@ const HOLD_MS = 550, TAP_PX = 10;
 function hitLoop(px, py) {
   const W = sheet.clientWidth, H = sheet.clientHeight;
   for (let i = loops.length - 1; i >= 0; i--) {
-    for (const p of loops[i].pts) if (Math.hypot(p.x * W - px, p.y * H - py) < 18) return loops[i];
+    const lp = loops[i];
+    for (let j = 0; j < lp.pts.length; j += 2) {
+      const [x, y] = place(lp, lp.pts[j].x, lp.pts[j].y, W, H);
+      if (Math.hypot(x - px, y - py) < 20) return lp;
+    }
   }
   return null;
 }
 
+// Drawing --------------------------------------------------------------------
 function beginStroke(id, x, y, ms) {
-  const s = {
-    pts: [], events: [], start: Math.floor(nowBeat() * 4) / 4,
-    tracer: new Tracer(stridePx()), downAt: ms, ox: x, oy: y, moved: false,
-  };
+  const s = newStroke(Math.floor(nowBeat() * 4) / 4);
+  s.tracer = new Tracer(stridePx()); s.downAt = performance.now(); s.ox = x; s.oy = y; s.moved = false;
   strokes.set(id, s);
   extendStroke(s, x, y, ms);
 }
-
 function extendStroke(s, x, y, ms) {
   const W = sheet.clientWidth, H = sheet.clientHeight;
   const b = nowBeat();
@@ -609,68 +801,114 @@ function extendStroke(s, x, y, ms) {
   const ev = makeEvent(hit, x / W, y / H);
   const fireB = state.snap ? snapUp(b) : b;
   ev.off = Math.max(0, fireB - s.start);
-  if (ctx) { const t = Math.max(ctx.currentTime, timeAt(fireB)); play(ev, t, fireB); ev.flashAt = t; }
+  if (ctx) { const t = Math.max(ctx.currentTime, timeAt(fireB)); play(s, ev, t, fireB); ev.flashAt = t; }
   s.events.push(ev);
 }
-
 function endStroke(id) {
   const s = strokes.get(id); strokes.delete(id);
   if (!s) return;
   const isTap = !s.moved && performance.now() - s.downAt < 300;
-  if (state.loop && !isTap) finishStroke(s);
-  else if (s.pts.length > 1) { s.fadeFrom = performance.now(); fading.push(s); }
+  if (!(state.loop && !isTap && finishStroke(s)) && s.pts.length > 1) fadeOut(s);
 }
 
-// A touch that lands on an existing loop is a "loop touch" until it moves:
-// tap = mute/unmute, hold = erase, move = it was a new stroke after all.
-const loopTouches = new Map();
+// Handling loops ---------------------------------------------------------------
+// A touch on a loop is a "grab": tap = mute, hold = erase, move = drag.
+// A second finger near a grabbed loop turns it into a pinch: turn + stretch.
+const grabs = new Map();       // pointerId → { loop, x, y, mode: "pending"|"drag"|"pinch"|"spent", timer }
+let pinch = null;              // { loop, a, b, d0, ang0, mid0, xf0 }
+
+function startPinch(loop, idA, idB) {
+  const A = grabs.get(idA), B = grabs.get(idB);
+  clearTimeout(A.timer); clearTimeout(B.timer);
+  A.mode = B.mode = "pinch";
+  pinch = {
+    loop, a: idA, b: idB,
+    d0: Math.max(20, Math.hypot(B.x - A.x, B.y - A.y)),
+    ang0: Math.atan2(-(B.y - A.y), B.x - A.x),
+    mid0: [(A.x + B.x) / 2, (A.y + B.y) / 2],
+    xf0: { tx: loop.tx, ty: loop.ty, rot: loop.rot, s: loop.s },
+  };
+}
+function updatePinch() {
+  const { loop, xf0 } = pinch, A = grabs.get(pinch.a), B = grabs.get(pinch.b);
+  const W = sheet.clientWidth, H = sheet.clientHeight;
+  const d = Math.max(20, Math.hypot(B.x - A.x, B.y - A.y));
+  loop.s = Math.min(3, Math.max(0.3, (xf0.s * d) / pinch.d0));
+  loop.rot = xf0.rot + Math.atan2(-(B.y - A.y), B.x - A.x) - pinch.ang0;
+  loop.tx = xf0.tx + ((A.x + B.x) / 2 - pinch.mid0[0]) / W;
+  loop.ty = xf0.ty + ((A.y + B.y) / 2 - pinch.mid0[1]) / H;
+}
 
 sheet.addEventListener("pointerdown", (e) => {
   e.preventDefault();
   ensureAudio(); hideHint();
   sheet.setPointerCapture(e.pointerId);
-  const target = hitLoop(e.clientX, e.clientY);
+  const x = e.clientX, y = e.clientY;
+  const target = hitLoop(x, y);
+
+  // A second finger near (or on) a loop that's already held → pinch it.
+  if (!pinch) {
+    for (const [id, gr] of grabs) {
+      if (gr.mode !== "pending" && gr.mode !== "drag") continue;
+      const near = Math.hypot(gr.x - x, gr.y - y) < 0.35 * Math.min(sheet.clientWidth, sheet.clientHeight);
+      if (target === gr.loop || (!target && near)) {
+        grabs.set(e.pointerId, { loop: gr.loop, x, y, mode: "pinch" });
+        startPinch(gr.loop, id, e.pointerId);
+        return;
+      }
+    }
+  }
   if (target) {
-    const lt = { loop: target, x: e.clientX, y: e.clientY, at: performance.now() };
-    lt.timer = setTimeout(() => { eraseLoop(target); loopTouches.delete(e.pointerId); }, HOLD_MS);
-    loopTouches.set(e.pointerId, lt);
+    const gr = { loop: target, x, y, mode: "pending" };
+    target.held = true;
+    gr.timer = setTimeout(() => { if (gr.mode === "pending") { eraseLoop(target); gr.mode = "spent"; } }, HOLD_MS);
+    grabs.set(e.pointerId, gr);
   } else {
-    beginStroke(e.pointerId, e.clientX, e.clientY, e.timeStamp);
+    beginStroke(e.pointerId, x, y, e.timeStamp);
   }
 });
 
 sheet.addEventListener("pointermove", (e) => {
-  const lt = loopTouches.get(e.pointerId);
-  if (lt) {
-    if (Math.hypot(e.clientX - lt.x, e.clientY - lt.y) > TAP_PX) {
-      clearTimeout(lt.timer); loopTouches.delete(e.pointerId);
-      beginStroke(e.pointerId, lt.x, lt.y, e.timeStamp);
-    } else return;
+  const gr = grabs.get(e.pointerId);
+  if (gr) {
+    const W = sheet.clientWidth, H = sheet.clientHeight;
+    if (gr.mode === "pending" && Math.hypot(e.clientX - gr.x, e.clientY - gr.y) > TAP_PX) { clearTimeout(gr.timer); gr.mode = "drag"; }
+    if (gr.mode === "drag") { gr.loop.tx += (e.clientX - gr.x) / W; gr.loop.ty += (e.clientY - gr.y) / H; }
+    if (gr.mode !== "pending") { gr.x = e.clientX; gr.y = e.clientY; }
+    if (gr.mode === "pinch" && pinch) updatePinch();
+    return;
   }
   const s = strokes.get(e.pointerId);
   if (!s) return;
-  const evs = e.getCoalescedEvents ? e.getCoalescedEvents() : [e];
+  const evs = e.getCoalescedEvents ? e.getCoalescedEvents() : [];
   for (const c of (evs.length ? evs : [e])) extendStroke(s, c.clientX, c.clientY, c.timeStamp);
 });
 
-function pointerEnd(e) {
+function pointerEnd(e, cancelled = false) {
   ensureAudio();                              // iOS sometimes only unlocks on touchend
-  const lt = loopTouches.get(e.pointerId);
-  if (lt) {
-    clearTimeout(lt.timer); loopTouches.delete(e.pointerId);
-    lt.loop.muted = !lt.loop.muted; renderLoopList();
+  const gr = grabs.get(e.pointerId);
+  if (gr) {
+    clearTimeout(gr.timer); grabs.delete(e.pointerId);
+    if (gr.mode === "pending" && !cancelled) { gr.loop.muted = !gr.loop.muted; renderLoopList(); }
+    if (gr.mode === "pinch" && pinch) {
+      const other = grabs.get(pinch.a === e.pointerId ? pinch.b : pinch.a);
+      if (other) other.mode = "spent";        // the remaining finger lets go of the loop
+      pinch = null;
+    }
+    if (![...grabs.values()].some((o) => o.loop === gr.loop)) gr.loop.held = false;
     return;
   }
   endStroke(e.pointerId);
 }
-sheet.addEventListener("pointerup", pointerEnd);
-sheet.addEventListener("pointercancel", (e) => { loopTouches.delete(e.pointerId); endStroke(e.pointerId); });
+sheet.addEventListener("pointerup", (e) => pointerEnd(e));
+sheet.addEventListener("pointercancel", (e) => pointerEnd(e, true));
 document.addEventListener("gesturestart", (e) => e.preventDefault());   // no Safari pinch-zoom
 
+function fadeOut(s) { s.fadeFrom = performance.now(); fading.push(s); }
 function eraseLoop(lp) {
   const i = loops.indexOf(lp);
   if (i >= 0) loops.splice(i, 1);
-  lp.fadeFrom = performance.now(); fading.push(lp);
+  fadeOut(lp);
   renderLoopList();
 }
 
@@ -679,7 +917,7 @@ function eraseLoop(lp) {
 let colors = {};
 function readColors() {
   const cs = getComputedStyle(document.documentElement);
-  for (const k of ["paper", "ink", "ink-muted", "rule", "rule-soft", "accent", "pluck", "bell", "blip", "drum"])
+  for (const k of ["paper", "ink", "ink-muted", "rule", "rule-soft", "accent", "pluck", "bell", "blip", "drum", "shake"])
     colors[k] = cs.getPropertyValue("--" + k).trim();
   colors.monoFont = "11px " + cs.getPropertyValue("--font-mono").trim();
 }
@@ -696,44 +934,50 @@ function resize() {
 window.addEventListener("resize", resize);
 resize();
 
-/** The pitch map: one faint line per scale degree, a firmer line at each C. */
+/** The pitch map: one faint line per grid step, a firmer line at each period. */
 function drawBands(W, H) {
-  const sc = MOODS[state.mood].scale, N = bandCount();
-  g2.lineWidth = 1;
+  const g = gridNow(), n = g.steps.length, N = bandCount();
+  g2.lineWidth = 1; g2.font = colors.monoFont;
   for (let d = 1; d < N; d++) {
     const y = Math.round(H * (1 - d / N)) + 0.5;
-    const tonic = d % sc.length === 0;
+    const tonic = d % n === 0;
     g2.strokeStyle = tonic ? colors.rule : colors["rule-soft"];
     g2.beginPath(); g2.moveTo(0, y); g2.lineTo(W, y); g2.stroke();
     if (tonic) {
       g2.fillStyle = colors["ink-muted"];
-      g2.font = colors.monoFont;
-      g2.fillText("C" + (3 + d / sc.length), 8, y - 4);
+      const label = g.period ? `${ROOTS[state.root]} ×${3 ** (d / n)}` : `${ROOTS[state.root]}${3 + Math.floor((state.root + (1200 * d) / n / 100) / 12)}`;
+      g2.fillText(label, 8, y - 4);
     }
   }
 }
 
-function strokePath(pts, W, H, alpha, width, dash) {
+function strokePath(lp, W, H, alpha, width, dash) {
+  const pts = lp.pts;
   if (pts.length < 2) return;
   g2.save();
   g2.globalAlpha = alpha; g2.strokeStyle = colors.ink; g2.lineWidth = width;
   g2.lineCap = "round"; g2.lineJoin = "round";
   if (dash) g2.setLineDash([4, 7]);
-  g2.beginPath(); g2.moveTo(pts[0].x * W, pts[0].y * H);
-  for (let i = 1; i < pts.length; i++) g2.lineTo(pts[i].x * W, pts[i].y * H);
+  g2.beginPath();
+  for (let i = 0; i < pts.length; i++) {
+    const [x, y] = place(lp, pts[i].x, pts[i].y, W, H);
+    if (i) g2.lineTo(x, y); else g2.moveTo(x, y);
+  }
   g2.stroke(); g2.restore();
 }
 
 /** Each voice has a shape as well as a colour. */
-function drawGlyph(ev, W, H, r, alpha) {
-  const x = ev.x * W, y = ev.y * H;
+function drawGlyph(lp, ev, W, H, r, alpha) {
+  const [x, y] = place(lp, ev.x, ev.y, W, H);
+  const voice = voiceOf(lp, ev);
   g2.save(); g2.globalAlpha = alpha;
-  const c = colors[ev.voice];
+  const c = colors[voice];
   g2.fillStyle = c; g2.strokeStyle = c; g2.lineWidth = 2;
   g2.beginPath();
-  if (ev.voice === "pluck") { g2.arc(x, y, r, 0, 7); g2.fill(); }
-  else if (ev.voice === "bell") { g2.arc(x, y, r * 0.9, 0, 7); g2.stroke(); }
-  else if (ev.voice === "blip") { g2.moveTo(x, y - r); g2.lineTo(x + r, y + r * 0.8); g2.lineTo(x - r, y + r * 0.8); g2.closePath(); g2.fill(); }
+  if (voice === "pluck") { g2.arc(x, y, r, 0, 7); g2.fill(); }
+  else if (voice === "bell") { g2.arc(x, y, r * 0.9, 0, 7); g2.stroke(); }
+  else if (voice === "blip") { g2.moveTo(x, y - r); g2.lineTo(x + r, y + r * 0.8); g2.lineTo(x - r, y + r * 0.8); g2.closePath(); g2.fill(); }
+  else if (voice === "shake") { g2.moveTo(x, y - r); g2.lineTo(x + r, y); g2.lineTo(x, y + r); g2.lineTo(x - r, y); g2.closePath(); g2.fill(); }
   else { g2.rect(x - r * 0.85, y - r * 0.85, r * 1.7, r * 1.7); g2.fill(); }
   g2.restore();
 }
@@ -749,37 +993,41 @@ function headPoint(lp, b) {
 }
 
 const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
+let lastFrame = performance.now();
 
 function frame() {
   const W = sheet.clientWidth, H = sheet.clientHeight;
   const at = nowAudio(), b = nowBeat();
+  const tNow = performance.now(), dt = Math.min(0.1, (tNow - lastFrame) / 1000);
+  lastFrame = tNow;
   g2.fillStyle = colors.paper; g2.fillRect(0, 0, W, H);
   drawBands(W, H);
 
   for (const lp of loops) {
-    strokePath(lp.pts, W, H, lp.muted ? 0.25 : 0.55, 2, lp.muted);
+    if (ctx) easeMorph(lp, dt);
+    strokePath(lp, W, H, lp.muted ? 0.25 : lp.held ? 0.9 : 0.55, lp.held ? 3 : 2, lp.muted);
     for (const ev of lp.events) {
       const since = at - ev.flashAt;
       const lit = ctx && ev.flashAt >= 0 && since >= 0 && since < 0.18;
       const r = lit && !reduceMotion ? 9 - since * 20 : 5;
-      drawGlyph(ev, W, H, r, lp.muted ? 0.3 : lit ? 1 : 0.75);
+      drawGlyph(lp, ev, W, H, r, lp.muted ? 0.3 : lit ? 1 : 0.75);
     }
     if (ctx && !lp.muted) {
       const p = headPoint(lp, b);
       if (p) {
+        const [x, y] = place(lp, p.x, p.y, W, H);
         g2.fillStyle = colors.accent;
-        g2.beginPath(); g2.arc(p.x * W, p.y * H, 4, 0, 7); g2.fill();
+        g2.beginPath(); g2.arc(x, y, 4, 0, 7); g2.fill();
       }
     }
   }
 
-  const tNow = performance.now();
   fading = fading.filter((s) => tNow - s.fadeFrom < 1400);
-  for (const s of fading) strokePath(s.pts, W, H, 0.55 * (1 - (tNow - s.fadeFrom) / 1400), 2);
+  for (const s of fading) strokePath(s, W, H, 0.55 * (1 - (tNow - s.fadeFrom) / 1400), 2);
 
   for (const s of strokes.values()) {
-    strokePath(s.pts, W, H, 0.95, 3);
-    for (const ev of s.events) drawGlyph(ev, W, H, 5, 0.9);
+    strokePath(s, W, H, 0.95, 3);
+    for (const ev of s.events) drawGlyph(s, ev, W, H, 5, 0.9);
   }
   requestAnimationFrame(frame);
 }
@@ -788,13 +1036,14 @@ function frame() {
 
 const $ = (id) => document.getElementById(id);
 const hint = $("hint");
-function hideHint() { hint.hidden = true; $("power").textContent = ctx && ctx.state === "running" ? "Pause" : "Start sound"; }
+function syncPower() { $("power").textContent = ctx && ctx.state === "running" ? "Pause" : "Start sound"; }
+function hideHint() { hint.hidden = true; setTimeout(syncPower, 80); }
 
 $("power").addEventListener("click", async () => {
-  if (ctx && ctx.state === "running") { await ctx.suspend(); }
+  if (ctx && ctx.state === "running") await ctx.suspend();
   else { ensureAudio(); requestWakeLock(); }
   hint.hidden = true;
-  setTimeout(() => { $("power").textContent = ctx.state === "running" ? "Pause" : "Start sound"; }, 50);
+  setTimeout(syncPower, 80);
 });
 
 $("bpm").addEventListener("input", (e) => {
@@ -802,9 +1051,21 @@ $("bpm").addEventListener("input", (e) => {
   state.bpm = Number(e.target.value);
   $("bpmVal").textContent = state.bpm;
   t0 = nowAudio() - b / bps();                // keep the current beat where it is
-  if (ensureAudio.delay) ensureAudio.delay.delayTime.setTargetAtTime(0.75 / bps(), ctx.currentTime, 0.05);
+  if (delayLine) delayLine.delayTime.setTargetAtTime(0.75 / bps(), ctx.currentTime, 0.05);
 });
-$("mood").addEventListener("change", (e) => { state.mood = e.target.value; updateDrone(nowBeat(), true); });
+
+// Grid picker, grouped by family like DrawnQurve's.
+(function fillPickers() {
+  const sel = $("grid");
+  let group = null;
+  for (const g of GRIDS) {
+    if (!group || group.label !== g.family) { group = document.createElement("optgroup"); group.label = g.family; sel.append(group); }
+    group.append(new Option(g.name, g.id, false, g.id === state.grid));
+  }
+  ROOTS.forEach((r, i) => $("root").append(new Option(r, String(i), false, i === state.root)));
+})();
+$("grid").addEventListener("change", (e) => { state.grid = e.target.value; updateDrone(nowBeat(), true); });
+$("root").addEventListener("change", (e) => { state.root = Number(e.target.value); updateDrone(nowBeat(), true); });
 
 function toggle(id, key, after) {
   $(id).addEventListener("click", () => {
@@ -815,29 +1076,40 @@ function toggle(id, key, after) {
 }
 toggle("loopBtn", "loop");
 toggle("snapBtn", "snap");
-toggle("driftBtn", "drift", (on) => { if (!on) loops.forEach((lp) => lp.events.forEach((e) => (e.drift = 0))); });
+// Turning Morph off freezes each loop wherever it has wandered to.
+toggle("morphBtn", "morph", (on) => { if (!on) loops.forEach((lp) => (lp.mt = { ...lp.m })); });
 toggle("walkBtn", "walk", () => updateDrone(nowBeat(), true));
 toggle("droneBtn", "drone", (on) => { ensureAudio(); setDrone(on); });
 
-$("surprise").addEventListener("click", () => { surprise(); });
+$("toyBtn").addEventListener("click", () => {
+  const box = $("toybox"), open = box.hidden;
+  box.hidden = !open;
+  $("toyBtn").setAttribute("aria-expanded", String(open));
+});
+document.querySelectorAll(".toy").forEach((btn) =>
+  btn.addEventListener("click", () => { ensureAudio(); hint.hidden = true; syncPower(); dropToy(btn.dataset.toy); }));
 $("clear").addEventListener("click", () => { [...loops].forEach(eraseLoop); });
 
 function renderLoopList() {
   const el = $("loops");
-  if (!loops.length) { el.textContent = "no loops yet · draw to make one"; return; }
+  if (!loops.length) { el.textContent = "no loops yet · draw, shake, or open the toybox"; return; }
   el.innerHTML = "loops in beats: " + loops.map((lp) => lp.muted ? `(${lp.L})` : `<b>${lp.L}</b>`).join(" · ");
 }
+
+// Keep the toybox clear of the footer, however many lines the footer wraps to.
+new ResizeObserver(([e]) => document.documentElement.style.setProperty("--foot-h", e.target.offsetHeight + "px")).observe($("foot"));
 
 async function requestWakeLock() {
   try { if (navigator.wakeLock) await navigator.wakeLock.request("screen"); } catch (_) { /* fine */ }
 }
 
-/* ── 13. First frame: two example twirls, so the page shows what it does ── */
+/* ── 13. First frame: examples on the page, so it shows what it does ─────── */
 
 (function seed() {
-  const W = sheet.clientWidth, H = sheet.clientHeight, m = Math.min(W, H);
-  genTwirl({ cx: W * 0.3, cy: H * 0.62, r: m * 0.17, turns: 2.4, beats: 2.7, ccw: true, startBeat: 0 });
-  genTwirl({ cx: W * 0.72, cy: H * 0.4, r: m * 0.12, turns: 1.6, beats: 4.6, ccw: false, startBeat: 0 });
+  const W = sheet.clientWidth, H = sheet.clientHeight;
+  dropToy("spiral", [W * 0.3, H * 0.6]);
+  dropToy("star", [W * 0.7, H * 0.42]);
+  dropToy("shaker", [W * 0.52, H * 0.22]);
   renderLoopList();
 })();
 requestAnimationFrame(frame);
