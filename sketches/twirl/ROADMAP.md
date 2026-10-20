@@ -66,8 +66,8 @@ the page becomes the plugin UI; the bridge carries note events out.
      filters and envelopes each);
    - or the Vane route: compile DSP to WASM for the browser and use the
      same C++ in the plugin.
-3. **Microtonal MIDI**: MPE (a channel per note, pitch bend per note) or
-   MTS-ESP. Until then, microtonal grids round to semitones on MIDI out.
+3. **Microtonal MIDI**: MTS-ESP first (see Decided below), MPE as the
+   fallback. Until then, microtonal grids round to semitones on MIDI out.
 
 ## Step 4: sandboxes on a zoomable map
 
@@ -95,17 +95,27 @@ it after Step 1 means one engine instance per sandbox, which is cleaner.
 
 - Audio recording from the standalone page. (Scene sharing landed as
   links: the scene travels in the `#fragment`.)
-- Group the less-used toggles (Walk, Drone, Revoice) so the toolbar fits
-  one row on an 11" iPad.
 - Tune the gesture thresholds on the real iPad (shake, double-tap, grab
   radius).
 - Reverse / mirror a loop.
 
+## Decided (2026-10-20)
+
+- **Tempo**: each sandbox can run at its **own tempo**, and the whole map
+  can **sync to the host** in the plugin (host tempo and transport drive
+  the shared beat clock; a sandbox's own tempo becomes a ratio of it only
+  when synced). The scheduler is beat-based, so both are clock swaps.
+- **Incoming MIDI draws strokes**: in the plugin (and wherever Web MIDI
+  exists), a played line becomes a drawn one: time runs along the stroke,
+  pitch sets height, velocity sets speed, and the result loops like any
+  other stroke. This closes the loop with the Diosynth.
+- **Tuning over MIDI: MTS-ESP** for engines that support it (Twirl as the
+  tuning master, broadcasting the current grid + tuning + root), with MPE
+  as the fallback for engines that don't, and plain rounding as the last
+  resort.
+
 ## Open questions
 
-- Should a sandbox have its own tempo, or a ratio of a shared one? A ratio
-  keeps everything phase-related; its own tempo is more like a forest.
-- In the plugin, is a "stroke" also recordable from incoming MIDI (a
-  played line becomes a drawn one)? It would close the loop with the
-  Diosynth.
 - Name: "Twirl" for now.
+- Should My toys (kept loops) also be shareable as a *set*, a toybox in a
+  link? Same encoding would work; size is the only limit.

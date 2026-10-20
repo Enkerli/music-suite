@@ -106,6 +106,19 @@ body {
 }
 .tempo input { width: 96px; accent-color: var(--accent); }
 .spacer { flex: 1; }
+/* The More menu: less-used toggles, one tap away. */
+.more { position: relative; display: inline-flex; }
+.morepanel {
+  position: absolute; top: calc(100% + 6px); left: 0; z-index: 5;
+  display: grid; gap: 6px; padding: 8px; min-width: 190px;
+  background: var(--raised); border: 1px solid var(--rule); border-radius: 12px;
+  box-shadow: 0 8px 24px rgb(0 0 0 / 0.14);
+}
+.morepanel .btn { text-align: left; }
+.morepanel small { font: 400 0.6875rem/1.3 var(--font-mono); color: var(--ink-muted); padding: 0 2px; }
+.seg { display: inline-flex; align-self: center; border: 1px solid var(--rule-strong); border-radius: 10px; overflow: hidden; }
+.seg .btn { border: 0; border-radius: 0; min-height: 36px; }
+.seg .btn + .btn { border-left: 1px solid var(--rule-strong); }
 
 /* ── trays (toybox, scenes) ────────────────────────────────────────────── */
 .traywrap {
@@ -210,10 +223,10 @@ body {
   </label>
   <span class="group">
     <select class="sel" id="grid" aria-label="Pitch grid (horizontal lines)"></select>
-    <select class="sel" id="tuning" aria-label="Tuning (for 12-note grids)">
-      <option value="equal">Equal</option><option value="just">Just (5-limit)</option>
-      <option value="pyth">Pythagorean</option><option value="meantone">¼-comma meantone</option>
-      <option value="werck">Werckmeister III</option>
+    <select class="sel" id="tuning" aria-label="Tuning for 12-note grids: equal, just (5-limit), Pythagorean, quarter-comma meantone, Werckmeister III" title="Just = 5-limit · Meantone = ¼-comma">
+      <option value="equal">Equal</option><option value="just">Just</option>
+      <option value="pyth">Pythag.</option><option value="meantone">Meantone</option>
+      <option value="werck">Werck. III</option>
     </select>
     <select class="sel" id="root" aria-label="Root"></select>
     <select class="sel" id="range" aria-label="Range: how many octaves the sheet covers">
@@ -228,22 +241,31 @@ body {
   </span>
   <span class="group">
     <select class="sel" id="pen" aria-label="Pen: which voice new strokes play">
-      <option value="auto">Pen: by direction</option><option value="drum">Pen: drums</option>
+      <option value="auto">Pen: direction</option><option value="drum">Pen: drums</option>
       <option value="pluck">Pen: pluck</option><option value="bell">Pen: bell</option>
       <option value="blip">Pen: blip</option><option value="shake">Pen: shaker</option>
     </select>
     <button class="btn" id="lockBtn" type="button" aria-pressed="false" title="Notes fire only when a stroke crosses a grid line, like DrawnQurve's lock to grid">Lock</button>
     <button class="btn" id="loopBtn" type="button" aria-pressed="true" title="Gestures keep replaying">Loop</button>
     <button class="btn" id="morphBtn" type="button" aria-pressed="true" title="Loops move on their own; double-tap a loop to change how">Morph</button>
-    <button class="btn" id="revoiceBtn" type="button" aria-pressed="false" title="On: turning a loop changes its voices. Off: voices stay as drawn">Revoice</button>
-    <button class="btn" id="walkBtn" type="button" aria-pressed="false" title="Every two bars, everything shifts along a little progression">Walk</button>
-    <button class="btn" id="droneBtn" type="button" aria-pressed="false" title="A soft root-and-fifth underneath">Drone</button>
     <button class="btn" id="editBtn" type="button" aria-pressed="false" title="Drag the square handles to bend a path; tap a path to add a note, tap a note to remove it; hold a loop to smooth it">Edit</button>
+    <span class="more" id="more">
+      <button class="btn" id="moreBtn" type="button" aria-expanded="false" aria-controls="morePanel">More</button>
+      <span class="morepanel" id="morePanel" hidden>
+        <button class="btn" id="revoiceBtn" type="button" aria-pressed="false">Revoice</button>
+        <small>On: turning a loop changes its voices. Off: voices stay as drawn.</small>
+        <button class="btn" id="walkBtn" type="button" aria-pressed="false">Walk</button>
+        <small>Every two bars, everything shifts along a little progression.</small>
+        <button class="btn" id="droneBtn" type="button" aria-pressed="false">Drone</button>
+        <small>A soft root and fifth underneath, following Walk.</small>
+      </span>
+    </span>
   </span>
   <span class="spacer"></span>
   <span class="group">
     <select class="sel" id="out" aria-label="Output" hidden></select>
     <button class="btn" id="toyBtn" type="button" aria-expanded="false" aria-controls="toybox">Toybox</button>
+    <button class="btn" id="myToyBtn" type="button" aria-expanded="false" aria-controls="mytoys">My toys</button>
     <button class="btn" id="sceneBtn" type="button" aria-expanded="false" aria-controls="scenes">Scenes</button>
     <button class="btn" id="clear" type="button">Clear</button>
   </span>
@@ -267,6 +289,24 @@ body {
   </div>
 </div>
 
+<div class="traywrap" id="mytoys" hidden>
+  <div class="tray" role="group" aria-label="My toys: loops you kept">
+    <button class="toy" type="button" id="keepBtn"><svg viewBox="0 0 34 34"><rect x="6" y="6" width="22" height="22" rx="5"/><path d="M17 11v12M11 17h12"/></svg>Keep a loop</button>
+    <span class="seg" role="group" aria-label="Tapping a toy will">
+      <button class="btn" type="button" data-toymode="drop" aria-pressed="true">Drop</button>
+      <button class="btn" type="button" data-toymode="share" aria-pressed="false">Share</button>
+      <button class="btn" type="button" data-toymode="delete" aria-pressed="false">Delete</button>
+    </span>
+    <div id="mySlots" style="display:contents"></div>
+    <p class="traynote" id="myNote">Tap “Keep a loop”, then tap any loop on the sheet: it becomes a toy you can drop again, or share. Stored in this browser only.</p>
+    <div class="share" id="toyShare" hidden>
+      <input id="toyShareLink" type="text" readonly aria-label="Link to this toy">
+      <button class="btn primary" type="button" data-copy="toyShareLink">Copy link</button>
+      <small id="toyShareInfo"></small>
+    </div>
+  </div>
+</div>
+
 <div class="traywrap" id="scenes" hidden>
   <div class="tray" role="group" aria-label="Scenes: tap an empty slot to save, a full one to recall, hold a full one to overwrite">
     <button class="toy" type="button" id="shareBtn"><svg viewBox="0 0 34 34"><path d="M14 20l6-6M12 15l-3 3a4.2 4.2 0 0 0 6 6l3-3M22 19l3-3a4.2 4.2 0 0 0-6-6l-3 3"/></svg>Share this sheet</button>
@@ -274,7 +314,7 @@ body {
     <p class="traynote">Empty slot: tap to save. Full slot: tap to recall, hold to overwrite. Stored in this browser only.</p>
     <div class="share" id="share" hidden>
       <input id="shareLink" type="text" readonly aria-label="Link to this sheet">
-      <button class="btn primary" type="button" id="copyBtn">Copy link</button>
+      <button class="btn primary" type="button" data-copy="shareLink">Copy link</button>
       <button class="btn" type="button" id="nativeShareBtn" hidden>Share…</button>
       <small id="shareInfo"></small>
     </div>
@@ -1285,6 +1325,13 @@ sheet.addEventListener("pointerdown", (e) => {
   sheet.setPointerCapture(e.pointerId);
   const x = e.clientX, y = e.clientY;
 
+  if (keeping) {                               // "Keep a loop" is armed: this tap picks one
+    keeping = false; $("keepBtn").setAttribute("aria-pressed", "false");
+    const lp = hitLoop(x, y);
+    if (lp) keepToy(lp); else toast("No loop there: nothing kept");
+    return;
+  }
+
   if (state.edit) {
     const h = hitHandle(x, y) || hitEvent(x, y);
     if (h) { const gr = { ...h, x, y, ox0: x, oy0: y, mode: "bend" }; h.loop.held = true; startBend(gr); grabs.set(e.pointerId, gr); return; }
@@ -1577,7 +1624,7 @@ function applySettings(st) {
   for (const id of ["grid", "tuning", "root", "range", "div", "pen"]) $(id).value = String(state[id]);
   for (const [id, key] of [["lockBtn", "lock"], ["loopBtn", "loop"], ["morphBtn", "morph"], ["revoiceBtn", "revoice"], ["walkBtn", "walk"], ["droneBtn", "drone"]])
     $(id).setAttribute("aria-pressed", String(state[key]));
-  syncTuningPicker();
+  syncTuningPicker(); syncMore();
   if (ctx) { setDrone(state.drone); updateDrone(nowBeat(), true); if (delayLine) delayLine.delayTime.setTargetAtTime(0.75 / bps(), ctx.currentTime, 0.05); }
 }
 
@@ -1722,20 +1769,20 @@ const fromB64url = (str) => {
 };
 const pipeBytes = async (bytes, stream) => new Uint8Array(await new Response(new Blob([bytes]).stream().pipeThrough(stream)).arrayBuffer());
 
-async function encodeScene(sc) {
+/** kind: "s" = a whole sheet, "t" = one toy (a sheet holding a single loop). */
+async function encodeScene(sc, kind = "s") {
   const json = new TextEncoder().encode(JSON.stringify(packScene(sc)));
   if (window.CompressionStream) {
-    try { return "s1." + toB64url(await pipeBytes(json, new CompressionStream("deflate"))); } catch (_) { /* fall through */ }
+    try { return kind + "1." + toB64url(await pipeBytes(json, new CompressionStream("deflate"))); } catch (_) { /* fall through */ }
   }
-  return "s0." + toB64url(json);
+  return kind + "0." + toB64url(json);
 }
 async function decodeScene(token) {
-  const [tag, body] = [token.slice(0, 2), token.slice(3)];
-  let bytes = fromB64url(body);
-  if (tag === "s1") bytes = await pipeBytes(bytes, new DecompressionStream("deflate"));
+  let bytes = fromB64url(token.slice(3));
+  if (token[1] === "1") bytes = await pipeBytes(bytes, new DecompressionStream("deflate"));
   return unpackScene(JSON.parse(new TextDecoder().decode(bytes)));
 }
-const shareToken = () => { const t = decodeURIComponent(location.hash.slice(1)); return /^s[01]\.[A-Za-z0-9_-]+$/.test(t) ? t : null; };
+const shareToken = () => { const t = decodeURIComponent(location.hash.slice(1)); return /^[st][01]\.[A-Za-z0-9_-]+$/.test(t) ? t : null; };
 
 /** Where a link should point: this page when it has a real address of its
  *  own (GitHub Pages, a LAN server, a local file), else the published artifact. */
@@ -1755,21 +1802,113 @@ async function buildShareLink() {
   $("shareLink").focus(); $("shareLink").select();
 }
 
-/** Open a sheet from the link, if there is one. Resolves true if it did. */
-async function openSharedSheet() {
+/** Open whatever the link carries. A sheet replaces the current one (and
+ *  resolves true); a toy joins My toys and drops onto the current sheet. */
+async function openFromLink() {
   const token = shareToken();
   if (!token) return false;
   try {
     const sc = await decodeScene(token);
+    if (token[0] === "t") {
+      const toy = sc.loops[0];
+      if (!toy) throw new Error("empty toy");
+      addToy(toy, true);
+      return false;
+    }
     if (!recall(sc)) return false;
     $("hintSmall").textContent = "Someone shared this sheet with you. Touch anywhere to start the sound.";
     return true;
   } catch (_) {
-    toast("This link's sheet couldn't be read; showing your own instead");
+    toast("This link couldn't be read; showing your own sheet instead");
     return false;
   }
 }
-window.addEventListener("hashchange", () => { openSharedSheet().then((ok) => ok && toast("Opened the shared sheet")); });
+window.addEventListener("hashchange", () => { openFromLink().then((ok) => ok && toast("Opened the shared sheet")); });
+
+/* ── 12c. My toys: loops you kept, in their own toybox ───────────────────── */
+// A kept toy is one loop with its current turn and size baked into its
+// shape, stored relative to its own centre in units of the sheet's short
+// side, so it drops anywhere and keeps its proportions on any screen.
+
+const TOYS_KEY = "twirl:toys", MAX_TOYS = 24;
+let keeping = false, toyMode = "drop";
+const loadToys = () => store.get(TOYS_KEY) || [];
+
+function keepToy(lp) {
+  const W = sheet.clientWidth, H = sheet.clientHeight, m = Math.min(W, H);
+  const P = lp.pts.map((p) => place(lp, p.x, p.y, W, H));
+  const cx = P.reduce((a, p) => a + p[0], 0) / P.length, cy = P.reduce((a, p) => a + p[1], 0) / P.length;
+  const rel = ([x, y]) => [r4((x - cx) / m), r4((y - cy) / m)];
+  const turn = state.revoice ? totalRot(lp) : 0;   // keep the voices you were hearing
+  addToy({
+    trigger: lp.trigger, pen: lp.pen, L: lp.L, ts: lp.ts, muted: false, temper: lp.temper, spinDir: lp.spinDir,
+    c: [0, 0], tx: 0, ty: 0, rot: 0, s: 1,
+    pts: lp.pts.map((p, i) => [...rel(P[i]), r4(p.b)]),
+    events: lp.events.map((e) => [e.off, ...rel(place(lp, e.x, e.y, W, H)), r4(e.heading + turn), e.fixed, r4(e.vel)]),
+  }, false);
+}
+
+/** Add a toy to My toys (unless it's already there); optionally drop it. */
+function addToy(toy, fromLink) {
+  const toys = loadToys(), sig = JSON.stringify(toy.pts.slice(0, 6)) + toy.L;
+  const known = toys.find((t) => JSON.stringify(t.pts.slice(0, 6)) + t.L === sig);
+  if (!known) {
+    toys.unshift(toy);
+    if (toys.length > MAX_TOYS) toys.length = MAX_TOYS;
+    store.set(TOYS_KEY, toys);
+  }
+  if (fromLink) { dropSavedToy(toy); toast(known ? "Shared toy dropped (already in My toys)" : "Shared toy dropped and added to My toys"); }
+  else toast(known ? "Already in My toys" : "Kept in My toys");
+  if (!$("mytoys").hidden) renderMyToys();
+}
+
+function dropSavedToy(t, where) {
+  const W = sheet.clientWidth, H = sheet.clientHeight, m = Math.min(W, H);
+  const cx = where ? where[0] : W * (0.25 + Math.random() * 0.5);
+  const cy = where ? where[1] : H * (0.3 + Math.random() * 0.4);
+  const s = newStroke(nextStart());
+  Object.assign(s, { trigger: t.trigger, pen: t.pen, temper: t.temper, spinDir: t.spinDir });
+  s.pts = t.pts.map(([x, y, b]) => ({ x: (cx + x * m) / W, y: (cy + y * m) / H, b }));
+  s.events = t.events.map(([off, x, y, heading, fixed, vel]) => ({ off, x: (cx + x * m) / W, y: (cy + y * m) / H, heading, fixed, vel, ms: 0, flashAt: -1 }));
+  if (finishStroke(s, false)) s.ts = t.ts;
+}
+
+function drawToyThumb(cv, t) {
+  const c = cv.getContext("2d"), w = (cv.width = 152), h = (cv.height = 100);
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  for (const [x, y] of t.pts) { x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x); y1 = Math.max(y1, y); }
+  const k = 0.8 * Math.min(w / Math.max(1e-6, x1 - x0), h / Math.max(1e-6, y1 - y0));
+  const X = (x) => w / 2 + (x - (x0 + x1) / 2) * k, Y = (y) => h / 2 + (y - (y0 + y1) / 2) * k;
+  c.strokeStyle = colors.ink; c.lineWidth = 2; c.lineJoin = c.lineCap = "round"; c.globalAlpha = 0.85;
+  c.beginPath(); t.pts.forEach(([x, y], i) => (i ? c.lineTo(X(x), Y(y)) : c.moveTo(X(x), Y(y)))); c.stroke();
+  for (const [, x, y, , fixed] of t.events) { c.fillStyle = colors[fixed || "pluck"]; c.beginPath(); c.arc(X(x), Y(y), 3, 0, 7); c.fill(); }
+}
+
+function renderMyToys() {
+  const wrap = $("mySlots"), toys = loadToys();
+  wrap.textContent = "";
+  $("myNote").hidden = toys.length > 0;
+  toys.forEach((t, i) => {
+    const btn = document.createElement("button");
+    btn.type = "button"; btn.className = "toy slot";
+    const cv = document.createElement("canvas"); drawToyThumb(cv, t);
+    const label = document.createElement("span"); label.textContent = `Toy ${toys.length - i}`;
+    const sub = document.createElement("small");
+    sub.textContent = `${fmtBeats(t.L * t.ts)} beats${t.trigger === "lock" ? " · lock" : ""}`;
+    btn.append(cv, label, sub);
+    btn.addEventListener("click", async () => {
+      if (toyMode === "drop") { ensureAudio(); hint.hidden = true; syncPower(); dropSavedToy(t); }
+      else if (toyMode === "delete") { const all = loadToys(); all.splice(i, 1); store.set(TOYS_KEY, all); renderMyToys(); toast("Toy deleted"); }
+      else {
+        const link = `${shareBase()}#${await encodeScene({ settings: {}, loops: [t] }, "t")}`;
+        $("toyShare").hidden = false; $("toyShareLink").value = link;
+        $("toyShareInfo").textContent = `${link.length.toLocaleString()} characters · opening it drops the toy and adds it to that person's My toys`;
+        $("toyShareLink").focus(); $("toyShareLink").select();
+      }
+    });
+    wrap.append(btn);
+  });
+}
 
 /* ── 13. Controls ────────────────────────────────────────────────────────── */
 
@@ -1836,12 +1975,36 @@ toggle("droneBtn", "drone", (on) => { ensureAudio(); setDrone(on); });
 toggle("editBtn", "edit", (on) => toast(on ? "Edit: drag a square to bend · tap a path to add a note · tap a note to remove it · hold to smooth" : "Edit off"));
 
 function openTray(which) {
-  for (const [tray, btn] of [["toybox", "toyBtn"], ["scenes", "sceneBtn"]]) {
+  for (const [tray, btn] of [["toybox", "toyBtn"], ["mytoys", "myToyBtn"], ["scenes", "sceneBtn"]]) {
     const open = tray === which && $(tray).hidden;
     $(tray).hidden = !open; $(btn).setAttribute("aria-expanded", String(open));
   }
   if (!$("scenes").hidden) { renderSlots(); $("share").hidden = true; }   // a fresh link each time
+  if (!$("mytoys").hidden) { renderMyToys(); $("toyShare").hidden = true; }
 }
+$("myToyBtn").addEventListener("click", () => openTray("mytoys"));
+$("keepBtn").addEventListener("click", () => {
+  keeping = !keeping;
+  $("keepBtn").setAttribute("aria-pressed", String(keeping));
+  toast(keeping ? "Now tap a loop on the sheet to keep it" : "Keeping cancelled");
+});
+document.querySelectorAll("[data-toymode]").forEach((b) => b.addEventListener("click", () => {
+  toyMode = b.dataset.toymode;
+  document.querySelectorAll("[data-toymode]").forEach((o) => o.setAttribute("aria-pressed", String(o === b)));
+  $("toyShare").hidden = true;
+}));
+
+// More menu: open/close, close on any tap elsewhere, and show a dot when
+// something inside it is on, so a hidden toggle is never a surprise.
+function syncMore() { $("moreBtn").textContent = state.revoice || state.walk || state.drone ? "More •" : "More"; }
+$("moreBtn").addEventListener("click", () => {
+  const open = $("morePanel").hidden;
+  $("morePanel").hidden = !open; $("moreBtn").setAttribute("aria-expanded", String(open));
+});
+document.addEventListener("pointerdown", (e) => {
+  if (!$("more").contains(e.target)) { $("morePanel").hidden = true; $("moreBtn").setAttribute("aria-expanded", "false"); }
+});
+["revoiceBtn", "walkBtn", "droneBtn"].forEach((id) => $(id).addEventListener("click", syncMore));
 $("toyBtn").addEventListener("click", () => openTray("toybox"));
 $("sceneBtn").addEventListener("click", () => openTray("scenes"));
 document.querySelectorAll("#toybox .toy").forEach((btn) =>
@@ -1850,11 +2013,11 @@ $("clear").addEventListener("click", () => { [...loops].forEach(eraseLoop); });
 
 // Share (section 12b): build the link, then copy it in the same tap that asks.
 $("shareBtn").addEventListener("click", buildShareLink);
-$("copyBtn").addEventListener("click", () => {
-  const field = $("shareLink");
+document.querySelectorAll("[data-copy]").forEach((btn) => btn.addEventListener("click", () => {
+  const field = $(btn.dataset.copy);
   const fallback = () => { field.focus(); field.select(); toast("Link selected: copy it from the field"); };
   try { navigator.clipboard.writeText(field.value).then(() => toast("Link copied"), fallback); } catch (_) { fallback(); }
-});
+}));
 $("nativeShareBtn").addEventListener("click", () => {
   navigator.share({ title: "Twirl", text: "A sheet of loops to play with", url: $("shareLink").value }).catch(() => {});
 });
@@ -1889,7 +2052,9 @@ async function requestWakeLock() {
       dropToy("shaker", [W * 0.52, H * 0.22]);
     }
   };
-  if (!(await openSharedSheet())) defaults();   // a shared link wins over your last sheet
+  // A shared sheet wins over your last one. A shared toy lands on top of it.
+  if (shareToken() && shareToken()[0] === "s" && await openFromLink()) { /* loaded */ }
+  else { defaults(); if (shareToken()) await openFromLink(); }
   syncTuningPicker();
   renderLoopList();
   initMidi();

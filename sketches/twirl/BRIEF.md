@@ -12,6 +12,9 @@ sound. No plugging.
 
 ## Where it comes from
 
+Inspirations, loosely held: Twirl has long since gone its own way.
+
+
 - **Helmut Lobby line** (Beatsurfing → Playground → DRUW). Playground is the
   one that stuck: immediacy, readily-playable maps, the hope of something
   melodic or harmonic, widgets that sound different depending on the
@@ -73,6 +76,16 @@ snap + free-mode note spacing + lock-mode lines), **Pen**, **Lock**,
 **Loop**, **Morph**, **Revoice** (off: voices stay as drawn however a loop
 turns), **Walk**, **Drone**, **Edit**, **Toybox**, **Scenes**, and
 **Output** (only where the browser has Web MIDI: sound, MIDI, or both).
+
+**My toys**: a second toybox for loops you keep. Tap *Keep a loop*, then
+tap any loop on the sheet: it's saved with its current turn and size baked
+into its shape, relative to its own centre, so it drops anywhere at the
+same proportions. In the tray, *Drop / Share / Delete* sets what tapping a
+toy does. A shared toy is a short link (a few hundred characters); opening
+it drops the toy onto the recipient's sheet and adds it to their My toys.
+
+**More** (in the toolbar) holds the less-used toggles: Revoice, Walk,
+Drone. It shows a dot when any of them is on.
 
 **Share this sheet** (in the Scenes tray): the whole sheet (loops,
 transforms, temperaments, grid, tuning, tempo, toggles) is packed into the
@@ -171,8 +184,8 @@ time-scale), which is what makes retiming and recalling safe.
 - Max 14 loops; oldest goes first.
 - Gestures are tested with synthetic touches in Chromium, not yet on the
   iPad. Thresholds will likely need tuning.
-- The toolbar wraps to two rows below ~1300px wide. It is getting long;
-  grouping the less-used toggles is due.
+- The toolbar is two rows on an iPad (sound and grid above; drawing and
+  trays below).
 - iOS Safari needs the first touch to unlock audio; if it stays silent,
   tap "Start sound".
 
