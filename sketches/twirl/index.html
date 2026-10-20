@@ -1,0 +1,844 @@
+<title>Twirl</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Caveat:wght@600&family=Inter+Tight:wght@400;600&family=JetBrains+Mono:wght@400&display=swap">
+<style>
+/*
+ * Twirl — a gesture toy. Layout: one full-bleed sheet of paper you draw on,
+ * a floating control strip at the top, a quiet legend + loop list at the bottom.
+ * Palette is the suite's "paper & ink" (packages/ui/tokens/tokens.css), with
+ * the four voices borrowing Vane's per-dimension accent colours.
+ */
+:root {
+  --paper: #f5f2eb;
+  --raised: #fcfbf7;
+  --ink: #2d2b27;
+  --ink-muted: #6b665b;
+  --rule: #ddd6ca;
+  --rule-soft: #eae3d4;
+  --rule-strong: #9d8967;
+  --accent: #2f66a5;
+  --accent-fg: #ffffff;
+  /* one colour per voice (and one shape per voice, so colour is never alone) */
+  --pluck: #3f7cc0;   /* → right  · breath blue   */
+  --bell:  #23887a;   /* ↑ up     · expr teal     */
+  --blip:  #9a4fb6;   /* ← left   · slide purple  */
+  --drum:  #c27424;   /* ↓ down   · pressure amber */
+
+  --font-hand: "Caveat", "Segoe Script", cursive;
+  --font-sans: "Inter Tight", -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", "SF Mono", ui-monospace, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper: #1a1814; --raised: #221f1a; --ink: #e8e1d2; --ink-muted: #908672;
+    --rule: #38332b; --rule-soft: #2b2620; --rule-strong: #736958;
+    --accent: #6da3df; --accent-fg: #14130f;
+    --pluck: #7fb0e6; --bell: #5cc4b0; --blip: #c48ad8; --drum: #e6a35c;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --paper: #1a1814; --raised: #221f1a; --ink: #e8e1d2; --ink-muted: #908672;
+  --rule: #38332b; --rule-soft: #2b2620; --rule-strong: #736958;
+  --accent: #6da3df; --accent-fg: #14130f;
+  --pluck: #7fb0e6; --bell: #5cc4b0; --blip: #c48ad8; --drum: #e6a35c;
+  color-scheme: dark;
+}
+
+html, body { height: 100%; }
+[hidden] { display: none !important; }
+body {
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  overflow: hidden;
+  overscroll-behavior: none;
+  -webkit-user-select: none; user-select: none;
+  -webkit-touch-callout: none;
+}
+
+/* ── the sheet ─────────────────────────────────────────────────────────── */
+#sheet {
+  position: fixed; inset: 0;
+  width: 100%; height: 100%;
+  touch-action: none;           /* every touch is ours: no scroll, no zoom */
+  display: block;
+}
+
+/* ── control strip ─────────────────────────────────────────────────────── */
+.strip {
+  position: fixed; top: 0; left: 0; right: 0;
+  padding-top: calc(env(safe-area-inset-top, 0px) + 10px);
+  padding-bottom: 10px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
+  pointer-events: none;         /* only the controls themselves catch touches */
+}
+.strip > * { pointer-events: auto; }
+.wordmark {
+  font-family: var(--font-hand); font-weight: 600; font-size: 2rem; line-height: 1;
+  margin-right: 6px; pointer-events: none;
+}
+.btn, .sel {
+  min-height: 40px; padding: 0 12px;
+  font: 600 0.875rem/1 var(--font-sans);
+  color: var(--ink); background: var(--raised);
+  border: 1px solid var(--rule-strong); border-radius: 10px;
+  cursor: pointer;
+}
+.btn[aria-pressed="true"] { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+.btn.primary { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); }
+.btn:focus-visible, .sel:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+.tempo {
+  display: inline-flex; align-items: center; gap: 6px;
+  min-height: 40px; padding: 0 10px;
+  background: var(--raised); border: 1px solid var(--rule-strong); border-radius: 10px;
+  font: 400 0.8125rem/1 var(--font-mono); font-variant-numeric: tabular-nums;
+}
+.tempo input { width: 96px; accent-color: var(--accent); }
+.spacer { flex: 1; }
+
+/* ── bottom: loop list + legend ────────────────────────────────────────── */
+.foot {
+  position: fixed; left: 0; right: 0; bottom: 0;
+  padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 12px);
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-end; gap: 10px;
+  pointer-events: none;
+  font: 400 0.75rem/1.3 var(--font-mono);
+  color: var(--ink-muted);
+}
+.legend { display: flex; flex-wrap: wrap; gap: 12px; }
+.legend span { display: inline-flex; align-items: center; gap: 5px; }
+.legend svg { width: 12px; height: 12px; }
+#loops { font-variant-numeric: tabular-nums; }
+#loops b { color: var(--ink); font-weight: 400; }
+
+/* ── first-frame hint ──────────────────────────────────────────────────── */
+.hint {
+  position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%);
+  width: min(420px, calc(100% - 32px));
+  padding: 18px 20px;
+  background: var(--raised); border: 1px solid var(--rule); border-radius: 14px;
+  box-shadow: 0 8px 30px rgb(0 0 0 / 0.12);
+  pointer-events: none;
+  display: grid; gap: 8px;
+}
+.hint h1 { margin: 0; font: 600 2.4rem/1 var(--font-hand); text-wrap: balance; }
+.hint p { margin: 0; font-size: 0.9375rem; line-height: 1.45; color: var(--ink); }
+.hint p.small { font-size: 0.8125rem; color: var(--ink-muted); }
+
+@media (max-width: 560px) {
+  .wordmark { font-size: 1.6rem; }
+  .tempo input { width: 70px; }
+  .btn, .sel { padding: 0 9px; }
+}
+</style>
+
+<canvas id="sheet" aria-label="Drawing surface. Draw with one or more fingers to make sounds and loops."></canvas>
+
+<div class="strip" role="toolbar" aria-label="Twirl controls">
+  <span class="wordmark" aria-hidden="true">Twirl</span>
+  <button class="btn primary" id="power" type="button">Start sound</button>
+  <label class="tempo" for="bpm"><span id="bpmVal">96</span> bpm
+    <input id="bpm" type="range" min="60" max="160" step="1" value="96">
+  </label>
+  <select class="sel" id="mood" aria-label="Scale">
+    <option value="penta">Pentatonic</option>
+    <option value="dorian">Dorian</option>
+    <option value="lydian">Lydian</option>
+    <option value="hira">Hirajōshi</option>
+    <option value="whole">Whole tone</option>
+  </select>
+  <button class="btn" id="loopBtn" type="button" aria-pressed="true" title="Gestures keep replaying">Loop</button>
+  <button class="btn" id="snapBtn" type="button" aria-pressed="true" title="Snap hits to sixteenth notes">Snap</button>
+  <button class="btn" id="driftBtn" type="button" aria-pressed="false" title="Loops slowly wander, one note at a time">Drift</button>
+  <button class="btn" id="walkBtn" type="button" aria-pressed="false" title="Every two bars, everything shifts along a little progression">Walk</button>
+  <button class="btn" id="droneBtn" type="button" aria-pressed="false" title="A soft root-and-fifth underneath">Drone</button>
+  <span class="spacer"></span>
+  <button class="btn" id="surprise" type="button" title="Add a machine-drawn spiral">Surprise</button>
+  <button class="btn" id="clear" type="button">Clear</button>
+</div>
+
+<div class="foot">
+  <div id="loops" aria-live="polite"></div>
+  <div class="legend" aria-label="Direction sets the voice">
+    <span><svg viewBox="0 0 12 12"><circle cx="6" cy="6" r="4.5" fill="var(--pluck)"/></svg>→ pluck</span>
+    <span><svg viewBox="0 0 12 12"><circle cx="6" cy="6" r="4" fill="none" stroke="var(--bell)" stroke-width="2"/></svg>↑ bell</span>
+    <span><svg viewBox="0 0 12 12"><path d="M6 1.5 L10.5 10 L1.5 10 Z" fill="var(--blip)"/></svg>← blip</span>
+    <span><svg viewBox="0 0 12 12"><rect x="2" y="2" width="8" height="8" fill="var(--drum)"/></svg>↓ drum</span>
+    <span>height = pitch · tap a loop to mute · hold to erase</span>
+  </div>
+</div>
+
+<div class="hint" id="hint">
+  <h1>Draw something.</h1>
+  <p>Every stroke plays as you draw it, then keeps looping on its own clock. Spirals climb and tumble through the scale; strokes of different lengths drift in and out of phase.</p>
+  <p class="small">Two example twirls are already on the page. Touch anywhere to start the sound.</p>
+</div>
+
+<script>
+"use strict";
+/* =============================================================================
+ * Twirl — the smallest DRUW/Playground-ish toy I could make that is still fun.
+ *
+ *   gesture ──► Tracer ──► events ──► Voice (Web Audio)
+ *                 │                     ▲
+ *                 └──► Loop ──► Scheduler (lookahead, per-loop clock)
+ *
+ * The sound design rules, all of which live in ONE place each:
+ *   - WHEN a note happens: every `stride` of distance, or every ~50° of
+ *     turning (Tracer). So straight lines are sparse, curls are dense —
+ *     a spiral is an arpeggio. Snap rounds that moment to a 16th.
+ *   - WHICH voice: the direction you were moving (voiceForHeading).
+ *   - WHICH pitch: how high on the sheet (degreeFor), in the chosen scale.
+ *     Drums use height as kick / snare / hat instead.
+ *   - HOW LONG a loop is: the gesture's duration rounded up to whole beats
+ *     (finishStroke). Different lengths = polymeter for free.
+ * ========================================================================== */
+
+/* ── 1. Musical material ─────────────────────────────────────────────────── */
+
+// `walk` = diatonic shifts applied every two bars when Walk is on (index into
+// the scale, not semitones, so everything stays in the mode).
+const MOODS = {
+  penta:  { scale: [0, 2, 4, 7, 9],           walk: [0, 3, 1, 2] },
+  dorian: { scale: [0, 2, 3, 5, 7, 9, 10],    walk: [0, 5, 3, 4] },
+  lydian: { scale: [0, 2, 4, 6, 7, 9, 11],    walk: [0, 4, 1, 5] },
+  hira:   { scale: [0, 2, 3, 7, 8],           walk: [0, 3, 1, 4] },
+  whole:  { scale: [0, 2, 4, 6, 8, 10],       walk: [0, 2, 4, 1] },
+};
+const OCTAVES = 3;          // the sheet spans three octaves of the scale
+const BASE_MIDI = 48;       // C3 at the bottom of the sheet
+const BAR = 4;              // beats per bar (only used by Walk + Surprise)
+const MAX_LOOP_BEATS = 16;
+const MAX_LOOPS = 12;
+
+const state = {
+  bpm: 96,
+  mood: "penta",
+  loop: true,
+  snap: true,
+  drift: false,
+  walk: false,
+  drone: false,
+};
+
+/* ── 2. Clock ────────────────────────────────────────────────────────────── */
+// One shared beat clock on the AudioContext timeline. Changing tempo rebases
+// the origin so the current beat stays continuous.
+
+let ctx = null;             // AudioContext, created on first touch (iOS rule)
+let t0 = 0;                 // audio time at which beat 0 happened
+const bps = () => state.bpm / 60;
+const nowAudio = () => (ctx ? ctx.currentTime : performance.now() / 1000);
+const beatAt = (t) => (t - t0) * bps();
+const timeAt = (b) => t0 + b / bps();
+const nowBeat = () => beatAt(nowAudio());
+const snapUp = (b) => Math.ceil(b * 4 - 0.15) / 4;   // next 16th, forgiving if just late
+const snapNear = (b) => Math.round(b * 4) / 4;
+
+/* ── 3. Sound ────────────────────────────────────────────────────────────── */
+
+let master, delaySend, noiseBuf, drone = null;
+
+function ensureAudio() {
+  if (!ctx) {
+    const AC = window.AudioContext || window.webkitAudioContext;
+    ctx = new AC({ latencyHint: "interactive" });
+    t0 = ctx.currentTime;
+
+    const comp = ctx.createDynamicsCompressor();
+    comp.threshold.value = -14; comp.ratio.value = 4;
+    master = ctx.createGain(); master.gain.value = 0.8;
+    master.connect(comp).connect(ctx.destination);
+
+    // A loopy dotted-eighth delay, darkened each time round.
+    delaySend = ctx.createGain(); delaySend.gain.value = 0.28;
+    const dl = ctx.createDelay(2), fb = ctx.createGain(), lp = ctx.createBiquadFilter();
+    dl.delayTime.value = 0.75 / bps();
+    fb.gain.value = 0.38; lp.type = "lowpass"; lp.frequency.value = 2400;
+    delaySend.connect(dl).connect(lp).connect(fb).connect(dl);
+    lp.connect(master);
+    ensureAudio.delay = dl;
+
+    noiseBuf = ctx.createBuffer(1, ctx.sampleRate, ctx.sampleRate);
+    const d = noiseBuf.getChannelData(0);
+    for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+
+    // Seed loops were laid out on a pre-audio clock; move them onto this one.
+    const shift = Math.ceil(nowBeat() / BAR) * BAR;
+    loops.forEach((lp) => { lp.start = shift; lp.pass = 0; lp.idx = 0; });
+    setDrone(state.drone);
+  }
+  if (ctx.state !== "running") ctx.resume();
+}
+
+const mtof = (m) => 440 * Math.pow(2, (m - 69) / 12);
+
+/** Route a voice's output through a panner into the master (+ some delay). */
+function out(node, pan, send = 0.6) {
+  const p = ctx.createStereoPanner ? ctx.createStereoPanner() : ctx.createGain();
+  if (p.pan) p.pan.value = pan;
+  node.connect(p); p.connect(master);
+  const s = ctx.createGain(); s.gain.value = send; p.connect(s).connect(delaySend);
+}
+function env(g, t, peak, decay, attack = 0.004) {
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.exponentialRampToValueAtTime(peak, t + attack);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + attack + decay);
+}
+
+const VOICES = {
+  pluck(t, midi, vel, pan) {                // saw through a closing lowpass
+    const o = ctx.createOscillator(), f = ctx.createBiquadFilter(), g = ctx.createGain();
+    o.type = "sawtooth"; o.frequency.value = mtof(midi);
+    f.type = "lowpass"; f.Q.value = 3;
+    f.frequency.setValueAtTime(600 + 4200 * vel, t);
+    f.frequency.exponentialRampToValueAtTime(320, t + 0.35);
+    env(g, t, 0.22 * vel, 0.55);
+    o.connect(f).connect(g); out(g, pan); o.start(t); o.stop(t + 0.7);
+  },
+  bell(t, midi, vel, pan) {                 // two-operator FM, inharmonic ratio
+    const c = ctx.createOscillator(), m = ctx.createOscillator(), mg = ctx.createGain(), g = ctx.createGain();
+    const f0 = mtof(midi + 12);
+    c.frequency.value = f0; m.frequency.value = f0 * 3.5;
+    mg.gain.setValueAtTime(f0 * 2.2 * vel, t);
+    mg.gain.exponentialRampToValueAtTime(1, t + 1.2);
+    env(g, t, 0.16 * vel, 1.8, 0.002);
+    m.connect(mg).connect(c.frequency); c.connect(g); out(g, pan, 0.8);
+    c.start(t); m.start(t); c.stop(t + 2); m.stop(t + 2);
+  },
+  blip(t, midi, vel, pan) {                 // short square chirp, an octave up
+    const o = ctx.createOscillator(), f = ctx.createBiquadFilter(), g = ctx.createGain();
+    o.type = "square";
+    o.frequency.setValueAtTime(mtof(midi + 12) * 1.5, t);
+    o.frequency.exponentialRampToValueAtTime(mtof(midi + 12), t + 0.04);
+    f.type = "lowpass"; f.frequency.value = 3200;
+    env(g, t, 0.1 * vel, 0.16, 0.002);
+    o.connect(f).connect(g); out(g, pan, 0.9); o.start(t); o.stop(t + 0.25);
+  },
+  kick(t, vel, pan) {
+    const o = ctx.createOscillator(), g = ctx.createGain();
+    o.frequency.setValueAtTime(160, t); o.frequency.exponentialRampToValueAtTime(42, t + 0.14);
+    env(g, t, 0.9 * vel, 0.38, 0.002);
+    o.connect(g); out(g, pan * 0.3, 0.1); o.start(t); o.stop(t + 0.45);
+  },
+  snare(t, vel, pan) {
+    const n = ctx.createBufferSource(), f = ctx.createBiquadFilter(), g = ctx.createGain();
+    n.buffer = noiseBuf; f.type = "bandpass"; f.frequency.value = 1900; f.Q.value = 0.8;
+    env(g, t, 0.5 * vel, 0.17, 0.001);
+    n.connect(f).connect(g); out(g, pan, 0.35); n.start(t); n.stop(t + 0.22);
+    const o = ctx.createOscillator(), og = ctx.createGain();
+    o.type = "triangle"; o.frequency.value = 190; env(og, t, 0.3 * vel, 0.09, 0.001);
+    o.connect(og); out(og, pan, 0.2); o.start(t); o.stop(t + 0.12);
+  },
+  hat(t, vel, pan) {
+    const n = ctx.createBufferSource(), f = ctx.createBiquadFilter(), g = ctx.createGain();
+    n.buffer = noiseBuf; f.type = "highpass"; f.frequency.value = 7200;
+    env(g, t, 0.28 * vel, 0.05, 0.001);
+    n.connect(f).connect(g); out(g, pan, 0.3); n.start(t, Math.random() * 0.5); n.stop(t + 0.08);
+  },
+};
+
+/* ── 4. Mapping: gesture → note ──────────────────────────────────────────── */
+
+/** Direction of travel picks the voice. Heading is in radians, 0 = right, + = up. */
+function voiceForHeading(h) {
+  if (h === null) return "drum";            // the first touch of a stroke is a hit
+  const a = (h * 180) / Math.PI;
+  if (a > -45 && a <= 45) return "pluck";
+  if (a > 45 && a <= 135) return "bell";
+  if (a > -135 && a <= -45) return "drum";
+  return "blip";
+}
+const walkStep = (b) => Math.floor(b / (2 * BAR)) % 4;
+const bandCount = () => MOODS[state.mood].scale.length * OCTAVES;
+
+/** Height on the sheet → scale degree (0 = bottom), plus any drift and walk. */
+function degreeFor(ev, b) {
+  const N = bandCount();
+  let d = Math.min(N - 1, Math.max(0, Math.floor((1 - ev.y) * N) + ev.drift));
+  if (state.walk) d += MOODS[state.mood].walk[walkStep(b)];
+  return d;
+}
+function midiForDegree(d) {
+  const sc = MOODS[state.mood].scale;
+  return BASE_MIDI + 12 * Math.floor(d / sc.length) + sc[d % sc.length];
+}
+
+/** Sound one event at audio time t (b = its beat, for Walk). */
+function play(ev, t, b) {
+  if (!ctx) return;
+  const pan = Math.max(-0.85, Math.min(0.85, ev.x * 1.7 - 0.85));
+  if (ev.voice === "drum") {
+    const kind = ev.y > 0.66 ? "kick" : ev.y > 0.33 ? "snare" : "hat";
+    VOICES[kind](t, ev.vel, pan);
+  } else {
+    VOICES[ev.voice](t, midiForDegree(degreeFor(ev, b)), ev.vel, pan);
+  }
+}
+
+/* ── 5. Tracer: turning a stream of points into note events ──────────────── */
+// Fires on the first point, then whenever enough distance has been covered
+// or enough turning has accumulated. Heading is measured from the previous
+// event's position (not the last 3px), so the voice reflects the stroke's
+// real direction rather than finger jitter.
+
+const TURN_TRIGGER = (50 * Math.PI) / 180;
+
+class Tracer {
+  constructor(stridePx) {
+    this.stride = stridePx;
+    this.prev = null; this.anchor = null;
+    this.dist = 0; this.turn = 0; this.segHeading = null;
+  }
+  /** @returns {null | {heading:number|null, speed:number}} speed in px/ms */
+  push(x, y, ms) {
+    if (!this.prev) {
+      this.prev = { x, y, ms }; this.anchor = { x, y, ms };
+      return { heading: null, speed: 0.6 };
+    }
+    const dx = x - this.prev.x, dy = y - this.prev.y, seg = Math.hypot(dx, dy);
+    if (seg < 6) return null;
+    const h = Math.atan2(-dy, dx);
+    if (this.segHeading !== null) {
+      let dh = h - this.segHeading;
+      while (dh > Math.PI) dh -= 2 * Math.PI;
+      while (dh < -Math.PI) dh += 2 * Math.PI;
+      this.turn += Math.abs(dh);
+    }
+    this.segHeading = h; this.dist += seg; this.prev = { x, y, ms };
+    const curled = this.turn >= TURN_TRIGGER && this.dist >= this.stride * 0.3;
+    if (this.dist < this.stride && !curled) return null;
+
+    const a = this.anchor;
+    const heading = Math.atan2(-(y - a.y), x - a.x);
+    const speed = Math.hypot(x - a.x, y - a.y) / Math.max(16, ms - a.ms);
+    this.anchor = { x, y, ms }; this.dist = 0; this.turn = 0;
+    return { heading, speed };
+  }
+}
+
+function makeEvent(hit, xN, yN) {
+  return {
+    off: 0,                                   // beat offset inside the loop (set later)
+    x: xN, y: yN,
+    voice: voiceForHeading(hit.heading),
+    vel: Math.max(0.35, Math.min(1, 0.35 + hit.speed * 0.45)),
+    drift: 0,                                 // degrees wandered by Drift
+    flashAt: -1,                              // audio time of the last strike (for drawing)
+  };
+}
+
+/* ── 6. Loops ────────────────────────────────────────────────────────────── */
+
+/**
+ * @typedef Loop
+ * @property {{x:number,y:number,b:number}[]} pts   normalized path, b = beat offset
+ * @property {object[]} events   sorted by .off
+ * @property {number} start      absolute beat where pass 0 began
+ * @property {number} L          length in whole beats
+ * @property {number} pass       which repetition the scheduler is filling
+ * @property {number} idx        next event index within that pass
+ */
+const loops = [];
+const strokes = new Map();     // pointerId → live stroke
+let fading = [];               // strokes from Loop-off mode, fading out
+
+function finishStroke(s) {
+  if (!s.events.length) return;
+  s.events.sort((a, b) => a.off - b.off);
+  // Two identical voices on the same 16th just sound like a flam: keep one.
+  s.events = s.events.filter((e, i, arr) => !(i && arr[i - 1].off === e.off && arr[i - 1].voice === e.voice));
+  const lastOff = s.events[s.events.length - 1].off;
+  const lastPt = s.pts[s.pts.length - 1].b;
+  s.L = Math.min(MAX_LOOP_BEATS, Math.max(1, Math.floor(lastOff) + 1, Math.ceil(lastPt)));
+  s.events = s.events.filter((e) => e.off < s.L);
+  s.pass = 1; s.idx = 0;                       // pass 0 already sounded live
+  s.muted = false; s.born = nowAudio();
+  loops.push(s);
+  while (loops.length > MAX_LOOPS) loops.shift();
+  renderLoopList();
+}
+
+/** Drift: each pass, a few melodic notes step up or down one scale degree. */
+function evolve(lp) {
+  for (const ev of lp.events) {
+    if (ev.voice === "drum" || Math.random() > 0.22) continue;
+    ev.drift = Math.max(-3, Math.min(3, ev.drift + (Math.random() < 0.5 ? -1 : 1)));
+  }
+}
+
+/* ── 7. Scheduler (classic lookahead: wake often, schedule a little ahead) ── */
+
+const LOOKAHEAD = 0.12;
+function schedule() {
+  if (!ctx || ctx.state !== "running") return;
+  const now = ctx.currentTime, nb = beatAt(now), hb = beatAt(now + LOOKAHEAD);
+  for (const lp of loops) {
+    // If the tab slept, jump to the current pass instead of machine-gunning.
+    const behind = nb - (lp.start + lp.pass * lp.L);
+    if (behind > lp.L) { lp.pass += Math.floor(behind / lp.L); lp.idx = 0; }
+    for (let guard = 0; guard < 128; guard++) {
+      const ev = lp.events[lp.idx];
+      const b = lp.start + lp.pass * lp.L + ev.off;
+      if (b >= hb) break;
+      if (b >= nb - 0.05 && !lp.muted) {
+        const t = Math.max(now, timeAt(b));
+        play(ev, t, b); ev.flashAt = t;
+      }
+      if (++lp.idx >= lp.events.length) {
+        lp.idx = 0; lp.pass++;
+        if (state.drift) evolve(lp);
+      }
+    }
+  }
+  updateDrone(nb);
+}
+setInterval(schedule, 25);
+
+/* ── 8. Drone (optional bed under everything; follows Walk) ──────────────── */
+
+function setDrone(on) {
+  if (!ctx) return;
+  if (on && !drone) {
+    const g = ctx.createGain(), f = ctx.createBiquadFilter();
+    f.type = "lowpass"; f.frequency.value = 700;
+    g.gain.setValueAtTime(0.0001, ctx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.07, ctx.currentTime + 1.5);
+    const a = ctx.createOscillator(), b = ctx.createOscillator();
+    a.type = b.type = "triangle";
+    a.connect(f); b.connect(f); f.connect(g); out(g, 0, 0.3);
+    a.start(); b.start();
+    drone = { g, a, b, step: -1 };
+    updateDrone(nowBeat(), true);
+  } else if (!on && drone) {
+    const d = drone; drone = null;
+    d.g.gain.setTargetAtTime(0.0001, ctx.currentTime, 0.3);
+    d.a.stop(ctx.currentTime + 2); d.b.stop(ctx.currentTime + 2);
+  }
+}
+function updateDrone(b, force = false) {
+  if (!drone) return;
+  const step = state.walk ? walkStep(b) : 0;
+  if (step === drone.step && !force) return;
+  drone.step = step;
+  const sc = MOODS[state.mood].scale, deg = MOODS[state.mood].walk[step] * (state.walk ? 1 : 0);
+  const root = BASE_MIDI - 12 + sc[deg % sc.length] + 12 * Math.floor(deg / sc.length);
+  drone.a.frequency.setTargetAtTime(mtof(root), ctx.currentTime, 0.25);
+  drone.b.frequency.setTargetAtTime(mtof(root + 7), ctx.currentTime, 0.25);
+}
+
+/* ── 9. Surprise: a machine-drawn twirl, through the same Tracer ─────────── */
+
+function genTwirl({ cx, cy, r, turns, beats, ccw, startBeat }) {
+  const W = sheet.clientWidth, H = sheet.clientHeight;
+  const tr = new Tracer(stridePx());
+  const s = { pts: [], events: [], start: startBeat };
+  const n = Math.round(60 * turns);
+  const msPerBeat = 60000 / state.bpm;
+  for (let i = 0; i <= n; i++) {
+    const u = i / n;
+    const th = (ccw ? 1 : -1) * u * turns * 2 * Math.PI + Math.random() * 0.02;
+    const rr = r * (0.15 + 0.85 * u);
+    const x = cx + rr * Math.cos(th), y = cy - rr * Math.sin(th);
+    const b = u * beats;
+    s.pts.push({ x: x / W, y: y / H, b });
+    const hit = tr.push(x, y, b * msPerBeat);
+    if (hit) {
+      const ev = makeEvent(hit, x / W, y / H);
+      ev.off = state.snap ? snapNear(b) : b;
+      s.events.push(ev);
+    }
+  }
+  finishStroke(s);
+  const lp = loops[loops.length - 1];
+  if (lp === s) lp.pass = 0;                  // a machine twirl has not sounded yet
+}
+
+function surprise() {
+  const W = sheet.clientWidth, H = sheet.clientHeight, m = Math.min(W, H);
+  const lengths = [2, 3, 5, 6, 7];
+  genTwirl({
+    cx: W * (0.2 + Math.random() * 0.6),
+    cy: H * (0.25 + Math.random() * 0.55),
+    r: m * (0.08 + Math.random() * 0.14),
+    turns: 1.2 + Math.random() * 2.2,
+    beats: lengths[Math.floor(Math.random() * lengths.length)] - 0.3,
+    ccw: Math.random() < 0.5,
+    startBeat: Math.ceil(nowBeat() / BAR) * BAR,
+  });
+}
+
+/* ── 10. Touch handling ──────────────────────────────────────────────────── */
+
+const sheet = document.getElementById("sheet");
+const g2 = sheet.getContext("2d");
+const stridePx = () => Math.max(36, 0.07 * Math.min(sheet.clientWidth, sheet.clientHeight));
+const HOLD_MS = 550, TAP_PX = 10;
+
+function hitLoop(px, py) {
+  const W = sheet.clientWidth, H = sheet.clientHeight;
+  for (let i = loops.length - 1; i >= 0; i--) {
+    for (const p of loops[i].pts) if (Math.hypot(p.x * W - px, p.y * H - py) < 18) return loops[i];
+  }
+  return null;
+}
+
+function beginStroke(id, x, y, ms) {
+  const s = {
+    pts: [], events: [], start: Math.floor(nowBeat() * 4) / 4,
+    tracer: new Tracer(stridePx()), downAt: ms, ox: x, oy: y, moved: false,
+  };
+  strokes.set(id, s);
+  extendStroke(s, x, y, ms);
+}
+
+function extendStroke(s, x, y, ms) {
+  const W = sheet.clientWidth, H = sheet.clientHeight;
+  const b = nowBeat();
+  s.pts.push({ x: x / W, y: y / H, b: b - s.start });
+  if (Math.hypot(x - s.ox, y - s.oy) > TAP_PX) s.moved = true;
+  const hit = s.tracer.push(x, y, ms);
+  if (!hit) return;
+  const ev = makeEvent(hit, x / W, y / H);
+  const fireB = state.snap ? snapUp(b) : b;
+  ev.off = Math.max(0, fireB - s.start);
+  if (ctx) { const t = Math.max(ctx.currentTime, timeAt(fireB)); play(ev, t, fireB); ev.flashAt = t; }
+  s.events.push(ev);
+}
+
+function endStroke(id) {
+  const s = strokes.get(id); strokes.delete(id);
+  if (!s) return;
+  const isTap = !s.moved && performance.now() - s.downAt < 300;
+  if (state.loop && !isTap) finishStroke(s);
+  else if (s.pts.length > 1) { s.fadeFrom = performance.now(); fading.push(s); }
+}
+
+// A touch that lands on an existing loop is a "loop touch" until it moves:
+// tap = mute/unmute, hold = erase, move = it was a new stroke after all.
+const loopTouches = new Map();
+
+sheet.addEventListener("pointerdown", (e) => {
+  e.preventDefault();
+  ensureAudio(); hideHint();
+  sheet.setPointerCapture(e.pointerId);
+  const target = hitLoop(e.clientX, e.clientY);
+  if (target) {
+    const lt = { loop: target, x: e.clientX, y: e.clientY, at: performance.now() };
+    lt.timer = setTimeout(() => { eraseLoop(target); loopTouches.delete(e.pointerId); }, HOLD_MS);
+    loopTouches.set(e.pointerId, lt);
+  } else {
+    beginStroke(e.pointerId, e.clientX, e.clientY, e.timeStamp);
+  }
+});
+
+sheet.addEventListener("pointermove", (e) => {
+  const lt = loopTouches.get(e.pointerId);
+  if (lt) {
+    if (Math.hypot(e.clientX - lt.x, e.clientY - lt.y) > TAP_PX) {
+      clearTimeout(lt.timer); loopTouches.delete(e.pointerId);
+      beginStroke(e.pointerId, lt.x, lt.y, e.timeStamp);
+    } else return;
+  }
+  const s = strokes.get(e.pointerId);
+  if (!s) return;
+  const evs = e.getCoalescedEvents ? e.getCoalescedEvents() : [e];
+  for (const c of (evs.length ? evs : [e])) extendStroke(s, c.clientX, c.clientY, c.timeStamp);
+});
+
+function pointerEnd(e) {
+  ensureAudio();                              // iOS sometimes only unlocks on touchend
+  const lt = loopTouches.get(e.pointerId);
+  if (lt) {
+    clearTimeout(lt.timer); loopTouches.delete(e.pointerId);
+    lt.loop.muted = !lt.loop.muted; renderLoopList();
+    return;
+  }
+  endStroke(e.pointerId);
+}
+sheet.addEventListener("pointerup", pointerEnd);
+sheet.addEventListener("pointercancel", (e) => { loopTouches.delete(e.pointerId); endStroke(e.pointerId); });
+document.addEventListener("gesturestart", (e) => e.preventDefault());   // no Safari pinch-zoom
+
+function eraseLoop(lp) {
+  const i = loops.indexOf(lp);
+  if (i >= 0) loops.splice(i, 1);
+  lp.fadeFrom = performance.now(); fading.push(lp);
+  renderLoopList();
+}
+
+/* ── 11. Drawing ─────────────────────────────────────────────────────────── */
+
+let colors = {};
+function readColors() {
+  const cs = getComputedStyle(document.documentElement);
+  for (const k of ["paper", "ink", "ink-muted", "rule", "rule-soft", "accent", "pluck", "bell", "blip", "drum"])
+    colors[k] = cs.getPropertyValue("--" + k).trim();
+  colors.monoFont = "11px " + cs.getPropertyValue("--font-mono").trim();
+}
+readColors();
+matchMedia("(prefers-color-scheme: dark)").addEventListener("change", readColors);
+new MutationObserver(readColors).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+
+function resize() {
+  const dpr = Math.min(2, window.devicePixelRatio || 1);
+  sheet.width = Math.round(sheet.clientWidth * dpr);
+  sheet.height = Math.round(sheet.clientHeight * dpr);
+  g2.setTransform(dpr, 0, 0, dpr, 0, 0);
+}
+window.addEventListener("resize", resize);
+resize();
+
+/** The pitch map: one faint line per scale degree, a firmer line at each C. */
+function drawBands(W, H) {
+  const sc = MOODS[state.mood].scale, N = bandCount();
+  g2.lineWidth = 1;
+  for (let d = 1; d < N; d++) {
+    const y = Math.round(H * (1 - d / N)) + 0.5;
+    const tonic = d % sc.length === 0;
+    g2.strokeStyle = tonic ? colors.rule : colors["rule-soft"];
+    g2.beginPath(); g2.moveTo(0, y); g2.lineTo(W, y); g2.stroke();
+    if (tonic) {
+      g2.fillStyle = colors["ink-muted"];
+      g2.font = colors.monoFont;
+      g2.fillText("C" + (3 + d / sc.length), 8, y - 4);
+    }
+  }
+}
+
+function strokePath(pts, W, H, alpha, width, dash) {
+  if (pts.length < 2) return;
+  g2.save();
+  g2.globalAlpha = alpha; g2.strokeStyle = colors.ink; g2.lineWidth = width;
+  g2.lineCap = "round"; g2.lineJoin = "round";
+  if (dash) g2.setLineDash([4, 7]);
+  g2.beginPath(); g2.moveTo(pts[0].x * W, pts[0].y * H);
+  for (let i = 1; i < pts.length; i++) g2.lineTo(pts[i].x * W, pts[i].y * H);
+  g2.stroke(); g2.restore();
+}
+
+/** Each voice has a shape as well as a colour. */
+function drawGlyph(ev, W, H, r, alpha) {
+  const x = ev.x * W, y = ev.y * H;
+  g2.save(); g2.globalAlpha = alpha;
+  const c = colors[ev.voice];
+  g2.fillStyle = c; g2.strokeStyle = c; g2.lineWidth = 2;
+  g2.beginPath();
+  if (ev.voice === "pluck") { g2.arc(x, y, r, 0, 7); g2.fill(); }
+  else if (ev.voice === "bell") { g2.arc(x, y, r * 0.9, 0, 7); g2.stroke(); }
+  else if (ev.voice === "blip") { g2.moveTo(x, y - r); g2.lineTo(x + r, y + r * 0.8); g2.lineTo(x - r, y + r * 0.8); g2.closePath(); g2.fill(); }
+  else { g2.rect(x - r * 0.85, y - r * 0.85, r * 1.7, r * 1.7); g2.fill(); }
+  g2.restore();
+}
+
+/** Where along its own path is a loop right now? (recorded timing, not snapped) */
+function headPoint(lp, b) {
+  const phase = ((b - lp.start) % lp.L + lp.L) % lp.L;
+  const pts = lp.pts;
+  if (phase > pts[pts.length - 1].b) return null;       // resting until the loop wraps
+  let lo = 0, hi = pts.length - 1;
+  while (lo < hi) { const mid = (lo + hi + 1) >> 1; if (pts[mid].b <= phase) lo = mid; else hi = mid - 1; }
+  return pts[lo];
+}
+
+const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+function frame() {
+  const W = sheet.clientWidth, H = sheet.clientHeight;
+  const at = nowAudio(), b = nowBeat();
+  g2.fillStyle = colors.paper; g2.fillRect(0, 0, W, H);
+  drawBands(W, H);
+
+  for (const lp of loops) {
+    strokePath(lp.pts, W, H, lp.muted ? 0.25 : 0.55, 2, lp.muted);
+    for (const ev of lp.events) {
+      const since = at - ev.flashAt;
+      const lit = ctx && ev.flashAt >= 0 && since >= 0 && since < 0.18;
+      const r = lit && !reduceMotion ? 9 - since * 20 : 5;
+      drawGlyph(ev, W, H, r, lp.muted ? 0.3 : lit ? 1 : 0.75);
+    }
+    if (ctx && !lp.muted) {
+      const p = headPoint(lp, b);
+      if (p) {
+        g2.fillStyle = colors.accent;
+        g2.beginPath(); g2.arc(p.x * W, p.y * H, 4, 0, 7); g2.fill();
+      }
+    }
+  }
+
+  const tNow = performance.now();
+  fading = fading.filter((s) => tNow - s.fadeFrom < 1400);
+  for (const s of fading) strokePath(s.pts, W, H, 0.55 * (1 - (tNow - s.fadeFrom) / 1400), 2);
+
+  for (const s of strokes.values()) {
+    strokePath(s.pts, W, H, 0.95, 3);
+    for (const ev of s.events) drawGlyph(ev, W, H, 5, 0.9);
+  }
+  requestAnimationFrame(frame);
+}
+
+/* ── 12. Controls ────────────────────────────────────────────────────────── */
+
+const $ = (id) => document.getElementById(id);
+const hint = $("hint");
+function hideHint() { hint.hidden = true; $("power").textContent = ctx && ctx.state === "running" ? "Pause" : "Start sound"; }
+
+$("power").addEventListener("click", async () => {
+  if (ctx && ctx.state === "running") { await ctx.suspend(); }
+  else { ensureAudio(); requestWakeLock(); }
+  hint.hidden = true;
+  setTimeout(() => { $("power").textContent = ctx.state === "running" ? "Pause" : "Start sound"; }, 50);
+});
+
+$("bpm").addEventListener("input", (e) => {
+  const b = nowBeat();
+  state.bpm = Number(e.target.value);
+  $("bpmVal").textContent = state.bpm;
+  t0 = nowAudio() - b / bps();                // keep the current beat where it is
+  if (ensureAudio.delay) ensureAudio.delay.delayTime.setTargetAtTime(0.75 / bps(), ctx.currentTime, 0.05);
+});
+$("mood").addEventListener("change", (e) => { state.mood = e.target.value; updateDrone(nowBeat(), true); });
+
+function toggle(id, key, after) {
+  $(id).addEventListener("click", () => {
+    state[key] = !state[key];
+    $(id).setAttribute("aria-pressed", String(state[key]));
+    if (after) after(state[key]);
+  });
+}
+toggle("loopBtn", "loop");
+toggle("snapBtn", "snap");
+toggle("driftBtn", "drift", (on) => { if (!on) loops.forEach((lp) => lp.events.forEach((e) => (e.drift = 0))); });
+toggle("walkBtn", "walk", () => updateDrone(nowBeat(), true));
+toggle("droneBtn", "drone", (on) => { ensureAudio(); setDrone(on); });
+
+$("surprise").addEventListener("click", () => { surprise(); });
+$("clear").addEventListener("click", () => { [...loops].forEach(eraseLoop); });
+
+function renderLoopList() {
+  const el = $("loops");
+  if (!loops.length) { el.textContent = "no loops yet · draw to make one"; return; }
+  el.innerHTML = "loops in beats: " + loops.map((lp) => lp.muted ? `(${lp.L})` : `<b>${lp.L}</b>`).join(" · ");
+}
+
+async function requestWakeLock() {
+  try { if (navigator.wakeLock) await navigator.wakeLock.request("screen"); } catch (_) { /* fine */ }
+}
+
+/* ── 13. First frame: two example twirls, so the page shows what it does ── */
+
+(function seed() {
+  const W = sheet.clientWidth, H = sheet.clientHeight, m = Math.min(W, H);
+  genTwirl({ cx: W * 0.3, cy: H * 0.62, r: m * 0.17, turns: 2.4, beats: 2.7, ccw: true, startBeat: 0 });
+  genTwirl({ cx: W * 0.72, cy: H * 0.4, r: m * 0.12, turns: 1.6, beats: 4.6, ccw: false, startBeat: 0 });
+  renderLoopList();
+})();
+requestAnimationFrame(frame);
+</script>
