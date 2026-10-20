@@ -87,6 +87,14 @@ it drops the toy onto the recipient's sheet and adds it to their My toys.
 **More** (in the toolbar) holds the less-used toggles: Revoice, Walk,
 Drone. It shows a dot when any of them is on.
 
+**On a phone** (below ~700px wide, or ~500px tall when sideways), Twirl
+uses the Suite's drawer pattern: a slim bar keeps Play, Lock, Toybox and
+a ☰; everything else (tempo, grid, tuning, root, range, division, pen,
+toggles, My toys, Scenes, and the how-to-play legend) lives in a drawer
+from the right. Trays become bottom sheets. The controls are the same
+elements, moved between places, so nothing is duplicated and nothing has
+to be kept in sync. On an iPad, nothing changes.
+
 **Share this sheet** (in the Scenes tray): the whole sheet (loops,
 transforms, temperaments, grid, tuning, tempo, toggles) is packed into the
 link's `#fragment`, so nothing is uploaded and the link *is* the scene.
@@ -185,7 +193,8 @@ time-scale), which is what makes retiming and recalling safe.
 - Gestures are tested with synthetic touches in Chromium, not yet on the
   iPad. Thresholds will likely need tuning.
 - The toolbar is two rows on an iPad (sound and grid above; drawing and
-  trays below).
+  trays below). On phones it's a drawer.
+- Phone layout tested in an emulated iPhone-mini-sized viewport only.
 - iOS Safari needs the first touch to unlock audio; if it stays silent,
   tap "Start sound".
 
