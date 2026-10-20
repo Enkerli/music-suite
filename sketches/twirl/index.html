@@ -138,6 +138,20 @@ body {
   background: var(--raised); border: 1px solid var(--rule); border-radius: 16px;
   box-shadow: 0 8px 30px rgb(0 0 0 / 0.14);
 }
+.shelf {
+  pointer-events: auto;
+  display: grid; gap: 6px; padding: 8px;
+  width: min(100%, 1120px); box-sizing: border-box;
+  background: var(--raised); border: 1px solid var(--rule); border-radius: 16px;
+  box-shadow: 0 8px 30px rgb(0 0 0 / 0.14);
+}
+.shelf .tray { background: none; border: 0; box-shadow: none; padding: 0; max-width: 100%; }
+.shelfhead { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.tabs { display: inline-flex; border: 1px solid var(--rule-strong); border-radius: 10px; overflow: hidden; }
+.tabs .btn { border: 0; border-radius: 0; }
+.tabs .btn + .btn { border-left: 1px solid var(--rule-strong); }
+.tabs .btn[aria-selected="true"] { background: var(--ink); color: var(--paper); }
+.btn.armed { background: var(--drum); border-color: var(--drum); color: var(--paper); }
 .toy {
   display: grid; justify-items: center; align-content: center; gap: 3px;
   width: 72px; padding: 8px 4px 6px;
@@ -270,7 +284,9 @@ body {
 .is-drawer #loops { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; width: 100%; }
 .is-drawer .toast { top: calc(env(safe-area-inset-top, 0px) + 66px); }
 .is-drawer .traywrap { padding-left: 0; padding-right: 0; }
-.is-drawer .tray { border-radius: 16px 16px 0 0; width: 100%; max-width: 100%; }
+.is-drawer .shelf { border-radius: 16px 16px 0 0; width: 100%; }
+.is-drawer .shelf .tray { flex-wrap: nowrap; justify-content: flex-start; overflow-x: auto; }
+.is-drawer .tabs .btn { padding: 0 10px; }
 .is-drawer .hint { top: 52%; }
 .is-drawer .hint h1 { font-size: 2rem; }
 .is-drawer .hint p { font-size: 0.875rem; }
@@ -345,8 +361,17 @@ body {
   <div class="drawerlegend" id="drawerLegend"></div>
 </div>
 
-<div class="traywrap" id="toybox" hidden>
-  <div class="tray" role="group" aria-label="Toys: tap one to drop it on the sheet">
+<div class="traywrap" id="shelf" hidden>
+ <div class="shelf" role="dialog" aria-label="Toys and scenes">
+  <div class="shelfhead">
+    <div class="tabs" role="tablist" aria-label="Show">
+      <button class="btn" type="button" role="tab" data-tab="toybox" aria-controls="toybox" aria-selected="true">Toybox</button>
+      <button class="btn" type="button" role="tab" data-tab="mytoys" aria-controls="mytoys" aria-selected="false">My toys</button>
+      <button class="btn" type="button" role="tab" data-tab="scenes" aria-controls="scenes" aria-selected="false">Scenes</button>
+    </div>
+    <button class="btn" type="button" id="shelfClose">Close</button>
+  </div>
+  <div class="tray" id="toybox" role="tabpanel" aria-label="Toys: tap one to drop it on the sheet">
     <button class="toy" type="button" data-toy="spiral"><svg viewBox="0 0 34 34"><path d="M17 17c1-1 3 0 3 2s-3 4-5 3-4-4-2-7 7-4 9-1 3 8-1 11-11 3-13-2-1-11 4-13"/></svg>Spiral</button>
     <button class="toy" type="button" data-toy="ring"><svg viewBox="0 0 34 34"><circle cx="17" cy="17" r="11"/></svg>Ring</button>
     <button class="toy" type="button" data-toy="hexagon"><svg viewBox="0 0 34 34"><path d="M17 5l10.4 6v12L17 29 6.6 23V11z"/></svg>Hexagon</button>
@@ -361,10 +386,7 @@ body {
     <button class="toy" type="button" data-toy="shaker"><svg viewBox="0 0 34 34"><ellipse cx="17" cy="12" rx="7" ry="8"/><path d="M17 20v10M10 7l-3-2M24 7l3-2M27 13h3M4 13h3"/></svg>Shaker</button>
     <button class="toy" type="button" data-toy="dice"><svg viewBox="0 0 34 34"><rect x="6" y="6" width="22" height="22" rx="4"/><circle cx="12" cy="12" r="1.6" fill="currentColor"/><circle cx="17" cy="17" r="1.6" fill="currentColor"/><circle cx="22" cy="22" r="1.6" fill="currentColor"/></svg>Dice</button>
   </div>
-</div>
-
-<div class="traywrap" id="mytoys" hidden>
-  <div class="tray" role="group" aria-label="My toys: loops you kept">
+  <div class="tray" id="mytoys" role="tabpanel" aria-label="My toys: loops you kept" hidden>
     <button class="toy" type="button" id="keepBtn"><svg viewBox="0 0 34 34"><rect x="6" y="6" width="22" height="22" rx="5"/><path d="M17 11v12M11 17h12"/></svg>Keep a loop</button>
     <span class="seg" role="group" aria-label="Tapping a toy will">
       <button class="btn" type="button" data-toymode="drop" aria-pressed="true">Drop</button>
@@ -379,10 +401,8 @@ body {
       <small id="toyShareInfo"></small>
     </div>
   </div>
-</div>
-
-<div class="traywrap" id="scenes" hidden>
-  <div class="tray" role="group" aria-label="Scenes: tap an empty slot to save, a full one to recall, hold a full one to overwrite">
+  <div class="tray" id="scenes" role="tabpanel" aria-label="Scenes: tap an empty slot to save, a full one to recall, hold a full one to overwrite" hidden>
+    <button class="toy" type="button" id="backBtn" hidden><svg viewBox="0 0 34 34"><path d="M14 9l-7 7 7 7M7 16h13a7 7 0 0 1 0 14h-3"/></svg>Back to my sheet</button>
     <button class="toy" type="button" id="shareBtn"><svg viewBox="0 0 34 34"><path d="M14 20l6-6M12 15l-3 3a4.2 4.2 0 0 0 6 6l3-3M22 19l3-3a4.2 4.2 0 0 0-6-6l-3 3"/></svg>Share this sheet</button>
     <div id="slots" style="display:contents"></div>
     <p class="traynote">Empty slot: tap to save. Full slot: tap to recall, hold to overwrite. Stored in this browser only.</p>
@@ -393,6 +413,7 @@ body {
       <small id="shareInfo"></small>
     </div>
   </div>
+ </div>
 </div>
 
 <div class="toast" id="toast" role="status" hidden></div>
@@ -1649,6 +1670,15 @@ function frame() {
       }
     }
   }
+  // While resizing, show the loop's clock ratio and length right next to it.
+  if (pinch) {
+    const bx = screenBox(pinch.loop, W, H), label = `×${fmtRatio(pinch.loop.ts)} · ${fmtBeats(loopBeats(pinch.loop))} beats`;
+    g2.save(); g2.font = "600 13px " + getComputedStyle(document.body).fontFamily;
+    const tw = g2.measureText(label).width + 20, x = Math.min(W - tw - 8, Math.max(8, bx.cx - tw / 2)), y = Math.max(70, bx.y0 - 40);
+    g2.fillStyle = colors.ink; g2.beginPath(); g2.roundRect ? g2.roundRect(x, y, tw, 26, 13) : g2.rect(x, y, tw, 26); g2.fill();
+    g2.fillStyle = colors.paper; g2.textBaseline = "middle"; g2.fillText(label, x + 10, y + 13);
+    g2.restore();
+  }
   // Lock-mode strikes flash where they happened.
   fires = fires.filter((f) => at - f.t < 0.25);
   for (const f of fires) { const since = at - f.t; if (since >= 0) glyph(f.voice, f.x, f.y, reduceMotion ? 5 : 9 - since * 20, 1); }
@@ -1856,7 +1886,19 @@ async function decodeScene(token) {
   if (token[1] === "1") bytes = await pipeBytes(bytes, new DecompressionStream("deflate"));
   return unpackScene(JSON.parse(new TextDecoder().decode(bytes)));
 }
-const shareToken = () => { const t = decodeURIComponent(location.hash.slice(1)); return /^[st][01]\.[A-Za-z0-9_-]+$/.test(t) ? t : null; };
+/** The token in the link, cleaned. Links pass through messaging apps that
+ *  sometimes insert characters (a field report had two stray "!"), so
+ *  anything outside the base64url alphabet is dropped before decoding. */
+function shareToken() {
+  let raw = location.hash.slice(1);
+  try { raw = decodeURIComponent(raw); } catch (_) { /* leave as is */ }
+  const m = /^([st][01])\.(.+)$/s.exec(raw.trim());
+  if (!m) return null;
+  const body = m[2].replace(/[^A-Za-z0-9_-]/g, "");
+  return body.length > 8 ? `${m[1]}.${body}` : null;
+}
+const BEFORE_KEY = "twirl:beforeShare", OPENED_KEY = "twirl:openedLink";
+const tokenId = (t) => `${t.length}:${t.slice(-24)}`;
 
 /** Where a link should point: this page when it has a real address of its
  *  own (GitHub Pages, a LAN server, a local file), else the published artifact. */
@@ -1889,8 +1931,12 @@ async function openFromLink() {
       addToy(toy, true);
       return false;
     }
+    // Opening a sheet replaces yours, so keep yours first (Scenes → Back to my sheet).
+    if (loops.length) store.set(BEFORE_KEY, serialize());
+    else { const last = store.get(LAST_KEY); if (last && last.loops && last.loops.length) store.set(BEFORE_KEY, last); }
     if (!recall(sc)) return false;
-    $("hintSmall").textContent = "Someone shared this sheet with you. Touch anywhere to start the sound.";
+    store.set(OPENED_KEY, tokenId(token));
+    $("hintSmall").textContent = "Someone shared this sheet with you. Your own sheet is kept: Scenes → Back to my sheet.";
     return true;
   } catch (_) {
     toast("This link couldn't be read; showing your own sheet instead");
@@ -2075,23 +2121,38 @@ function setDrawer(open) {
   $("menuBtn").setAttribute("aria-expanded", String(open));
   $("strip").inert = document.body.classList.contains("is-drawer") && !open;   // closed drawer: not tabbable
 }
-$("menuBtn").addEventListener("click", () => { openTray(null); setDrawer(!document.body.classList.contains("drawer-open")); });
+$("menuBtn").addEventListener("click", () => { closeShelf(); setDrawer(!document.body.classList.contains("drawer-open")); });
 $("drawerClose").addEventListener("click", () => setDrawer(false));
 $("backdrop").addEventListener("click", () => setDrawer(false));
 document.addEventListener("keydown", (e) => { if (e.key === "Escape") setDrawer(false); });
 NARROW.addEventListener("change", applyLayout);
 applyLayout();
 
-function openTray(which) {
-  if (which) setDrawer(false);                  // a tray and the drawer never stack
-  for (const [tray, btn] of [["toybox", "toyBtn"], ["mytoys", "myToyBtn"], ["scenes", "sceneBtn"]]) {
-    const open = tray === which && $(tray).hidden;
-    $(tray).hidden = !open; $(btn).setAttribute("aria-expanded", String(open));
-  }
-  if (!$("scenes").hidden) { renderSlots(); $("share").hidden = true; }   // a fresh link each time
-  if (!$("mytoys").hidden) { renderMyToys(); $("toyShare").hidden = true; }
+/* The shelf: Toybox, My toys and Scenes are tabs of one bottom drawer.
+ * The toolbar buttons OPEN it at a tab (never toggle it shut); it closes
+ * with its own Close button or Escape, as drawers do across the Suite. It
+ * stays open while you play, so you can drop several toys in a row. */
+const SHELF_BTNS = { toybox: "toyBtn", mytoys: "myToyBtn", scenes: "sceneBtn" };
+let shelfTab = "toybox";
+function openShelf(which) {
+  setDrawer(false);                              // the shelf and the side drawer never stack
+  shelfTab = which; $("shelf").hidden = false;
+  document.querySelectorAll("[data-tab]").forEach((t) => {
+    const on = t.dataset.tab === which;
+    t.setAttribute("aria-selected", String(on)); $(t.dataset.tab).hidden = !on;
+  });
+  for (const [tab, id] of Object.entries(SHELF_BTNS)) $(id).setAttribute("aria-expanded", String(tab === which));
+  if (which === "scenes") { renderSlots(); $("share").hidden = true; $("backBtn").hidden = !store.get(BEFORE_KEY); }
+  if (which === "mytoys") { renderMyToys(); $("toyShare").hidden = true; }
 }
-$("myToyBtn").addEventListener("click", () => openTray("mytoys"));
+function closeShelf() {
+  $("shelf").hidden = true;
+  Object.values(SHELF_BTNS).forEach((id) => $(id).setAttribute("aria-expanded", "false"));
+}
+document.querySelectorAll("[data-tab]").forEach((t) => t.addEventListener("click", () => openShelf(t.dataset.tab)));
+$("shelfClose").addEventListener("click", closeShelf);
+document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeShelf(); });
+$("myToyBtn").addEventListener("click", () => openShelf("mytoys"));
 $("keepBtn").addEventListener("click", () => {
   keeping = !keeping;
   $("keepBtn").setAttribute("aria-pressed", String(keeping));
@@ -2114,14 +2175,32 @@ document.addEventListener("pointerdown", (e) => {
   if (!$("more").contains(e.target)) { $("morePanel").hidden = true; $("moreBtn").setAttribute("aria-expanded", "false"); }
 });
 ["revoiceBtn", "walkBtn", "droneBtn"].forEach((id) => $(id).addEventListener("click", syncMore));
-$("toyBtn").addEventListener("click", () => openTray("toybox"));
-$("sceneBtn").addEventListener("click", () => openTray("scenes"));
+$("toyBtn").addEventListener("click", () => openShelf("toybox"));
+$("sceneBtn").addEventListener("click", () => openShelf("scenes"));
 document.querySelectorAll("#toybox .toy").forEach((btn) =>
   btn.addEventListener("click", () => { ensureAudio(); hint.hidden = true; syncPower(); dropToy(btn.dataset.toy); }));
-$("clear").addEventListener("click", () => { [...loops].forEach(eraseLoop); setDrawer(false); });
+// Clear takes two taps (the Suite's delete convention). It empties the
+// sheet only: saved scenes and My toys are separate and never touched.
+let clearTimer = null;
+function disarmClear() { clearTimeout(clearTimer); clearTimer = null; $("clear").textContent = "Clear"; $("clear").classList.remove("armed"); }
+$("clear").addEventListener("click", () => {
+  if (!loops.length) { toast("The sheet is already empty"); return; }
+  if (!clearTimer) {
+    $("clear").textContent = "Clear sheet?"; $("clear").classList.add("armed");
+    clearTimer = setTimeout(disarmClear, 3000);
+    return;
+  }
+  disarmClear();
+  [...loops].forEach(eraseLoop); setDrawer(false);
+  toast("Sheet cleared · saved scenes and My toys are untouched");
+});
 
 // Share (section 12b): build the link, then copy it in the same tap that asks.
 $("shareBtn").addEventListener("click", buildShareLink);
+$("backBtn").addEventListener("click", () => {
+  const before = store.get(BEFORE_KEY);
+  if (before && recall(before)) { try { localStorage.removeItem(BEFORE_KEY); } catch (_) {} $("backBtn").hidden = true; toast("Your own sheet is back"); }
+});
 document.querySelectorAll("[data-copy]").forEach((btn) => btn.addEventListener("click", () => {
   const field = $(btn.dataset.copy);
   const fallback = () => { field.focus(); field.select(); toast("Link selected: copy it from the field"); };
@@ -2162,8 +2241,10 @@ async function requestWakeLock() {
     }
   };
   // A shared sheet wins over your last one. A shared toy lands on top of it.
-  if (shareToken() && shareToken()[0] === "s" && await openFromLink()) { /* loaded */ }
-  else { defaults(); if (shareToken()) await openFromLink(); }
+  const tok = shareToken(), seen = tok && store.get(OPENED_KEY) === tokenId(tok);
+  if (tok && tok[0] === "s" && !seen && await openFromLink()) { /* loaded */ }
+  else if (tok && tok[0] === "s" && seen) defaults();   // reloading: keep what you've done since
+  else { defaults(); if (tok) await openFromLink(); }
   syncTuningPicker();
   renderLoopList();
   initMidi();

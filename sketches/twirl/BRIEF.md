@@ -95,13 +95,27 @@ from the right. Trays become bottom sheets. The controls are the same
 elements, moved between places, so nothing is duplicated and nothing has
 to be kept in sync. On an iPad, nothing changes.
 
+**Toybox, My toys and Scenes are one shelf**: a bottom drawer with three
+tabs and a Close button. The toolbar buttons open it at a tab; they never
+toggle it shut (drawers open and close the same way across the Suite). It
+stays open while you play, so you can drop several toys in a row.
+
+**Clear** takes two taps ("Clear sheet?" then Clear), and empties the
+sheet only: saved scenes and My toys are never touched.
+
+**While resizing** a loop, a label next to it shows its clock ratio and
+length (×1½ · 6 beats) as they change.
+
 **Share this sheet** (in the Scenes tray): the whole sheet (loops,
 transforms, temperaments, grid, tuning, tempo, toggles) is packed into the
 link's `#fragment`, so nothing is uploaded and the link *is* the scene.
 Paths are simplified first (keeping both shape and timing), numbers become
 small integers, then it's deflated and base64url-encoded: a busy 14-loop
 sheet is about 4 KB of link. Opening a link with a sheet in it loads that
-sheet instead of your last one. Links from the published page point at the
+sheet; your own is kept (Scenes → *Back to my sheet*). Reloading the
+same link doesn't wipe what you've done since. Links survive messaging
+apps that insert stray characters (a field report had two `!` added):
+anything outside the link alphabet is ignored when decoding. Links from the published page point at the
 published page; links from a copy on GitHub Pages, a LAN server or a local
 file point at that copy.
 
