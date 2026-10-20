@@ -5,12 +5,13 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Caveat:wght@600&family=Inter+Tight:wght@400;600&family=JetBrains+Mono:wght@400&display=swap">
 <style>
 /*
- * Twirl — a gesture toy. Layout: one full-bleed sheet of paper you draw on
- * (its lines are the pitch × rhythm grid), a floating control strip at the
- * top, trays (toybox, scenes) that slide up from the bottom, and a quiet
- * legend + loop list along the bottom edge.
- * Palette is the suite's "paper & ink" (packages/ui/tokens/tokens.css), with
- * the voices borrowing Vane's per-dimension accent colours.
+ * Twirl — a gesture toy. Public Domain (CC0-1.0), like the rest of the suite.
+ *
+ * Layout: one full-bleed sheet of paper you draw on (its lines are the
+ * pitch × rhythm grid), a floating control strip at the top, trays (toybox,
+ * scenes) that slide up from the bottom, and a quiet legend + loop list
+ * along the bottom edge. Palette is the suite's "paper & ink"
+ * (packages/ui/tokens/tokens.css); the voices borrow Vane's accent colours.
  */
 :root {
   --paper: #f5f2eb;
@@ -93,6 +94,7 @@ body {
   border: 1px solid var(--rule-strong); border-radius: 10px;
   cursor: pointer;
 }
+.sel:disabled { opacity: 0.45; cursor: default; }
 .btn[aria-pressed="true"], .btn[aria-expanded="true"] { background: var(--ink); color: var(--paper); border-color: var(--ink); }
 .btn.primary { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); }
 .btn:focus-visible, .sel:focus-visible, .toy:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
@@ -118,7 +120,7 @@ body {
   pointer-events: auto;
   display: flex; flex-wrap: wrap; justify-content: center; align-items: stretch; gap: 6px;
   padding: 8px;
-  max-width: 100%;
+  max-width: min(100%, 1120px);
   background: var(--raised); border: 1px solid var(--rule); border-radius: 16px;
   box-shadow: 0 8px 30px rgb(0 0 0 / 0.14);
 }
@@ -142,9 +144,10 @@ body {
 .toast {
   position: fixed; left: 50%; transform: translateX(-50%);
   top: calc(env(safe-area-inset-top, 0px) + 120px);
+  max-width: calc(100% - 32px);
   padding: 8px 14px; border-radius: 999px;
   background: var(--ink); color: var(--paper);
-  font: 600 0.8125rem/1.2 var(--font-sans);
+  font: 600 0.8125rem/1.3 var(--font-sans); text-align: center;
   pointer-events: none;
 }
 
@@ -199,6 +202,11 @@ body {
   </label>
   <span class="group">
     <select class="sel" id="grid" aria-label="Pitch grid (horizontal lines)"></select>
+    <select class="sel" id="tuning" aria-label="Tuning (for 12-note grids)">
+      <option value="equal">Equal</option><option value="just">Just (5-limit)</option>
+      <option value="pyth">Pythagorean</option><option value="meantone">¼-comma meantone</option>
+      <option value="werck">Werckmeister III</option>
+    </select>
     <select class="sel" id="root" aria-label="Root"></select>
     <select class="sel" id="range" aria-label="Range: how many octaves the sheet covers">
       <option value="1">1 oct</option><option value="2">2 oct</option>
@@ -211,15 +219,22 @@ body {
     </select>
   </span>
   <span class="group">
+    <select class="sel" id="pen" aria-label="Pen: which voice new strokes play">
+      <option value="auto">Pen: by direction</option><option value="drum">Pen: drums</option>
+      <option value="pluck">Pen: pluck</option><option value="bell">Pen: bell</option>
+      <option value="blip">Pen: blip</option><option value="shake">Pen: shaker</option>
+    </select>
+    <button class="btn" id="lockBtn" type="button" aria-pressed="false" title="Notes fire only when a stroke crosses a grid line, like DrawnQurve's lock to grid">Lock</button>
     <button class="btn" id="loopBtn" type="button" aria-pressed="true" title="Gestures keep replaying">Loop</button>
     <button class="btn" id="morphBtn" type="button" aria-pressed="true" title="Loops move on their own; double-tap a loop to change how">Morph</button>
     <button class="btn" id="revoiceBtn" type="button" aria-pressed="false" title="On: turning a loop changes its voices. Off: voices stay as drawn">Revoice</button>
     <button class="btn" id="walkBtn" type="button" aria-pressed="false" title="Every two bars, everything shifts along a little progression">Walk</button>
     <button class="btn" id="droneBtn" type="button" aria-pressed="false" title="A soft root-and-fifth underneath">Drone</button>
-    <button class="btn" id="editBtn" type="button" aria-pressed="false" title="Tap a path to add a note, tap a note to remove it, drag a note to reshape">Edit</button>
+    <button class="btn" id="editBtn" type="button" aria-pressed="false" title="Drag the square handles to bend a path; tap a path to add a note, tap a note to remove it; hold a loop to smooth it">Edit</button>
   </span>
   <span class="spacer"></span>
   <span class="group">
+    <select class="sel" id="out" aria-label="Output" hidden></select>
     <button class="btn" id="toyBtn" type="button" aria-expanded="false" aria-controls="toybox">Toybox</button>
     <button class="btn" id="sceneBtn" type="button" aria-expanded="false" aria-controls="scenes">Scenes</button>
     <button class="btn" id="clear" type="button">Clear</button>
@@ -230,10 +245,15 @@ body {
   <div class="tray" role="group" aria-label="Toys: tap one to drop it on the sheet">
     <button class="toy" type="button" data-toy="spiral"><svg viewBox="0 0 34 34"><path d="M17 17c1-1 3 0 3 2s-3 4-5 3-4-4-2-7 7-4 9-1 3 8-1 11-11 3-13-2-1-11 4-13"/></svg>Spiral</button>
     <button class="toy" type="button" data-toy="ring"><svg viewBox="0 0 34 34"><circle cx="17" cy="17" r="11"/></svg>Ring</button>
+    <button class="toy" type="button" data-toy="hexagon"><svg viewBox="0 0 34 34"><path d="M17 5l10.4 6v12L17 29 6.6 23V11z"/></svg>Hexagon</button>
     <button class="toy" type="button" data-toy="star"><svg viewBox="0 0 34 34"><path d="M17 4l3.6 8.6 9.2.6-7 6 2.3 9-8.1-4.9-8.1 4.9 2.3-9-7-6 9.2-.6z"/></svg>Star</button>
+    <button class="toy" type="button" data-toy="rose"><svg viewBox="0 0 34 34"><path d="M17 17C17 9 23 5 26 9s-3 8-9 8c6 0 12 1 10 6s-8 2-10-6c-2 8-7 11-10 6s4-6 10-6c-6 0-12-4-9-8s9 0 9 8z"/></svg>Rose</button>
     <button class="toy" type="button" data-toy="eight"><svg viewBox="0 0 34 34"><path d="M17 17c4-6 11-6 11 0s-7 6-11 0-11-6-11 0 7 6 11 0z"/></svg>Figure 8</button>
+    <button class="toy" type="button" data-toy="lissajous"><svg viewBox="0 0 34 34"><path d="M17 5c8 0 11 6 7 12s-14 12-14 6 10-14 14-10-2 16-7 16S6 23 6 17 9 5 17 5z"/></svg>Lissajous</button>
+    <button class="toy" type="button" data-toy="wave"><svg viewBox="0 0 34 34"><path d="M3 17c4-9 7-9 9 0s5 9 9 0 6-9 10 0"/></svg>Wave</button>
     <button class="toy" type="button" data-toy="zigzag"><svg viewBox="0 0 34 34"><path d="M3 22l5-10 5 10 5-10 5 10 5-10 3 6"/></svg>Zigzag</button>
     <button class="toy" type="button" data-toy="drop"><svg viewBox="0 0 34 34"><path d="M17 4v26M11 24l6 6 6-6"/></svg>Drop</button>
+    <button class="toy" type="button" data-toy="beat"><svg viewBox="0 0 34 34"><rect x="4" y="22" width="5" height="5"/><rect x="11" y="7" width="5" height="5"/><rect x="18" y="15" width="5" height="5"/><rect x="25" y="7" width="5" height="5"/></svg>Beat</button>
     <button class="toy" type="button" data-toy="shaker"><svg viewBox="0 0 34 34"><ellipse cx="17" cy="12" rx="7" ry="8"/><path d="M17 20v10M10 7l-3-2M24 7l3-2M27 13h3M4 13h3"/></svg>Shaker</button>
     <button class="toy" type="button" data-toy="dice"><svg viewBox="0 0 34 34"><rect x="6" y="6" width="22" height="22" rx="4"/><circle cx="12" cy="12" r="1.6" fill="currentColor"/><circle cx="17" cy="17" r="1.6" fill="currentColor"/><circle cx="22" cy="22" r="1.6" fill="currentColor"/></svg>Dice</button>
   </div>
@@ -262,63 +282,82 @@ body {
 
 <div class="hint" id="hint">
   <h1>Draw something.</h1>
-  <p>Every stroke plays as you draw it, then keeps looping on its own clock. Spirals climb and tumble through the scale. Scribble fast back and forth for a shaker. Drag a loop to move it; with two fingers, turn it or resize it: bigger plays slower.</p>
+  <p>Every stroke plays as you draw it, then keeps looping on its own clock. Spirals climb and tumble through the scale. Scribble fast back and forth for a shaker. Drag a loop to move it; with two fingers, turn it or resize it: bigger plays slower. Turn on Lock and notes fire only where a line is crossed.</p>
   <p class="small" id="hintSmall">A spiral, a dropped line and a shaker are already on the page. Touch anywhere to start the sound.</p>
 </div>
 
 <script>
 "use strict";
 /* =============================================================================
- * Twirl v2 — a DRUW/Playground-ish gesture toy.
+ * Twirl v3 — a DRUW/Playground-ish gesture toy. Public Domain (CC0-1.0).
  *
- *   gesture ──► Tracer ──► events ──► Voice (Web Audio)
- *                 │                     ▲
- *                 └──► Loop ──► Scheduler (lookahead, stateless per window)
- *                       ▲
- *     drag / pinch / Morph / Edit change the loop; mappings read it live
+ *   gesture ──► triggers ──► events ──► output (Web Audio, and/or Web MIDI)
+ *                  │                      ▲
+ *                  └──► Loop ──► Scheduler (lookahead, stateless per window)
+ *                        ▲
+ *      drag / pinch / Morph / Edit change the loop; mappings read it live
  *
- * The rules, each in ONE place:
- *   - WHEN a note happens: every grid column's width of distance, or every
- *     ~50° of turning (Tracer). A spiral is an arpeggio. Fast short
- *     back-and-forth flips the Tracer into shaker mode.
- *   - WHICH voice: the direction you drew (voiceOf). With Revoice on, the
- *     loop's rotation is added, so turning a loop re-orchestrates it.
- *   - WHICH pitch: the event's height AFTER the loop's transform (degreeAt),
- *     on the grid's horizontal lines.
- *   - HOW LONG: gesture duration rounded up to whole beats (L), times the
- *     loop's time-scale (ts), which is its size: bigger = slower.
+ * Two trigger modes, one per loop (chosen by Lock when it was drawn):
+ *   - PATH (free): a note every grid column's width of distance, or every
+ *     ~50° of turning (Tracer). Notes are stored with the loop.
+ *   - LOCK (grid): a note wherever the path crosses a grid line, worked out
+ *     LIVE from where the loop is now. Move or turn a locked loop and its
+ *     rhythm changes, because it crosses different lines.
+ *
+ * The other rules, each in ONE place:
+ *   - WHICH voice: the Pen, or the direction you drew (voiceFor). With
+ *     Revoice on, the loop's rotation is added.
+ *   - WHICH pitch: the event's height after the loop's transform, on the
+ *     grid's horizontal lines (in the chosen tuning).
+ *   - HOW LONG: duration rounded up to whole beats (L) × time-scale (ts),
+ *     which is the loop's size: bigger = slower.
  *   - HOW IT MOVES on its own: its temperament (still/drift/spin/jitter).
  * ========================================================================== */
 
 /* ── 1. Grids: pitch (horizontal lines) and rhythm (vertical lines) ───────── */
-// Pitch grids are steps in cents within a repeating period. The 12-TET ones
-// come from DrawnQurve's scale masks (apps/drawnqurve/design/tokens.jsx;
-// leftmost = LSB, so bit i = pitch class i, per CONVENTIONS.md).
+// 12-note grids are pitch-class sets (from DrawnQurve's scale masks,
+// apps/drawnqurve/design/tokens.jsx; leftmost = LSB, so bit i = pitch class
+// i, per CONVENTIONS.md), tuned by the Tuning picker. Microtonal grids carry
+// their own cents and ignore Tuning.
 
-const fromMask = (mask) => [...Array(12).keys()].filter((i) => mask & (1 << i)).map((i) => i * 100);
+const fromMask = (mask) => [...Array(12).keys()].filter((i) => mask & (1 << i));
 const edo = (n) => [...Array(n).keys()].map((i) => (1200 * i) / n);
 
+/** Cents of each pitch class above the root, per tuning (root-relative). */
+const TUNINGS = {
+  equal:    [...Array(12).keys()].map((i) => i * 100),
+  just:     [0, 111.73, 203.91, 315.64, 386.31, 498.04, 590.22, 701.96, 813.69, 884.36, 1017.6, 1088.27],
+  pyth:     [0, 90.22, 203.91, 294.13, 407.82, 498.04, 611.73, 701.96, 792.18, 905.87, 996.09, 1109.78],
+  meantone: [0, 76.05, 193.16, 310.26, 386.31, 503.42, 579.47, 696.58, 772.63, 889.74, 1006.84, 1082.89],
+  werck:    [0, 90.22, 192.18, 294.13, 390.22, 498.04, 588.27, 696.09, 792.18, 888.27, 996.09, 1092.18],
+};
+
 const GRIDS = [
-  { id: "pentMaj",  family: "Pentatonic", name: "Major pentatonic", steps: fromMask(0x295) },
-  { id: "pentMin",  family: "Pentatonic", name: "Minor pentatonic", steps: fromMask(0x4A9) },
-  { id: "suspended",family: "Pentatonic", name: "Suspended",        steps: fromMask(0x4A5) },
-  { id: "hira",     family: "Pentatonic", name: "Hirajōshi",        steps: fromMask(0x18D) },
-  { id: "ionian",   family: "Diatonic",   name: "Ionian",           steps: fromMask(0xAB5) },
-  { id: "dorian",   family: "Diatonic",   name: "Dorian",           steps: fromMask(0x6AD) },
-  { id: "phrygian", family: "Diatonic",   name: "Phrygian",         steps: fromMask(0x5AB) },
-  { id: "lydian",   family: "Diatonic",   name: "Lydian",           steps: fromMask(0xAD5) },
-  { id: "mixo",     family: "Diatonic",   name: "Mixolydian",       steps: fromMask(0x6B5) },
-  { id: "aeolian",  family: "Diatonic",   name: "Aeolian",          steps: fromMask(0x5AD) },
-  { id: "harmMinor",family: "Colour",     name: "Harmonic minor",   steps: fromMask(0x9AD) },
-  { id: "jazzMinor",family: "Colour",     name: "Jazz minor",       steps: fromMask(0xAAD) },
-  { id: "blues",    family: "Colour",     name: "Blues",            steps: fromMask(0x4E9) },
-  { id: "wholeTone",family: "Colour",     name: "Whole tone",       steps: fromMask(0x555) },
-  { id: "dimHW",    family: "Colour",     name: "Diminished HW",    steps: fromMask(0x6DB) },
-  { id: "maj7",     family: "Chordal",    name: "Maj 7 arp",        steps: fromMask(0x891) },
-  { id: "min7",     family: "Chordal",    name: "Min 7 arp",        steps: fromMask(0x489) },
-  { id: "edo5",     family: "Microtonal", name: "5-EDO (slendro-ish)", steps: edo(5) },
+  { id: "pentMaj",  family: "Pentatonic", name: "Major pentatonic", pcs: fromMask(0x295) },
+  { id: "pentMin",  family: "Pentatonic", name: "Minor pentatonic", pcs: fromMask(0x4A9) },
+  { id: "suspended",family: "Pentatonic", name: "Suspended",        pcs: fromMask(0x4A5) },
+  { id: "hira",     family: "Pentatonic", name: "Hirajōshi",        pcs: fromMask(0x18D) },
+  { id: "ionian",   family: "Diatonic",   name: "Ionian",           pcs: fromMask(0xAB5) },
+  { id: "dorian",   family: "Diatonic",   name: "Dorian",           pcs: fromMask(0x6AD) },
+  { id: "phrygian", family: "Diatonic",   name: "Phrygian",         pcs: fromMask(0x5AB) },
+  { id: "lydian",   family: "Diatonic",   name: "Lydian",           pcs: fromMask(0xAD5) },
+  { id: "mixo",     family: "Diatonic",   name: "Mixolydian",       pcs: fromMask(0x6B5) },
+  { id: "aeolian",  family: "Diatonic",   name: "Aeolian",          pcs: fromMask(0x5AD) },
+  { id: "harmMinor",family: "Colour",     name: "Harmonic minor",   pcs: fromMask(0x9AD) },
+  { id: "jazzMinor",family: "Colour",     name: "Jazz minor",       pcs: fromMask(0xAAD) },
+  { id: "blues",    family: "Colour",     name: "Blues",            pcs: fromMask(0x4E9) },
+  { id: "wholeTone",family: "Colour",     name: "Whole tone",       pcs: fromMask(0x555) },
+  { id: "dimHW",    family: "Colour",     name: "Diminished HW",    pcs: fromMask(0x6DB) },
+  { id: "chromatic",family: "Colour",     name: "Chromatic",        pcs: fromMask(0xFFF) },
+  { id: "maj7",     family: "Chordal",    name: "Maj 7 arp",        pcs: fromMask(0x891) },
+  { id: "min7",     family: "Chordal",    name: "Min 7 arp",        pcs: fromMask(0x489) },
+  { id: "edo5",     family: "Microtonal", name: "5-EDO",            steps: edo(5) },
+  { id: "slendro",  family: "Microtonal", name: "Slendro (approx.)",steps: [0, 231, 474, 717, 955] },
+  { id: "pelog",    family: "Microtonal", name: "Pelog (approx.)",  steps: [0, 120, 270, 540, 670, 785, 950] },
+  { id: "rast",     family: "Microtonal", name: "Maqam Rast (approx.)", steps: [0, 200, 350, 500, 700, 900, 1050] },
   { id: "edo7",     family: "Microtonal", name: "7-EDO",            steps: edo(7) },
   { id: "edo19",    family: "Microtonal", name: "19-EDO",           steps: edo(19) },
+  { id: "edo24",    family: "Microtonal", name: "24-EDO (quarter tones)", steps: edo(24) },
   { id: "harm",     family: "Microtonal", name: "Harmonics 8–15",   steps: [8, 9, 10, 11, 12, 13, 14, 15].map((n) => 1200 * Math.log2(n / 8)) },
   { id: "bp",       family: "Microtonal", name: "Bohlen–Pierce",    steps: [...Array(13).keys()].map((i) => (1200 * Math.log2(3) * i) / 13), period: 1200 * Math.log2(3) },
 ];
@@ -326,7 +365,7 @@ const GRID = Object.fromEntries(GRIDS.map((g) => [g.id, g]));
 const ROOTS = ["C", "C♯", "D", "E♭", "E", "F", "F♯", "G", "A♭", "A", "B♭", "B"];  // context-free display
 
 // Beat divisions. One bar spans the sheet's width, so the vertical lines ARE
-// the division; a column's width is also the Tracer's stride.
+// the division; a column's width is also the free Tracer's stride.
 const DIVS = {
   free: { perBeat: 0 }, "4": { perBeat: 1 }, "8": { perBeat: 2 }, "8t": { perBeat: 3 },
   "16": { perBeat: 4 }, "16t": { perBeat: 6 }, "32": { perBeat: 8 },
@@ -338,18 +377,21 @@ const MAX_LOOPS = 14;
 const RATIOS = [0.5, 2 / 3, 0.75, 1, 4 / 3, 1.5, 2];   // time-scales a resize snaps to
 
 const state = {
-  bpm: 96, grid: "pentMaj", root: 0, range: 3, div: "16",
-  loop: true, morph: true, revoice: false, walk: false, drone: false, edit: false,
+  bpm: 96, grid: "pentMaj", tuning: "equal", root: 0, range: 3, div: "16", pen: "auto",
+  lock: false, loop: true, morph: true, revoice: false, walk: false, drone: false, edit: false,
+  out: "sound",               // "sound" | "midi:<id>" | "both:<id>"
 };
 
 const gridNow = () => GRID[state.grid];
+const stepsOf = (g) => (g.pcs ? g.pcs.map((pc) => TUNINGS[state.tuning][pc]) : g.steps);
 const periodOf = (g) => g.period || 1200;
-const bandCount = () => gridNow().steps.length * state.range;
+const stepCount = () => stepsOf(gridNow()).length;
+const bandCount = () => stepCount() * state.range;
 const baseMidi = () => 60 - 12 * Math.floor(state.range / 2);   // keep the range centred-ish
 const perBeat = () => DIVS[state.div].perBeat;
 /** Walk: four diatonic-ish shifts, scaled to however many steps the grid has. */
 function walkShift(step) {
-  const n = gridNow().steps.length;
+  const n = stepCount();
   return [0, Math.round((n * 5) / 7), Math.round((n * 3) / 7), Math.round((n * 4) / 7)][step] % n;
 }
 
@@ -422,6 +464,8 @@ function noise(t, dur) {
   n.buffer = noiseBuf; n.start(t, Math.random() * 0.8); n.stop(t + dur);
   return n;
 }
+/** Which drum a height means. Shared by the synth and the MIDI note map. */
+const drumKind = (yN) => (yN < 0.28 ? "hat" : yN < 0.62 ? "snare" : "kick");
 
 const VOICES = {
   pluck(t, midi, vel, pan) {                // saw through a closing lowpass
@@ -452,14 +496,15 @@ const VOICES = {
     env(g, t, 0.1 * vel, 0.16, 0.002);
     o.connect(f).connect(g); out(g, pan, 0.9); o.start(t); o.stop(t + 0.25);
   },
-  /** Drums are pitched now: height tunes them, and picks the kind at the extremes. */
+  /** Drums are pitched: height tunes them, and picks the kind (drumKind). */
   drum(t, midi, vel, pan, yN) {
-    if (yN < 0.28) {                          // top: hats, brighter as they go up
+    const kind = drumKind(yN);
+    if (kind === "hat") {                     // brighter as it goes up
       const f = ctx.createBiquadFilter(), g = ctx.createGain();
       f.type = "highpass"; f.frequency.value = 5000 + 6000 * (0.28 - yN) / 0.28;
       env(g, t, 0.28 * vel, 0.05, 0.001);
       noise(t, 0.08).connect(f).connect(g); out(g, pan, 0.3);
-    } else if (yN < 0.62) {                   // middle: snare, its body tuned to the note
+    } else if (kind === "snare") {            // its body tuned to the note
       const f = ctx.createBiquadFilter(), g = ctx.createGain();
       f.type = "bandpass"; f.frequency.value = 1900; f.Q.value = 0.8;
       env(g, t, 0.45 * vel, 0.17, 0.001);
@@ -467,7 +512,7 @@ const VOICES = {
       const o = ctx.createOscillator(), og = ctx.createGain();
       o.type = "triangle"; o.frequency.value = mtof(midi - 12); env(og, t, 0.32 * vel, 0.1, 0.001);
       o.connect(og); out(og, pan, 0.2); o.start(t); o.stop(t + 0.14);
-    } else {                                  // bottom: kick / low tom, tuned
+    } else {                                  // kick / low tom, tuned
       const o = ctx.createOscillator(), g = ctx.createGain(), f0 = mtof(midi - 24);
       o.frequency.setValueAtTime(f0 * 3, t); o.frequency.exponentialRampToValueAtTime(f0, t + 0.12);
       env(g, t, 0.9 * vel, 0.38, 0.002);
@@ -490,17 +535,62 @@ const VOICES = {
   },
 };
 
+/* ── 3b. MIDI out (progressive enhancement) ──────────────────────────────── */
+// Where the browser has Web MIDI (Chromium, incl. on Linux; not WebKit, and
+// not inside most embedded frames), the Output picker appears. Channels:
+// pluck 1, bell 2, blip 3, drums + shaker 10 (GM notes). Microtonal pitches
+// are rounded to the nearest semitone; there's no MPE yet.
+
+let midiAccess = null;
+const MIDI_CH = { pluck: 0, bell: 1, blip: 2, drum: 9, shake: 9 };
+const GM_DRUM = { kick: 36, snare: 38, hat: 42 };
+
+async function initMidi() {
+  if (!navigator.requestMIDIAccess) return;
+  try { midiAccess = await navigator.requestMIDIAccess(); } catch (_) { return; }
+  const fill = () => {
+    const sel = $("out"), keep = state.out;
+    sel.textContent = "";
+    sel.append(new Option("Out: sound", "sound"));
+    for (const o of midiAccess.outputs.values()) {
+      sel.append(new Option(`Out: MIDI · ${o.name}`, `midi:${o.id}`));
+      sel.append(new Option(`Out: sound + MIDI · ${o.name}`, `both:${o.id}`));
+    }
+    sel.value = [...sel.options].some((o) => o.value === keep) ? keep : "sound";
+    state.out = sel.value;
+    sel.hidden = midiAccess.outputs.size === 0;
+  };
+  midiAccess.onstatechange = fill;
+  fill();
+}
+function sendMidi(voice, midi, vel, t, yN) {
+  if (!midiAccess || state.out === "sound") return;
+  const port = midiAccess.outputs.get(state.out.split(":").slice(1).join(":"));
+  if (!port) return;
+  const ch = MIDI_CH[voice];
+  const note = voice === "shake" ? 70 : voice === "drum" ? GM_DRUM[drumKind(yN)]
+             : Math.max(0, Math.min(127, Math.round(midi + (voice === "pluck" ? 0 : 12))));
+  const at = performance.now() + Math.max(0, (t - ctx.currentTime) * 1000);
+  const len = voice === "drum" || voice === "shake" ? 80 : voice === "bell" ? 600 : 220;
+  try {
+    port.send([0x90 | ch, note, Math.max(1, Math.round(vel * 127))], at);
+    port.send([0x80 | ch, note, 0], at + len);
+  } catch (_) { /* port went away */ }
+}
+
 /* ── 4. Loops: shape, transform, time-scale, temperament ─────────────────── */
 
 /**
  * A stroke and a loop are the same object; a loop is a stroke that finished.
- * Points and events are stored as drawn (normalized 0..1 to the sheet). What
- * moves is the transform: user placement (tx, ty, rot, s) composed with an
- * animated Morph offset (m, easing toward mt). Size also sets time: ts.
+ * Points (and, for free loops, events) are stored as drawn (normalized 0..1
+ * to the sheet). What moves is the transform: placement (tx, ty, rot, s)
+ * composed with an animated Morph offset (m, easing toward mt).
  *
  * @typedef Loop
+ * @property {"path"|"lock"} trigger  free notes, or grid-line crossings
+ * @property {string} pen     "auto" or a fixed voice
  * @property {{x:number,y:number,b:number}[]} pts   b = beat offset, as drawn
- * @property {object[]} events   sorted by .off (beats, as drawn)
+ * @property {object[]} events   free loops only: sorted by .off
  * @property {{x:number,y:number}} c   centroid (normalized) — the pivot
  * @property {number} L       length in whole beats, as drawn
  * @property {number} ts      time-scale: plays L*ts beats per pass
@@ -510,12 +600,14 @@ const VOICES = {
  */
 function newStroke(start) {
   return {
+    trigger: state.lock ? "lock" : "path", pen: state.pen,
     pts: [], events: [], start, L: 1, ts: 1, cursor: start, lastPass: 0, muted: false,
     c: { x: 0.5, y: 0.5 },
     tx: 0, ty: 0, rot: 0, s: 1,
     m:  { tx: 0, ty: 0, rot: 0 },
     mt: { tx: 0, ty: 0, rot: 0 },
     temper: pickTemper(), spinDir: Math.random() < 0.5 ? -1 : 1,
+    recent: new Map(),
   };
 }
 const totalRot = (lp) => lp.rot + lp.m.rot;
@@ -578,16 +670,21 @@ function easeMorph(lp, dt) {
 const loops = [];
 const strokes = new Map();     // pointerId → live stroke
 let fading = [];               // erased loops and Loop-off strokes, fading out
+let fires = [];                // recent lock-mode strikes, for drawing: { x, y, voice, t }
 
 function finishStroke(s, live = true) {
-  if (!s.events.length) return false;
+  const shaken = s.events.some((e) => e.fixed === "shake");
+  if (s.trigger === "lock" && shaken) s.trigger = "path";   // a shake keeps its own hits
+  if (!s.events.length && s.trigger === "path") return false;
+  if (s.pts.length < 2) return false;
   s.events.sort((a, b) => a.off - b.off);
   // Same sound on the same step just sounds like a flam: keep one.
   s.events = s.events.filter((e, i, arr) => !(i && arr[i - 1].off === e.off && arr[i - 1].fixed === e.fixed && arr[i - 1].heading === e.heading));
-  const lastOff = s.events[s.events.length - 1].off;
+  const lastOff = s.events.length ? s.events[s.events.length - 1].off : 0;
   const lastPt = s.pts[s.pts.length - 1].b;
   s.L = Math.min(MAX_LOOP_BEATS, Math.max(1, Math.floor(lastOff) + 1, Math.ceil(lastPt)));
   s.events = s.events.filter((e) => e.off < s.L);
+  if (s.trigger === "lock") s.events = [];    // crossings are worked out live, from where it is
   let sx = 0, sy = 0;
   for (const p of s.pts) { sx += p.x; sy += p.y; }
   s.c = { x: sx / s.pts.length, y: sy / s.pts.length };
@@ -600,7 +697,7 @@ function finishStroke(s, live = true) {
   return true;
 }
 
-/* ── 5. Mapping: where an event is now → which sound ─────────────────────── */
+/* ── 5. Mapping: where a note is now → which sound ───────────────────────── */
 
 /** Direction of travel picks the voice. Heading in radians, 0 = right, + = up. */
 function voiceForHeading(h) {
@@ -610,40 +707,49 @@ function voiceForHeading(h) {
   if (a > -135 && a <= -45) return "drum";
   return "blip";
 }
-const voiceOf = (lp, ev) => ev.fixed || voiceForHeading(ev.heading + (state.revoice ? totalRot(lp) : 0));
-
-/** Height (0 = top, 1 = bottom) → band index from the bottom, plus Walk. */
-function degreeAt(yN, b) {
-  const N = bandCount();
-  let d = Math.min(N - 1, Math.max(0, Math.floor((1 - yN) * N)));
-  if (state.walk) d += walkShift(walkStep(b));
-  return d;
+/** The one voice rule: a fixed voice (shake, or the Pen) wins; else direction. */
+function voiceFor(lp, fixed, heading) {
+  if (fixed) return fixed;
+  if (lp.pen && lp.pen !== "auto") return lp.pen;
+  return voiceForHeading(heading + (state.revoice ? totalRot(lp) : 0));
 }
+const voiceOf = (lp, ev) => voiceFor(lp, ev.fixed, ev.heading);
+
+/** Height (0 = top, 1 = bottom) → band index from the bottom. */
+const bandAt = (yN) => Math.min(bandCount() - 1, Math.max(0, Math.floor((1 - yN) * bandCount())));
+const withWalk = (d, b) => (state.walk ? d + walkShift(walkStep(b)) : d);
 function midiForDegree(d) {
-  const g = gridNow(), n = g.steps.length;
-  return baseMidi() + state.root + (periodOf(g) * Math.floor(d / n) + g.steps[d % n]) / 100;
+  const g = gridNow(), st = stepsOf(g), n = st.length;
+  return baseMidi() + state.root + (periodOf(g) * Math.floor(d / n) + st[d % n]) / 100;
 }
 
-/** Sound one event of loop `lp` at audio time t (b = its beat, for Walk). */
-function play(lp, ev, t, b) {
+/** Sound one note: voice at screen position (normalized), audio time t, beat b. */
+function sound(voice, xN, yN, vel, t, b, deg) {
   if (!ctx) return;
+  xN = Math.min(1, Math.max(0, xN)); yN = Math.min(1, Math.max(0, yN));
+  const pan = xN * 1.7 - 0.85;
+  const midi = midiForDegree(withWalk(deg ?? bandAt(yN), b));
+  if (state.out === "sound" || state.out.startsWith("both")) {
+    if (voice === "shake") VOICES.shake(t, vel, pan, 1 - yN);
+    else VOICES[voice](t, midi, vel, pan, yN);
+  }
+  sendMidi(voice, midi, vel, t, yN);
+}
+/** Sound a stored (free-mode) event of loop `lp`, wherever the loop is now. */
+function play(lp, ev, t, b) {
   const W = sheet.clientWidth, H = sheet.clientHeight;
   const [px, py] = place(lp, ev.x, ev.y, W, H);
-  const xN = Math.min(1, Math.max(0, px / W)), yN = Math.min(1, Math.max(0, py / H));
-  const pan = xN * 1.7 - 0.85;
-  const voice = voiceOf(lp, ev);
-  if (voice === "shake") VOICES.shake(t, ev.vel, pan, 1 - yN);
-  else VOICES[voice](t, midiForDegree(degreeAt(yN, b)), ev.vel, pan, yN);
+  sound(voiceOf(lp, ev), px / W, py / H, ev.vel, t, b);
 }
 
-/* ── 6. Tracer: a stream of points → note events ─────────────────────────── */
+/* ── 6a. Free triggers: the Tracer ───────────────────────────────────────── */
 // Fires on the first point, then whenever a grid column's width of distance
 // has been covered or ~50° of turning has accumulated. Heading is measured
 // from the previous event's position, so finger jitter doesn't flip voices.
 //
 // It also tracks "legs" (runs in one direction). Two quick short reversals
 // = a shake: from then on every reversal is a shaker hit, until a leg gets
-// long again and it goes back to drawing.
+// long again and it goes back to drawing. (Shaking works in Lock mode too.)
 
 const TURN_TRIGGER = (50 * Math.PI) / 180;
 
@@ -722,15 +828,49 @@ function makeEvent(hit, xN, yN, ms = 0) {
   };
 }
 
+/* ── 6b. Lock triggers: grid-line crossings ──────────────────────────────── */
+// Between two screen points, which grid lines does the segment cross, and
+// where (u = 0..1 along it)? Horizontal lines are pitch lines: crossing one
+// plays exactly that line's note. Vertical lines are division lines:
+// crossing one plays the band you're in, accented on the beat.
+
+function crossings(ax, ay, bx, by, W, H) {
+  const outs = [];
+  const N = bandCount(), ya = (1 - ay / H) * N, yb = (1 - by / H) * N;
+  const lo = Math.min(ya, yb), hi = Math.max(ya, yb);
+  for (let d = Math.max(1, Math.floor(lo) + 1); d <= Math.min(N - 1, hi); d++) {
+    outs.push({ u: (d - ya) / (yb - ya), kind: "h", deg: d, vel: 0.8 });
+  }
+  const p = perBeat();
+  if (p) {
+    const cols = p * BAR, xa = (ax / W) * cols, xb = (bx / W) * cols;
+    const l2 = Math.min(xa, xb), h2 = Math.max(xa, xb);
+    for (let i = Math.max(1, Math.floor(l2) + 1); i <= Math.min(cols - 1, h2); i++) {
+      outs.push({ u: (i - xa) / (xb - xa), kind: "v", vel: i % p === 0 ? 0.95 : 0.6 });
+    }
+  }
+  return outs.sort((a, b) => a.u - b.u);
+}
+
+/** Strike one crossing of loop `lp` (or a live stroke) at audio time t. */
+function strike(lp, c, x, y, heading, t, b, W, H) {
+  const voice = voiceFor(lp, null, heading);
+  sound(voice, x / W, y / H, c.vel, t, b, c.kind === "h" ? c.deg : undefined);
+  fires.push({ x, y, voice, t });
+  if (fires.length > 240) fires.splice(0, fires.length - 240);
+}
+
 /* ── 7. Scheduler ────────────────────────────────────────────────────────── */
-// Stateless per window: each tick, for each loop, find every event that
-// falls in [cursor, horizon) given start, L and ts, and schedule it. That
-// makes retiming (resize) and re-anchoring trivially safe.
+// Stateless per window: each tick, for each loop, find every note that
+// falls in [cursor, horizon) given start, L and ts, and schedule it. Free
+// loops read their stored events; locked loops walk their path segments in
+// the window and ask where they cross the grid *now*.
 
 const LOOKAHEAD = 0.12;
 function schedule() {
   if (!ctx || ctx.state !== "running") return;
   const now = ctx.currentTime, nb = beatAt(now), hb = beatAt(now + LOOKAHEAD);
+  const W = sheet.clientWidth, H = sheet.clientHeight;
   for (const lp of loops) {
     const Lb = loopBeats(lp);
     const a = Math.max(lp.cursor, nb - 0.05), z = hb;
@@ -739,11 +879,31 @@ function schedule() {
     for (let k = k0; k <= k1; k++) {
       if (k > lp.lastPass) { lp.lastPass = k; if (state.morph && !lp.held) morphStep(lp); }
       if (lp.muted) continue;
-      for (const ev of lp.events) {
-        const b = lp.start + k * Lb + ev.off * lp.ts;
-        if (b < a || b >= z) continue;
-        const t = Math.max(now, timeAt(b));
-        play(lp, ev, t, b); ev.flashAt = t;
+      const base = lp.start + k * Lb;
+      if (lp.trigger === "path") {
+        for (const ev of lp.events) {
+          const b = base + ev.off * lp.ts;
+          if (b < a || b >= z) continue;
+          const t = Math.max(now, timeAt(b));
+          play(lp, ev, t, b); ev.flashAt = t;
+        }
+      } else {
+        const P = lp.pts;
+        for (let i = 0; i < P.length - 1; i++) {
+          const bA = base + P[i].b * lp.ts, bB = base + P[i + 1].b * lp.ts;
+          if (bB < a || bA >= z) continue;
+          const [ax, ay] = place(lp, P[i].x, P[i].y, W, H), [bx, by] = place(lp, P[i + 1].x, P[i + 1].y, W, H);
+          for (const c of crossings(ax, ay, bx, by, W, H)) {
+            const bRaw = bA + (bB - bA) * c.u;
+            if (bRaw < a || bRaw >= z) continue;
+            const bs = snapNear(bRaw);
+            const key = `${bs}|${c.kind}|${c.deg ?? ""}`;
+            if (lp.recent.has(key)) continue;            // same line, same step: once
+            lp.recent.set(key, bs);
+            strike(lp, c, ax + (bx - ax) * c.u, ay + (by - ay) * c.u, Math.atan2(-(by - ay), bx - ax), Math.max(now, timeAt(bs)), bs, W, H);
+          }
+        }
+        for (const [key, bs] of lp.recent) if (bs < nb - 1) lp.recent.delete(key);
       }
     }
     lp.cursor = z;
@@ -776,7 +936,7 @@ function setDrone(on) {
 function updateDrone(b, force = false) {
   if (!drone) return;
   const shift = state.walk ? walkShift(walkStep(b)) : 0;
-  const key = `${state.grid}/${state.root}/${state.range}/${shift}`;
+  const key = `${state.grid}/${state.tuning}/${state.root}/${state.range}/${shift}`;
   if (key === drone.key && !force) return;
   drone.key = key;
   const root = midiForDegree(shift) - 12;
@@ -784,13 +944,14 @@ function updateDrone(b, force = false) {
   drone.b.frequency.setTargetAtTime(mtof(root + 7.02), ctx.currentTime, 0.25);
 }
 
-/* ── 9. Toybox: ready-made shapes, through the same Tracer ───────────────── */
+/* ── 9. Toybox: ready-made shapes, through the same triggers ─────────────── */
 
 const TOYS = {
   spiral: (r, ccw) => ({ beats: [3, 5, 7][Math.floor(Math.random() * 3)] - 0.3, n: 160,
     at: (u) => { const th = (ccw ? 1 : -1) * u * 2.4 * 2 * Math.PI, rr = r * (0.15 + 0.85 * u); return [rr * Math.cos(th), -rr * Math.sin(th)]; } }),
   ring: (r, ccw) => ({ beats: 3.8, n: 120,
     at: (u) => { const th = (ccw ? 1 : -1) * u * 2 * Math.PI; return [r * Math.cos(th), -r * Math.sin(th)]; } }),
+  hexagon: (r) => polygon(r, 6, 5.8),
   star: (r) => ({ beats: 4.8, n: 200,
     at: (u) => {
       const k = u * 10, i = Math.floor(k) % 10, f = k - Math.floor(k);
@@ -798,14 +959,28 @@ const TOYS = {
       const A = vert(i), B = vert((i + 1) % 10);
       return [A[0] + (B[0] - A[0]) * f, A[1] + (B[1] - A[1]) * f];
     } }),
+  rose: (r) => ({ beats: 6.8, n: 260,                         // rhodonea, k = 3 (three petals, traced twice over)
+    at: (u) => { const t = u * Math.PI, rr = r * Math.cos(3 * t); return [rr * Math.cos(t), -rr * Math.sin(t)]; } }),
   eight: (r) => ({ beats: 5.8, n: 180,
     at: (u) => { const t = u * 2 * Math.PI; return [r * 1.3 * Math.sin(t), r * 0.7 * Math.sin(t) * Math.cos(t)]; } }),
+  lissajous: (r) => ({ beats: 7.8, n: 280,                    // 3:2, a knot that keeps changing direction
+    at: (u) => { const t = u * 2 * Math.PI; return [r * Math.sin(3 * t + Math.PI / 2), r * Math.sin(2 * t)]; } }),
+  wave: (r) => ({ beats: 3.8, n: 160,
+    at: (u) => [(u - 0.5) * r * 3, -Math.sin(u * 4 * Math.PI) * r * 0.5] }),
   zigzag: (r) => ({ beats: 2.8, n: 140,
     at: (u) => { const legs = 6, k = u * legs, f = k - Math.floor(k), up = Math.floor(k) % 2; return [(u - 0.5) * r * 2.6, (up ? 1 - 2 * f : 2 * f - 1) * r * 0.55]; } }),
   // A straight line downwards: all drums. With Revoice off it stays all drums
   // however it turns, and its turning walks the drums up and down in pitch.
   drop: (r) => ({ beats: 1.8, n: 80, at: (u) => [Math.sin(u * 9) * 2, (u - 0.5) * r * 2.4] }),
 };
+function polygon(r, sides, beats) {
+  return { beats, n: sides * 30, at: (u) => {
+    const k = u * sides, i = Math.floor(k) % sides, f = k - Math.floor(k);
+    const v = (j) => { const a = Math.PI / 2 + (j * 2 * Math.PI) / sides; return [r * Math.cos(a), -r * Math.sin(a)]; };
+    const A = v(i), B = v((i + 1) % sides);
+    return [A[0] + (B[0] - A[0]) * f, A[1] + (B[1] - A[1]) * f];
+  } };
+}
 
 /** "Simple yet expressive": a few accent shapes for 16ths. */
 const SHAKER_FEELS = [
@@ -814,28 +989,49 @@ const SHAKER_FEELS = [
   [1, 0.35, 0.35, 0.8, 0.35, 0.35, 1, 0.35],        // 3-3-2 across two beats
   [0.9, 0.3, 0.55, 0.75],
 ];
+/** Drum beats as heights per 8th: k = kick (low), s = snare (mid), h = hat (high). */
+const BEATS = ["k h s h k k s h", "k h h s h k s h", "k . s . k k s .", "k h s k h k s h"];
 
 function nextStart() { return ctx ? Math.ceil(nowBeat()) : 0; }
 
 function dropToy(kind, where) {
   const W = sheet.clientWidth, H = sheet.clientHeight, m = Math.min(W, H);
-  if (kind === "dice") kind = ["spiral", "ring", "star", "eight", "zigzag", "drop", "shaker"][Math.floor(Math.random() * 7)];
+  const kinds = Object.keys(TOYS).concat(["shaker", "beat"]);
+  if (kind === "dice") kind = kinds[Math.floor(Math.random() * kinds.length)];
   const cx = where ? where[0] : W * (0.2 + Math.random() * 0.6);
   const cy = where ? where[1] : H * (0.25 + Math.random() * 0.5);
   const s = newStroke(nextStart());
+  s.pen = "auto";                              // toys bring their own voices
 
   if (kind === "shaker") {
+    // Big enough to grab with two fingers: a 60 × 40 px wiggle.
+    s.trigger = "path";
     const feel = SHAKER_FEELS[Math.floor(Math.random() * SHAKER_FEELS.length)];
     const beats = feel.length > 4 ? 2 : [1, 2, 3][Math.floor(Math.random() * 3)];
-    const amp = 16;
+    const amp = 30;
     for (let k = 0; k < beats * 4; k++) {
-      const b = k / 4, x = cx + (k % 2 ? amp : -amp), y = cy + Math.sin(k * 1.7) * 4;
+      const b = k / 4, x = cx + (k % 2 ? amp : -amp), y = cy + Math.sin(k * 1.3) * 20;
       s.pts.push({ x: x / W, y: y / H, b });
       s.events.push({ off: b, x: x / W, y: y / H, heading: 0, fixed: "shake",
         vel: feel[k % feel.length] * (0.85 + Math.random() * 0.15), ms: 0, flashAt: -1 });
     }
     s.pts.push({ x: (cx - amp) / W, y: cy / H, b: beats - 0.01 });
     s.temper = "jitter";
+  } else if (kind === "beat") {
+    // A drum pattern drawn as a staircase over heights (kick low, snare
+    // middle, hat high), with every note fixed to drums.
+    s.trigger = "path";
+    const pat = BEATS[Math.floor(Math.random() * BEATS.length)].split(" ");
+    const Y = { k: 0.8, s: 0.45, h: 0.15 }, w = m * 0.035;
+    pat.forEach((ch, k) => {
+      const x = cx + (k - 3.5) * w, b = k / 2;
+      const y = ch === "." ? (s.pts.length ? s.pts[s.pts.length - 1].y * H : cy) : cy + (Y[ch] - 0.5) * m * 0.5;
+      s.pts.push({ x: x / W, y: y / H, b });
+      if (ch !== ".") s.events.push({ off: b, x: x / W, y: y / H, heading: -Math.PI / 2, fixed: "drum",
+        vel: ch === "h" ? 0.55 : 0.9, ms: 0, flashAt: -1 });
+    });
+    s.pts.push({ x: (cx + 4 * w) / W, y: s.pts[s.pts.length - 1].y, b: 3.99 });
+    s.temper = "still";
   } else {
     const toy = TOYS[kind](m * (0.09 + Math.random() * 0.1), Math.random() < 0.5);
     const tr = new Tracer(stridePx(), 0, false);
@@ -862,16 +1058,29 @@ const g2 = sheet.getContext("2d");
 /** One grid column = one stride. Free still uses 16 columns' worth. */
 const stridePx = () => Math.max(28, sheet.clientWidth / ((perBeat() || 4) * BAR));
 const shakeLegPx = () => 0.14 * Math.min(sheet.clientWidth, sheet.clientHeight);
-const HOLD_MS = 550, TAP_PX = 10, DOUBLE_MS = 300;
+const HOLD_MS = 550, TAP_PX = 10, DOUBLE_MS = 300, CHORD_MS = 180;
 
-function hitLoop(px, py) {
+/** A loop's on-screen box (for small loops, the box is the touch target). */
+function screenBox(lp, W, H) {
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  for (let j = 0; j < lp.pts.length; j += 2) {
+    const [x, y] = place(lp, lp.pts[j].x, lp.pts[j].y, W, H);
+    x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x); y1 = Math.max(y1, y);
+  }
+  return { x0, y0, x1, y1, cx: (x0 + x1) / 2, cy: (y0 + y1) / 2 };
+}
+function hitLoop(px, py, slack = 0) {
   const W = sheet.clientWidth, H = sheet.clientHeight;
-  for (let i = loops.length - 1; i >= 0; i--) {
+  for (let i = loops.length - 1; i >= 0; i--) {                  // on the line itself
     const lp = loops[i];
     for (let j = 0; j < lp.pts.length; j += 2) {
       const [x, y] = place(lp, lp.pts[j].x, lp.pts[j].y, W, H);
-      if (Math.hypot(x - px, y - py) < 16) return lp;
+      if (Math.hypot(x - px, y - py) < 16 + slack) return lp;
     }
+  }
+  for (let i = loops.length - 1; i >= 0; i--) {                  // inside a small loop's padded box
+    const bx = screenBox(loops[i], W, H), pad = 28 + slack;
+    if (Math.hypot(bx.x1 - bx.x0, bx.y1 - bx.y0) < 140 && px > bx.x0 - pad && px < bx.x1 + pad && py > bx.y0 - pad && py < bx.y1 + pad) return loops[i];
   }
   return null;
 }
@@ -881,6 +1090,19 @@ function hitEvent(px, py) {
     for (const ev of loops[i].events) {
       const [x, y] = place(loops[i], ev.x, ev.y, W, H);
       if (Math.hypot(x - px, y - py) < 15) return { loop: loops[i], ev };
+    }
+  }
+  return null;
+}
+/** Edit handles: every few points along a path, so any loop can be bent. */
+const handleStep = (lp) => Math.max(2, Math.round(lp.pts.length / 12));
+function hitHandle(px, py) {
+  const W = sheet.clientWidth, H = sheet.clientHeight;
+  for (let i = loops.length - 1; i >= 0; i--) {
+    const lp = loops[i], st = handleStep(lp);
+    for (let j = st; j < lp.pts.length - 1; j += st) {
+      const [x, y] = place(lp, lp.pts[j].x, lp.pts[j].y, W, H);
+      if (Math.hypot(x - px, y - py) < 14) return { loop: lp, centre: j };
     }
   }
   return null;
@@ -907,18 +1129,38 @@ function beginStroke(id, x, y, ms) {
 function extendStroke(s, x, y, ms) {
   const W = sheet.clientWidth, H = sheet.clientHeight;
   const b = nowBeat();
+  const prev = s.pts.length ? s.pts[s.pts.length - 1] : null;
   s.pts.push({ x: x / W, y: y / H, b: b - s.start });
   if (Math.hypot(x - s.ox, y - s.oy) > TAP_PX) s.moved = true;
   const hit = s.tracer.push(x, y, ms);
-  if (!hit) return;
-  // Shake just recognised: the wiggles that led up to it were the shake,
-  // not melody. Keep the touch-down, forget the rest.
-  if (hit.shakeFrom != null) s.events = s.events.filter((e, i) => i === 0 || e.ms < hit.shakeFrom);
-  const ev = makeEvent(hit, x / W, y / H, ms);
   const fireB = snapUp(b);
-  ev.off = Math.max(0, fireB - s.start);
-  if (ctx) { const t = Math.max(ctx.currentTime, timeAt(fireB)); play(s, ev, t, fireB); ev.flashAt = t; }
-  s.events.push(ev);
+  const fire = (ev, deg) => {
+    ev.off = Math.max(0, fireB - s.start);
+    if (ctx) {
+      const t = Math.max(ctx.currentTime, timeAt(fireB));
+      sound(voiceOf(s, ev), ev.x, ev.y, ev.vel, t, fireB, deg); ev.flashAt = t;
+    }
+    s.events.push(ev);
+  };
+  if (hit && hit.shake) {
+    // Shake just recognised: the wiggles that led up to it were the shake,
+    // not melody. Keep the touch-down, forget the rest.
+    if (hit.shakeFrom != null) s.events = s.events.filter((e, i) => i === 0 || e.ms < hit.shakeFrom);
+    fire(makeEvent(hit, x / W, y / H, ms));
+    return;
+  }
+  if (s.tracer.shaking) return;
+  if (s.trigger === "path") { if (hit) fire(makeEvent(hit, x / W, y / H, ms)); return; }
+  // Lock: one note per grid line crossed since the last point.
+  if (!prev) return;
+  const ax = prev.x * W, ay = prev.y * H, seg = Math.hypot(x - ax, y - ay);
+  for (const c of crossings(ax, ay, x, y, W, H)) {
+    const cx = ax + (x - ax) * c.u, cy = ay + (y - ay) * c.u;
+    const ev = makeEvent({ heading: Math.atan2(-(y - ay), x - ax), speed: seg / 16 }, cx / W, cy / H, ms);
+    ev.vel = Math.max(ev.vel, c.vel);
+    fire(ev, c.kind === "h" ? c.deg : undefined);
+    fires.push({ x: cx, y: cy, voice: voiceOf(s, ev), t: ev.flashAt });
+  }
 }
 function endStroke(id) {
   const s = strokes.get(id); strokes.delete(id);
@@ -930,15 +1172,16 @@ function endStroke(id) {
 
 // Handling loops ---------------------------------------------------------------
 // A touch on a loop is a "grab": tap = mute (double-tap = how it moves),
-// hold = erase, move = drag. A second finger near a grabbed loop makes it a
-// pinch: turn + resize (+ retime). In Edit mode, notes are handles.
+// hold = erase (in Edit: smooth), move = drag. A second finger near a
+// grabbed loop makes it a pinch: turn + resize (+ retime). Two fingers that
+// land together around a loop also pinch it, even a small one.
 const grabs = new Map();       // pointerId → { loop, x, y, mode, timer, ... }
 let pinch = null;
 
 function startPinch(loop, idA, idB) {
   const A = grabs.get(idA), B = grabs.get(idB);
   clearTimeout(A.timer); clearTimeout(B.timer);
-  A.mode = B.mode = "pinch";
+  A.mode = B.mode = "pinch"; loop.held = true;
   pinch = {
     loop, a: idA, b: idB,
     d0: Math.max(20, Math.hypot(B.x - A.x, B.y - A.y)),
@@ -958,21 +1201,34 @@ function updatePinch() {
   retime(loop, tsForSize(loop.s));
 }
 
-/** Edit: drag a note; the path around it follows with a soft falloff. */
-function startNoteDrag(gr) {
+/** Edit: bend a path around point `centre`; nearby notes ride along. */
+function startBend(gr) {
   const lp = gr.loop, n = lp.pts.length;
-  gr.centre = nearestIdxDrawn(lp, gr.ev.x, gr.ev.y);
+  if (gr.centre == null) gr.centre = nearestIdxDrawn(lp, gr.ev.x, gr.ev.y);
   gr.sigma = Math.max(4, n * 0.06);
   gr.evIdx = lp.events.map((e) => nearestIdxDrawn(lp, e.x, e.y));
 }
-function dragNote(gr, dxp, dyp) {
+function bend(gr, dxp, dyp) {
   const lp = gr.loop, W = sheet.clientWidth, H = sheet.clientHeight;
   const [dx, dy] = unplaceDelta(lp, dxp, dyp, W, H);
   const w = (j) => Math.exp(-(((j - gr.centre) / gr.sigma) ** 2));
   lp.pts.forEach((p, j) => { const k = w(j); p.x += dx * k; p.y += dy * k; });
   lp.events.forEach((e, i) => { const k = e === gr.ev ? 1 : w(gr.evIdx[i]); e.x += dx * k; e.y += dy * k; });
 }
+/** Edit: hold = smooth. Three passes of neighbour-averaging; ends stay put. */
+function smoothLoop(lp) {
+  for (let pass = 0; pass < 3; pass++) {
+    const P = lp.pts.map((p) => ({ ...p }));
+    for (let j = 1; j < P.length - 1; j++) {
+      lp.pts[j].x = (P[j - 1].x + 2 * P[j].x + P[j + 1].x) / 4;
+      lp.pts[j].y = (P[j - 1].y + 2 * P[j].y + P[j + 1].y) / 4;
+    }
+  }
+  for (const e of lp.events) { const p = lp.pts[nearestIdxDrawn(lp, e.x, e.y)]; e.x = p.x; e.y = p.y; }
+  toast("Smoothed");
+}
 function addNoteAt(lp, px, py) {
+  if (lp.trigger === "lock") { toast("Locked loops play where they cross lines: bend the path instead"); return; }
   const W = sheet.clientWidth, H = sheet.clientHeight;
   const j = nearestPoint(lp, px, py), P = lp.pts;
   const A = P[Math.max(0, j - 3)], B = P[Math.min(P.length - 1, j + 3)];
@@ -996,6 +1252,18 @@ function tapLoop(lp) {
   lp.tapTimer = setTimeout(() => { lp.tapTimer = null; lp.muted = !lp.muted; renderLoopList(); }, DOUBLE_MS);
 }
 
+function grabLoop(id, loop, x, y) {
+  const gr = { loop, x, y, ox: x, oy: y, mode: "pending" };
+  loop.held = true;
+  gr.timer = setTimeout(() => {
+    if (gr.mode !== "pending") return;
+    if (state.edit) { smoothLoop(loop); gr.mode = "spent"; }
+    else { eraseLoop(loop); gr.mode = "spent"; }
+  }, HOLD_MS);
+  grabs.set(id, gr);
+  return gr;
+}
+
 sheet.addEventListener("pointerdown", (e) => {
   e.preventDefault();
   ensureAudio(); hideHint();
@@ -1003,9 +1271,26 @@ sheet.addEventListener("pointerdown", (e) => {
   const x = e.clientX, y = e.clientY;
 
   if (state.edit) {
-    const h = hitEvent(x, y);
-    if (h) { const gr = { ...h, x, y, ox0: x, oy0: y, mode: "note" }; h.loop.held = true; startNoteDrag(gr); grabs.set(e.pointerId, gr); return; }
+    const h = hitHandle(x, y) || hitEvent(x, y);
+    if (h) { const gr = { ...h, x, y, ox0: x, oy0: y, mode: "bend" }; h.loop.held = true; startBend(gr); grabs.set(e.pointerId, gr); return; }
   }
+
+  // Two fingers landing together around a loop: undo the first finger's
+  // stroke and pinch that loop instead. This is how small loops get picked up.
+  if (!pinch) {
+    for (const [id, s] of strokes) {
+      if (s.moved || performance.now() - s.downAt > CHORD_MS) continue;
+      const mx = (s.ox + x) / 2, my = (s.oy + y) / 2;
+      const target = hitLoop(mx, my, 30);
+      if (!target) continue;
+      strokes.delete(id);
+      grabLoop(id, target, s.ox, s.oy);
+      grabs.set(e.pointerId, { loop: target, x, y, mode: "pinch" });
+      startPinch(target, id, e.pointerId);
+      return;
+    }
+  }
+
   const target = hitLoop(x, y);
 
   // A second finger near (or on) a loop that's already held → pinch it.
@@ -1020,23 +1305,17 @@ sheet.addEventListener("pointerdown", (e) => {
       }
     }
   }
-  if (target) {
-    const gr = { loop: target, x, y, ox: x, oy: y, mode: "pending" };
-    target.held = true;
-    gr.timer = setTimeout(() => { if (gr.mode === "pending") { eraseLoop(target); gr.mode = "spent"; } }, HOLD_MS);
-    grabs.set(e.pointerId, gr);
-  } else {
-    beginStroke(e.pointerId, x, y, e.timeStamp);
-  }
+  if (target) grabLoop(e.pointerId, target, x, y);
+  else beginStroke(e.pointerId, x, y, e.timeStamp);
 });
 
 sheet.addEventListener("pointermove", (e) => {
   const gr = grabs.get(e.pointerId);
   if (gr) {
     const W = sheet.clientWidth, H = sheet.clientHeight;
-    if (gr.mode === "note") {
+    if (gr.mode === "bend") {
       gr.moved = gr.moved || Math.hypot(e.clientX - gr.ox0, e.clientY - gr.oy0) > TAP_PX;
-      if (gr.moved) dragNote(gr, e.clientX - gr.x, e.clientY - gr.y);
+      if (gr.moved) bend(gr, e.clientX - gr.x, e.clientY - gr.y);
     }
     if (gr.mode === "pending" && Math.hypot(e.clientX - gr.x, e.clientY - gr.y) > TAP_PX) { clearTimeout(gr.timer); gr.mode = "drag"; }
     if (gr.mode === "drag") { gr.loop.tx += (e.clientX - gr.x) / W; gr.loop.ty += (e.clientY - gr.y) / H; }
@@ -1055,7 +1334,7 @@ function pointerEnd(e, cancelled = false) {
   const gr = grabs.get(e.pointerId);
   if (gr) {
     clearTimeout(gr.timer); grabs.delete(e.pointerId);
-    if (gr.mode === "note" && !gr.moved && !cancelled && gr.loop.events.length > 1) {
+    if (gr.mode === "bend" && !gr.moved && !cancelled && gr.ev && gr.loop.events.length > 1) {
       gr.loop.events.splice(gr.loop.events.indexOf(gr.ev), 1);    // tap a note: remove it
     }
     if (gr.mode === "pending" && !cancelled) {
@@ -1108,23 +1387,25 @@ window.addEventListener("resize", resize);
 resize();
 
 /** The grid. Horizontal: one line per pitch step, firmer at each period.
- *  Vertical: one bar across, one line per division, firmer on the beat. */
+ *  Vertical: one bar across, one line per division, firmer on the beat.
+ *  In Lock mode the lines are what play, so they're drawn a little firmer. */
 function drawGrid(W, H) {
-  const g = gridNow(), n = g.steps.length, N = bandCount();
-  g2.lineWidth = 1; g2.font = colors.monoFont;
+  const g = gridNow(), n = stepCount(), N = bandCount();
+  g2.lineWidth = state.lock ? 1.5 : 1; g2.font = colors.monoFont;
+  const soft = state.lock ? colors.rule : colors["rule-soft"];
   const p = perBeat();
   if (p) {
     const cols = p * BAR;
     for (let i = 1; i < cols; i++) {
       const x = Math.round((W * i) / cols) + 0.5;
-      g2.strokeStyle = i % p === 0 ? colors.rule : colors["rule-soft"];
+      g2.strokeStyle = i % p === 0 ? colors.rule : soft;
       g2.beginPath(); g2.moveTo(x, 0); g2.lineTo(x, H); g2.stroke();
     }
   }
   for (let d = 1; d < N; d++) {
     const y = Math.round(H * (1 - d / N)) + 0.5;
     const tonic = d % n === 0;
-    g2.strokeStyle = tonic ? colors.rule : colors["rule-soft"];
+    g2.strokeStyle = tonic ? colors.rule : soft;
     g2.beginPath(); g2.moveTo(0, y); g2.lineTo(W, y); g2.stroke();
     if (tonic) {
       g2.fillStyle = colors["ink-muted"];
@@ -1136,6 +1417,8 @@ function drawGrid(W, H) {
   }
 }
 
+/** Paths are drawn as smooth curves that pass THROUGH every point (Catmull-Rom
+ *  as cubic Béziers), so notes always sit on the line, even on sparse paths. */
 function strokePath(lp, W, H, alpha, width, dash) {
   const pts = lp.pts;
   if (pts.length < 2) return;
@@ -1143,20 +1426,19 @@ function strokePath(lp, W, H, alpha, width, dash) {
   g2.globalAlpha = alpha; g2.strokeStyle = colors.ink; g2.lineWidth = width;
   g2.lineCap = "round"; g2.lineJoin = "round";
   if (dash) g2.setLineDash([4, 7]);
-  g2.beginPath();
-  for (let i = 0; i < pts.length; i++) {
-    const [x, y] = place(lp, pts[i].x, pts[i].y, W, H);
-    if (i) g2.lineTo(x, y); else g2.moveTo(x, y);
+  const P = pts.map((p) => place(lp, p.x, p.y, W, H));
+  g2.beginPath(); g2.moveTo(P[0][0], P[0][1]);
+  for (let i = 0; i < P.length - 1; i++) {
+    const a = P[Math.max(0, i - 1)], b = P[i], c = P[i + 1], d = P[Math.min(P.length - 1, i + 2)];
+    g2.bezierCurveTo(b[0] + (c[0] - a[0]) / 6, b[1] + (c[1] - a[1]) / 6, c[0] - (d[0] - b[0]) / 6, c[1] - (d[1] - b[1]) / 6, c[0], c[1]);
   }
   g2.stroke(); g2.restore();
 }
 
 /** Each voice has a shape as well as a colour. */
-function drawGlyph(lp, ev, W, H, r, alpha, handle) {
-  const [x, y] = place(lp, ev.x, ev.y, W, H);
-  const voice = voiceOf(lp, ev);
+function glyph(voice, x, y, r, alpha, ring) {
   g2.save(); g2.globalAlpha = alpha;
-  if (handle) { g2.strokeStyle = colors.ink; g2.lineWidth = 1; g2.beginPath(); g2.arc(x, y, r + 6, 0, 7); g2.stroke(); }
+  if (ring) { g2.strokeStyle = colors.ink; g2.lineWidth = 1; g2.beginPath(); g2.arc(x, y, r + 6, 0, 7); g2.stroke(); }
   const c = colors[voice];
   g2.fillStyle = c; g2.strokeStyle = c; g2.lineWidth = 2;
   g2.beginPath();
@@ -1166,6 +1448,27 @@ function drawGlyph(lp, ev, W, H, r, alpha, handle) {
   else if (voice === "shake") { g2.moveTo(x, y - r); g2.lineTo(x + r, y); g2.lineTo(x, y + r); g2.lineTo(x - r, y); g2.closePath(); g2.fill(); }
   else { g2.rect(x - r * 0.85, y - r * 0.85, r * 1.7, r * 1.7); g2.fill(); }
   g2.restore();
+}
+function drawHandles(lp, W, H) {
+  const st = handleStep(lp);
+  g2.save(); g2.strokeStyle = colors.ink; g2.lineWidth = 1.5; g2.globalAlpha = 0.7;
+  for (let j = st; j < lp.pts.length - 1; j += st) {
+    const [x, y] = place(lp, lp.pts[j].x, lp.pts[j].y, W, H);
+    g2.strokeRect(x - 4, y - 4, 8, 8);
+  }
+  g2.restore();
+}
+/** Locked loops: show every crossing where it is now, as a small glyph. */
+function drawCrossings(lp, W, H, alpha) {
+  const P = lp.pts;
+  let [ax, ay] = place(lp, P[0].x, P[0].y, W, H);
+  for (let i = 1; i < P.length; i++) {
+    const [bx, by] = place(lp, P[i].x, P[i].y, W, H);
+    for (const c of crossings(ax, ay, bx, by, W, H)) {
+      glyph(voiceFor(lp, null, Math.atan2(-(by - ay), bx - ax)), ax + (bx - ax) * c.u, ay + (by - ay) * c.u, 3.2, alpha);
+    }
+    ax = bx; ay = by;
+  }
 }
 
 /** Where along its own path is a loop right now? (recorded timing, scaled) */
@@ -1192,12 +1495,15 @@ function frame() {
   for (const lp of loops) {
     if (ctx) easeMorph(lp, dt);
     strokePath(lp, W, H, lp.muted ? 0.25 : lp.held ? 0.9 : 0.55, lp.held ? 3 : 2, lp.muted);
+    if (lp.trigger === "lock") drawCrossings(lp, W, H, lp.muted ? 0.25 : 0.6);
     for (const ev of lp.events) {
       const since = at - ev.flashAt;
       const lit = ctx && ev.flashAt >= 0 && since >= 0 && since < 0.18;
       const r = lit && !reduceMotion ? 9 - since * 20 : 5;
-      drawGlyph(lp, ev, W, H, r, lp.muted ? 0.3 : lit ? 1 : 0.75, state.edit);
+      const [x, y] = place(lp, ev.x, ev.y, W, H);
+      glyph(voiceOf(lp, ev), x, y, r, lp.muted ? 0.3 : lit ? 1 : 0.75, state.edit);
     }
+    if (state.edit) drawHandles(lp, W, H);
     if (ctx && !lp.muted) {
       const p = headPoint(lp, b);
       if (p) {
@@ -1207,13 +1513,16 @@ function frame() {
       }
     }
   }
+  // Lock-mode strikes flash where they happened.
+  fires = fires.filter((f) => at - f.t < 0.25);
+  for (const f of fires) { const since = at - f.t; if (since >= 0) glyph(f.voice, f.x, f.y, reduceMotion ? 5 : 9 - since * 20, 1); }
 
   fading = fading.filter((s) => tNow - s.fadeFrom < 1400);
   for (const s of fading) strokePath(s, W, H, 0.55 * (1 - (tNow - s.fadeFrom) / 1400), 2);
 
   for (const s of strokes.values()) {
     strokePath(s, W, H, 0.95, 3);
-    for (const ev of s.events) drawGlyph(s, ev, W, H, 5, 0.9);
+    for (const ev of s.events) { const [x, y] = place(s, ev.x, ev.y, W, H); glyph(voiceOf(s, ev), x, y, 5, 0.9); }
   }
   requestAnimationFrame(frame);
 }
@@ -1230,11 +1539,12 @@ const store = {
 };
 
 function serialize() {
-  const { bpm, grid, root, range, div, loop, morph, revoice, walk, drone } = state;
+  const { bpm, grid, tuning, root, range, div, pen, lock, loop, morph, revoice, walk, drone } = state;
   return {
-    v: 2, at: Date.now(),
-    settings: { bpm, grid, root, range, div, loop, morph, revoice, walk, drone },
+    v: 3, at: Date.now(),
+    settings: { bpm, grid, tuning, root, range, div, pen, lock, loop, morph, revoice, walk, drone },
     loops: loops.map((lp) => ({
+      trigger: lp.trigger, pen: lp.pen,
       pts: lp.pts.map((p) => [r4(p.x), r4(p.y), r4(p.b)]),
       events: lp.events.map((e) => [e.off, r4(e.x), r4(e.y), r4(e.heading), e.fixed, r4(e.vel)]),
       c: [r4(lp.c.x), r4(lp.c.y)], L: lp.L, ts: lp.ts, muted: lp.muted,
@@ -1247,10 +1557,12 @@ function serialize() {
 
 function applySettings(st) {
   Object.assign(state, st);
+  if (!GRID[state.grid]) state.grid = "pentMaj";
   $("bpm").value = state.bpm; $("bpmVal").textContent = state.bpm;
-  for (const id of ["grid", "root", "range", "div"]) $(id).value = String(state[id]);
-  for (const [id, key] of [["loopBtn", "loop"], ["morphBtn", "morph"], ["revoiceBtn", "revoice"], ["walkBtn", "walk"], ["droneBtn", "drone"]])
+  for (const id of ["grid", "tuning", "root", "range", "div", "pen"]) $(id).value = String(state[id]);
+  for (const [id, key] of [["lockBtn", "lock"], ["loopBtn", "loop"], ["morphBtn", "morph"], ["revoiceBtn", "revoice"], ["walkBtn", "walk"], ["droneBtn", "drone"]])
     $(id).setAttribute("aria-pressed", String(state[key]));
+  syncTuningPicker();
   if (ctx) { setDrone(state.drone); updateDrone(nowBeat(), true); if (delayLine) delayLine.delayTime.setTargetAtTime(0.75 / bps(), ctx.currentTime, 0.05); }
 }
 
@@ -1258,14 +1570,17 @@ function recall(scene) {
   if (!scene || !Array.isArray(scene.loops)) return false;
   loops.splice(0).forEach(fadeOut);
   const beatNow = nowBeat();
-  applySettings(scene.settings || {});
+  applySettings({ tuning: "equal", pen: "auto", lock: false, ...(scene.settings || {}) });
   if (ctx) t0 = nowAudio() - beatNow / bps();   // tempo may have changed: keep the beat continuous
   const start = nextStart();
   for (const d of scene.loops) {
     const lp = newStroke(start);
     lp.pts = d.pts.map(([x, y, b]) => ({ x, y, b }));
     lp.events = d.events.map(([off, x, y, heading, fixed, vel]) => ({ off, x, y, heading, fixed, vel, ms: 0, flashAt: -1 }));
-    Object.assign(lp, { c: { x: d.c[0], y: d.c[1] }, L: d.L, ts: d.ts, muted: d.muted, tx: d.tx, ty: d.ty, rot: d.rot, s: d.s, temper: d.temper, spinDir: d.spinDir });
+    Object.assign(lp, {
+      trigger: d.trigger || "path", pen: d.pen || "auto",
+      c: { x: d.c[0], y: d.c[1] }, L: d.L, ts: d.ts, muted: d.muted, tx: d.tx, ty: d.ty, rot: d.rot, s: d.s, temper: d.temper, spinDir: d.spinDir,
+    });
     loops.push(lp);
   }
   renderLoopList();
@@ -1329,7 +1644,7 @@ function hideHint() { hint.hidden = true; setTimeout(syncPower, 80); }
 let toastTimer = null;
 function toast(msg) {
   const el = $("toast"); el.textContent = msg; el.hidden = false;
-  clearTimeout(toastTimer); toastTimer = setTimeout(() => (el.hidden = true), 1600);
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => (el.hidden = true), 1800);
 }
 const fmtBeats = (v) => String(Math.round(v * 100) / 100);
 const fmtRatio = (r) => ({ 0.5: "½", 0.75: "¾", 1: "1", 1.5: "1½", 2: "2" }[r] || (Math.abs(r - 2 / 3) < 1e-6 ? "⅔" : Math.abs(r - 4 / 3) < 1e-6 ? "4⁄3" : fmtBeats(r)));
@@ -1358,10 +1673,15 @@ $("bpm").addEventListener("input", (e) => {
   }
   ROOTS.forEach((r, i) => $("root").append(new Option(r, String(i), false, i === state.root)));
 })();
-$("grid").addEventListener("change", (e) => { state.grid = e.target.value; updateDrone(nowBeat(), true); });
+/** Tuning only applies to 12-note grids; microtonal grids bring their own. */
+function syncTuningPicker() { $("tuning").disabled = !gridNow().pcs; }
+$("grid").addEventListener("change", (e) => { state.grid = e.target.value; syncTuningPicker(); updateDrone(nowBeat(), true); });
+$("tuning").addEventListener("change", (e) => { state.tuning = e.target.value; updateDrone(nowBeat(), true); });
 $("root").addEventListener("change", (e) => { state.root = Number(e.target.value); updateDrone(nowBeat(), true); });
 $("range").addEventListener("change", (e) => { state.range = Number(e.target.value); updateDrone(nowBeat(), true); });
 $("div").addEventListener("change", (e) => { state.div = e.target.value; loops.forEach((lp) => retime(lp, tsForSize(lp.s))); });
+$("pen").addEventListener("change", (e) => { state.pen = e.target.value; });
+$("out").addEventListener("change", (e) => { state.out = e.target.value; });
 
 function toggle(id, key, after) {
   $(id).addEventListener("click", () => {
@@ -1370,12 +1690,13 @@ function toggle(id, key, after) {
     if (after) after(state[key]);
   });
 }
+toggle("lockBtn", "lock", (on) => toast(on ? "Lock: new strokes play where they cross a line" : "Free: new strokes play by distance and turning"));
 toggle("loopBtn", "loop");
 toggle("morphBtn", "morph", (on) => { if (!on) loops.forEach((lp) => (lp.mt = { ...lp.m })); });   // off = freeze where they are
 toggle("revoiceBtn", "revoice");
 toggle("walkBtn", "walk", () => updateDrone(nowBeat(), true));
 toggle("droneBtn", "drone", (on) => { ensureAudio(); setDrone(on); });
-toggle("editBtn", "edit", (on) => toast(on ? "Edit: tap a path to add a note, tap a note to remove it, drag a note to reshape" : "Edit off"));
+toggle("editBtn", "edit", (on) => toast(on ? "Edit: drag a square to bend · tap a path to add a note · tap a note to remove it · hold to smooth" : "Edit off"));
 
 function openTray(which) {
   for (const [tray, btn] of [["toybox", "toyBtn"], ["scenes", "sceneBtn"]]) {
@@ -1394,7 +1715,7 @@ function renderLoopList() {
   const el = $("loops");
   if (!loops.length) { el.textContent = "no loops yet · draw, shake, or open the toybox"; return; }
   el.innerHTML = "loops (beats): " + loops.map((lp) => {
-    const t = `${fmtBeats(loopBeats(lp))}<span aria-hidden="true">·</span>${lp.temper}`;
+    const t = `${fmtBeats(loopBeats(lp))}<span aria-hidden="true">·</span>${lp.temper}${lp.trigger === "lock" ? "·lock" : ""}`;
     return lp.muted ? `(${t})` : `<b>${t}</b>`;
   }).join("  ");
 }
@@ -1418,7 +1739,9 @@ async function requestWakeLock() {
     dropToy("drop", [W * 0.7, H * 0.5]);
     dropToy("shaker", [W * 0.52, H * 0.22]);
   }
+  syncTuningPicker();
   renderLoopList();
+  initMidi();
 })();
 requestAnimationFrame(frame);
 </script>

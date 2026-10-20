@@ -1,6 +1,8 @@
-# Twirl — brief and v0 notes
+# Twirl — brief and notes
 
-*2026-10-20. Written on an iPad, primary Mac at the shop.*
+*Started 2026-10-20, on an iPad, primary Mac at the shop. Public Domain
+(CC0-1.0), like the rest of the suite. Where this is heading:
+[ROADMAP.md](ROADMAP.md).*
 
 ## The brief, in one line
 
@@ -29,55 +31,61 @@ sound. No plugging.
 - **DrawnQurve**, but 2D. A qurve is a function of time (1D). Twirl wants
   spirals and loops-the-loop, and those aren't functions.
 
-## What it does (v2)
+## What it does (v3)
 
 Open `index.html` (or the published link). The first time, a spiral, a
 dropped line and a shaker are on the page; after that, **your last sheet
 comes back**. Touch anywhere to start the sound.
 
+### Two ways a stroke makes notes
+
+| | **Free** (Lock off, default) | **Lock** (Lock on) |
+|---|---|---|
+| A note fires… | every grid column's width of distance, or every ~50° of turning | **wherever the line crosses a grid line**, DrawnQurve-style |
+| Pitch | the band the note sits in | crossing a horizontal line plays *that line's* note; crossing a vertical line plays the band you're in |
+| Accents | drawing speed | vertical lines on the beat are accented |
+| Touch-down | a drum hit | nothing (only crossings play) |
+| When the loop moves | its notes ride along: same rhythm, new pitches | **crossings are recomputed live**: moving, turning or resizing a locked loop changes its rhythm *and* its pitches, because it crosses different lines |
+| What you see | a glyph per stored note | a small glyph at every crossing, flashing as it plays |
+
+Lock is chosen per stroke (it's whatever Lock was when you drew it), so
+free and locked loops can play together. The loop list marks locked ones.
+
+### Everything else
+
 | You do | It does |
 |---|---|
-| Touch down | A drum hit |
-| Move | A note every grid column's width of distance **or** every ~50° of turning. **A spiral is an arpeggio.** |
-| Move → right / ↑ up / ← left / ↓ down | pluck / bell / blip / drum. Direction picks the voice, Playground-style |
-| **Scribble fast back and forth** (two quick short reversals) | Shaker mode: every reversal is a shaker hit, accents from how hard you shake. The wiggles that led into it are dropped. A long move goes back to drawing |
-| Height | Pitch on the grid's horizontal lines. **Drums are pitched too**: hats at the top, tuned snare in the middle, tuned kick/tom at the bottom |
-| Left ↔ right | Stereo position |
-| Speed | Loudness |
-| Lift | The stroke becomes a loop. Length = duration rounded **up to whole beats** → polymeter |
-| **Drag a loop** | Moves it. Up/down transposes it |
-| **Two fingers on a loop** | Turn it and resize it. **Bigger = slower, smaller = faster**: ½, ⅔, ¾, 1, 4⁄3, 1½, 2 (free-running if the division is Free) |
-| Tap a loop | Mute / unmute |
-| **Double-tap a loop** | Change how it moves on its own: still → drift → spin → jitter |
-| Hold a loop | Erase it |
-| **Edit on**: tap a path / tap a note / drag a note | Add a note there / remove it / reshape the path around it (soft falloff) |
+| Move → right / ↑ up / ← left / ↓ down | pluck / bell / blip / drum, **unless the Pen says otherwise** |
+| **Pen** picker | By direction (default), or force drums / pluck / bell / blip / shaker for new strokes. Pen: drums + Lock is the quickest drum-beat flow |
+| **Scribble fast back and forth** | Shaker mode (works in both modes) |
+| Height | Pitch on the grid; drums are pitched too (hats top, tuned snare middle, tuned kick bottom) |
+| Lift | The stroke becomes a loop: duration rounded **up to whole beats** → polymeter |
+| Drag a loop | Moves it |
+| **Two fingers on a loop**, or **two fingers landing together around a small loop** | Turn and resize. **Bigger = slower** (½ … 2); resizing also spreads it over more pitch lines |
+| Tap / double-tap / hold a loop | Mute / change how it moves (still, drift, spin, jitter) / erase |
+| **Edit on** | Square handles on every path: **drag to bend** it (soft falloff, notes ride along). Tap a path to add a note (free loops), tap a note to remove it, **hold a loop to smooth it** |
 
-Controls:
-- **Grid** (horizontal lines): DrawnQurve's scale families plus microtonal
-  grids (5-, 7-, 19-EDO, harmonics 8–15, Bohlen–Pierce). **Root**
-  transposes. **Range** sets how many octaves (periods) the sheet covers,
-  so the line count follows the note range, as in DrawnQurve.
-- **Division** (vertical lines): Free, 1/4, 1/8, 1/8T, 1/16, 1/16T, 1/32.
-  One bar spans the sheet. The division is the snap, and a column's width
-  is the distance between notes, so finer division = finer timing *and*
-  denser notes.
-- **Loop** off is the rhythmic MVP: play live, nothing repeats.
-- **Morph**: each loop moves according to its own temperament (still,
-  drift, spin, jitter; random at birth, changed by double-tap). Off =
-  freeze where they are. Held loops don't move.
-- **Revoice** (off by default): off, a loop keeps the voices you drew
-  however it turns, so a dropped line stays drums and its turning walks
-  the drums through pitches. On, turning re-orchestrates it (v1 behaviour).
-- **Walk**, **Drone**: as before.
-- **Toybox**: Spiral, Ring, Star, Figure 8, Zigzag, Drop (a straight line
-  down: all drums, set to spin), Shaker, Dice.
-- **Scenes**: six slots. Empty slot: tap to save. Full slot: tap to recall,
-  hold to overwrite. Thumbnails show the shapes. The current sheet also
-  autosaves every few seconds and comes back on reload. All stored in
-  this browser only (`localStorage`).
+Controls: **Grid** (12-note scale families from DrawnQurve, plus
+microtonal grids), **Tuning** (Equal, Just 5-limit, Pythagorean, ¼-comma
+meantone, Werckmeister III; applies to 12-note grids, disabled for
+microtonal ones), **Root**, **Range** (Y lines), **Division** (X lines:
+snap + free-mode note spacing + lock-mode lines), **Pen**, **Lock**,
+**Loop**, **Morph**, **Revoice** (off: voices stay as drawn however a loop
+turns), **Walk**, **Drone**, **Edit**, **Toybox**, **Scenes**, and
+**Output** (only where the browser has Web MIDI: sound, MIDI, or both).
 
-All sound is synthesised in Web Audio (no samples to load, same stance as
-`@enkerli/drumsynth`), with a dotted-eighth feedback delay on a send.
+Microtonal grids: 5-, 7-, 19-, 24-EDO; slendro, pelog and maqam Rast
+(approximations: real gamelan tunings vary by ensemble, and maqam
+intonation is context-dependent); harmonics 8–15; Bohlen–Pierce.
+
+Toybox: Spiral, Ring, Hexagon, Star, Rose, Figure 8, Lissajous (3:2),
+Wave, Zigzag, Drop, **Beat** (a drum pattern drawn as a staircase over
+kick/snare/hat heights), Shaker (now a 60 × 40 px target), Dice.
+
+MIDI out: pluck ch 1, bell ch 2, blip ch 3, drums and shaker ch 10 (GM
+36/38/42, maracas 70). Microtonal pitches are rounded to the nearest
+semitone for now. Works in Chromium (e.g. on the Linux box, with the Huion
+as the pen); WebKit has no Web MIDI, and embedded frames usually block it.
 
 ### What changed, and why
 
@@ -108,6 +116,21 @@ The scheduler was rewritten to be stateless per lookahead window (it
 derives every event in `[cursor, horizon)` from start, length and
 time-scale), which is what makes retiming and recalling safe.
 
+**v3** (after v2):
+- *"Unclear why something triggers or not."* Lock mode: notes only where
+  a line is crossed, visible as glyphs on the crossings, and recomputed
+  live as the loop moves.
+- *"The shaker toy is too small a touch target."* Small loops can now be
+  grabbed anywhere in a padded box around them, two fingers landing
+  together around a loop pick it up, and the shaker toy is bigger.
+- *"An obvious flow for drum beats."* The Pen picker, and the Beat toy.
+- *"Bézier curves."* Paths are drawn as smooth curves through every point;
+  Edit has bend handles and hold-to-smooth.
+- *"More objects. And tuning systems."* Five new toys; a Tuning picker
+  and four new microtonal grids.
+- *"Sound out and MIDI out."* Web MIDI output as progressive enhancement:
+  the first piece of the plugin path (see ROADMAP).
+
 ## Design choices worth arguing with
 
 1. **Notes come from distance *and* turning.** This is the one idea the toy
@@ -124,20 +147,22 @@ time-scale), which is what makes retiming and recalling safe.
 5. **Loop length rounds up to whole beats.** Bars would be tidier; beats
    give polymeter, which is the fun part. Resize ratios then add
    polyrhythm on top (a 3-beat loop at ⅔ is 2 beats of triplet feel).
-6. **Size = time, not pitch range.** Resizing still spreads a loop over
-   more pitch lines (height is height), but the main thing it changes is
-   speed. An open question: should resizing *only* change time and keep
-   the pitch spread?
+6. **Size = time *and* pitch spread.** Resizing retimes a loop and spreads
+   it over more pitch lines (height is height). Settled: keep both.
+7. **Lock is per loop, not global.** Changing the toggle affects new
+   strokes only, so a sheet can mix free melodies and locked grooves.
 
 ## Known limits
 
-- No MIDI out (WebKit). Sound is in-page only. See "bridges" below.
-- Scenes live in this browser only; no export/import yet.
-- No audio recording yet.
+- MIDI out only where Web MIDI exists (not on the iPad). See ROADMAP and
+  "bridges" below.
+- Scenes live in this browser only; no export/import yet. No audio
+  recording yet.
 - Max 14 loops; oldest goes first.
-- Shake, pinch and double-tap are tested with synthetic touches in
-  Chromium, not yet on the iPad. Thresholds will likely need tuning.
-- The toolbar wraps to two rows below ~1300px wide.
+- Gestures are tested with synthetic touches in Chromium, not yet on the
+  iPad. Thresholds will likely need tuning.
+- The toolbar wraps to two rows below ~1300px wide. It is getting long;
+  grouping the less-used toggles is due.
 - iOS Safari needs the first touch to unlock audio; if it stays silent,
   tap "Start sound".
 
@@ -145,7 +170,9 @@ time-scale), which is what makes retiming and recalling safe.
 
 - **Widgets on the sheet.** Playground's real trick: a few fixed shapes
   (rings, pads, lanes) that a stroke can *cross*, each crossing a sound.
+  Lock mode is the first half of this (the grid lines are the widgets).
   Then DRUW-style "generate a map" = scatter widgets.
+- **Sandboxes on a zoomable map.** See ROADMAP.
 - **Loops that collide.** When a loop's playhead crosses another loop's
   path, trigger that point. Rube Goldberg, but out of your own scribbles.
 - **Reverse a loop** (flip it? a mirror gesture would be natural).
