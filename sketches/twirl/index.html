@@ -403,9 +403,14 @@ body {
   </div>
   <div class="tray" id="scenes" role="tabpanel" aria-label="Scenes: tap an empty slot to save, a full one to recall, hold a full one to overwrite" hidden>
     <button class="toy" type="button" id="backBtn" hidden><svg viewBox="0 0 34 34"><path d="M14 9l-7 7 7 7M7 16h13a7 7 0 0 1 0 14h-3"/></svg>Back to my sheet</button>
+    <button class="toy" type="button" id="openLinkBtn"><svg viewBox="0 0 34 34"><path d="M17 26V10M11 16l6-6 6 6M8 28h18"/></svg>Open a shared link</button>
     <button class="toy" type="button" id="shareBtn"><svg viewBox="0 0 34 34"><path d="M14 20l6-6M12 15l-3 3a4.2 4.2 0 0 0 6 6l3-3M22 19l3-3a4.2 4.2 0 0 0-6-6l-3 3"/></svg>Share this sheet</button>
     <div id="slots" style="display:contents"></div>
     <p class="traynote">Empty slot: tap to save. Full slot: tap to recall, hold to overwrite. Stored in this browser only.</p>
+    <div class="share" id="openLink" hidden>
+      <input id="pasteLink" type="text" inputmode="url" autocomplete="off" spellcheck="false" placeholder="Paste a Twirl link here" aria-label="Paste a Twirl link to open it">
+      <small id="pasteInfo">Paste the whole link, even if it came through broken across lines. Sheets replace yours (yours is kept: Back to my sheet); toys join My toys.</small>
+    </div>
     <div class="share" id="share" hidden>
       <input id="shareLink" type="text" readonly aria-label="Link to this sheet">
       <button class="btn primary" type="button" data-copy="shareLink">Copy link</button>
@@ -1886,9 +1891,12 @@ async function decodeScene(token) {
   if (token[1] === "1") bytes = await pipeBytes(bytes, new DecompressionStream("deflate"));
   return unpackScene(JSON.parse(new TextDecoder().decode(bytes)));
 }
-/** The token in the link, cleaned. Links pass through messaging apps that
- *  sometimes insert characters (a field report had two stray "!"), so
- *  anything outside the base64url alphabet is dropped before decoding. */
+/** The token in the link, cleaned. Links pass through apps that insert
+ *  characters (field reports: a "!" plus line breaks every ~990 characters),
+ *  so anything outside the base64url alphabet is dropped before decoding.
+ *  NOTE: when the published page's link is mangled like that, claude.ai
+ *  doesn't pass the #fragment to the page at all; that's what the
+ *  "Open a shared link" paste box is for. */
 function shareToken() {
   let raw = location.hash.slice(1);
   try { raw = decodeURIComponent(raw); } catch (_) { /* leave as is */ }
@@ -1896,6 +1904,29 @@ function shareToken() {
   if (!m) return null;
   const body = m[2].replace(/[^A-Za-z0-9_-]/g, "");
   return body.length > 8 ? `${m[1]}.${body}` : null;
+}
+/** Find a token in any pasted text: a whole link, a link with a message
+ *  around it, or a link broken across lines. Returns candidate tokens,
+ *  longest first; trailing words after the link make the longest one fail,
+ *  so shorter cuts (at each whitespace run) are tried next. */
+function tokensIn(text) {
+  const m = /(?:#|^|\s)([st][01])\.([\s\S]+)/.exec(text);
+  if (!m) return [];
+  const parts = m[2].split(/(\s+)/);
+  const out = [];
+  for (let k = parts.length; k > 0; k--) {
+    const body = parts.slice(0, k).join("").replace(/[^A-Za-z0-9_-]/g, "");
+    if (body.length > 8 && !out.some((t) => t.endsWith(body))) out.push(`${m[1]}.${body}`);
+  }
+  return out;
+}
+async function openPasted(text) {
+  for (const t of tokensIn(text)) {
+    try { await decodeScene(t); } catch (_) { continue; }
+    await openFromLink(t);
+    return true;
+  }
+  return false;
 }
 const BEFORE_KEY = "twirl:beforeShare", OPENED_KEY = "twirl:openedLink";
 const tokenId = (t) => `${t.length}:${t.slice(-24)}`;
@@ -1911,7 +1942,7 @@ function shareBase() {
 async function buildShareLink() {
   if (!loops.length) { toast("Nothing to share yet: draw something first"); return; }
   const link = `${shareBase()}#${await encodeScene(serialize())}`;
-  $("share").hidden = false;
+  $("share").hidden = false; $("openLink").hidden = true;
   $("shareLink").value = link;
   $("shareInfo").textContent = `${loops.length} loop${loops.length > 1 ? "s" : ""} · ${link.length.toLocaleString()} characters · the sheet is inside the link itself; nothing is uploaded`;
   $("nativeShareBtn").hidden = !navigator.share;
@@ -1920,8 +1951,7 @@ async function buildShareLink() {
 
 /** Open whatever the link carries. A sheet replaces the current one (and
  *  resolves true); a toy joins My toys and drops onto the current sheet. */
-async function openFromLink() {
-  const token = shareToken();
+async function openFromLink(token = shareToken()) {
   if (!token) return false;
   try {
     const sc = await decodeScene(token);
@@ -2142,7 +2172,7 @@ function openShelf(which) {
     t.setAttribute("aria-selected", String(on)); $(t.dataset.tab).hidden = !on;
   });
   for (const [tab, id] of Object.entries(SHELF_BTNS)) $(id).setAttribute("aria-expanded", String(tab === which));
-  if (which === "scenes") { renderSlots(); $("share").hidden = true; $("backBtn").hidden = !store.get(BEFORE_KEY); }
+  if (which === "scenes") { renderSlots(); $("share").hidden = true; $("openLink").hidden = true; $("backBtn").hidden = !store.get(BEFORE_KEY); }
   if (which === "mytoys") { renderMyToys(); $("toyShare").hidden = true; }
 }
 function closeShelf() {
@@ -2197,6 +2227,26 @@ $("clear").addEventListener("click", () => {
 
 // Share (section 12b): build the link, then copy it in the same tap that asks.
 $("shareBtn").addEventListener("click", buildShareLink);
+$("openLinkBtn").addEventListener("click", () => {
+  $("openLink").hidden = false; $("share").hidden = true;
+  $("pasteLink").value = ""; $("pasteLink").focus();
+});
+let pasteTimer = null;
+$("pasteLink").addEventListener("input", () => {
+  clearTimeout(pasteTimer);
+  pasteTimer = setTimeout(async () => {
+    const text = $("pasteLink").value;
+    if (text.trim().length < 12) return;
+    if (await openPasted(text)) { $("pasteLink").value = ""; $("openLink").hidden = true; toast("Opened the shared link"); if (shelfTab === "scenes") openShelf("scenes"); }
+    else $("pasteInfo").textContent = "That doesn't read as a Twirl link yet. If it was cut short, paste the rest after it.";
+  }, 250);
+});
+// With a keyboard: paste a link anywhere on the page (outside text fields) to open it.
+document.addEventListener("paste", async (e) => {
+  if (e.target.closest && e.target.closest("input, textarea, select")) return;
+  const text = e.clipboardData && e.clipboardData.getData("text");
+  if (text && tokensIn(text).length && await openPasted(text)) toast("Opened the pasted link");
+});
 $("backBtn").addEventListener("click", () => {
   const before = store.get(BEFORE_KEY);
   if (before && recall(before)) { try { localStorage.removeItem(BEFORE_KEY); } catch (_) {} $("backBtn").hidden = true; toast("Your own sheet is back"); }

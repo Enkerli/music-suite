@@ -113,9 +113,14 @@ Paths are simplified first (keeping both shape and timing), numbers become
 small integers, then it's deflated and base64url-encoded: a busy 14-loop
 sheet is about 4 KB of link. Opening a link with a sheet in it loads that
 sheet; your own is kept (Scenes → *Back to my sheet*). Reloading the
-same link doesn't wipe what you've done since. Links survive messaging
-apps that insert stray characters (a field report had two `!` added):
-anything outside the link alphabet is ignored when decoding. Links from the published page point at the
+same link doesn't wipe what you've done since. **Shared links can get mangled in transit.** Field reports: a `!` and
+line breaks inserted every ~990 characters. The scene data survives (it
+decodes fine once the junk is removed), but claude.ai only hands the page
+a *clean* `#fragment`, so a mangled link opens as an empty sheet before
+the page can do anything. Hence **Scenes → Open a shared link**: paste
+the whole thing, message text and line breaks included, and it opens.
+With a keyboard, pasting a link anywhere on the page works too. The
+page itself also ignores stray characters in a link it does receive. Links from the published page point at the
 published page; links from a copy on GitHub Pages, a LAN server or a local
 file point at that copy.
 
