@@ -138,6 +138,14 @@ body {
 .slot canvas { width: 76px; height: 50px; border: 1px solid var(--rule); border-radius: 6px; background: var(--paper); }
 .slot.empty canvas { border-style: dashed; }
 .slot small { font: 400 0.6875rem/1.2 var(--font-mono); color: var(--ink-muted); }
+.share { flex-basis: 100%; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 6px 4px 2px; border-top: 1px solid var(--rule-soft); }
+.share input {
+  flex: 1 1 260px; min-width: 0; min-height: 40px; padding: 0 10px;
+  font: 400 0.75rem/1 var(--font-mono); color: var(--ink); background: var(--paper);
+  border: 1px solid var(--rule-strong); border-radius: 10px;
+  -webkit-user-select: text; user-select: text;
+}
+.share small { flex-basis: 100%; font: 400 0.6875rem/1.3 var(--font-mono); color: var(--ink-muted); }
 .traynote { align-self: center; max-width: 170px; padding: 0 6px; font-size: 0.75rem; line-height: 1.35; color: var(--ink-muted); }
 
 /* ── toast ─────────────────────────────────────────────────────────────── */
@@ -261,8 +269,15 @@ body {
 
 <div class="traywrap" id="scenes" hidden>
   <div class="tray" role="group" aria-label="Scenes: tap an empty slot to save, a full one to recall, hold a full one to overwrite">
+    <button class="toy" type="button" id="shareBtn"><svg viewBox="0 0 34 34"><path d="M14 20l6-6M12 15l-3 3a4.2 4.2 0 0 0 6 6l3-3M22 19l3-3a4.2 4.2 0 0 0-6-6l-3 3"/></svg>Share this sheet</button>
     <div id="slots" style="display:contents"></div>
     <p class="traynote">Empty slot: tap to save. Full slot: tap to recall, hold to overwrite. Stored in this browser only.</p>
+    <div class="share" id="share" hidden>
+      <input id="shareLink" type="text" readonly aria-label="Link to this sheet">
+      <button class="btn primary" type="button" id="copyBtn">Copy link</button>
+      <button class="btn" type="button" id="nativeShareBtn" hidden>Share…</button>
+      <small id="shareInfo"></small>
+    </div>
   </div>
 </div>
 
@@ -1634,6 +1649,128 @@ function saveTo(i) {
   renderSlots();
 }
 
+/* ── 12b. Share: a whole sheet in a link ──────────────────────────────────── */
+// The scene rides in the link's #fragment, which never reaches a server.
+// The fragment must be a plain token (letters, digits, - _ . ~), so:
+//   scene → compact integer arrays → JSON → deflate → base64url, tagged
+//   "s1." (deflated) or "s0." (plain, for browsers without CompressionStream).
+// Paths are simplified first (Ramer–Douglas–Peucker, shape-preserving), so a
+// busy sheet is a few KB of link rather than tens.
+
+const SHARE_PUBLIC = "https://claude.ai/artifact/NErPKSQ1XZ2JEXZ4j5CxTa";
+const FIXED_CODES = [null, "shake", "drum", "pluck", "bell", "blip"];
+const QXY = 4096, QB = 96;                 // 1/4096 of the sheet; 1/96 of a beat (exact for every division)
+
+/** Indices of the points worth keeping (always the ends). A point stays if
+ *  dropping it would move the path by more than `eps` of the sheet OR shift
+ *  its timing by more than `epsB` beats (Lock rhythms live in that timing).
+ *  Closed shapes, whose ends coincide, measure from the end point itself. */
+function simplify(pts, eps = 0.0025, epsB = 1 / 48) {
+  const keep = new Set([0, pts.length - 1]);
+  const stack = [[0, pts.length - 1]];
+  while (stack.length) {
+    const [a, b] = stack.pop();
+    const [ax, ay, ab] = pts[a], [bx, by, bb] = pts[b];
+    const vx = bx - ax, vy = by - ay, len2 = vx * vx + vy * vy;
+    let far = -1, worst = 1;
+    for (let i = a + 1; i < b; i++) {
+      const [px, py, pb] = pts[i];
+      const t = len2 > 1e-12 ? Math.min(1, Math.max(0, ((px - ax) * vx + (py - ay) * vy) / len2)) : (i - a) / (b - a);
+      const dist = len2 > 1e-12 ? Math.hypot(ax + vx * t - px, ay + vy * t - py) : Math.hypot(px - ax, py - ay);
+      const drift = Math.abs(ab + (bb - ab) * t - pb);
+      const score = Math.max(dist / eps, drift / epsB);
+      if (score > worst) { worst = score; far = i; }
+    }
+    if (far >= 0) { keep.add(far); stack.push([a, far], [far, b]); }
+  }
+  return [...keep].sort((x, y) => x - y);
+}
+
+function packScene(sc) {
+  const q = (v) => Math.round(v * QXY), qb = (v) => Math.round(v * QB), k = (v) => Math.round(v * 1000);
+  return { v: 1, st: sc.settings, l: sc.loops.map((d) => {
+    const flat = []; let px = 0, py = 0, pb = 0;
+    for (const i of simplify(d.pts)) {                  // delta-encoded: small numbers compress well
+      const [x, y, b] = d.pts[i], X = q(x), Y = q(y), B = qb(b);
+      flat.push(X - px, Y - py, B - pb); px = X; py = Y; pb = B;
+    }
+    return [d.trigger === "lock" ? 1 : 0, d.pen, d.L, k(d.ts), d.muted ? 1 : 0, TEMPER_ORDER.indexOf(d.temper), d.spinDir,
+      q(d.c[0]), q(d.c[1]), q(d.tx), q(d.ty), k(d.rot), k(d.s), flat,
+      d.events.flatMap(([off, x, y, h, fixed, vel]) => [qb(off), q(x), q(y), k(h), FIXED_CODES.indexOf(fixed), Math.round(vel * 100)])];
+  }) };
+}
+function unpackScene(pk) {
+  if (!pk || pk.v !== 1 || !Array.isArray(pk.l)) throw new Error("not a Twirl scene");
+  return { settings: pk.st || {}, loops: pk.l.map(([lock, pen, L, ts, muted, temper, spinDir, cx, cy, tx, ty, rot, s, flat, ev]) => {
+    const pts = []; let x = 0, y = 0, b = 0;
+    for (let i = 0; i < flat.length; i += 3) { x += flat[i]; y += flat[i + 1]; b += flat[i + 2]; pts.push([x / QXY, y / QXY, b / QB]); }
+    const events = [];
+    for (let i = 0; i < ev.length; i += 6) events.push([ev[i] / QB, ev[i + 1] / QXY, ev[i + 2] / QXY, ev[i + 3] / 1000, FIXED_CODES[ev[i + 4]] ?? null, ev[i + 5] / 100]);
+    return { trigger: lock ? "lock" : "path", pen, L, ts: ts / 1000, muted: !!muted, temper: TEMPER_ORDER[temper] || "drift", spinDir,
+      c: [cx / QXY, cy / QXY], tx: tx / QXY, ty: ty / QXY, rot: rot / 1000, s: s / 1000, pts, events };
+  }) };
+}
+
+const toB64url = (bytes) => {
+  let bin = "";
+  for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+  return btoa(bin).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+};
+const fromB64url = (str) => {
+  const bin = atob(str.replace(/-/g, "+").replace(/_/g, "/") + "===".slice((str.length + 3) % 4));
+  return Uint8Array.from(bin, (c) => c.charCodeAt(0));
+};
+const pipeBytes = async (bytes, stream) => new Uint8Array(await new Response(new Blob([bytes]).stream().pipeThrough(stream)).arrayBuffer());
+
+async function encodeScene(sc) {
+  const json = new TextEncoder().encode(JSON.stringify(packScene(sc)));
+  if (window.CompressionStream) {
+    try { return "s1." + toB64url(await pipeBytes(json, new CompressionStream("deflate"))); } catch (_) { /* fall through */ }
+  }
+  return "s0." + toB64url(json);
+}
+async function decodeScene(token) {
+  const [tag, body] = [token.slice(0, 2), token.slice(3)];
+  let bytes = fromB64url(body);
+  if (tag === "s1") bytes = await pipeBytes(bytes, new DecompressionStream("deflate"));
+  return unpackScene(JSON.parse(new TextDecoder().decode(bytes)));
+}
+const shareToken = () => { const t = decodeURIComponent(location.hash.slice(1)); return /^s[01]\.[A-Za-z0-9_-]+$/.test(t) ? t : null; };
+
+/** Where a link should point: this page when it has a real address of its
+ *  own (GitHub Pages, a LAN server, a local file), else the published artifact. */
+function shareBase() {
+  const h = location.hostname;
+  const ownAddress = location.protocol === "file:" || h === "localhost" || h.endsWith("github.io") || h.endsWith(".local") || /^\d+\.\d+\.\d+\.\d+$/.test(h);
+  return ownAddress ? location.href.split("#")[0] : SHARE_PUBLIC;
+}
+
+async function buildShareLink() {
+  if (!loops.length) { toast("Nothing to share yet: draw something first"); return; }
+  const link = `${shareBase()}#${await encodeScene(serialize())}`;
+  $("share").hidden = false;
+  $("shareLink").value = link;
+  $("shareInfo").textContent = `${loops.length} loop${loops.length > 1 ? "s" : ""} · ${link.length.toLocaleString()} characters · the sheet is inside the link itself; nothing is uploaded`;
+  $("nativeShareBtn").hidden = !navigator.share;
+  $("shareLink").focus(); $("shareLink").select();
+}
+
+/** Open a sheet from the link, if there is one. Resolves true if it did. */
+async function openSharedSheet() {
+  const token = shareToken();
+  if (!token) return false;
+  try {
+    const sc = await decodeScene(token);
+    if (!recall(sc)) return false;
+    $("hintSmall").textContent = "Someone shared this sheet with you. Touch anywhere to start the sound.";
+    return true;
+  } catch (_) {
+    toast("This link's sheet couldn't be read; showing your own instead");
+    return false;
+  }
+}
+window.addEventListener("hashchange", () => { openSharedSheet().then((ok) => ok && toast("Opened the shared sheet")); });
+
 /* ── 13. Controls ────────────────────────────────────────────────────────── */
 
 const $ = (id) => document.getElementById(id);
@@ -1703,13 +1840,24 @@ function openTray(which) {
     const open = tray === which && $(tray).hidden;
     $(tray).hidden = !open; $(btn).setAttribute("aria-expanded", String(open));
   }
-  if (!$("scenes").hidden) renderSlots();
+  if (!$("scenes").hidden) { renderSlots(); $("share").hidden = true; }   // a fresh link each time
 }
 $("toyBtn").addEventListener("click", () => openTray("toybox"));
 $("sceneBtn").addEventListener("click", () => openTray("scenes"));
 document.querySelectorAll("#toybox .toy").forEach((btn) =>
   btn.addEventListener("click", () => { ensureAudio(); hint.hidden = true; syncPower(); dropToy(btn.dataset.toy); }));
 $("clear").addEventListener("click", () => { [...loops].forEach(eraseLoop); });
+
+// Share (section 12b): build the link, then copy it in the same tap that asks.
+$("shareBtn").addEventListener("click", buildShareLink);
+$("copyBtn").addEventListener("click", () => {
+  const field = $("shareLink");
+  const fallback = () => { field.focus(); field.select(); toast("Link selected: copy it from the field"); };
+  try { navigator.clipboard.writeText(field.value).then(() => toast("Link copied"), fallback); } catch (_) { fallback(); }
+});
+$("nativeShareBtn").addEventListener("click", () => {
+  navigator.share({ title: "Twirl", text: "A sheet of loops to play with", url: $("shareLink").value }).catch(() => {});
+});
 
 function renderLoopList() {
   const el = $("loops");
@@ -1729,16 +1877,19 @@ async function requestWakeLock() {
 
 /* ── 14. First frame: your last sheet if there is one, else examples ─────── */
 
-(function boot() {
-  const last = store.get(LAST_KEY);
-  if (last && last.loops && last.loops.length && recall(last)) {
-    $("hintSmall").textContent = "Your last sheet is back. Touch anywhere to start the sound.";
-  } else {
-    const W = sheet.clientWidth, H = sheet.clientHeight;
-    dropToy("spiral", [W * 0.3, H * 0.6]);
-    dropToy("drop", [W * 0.7, H * 0.5]);
-    dropToy("shaker", [W * 0.52, H * 0.22]);
-  }
+(async function boot() {
+  const defaults = () => {
+    const last = store.get(LAST_KEY);
+    if (last && last.loops && last.loops.length && recall(last)) {
+      $("hintSmall").textContent = "Your last sheet is back. Touch anywhere to start the sound.";
+    } else {
+      const W = sheet.clientWidth, H = sheet.clientHeight;
+      dropToy("spiral", [W * 0.3, H * 0.6]);
+      dropToy("drop", [W * 0.7, H * 0.5]);
+      dropToy("shaker", [W * 0.52, H * 0.22]);
+    }
+  };
+  if (!(await openSharedSheet())) defaults();   // a shared link wins over your last sheet
   syncTuningPicker();
   renderLoopList();
   initMidi();

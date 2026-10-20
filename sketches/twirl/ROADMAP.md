@@ -76,8 +76,9 @@ division, maybe tempo ratio); sandboxes sit on a large **map** you pan and
 zoom through.
 
 - **Data**: a sandbox *is* a scene (already serialisable); a map is a list
-  of `{scene, x, y, scale}`. Saved scenes can be dropped onto the map
-  as-is.
+  of `{scene, x, y, scale}`. Saved scenes, and share links, can be dropped
+  onto the map as-is. A whole map could travel as a link the same way, if
+  it stays small enough.
 - **Gesture**: two fingers on empty paper pan and zoom the map (two
   fingers on a loop still turn and resize the loop).
 - **Listening**: what you hear depends on where you are. Sandboxes in
@@ -92,8 +93,8 @@ it after Step 1 means one engine instance per sandbox, which is cleaner.
 
 ## Smaller next things (any time)
 
-- Scene export/import as a copyable string or a file (standalone page);
-  audio recording from the standalone page.
+- Audio recording from the standalone page. (Scene sharing landed as
+  links: the scene travels in the `#fragment`.)
 - Group the less-used toggles (Walk, Drone, Revoice) so the toolbar fits
   one row on an 11" iPad.
 - Tune the gesture thresholds on the real iPad (shake, double-tap, grab

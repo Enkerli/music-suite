@@ -74,6 +74,16 @@ snap + free-mode note spacing + lock-mode lines), **Pen**, **Lock**,
 turns), **Walk**, **Drone**, **Edit**, **Toybox**, **Scenes**, and
 **Output** (only where the browser has Web MIDI: sound, MIDI, or both).
 
+**Share this sheet** (in the Scenes tray): the whole sheet (loops,
+transforms, temperaments, grid, tuning, tempo, toggles) is packed into the
+link's `#fragment`, so nothing is uploaded and the link *is* the scene.
+Paths are simplified first (keeping both shape and timing), numbers become
+small integers, then it's deflated and base64url-encoded: a busy 14-loop
+sheet is about 4 KB of link. Opening a link with a sheet in it loads that
+sheet instead of your last one. Links from the published page point at the
+published page; links from a copy on GitHub Pages, a LAN server or a local
+file point at that copy.
+
 Microtonal grids: 5-, 7-, 19-, 24-EDO; slendro, pelog and maqam Rast
 (approximations: real gamelan tunings vary by ensemble, and maqam
 intonation is context-dependent); harmonics 8–15; Bohlen–Pierce.
@@ -156,8 +166,8 @@ time-scale), which is what makes retiming and recalling safe.
 
 - MIDI out only where Web MIDI exists (not on the iPad). See ROADMAP and
   "bridges" below.
-- Scenes live in this browser only; no export/import yet. No audio
-  recording yet.
+- Scenes live in this browser only, but any sheet can travel as a share
+  link. No audio recording yet.
 - Max 14 loops; oldest goes first.
 - Gestures are tested with synthetic touches in Chromium, not yet on the
   iPad. Thresholds will likely need tuning.
