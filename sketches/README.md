@@ -13,7 +13,7 @@ Public Domain (CC0-1.0), like everything else in this repo.
 
 | Sketch | What | Status |
 |---|---|---|
-| [twirl/](twirl/) | Gesture toy: draw or shake, hear it, it loops on its own clock; lock to grid, drag, turn, resize to retime, bend, toybox and your own toys, tunings, scenes and share links, MIDI out where available | v3, playable on iPad; heading toward a Suite module ([roadmap](twirl/ROADMAP.md)) |
+| [twirl/](twirl/) | Gesture toy: draw or shake, hear it, it loops on its own clock. Simple → More → Everything: lock to the beat grid, per-loop voices, zones and speeds, sound packs, tunings, toys and scenes shared as codes, MIDI out where available | v5, playable on iPad and phone; heading toward a Workspace module, plugin and standalone ([guide](twirl/GUIDE.md) · [roadmap](twirl/ROADMAP.md) · [testing](twirl/TESTING.md)) |
 
 Parked threads that came up alongside the sketches (deliberately *not*
 mixed in) are in [THREADS.md](THREADS.md).

@@ -1,121 +1,150 @@
-# Twirl — roadmap
+# Twirl: roadmap
 
-*2026-10-20. Public Domain (CC0-1.0). Companion to [BRIEF.md](BRIEF.md),
-which covers what the sketch does and why.*
+*Updated 2026-10-21. Public Domain (CC0-1.0). Companions:
+[BRIEF.md](BRIEF.md) (what and why), [GUIDE.md](GUIDE.md) (how to play),
+[TESTING.md](TESTING.md) (how it's checked).*
 
-Twirl started as a one-file toy and is turning into a small project. The
-target, once the Mac is back: **a Suite module, and a plugin with both
-sound out and MIDI out.** This page lays out the path so each step can
-happen on its own, in any order the mood allows.
+Twirl started as a one-file toy and has become a small project. The
+targets, once the Mac is back: **a Workspace module, a plugin (sound out
+and MIDI out), and a standalone app**, all from one engine. This page lays
+out the path so each step can happen on its own.
 
-## Where it stands (v3)
+One rule above the others: **people find Twirl immediately satisfying;
+nothing on this roadmap is allowed to cost that.** Every surface opens at
+*Simple* (draw, hear, loop), and depth arrives by progressive disclosure,
+from "I don't know what's happening, I'm discovering" to something close
+to a tool.
 
-One self-contained `index.html`: canvas UI, Web Audio voices, optional Web
-MIDI out, scenes in `localStorage`. Everything is in one file on purpose.
-The code is already organised along the seam that matters next:
+## Where it stands (sketch v5)
 
-| Layer | What's in it today | Pure? |
+One self-contained `index.html` (no build), published as a claude.ai
+artifact and kept in `sketches/twirl/`. Organised along the seams that
+matter next:
+
+| Layer | What's in it | Pure? |
 |---|---|---|
-| **Engine** | pitch grids and tunings, `place` / transforms, `Tracer` (free triggers), `crossings` (lock triggers), the stateless scheduler window, temperaments, scene (de)serialisation | Nearly: it reads the sheet size and the audio clock |
-| **Voices** | `VOICES` (pluck, bell, blip, pitched drums, shaker), delay, drone | No: Web Audio |
-| **Outputs** | `sound()` → voices and/or `sendMidi()` | No |
-| **Surface** | pointer handling, drawing, trays, toasts | No: DOM + canvas |
+| **Engine** | grids and tunings; loop transforms (`place`); `Tracer` (free triggers, shake); Lock reading (`sampleLoop`, `lockStep`); the stateless scheduler window; temperaments and zones; scene / toy / everything (de)serialisation and codes | Nearly: it reads the sheet size and the audio clock |
+| **Voices** | three sound packs (paper, mallets, chip) × five voices; delay; drone | No: Web Audio |
+| **Outputs** | `sound()` → a pack's voice and/or `sendMidi()` | No |
+| **Surface** | gestures, drawing, the slim bar, the drawer with levels, the shelf (Toybox / My toys / Scenes), the loop inspector | No: DOM + canvas |
 
-## Step 1: pull the engine out (no Mac needed)
+## Step 1: extract the engine (no Mac needed)
 
-Make the engine a plain module with no DOM and no audio:
+Make the engine a plain module with no DOM and no audio, in sheet
+coordinates (unit square) and beats:
 
-- input: gestures as `{x, y, t}` points in a unit square, plus edit
-  operations (move, turn, resize, bend, mute…);
-- output: **note events** `{beat, voice, pitch (cents above root),
-  velocity, pan, loopId}` for a window of beats.
+```ts
+type Gesture = { x: number; y: number; t: number }[];          // a stroke
+type NoteEvent = {
+  beat: number;           // when, on the shared beat clock
+  voice: "pluck" | "bell" | "blip" | "drum" | "shake";
+  cents: number;          // above the root (grid + tuning + walk applied)
+  drum?: "kick" | "snare" | "hat";
+  velocity: number; pan: number; loopId: string;
+};
+interface Engine {
+  addStroke(g: Gesture, opts): LoopId;  // free or locked, pen, density
+  edit(id, op): void;                   // move, turn, resize, bend, zone, temper…
+  window(from: number, to: number): NoteEvent[];   // the scheduler
+  frame(dt: number): void;              // morph easing, zones
+  serialize(): Scene; load(s: Scene): void;
+}
+```
 
-Then the canvas page, a Workspace module and a plugin are just three
-surfaces over the same engine. Per CONVENTIONS.md, the parts a C++ or Lua
-port would need (`crossings`, the Tracer, the scheduler window, tunings)
-get **JSON test vectors** first, so any port has to match them.
+Then the canvas page, the Workspace module and the plugin are three
+surfaces over one engine. Test vectors first, per CONVENTIONS.md (see
+TESTING.md, layer 3).
 
-Where it lives is a decision for later: `packages/twirl` (engine) +
-`apps/twirl` (page), following the pattern of `packages/upi` and
-`apps/serpe`. HANDOFF.md's "no new features until integration is robust"
-still stands; promoting Twirl out of `sketches/` is a deliberate step,
-not a drift.
+Proposed home: `packages/twirl` (engine) + `apps/twirl` (page), like
+`packages/upi` + `apps/serpe`. HANDOFF.md's "no new features until
+integration is robust" still stands: promoting Twirl out of `sketches/`
+is a deliberate decision, not drift.
 
-## Step 2: a Suite module
+## Step 2: a Workspace module
 
-- **Workspace module**: Twirl's note events go onto the Workspace bus, so
-  other modules (Vane, the drum kit, PitchFold's quantiser) can sound or
-  transform them. The Workspace already has the module registry and the
-  bridge.
-- **Shared pieces it should reuse rather than duplicate**: `@enkerli/theory`
-  for scales (the grid list is DrawnQurve's masks, so these line up), and
-  `@enkerli/drumsynth` for drums once its voices can be pitched.
+- Twirl's note events go onto the Workspace bus, so other modules (Vane,
+  the drum kit, PitchFold's quantiser) can sound or transform them, and
+  incoming bus notes can draw strokes (see Decided).
+- Reuse rather than duplicate: `@enkerli/theory` for scales (Twirl's grid
+  list is DrawnQurve's masks), `@enkerli/drumsynth` once its voices can be
+  pitched, `@enkerli/ui` tokens (already the palette here).
+- Scenes and toys become **library items** (docs/LIBRARY_SPEC.md), so they
+  show up in the shared Library drawer next to other apps' patterns.
 
-## Step 3: the plugin (Mac)
+## Step 3: the plugin and the standalone (Mac)
 
-Use the enkerli-juce WebView archetype, as PitchFold and DrawnQurve do:
-the page becomes the plugin UI; the bridge carries note events out.
+The enkerli-juce WebView archetype, as for PitchFold and DrawnQurve: the
+page is the UI; the bridge carries note events out and host events in.
 
-1. **MIDI-out first** (AUv3 MIDI processor + AU/VST3 MIDI effect +
-   standalone). On the iPad this is the big win: Twirl in AUM driving
-   anything, including the Diosynth and the RND. Host tempo replaces the
-   internal clock (the scheduler is already beat-based, so this is a
-   clock swap, not a rewrite).
-2. **Then sound out.** Two options, not exclusive:
-   - port the five voices to C++ (they're small: a few oscillators,
-     filters and envelopes each);
-   - or the Vane route: compile DSP to WASM for the browser and use the
-     same C++ in the plugin.
-3. **Microtonal MIDI**: MTS-ESP first (see Decided below), MPE as the
-   fallback. Until then, microtonal grids round to semitones on MIDI out.
+1. **MIDI effect first** (AUv3 MIDI processor for AUM on iPad; AU/VST3
+   MIDI effect on desktop). Biggest win per hour: Twirl driving anything,
+   including the Diosynth and the RND.
+   - **Host sync**: host tempo and transport drive the beat clock.
+     The scheduler is beat-based, so this is a clock swap.
+   - **Incoming MIDI draws strokes**.
+2. **Instrument** (sound out). Either port the voices to C++ (each is a
+   few oscillators, filters and envelopes), or the Vane route (DSP in C++,
+   compiled to WASM for the browser, native in the plugin). Sound packs
+   map to presets.
+3. **Standalone app** (macOS, iPadOS): the same build in the JUCE
+   standalone wrapper, with real MIDI out (which WebKit can't do) and
+   file export.
+4. **Tuning over MIDI**: MTS-ESP first (Twirl as tuning master,
+   broadcasting grid + tuning + root), MPE as the fallback, rounding last.
 
 ## Step 4: sandboxes on a zoomable map
 
-The idea: each **sandbox** is a sheet (its own loops, grid, tuning,
-division, maybe tempo ratio); sandboxes sit on a large **map** you pan and
-zoom through.
+Each **sandbox** is a sheet (its own loops, grid, tuning, division,
+tempo); sandboxes sit on a large **map** you pan and zoom through.
 
-- **Data**: a sandbox *is* a scene (already serialisable); a map is a list
-  of `{scene, x, y, scale}`. Saved scenes, and share links, can be dropped
-  onto the map as-is. A whole map could travel as a link the same way, if
-  it stays small enough.
-- **Gesture**: two fingers on empty paper pan and zoom the map (two
-  fingers on a loop still turn and resize the loop).
-- **Listening**: what you hear depends on where you are. Sandboxes in
-  view play, louder towards the centre, fading with distance. Zooming out
-  becomes a mix of the whole map; zooming in is soloing one sandbox.
-  Walking through it is the "sound forest" idea, with the grid as ground.
-- **Level of detail**: zoomed out, sandboxes draw as their thumbnails
-  (already rendered for the Scenes tray) and stop drawing crossings.
+- **Data**: a sandbox *is* a scene; a map is `{scene, x, y, scale}[]`.
+  Saved scenes and pasted codes drop onto the map as-is.
+- **Gesture**: two fingers on empty paper pan and zoom the map.
+- **Listening**: sandboxes in view play, fading with distance: zoomed out
+  is a mix, zoomed in is a solo. The "sound forest", with the grid as
+  ground.
+- **Level of detail**: zoomed out, sandboxes draw as their thumbnails.
 
-This can be built as v4 of the sketch, before or after Step 1. Building
-it after Step 1 means one engine instance per sandbox, which is cleaner.
+Cleaner after Step 1 (one engine per sandbox), possible before.
 
-## Smaller next things (any time)
+## Sharing: no servers, no files
 
-- Audio recording from the standalone page. (Scene sharing landed as
-  links: the scene travels in the `#fragment`.)
-- Tune the gesture thresholds on the real iPad (shake, double-tap, grab
-  radius).
+Decided and built: everything moves as **codes** (deflated, base64url,
+labelled `twirl:`): a sheet, a toy, or *everything* (all scenes and toys).
+Codes survive messaging apps, and Universal Clipboard carries them between
+Apple devices. Links carry the same token after `#` but claude.ai only
+passes short, clean link endings to the page, so links are a convenience
+for small things.
+
+Possible later, only if wanted: a claude.ai per-user storage capability
+would sync scenes across a person's devices automatically. It would mean
+relying on a central store, which so far is exactly what we're avoiding.
+
+## Decided
+
+- **Tempo**: each sandbox can have its **own tempo**; the plugin syncs to
+  the **host** (a sandbox's tempo becomes a ratio of the host's while
+  synced).
+- **Incoming MIDI draws strokes**: time runs along the stroke, pitch sets
+  height, velocity sets speed; the result loops like any other stroke.
+- **Tuning over MIDI**: MTS-ESP, then MPE, then rounding.
+- **Voices per loop**: each loop has its own pen and its own "turning
+  changes voices" switch (built in v5).
+- **Zones**: a loop can be told where it lives (built in v5).
+- **Sound packs**: different instruments, same five voices (built in v5;
+  more to come).
+- **Sharing a whole collection**: *Copy everything* (built in v5).
+
+## Smaller next things
+
+- Tune gesture thresholds on the real iPad and iPhone.
+- More sound packs; let a loop pick its own pack.
+- Audio recording from the standalone page.
 - Reverse / mirror a loop.
-
-## Decided (2026-10-20)
-
-- **Tempo**: each sandbox can run at its **own tempo**, and the whole map
-  can **sync to the host** in the plugin (host tempo and transport drive
-  the shared beat clock; a sandbox's own tempo becomes a ratio of it only
-  when synced). The scheduler is beat-based, so both are clock swaps.
-- **Incoming MIDI draws strokes**: in the plugin (and wherever Web MIDI
-  exists), a played line becomes a drawn one: time runs along the stroke,
-  pitch sets height, velocity sets speed, and the result loops like any
-  other stroke. This closes the loop with the Diosynth.
-- **Tuning over MIDI: MTS-ESP** for engines that support it (Twirl as the
-  tuning master, broadcasting the current grid + tuning + root), with MPE
-  as the fallback for engines that don't, and plain rounding as the last
-  resort.
+- Zones on the X axis too (left/right = pan regions)?
 
 ## Open questions
 
 - Name: "Twirl" for now.
-- Should My toys (kept loops) also be shareable as a *set*, a toybox in a
-  link? Same encoding would work; size is the only limit.
+- Should Lock read "every step" (now) or "every grid cell entered" (both
+  axes)? The current one is closer to DrawnQurve; worth A/B-ing by ear.

@@ -34,108 +34,12 @@ Inspirations, loosely held: Twirl has long since gone its own way.
 - **DrawnQurve**, but 2D. A qurve is a function of time (1D). Twirl wants
   spirals and loops-the-loop, and those aren't functions.
 
-## What it does (v3)
+## What it does
 
-Open `index.html` (or the published link). The first time, a spiral, a
-dropped line and a shaker are on the page; after that, **your last sheet
-comes back**. Touch anywhere to start the sound.
-
-### Two ways a stroke makes notes
-
-| | **Free** (Lock off, default) | **Lock** (Lock on) |
-|---|---|---|
-| A note fires… | every grid column's width of distance, or every ~50° of turning | **wherever the line crosses a grid line**, DrawnQurve-style |
-| Pitch | the band the note sits in | crossing a horizontal line plays *that line's* note; crossing a vertical line plays the band you're in |
-| Accents | drawing speed | vertical lines on the beat are accented |
-| Touch-down | a drum hit | nothing (only crossings play) |
-| When the loop moves | its notes ride along: same rhythm, new pitches | **crossings are recomputed live**: moving, turning or resizing a locked loop changes its rhythm *and* its pitches, because it crosses different lines |
-| What you see | a glyph per stored note | a small glyph at every crossing, flashing as it plays |
-
-Lock is chosen per stroke (it's whatever Lock was when you drew it), so
-free and locked loops can play together. The loop list marks locked ones.
-
-### Everything else
-
-| You do | It does |
-|---|---|
-| Move → right / ↑ up / ← left / ↓ down | pluck / bell / blip / drum, **unless the Pen says otherwise** |
-| **Pen** picker | By direction (default), or force drums / pluck / bell / blip / shaker for new strokes. Pen: drums + Lock is the quickest drum-beat flow |
-| **Scribble fast back and forth** | Shaker mode (works in both modes) |
-| Height | Pitch on the grid; drums are pitched too (hats top, tuned snare middle, tuned kick bottom) |
-| Lift | The stroke becomes a loop: duration rounded **up to whole beats** → polymeter |
-| Drag a loop | Moves it |
-| **Two fingers on a loop**, or **two fingers landing together around a small loop** | Turn and resize. **Bigger = slower** (½ … 2); resizing also spreads it over more pitch lines |
-| Tap / double-tap / hold a loop | Mute / change how it moves (still, drift, spin, jitter) / erase |
-| **Edit on** | Square handles on every path: **drag to bend** it (soft falloff, notes ride along). Tap a path to add a note (free loops), tap a note to remove it, **hold a loop to smooth it** |
-
-Controls: **Grid** (12-note scale families from DrawnQurve, plus
-microtonal grids), **Tuning** (Equal, Just 5-limit, Pythagorean, ¼-comma
-meantone, Werckmeister III; applies to 12-note grids, disabled for
-microtonal ones), **Root**, **Range** (Y lines), **Division** (X lines:
-snap + free-mode note spacing + lock-mode lines), **Pen**, **Lock**,
-**Loop**, **Morph**, **Revoice** (off: voices stay as drawn however a loop
-turns), **Walk**, **Drone**, **Edit**, **Toybox**, **Scenes**, and
-**Output** (only where the browser has Web MIDI: sound, MIDI, or both).
-
-**My toys**: a second toybox for loops you keep. Tap *Keep a loop*, then
-tap any loop on the sheet: it's saved with its current turn and size baked
-into its shape, relative to its own centre, so it drops anywhere at the
-same proportions. In the tray, *Drop / Share / Delete* sets what tapping a
-toy does. A shared toy is a short link (a few hundred characters); opening
-it drops the toy onto the recipient's sheet and adds it to their My toys.
-
-**More** (in the toolbar) holds the less-used toggles: Revoice, Walk,
-Drone. It shows a dot when any of them is on.
-
-**On a phone** (below ~700px wide, or ~500px tall when sideways), Twirl
-uses the Suite's drawer pattern: a slim bar keeps Play, Lock, Toybox and
-a ☰; everything else (tempo, grid, tuning, root, range, division, pen,
-toggles, My toys, Scenes, and the how-to-play legend) lives in a drawer
-from the right. Trays become bottom sheets. The controls are the same
-elements, moved between places, so nothing is duplicated and nothing has
-to be kept in sync. On an iPad, nothing changes.
-
-**Toybox, My toys and Scenes are one shelf**: a bottom drawer with three
-tabs and a Close button. The toolbar buttons open it at a tab; they never
-toggle it shut (drawers open and close the same way across the Suite). It
-stays open while you play, so you can drop several toys in a row.
-
-**Clear** takes two taps ("Clear sheet?" then Clear), and empties the
-sheet only: saved scenes and My toys are never touched.
-
-**While resizing** a loop, a label next to it shows its clock ratio and
-length (×1½ · 6 beats) as they change.
-
-**Share this sheet** (in the Scenes tray): the whole sheet (loops,
-transforms, temperaments, grid, tuning, tempo, toggles) is packed into the
-link's `#fragment`, so nothing is uploaded and the link *is* the scene.
-Paths are simplified first (keeping both shape and timing), numbers become
-small integers, then it's deflated and base64url-encoded: a busy 14-loop
-sheet is about 4 KB of link. Opening a link with a sheet in it loads that
-sheet; your own is kept (Scenes → *Back to my sheet*). Reloading the
-same link doesn't wipe what you've done since. **Shared links can get mangled in transit.** Field reports: a `!` and
-line breaks inserted every ~990 characters. The scene data survives (it
-decodes fine once the junk is removed), but claude.ai only hands the page
-a *clean* `#fragment`, so a mangled link opens as an empty sheet before
-the page can do anything. Hence **Scenes → Open a shared link**: paste
-the whole thing, message text and line breaks included, and it opens.
-With a keyboard, pasting a link anywhere on the page works too. The
-page itself also ignores stray characters in a link it does receive. Links from the published page point at the
-published page; links from a copy on GitHub Pages, a LAN server or a local
-file point at that copy.
-
-Microtonal grids: 5-, 7-, 19-, 24-EDO; slendro, pelog and maqam Rast
-(approximations: real gamelan tunings vary by ensemble, and maqam
-intonation is context-dependent); harmonics 8–15; Bohlen–Pierce.
-
-Toybox: Spiral, Ring, Hexagon, Star, Rose, Figure 8, Lissajous (3:2),
-Wave, Zigzag, Drop, **Beat** (a drum pattern drawn as a staircase over
-kick/snare/hat heights), Shaker (now a 60 × 40 px target), Dice.
-
-MIDI out: pluck ch 1, bell ch 2, blip ch 3, drums and shaker ch 10 (GM
-36/38/42, maracas 70). Microtonal pitches are rounded to the nearest
-semitone for now. Works in Chromium (e.g. on the Linux box, with the Huion
-as the pen); WebKit has no Web MIDI, and embedded frames usually block it.
+How to play, level by level, is in **[GUIDE.md](GUIDE.md)**. In short:
+draw, and it plays and loops; direction picks the voice, height the
+pitch; hold a loop for its own settings; Toybox holds shapes, your kept
+toys, and scenes; codes move anything between browsers and people.
 
 ### What changed, and why
 
@@ -181,6 +85,34 @@ time-scale), which is what makes retiming and recalling safe.
 - *"Sound out and MIDI out."* Web MIDI output as progressive enhancement:
   the first piece of the plugin path (see ROADMAP).
 
+**v4** (after v3, sharing and layout): a phone layout in the Suite's
+drawer pattern; Toybox / My toys / Scenes as one shelf with tabs instead
+of panels that toggle; two-tap Clear; live speed label while resizing;
+junk-tolerant links and a paste box after field links arrived mangled.
+
+**v5** (after v4):
+- *"Sharing still not working; the slots don't come along."* Links that
+  long don't reach the page on claude.ai, and scenes lived in one browser
+  only. Now everything moves as **codes**: a sheet, a toy, or *Copy
+  everything* (all scenes and toys), pasted into Scenes → Paste a code.
+  No servers, no files.
+- *"Revoicing could be toy by toy."* Each loop has its own pen and its own
+  "turning changes voices" switch, in its settings (hold the loop).
+- *"Unclear when notes trigger; Lock barely changes anything."* Lock now
+  reads a loop the way DrawnQurve does: every division step, height
+  snapped to the pitch lines, repeated pitches held. A steady pulse,
+  clearly different from Free.
+- *"Breathing room."* Notes: sparse / medium / dense. Medium is sparser
+  than before.
+- *"The More section is cut off."* Gone: replaced by levels.
+- *"Change the sounds: packs."* Paper, mallets, chip.
+- *"Limit the zone a toy moves in: a bass, a topline."* Zones: anywhere,
+  high, middle, low.
+- *"Progressive disclosure."* Simple / More / Everything. Twirl opens at
+  Simple; the slim bar + drawer is now the layout at every size.
+- Hold a loop opens its settings (it used to erase); flick a loop off the
+  edge to throw it away.
+
 ## Design choices worth arguing with
 
 1. **Notes come from distance *and* turning.** This is the one idea the toy
@@ -201,21 +133,22 @@ time-scale), which is what makes retiming and recalling safe.
    it over more pitch lines (height is height). Settled: keep both.
 7. **Lock is per loop, not global.** Changing the toggle affects new
    strokes only, so a sheet can mix free melodies and locked grooves.
+8. **Lock holds repeated pitches.** A locked loop strikes when its pitch
+   (or voice) changes and rests otherwise, so a level line is one long
+   note, not a machine gun. Notes: dense brings back the re-strikes.
+9. **Simple first.** Nothing is added to the Simple level unless the
+   first minute is better for it.
 
 ## Known limits
 
-- MIDI out only where Web MIDI exists (not on the iPad). See ROADMAP and
-  "bridges" below.
-- Scenes live in this browser only, but any sheet can travel as a share
-  link. No audio recording yet.
+- MIDI out only where Web MIDI exists (not on iPad or iPhone). See
+  ROADMAP and "bridges" below.
+- Long *links* may open empty on claude.ai; *codes* always work.
 - Max 14 loops; oldest goes first.
-- Gestures are tested with synthetic touches in Chromium, not yet on the
-  iPad. Thresholds will likely need tuning.
-- The toolbar is two rows on an iPad (sound and grid above; drawing and
-  trays below). On phones it's a drawer.
-- Phone layout tested in an emulated iPhone-mini-sized viewport only.
+- Gestures are tested with synthetic touches in Chromium; thresholds are
+  tuned by hand on devices (see TESTING.md).
 - iOS Safari needs the first touch to unlock audio; if it stays silent,
-  tap "Start sound".
+  tap Play.
 
 ## Next, roughly in order of fun per hour
 
@@ -227,8 +160,6 @@ time-scale), which is what makes retiming and recalling safe.
 - **Loops that collide.** When a loop's playhead crosses another loop's
   path, trigger that point. Rube Goldberg, but out of your own scribbles.
 - **Reverse a loop** (flip it? a mirror gesture would be natural).
-- **Scene export/import** as a file or a copyable string, then audio
-  recording from the standalone page.
 - **Shaker as performance**: the shake's own timing unquantised, or a
   "swing" amount, so a shaker loop can lope instead of tick.
 - **Life-like evolution** beyond temperaments: loops that breed (splice two paths),
