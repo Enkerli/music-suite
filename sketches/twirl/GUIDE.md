@@ -81,6 +81,27 @@ Adds:
   Linux): sound, MIDI, or both. Pluck on channel 1, bell 2, blip 3, drums
   and shaker 10.
 
+## Keyboard
+
+Every touch on the sheet draws, so with a keyboard (an iPad with a
+keyboard, or a computer) you can steer without leaving marks. Press **?**
+in Twirl for this list; it's also at the bottom of the drawer.
+
+| Key | Does |
+|---|---|
+| Space | Play / pause |
+| ⌫ or ⌘Z (Ctrl+Z) | Remove the newest loop (undo) |
+| ⇧⌘Z (Ctrl+Shift+Z, Ctrl+Y) | Bring it back (redo) |
+| ⇧⌫ | Clear the sheet (press twice) |
+| L · M · E | Lock · Morph · Edit |
+| P · N · B · G | Next pen · notes density · sound pack · grid (⇧ goes back) |
+| [ · ] | Tempo down / up (⇧ for steps of 10) |
+| T · Y · S | Toybox · My toys · Scenes |
+| C | Controls drawer |
+| 1 · 2 · 3 | Simple · More · Everything |
+| R · W · O | Revoice (new loops) · Walk · Drone |
+| Esc | Close whatever is open |
+
 ## Keeping and sharing
 
 Nothing goes to a server. Everything lives in this browser, and moves as

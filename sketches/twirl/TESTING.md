@@ -28,6 +28,7 @@ What it covers:
 | Sounds | every voice of every pack plays without errors; Notes density changes note spacing |
 | Saving | Clear takes two taps and never touches saved scenes |
 | Codes | *Copy everything* in one browser, paste in another: scenes and toys arrive |
+| Keyboard | Space plays; ⌫ undoes and ⇧⌘Z redoes; toggles, cycling pickers (and ⇧ backwards), tempo, levels, shelf, Esc, the ? list; ⇧⌫ twice clears |
 | Field links | the three links in `test/fixtures/`, exactly as received (stray `!`, line breaks, a 3,300-character Safari link), all open by pasting |
 | Phone | no sideways scrolling at 375px; the drawer opens; levels reveal controls |
 | Everywhere | no page errors |

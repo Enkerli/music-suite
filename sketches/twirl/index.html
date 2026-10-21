@@ -150,6 +150,22 @@ body {
 .insprow .lbl { min-width: 3.6rem; font: 400 0.75rem/1 var(--font-mono); color: var(--ink-muted); }
 .insprow .seg .btn { padding: 0 10px; }
 .seg .btn[aria-pressed="true"] { background: var(--ink); color: var(--paper); }
+kbd {
+  display: inline-block; min-width: 1.4em; padding: 1px 5px; text-align: center;
+  font: 400 0.75rem/1.4 var(--font-mono); color: var(--ink);
+  background: var(--paper); border: 1px solid var(--rule-strong); border-bottom-width: 2px; border-radius: 5px;
+}
+.keys {
+  position: fixed; z-index: 30; left: 50%; top: 50%; transform: translate(-50%, -50%);
+  width: min(460px, calc(100% - 32px)); max-height: calc(100% - 32px); overflow-y: auto; box-sizing: border-box;
+  padding: 16px 18px; display: grid; gap: 10px;
+  background: var(--raised); border: 1px solid var(--rule); border-radius: 16px; box-shadow: 0 12px 40px rgb(0 0 0 / 0.2);
+}
+.keys h2 { margin: 0; font: 600 1.75rem/1 var(--font-hand); }
+.keysnote { margin: 0; font-size: 0.8125rem; line-height: 1.4; color: var(--ink-muted); }
+.keys dl { margin: 0; display: grid; grid-template-columns: auto 1fr; gap: 8px 14px; align-items: baseline; }
+.keys dt { white-space: nowrap; }
+.keys dd { margin: 0; font-size: 0.875rem; line-height: 1.35; }
 .btn.armed { background: var(--drum); border-color: var(--drum); color: var(--paper); }
 .toy {
   display: grid; justify-items: center; align-content: center; gap: 3px;
@@ -360,6 +376,7 @@ body {
     <button class="btn" id="sceneBtn" type="button" aria-expanded="false" aria-controls="scenes">Scenes</button>
     <button class="btn" id="clear" type="button">Clear</button>
   </span>
+  <button class="btn" id="keysBtn" type="button" aria-haspopup="dialog">Keyboard shortcuts <kbd>?</kbd></button>
   <div class="drawerlegend" id="drawerLegend"></div>
 </div>
 
@@ -443,6 +460,26 @@ body {
     <span class="seg" data-insp="ts"><button class="btn" type="button" data-v="0.5">½</button><button class="btn" type="button" data-v="0.6667">⅔</button><button class="btn" type="button" data-v="0.75">¾</button><button class="btn" type="button" data-v="1">1</button><button class="btn" type="button" data-v="1.3333">4⁄3</button><button class="btn" type="button" data-v="1.5">1½</button><button class="btn" type="button" data-v="2">2</button></span></div>
   <div class="insprow"><button class="btn" type="button" id="inspMute" aria-pressed="false">Mute</button><button class="btn" type="button" id="inspKeep">Keep as a toy</button><button class="btn" type="button" id="inspErase">Erase</button></div>
  </div>
+</div>
+
+<div class="keys" id="keys" role="dialog" aria-labelledby="keysTitle" hidden>
+  <div class="shelfhead"><h2 id="keysTitle">Keyboard</h2><button class="btn" type="button" id="keysClose">Close</button></div>
+  <p class="keysnote">With a keyboard, you can steer without touching the sheet, where every touch draws.</p>
+  <dl>
+    <dt><kbd>Space</kbd></dt><dd>Play / pause</dd>
+    <dt><kbd>⌫</kbd> or <kbd>⌘Z</kbd></dt><dd>Remove the newest loop (undo)</dd>
+    <dt><kbd>⇧⌘Z</kbd> or <kbd>Ctrl Y</kbd></dt><dd>Bring it back (redo)</dd>
+    <dt><kbd>⇧⌫</kbd></dt><dd>Clear the sheet (press twice)</dd>
+    <dt><kbd>L</kbd> <kbd>M</kbd> <kbd>E</kbd></dt><dd>Lock · Morph · Edit</dd>
+    <dt><kbd>P</kbd> <kbd>N</kbd> <kbd>B</kbd> <kbd>G</kbd></dt><dd>Next pen · notes density · sound pack · grid. With <kbd>⇧</kbd>: previous</dd>
+    <dt><kbd>[</kbd> <kbd>]</kbd></dt><dd>Tempo down / up. With <kbd>⇧</kbd>: by 10</dd>
+    <dt><kbd>T</kbd> <kbd>Y</kbd> <kbd>S</kbd></dt><dd>Toybox · My toys · Scenes</dd>
+    <dt><kbd>C</kbd></dt><dd>Controls drawer</dd>
+    <dt><kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd></dt><dd>Simple · More · Everything</dd>
+    <dt><kbd>R</kbd> <kbd>W</kbd> <kbd>O</kbd></dt><dd>Revoice (new loops) · Walk · Drone</dd>
+    <dt><kbd>Esc</kbd></dt><dd>Close whatever is open</dd>
+    <dt><kbd>?</kbd></dt><dd>This list</dd>
+  </dl>
 </div>
 
 <div class="toast" id="toast" role="status" hidden></div>
@@ -2493,6 +2530,80 @@ $("backBtn").addEventListener("click", () => {
 document.querySelectorAll("[data-copy]").forEach((btn) => btn.addEventListener("click", () => copyText($(btn.dataset.copy).value, $(btn.dataset.copy), "Code")));
 $("nativeShareBtn").addEventListener("click", () => {
   navigator.share({ title: "Twirl", text: `Paste this into Twirl (Scenes → Paste a code): ${$("shareLink").value}` }).catch(() => {});
+});
+
+/* ── Keyboard ───────────────────────────────────────────────────────────────
+ * Every touch on the sheet draws, so a keyboard is the way to steer without
+ * leaving marks. Shortcuts press the same buttons and pickers you'd tap, so
+ * their state, labels and toasts stay in one place. Ignored while typing. */
+const undone = [];                                      // loops removed by undo, newest last
+function undoLoop() {
+  const lp = loops.at(-1);
+  if (!lp) { toast("Nothing to undo"); return; }
+  if (insp === lp) closeInspector();
+  eraseLoop(lp); undone.push(lp); if (undone.length > 20) undone.shift();
+  toast("Removed the newest loop · ⇧⌘Z brings it back");
+}
+function redoLoop() {
+  const lp = undone.pop();
+  if (!lp) { toast("Nothing to bring back"); return; }
+  fading = fading.filter((f) => f !== lp);
+  const start = nextStart();
+  Object.assign(lp, { start, cursor: start, lastPass: 0, held: false, lastBand: null, lastVoice: null });
+  loops.push(lp); renderLoopList(); toast("Brought back");
+}
+/** Step a <select> to its next (or previous) option and let it react. */
+function cycleSelect(id, back) {
+  const sel = $(id), n = sel.options.length;
+  sel.selectedIndex = (sel.selectedIndex + (back ? n - 1 : 1)) % n;
+  sel.dispatchEvent(new Event("change"));
+  toast(sel.options[sel.selectedIndex].textContent);
+}
+function nudgeTempo(d) {
+  const r = $("bpm"); r.value = String(Math.min(160, Math.max(60, Number(r.value) + d)));
+  r.dispatchEvent(new Event("input")); toast(`${r.value} bpm`);
+}
+function pressToggle(id, label) {
+  $(id).click();
+  toast(`${label} ${$(id).getAttribute("aria-pressed") === "true" ? "on" : "off"}`);
+}
+function openKeys() { $("keys").hidden = false; setDrawer(false); }
+function closeKeys() { $("keys").hidden = true; }
+$("keysBtn").addEventListener("click", openKeys);
+$("keysClose").addEventListener("click", closeKeys);
+
+const KEYS = {
+  " ": () => $("power").click(),
+  l: () => pressToggle("lockBtn", "Lock"), m: () => pressToggle("morphBtn", "Morph"), e: () => pressToggle("editBtn", "Edit"),
+  r: () => pressToggle("revoiceBtn", "Revoice for new loops"), w: () => pressToggle("walkBtn", "Walk"), o: () => pressToggle("droneBtn", "Drone"),
+  p: (b) => cycleSelect("pen", b), n: (b) => cycleSelect("density", b), b: (b) => cycleSelect("pack", b), g: (b) => cycleSelect("grid", b),
+  "[": (b) => nudgeTempo(b ? -10 : -2), "]": (b) => nudgeTempo(b ? 10 : 2),
+  "{": () => nudgeTempo(-10), "}": () => nudgeTempo(10),
+  t: () => openShelf("toybox"), y: () => openShelf("mytoys"), s: () => openShelf("scenes"),
+  c: () => { closeShelf(); closeInspector(); setDrawer(!document.body.classList.contains("drawer-open")); },
+  1: () => setLevel(1), 2: () => setLevel(2), 3: () => setLevel(3),
+  "?": () => ($("keys").hidden ? openKeys() : closeKeys()),
+};
+document.addEventListener("keydown", (e) => {
+  if (e.target.closest && e.target.closest("input, textarea, select")) return;
+  if (e.key === "Escape") { closeKeys(); return; }               // the other Escape handlers close the rest
+  const mod = e.metaKey || e.ctrlKey, key = e.key.length === 1 ? e.key.toLowerCase() : e.key;
+  if (mod && key === "z") { e.preventDefault(); e.shiftKey ? redoLoop() : undoLoop(); return; }
+  if (mod && key === "y") { e.preventDefault(); redoLoop(); return; }
+  if (mod || e.altKey) return;                                    // leave the browser's own shortcuts alone
+  if (key === "Backspace" || key === "Delete") {
+    e.preventDefault();
+    if (e.shiftKey) { setDrawer(true); $("clear").click(); } else undoLoop();
+    return;
+  }
+  const fn = KEYS[e.key === "?" ? "?" : key];
+  if (!fn) return;
+  if (e.key === " " && e.target.closest && e.target.closest("button")) return;   // Space on a focused button presses that button
+  e.preventDefault();
+  if (e.key !== " ") ensureAudio();                              // Space decides for itself: play or pause
+  hint.hidden = true;
+  fn(e.shiftKey);
+  syncPower();
 });
 
 function renderLoopList() {

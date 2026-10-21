@@ -108,6 +108,37 @@ console.log("Twirl smoke test\n\nFirst contact");
   check(await other.page.evaluate(() => !!store.get(slotKey(1)) && loadToys().length >= 1), "pasting it elsewhere fills scenes and toys");
 }
 
+console.log("\nKeyboard");
+{
+  const { page } = await newPage();
+  await page.goto(PAGE); await page.waitForTimeout(300);
+  await page.keyboard.press("Space");
+  check(await page.evaluate(() => ctx && ctx.state === "running"), "Space starts the sound");
+  await page.keyboard.press("Backspace");
+  check(await page.evaluate(() => loops.length) === 2, "Backspace removes the newest loop");
+  await page.keyboard.press("Control+Shift+Z");
+  check(await page.evaluate(() => loops.length) === 3, "Ctrl/⌘+Shift+Z brings it back");
+  await page.keyboard.press("l");
+  check(await page.evaluate(() => state.lock), "L toggles Lock");
+  await page.keyboard.press("n");
+  check(await page.evaluate(() => state.density) === "dense", "N steps the notes density");
+  await page.keyboard.press("Shift+N");
+  check(await page.evaluate(() => state.density) === "medium", "Shift steps it back");
+  await page.keyboard.press("]");
+  check(await page.evaluate(() => state.bpm) === 98, "] nudges the tempo up");
+  await page.keyboard.press("3");
+  check(await page.evaluate(() => document.body.classList.contains("lvl-3")), "3 shows Everything");
+  await page.keyboard.press("t");
+  check(await page.isVisible("#toybox"), "T opens the Toybox");
+  await page.keyboard.press("Escape");
+  check(await page.isHidden("#shelf"), "Esc closes it");
+  await page.keyboard.press("?");
+  check(await page.isVisible("#keys"), "? shows the shortcut list");
+  await page.keyboard.press("Escape");
+  await page.keyboard.press("Shift+Backspace"); await page.keyboard.press("Shift+Backspace");
+  check(await page.evaluate(() => loops.length) === 0, "Shift+Backspace twice clears the sheet");
+}
+
 console.log("\nField links (as received)");
 for (const [name, loopsExpected] of [["field-1-stray-bangs.txt", 4], ["field-2-bangs-and-line-breaks.txt", 4], ["field-3-clean-long-safari.txt", 14]]) {
   const { page } = await newPage();
