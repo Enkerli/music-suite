@@ -24,7 +24,8 @@ What it covers:
 |---|---|
 | First contact | opens with example loops; opens at Simple; Simple hides the advanced controls; sound starts on the first tap |
 | Drawing | a stroke becomes a loop; a Lock stroke becomes a locked loop that strikes on grid steps |
-| A loop's settings | holding opens them; zone and movement apply; a "low" loop glides into the low zone |
+| Live quantizing | Division 1/4 puts every existing note on a beat; 1/16 lets them back between; toggling Lock changes existing loops at once |
+| A loop's settings | holding opens them; zone and movement apply; a "low" loop glides into the low zone; its Volume scales its notes |
 | Sounds | every voice of every pack plays without errors; Notes density changes note spacing |
 | Saving | Clear takes two taps and never touches saved scenes |
 | Codes | *Copy everything* in one browser, paste in another: scenes and toys arrive |

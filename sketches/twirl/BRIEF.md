@@ -113,6 +113,21 @@ junk-tolerant links and a paste box after field links arrived mangled.
 - Hold a loop opens its settings (it used to erase); flick a loop off the
   edge to throw it away.
 
+**v6** (after v5):
+- *"Not hearing differences from subdivisions or Lock."* They really
+  didn't touch existing loops: snapping was baked in while drawing, and
+  Lock only applied to new strokes. Now both happen **at playback**:
+  notes keep the moment you drew them, and are snapped to the division as
+  they play; Lock reads every loop that follows it, at once. Each loop can
+  opt out (Timing: as drawn / on the grid).
+- *"Not clear how a shot is fired; distance on the path vs rhythm."* One
+  rule, made visible: a note sounds when the playhead reaches it, at the
+  playhead's place at that moment. **Beat ticks** across every path show
+  where the playhead is on each beat (close ticks = drawn slowly), and
+  snapped notes are drawn where they now sound.
+- *"Dynamics."* Dot size = loudness. Faster drawing, or pen pressure, is
+  louder; each loop has a Volume; the drawer has a master Volume (- / =).
+
 ## Design choices worth arguing with
 
 1. **Notes come from distance *and* turning.** This is the one idea the toy
@@ -120,9 +135,11 @@ junk-tolerant links and a paste box after field links arrived mangled.
    makes 2D gestures different from a qurve.
 2. **Direction → voice uses the heading since the previous note**, not the
    last few pixels, so finger jitter doesn't flip voices.
-3. **Loops replay the *recorded* timing** (snapped or not), and the playhead
-   rides along the drawn path. The loop is your gesture, not an abstraction
-   of it. Resizing scales that timing; it never re-quantises it.
+3. **Loops replay the *recorded* timing**, and the playhead rides along the
+   drawn path. The loop is your gesture, not an abstraction of it.
+   Snapping is applied at playback (never baked in), so the division can
+   change under a loop and back again without loss. Resizing scales the
+   timing.
 4. **Pitch is stored as height, not as a note**, and read after the loop's
    transform. Changing grid remaps every loop instantly; moving, stretching
    and Morph are all just geometry.

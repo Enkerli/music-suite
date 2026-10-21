@@ -10,6 +10,33 @@ anything), **More** (shaping what you hear), **Everything** (the tool
 underneath). The level switch is at the top of the ☰ drawer, and Twirl
 remembers your choice in this browser.
 
+## How a note is fired
+
+This is the one thing worth knowing, and the sheet shows it:
+
+- **A loop replays your gesture at the speed you drew it.** The blue dot
+  is the playhead, travelling along the path.
+- **The other dots are notes.** While you draw, a note is made every so
+  often: after some distance, or when the line turns. A note **sounds
+  when the playhead reaches it**, at the pitch of its height (and its
+  left-right position) at that moment.
+- **Ticks across the path mark the beats**: where the playhead will be on
+  each beat (a longer tick starts each bar). Ticks close together: you
+  drew slowly there, so that stretch takes time. Far apart: you drew
+  fast, so it flies by. *Distance on the path is not time; ticks are.*
+- **Snapping**: with a beat division chosen (More level), each note is
+  moved to the nearest step **as it plays**, and drawn where it now
+  sounds. Change the division and every loop follows at once: at 1/4 the
+  dots gather onto the beat ticks; at 1/16 they spread back out.
+- **Lock** reads loops differently: instead of your notes, every step of
+  the division plays whatever pitch line the playhead is on (a held pitch
+  isn't struck again). Turn it on and every loop changes at once.
+
+**Loud and soft**: a dot's size is its loudness. Drawing faster makes
+louder notes; with a pen (Apple Pencil, a Huion tablet), pressing harder
+does. Each loop has its own **Volume** (hold it), and the drawer has a
+master **Volume**. On the grid (Lock), notes on the beat are accented.
+
 ## Simple: just play
 
 Touch anywhere. Sound starts on the first touch (or press **Play**).
@@ -29,12 +56,13 @@ Touch anywhere. Sound starts on the first touch (or press **Play**).
 | **Toybox** | Ready-made shapes to drop on the sheet, plus tabs for **My toys** and **Scenes**. |
 
 **A loop's own settings** (hold it):
+- **Volume**: this loop only.
 - **Moves**: still, drift, spin or jitter. Each loop wanders in its own way.
 - **Lives**: anywhere, high, middle or low. A loop told to live low stays
   a bass however it wanders; one living high stays a topline.
 - **Mute**, **Keep as a toy**, **Erase**.
 
-**In the drawer (☰)** at this level: tempo, **Sounds** (paper, mallets,
+**In the drawer (☰)** at this level: tempo, **Volume**, **Sounds** (paper, mallets,
 chip), **Notes** (sparse, medium, dense: how many notes a stroke makes),
 **Loop** (off = nothing repeats: play it live), and **Clear** (two taps;
 your saved scenes and toys are never touched).
@@ -45,21 +73,24 @@ Adds to the drawer:
 
 - **Grid**: the scale the horizontal lines stand for. **Root**, and
   **Range** (how many octaves the sheet covers).
-- **Division**: the vertical lines. One bar spans the sheet. It sets how
-  notes snap in time, and the pulse of Lock.
+- **Division**: the vertical lines. One bar spans the sheet. Every loop's
+  notes snap to it as they play (Free: no snapping), and it's the pulse of
+  Lock. Changing it changes every loop at once.
 - **Pen**: which voice new strokes play. *Direction* (the default) or
   always drums, pluck, bell, blip, shaker. Pen: drums is the quickest way
   to make beats.
-- **Lock** (also in the top bar): new strokes are read like DrawnQurve.
+- **Lock** (also in the top bar): every loop is read like DrawnQurve.
   On every step of the division, Twirl looks at where the loop's playhead
   is and snaps its height to the nearest pitch line. A new pitch strikes;
-  the same pitch is held, not re-struck. Free strokes have the rhythm of
-  your gesture; locked ones have a steady pulse with rests where the line
-  stays level. A loop keeps the mode it was drawn in.
+  the same pitch is held, not re-struck. Without Lock, loops have the
+  rhythm of your gesture; with it, a steady pulse with rests where the
+  line stays level. It applies at once, to every loop that follows it.
 - **Morph**: off freezes every loop where it is.
 
-And a loop's settings add **Voice** (direction, or one fixed voice) and
-**Speed** (½ to 2, the same ratios as resizing).
+And a loop's settings add **Voice** (direction, or one fixed voice),
+**Speed** (½ to 2, the same ratios as resizing) and **Timing**: *follow
+Lock* (the default), *as drawn* (never locked: a shaker or a melody you
+want to keep loose), or *on the grid* (always locked).
 
 ## Everything: the tool
 
@@ -96,6 +127,7 @@ in Twirl for this list; it's also at the bottom of the drawer.
 | L · M · E | Lock · Morph · Edit |
 | P · N · B · G | Next pen · notes density · sound pack · grid (⇧ goes back) |
 | [ · ] | Tempo down / up (⇧ for steps of 10) |
+| - · = | Volume down / up |
 | T · Y · S | Toybox · My toys · Scenes |
 | C | Controls drawer |
 | 1 · 2 · 3 | Simple · More · Everything |

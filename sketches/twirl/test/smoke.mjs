@@ -61,11 +61,28 @@ console.log("Twirl smoke test\n\nFirst contact");
   await page.mouse.move(300, 200); await page.mouse.down();
   for (let i = 1; i < 40; i++) { await page.mouse.move(300 + i * 8, 200 + i * 6); await page.waitForTimeout(25); }
   await page.mouse.up();
-  const lockLoop = await page.evaluate(() => loops.at(-1).trigger);
-  check(lockLoop === "lock", "Lock strokes become locked loops");
+  check(await page.evaluate(() => locked(loops.at(-1))), "with Lock on, loops are read on the grid");
   await page.waitForTimeout(1500);
   const strikes = await page.evaluate(() => window.__strikes);
   check(strikes > 2, "locked loops strike on the grid steps", `${strikes} strikes`);
+
+  console.log("\nQuantizing is live (what you change is what you hear)");
+  // Capture the beat of every free note played for a while, under two divisions.
+  await page.evaluate(() => { state.lock = false; window.__beats = []; const real = play; play = (lp, ev, t, b, ph) => { window.__beats.push(b); return real(lp, ev, t, b, ph); }; });
+  await page.evaluate(() => { $("div").value = "4"; $("div").dispatchEvent(new Event("change")); window.__beats = []; });
+  await page.waitForTimeout(2500);
+  const quarters = await page.evaluate(() => window.__beats.slice());
+  check(quarters.length > 0 && quarters.every((b) => Math.abs(b - Math.round(b)) < 1e-6), "Division 1/4 puts every existing note on a beat", `${quarters.length} notes`);
+  await page.evaluate(() => { $("div").value = "16"; $("div").dispatchEvent(new Event("change")); window.__beats = []; });
+  await page.waitForTimeout(2500);
+  const sixteenths = await page.evaluate(() => window.__beats.slice());
+  check(sixteenths.some((b) => Math.abs(b - Math.round(b)) > 1e-6) && sixteenths.every((b) => Math.abs(b * 4 - Math.round(b * 4)) < 1e-6),
+    "Division 1/16 lets them back between the beats", `${sixteenths.length} notes`);
+  await page.evaluate(() => { window.__strikes = 0; });
+  await page.evaluate(() => $("lockBtn").click());
+  await page.waitForTimeout(1500);
+  check(await page.evaluate(() => window.__strikes) > 2, "toggling Lock changes existing loops at once");
+  await page.evaluate(() => $("lockBtn").click());
 
   console.log("\nA loop's own settings");
   // Freeze motion first: a loop that drifts between aiming and holding makes the hold land elsewhere.
@@ -77,6 +94,11 @@ console.log("Twirl smoke test\n\nFirst contact");
   check(await page.evaluate(() => insp && insp.zone === "low" && insp.temper === "still"), "zone and movement apply to that loop");
   await page.waitForTimeout(1800);
   check(await page.evaluate(() => { const l = insp; const cy = l.c.y + l.ty + l.m.ty; return cy >= 0.6; }), "a low loop glides into the low zone");
+  await page.evaluate(() => { const g = $("inspGain"); g.value = "0.5"; g.dispatchEvent(new Event("input")); window.__vels = []; const real = sound; sound = (v, x, y, vel, ...r) => { window.__vels.push(vel); return real(v, x, y, vel, ...r); }; loops.forEach((l) => { if (l !== insp) l.muted = true; }); });
+  await page.waitForTimeout(3000);
+  const vels = await page.evaluate(() => window.__vels.slice());
+  check(vels.length > 0 && Math.max(...vels) <= 0.5 + 1e-9, "a loop's Volume scales its notes", `${vels.length} notes, max ${Math.max(...vels).toFixed(2)}`);
+  await page.evaluate(() => loops.forEach((l) => { l.muted = false; }));
   await page.click("#inspClose");
 
   console.log("\nSounds and density");
