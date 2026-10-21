@@ -68,14 +68,15 @@ console.log("Twirl smoke test\n\nFirst contact");
   check(strikes > 2, "locked loops strike on the grid steps", `${strikes} strikes`);
 
   console.log("\nA loop's own settings");
-  const pt = await page.evaluate(() => { const l = loops[0]; return place(l, l.pts[60].x, l.pts[60].y, sheet.clientWidth, sheet.clientHeight); });
+  // Freeze motion first: a loop that drifts between aiming and holding makes the hold land elsewhere.
+  const pt = await page.evaluate(() => { state.morph = false; loops.forEach((l) => { l.mt = { ...l.m }; }); const l = loops[0]; return place(l, l.pts[60].x, l.pts[60].y, sheet.clientWidth, sheet.clientHeight); });
   await page.mouse.move(pt[0], pt[1]); await page.mouse.down(); await page.waitForTimeout(700); await page.mouse.up();
   check(await page.isVisible("#inspector"), "holding a loop opens its settings");
   await page.click('[data-insp="zone"] [data-v="low"]');
   await page.click('[data-insp="temper"] [data-v="still"]');
-  check(await page.evaluate(() => loops[0].zone === "low" && loops[0].temper === "still"), "zone and movement apply to that loop");
+  check(await page.evaluate(() => insp && insp.zone === "low" && insp.temper === "still"), "zone and movement apply to that loop");
   await page.waitForTimeout(1800);
-  check(await page.evaluate(() => { const l = loops[0]; const cy = l.c.y + l.ty + l.m.ty; return cy >= 0.6; }), "a low loop glides into the low zone");
+  check(await page.evaluate(() => { const l = insp; const cy = l.c.y + l.ty + l.m.ty; return cy >= 0.6; }), "a low loop glides into the low zone");
   await page.click("#inspClose");
 
   console.log("\nSounds and density");
