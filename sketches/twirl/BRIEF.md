@@ -136,9 +136,8 @@ junk-tolerant links and a paste box after field links arrived mangled.
   (V), and ⇧1–⇧6.
 - *"Mallets are my favourite; more packs."* Felt, steel and kalimba.
 - *"Recording a playflow."* ● Rec records audio takes (Takes tab: play,
-  save as a file via the page's download permission, delete). Recording
-  the *performance itself* (gestures and changes, replayable and
-  shareable as a code) is on the roadmap.
+  save as a file via the page's download permission, delete). The
+  performance itself came in v8.
 - *"Adding points; more impact on a loop's rhythm."* Edit notes moved to
   More and into each loop's settings; per-loop Rhythm (as drawn / even /
   euclidean); global Swing.
@@ -149,6 +148,25 @@ junk-tolerant links and a paste box after field links arrived mangled.
 - *"A design pass."* Paper fades behind the bar and footer, the playhead
   has a halo, the selected loop is accent-coloured, numbers on the sheet,
   chips, palette and record styling.
+
+**v8** (after v7):
+- *"Saving the playflow itself."* ● Rec now records what you *do*:
+  strokes, moves, mutes, erasures and settings, timed in beats. A take
+  replays on the sheet (touch it to take over), is kept in the browser,
+  and travels as a code (`twirl:f1.…`). The sound is still recorded
+  alongside, as before.
+- *"The dialog is still for the previous loop."* A loop's settings follow
+  the selection. Also fixed: after pressing Play, Enter pressed Play again
+  instead of opening the selected loop's settings.
+- *"Ways to play with sparseness, airier scenes."* **Air** (drawer,
+  Simple): when the sheet gets busy, off-beat notes drop out; downbeats
+  stay. Per loop, **Plays** every pass, every other, or one in three.
+- *"Tension/release, resolving."* **Arc** (More): home → away → pull →
+  resolve over 4 or 8 bars; on the last bar, notes settle onto the home
+  chord. Kept within the scale, so the low-tension, "kids playing"
+  character stays: tension is a shift of the whole scene, never a clash.
+- *"Revert loops; bidirectional; duplicate."* Per-loop **Direction**
+  (forward, reverse, ping-pong); **Duplicate** (button, D).
 
 ## Design choices worth arguing with
 

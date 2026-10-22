@@ -32,6 +32,9 @@ What it covers:
 | Keyboard | Space plays; digits select loops, arrows move the selected one, X mutes it, ⇧2 picks a pen, V shows the palette and the palette sets the pen; ⌫ undoes and ⇧⌘Z redoes; toggles, cycling pickers (and ⇧ backwards), tempo, levels, shelf, Esc, the ? list; ⇧⌫ twice clears |
 | Rhythm, harmony, sound | even and euclidean rhythms land where they should; sevenths stack four notes; swing delays every other step; drone voicings rebuild; every pack plays every voice, chords included |
 | Recording | ⇧Space records a take, and it shows in Takes |
+| Selection | open settings follow the selected loop (1, Enter, 2); Enter after pressing Play opens settings instead of pausing |
+| Direction, breathing, arcs | ping-pong alternates; reverse plays a note drawn at t at L − t; *every other* rests on odd passes; Air thins a busy stretch; a 4-bar Arc runs home, away, pull, resolve and resolving lands on the home chord's steps; D duplicates |
+| Playflows | ● Rec keeps a flow; Replay clears the sheet, rebuilds it, and ends where you left off (drawn, moved, muted, erased, tempo changed); touching the sheet takes over; a take's code pastes into another browser's Takes |
 | Field links | the three links in `test/fixtures/`, exactly as received (stray `!`, line breaks, a 3,300-character Safari link), all open by pasting |
 | Phone | no sideways scrolling at 375px; the drawer opens; levels reveal controls |
 | Everywhere | no page errors |

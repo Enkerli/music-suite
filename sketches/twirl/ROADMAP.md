@@ -15,7 +15,7 @@ nothing on this roadmap is allowed to cost that.** Every surface opens at
 from "I don't know what's happening, I'm discovering" to something close
 to a tool.
 
-## Where it stands (sketch v5)
+## Where it stands (sketch v8)
 
 One self-contained `index.html` (no build), published as a claude.ai
 artifact and kept in `sketches/twirl/`. Organised along the seams that
@@ -137,19 +137,25 @@ relying on a central store, which so far is exactly what we're avoiding.
 
 ## Recording a playflow
 
-Audio takes are in (v7). The next step is recording the **performance**:
-every stroke, drag, setting change and toggle, timestamped in beats, so a
-session can be replayed (and edited) rather than just listened to. It's a
-small event log on top of what scenes already serialise, so it can travel
-as a code like everything else. Best built with the engine extraction
-(Step 1), where every edit is already an explicit operation.
+Built (v8): ● Rec keeps a **playflow**, an event log in beats (loops
+added, reshaped, posed, erased; settings changed), sampled four times a
+second and replayable on the sheet; it travels as a `twirl:f1.` code.
+Next steps:
+
+- **Editing** a take: trim, and splice two takes together.
+- **Morph** isn't recorded (replayed loops wander afresh); a seeded random
+  per loop would make replays exact without growing the code.
+- With the engine extracted (Step 1), every edit becomes an explicit
+  operation, so the log can record operations instead of sampling state.
+- In the plugin, a take could export as a MIDI file.
 
 ## Smaller next things
 
 - Tune gesture thresholds on the real iPad and iPhone.
 - More sound packs; let a loop pick its own pack.
 - Audio recording from the standalone page.
-- Reverse / mirror a loop.
+- Mirror a loop (flip it left-right or up-down). Reverse and ping-pong
+  are in (v8).
 - Zones on the X axis too (left/right = pan regions)?
 
 ## Open questions

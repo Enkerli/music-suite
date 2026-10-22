@@ -55,17 +55,25 @@ Touch anywhere. Sound starts on the first touch (or press **Play**).
 | Hold a loop | Its own settings (below). |
 | **Toybox** | Ready-made shapes to drop on the sheet, plus tabs for **My toys**, **Scenes** and **Takes**. |
 | The chips along the bottom | One per loop, numbered like the small numbers on the sheet. Tap one to pick that loop and open its settings: the sure way to reach a loop that's small, crowded or moving. |
-| **● Rec** (top bar) | Record what you play; press again to stop. Takes go to Toybox → **Takes**, where you can play them back and **Save** them as audio files. Takes are kept until you close the page. |
+| **● Rec** (top bar) | Record what you play; press again to stop. A take keeps what you **did** (every stroke, move, mute, erase and setting) and, where the browser can, its **sound**. Toybox → **Takes**: **▶ Replay** plays it back on the sheet (below), **Save sound** saves the audio as a file, **Copy code** sends the take to someone. |
 
-**A loop's own settings** (hold it):
+**A loop's own settings** (hold it, or tap its chip). While they're open,
+picking another loop (a chip, or 1–9) switches them to that loop: the
+quick way to mute loops one at a time.
 - **Volume**: this loop only.
+- **Plays**: every pass, every other pass, or one pass in three. A loop
+  that rests now and then leaves room for the others.
 - **Moves**: still, drift, spin or jitter. Each loop wanders in its own way.
 - **Lives**: anywhere, high, middle or low. A loop told to live low stays
   a bass however it wanders; one living high stays a topline.
-- **Mute**, **Keep as a toy**, **Erase**.
+- **Mute**, **Duplicate** (a copy, a beat behind, nudged aside: a
+  canon; or press **D**), **Keep as a toy**, **Erase**.
 
 **In the drawer (☰)** at this level: tempo, **Volume**, **Sounds** (paper,
 mallets, felt, steel, kalimba, chip), **Notes** (sparse, medium, dense: how many notes a stroke makes),
+**Air** (more air = when the sheet gets busy, off-beat notes drop out so
+it breathes; downbeats always play, and what you're drawing is never
+thinned),
 **Loop** (off = nothing repeats: play it live), and **Clear** (two taps;
 your saved scenes and toys are never touched).
 
@@ -93,6 +101,12 @@ Adds to the drawer:
   note, tap a note to remove it, drag a square to bend the path, hold a
   loop to smooth it. (Also from a loop's settings: *Edit notes*.)
 - **Swing**: every other step of the division comes late. 0 is straight.
+- **Arc**: tension and release over 4 or 8 bars. *Home*, then *away*
+  (everything shifts up the scale), then *pull* (a step further, leaning
+  back), then *resolve*: on the last bar every note settles onto the home
+  chord (the scale's 1st, 3rd and 5th steps). The phase names show at the
+  top of the sheet, the current one coloured. Arc replaces Walk while
+  it's on.
 
 And a loop's settings add:
 
@@ -105,6 +119,8 @@ And a loop's settings add:
 - **Chord**: *single*, *fifths*, *triads*, *sevenths* or *sus*. Each note
   becomes a stack built from every other step of the current scale, so
   chords stay in key and in tuning. Drums and the shaker stay single.
+- **Direction**: *forward*, *reverse* (the playhead runs the path
+  backwards, so a rising line falls), or *ping-pong* (forward, then back).
 - **Timing**: *follow Lock* (the default), *as drawn* (never locked: a
   shaker or a melody you want to keep loose), or *on the grid* (always
   locked).
@@ -140,7 +156,7 @@ the drawer).
 | 1 … 9 | Select a loop (Tab steps through them; 0 or Esc deselects) |
 | Enter | The selected loop's settings |
 | ← ↑ ↓ → · , . | Move the selected loop (⇧: further) · turn it |
-| < > · X | Selected loop slower / faster · mute it |
+| < > · X · D | Selected loop slower / faster · mute it · duplicate it |
 | ⌫ or ⌘Z (Ctrl+Z) | Erase the selected loop, or the newest one (undo) |
 | ⇧⌘Z (Ctrl+Shift+Z, Ctrl+Y) | Bring it back (redo) |
 | ⇧⌫ | Clear the sheet (press twice) |
@@ -176,9 +192,31 @@ Nothing goes to a server. Everything lives in this browser, and moves as
 - Opening someone's sheet replaces yours on screen, but yours is kept:
   Scenes → **Back to my sheet**.
 
+### Takes: replaying a playflow
+
+A take is a **playflow**: what you did, in beats, rather than a recording
+of the sound. The newest dozen are kept in this browser, even after a
+reload.
+
+- **▶ Replay** clears the sheet (yours is kept: Scenes → Back to my
+  sheet) and plays your session back as it happened: strokes appear where
+  and when you drew them, loops move, mute, change and vanish, settings
+  and tempo change on cue. A bar at the top shows the time; **Stop** ends
+  it.
+- **Touch the sheet to take over.** The replay stops right there and the
+  sheet is yours, so a take is also a way back into a moment you liked.
+- Morph's wandering isn't recorded, only what you did: replayed loops
+  wander afresh (a loop set to *still* replays exactly).
+- **Copy code** gives `twirl:f1.…`; it pastes like any other code (Scenes
+  → Paste a code) and lands in the other person's Takes.
+- The **sound** of a take stays only until you close the page: *Save
+  sound* if you want it as a file.
+
 ## Tips
 
 - Lost? Clear (two taps), and draw one slow spiral.
 - For a groove: Pen: drums, Lock on, Division 1/8, draw a few short
   zigzags low on the sheet; then a free melody up high, told to live high.
-- Notes: sparse gives loops room to breathe.
+- Notes: sparse gives loops room to breathe. So does **Air**, and so
+  does telling a busy loop to play every other pass.
+- For a canon: select a loop, press D, set the copy to *reverse*.

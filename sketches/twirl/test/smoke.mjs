@@ -201,6 +201,98 @@ console.log("\nRhythm, harmony, swing, drone, sounds, recording");
   check(await page.isVisible("#takes"), "the take shows in Toybox → Takes");
 }
 
+console.log("\nSelection, direction, breathing, arcs, duplicates");
+{
+  const { page } = await newPage();
+  await page.goto(PAGE); await page.waitForTimeout(300);
+  await page.click("#power");
+  await page.keyboard.press("1"); await page.keyboard.press("Enter");
+  await page.keyboard.press("2");
+  check(await page.evaluate(() => insp === loops[1] && !$("inspWrap").hidden), "open settings follow the selected loop (1, Enter, 2)");
+  await page.keyboard.press("Escape");
+  check(await page.evaluate(() => [0, 1, 2, 3].map((k) => backwards({ dir: "pingpong" }, k)).join()) === "false,true,false,true", "ping-pong: every other pass runs backwards");
+  // Timing: one free loop, no snapping, fast tempo; record where its notes land in each pass.
+  const heard = await page.evaluate(async () => {
+    state.div = "free"; state.morph = false; state.lock = false; state.bpm = 240; t0 = nowAudio() - nowBeat() / bps();
+    loops.splice(1).forEach(fadeOut);
+    const lp = loops[0]; lp.trigger = "free"; lp.rhythm = "drawn"; lp.ts = 1; lp.dir = "rev"; lp.every = 1;
+    lp.start = Math.ceil(nowBeat()) + 1; lp.cursor = lp.start; lp.lastPass = 0;
+    const got = []; const real = play;
+    play = (l, ev, t, b, ph) => { if (l === lp) got.push(b - lp.start); return real(l, ev, t, b, ph); };
+    await new Promise((r) => setTimeout(r, (lp.L * 2 + 1.5) * 250));
+    play = real;
+    return { got, offs: lp.events.map((e) => e.off), L: lp.L };
+  });
+  const firstPass = heard.got.filter((b) => b < heard.L).sort((x, y) => x - y);
+  const expected = heard.offs.map((o) => Math.max(0, heard.L - o - 1e-6)).sort((x, y) => x - y);
+  check(firstPass.length === expected.length && firstPass.every((b, i) => Math.abs(b - expected[i]) < 1e-3),
+    "reverse: a note drawn at t sounds at L − t", `${firstPass.length}/${expected.length} notes`);
+  const rests = await page.evaluate(async () => {
+    const lp = loops[0]; lp.dir = "fwd"; lp.every = 2;
+    lp.start = Math.ceil(nowBeat()) + 1; lp.cursor = lp.start; lp.lastPass = 0;
+    const passes = new Set(); const real = play;
+    play = (l, ev, t, b, ph) => { if (l === lp) passes.add(Math.floor((b - lp.start) / lp.L)); return real(l, ev, t, b, ph); };
+    await new Promise((r) => setTimeout(r, (lp.L * 3 + 1) * 250));
+    play = real;
+    return [...passes].sort();
+  });
+  check(rests.length > 0 && rests.every((k) => k % 2 === 0), "Plays: every other pass rests", `passes ${rests.join(", ")}`);
+  const air = await page.evaluate(() => {
+    const count = (a) => { state.air = a; strikeLog = []; let kept = 0; for (let i = 0; i < 200; i++) if (airKeep(i / 100 + 0.013)) kept++; return kept; };
+    const r = [count(0), count(1)]; state.air = 0; return r;
+  });
+  check(air[0] === 200 && air[1] < 60, "Air thins a busy stretch", `${air[0]} → ${air[1]} of 200`);
+  const arc = await page.evaluate(() => {
+    state.arc = "4"; state.walk = false;
+    const phases = [0, 1, 2, 3].map((bar) => harmonyAt(bar * BAR + 0.5).phase);
+    const home = [...Array(14)].map((_, d) => mod(resolveStep(d), stepCount()));
+    state.arc = "off";
+    return { phases, home };
+  });
+  check(arc.phases.join() === "0,1,2,3", "Arc (4 bars): home, away, pull, resolve", arc.phases.join());
+  check(arc.home.every((d) => [0, 2, 4].includes(d)), "resolving lands on the home chord's steps", arc.home.join(""));
+  const dup = await page.evaluate(() => { const n = loops.length; select(loops[0]); return n; });
+  await page.keyboard.press("d");
+  check(await page.evaluate((n) => loops.length === n + 1 && loops[n].events.length === loops[0].events.length && loops[n].uid !== loops[0].uid, dup),
+    "D duplicates the selected loop");
+}
+
+console.log("\nPlayflows: record what you do, replay it, share it");
+{
+  const { page } = await newPage();
+  await page.goto(PAGE); await page.waitForTimeout(300);
+  await page.click("#power");
+  await page.evaluate(() => { state.bpm = 180; t0 = nowAudio() - nowBeat() / bps(); loops.forEach((l) => (l.temper = "still")); });
+  await page.keyboard.press("Shift+Space"); await page.waitForTimeout(300);
+  await page.mouse.move(300, 300); await page.mouse.down();
+  for (let i = 1; i < 25; i++) { await page.mouse.move(300 + i * 10, 300 + Math.cos(i / 3) * 60); await page.waitForTimeout(25); }
+  await page.mouse.up(); await page.waitForTimeout(400);
+  await page.keyboard.press("1"); await page.keyboard.press("Shift+ArrowUp"); await page.keyboard.press("x"); await page.waitForTimeout(400);
+  await page.keyboard.press("2"); await page.keyboard.press("Backspace"); await page.waitForTimeout(400);
+  await page.evaluate(() => { $("bpm").value = "150"; $("bpm").dispatchEvent(new Event("input")); }); await page.waitForTimeout(400);
+  const before = await page.evaluate(() => loops.map((l) => ({ n: l.events.length, ty: Math.round(l.ty * 1000), muted: l.muted })));
+  await page.keyboard.press("Shift+Space"); await page.waitForTimeout(600);
+  const flows = await page.evaluate(() => loadFlows());
+  check(flows.length === 1 && flows[0].token.startsWith("f"), "● Rec keeps a playflow", flows[0] && `${flows[0].token.length} characters, ${flows[0].loops} loops`);
+  check(await page.evaluate(() => !!document.querySelector('#takeList [data-flow]')), "the take shows in Takes with Replay");
+  await page.evaluate(() => startReplay(loadFlows()[0]));
+  await page.waitForTimeout(300);
+  check(await page.evaluate(() => !!replay && !$("replayBar").hidden && loops.length > 0 && loops.every((l) => l.replaying)), "Replay clears the sheet and rebuilds it from the take");
+  await page.waitForFunction(() => !replay, null, { timeout: 15000 }).catch(() => {});
+  const after = await page.evaluate(() => ({ bpm: state.bpm, loops: loops.map((l) => ({ n: l.events.length, ty: Math.round(l.ty * 1000), muted: l.muted })) }));
+  check(after.bpm === 150, "the replay changes the tempo when you did", `${after.bpm}`);
+  check(JSON.stringify(after.loops) === JSON.stringify(before), "the replay ends where you left off (drawn, moved, muted, erased)",
+    `${JSON.stringify(after.loops)} vs ${JSON.stringify(before)}`);
+  await page.evaluate(() => startReplay(loadFlows()[0])); await page.waitForTimeout(300);
+  await page.mouse.click(600, 600);
+  check(await page.evaluate(() => !replay && $("replayBar").hidden), "touching the sheet takes over from a replay");
+  const code = await page.evaluate(() => codeOf(loadFlows()[0].token));
+  const other = await newPage({ width: 375, height: 664 });
+  await other.page.goto(PAGE); await other.page.waitForTimeout(300);
+  await other.page.evaluate((c) => openPasted(`here's my take: ${c} enjoy`), code); await other.page.waitForTimeout(300);
+  check(await other.page.evaluate(() => loadFlows().length === 1 && !$("takes").hidden), "a take's code pastes into another browser's Takes");
+}
+
 console.log("\nField links (as received)");
 for (const [name, loopsExpected] of [["field-1-stray-bangs.txt", 4], ["field-2-bangs-and-line-breaks.txt", 4], ["field-3-clean-long-safari.txt", 14]]) {
   const { page } = await newPage();
