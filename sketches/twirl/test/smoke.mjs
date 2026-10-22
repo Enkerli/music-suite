@@ -149,8 +149,23 @@ console.log("\nKeyboard");
   check(await page.evaluate(() => state.density) === "medium", "Shift steps it back");
   await page.keyboard.press("]");
   check(await page.evaluate(() => state.bpm) === 98, "] nudges the tempo up");
-  await page.keyboard.press("3");
-  check(await page.evaluate(() => document.body.classList.contains("lvl-3")), "3 shows Everything");
+  await page.keyboard.press("\\"); await page.keyboard.press("\\");
+  check(await page.evaluate(() => document.body.classList.contains("lvl-3")), "\\ steps through the levels to Everything");
+  await page.keyboard.press("2");
+  check(await page.evaluate(() => selected === loops[1]), "2 selects loop 2");
+  const before = await page.evaluate(() => selected.tx);
+  await page.keyboard.press("Shift+ArrowRight");
+  check(await page.evaluate((b) => selected.tx > b, before), "arrows move the selected loop");
+  await page.keyboard.press("x");
+  check(await page.evaluate(() => selected.muted), "X mutes it");
+  await page.keyboard.press("x");
+  await page.keyboard.press("Shift+Digit2");
+  check(await page.evaluate(() => state.pen) === "drum", "Shift+2 picks the drum pen");
+  await page.keyboard.press("v");
+  check(await page.isVisible("#palette"), "V shows the pen palette");
+  await page.click('[data-pen="bell"]');
+  check(await page.evaluate(() => state.pen) === "bell", "the palette sets the pen");
+  await page.keyboard.press("v");
   await page.keyboard.press("t");
   check(await page.isVisible("#toybox"), "T opens the Toybox");
   await page.keyboard.press("Escape");
@@ -160,6 +175,30 @@ console.log("\nKeyboard");
   await page.keyboard.press("Escape");
   await page.keyboard.press("Shift+Backspace"); await page.keyboard.press("Shift+Backspace");
   check(await page.evaluate(() => loops.length) === 0, "Shift+Backspace twice clears the sheet");
+}
+
+console.log("\nRhythm, harmony, swing, drone, sounds, recording");
+{
+  const { page } = await newPage();
+  await page.goto(PAGE); await page.waitForTimeout(300);
+  await page.click("#power");
+  const offs = await page.evaluate(() => { const lp = loops.find((l) => l.events.length > 3); lp.rhythm = "even"; const o = offsOf(lp); return { o, L: lp.L, n: lp.events.length }; });
+  const gaps = offs.o.slice(1).map((x, i) => x - offs.o[i]);
+  check(gaps.every((g) => Math.abs(g - offs.L / offs.n) < 1e-9), "Rhythm: even spaces a loop's notes evenly");
+  // (A loop with more notes than steps can't give each its own step; pick one that fits.)
+  const eu = await page.evaluate(() => { state.div = "16"; const lp = loops.find((l) => l.events.length > 1 && l.events.length <= l.L * 4); lp.rhythm = "euclid"; return offsOf(lp).map((x) => x * 4); });
+  check(eu.every((x) => Math.abs(x - Math.round(x)) < 1e-9), "Rhythm: euclidean lands every note on a step");
+  const stack = await page.evaluate(() => { let n = 0; const real = VOICES.pluck; state.pack = "paper"; VOICES.pluck = (...a) => { n++; return real(...a); }; sound("pluck", 0.5, 0.5, 0.8, ctx.currentTime + 0.01, nowBeat(), undefined, "seventh"); VOICES.pluck = real; return n; });
+  check(stack === 4, "Chord: sevenths stack four notes", `${stack}`);
+  const sw = await page.evaluate(() => { state.div = "8"; state.swing = 0.5; return [swung(0), swung(0.5), swung(1)]; });
+  check(sw[0] === 0 && sw[1] === 0.75 && sw[2] === 1, "Swing delays every other step", sw.join(", "));
+  await page.evaluate(() => { state.swing = 0; state.drone = true; setDrone(true); for (const v of ["lowfifth", "triad", "open"]) { state.droneVoicing = v; setDrone(true); } setDroneVol(0.8); });
+  check(await page.evaluate(() => drone && drone.voices.length === 4), "Drone: voicings rebuild it (open = 4 notes)");
+  await page.evaluate(() => { for (const pack of Object.keys(PACKS)) { state.pack = pack; for (const v of ["pluck", "bell", "blip"]) sound(v, 0.5, 0.4, 0.8, ctx.currentTime + 0.01, nowBeat(), undefined, "triad"); sound("drum", 0.5, 0.9, 0.8, ctx.currentTime + 0.01, nowBeat()); } state.pack = "paper"; });
+  check(true, "every sound pack plays, chords included (errors would show below)");
+  await page.keyboard.press("Shift+Space"); await page.waitForTimeout(1200); await page.keyboard.press("Shift+Space"); await page.waitForTimeout(600);
+  check(await page.evaluate(() => takes.length === 1 && takes[0].blob.size > 0), "Shift+Space records a take", await page.evaluate(() => takes[0] && `${takes[0].blob.size} bytes, .${takes[0].ext}`));
+  check(await page.isVisible("#takes"), "the take shows in Toybox → Takes");
 }
 
 console.log("\nField links (as received)");

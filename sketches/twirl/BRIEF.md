@@ -128,6 +128,28 @@ junk-tolerant links and a paste box after field links arrived mangled.
 - *"Dynamics."* Dot size = loudness. Faster drawing, or pen pressure, is
   louder; each loop has a Volume; the drawer has a master Volume (- / =).
 
+**v7** (after v6):
+- *"Selecting a loop is difficult."* Numbered loops; chips along the
+  bottom (tap = select + settings); 1–9 / Tab select; arrows, , . < > X
+  act on the selected loop.
+- *"A detachable pen palette, or shortcuts."* Both: a draggable palette
+  (V), and ⇧1–⇧6.
+- *"Mallets are my favourite; more packs."* Felt, steel and kalimba.
+- *"Recording a playflow."* ● Rec records audio takes (Takes tab: play,
+  save as a file via the page's download permission, delete). Recording
+  the *performance itself* (gestures and changes, replayable and
+  shareable as a code) is on the roadmap.
+- *"Adding points; more impact on a loop's rhythm."* Edit notes moved to
+  More and into each loop's settings; per-loop Rhythm (as drawn / even /
+  euclidean); global Swing.
+- *"Harmonic structures, chords."* Per-loop Chord: fifths, triads,
+  sevenths, sus, built within the scale.
+- *"The drone is meh, and no control."* A real pad (detuned saws, a
+  breathing filter) with voicing and level.
+- *"A design pass."* Paper fades behind the bar and footer, the playhead
+  has a halo, the selected loop is accent-coloured, numbers on the sheet,
+  chips, palette and record styling.
+
 ## Design choices worth arguing with
 
 1. **Notes come from distance *and* turning.** This is the one idea the toy

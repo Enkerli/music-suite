@@ -53,7 +53,9 @@ Touch anywhere. Sound starts on the first touch (or press **Play**).
 | Flick a loop off the edge | Throw it away. |
 | Two fingers on a loop | Turn it, and resize it: **bigger plays slower**, smaller plays faster. A label shows the speed while you do it. |
 | Hold a loop | Its own settings (below). |
-| **Toybox** | Ready-made shapes to drop on the sheet, plus tabs for **My toys** and **Scenes**. |
+| **Toybox** | Ready-made shapes to drop on the sheet, plus tabs for **My toys**, **Scenes** and **Takes**. |
+| The chips along the bottom | One per loop, numbered like the small numbers on the sheet. Tap one to pick that loop and open its settings: the sure way to reach a loop that's small, crowded or moving. |
+| **● Rec** (top bar) | Record what you play; press again to stop. Takes go to Toybox → **Takes**, where you can play them back and **Save** them as audio files. Takes are kept until you close the page. |
 
 **A loop's own settings** (hold it):
 - **Volume**: this loop only.
@@ -62,8 +64,8 @@ Touch anywhere. Sound starts on the first touch (or press **Play**).
   a bass however it wanders; one living high stays a topline.
 - **Mute**, **Keep as a toy**, **Erase**.
 
-**In the drawer (☰)** at this level: tempo, **Volume**, **Sounds** (paper, mallets,
-chip), **Notes** (sparse, medium, dense: how many notes a stroke makes),
+**In the drawer (☰)** at this level: tempo, **Volume**, **Sounds** (paper,
+mallets, felt, steel, kalimba, chip), **Notes** (sparse, medium, dense: how many notes a stroke makes),
 **Loop** (off = nothing repeats: play it live), and **Clear** (two taps;
 your saved scenes and toys are never touched).
 
@@ -78,7 +80,8 @@ Adds to the drawer:
   Lock. Changing it changes every loop at once.
 - **Pen**: which voice new strokes play. *Direction* (the default) or
   always drums, pluck, bell, blip, shaker. Pen: drums is the quickest way
-  to make beats.
+  to make beats. The **Pen** button in the top bar opens a small
+  **palette** you can drag anywhere on screen; ⇧1–⇧6 pick from it.
 - **Lock** (also in the top bar): every loop is read like DrawnQurve.
   On every step of the division, Twirl looks at where the loop's playhead
   is and snaps its height to the nearest pitch line. A new pitch strikes;
@@ -86,11 +89,25 @@ Adds to the drawer:
   rhythm of your gesture; with it, a steady pulse with rests where the
   line stays level. It applies at once, to every loop that follows it.
 - **Morph**: off freezes every loop where it is.
+- **Edit notes**: square handles appear on every path. Tap a path to add a
+  note, tap a note to remove it, drag a square to bend the path, hold a
+  loop to smooth it. (Also from a loop's settings: *Edit notes*.)
+- **Swing**: every other step of the division comes late. 0 is straight.
 
-And a loop's settings add **Voice** (direction, or one fixed voice),
-**Speed** (½ to 2, the same ratios as resizing) and **Timing**: *follow
-Lock* (the default), *as drawn* (never locked: a shaker or a melody you
-want to keep loose), or *on the grid* (always locked).
+And a loop's settings add:
+
+- **Voice** (direction, or one fixed voice), and **Speed** (½ to 2, the
+  same ratios as resizing).
+- **Rhythm**: *as drawn* (when you drew each note), *even* (the same
+  notes, evenly spaced around the loop), or *euclidean* (spread over the
+  beat steps as evenly as they allow, as in Serpe). Pitch still follows
+  the playhead, so re-timing a loop also re-shapes its tune.
+- **Chord**: *single*, *fifths*, *triads*, *sevenths* or *sus*. Each note
+  becomes a stack built from every other step of the current scale, so
+  chords stay in key and in tuning. Drums and the shaker stay single.
+- **Timing**: *follow Lock* (the default), *as drawn* (never locked: a
+  shaker or a melody you want to keep loose), or *on the grid* (always
+  locked).
 
 ## Everything: the tool
 
@@ -104,33 +121,35 @@ Adds:
   can be switched on its own (hold it → *Turning changes voices*), so a
   drum line can stay drums while a melody re-orchestrates itself.
 - **Walk**: every two bars, everything shifts along a little progression.
-- **Drone**: a soft root and fifth underneath, following Walk.
-- **Edit**: square handles appear on every path. Drag one to bend the
-  path; tap a path to add a note; tap a note to remove it; hold a loop to
-  smooth it.
+- **Drone**: a slow pad underneath (detuned saws through a breathing
+  filter), following the grid, tuning, root and Walk. **Voicing**: low
+  fifth, fifth, triad or open; and its own **Level**.
 - **Output** (only where the browser has Web MIDI, e.g. Chromium on
   Linux): sound, MIDI, or both. Pluck on channel 1, bell 2, blip 3, drums
   and shaker 10.
 
 ## Keyboard
 
-Every touch on the sheet draws, so with a keyboard (an iPad with a
-keyboard, or a computer) you can steer without leaving marks. Press **?**
-in Twirl for this list; it's also at the bottom of the drawer.
+Every touch on the sheet draws, so with a keyboard you can steer without
+leaving marks. Press **?** in Twirl for this list (also at the bottom of
+the drawer).
 
 | Key | Does |
 |---|---|
-| Space | Play / pause |
-| ⌫ or ⌘Z (Ctrl+Z) | Remove the newest loop (undo) |
+| Space · ⇧Space | Play / pause · record / stop |
+| 1 … 9 | Select a loop (Tab steps through them; 0 or Esc deselects) |
+| Enter | The selected loop's settings |
+| ← ↑ ↓ → · , . | Move the selected loop (⇧: further) · turn it |
+| < > · X | Selected loop slower / faster · mute it |
+| ⌫ or ⌘Z (Ctrl+Z) | Erase the selected loop, or the newest one (undo) |
 | ⇧⌘Z (Ctrl+Shift+Z, Ctrl+Y) | Bring it back (redo) |
 | ⇧⌫ | Clear the sheet (press twice) |
-| L · M · E | Lock · Morph · Edit |
+| ⇧1 … ⇧6 · V | Pen: direction · drums · pluck · bell · blip · shaker · show the palette |
+| L · M · E | Lock · Morph · Edit notes |
 | P · N · B · G | Next pen · notes density · sound pack · grid (⇧ goes back) |
-| [ · ] | Tempo down / up (⇧ for steps of 10) |
-| - · = | Volume down / up |
+| [ · ] · - · = | Tempo down / up (⇧ for 10) · volume down / up |
 | T · Y · S | Toybox · My toys · Scenes |
-| C | Controls drawer |
-| 1 · 2 · 3 | Simple · More · Everything |
+| C · \ | Controls drawer · Simple → More → Everything |
 | R · W · O | Revoice (new loops) · Walk · Drone |
 | Esc | Close whatever is open |
 

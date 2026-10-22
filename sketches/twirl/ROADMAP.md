@@ -135,6 +135,15 @@ relying on a central store, which so far is exactly what we're avoiding.
   more to come).
 - **Sharing a whole collection**: *Copy everything* (built in v5).
 
+## Recording a playflow
+
+Audio takes are in (v7). The next step is recording the **performance**:
+every stroke, drag, setting change and toggle, timestamped in beats, so a
+session can be replayed (and edited) rather than just listened to. It's a
+small event log on top of what scenes already serialise, so it can travel
+as a code like everything else. Best built with the engine extraction
+(Step 1), where every edit is already an explicit operation.
+
 ## Smaller next things
 
 - Tune gesture thresholds on the real iPad and iPhone.

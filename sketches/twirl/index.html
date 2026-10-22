@@ -167,6 +167,59 @@ kbd {
 .keys dl { margin: 0; display: grid; grid-template-columns: auto 1fr; gap: 8px 14px; align-items: baseline; }
 .keys dt { white-space: nowrap; }
 .keys dd { margin: 0; font-size: 0.875rem; line-height: 1.35; }
+/* ── design pass (v7) ─────────────────────────────────────────────────── */
+/* The bar and the footer sit on soft paper fades, so loops passing under
+ * them never fight the controls for attention. */
+.is-drawer .phonebar { background: linear-gradient(var(--paper) 55%, color-mix(in srgb, var(--paper) 0%, transparent)); padding-bottom: 18px; }
+.foot { background: linear-gradient(color-mix(in srgb, var(--paper) 0%, transparent), var(--paper) 45%); padding-top: 18px; }
+.foot .legend { pointer-events: none; }
+#loops { pointer-events: auto; display: flex; gap: 6px; flex-wrap: nowrap; overflow-x: auto; max-width: 100%; scrollbar-width: none; }
+#loops::-webkit-scrollbar { display: none; }
+.chip {
+  flex: none; display: inline-flex; align-items: center; gap: 6px;
+  min-height: 34px; padding: 0 10px; border-radius: 999px;
+  font: 400 0.75rem/1 var(--font-mono); color: var(--ink-muted);
+  background: var(--raised); border: 1px solid var(--rule); cursor: pointer;
+}
+.chip strong { font-weight: 600; color: var(--ink); }
+.chip.muted { opacity: 0.5; text-decoration: line-through; }
+.chip[aria-pressed="true"] { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; }
+.chip[aria-pressed="true"] strong { color: var(--accent); }
+.chip:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+.recbtn { display: inline-flex; align-items: center; gap: 6px; font-variant-numeric: tabular-nums; }
+.recbtn .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--drum); }
+.recbtn[aria-pressed="true"] { background: var(--drum); border-color: var(--drum); color: var(--paper); }
+.recbtn[aria-pressed="true"] .dot { background: var(--paper); animation: recpulse 1s ease-in-out infinite; }
+@keyframes recpulse { 50% { opacity: 0.25; } }
+@media (prefers-reduced-motion: reduce) { .recbtn[aria-pressed="true"] .dot { animation: none; } }
+.penbtn { display: inline-flex; align-items: center; gap: 6px; }
+.penbtn svg { width: 16px; height: 16px; color: currentColor; }
+.penbtn[aria-expanded="true"] svg { filter: drop-shadow(0 0 0.5px var(--paper)); }
+.palette {
+  position: fixed; z-index: 25; left: 16px; top: 76px;
+  display: flex; flex-direction: column; gap: 4px; padding: 6px;
+  background: var(--raised); border: 1px solid var(--rule); border-radius: 14px;
+  box-shadow: 0 8px 24px rgb(0 0 0 / 0.16);
+}
+.palette .grip {
+  height: 14px; margin: 0 4px 2px; cursor: grab; touch-action: none; border-radius: 6px;
+  background: radial-gradient(circle, var(--rule-strong) 1.2px, transparent 1.6px) 0 0 / 7px 7px;
+}
+.pal {
+  display: grid; justify-items: center; gap: 2px; width: 48px; padding: 6px 0 4px;
+  background: transparent; border: 1px solid transparent; border-radius: 10px; color: var(--ink); cursor: pointer;
+}
+.pal svg { width: 20px; height: 20px; }
+.pal kbd { font-size: 0.625rem; padding: 0 3px; }
+.pal[aria-pressed="true"] { background: var(--rule-soft); border-color: var(--rule-strong); }
+.pal.close { font: 400 1.1rem/1 var(--font-sans); padding: 4px 0; color: var(--ink-muted); }
+.pal:focus-visible { outline: 3px solid var(--accent); outline-offset: 1px; }
+.takelist { display: grid; gap: 8px; width: 100%; }
+.take { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.take strong { min-width: 7.5rem; font: 600 0.8125rem/1.2 var(--font-sans); }
+.take audio { flex: 1 1 220px; min-width: 0; height: 36px; }
+.takes { flex-direction: column; align-items: stretch; }
+.insprow .lbl { min-width: 4.4rem; }
 .btn.armed { background: var(--drum); border-color: var(--drum); color: var(--paper); }
 .toy {
   display: grid; justify-items: center; align-content: center; gap: 3px;
@@ -310,7 +363,9 @@ kbd {
 <div class="phonebar" id="phonebar">
   <span class="wordmark" aria-hidden="true">Twirl</span>
   <span class="spacer"></span>
+  <button class="btn recbtn" id="recBtn" type="button" aria-pressed="false" title="Record what you play (Shift+Space)"><span class="dot" aria-hidden="true"></span><span id="recLabel">Rec</span></button>
   <span id="quickSlot" style="display:contents"></span>
+  <button class="btn penbtn" id="penBtn" type="button" data-level="2" aria-expanded="false" aria-controls="palette" title="Pen palette (V)"><svg viewBox="0 0 16 16" id="penGlyph" aria-hidden="true"></svg><span>Pen</span></button>
   <button class="btn menubtn" id="menuBtn" type="button" aria-expanded="false" aria-controls="strip" aria-label="Controls">☰</button>
 </div>
 <div class="backdrop" id="backdrop"></div>
@@ -332,7 +387,8 @@ kbd {
   </label>
   <span class="group">
     <select class="sel" id="pack" aria-label="Sounds">
-      <option value="paper">Sounds: paper</option><option value="mallets">Sounds: mallets</option><option value="chip">Sounds: chip</option>
+      <option value="paper">Sounds: paper</option><option value="mallets">Sounds: mallets</option><option value="felt">Sounds: felt</option>
+      <option value="steel">Sounds: steel</option><option value="kalimba">Sounds: kalimba</option><option value="chip">Sounds: chip</option>
     </select>
     <select class="sel" id="density" aria-label="How many notes a stroke makes">
       <option value="sparse">Notes: sparse</option><option value="medium" selected>Notes: medium</option><option value="dense">Notes: dense</option>
@@ -360,7 +416,11 @@ kbd {
     </select>
     <button class="btn" id="lockBtn" type="button" aria-pressed="false" data-level="2" title="Every loop (unless it opts out) is read on the beat grid, like DrawnQurve: a steady pulse, pitch snapped to the lines">Lock</button>
     <button class="btn" id="morphBtn" type="button" aria-pressed="true" title="Loops move on their own; hold a loop to choose how">Morph</button>
+    <button class="btn" id="editBtn" type="button" aria-pressed="false" title="Drag the square handles to bend a path; tap a path to add a note, tap a note to remove it; hold a loop to smooth it">Edit notes</button>
   </span>
+  <label class="tempo" for="swing" data-level="2">Swing
+    <input id="swing" type="range" min="0" max="0.5" step="0.05" value="0">
+  </label>
   <span class="group" data-level="3">
     <select class="sel" id="tuning" aria-label="Tuning for 12-note grids: equal, just (5-limit), Pythagorean, quarter-comma meantone, Werckmeister III" title="Just = 5-limit · Meantone = ¼-comma">
       <option value="equal">Equal</option><option value="just">Just</option>
@@ -369,9 +429,15 @@ kbd {
     </select>
     <button class="btn" id="revoiceBtn" type="button" aria-pressed="false" title="For new loops: turning a loop changes its voices (each loop can be changed by holding it)">Revoice</button>
     <button class="btn" id="walkBtn" type="button" aria-pressed="false" title="Every two bars, everything shifts along a little progression">Walk</button>
-    <button class="btn" id="droneBtn" type="button" aria-pressed="false" title="A soft root and fifth underneath, following Walk">Drone</button>
-    <button class="btn" id="editBtn" type="button" aria-pressed="false" data-level="3" title="Drag the square handles to bend a path; tap a path to add a note, tap a note to remove it; hold a loop to smooth it">Edit</button>
+    <button class="btn" id="droneBtn" type="button" aria-pressed="false" title="A slow pad underneath, following Walk; voicing and level below">Drone</button>
     <select class="sel" id="out" aria-label="Output" hidden></select>
+  </span>
+  <span class="group" data-level="3">
+    <select class="sel" id="droneVoicing" aria-label="Drone voicing">
+      <option value="lowfifth">Drone: low fifth</option><option value="fifth" selected>Drone: fifth</option>
+      <option value="triad">Drone: triad</option><option value="open">Drone: open</option>
+    </select>
+    <label class="tempo" for="droneVol">Level <input id="droneVol" type="range" min="0" max="1" step="0.05" value="0.5"></label>
   </span>
   <span class="spacer"></span>
   <span class="group">
@@ -391,6 +457,7 @@ kbd {
       <button class="btn" type="button" role="tab" data-tab="toybox" aria-controls="toybox" aria-selected="true">Toybox</button>
       <button class="btn" type="button" role="tab" data-tab="mytoys" aria-controls="mytoys" aria-selected="false">My toys</button>
       <button class="btn" type="button" role="tab" data-tab="scenes" aria-controls="scenes" aria-selected="false">Scenes</button>
+      <button class="btn" type="button" role="tab" data-tab="takes" aria-controls="takes" aria-selected="false">Takes</button>
     </div>
     <button class="btn" type="button" id="shelfClose">Close</button>
   </div>
@@ -444,6 +511,10 @@ kbd {
       <small id="shareInfo"></small>
     </div>
   </div>
+  <div class="tray takes" id="takes" role="tabpanel" aria-label="Recorded takes" hidden>
+    <div id="takeList" class="takelist"></div>
+    <p class="traynote" id="takesNote">Press ● Rec (or Shift+Space) and play; press it again to stop. Takes stay until you close the page: save the ones you want to keep.</p>
+  </div>
  </div>
 </div>
 
@@ -462,11 +533,15 @@ kbd {
     <button class="btn" type="button" id="inspRevoice" aria-pressed="false" data-level="3" title="When this loop turns, its voices change with the new directions">Turning changes voices</button></div>
   <div class="insprow" data-level="2"><span class="lbl">Speed</span>
     <span class="seg" data-insp="ts"><button class="btn" type="button" data-v="0.5">½</button><button class="btn" type="button" data-v="0.6667">⅔</button><button class="btn" type="button" data-v="0.75">¾</button><button class="btn" type="button" data-v="1">1</button><button class="btn" type="button" data-v="1.3333">4⁄3</button><button class="btn" type="button" data-v="1.5">1½</button><button class="btn" type="button" data-v="2">2</button></span></div>
+  <div class="insprow" data-level="2"><span class="lbl">Rhythm</span>
+    <span class="seg" data-insp="rhythm"><button class="btn" type="button" data-v="drawn" title="When you drew each note">as drawn</button><button class="btn" type="button" data-v="even" title="The same notes, evenly spaced">even</button><button class="btn" type="button" data-v="euclid" title="Spread over the beat steps as evenly as they allow">euclidean</button></span></div>
+  <div class="insprow" data-level="2"><span class="lbl">Chord</span>
+    <span class="seg" data-insp="chord"><button class="btn" type="button" data-v="single">single</button><button class="btn" type="button" data-v="fifth">fifths</button><button class="btn" type="button" data-v="triad">triads</button><button class="btn" type="button" data-v="seventh">sevenths</button><button class="btn" type="button" data-v="sus">sus</button></span></div>
   <div class="insprow"><span class="lbl">Volume</span>
     <input id="inspGain" type="range" min="0" max="1.5" step="0.05" value="1" aria-label="This loop's volume"></div>
   <div class="insprow" data-level="2"><span class="lbl">Timing</span>
     <span class="seg" data-insp="trigger"><button class="btn" type="button" data-v="sheet" title="Free or on the grid, following Lock">follow Lock</button><button class="btn" type="button" data-v="free" title="Always as drawn (snapped to the division)">as drawn</button><button class="btn" type="button" data-v="lock" title="Always read on the grid">on the grid</button></span></div>
-  <div class="insprow"><button class="btn" type="button" id="inspMute" aria-pressed="false">Mute</button><button class="btn" type="button" id="inspKeep">Keep as a toy</button><button class="btn" type="button" id="inspErase">Erase</button></div>
+  <div class="insprow"><button class="btn" type="button" id="inspMute" aria-pressed="false">Mute</button><button class="btn" type="button" id="inspEdit" data-level="2">Edit notes</button><button class="btn" type="button" id="inspKeep">Keep as a toy</button><button class="btn" type="button" id="inspErase">Erase</button></div>
  </div>
 </div>
 
@@ -475,20 +550,38 @@ kbd {
   <p class="keysnote">With a keyboard, you can steer without touching the sheet, where every touch draws.</p>
   <dl>
     <dt><kbd>Space</kbd></dt><dd>Play / pause</dd>
-    <dt><kbd>⌫</kbd> or <kbd>⌘Z</kbd></dt><dd>Remove the newest loop (undo)</dd>
+    <dt><kbd>⇧ Space</kbd></dt><dd>Record / stop (takes are in Toybox → Takes)</dd>
+    <dt><kbd>1</kbd>…<kbd>9</kbd></dt><dd>Select a loop (its number is on the sheet and in the chips). <kbd>Tab</kbd> steps through them; <kbd>0</kbd> or <kbd>Esc</kbd> deselects</dd>
+    <dt><kbd>Enter</kbd></dt><dd>The selected loop's settings</dd>
+    <dt><kbd>←↑↓→</kbd> <kbd>,</kbd> <kbd>.</kbd></dt><dd>Move the selected loop (<kbd>⇧</kbd>: further) · turn it</dd>
+    <dt><kbd>&lt;</kbd> <kbd>&gt;</kbd> <kbd>X</kbd></dt><dd>Selected loop slower / faster · mute it</dd>
+    <dt><kbd>⇧1</kbd>…<kbd>⇧6</kbd></dt><dd>Pen: direction · drums · pluck · bell · blip · shaker</dd>
+    <dt><kbd>V</kbd></dt><dd>Show or hide the pen palette</dd>
+    <dt><kbd>⌫</kbd> or <kbd>⌘Z</kbd></dt><dd>Erase the selected loop, or the newest one (undo)</dd>
     <dt><kbd>⇧⌘Z</kbd> or <kbd>Ctrl Y</kbd></dt><dd>Bring it back (redo)</dd>
     <dt><kbd>⇧⌫</kbd></dt><dd>Clear the sheet (press twice)</dd>
-    <dt><kbd>L</kbd> <kbd>M</kbd> <kbd>E</kbd></dt><dd>Lock · Morph · Edit</dd>
+    <dt><kbd>L</kbd> <kbd>M</kbd> <kbd>E</kbd></dt><dd>Lock · Morph · Edit notes</dd>
     <dt><kbd>P</kbd> <kbd>N</kbd> <kbd>B</kbd> <kbd>G</kbd></dt><dd>Next pen · notes density · sound pack · grid. With <kbd>⇧</kbd>: previous</dd>
     <dt><kbd>[</kbd> <kbd>]</kbd></dt><dd>Tempo down / up. With <kbd>⇧</kbd>: by 10</dd>
     <dt><kbd>-</kbd> <kbd>=</kbd></dt><dd>Volume down / up</dd>
     <dt><kbd>T</kbd> <kbd>Y</kbd> <kbd>S</kbd></dt><dd>Toybox · My toys · Scenes</dd>
     <dt><kbd>C</kbd></dt><dd>Controls drawer</dd>
-    <dt><kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd></dt><dd>Simple · More · Everything</dd>
+    <dt><kbd>\</kbd></dt><dd>Simple → More → Everything</dd>
     <dt><kbd>R</kbd> <kbd>W</kbd> <kbd>O</kbd></dt><dd>Revoice (new loops) · Walk · Drone</dd>
     <dt><kbd>Esc</kbd></dt><dd>Close whatever is open</dd>
     <dt><kbd>?</kbd></dt><dd>This list</dd>
   </dl>
+</div>
+
+<div class="palette" id="palette" role="toolbar" aria-label="Pen palette" hidden>
+  <div class="grip" id="palGrip" title="Drag to move" aria-hidden="true"></div>
+  <button class="pal" type="button" data-pen="auto" title="By direction (⇧1)"><svg viewBox="0 0 16 16"><path d="M8 1.5v13M1.5 8h13M8 1.5l-2 2M8 1.5l2 2M14.5 8l-2-2M14.5 8l-2 2" fill="none" stroke="currentColor" stroke-width="1.4"/></svg><kbd>⇧1</kbd></button>
+  <button class="pal" type="button" data-pen="drum" title="Drums (⇧2)"><svg viewBox="0 0 16 16"><rect x="3" y="3" width="10" height="10" fill="var(--drum)"/></svg><kbd>⇧2</kbd></button>
+  <button class="pal" type="button" data-pen="pluck" title="Pluck (⇧3)"><svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="5.5" fill="var(--pluck)"/></svg><kbd>⇧3</kbd></button>
+  <button class="pal" type="button" data-pen="bell" title="Bell (⇧4)"><svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="5" fill="none" stroke="var(--bell)" stroke-width="2.2"/></svg><kbd>⇧4</kbd></button>
+  <button class="pal" type="button" data-pen="blip" title="Blip (⇧5)"><svg viewBox="0 0 16 16"><path d="M8 2 L14 13 L2 13 Z" fill="var(--blip)"/></svg><kbd>⇧5</kbd></button>
+  <button class="pal" type="button" data-pen="shake" title="Shaker (⇧6)"><svg viewBox="0 0 16 16"><path d="M8 1.5 L14.5 8 L8 14.5 L1.5 8 Z" fill="var(--shake)"/></svg><kbd>⇧6</kbd></button>
+  <button class="pal close" type="button" id="palClose" aria-label="Close the palette">×</button>
 </div>
 
 <div class="toast" id="toast" role="status" hidden></div>
@@ -604,7 +697,8 @@ const RATIOS = [0.5, 2 / 3, 0.75, 1, 4 / 3, 1.5, 2];   // time-scales a resize s
 
 const state = {
   bpm: 96, volume: 0.8, grid: "pentMaj", tuning: "equal", root: 0, range: 3, div: "16", pen: "auto",
-  pack: "paper", density: "medium",
+  pack: "paper", density: "medium", swing: 0,
+  droneVol: 0.5, droneVoicing: "fifth",
   lock: false, loop: true, morph: true, revoice: false, walk: false, drone: false, edit: false,
   out: "sound",               // "sound" | "midi:<id>" | "both:<id>"
 };
@@ -639,7 +733,7 @@ const walkStep = (b) => Math.floor(b / (2 * BAR)) % 4;
 
 /* ── 3. Sound ────────────────────────────────────────────────────────────── */
 
-let master, delaySend, delayLine, noiseBuf, drone = null;
+let master, compressor, delaySend, delayLine, noiseBuf, drone = null;
 
 function ensureAudio() {
   if (!ctx) {
@@ -647,7 +741,7 @@ function ensureAudio() {
     ctx = new AC({ latencyHint: "interactive" });
     t0 = ctx.currentTime;
 
-    const comp = ctx.createDynamicsCompressor();
+    const comp = compressor = ctx.createDynamicsCompressor();
     comp.threshold.value = -14; comp.ratio.value = 4;
     master = ctx.createGain(); master.gain.value = state.volume;
     master.connect(comp).connect(ctx.destination);
@@ -833,7 +927,44 @@ const CHIP = {
     noise(t, 0.05).connect(f).connect(g); out(g, pan, 0.2);
   },
 };
-const PACKS = { paper: VOICES, mallets: MALLETS, chip: CHIP };
+/** A struck tone from partials: [frequency ratio, level, decay seconds]. */
+function partials(t, f0, vel, pan, list, attack = 0.003, send = 0.5) {
+  for (const [mul, amp, dec] of list) {
+    const o = ctx.createOscillator(), g = ctx.createGain();
+    o.frequency.value = f0 * mul; env(g, t, amp * vel, dec, attack);
+    o.connect(g); out(g, pan, send); o.start(t); o.stop(t + attack + dec + 0.05);
+  }
+}
+const FELT = {                              // a soft, felted upright: round attack, warm tail
+  pluck(t, midi, vel, pan) {
+    const o = ctx.createOscillator(), o2 = ctx.createOscillator(), f = ctx.createBiquadFilter(), g = ctx.createGain();
+    o.type = "triangle"; o.frequency.value = mtof(midi); o2.frequency.value = mtof(midi) * 2.003;
+    f.type = "lowpass"; f.frequency.setValueAtTime(900 + 1600 * vel, t); f.frequency.exponentialRampToValueAtTime(400, t + 1.2);
+    env(g, t, 0.24 * vel, 1.3, 0.012);
+    o.connect(f); o2.connect(f); f.connect(g); out(g, pan, 0.45);
+    o.start(t); o2.start(t); o.stop(t + 1.4); o2.stop(t + 1.4);
+  },
+  bell(t, midi, vel, pan) { FELT.pluck(t, midi + 12, vel * 0.8, pan); },
+  blip(t, midi, vel, pan) { partials(t, mtof(midi + 24), vel, pan, [[1, 0.12, 0.18], [2, 0.03, 0.08]], 0.008); },
+};
+const STEEL = {                             // steelpan: bright partials at 1, 2 and 3 with a slight bloom
+  pluck(t, midi, vel, pan) { partials(t, mtof(midi), vel, pan, [[1, 0.22, 0.9], [2.0, 0.1, 0.5], [3.01, 0.05, 0.25]], 0.006, 0.6); },
+  bell(t, midi, vel, pan) { partials(t, mtof(midi + 12), vel, pan, [[1, 0.18, 1.2], [2.0, 0.08, 0.6], [3.01, 0.04, 0.3]], 0.006, 0.7); },
+  blip(t, midi, vel, pan) { partials(t, mtof(midi + 24), vel, pan, [[1, 0.12, 0.25], [2.0, 0.04, 0.12]], 0.003, 0.6); },
+  drum: MALLETS.drum,
+};
+const KALIMBA = {                           // thumb piano: a clean tine, a high inharmonic ping, a tiny click
+  pluck(t, midi, vel, pan) {
+    partials(t, mtof(midi), vel, pan, [[1, 0.26, 1.1], [5.95, 0.05, 0.06]], 0.002, 0.45);
+    const f = ctx.createBiquadFilter(), g = ctx.createGain();
+    f.type = "bandpass"; f.frequency.value = 3500; env(g, t, 0.05 * vel, 0.01, 0.001);
+    noise(t, 0.03).connect(f).connect(g); out(g, pan, 0.2);
+  },
+  bell(t, midi, vel, pan) { KALIMBA.pluck(t, midi + 12, vel * 0.85, pan); },
+  blip(t, midi, vel, pan) { partials(t, mtof(midi + 24), vel, pan, [[1, 0.13, 0.3], [5.95, 0.03, 0.03]], 0.002, 0.45); },
+  drum: MALLETS.drum,
+};
+const PACKS = { paper: VOICES, mallets: MALLETS, chip: CHIP, felt: FELT, steel: STEEL, kalimba: KALIMBA };
 const voiceFn = (voice) => (PACKS[state.pack] || VOICES)[voice] || VOICES[voice];
 
 /* ── 3b. MIDI out (progressive enhancement) ──────────────────────────────── */
@@ -906,6 +1037,7 @@ function newStroke(start) {
   return {
     trigger: "sheet", pen: state.pen,      // timing: "sheet" follows Lock; "free" or "lock" decide for themselves
     gain: 1,                                // this loop's volume
+    rhythm: "drawn", chord: "single",       // see offsOf() and chordSteps()
     pts: [], events: [], start, L: 1, ts: 1, cursor: start, lastPass: 0, muted: false,
     c: { x: 0.5, y: 0.5 },
     tx: 0, ty: 0, rot: 0, s: 1,
@@ -1043,23 +1175,36 @@ function midiForDegree(d) {
   return baseMidi() + state.root + (periodOf(g) * Math.floor(d / n) + st[d % n]) / 100;
 }
 
+/* Chords: each note can be a stack, built from every other step of the
+ * scale you're in (so it stays in key, and in tuning). "Fifth" adds the
+ * step nearest a fifth; drums and the shaker stay single. */
+const CHORD_ORDER = ["single", "fifth", "triad", "seventh", "sus"];
+function chordSteps(name) {
+  const n = stepCount(), fifth = Math.max(1, Math.round((n * 4) / 7));
+  return { fifth: [0, fifth], triad: [0, 2, 4], seventh: [0, 2, 4, 6], sus: [0, 1, 4] }[name] || [0];
+}
+
 /** Sound one note: voice at screen position (normalized), audio time t, beat b. */
-function sound(voice, xN, yN, vel, t, b, deg) {
+function sound(voice, xN, yN, vel, t, b, deg, chord = "single") {
   if (!ctx) return;
   xN = Math.min(1, Math.max(0, xN)); yN = Math.min(1, Math.max(0, yN));
-  const pan = xN * 1.7 - 0.85;
-  const midi = midiForDegree(withWalk(deg ?? bandAt(yN), b));
-  if (state.out === "sound" || state.out.startsWith("both")) {
-    if (voice === "shake") voiceFn("shake")(t, vel, pan, 1 - yN);
-    else voiceFn(voice)(t, midi, vel, pan, yN);
+  const pan = xN * 1.7 - 0.85, root = deg ?? bandAt(yN);
+  const stack = voice === "drum" || voice === "shake" ? [0] : chordSteps(chord);
+  const each = vel / Math.sqrt(stack.length);
+  for (const step of stack) {
+    const midi = midiForDegree(withWalk(root + step, b));
+    if (state.out === "sound" || state.out.startsWith("both")) {
+      if (voice === "shake") voiceFn("shake")(t, each, pan, 1 - yN);
+      else voiceFn(voice)(t, midi, each, pan, yN);
+    }
+    sendMidi(voice, midi, each, t, yN);
   }
-  sendMidi(voice, midi, vel, t, yN);
 }
 /** Sound a stored (free-mode) event of loop `lp`, wherever the loop is now. */
 function play(lp, ev, t, b, phase) {
   const W = sheet.clientWidth, H = sheet.clientHeight;
   const [px, py] = notePos(lp, ev, phase, W, H);
-  sound(voiceOf(lp, ev), px / W, py / H, ev.vel * (lp.gain ?? 1), t, b);
+  sound(voiceOf(lp, ev), px / W, py / H, ev.vel * (lp.gain ?? 1), t, b, undefined, lp.chord);
 }
 /** THE rule for a note: it sounds when the playhead reaches it, at the
  *  playhead's place at that moment. With a beat division, that moment is
@@ -1068,7 +1213,32 @@ function play(lp, ev, t, b, phase) {
  *  note's snapped time in the current pass. */
 function notePhase(lp, ev) {
   const Lb = loopBeats(lp), k = Math.max(0, Math.floor((nowBeat() - lp.start) / Lb)), base = lp.start + k * Lb;
-  return (snapNear(base + ev.off * lp.ts) - base) / lp.ts;
+  const off = offsOf(lp)[lp.events.indexOf(ev)] ?? ev.off;
+  return (snapNear(base + off * lp.ts) - base) / lp.ts;
+}
+
+/* Rhythm: where in the loop each note lands, in drawn beats.
+ *   drawn  — when you drew it (the gesture's own rhythm)
+ *   even   — the same notes, spread evenly across the loop
+ *   euclid — spread as evenly as the beat steps allow (Euclidean / Bresenham:
+ *            k notes over n steps, as in Serpe's rhythm engine)
+ * Pitch still follows the playhead, so re-timing a loop re-shapes its tune. */
+const RHYTHM_ORDER = ["drawn", "even", "euclid"];
+function offsOf(lp) {
+  const ev = lp.events, n = ev.length, L = lp.L;
+  if (lp.rhythm === "even") return ev.map((_, i) => (i * L) / n);
+  if (lp.rhythm === "euclid") {
+    const steps = Math.max(n, Math.round(L * (perBeat() || 4)));
+    return ev.map((_, i) => (Math.floor((i * steps) / n) * L) / steps);
+  }
+  return ev.map((e) => e.off);
+}
+/** Swing: every other step of the division comes late (0 = straight, 0.5 = very lazy). */
+function swung(b) {
+  const p = perBeat();
+  if (!p || !state.swing) return b;
+  const st = 1 / p, j = Math.round(b / st);
+  return j % 2 ? b + state.swing * st : b;
 }
 function notePos(lp, ev, phase, W, H) {
   // A note snapped past the end of the path sounds while the playhead waits
@@ -1204,7 +1374,7 @@ function lockStep(lp, x, y, heading, beat, t) {
   lp.lastBand = band; lp.lastVoice = voice;
   if (held) return null;
   const onBeat = Math.abs(beat - Math.round(beat)) < 1e-6;
-  sound(voice, x / W, y / H, (onBeat ? 0.9 : 0.62) * (lp.gain ?? 1), t, beat);
+  sound(voice, x / W, y / H, (onBeat ? 0.9 : 0.62) * (lp.gain ?? 1), t, beat, undefined, lp.chord);
   fires.push({ x, y, voice, t });
   if (fires.length > 240) fires.splice(0, fires.length - 240);
   return voice;
@@ -1236,15 +1406,15 @@ function schedule() {
       if (!locked(lp)) {
         // Free: each note at the moment you drew it, snapped NOW to the
         // current division (change the division and every loop follows).
-        const struck = new Set();
-        for (const ev of lp.events) {
-          const b = snapNear(base + ev.off * lp.ts);
+        const struck = new Set(), offs = offsOf(lp);
+        for (let i = 0; i < lp.events.length; i++) {
+          const ev = lp.events[i], b = swung(snapNear(base + offs[i] * lp.ts));
           if (b < a || b >= z) continue;
           const key = `${b}|${voiceOf(lp, ev)}`;
           if (struck.has(key)) continue;                         // two notes snapped together: one strike
           struck.add(key);
           const t = Math.max(now, timeAt(b));
-          play(lp, ev, t, b, (b - base) / lp.ts); ev.flashAt = t;
+          play(lp, ev, t, b, (snapNear(base + offs[i] * lp.ts) - base) / lp.ts); ev.flashAt = t;
         }
       } else {
         // Lock: every grid step inside this pass and this window.
@@ -1253,7 +1423,8 @@ function schedule() {
           const beat = j * sb, smp = sampleLoop(lp, (beat - base) / lp.ts);
           if (!smp) { lp.lastBand = null; continue; }                // resting: the next note is new
           const [px, py] = place(lp, smp.x, smp.y, W, H);
-          lockStep(lp, px, py, smp.heading + 0, beat, Math.max(now, timeAt(beat)));
+          const late = j % 2 && perBeat() ? state.swing * sb : 0;      // swing the odd steps
+          lockStep(lp, px, py, smp.heading + 0, beat, Math.max(now, timeAt(beat + late)));
         }
       }
     }
@@ -1264,25 +1435,46 @@ function schedule() {
 setInterval(schedule, 25);
 
 /* ── 8. Drone (optional bed under everything; follows Walk) ──────────────── */
+// A slow pad: each note is two detuned saws, through a lowpass whose
+// cutoff breathes on a very slow LFO. Voicing picks the notes (in the
+// current scale, so it follows grid, tuning, root and Walk); a level slider
+// sets how loud. Changing the voicing rebuilds it.
 
+const DRONE_VOICINGS = {
+  lowfifth: (n, f) => [-n, -n + f],
+  fifth: (n, f) => [0, f],
+  triad: (n, f) => [0, 2, f],
+  open: (n, f) => [-n, 0, f, n + 2],
+};
 function setDrone(on) {
   if (!ctx) return;
-  if (on && !drone) {
-    const g = ctx.createGain(), f = ctx.createBiquadFilter();
-    f.type = "lowpass"; f.frequency.value = 700;
-    g.gain.setValueAtTime(0.0001, ctx.currentTime);
-    g.gain.exponentialRampToValueAtTime(0.07, ctx.currentTime + 1.5);
-    const a = ctx.createOscillator(), b = ctx.createOscillator();
-    a.type = b.type = "triangle";
-    a.connect(f); b.connect(f); f.connect(g); out(g, 0, 0.3);
-    a.start(); b.start();
-    drone = { g, a, b, key: "" };
-    updateDrone(nowBeat(), true);
-  } else if (!on && drone) {
+  if (drone) {                                      // fade out whatever is playing
     const d = drone; drone = null;
     d.g.gain.setTargetAtTime(0.0001, ctx.currentTime, 0.3);
-    d.a.stop(ctx.currentTime + 2); d.b.stop(ctx.currentTime + 2);
+    d.oscs.forEach((o) => o.stop(ctx.currentTime + 2)); d.lfo.stop(ctx.currentTime + 2);
   }
+  if (!on) return;
+  const n = stepCount(), fifth = Math.max(1, Math.round((n * 4) / 7));
+  const degs = (DRONE_VOICINGS[state.droneVoicing] || DRONE_VOICINGS.fifth)(n, fifth);
+  const g = ctx.createGain(), f = ctx.createBiquadFilter(), lfo = ctx.createOscillator(), lg = ctx.createGain();
+  f.type = "lowpass"; f.frequency.value = 800; f.Q.value = 0.7;
+  lfo.frequency.value = 0.06; lg.gain.value = 350; lfo.connect(lg).connect(f.frequency); lfo.start();
+  g.gain.setValueAtTime(0.0001, ctx.currentTime);
+  g.gain.exponentialRampToValueAtTime(Math.max(0.0002, 0.1 * state.droneVol), ctx.currentTime + 2);
+  f.connect(g); out(g, 0, 0.35);
+  const voices = degs.map((deg, i) => {
+    const pair = [-6, 6].map((cents) => {
+      const o = ctx.createOscillator(); o.type = "sawtooth"; o.detune.value = cents + (i % 2 ? 3 : -3);
+      o.connect(f); o.start(); return o;
+    });
+    return { deg, pair };
+  });
+  drone = { g, f, lfo, voices, oscs: voices.flatMap((v) => v.pair), key: "" };
+  updateDrone(nowBeat(), true);
+}
+function setDroneVol(v) {
+  state.droneVol = v;
+  if (drone) drone.g.gain.setTargetAtTime(Math.max(0.0002, 0.1 * v), ctx.currentTime, 0.2);
 }
 function updateDrone(b, force = false) {
   if (!drone) return;
@@ -1290,9 +1482,10 @@ function updateDrone(b, force = false) {
   const key = `${state.grid}/${state.tuning}/${state.root}/${state.range}/${shift}`;
   if (key === drone.key && !force) return;
   drone.key = key;
-  const root = midiForDegree(shift) - 12;
-  drone.a.frequency.setTargetAtTime(mtof(root), ctx.currentTime, 0.25);
-  drone.b.frequency.setTargetAtTime(mtof(root + 7.02), ctx.currentTime, 0.25);
+  for (const v of drone.voices) {
+    const f = mtof(midiForDegree(shift + v.deg + stepCount()) - 24);   // an octave under the sheet's middle
+    v.pair.forEach((o) => o.frequency.setTargetAtTime(f, ctx.currentTime, 0.4));
+  }
 }
 
 /* ── 9. Toybox: ready-made shapes, through the same triggers ─────────────── */
@@ -1659,7 +1852,7 @@ sheet.addEventListener("pointerdown", (e) => {
       }
     }
   }
-  if (target) grabLoop(e.pointerId, target, x, y);
+  if (target) { grabLoop(e.pointerId, target, x, y); if (selected && selected !== target) { selected = target; renderLoopList(); } }
   else beginStroke(e.pointerId, x, y, e.timeStamp, penPressure(e));
 });
 
@@ -1715,9 +1908,19 @@ sheet.addEventListener("pointercancel", (e) => pointerEnd(e, true));
 document.addEventListener("gesturestart", (e) => e.preventDefault());   // no Safari pinch-zoom
 
 function fadeOut(s) { s.fadeFrom = performance.now(); fading.push(s); }
+
+/* Selection: one loop at a time is "the selected loop" (accent-coloured).
+ * Numbers follow creation order (shown on the sheet and in the chips). */
+let selected = null;
+function select(lp) {
+  selected = lp || null;
+  renderLoopList();
+  if (lp) toast(`Loop ${loops.indexOf(lp) + 1} selected · Enter for its settings`);
+}
 function eraseLoop(lp) {
   const i = loops.indexOf(lp);
   if (i >= 0) loops.splice(i, 1);
+  if (selected === lp) selected = null;
   fadeOut(lp);
   renderLoopList();
 }
@@ -1777,11 +1980,11 @@ function drawGrid(W, H) {
 
 /** Paths are drawn as smooth curves that pass THROUGH every point (Catmull-Rom
  *  as cubic Béziers), so notes always sit on the line, even on sparse paths. */
-function strokePath(lp, W, H, alpha, width, dash) {
+function strokePath(lp, W, H, alpha, width, dash, color = colors.ink) {
   const pts = lp.pts;
   if (pts.length < 2) return;
   g2.save();
-  g2.globalAlpha = alpha; g2.strokeStyle = colors.ink; g2.lineWidth = width;
+  g2.globalAlpha = alpha; g2.strokeStyle = color; g2.lineWidth = width;
   g2.lineCap = "round"; g2.lineJoin = "round";
   if (dash) g2.setLineDash([4, 7]);
   const P = pts.map((p) => place(lp, p.x, p.y, W, H));
@@ -1874,7 +2077,8 @@ function frame() {
 
   for (const lp of loops) {
     easeMorph(lp, dt);
-    strokePath(lp, W, H, lp.muted ? 0.25 : lp.held ? 0.9 : 0.55, lp.held ? 3 : 2, lp.muted);
+    const sel = lp === selected;
+    strokePath(lp, W, H, lp.muted ? 0.25 : lp.held || sel ? 0.9 : 0.55, lp.held || sel ? 3 : 2, lp.muted, sel ? colors.accent : colors.ink);
     drawBeatTicks(lp, W, H, lp.muted ? 0.25 : 0.7);
     if (locked(lp)) drawLockMarks(lp, W, H, lp.muted ? 0.25 : 0.65);
     if (insp && insp === lp && ZONES[lp.zone]) {                     // the open loop's zone, shaded
@@ -1895,12 +2099,19 @@ function frame() {
     if (state.edit) drawHandles(lp, W, H);
     if (ctx && !lp.muted) {
       const p = headPoint(lp, b);
-      if (p) {
+      if (p) {                                                     // the playhead: a dot with a halo
         const [x, y] = place(lp, p.x, p.y, W, H);
-        g2.fillStyle = colors.accent;
-        g2.beginPath(); g2.arc(x, y, 4, 0, 7); g2.fill();
+        g2.save(); g2.fillStyle = colors.accent;
+        g2.globalAlpha = 0.18; g2.beginPath(); g2.arc(x, y, 10, 0, 7); g2.fill();
+        g2.globalAlpha = 1; g2.beginPath(); g2.arc(x, y, 4.5, 0, 7); g2.fill(); g2.restore();
       }
     }
+    // Its number, by where it starts (so keys 1–9 and the chips are findable).
+    const [nx, ny] = place(lp, lp.pts[0].x, lp.pts[0].y, W, H), num = String(loops.indexOf(lp) + 1);
+    g2.save(); g2.font = colors.monoFont; g2.textAlign = "center"; g2.textBaseline = "middle";
+    if (sel) { g2.fillStyle = colors.accent; g2.beginPath(); g2.arc(nx - 12, ny - 12, 9, 0, 7); g2.fill(); g2.fillStyle = colors.paper; }
+    else { g2.globalAlpha = lp.muted ? 0.35 : 0.7; g2.fillStyle = colors["ink-muted"]; }
+    g2.fillText(num, nx - 12, ny - 12); g2.restore();
   }
   // While resizing, show the loop's clock ratio and length right next to it.
   if (pinch) {
@@ -1937,10 +2148,10 @@ const store = {
 };
 
 function serialize() {
-  const { bpm, volume, grid, tuning, root, range, div, pen, lock, loop, morph, revoice, walk, drone, pack, density } = state;
+  const { bpm, volume, grid, tuning, root, range, div, pen, lock, loop, morph, revoice, walk, drone, pack, density, swing, droneVol, droneVoicing } = state;
   return {
     v: 3, at: Date.now(),
-    settings: { bpm, volume, grid, tuning, root, range, div, pen, lock, loop, morph, revoice, walk, drone, pack, density },
+    settings: { bpm, volume, grid, tuning, root, range, div, pen, lock, loop, morph, revoice, walk, drone, pack, density, swing, droneVol, droneVoicing },
     loops: loops.map((lp) => ({
       trigger: lp.trigger, pen: lp.pen,
       pts: lp.pts.map((p) => [r4(p.x), r4(p.y), r4(p.b)]),
@@ -1949,6 +2160,7 @@ function serialize() {
       // fold Morph's wandering into the placement, so a scene recalls what you saw
       tx: r4(lp.tx + lp.m.tx), ty: r4(lp.ty + lp.m.ty), rot: r4(lp.rot + lp.m.rot), s: r4(lp.s),
       temper: lp.temper, spinDir: lp.spinDir, revoice: !!lp.revoice, zone: lp.zone || "any", gain: r4(lp.gain ?? 1),
+      rhythm: lp.rhythm || "drawn", chord: lp.chord || "single",
     })),
   };
 }
@@ -1958,6 +2170,8 @@ function applySettings(st) {
   if (!GRID[state.grid]) state.grid = "pentMaj";
   $("bpm").value = state.bpm; $("bpmVal").textContent = state.bpm;
   if (typeof setVolume === "function") setVolume(state.volume ?? 0.8);
+  $("swing").value = String(state.swing || 0); $("droneVol").value = String(state.droneVol ?? 0.5); $("droneVoicing").value = state.droneVoicing || "fifth";
+  if (typeof syncPen === "function") syncPen();
   for (const id of ["grid", "tuning", "root", "range", "div", "pen", "pack", "density"]) $(id).value = String(state[id]);
   for (const [id, key] of [["lockBtn", "lock"], ["loopBtn", "loop"], ["morphBtn", "morph"], ["revoiceBtn", "revoice"], ["walkBtn", "walk"], ["droneBtn", "drone"]])
     $(id).setAttribute("aria-pressed", String(state[key]));
@@ -1969,7 +2183,7 @@ function recall(scene) {
   if (!scene || !Array.isArray(scene.loops)) return false;
   loops.splice(0).forEach(fadeOut);
   const beatNow = nowBeat();
-  applySettings({ tuning: "equal", pen: "auto", lock: false, pack: state.pack, density: state.density, ...(scene.settings || {}) });
+  applySettings({ tuning: "equal", pen: "auto", lock: false, pack: state.pack, density: state.density, swing: 0, droneVol: 0.5, droneVoicing: "fifth", ...(scene.settings || {}) });
   if (ctx) t0 = nowAudio() - beatNow / bps();   // tempo may have changed: keep the beat continuous
   const start = nextStart();
   for (const d of scene.loops) {
@@ -1980,6 +2194,7 @@ function recall(scene) {
       trigger: normTrigger(d.trigger), pen: d.pen || "auto", gain: d.gain ?? 1,
       c: { x: d.c[0], y: d.c[1] }, L: d.L, ts: d.ts, muted: d.muted, tx: d.tx, ty: d.ty, rot: d.rot, s: d.s, temper: d.temper, spinDir: d.spinDir,
       revoice: d.revoice ?? !!(scene.settings && scene.settings.revoice), zone: d.zone || "any",
+      rhythm: d.rhythm || "drawn", chord: d.chord || "single",
     });
     loops.push(lp);
   }
@@ -2082,19 +2297,21 @@ function packScene(sc) {
     return [{ sheet: 0, lock: 1, free: 2 }[normTrigger(d.trigger)], d.pen, d.L, k(d.ts), d.muted ? 1 : 0, TEMPER_ORDER.indexOf(d.temper), d.spinDir,
       q(d.c[0]), q(d.c[1]), q(d.tx), q(d.ty), k(d.rot), k(d.s), flat,
       d.events.flatMap(([off, x, y, h, fixed, vel]) => [qb(off), q(x), q(y), k(h), FIXED_CODES.indexOf(fixed), Math.round(vel * 100)]),
-      d.revoice ? 1 : 0, Math.max(0, ZONE_ORDER.indexOf(d.zone || "any")), Math.round((d.gain ?? 1) * 100)];
+      d.revoice ? 1 : 0, Math.max(0, ZONE_ORDER.indexOf(d.zone || "any")), Math.round((d.gain ?? 1) * 100),
+      Math.max(0, RHYTHM_ORDER.indexOf(d.rhythm || "drawn")), Math.max(0, CHORD_ORDER.indexOf(d.chord || "single"))];
   }) };
 }
 function unpackScene(pk) {
   if (!pk || pk.v !== 1 || !Array.isArray(pk.l)) throw new Error("not a Twirl scene");
-  return { settings: pk.st || {}, loops: pk.l.map(([lock, pen, L, ts, muted, temper, spinDir, cx, cy, tx, ty, rot, s, flat, ev, revoice, zone, gain]) => {
+  return { settings: pk.st || {}, loops: pk.l.map(([lock, pen, L, ts, muted, temper, spinDir, cx, cy, tx, ty, rot, s, flat, ev, revoice, zone, gain, rhythm, chord]) => {
     const pts = []; let x = 0, y = 0, b = 0;
     for (let i = 0; i < flat.length; i += 3) { x += flat[i]; y += flat[i + 1]; b += flat[i + 2]; pts.push([x / QXY, y / QXY, b / QB]); }
     const events = [];
     for (let i = 0; i < ev.length; i += 6) events.push([ev[i] / QB, ev[i + 1] / QXY, ev[i + 2] / QXY, ev[i + 3] / 1000, FIXED_CODES[ev[i + 4]] ?? null, ev[i + 5] / 100]);
     return { trigger: ["sheet", "lock", "free"][lock] || "sheet", pen, L, ts: ts / 1000, muted: !!muted, temper: TEMPER_ORDER[temper] || "drift", spinDir,
       c: [cx / QXY, cy / QXY], tx: tx / QXY, ty: ty / QXY, rot: rot / 1000, s: s / 1000, pts, events,
-      revoice: revoice === undefined ? undefined : !!revoice, zone: ZONE_ORDER[zone] || "any", gain: gain === undefined ? 1 : gain / 100 };
+      revoice: revoice === undefined ? undefined : !!revoice, zone: ZONE_ORDER[zone] || "any", gain: gain === undefined ? 1 : gain / 100,
+      rhythm: RHYTHM_ORDER[rhythm] || "drawn", chord: CHORD_ORDER[chord] || "single" };
   }) };
 }
 
@@ -2271,7 +2488,7 @@ function keepToy(lp) {
   const rel = ([x, y]) => [r4((x - cx) / m), r4((y - cy) / m)];
   const turn = state.revoice ? totalRot(lp) : 0;   // keep the voices you were hearing
   addToy({
-    trigger: lp.trigger, pen: lp.pen, L: lp.L, ts: lp.ts, muted: false, temper: lp.temper, spinDir: lp.spinDir, revoice: !!lp.revoice, zone: lp.zone || "any", gain: lp.gain ?? 1,
+    trigger: lp.trigger, pen: lp.pen, L: lp.L, ts: lp.ts, muted: false, temper: lp.temper, spinDir: lp.spinDir, revoice: !!lp.revoice, zone: lp.zone || "any", gain: lp.gain ?? 1, rhythm: lp.rhythm || "drawn", chord: lp.chord || "single",
     c: [0, 0], tx: 0, ty: 0, rot: 0, s: 1,
     pts: lp.pts.map((p, i) => [...rel(P[i]), r4(p.b)]),
     events: lp.events.map((e) => [e.off, ...rel(place(lp, e.x, e.y, W, H)), r4(e.heading + turn), e.fixed, r4(e.vel)]),
@@ -2298,7 +2515,7 @@ function dropSavedToy(t, where) {
   const cx = where ? where[0] : W * (0.25 + Math.random() * 0.5);
   const cy = where ? where[1] : H * (0.3 + Math.random() * 0.4);
   const s = newStroke(nextStart());
-  Object.assign(s, { trigger: normTrigger(t.trigger), pen: t.pen, temper: t.temper, spinDir: t.spinDir, revoice: t.revoice ?? s.revoice, zone: t.zone || "any", gain: t.gain ?? 1 });
+  Object.assign(s, { trigger: normTrigger(t.trigger), pen: t.pen, temper: t.temper, spinDir: t.spinDir, revoice: t.revoice ?? s.revoice, zone: t.zone || "any", gain: t.gain ?? 1, rhythm: t.rhythm || "drawn", chord: t.chord || "single" });
   s.pts = t.pts.map(([x, y, b]) => ({ x: (cx + x * m) / W, y: (cy + y * m) / H, b }));
   s.events = t.events.map(([off, x, y, heading, fixed, vel]) => ({ off, x: (cx + x * m) / W, y: (cy + y * m) / H, heading, fixed, vel, ms: 0, flashAt: -1 }));
   if (finishStroke(s, false)) s.ts = t.ts;
@@ -2453,6 +2670,7 @@ function openShelf(which) {
   for (const [tab, id] of Object.entries(SHELF_BTNS)) $(id).setAttribute("aria-expanded", String(tab === which));
   if (which === "scenes") { renderSlots(); $("share").hidden = true; $("openLink").hidden = true; $("backBtn").hidden = !store.get(BEFORE_KEY); }
   if (which === "mytoys") { renderMyToys(); $("toyShare").hidden = true; }
+  if (which === "takes") renderTakes();
 }
 function closeShelf() {
   $("shelf").hidden = true;
@@ -2495,11 +2713,111 @@ function setVolume(v) {
 }
 $("vol").addEventListener("input", (e) => setVolume(Number(e.target.value)));
 $("density").addEventListener("change", (e) => { state.density = e.target.value; });
+$("swing").addEventListener("input", (e) => { state.swing = Number(e.target.value); });
+$("droneVol").addEventListener("input", (e) => setDroneVol(Number(e.target.value)));
+$("droneVoicing").addEventListener("change", (e) => { state.droneVoicing = e.target.value; if (state.drone) setDrone(true); });
+
+/* ── Pen palette: a small floating card you can drag anywhere ───────────── */
+const PEN_GLYPH = {
+  auto: '<path d="M8 1.5v13M1.5 8h13M8 1.5l-2 2M8 1.5l2 2M14.5 8l-2-2M14.5 8l-2 2" fill="none" stroke="currentColor" stroke-width="1.4"/>',
+  drum: '<rect x="3" y="3" width="10" height="10" fill="var(--drum)"/>',
+  pluck: '<circle cx="8" cy="8" r="5.5" fill="var(--pluck)"/>',
+  bell: '<circle cx="8" cy="8" r="5" fill="none" stroke="var(--bell)" stroke-width="2.2"/>',
+  blip: '<path d="M8 2 L14 13 L2 13 Z" fill="var(--blip)"/>',
+  shake: '<path d="M8 1.5 L14.5 8 L8 14.5 L1.5 8 Z" fill="var(--shake)"/>',
+};
+const PEN_ORDER = ["auto", "drum", "pluck", "bell", "blip", "shake"];
+function syncPen() {
+  $("penGlyph").innerHTML = PEN_GLYPH[state.pen] || PEN_GLYPH.auto;
+  document.querySelectorAll("[data-pen]").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.pen === state.pen)));
+}
+function setPen(v) { $("pen").value = v; $("pen").dispatchEvent(new Event("change")); }
+$("pen").addEventListener("change", syncPen);
+document.querySelectorAll("[data-pen]").forEach((b) => b.addEventListener("click", () => setPen(b.dataset.pen)));
+function togglePalette(open = $("palette").hidden) {
+  $("palette").hidden = !open; $("penBtn").setAttribute("aria-expanded", String(open));
+  const pos = store.get("twirl:palette");
+  if (open && pos) { $("palette").style.left = pos.x + "px"; $("palette").style.top = pos.y + "px"; }
+}
+$("penBtn").addEventListener("click", () => togglePalette());
+$("palClose").addEventListener("click", () => togglePalette(false));
+(function dragPalette() {
+  const pal = $("palette"), grip = $("palGrip");
+  let from = null;
+  grip.addEventListener("pointerdown", (e) => { from = { x: e.clientX - pal.offsetLeft, y: e.clientY - pal.offsetTop }; grip.setPointerCapture(e.pointerId); });
+  grip.addEventListener("pointermove", (e) => {
+    if (!from) return;
+    const x = Math.min(innerWidth - pal.offsetWidth - 4, Math.max(4, e.clientX - from.x)), y = Math.min(innerHeight - pal.offsetHeight - 4, Math.max(4, e.clientY - from.y));
+    pal.style.left = x + "px"; pal.style.top = y + "px";
+  });
+  grip.addEventListener("pointerup", () => { from = null; store.set("twirl:palette", { x: pal.offsetLeft, y: pal.offsetTop }); });
+})();
+syncPen();
+
+/* ── Recording: takes of what you play ───────────────────────────────────
+ * Taps the master (after the compressor) into a MediaRecorder. Takes live
+ * in memory until the page closes; Save hands one to the viewer as a file
+ * (on the published page through its download permission; elsewhere as an
+ * ordinary download). */
+let recorder = null, recDest = null, recStart = 0, recTimer = null;
+const takes = [];
+const fmtTime = (s) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
+function toggleRecording() {
+  ensureAudio();
+  if (recorder) { recorder.stop(); return; }
+  if (!window.MediaRecorder || !ctx.createMediaStreamDestination) { toast("Recording isn't available in this browser"); return; }
+  if (!recDest) { recDest = ctx.createMediaStreamDestination(); compressor.connect(recDest); }
+  const mime = ["audio/webm;codecs=opus", "audio/webm", "audio/mp4"].find((m) => MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported(m));
+  const chunks = [];
+  try { recorder = new MediaRecorder(recDest.stream, mime ? { mimeType: mime } : undefined); }
+  catch (_) { toast("Recording isn't available in this browser"); recorder = null; return; }
+  recorder.ondataavailable = (e) => { if (e.data && e.data.size) chunks.push(e.data); };
+  recorder.onstop = () => {
+    const type = recorder.mimeType || mime || "audio/webm", ext = type.includes("mp4") ? "mp4" : "webm";
+    const blob = new Blob(chunks, { type }), secs = (performance.now() - recStart) / 1000;
+    takes.push({ n: takes.length + 1, blob, url: URL.createObjectURL(blob), ext, secs });
+    recorder = null; clearInterval(recTimer); syncRec();
+    openShelf("takes"); toast(`Take ${takes.length} · ${fmtTime(secs)}`);
+  };
+  recorder.start(); recStart = performance.now();
+  recTimer = setInterval(syncRec, 500); syncRec();
+  if (ctx.state !== "running") $("power").click();
+}
+function syncRec() {
+  const on = !!recorder;
+  $("recBtn").setAttribute("aria-pressed", String(on));
+  $("recLabel").textContent = on ? fmtTime((performance.now() - recStart) / 1000) : "Rec";
+}
+async function saveTake(t) {
+  const filename = `twirl-take-${t.n}.${t.ext}`;
+  const dl = window.claude && window.claude.use ? await window.claude.use("downloads").catch(() => null) : null;
+  if (dl) {
+    try { await dl.save({ filename, data: t.blob }); toast(`Saved ${filename}`); }
+    catch (e) { toast(e && e.code === "declined" ? "Not saved" : "Saving isn't available here: play the take and record it another way"); }
+    return;
+  }
+  const a = document.createElement("a"); a.href = t.url; a.download = filename; document.body.append(a); a.click(); a.remove();
+}
+function renderTakes() {
+  const list = $("takeList"); list.textContent = "";
+  $("takesNote").hidden = false;
+  takes.forEach((t, i) => {
+    const row = document.createElement("div"); row.className = "take";
+    const name = document.createElement("strong"); name.textContent = `Take ${t.n} · ${fmtTime(t.secs)}`;
+    const audio = document.createElement("audio"); audio.controls = true; audio.src = t.url; audio.preload = "metadata";
+    const save = document.createElement("button"); save.type = "button"; save.className = "btn primary"; save.textContent = "Save";
+    save.addEventListener("click", () => saveTake(t));
+    const del = document.createElement("button"); del.type = "button"; del.className = "btn"; del.textContent = "Delete";
+    del.addEventListener("click", () => { URL.revokeObjectURL(t.url); takes.splice(i, 1); renderTakes(); });
+    row.append(name, audio, save, del); list.append(row);
+  });
+}
+$("recBtn").addEventListener("click", toggleRecording);
 
 /* ── The loop's own settings (hold a loop) ──────────────────────────────── */
 let insp = null;
 function openInspector(lp) {
-  closeShelf(); setDrawer(false);
+  closeShelf(); setDrawer(false); selected = lp;
   if (insp) insp.held = false;
   insp = lp; lp.held = true;
   $("inspWrap").hidden = false;
@@ -2512,8 +2830,8 @@ function closeInspector() {
 function syncInspector() {
   const lp = insp;
   if (!lp) return;
-  $("inspTitle").textContent = `This loop · ${fmtBeats(loopBeats(lp))} beats · ×${fmtRatio(lp.ts)} · ${locked(lp) ? "on the grid" : "as drawn"}`;
-  const val = { temper: lp.temper, zone: lp.zone || "any", ts: lp.ts, trigger: lp.trigger };
+  $("inspTitle").textContent = `Loop ${loops.indexOf(lp) + 1} · ${fmtBeats(loopBeats(lp))} beats · ×${fmtRatio(lp.ts)} · ${locked(lp) ? "on the grid" : "as drawn"}`;
+  const val = { temper: lp.temper, zone: lp.zone || "any", ts: lp.ts, trigger: lp.trigger, rhythm: lp.rhythm || "drawn", chord: lp.chord || "single" };
   $("inspGain").value = String(lp.gain ?? 1);
   document.querySelectorAll("[data-insp]").forEach((seg) => seg.querySelectorAll("[data-v]").forEach((b) => {
     const v = seg.dataset.insp === "ts" ? Math.abs(Number(b.dataset.v) - val.ts) < 0.01 : b.dataset.v === val[seg.dataset.insp];
@@ -2530,6 +2848,8 @@ document.querySelectorAll("[data-insp]").forEach((seg) => seg.addEventListener("
   if (k === "temper") { lp.temper = v; if (v === "still") lp.mt = { ...lp.m }; }
   if (k === "zone") lp.zone = v;
   if (k === "trigger") { lp.trigger = v; lp.lastBand = null; }
+  if (k === "rhythm") lp.rhythm = v;
+  if (k === "chord") lp.chord = v;
   if (k === "ts") { const r = RATIOS.reduce((best, x) => (Math.abs(x - Number(v)) < Math.abs(best - Number(v)) ? x : best), 1); lp.s = Math.min(2.5, Math.max(0.4, r)); retime(lp, r); }
   syncInspector(); renderLoopList();
 }));
@@ -2538,6 +2858,12 @@ $("inspPen").addEventListener("change", (e) => { if (insp) { insp.pen = e.target
 $("inspRevoice").addEventListener("click", () => { if (insp) { insp.revoice = !insp.revoice; syncInspector(); } });
 $("inspMute").addEventListener("click", () => { if (insp) { insp.muted = !insp.muted; syncInspector(); renderLoopList(); } });
 $("inspKeep").addEventListener("click", () => { if (insp) keepToy(insp); });
+$("inspEdit").addEventListener("click", () => {
+  if (!insp) return;
+  const lp = insp; closeInspector(); select(lp);
+  if (!state.edit) $("editBtn").click();
+  toast("Edit notes: tap the path to add one · tap a note to remove it · drag a square to bend · Edit notes again to finish");
+});
 $("inspErase").addEventListener("click", () => { if (insp) { const lp = insp; closeInspector(); eraseLoop(lp); toast("Erased"); } });
 $("inspClose").addEventListener("click", closeInspector);
 document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeInspector(); });
@@ -2634,6 +2960,15 @@ function pressToggle(id, label) {
   $(id).click();
   toast(`${label} ${$(id).getAttribute("aria-pressed") === "true" ? "on" : "off"}`);
 }
+function turnSelected(dir) {
+  if (!selected) { toast("Select a loop first (1–9)"); return; }
+  selected.rot += dir * (Math.PI / 12);
+}
+function speedSelected(dir) {
+  if (!selected) { toast("Select a loop first (1–9)"); return; }
+  const i = Math.min(RATIOS.length - 1, Math.max(0, RATIOS.indexOf(selected.ts) + dir)), r = RATIOS[i < 0 ? 3 : i];
+  selected.s = r; retime(selected, r); toast(`×${fmtRatio(r)} · ${fmtBeats(loopBeats(selected))} beats`);
+}
 function openKeys() { $("keys").hidden = false; setDrawer(false); }
 function closeKeys() { $("keys").hidden = true; }
 $("keysBtn").addEventListener("click", openKeys);
@@ -2650,24 +2985,56 @@ const KEYS = {
   "=": () => { setVolume(state.volume + 0.1); toast(`Volume ${Math.round(state.volume * 100)}%`); },
   t: () => openShelf("toybox"), y: () => openShelf("mytoys"), s: () => openShelf("scenes"),
   c: () => { closeShelf(); closeInspector(); setDrawer(!document.body.classList.contains("drawer-open")); },
-  1: () => setLevel(1), 2: () => setLevel(2), 3: () => setLevel(3),
+  "\\": () => { setLevel(level % 3 + 1); toast(["Simple", "More", "Everything"][level - 1]); },
+  v: () => togglePalette(),
+  x: () => { if (!selected) { toast("Select a loop first (1–9)"); return; } selected.muted = !selected.muted; renderLoopList(); toast(selected.muted ? "Muted" : "Unmuted"); },
+  enter: () => { if (selected) openInspector(selected); else toast("Select a loop first (1–9)"); },
+  ",": () => turnSelected(1), ".": () => turnSelected(-1),
+  "<": () => speedSelected(-1), ">": () => speedSelected(1),
   "?": () => ($("keys").hidden ? openKeys() : closeKeys()),
+  "|": () => KEYS["\\"](),
 };
 document.addEventListener("keydown", (e) => {
   if (e.target.closest && e.target.closest("input, textarea, select")) return;
-  if (e.key === "Escape") { closeKeys(); return; }               // the other Escape handlers close the rest
+  if (e.key === "Escape") { closeKeys(); if (selected && $("inspWrap").hidden) select(null); return; }   // the other Escape handlers close the rest
   const mod = e.metaKey || e.ctrlKey, key = e.key.length === 1 ? e.key.toLowerCase() : e.key;
   if (mod && key === "z") { e.preventDefault(); e.shiftKey ? redoLoop() : undoLoop(); return; }
   if (mod && key === "y") { e.preventDefault(); redoLoop(); return; }
   if (mod || e.altKey) return;                                    // leave the browser's own shortcuts alone
   if (key === "Backspace" || key === "Delete") {
     e.preventDefault();
-    if (e.shiftKey) { setDrawer(true); $("clear").click(); } else undoLoop();
+    if (e.shiftKey) { setDrawer(true); $("clear").click(); }
+    else if (selected) { const lp = selected; eraseLoop(lp); undone.push(lp); toast("Erased the selected loop · ⇧⌘Z brings it back"); }
+    else undoLoop();
     return;
   }
-  const fn = KEYS[e.key === "?" ? "?" : key];
+  // Digits: 1–9 select a loop; with Shift, 1–6 pick the pen (palette order). Uses the key's
+  // position (e.code), so Shift+1 works whatever the layout prints on it.
+  const digit = /^Digit([0-9])$/.exec(e.code || "");
+  if (digit) {
+    e.preventDefault(); const d = Number(digit[1]);
+    if (e.shiftKey) { if (d >= 1 && d <= 6) { setPen(PEN_ORDER[d - 1]); toast($("pen").selectedOptions[0].textContent); } return; }
+    if (d === 0) { select(null); return; }
+    if (loops[d - 1]) select(loops[d - 1]); else toast(`There's no loop ${d}`);
+    return;
+  }
+  if (key === " " && e.shiftKey) { e.preventDefault(); toggleRecording(); return; }
+  if (key === "Tab" && (e.target === document.body || e.target === sheet) && loops.length) {
+    e.preventDefault();
+    const i = loops.indexOf(selected), n = loops.length;
+    select(loops[(i < 0 ? (e.shiftKey ? n - 1 : 0) : i + (e.shiftKey ? n - 1 : 1)) % n]);
+    return;
+  }
+  if (selected && key.startsWith("Arrow")) {
+    e.preventDefault();
+    const st = e.shiftKey ? 0.05 : 0.01;
+    if (key === "ArrowLeft") selected.tx -= st; if (key === "ArrowRight") selected.tx += st;
+    if (key === "ArrowUp") selected.ty -= st; if (key === "ArrowDown") selected.ty += st;
+    return;
+  }
+  const fn = KEYS[e.key === "?" || e.key === "<" || e.key === ">" ? e.key : key === "Enter" ? "enter" : key];
   if (!fn) return;
-  if (e.key === " " && e.target.closest && e.target.closest("button")) return;   // Space on a focused button presses that button
+  if ((e.key === " " || e.key === "Enter") && e.target.closest && e.target.closest("button")) return;   // Space/Enter on a focused button press that button
   e.preventDefault();
   if (e.key !== " ") ensureAudio();                              // Space decides for itself: play or pause
   hint.hidden = true;
@@ -2675,13 +3042,26 @@ document.addEventListener("keydown", (e) => {
   syncPower();
 });
 
+/** The footer: one chip per loop. Tap a chip to select that loop and open
+ *  its settings, the dependable way to reach a loop that's small, crowded
+ *  or moving. */
 function renderLoopList() {
   const el = $("loops");
+  el.textContent = "";
   if (!loops.length) { el.textContent = "no loops yet · draw, shake, or open the toybox"; return; }
-  el.innerHTML = "loops (beats): " + loops.map((lp) => {
-    const t = `${fmtBeats(loopBeats(lp))}<span aria-hidden="true">·</span>${lp.temper}${lp.zone && lp.zone !== "any" ? "·" + lp.zone : ""}${locked(lp) ? "·lock" : ""}`;
-    return lp.muted ? `(${t})` : `<b>${t}</b>`;
-  }).join("  ");
+  loops.forEach((lp, i) => {
+    const b = document.createElement("button");
+    b.type = "button"; b.className = "chip";
+    b.setAttribute("aria-pressed", String(lp === selected));
+    if (lp.muted) b.classList.add("muted");
+    const n = document.createElement("strong"); n.textContent = String(i + 1);
+    const t = document.createElement("span");
+    t.textContent = `${fmtBeats(loopBeats(lp))}b${locked(lp) ? " · grid" : ""}${lp.chord && lp.chord !== "single" ? " · " + lp.chord : ""}`;
+    b.append(n, t);
+    b.setAttribute("aria-label", `Loop ${i + 1}, ${fmtBeats(loopBeats(lp))} beats${lp.muted ? ", muted" : ""}: open its settings`);
+    b.addEventListener("click", () => { select(lp); openInspector(lp); });
+    el.append(b);
+  });
 }
 
 // Keep the trays clear of the footer, however many lines the footer wraps to.

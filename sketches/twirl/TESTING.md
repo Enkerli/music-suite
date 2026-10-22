@@ -29,7 +29,9 @@ What it covers:
 | Sounds | every voice of every pack plays without errors; Notes density changes note spacing |
 | Saving | Clear takes two taps and never touches saved scenes |
 | Codes | *Copy everything* in one browser, paste in another: scenes and toys arrive |
-| Keyboard | Space plays; ⌫ undoes and ⇧⌘Z redoes; toggles, cycling pickers (and ⇧ backwards), tempo, levels, shelf, Esc, the ? list; ⇧⌫ twice clears |
+| Keyboard | Space plays; digits select loops, arrows move the selected one, X mutes it, ⇧2 picks a pen, V shows the palette and the palette sets the pen; ⌫ undoes and ⇧⌘Z redoes; toggles, cycling pickers (and ⇧ backwards), tempo, levels, shelf, Esc, the ? list; ⇧⌫ twice clears |
+| Rhythm, harmony, sound | even and euclidean rhythms land where they should; sevenths stack four notes; swing delays every other step; drone voicings rebuild; every pack plays every voice, chords included |
+| Recording | ⇧Space records a take, and it shows in Takes |
 | Field links | the three links in `test/fixtures/`, exactly as received (stray `!`, line breaks, a 3,300-character Safari link), all open by pasting |
 | Phone | no sideways scrolling at 375px; the drawer opens; levels reveal controls |
 | Everywhere | no page errors |
