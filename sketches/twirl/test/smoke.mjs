@@ -293,6 +293,74 @@ console.log("\nPlayflows: record what you do, replay it, share it");
   check(await other.page.evaluate(() => loadFlows().length === 1 && !$("takes").hidden), "a take's code pastes into another browser's Takes");
 }
 
+console.log("\nKeys on other layouts, numbers, waits, offsets, Barlow, recording");
+{
+  const { page } = await newPage();
+  await page.goto(PAGE); await page.waitForTimeout(300);
+  await page.click("#power");
+  // A layout where ? is Shift+6 (e.g. Canadian French): help, not the shaker pen.
+  await page.evaluate(() => document.dispatchEvent(new KeyboardEvent("keydown", { key: "?", code: "Digit6", shiftKey: true, bubbles: true })));
+  check(await page.evaluate(() => !$("keys").hidden && state.pen === "auto"), "? typed as ⇧6 opens the key list and leaves the pen alone");
+  await page.keyboard.press("Escape"); await page.keyboard.press("h");
+  check(await page.evaluate(() => !$("keys").hidden), "H opens the key list");
+  await page.keyboard.press("h");
+  check(await page.evaluate(() => !showNumbers && $("numBtn").getAttribute("aria-pressed") === "false"), "loop numbers are hidden by default");
+  await page.keyboard.press("1");
+  check(await page.evaluate(() => showNumbers), "pressing a digit shows the numbers");
+  await page.evaluate(() => $("numBtn").click());
+  check(await page.evaluate(() => !showNumbers), "the drawer's Numbers button hides them again");
+  // Recording: Space after clicking ● Rec doesn't press Rec again.
+  await page.click("#recBtn"); await page.waitForTimeout(400); await page.click("#recBtn"); await page.waitForTimeout(300);
+  check(await page.evaluate(() => $("recLabel").textContent === "Rec" && $("recBtn").getAttribute("aria-pressed") === "false"), "● Rec shows stopped once stopped (it used to keep showing a time)");
+  await page.keyboard.press("Space"); await page.waitForTimeout(200);
+  check(await page.evaluate(() => !recorder && !flowRec), "Space after stopping with ● Rec doesn't start another take");
+  await page.keyboard.press("Space"); await page.waitForTimeout(200);
+  // The browser stopping the recorder by itself (iPadOS can) still ends the take.
+  await page.click("#recBtn"); await page.waitForTimeout(400);
+  await page.evaluate(() => recorder.stop()); await page.waitForTimeout(500);
+  check(await page.evaluate(() => !recorder && !flowRec && $("recLabel").textContent === "Rec" && loadFlows().length === 2), "a recorder the browser stopped ends the take cleanly");
+  // Barlow: a bar of 16ths, and of triplets.
+  const w = await page.evaluate(() => [barWeights(16), barWeights(12)]);
+  check(w[0][0] === 1 && w[0][8] > w[0][4] && w[0][4] > w[0][2] && w[0][2] > w[0][1] && w[0][15] > w[0][1], "Barlow weights: downbeat > half > quarter > eighth > sixteenth (pickup kept high)", w[0].map((x) => x.toFixed(2)).join(" "));
+  check(w[1].length === 12 && w[1][0] === 1 && w[1][6] > w[1][1], "Barlow weights work for triplet bars too", w[1].map((x) => x.toFixed(2)).join(" "));
+  const kept = await page.evaluate(() => {
+    state.div = "16"; state.air = 1; strikeLog = [];
+    const out = Array(16).fill(0);
+    for (let rep = 0; rep < 40; rep++) for (let i = 0; i < 16; i++) if (airKeep(rep * 4 + i / 4)) out[i]++;
+    state.air = 0; return out;
+  });
+  check(kept[0] === 40 && kept[8] > kept[1] + kept[3] + kept[5], "Air keeps the most indispensable steps", kept.join(" "));
+  const soft = await page.evaluate(() => { state.air = 1; strikeLog = []; const g = [airKeep(0), airKeep(0.25)]; state.air = 0; return g; });
+  check(soft[0] > soft[1], "Air plays weaker positions softer", soft.map((x) => x.toFixed(2)).join(" vs "));
+  // Waits: rests after the path; notes only during the path.
+  const waits = await page.evaluate(async () => {
+    state.div = "free"; state.morph = false; state.lock = false; state.bpm = 240; t0 = nowAudio() - nowBeat() / bps();
+    loops.splice(1).forEach(fadeOut);
+    const lp = loops[0]; lp.trigger = "free"; lp.ts = 1; lp.dir = "fwd"; lp.every = 1; lp.wait = 2;
+    lp.start = Math.ceil(nowBeat()) + 1; lp.cursor = lp.start; lp.lastPass = 0;
+    const got = []; const real = play;
+    play = (l, ev, t, b, ph, air) => { if (l === lp) got.push(mod(b - lp.start, loopBeats(lp))); return real(l, ev, t, b, ph, air); };
+    await new Promise((r) => setTimeout(r, (loopBeats(lp) * 2 + 1) * 250));
+    play = real;
+    return { got, L: lp.L, Lb: loopBeats(lp) };
+  });
+  check(waits.Lb === waits.L + 2 && waits.got.length > 0 && waits.got.every((b) => b < waits.L), "Waits: a pass grows by the wait, and the wait is silent", `${waits.got.length} notes, pass ${waits.Lb}`);
+  const nudge = await page.evaluate(() => { const lp = loops[0], s0 = lp.start; state.div = "16"; nudgeLoop(lp, 1); nudgeLoop(lp, 1); return lp.start - s0; });
+  check(Math.abs(nudge - 0.5) < 1e-9, "Starts: later moves a loop one step at a time", `${nudge} beats`);
+  const dup = await page.evaluate(() => { const lp = loops[0]; lp.wait = 0; const n = loops.length; duplicateLoop(lp); const c = loops[n]; return mod(c.start - lp.start, loopBeats(lp)) / loopBeats(lp); });
+  check(Math.abs(dup - 0.5) < 0.13, "a duplicate is half a cycle behind", dup.toFixed(2));
+  const round = await page.evaluate(() => {
+    const lp = loops[0]; lp.wait = 4;
+    const back = unpackScene(packScene(serialize())).loops[0];
+    const ph = mod(lp.start, loopBeats(lp));
+    recall({ settings: serialize().settings, loops: [back] });
+    return { wait: back.wait, ph: back.ph, want: ph, again: mod(loops[0].start, loopBeats(loops[0])) };
+  });
+  check(round.wait === 4 && Math.abs(round.ph - round.want) < 0.01 && Math.abs(round.again - round.want) < 0.01, "scenes keep a loop's wait and its place in the cycle", JSON.stringify(round));
+  await page.evaluate(() => dropToy("call"));
+  check(await page.evaluate(() => loops[loops.length - 1].wait === 3), "the Call toy waits after it plays");
+}
+
 console.log("\nField links (as received)");
 for (const [name, loopsExpected] of [["field-1-stray-bangs.txt", 4], ["field-2-bangs-and-line-breaks.txt", 4], ["field-3-clean-long-safari.txt", 14]]) {
   const { page } = await newPage();

@@ -54,26 +54,21 @@ Touch anywhere. Sound starts on the first touch (or press **Play**).
 | Two fingers on a loop | Turn it, and resize it: **bigger plays slower**, smaller plays faster. A label shows the speed while you do it. |
 | Hold a loop | Its own settings (below). |
 | **Toybox** | Ready-made shapes to drop on the sheet, plus tabs for **My toys**, **Scenes** and **Takes**. |
-| The chips along the bottom | One per loop, numbered like the small numbers on the sheet. Tap one to pick that loop and open its settings: the sure way to reach a loop that's small, crowded or moving. |
+| The chips along the bottom | One per loop, numbered. Tap one to pick that loop and open its settings: the sure way to reach a loop that's small, crowded or moving. (The sheet shows the same numbers if you want them: drawer → **Numbers** at More, or press a digit key.) |
 | **● Rec** (top bar) | Record what you play; press again to stop. A take keeps what you **did** (every stroke, move, mute, erase and setting) and, where the browser can, its **sound**. Toybox → **Takes**: **▶ Replay** plays it back on the sheet (below), **Save sound** saves the audio as a file, **Copy code** sends the take to someone. |
 
 **A loop's own settings** (hold it, or tap its chip). While they're open,
 picking another loop (a chip, or 1–9) switches them to that loop: the
 quick way to mute loops one at a time.
 - **Volume**: this loop only.
-- **Plays**: every pass, every other pass, or one pass in three. A loop
-  that rests now and then leaves room for the others.
 - **Moves**: still, drift, spin or jitter. Each loop wanders in its own way.
 - **Lives**: anywhere, high, middle or low. A loop told to live low stays
   a bass however it wanders; one living high stays a topline.
-- **Mute**, **Duplicate** (a copy, a beat behind, nudged aside: a
-  canon; or press **D**), **Keep as a toy**, **Erase**.
+- **Mute**, **Keep as a toy**, **Erase**.
 
 **In the drawer (☰)** at this level: tempo, **Volume**, **Sounds** (paper,
 mallets, felt, steel, kalimba, chip), **Notes** (sparse, medium, dense: how many notes a stroke makes),
-**Air** (more air = when the sheet gets busy, off-beat notes drop out so
-it breathes; downbeats always play, and what you're drawing is never
-thinned),
+
 **Loop** (off = nothing repeats: play it live), and **Clear** (two taps;
 your saved scenes and toys are never touched).
 
@@ -101,6 +96,17 @@ Adds to the drawer:
   note, tap a note to remove it, drag a square to bend the path, hold a
   loop to smooth it. (Also from a loop's settings: *Edit notes*.)
 - **Swing**: every other step of the division comes late. 0 is straight.
+- **Air**: breathing room. When the sheet gets busy, the notes that
+  matter least to the bar rest, and weaker positions play a little
+  softer (with a touch of variation). "Matter least" is Barlow's
+  *indispensability*, the version the Suite uses (Serpe, @enkerli/theory),
+  which ranks every step of the bar, triplets included: the downbeat
+  first, then the half bar, the quarters, the eighths, the pickup just
+  before the next bar. Downbeats always play; what you're drawing is never
+  thinned.
+- **Numbers**: show each loop's number on the sheet. Off by default; the
+  selected loop always shows its own, and pressing a digit key turns them
+  on.
 - **Arc**: tension and release over 4 or 8 bars. *Home*, then *away*
   (everything shifts up the scale), then *pull* (a step further, leaning
   back), then *resolve*: on the last bar every note settles onto the home
@@ -121,6 +127,16 @@ And a loop's settings add:
   chords stay in key and in tuning. Drums and the shaker stay single.
 - **Direction**: *forward*, *reverse* (the playhead runs the path
   backwards, so a rising line falls), or *ping-pong* (forward, then back).
+- **Plays**: every pass, every other pass, or one pass in three. A loop
+  that rests now and then leaves room for the others.
+- **Waits**: a rest after each pass (none, 1 beat, 2 beats, a bar), so the
+  loop comes round less often. The same as drawing a gesture and holding
+  still at the end, as a setting. It scales with the loop's speed.
+- **Starts**: *earlier* / *later* moves the loop one step against all the
+  others (an offset). Scenes keep each loop's place in its cycle.
+- **Duplicate** (or press **D**): a copy, nudged aside, half its cycle
+  behind the original, so even a one-beat loop answers itself. Set the
+  copy to *reverse* for a mirror canon.
 - **Timing**: *follow Lock* (the default), *as drawn* (never locked: a
   shaker or a melody you want to keep loose), or *on the grid* (always
   locked).
@@ -160,7 +176,7 @@ the drawer).
 | ⌫ or ⌘Z (Ctrl+Z) | Erase the selected loop, or the newest one (undo) |
 | ⇧⌘Z (Ctrl+Shift+Z, Ctrl+Y) | Bring it back (redo) |
 | ⇧⌫ | Clear the sheet (press twice) |
-| ⇧1 … ⇧6 · V | Pen: direction · drums · pluck · bell · blip · shaker · show the palette |
+| ⇧1 … ⇧6 · V | Pen: direction · drums · pluck · bell · blip · shaker · show the palette (by key position, so on any layout; a key that types ? < or > does that instead) |
 | L · M · E | Lock · Morph · Edit notes |
 | P · N · B · G | Next pen · notes density · sound pack · grid (⇧ goes back) |
 | [ · ] · - · = | Tempo down / up (⇧ for 10) · volume down / up |
@@ -168,6 +184,7 @@ the drawer).
 | C · \ | Controls drawer · Simple → More → Everything |
 | R · W · O | Revoice (new loops) · Walk · Drone |
 | Esc | Close whatever is open |
+| ? · H | This list (H for layouts where ? needs ⇧6 or similar) |
 
 ## Keeping and sharing
 
@@ -220,3 +237,5 @@ reload.
 - Notes: sparse gives loops room to breathe. So does **Air**, and so
   does telling a busy loop to play every other pass.
 - For a canon: select a loop, press D, set the copy to *reverse*.
+- For something that comes round now and then: the **Call** toy, or any
+  loop told to *wait* a bar.

@@ -168,6 +168,29 @@ junk-tolerant links and a paste box after field links arrived mangled.
 - *"Revert loops; bidirectional; duplicate."* Per-loop **Direction**
   (forward, reverse, ping-pong); **Duplicate** (button, D).
 
+**v9** (after v8):
+- *"The question mark is ⇧6 on this keyboard."* It was also picking the
+  shaker pen (⇧digits pick pens by key position), which is what made the
+  pen seem stuck. Keys that type ? < > now do that; **H** opens the list
+  too.
+- *"It kept recording after I pressed stop."* Stop did stop, but ● Rec
+  redrew itself before the playflow had let go, so it stayed lit with a
+  frozen time. Fixed, plus: a recorder the browser stops by itself ends
+  the take cleanly, and Space after clicking ● Rec no longer presses it
+  again.
+- *"Barlow indispensability for Air, and vary expression."* Air ranks
+  every step of the bar with the Suite's Barlow (prime-factor strata,
+  pickup 0.75) and lets the least indispensable rest first; weaker
+  positions play softer, with a little variation.
+- *"Duplicates a beat behind don't come out with short loops; offset
+  onsets."* Duplicates are now half a cycle behind; per-loop **Starts**
+  (earlier / later by a step); scenes keep each loop's place in its cycle.
+- *"A loop type that waits at the end."* Per-loop **Waits**, and a
+  **Call** toy that does it.
+- *"Keep more things semi-hidden."* Air, Plays, Waits, Starts and
+  Duplicate are at More; loop numbers are off by default (drawer →
+  Numbers, or press a digit).
+
 ## Design choices worth arguing with
 
 1. **Notes come from distance *and* turning.** This is the one idea the toy

@@ -231,6 +231,7 @@ kbd {
 }
 .replaybar .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); flex: none; }
 .insprow .lbl { min-width: 4.4rem; }
+.inspval { font: 400 0.75rem/1.2 var(--font-mono); color: var(--ink-muted); }
 .btn.armed { background: var(--drum); border-color: var(--drum); color: var(--paper); }
 .toy {
   display: grid; justify-items: center; align-content: center; gap: 3px;
@@ -406,7 +407,7 @@ kbd {
     </select>
     <button class="btn" id="loopBtn" type="button" aria-pressed="true" title="Strokes keep replaying">Loop</button>
   </span>
-  <label class="tempo" for="air" title="When the scene gets busy, weak-beat notes rest so it can breathe. Downbeats always play">Air
+  <label class="tempo" for="air" data-level="2" title="When the scene gets busy, the notes that matter least in the bar (Barlow's indispensability) rest, and weaker positions play softer. Downbeats always play">Air
     <input id="air" type="range" min="0" max="1" step="0.05" value="0">
   </label>
   <span class="group" data-level="2">
@@ -431,6 +432,7 @@ kbd {
     <button class="btn" id="lockBtn" type="button" aria-pressed="false" data-level="2" title="Every loop (unless it opts out) is read on the beat grid, like DrawnQurve: a steady pulse, pitch snapped to the lines">Lock</button>
     <button class="btn" id="morphBtn" type="button" aria-pressed="true" title="Loops move on their own; hold a loop to choose how">Morph</button>
     <button class="btn" id="editBtn" type="button" aria-pressed="false" title="Drag the square handles to bend a path; tap a path to add a note, tap a note to remove it; hold a loop to smooth it">Edit notes</button>
+    <button class="btn" id="numBtn" type="button" aria-pressed="false" title="Show each loop's number on the sheet (keys 1–9 pick them; pressing one shows them)">Numbers</button>
   </span>
   <select class="sel" id="arc" data-level="2" aria-label="Arc: tension and release over bars" title="Home, away, pull, then home on the last bar, where melodies resolve to the home chord">
     <option value="off">Arc: off</option><option value="4">Arc: 4 bars</option><option value="8">Arc: 8 bars</option>
@@ -488,6 +490,7 @@ kbd {
     <button class="toy" type="button" data-toy="lissajous"><svg viewBox="0 0 34 34"><path d="M17 5c8 0 11 6 7 12s-14 12-14 6 10-14 14-10-2 16-7 16S6 23 6 17 9 5 17 5z"/></svg>Lissajous</button>
     <button class="toy" type="button" data-toy="wave"><svg viewBox="0 0 34 34"><path d="M3 17c4-9 7-9 9 0s5 9 9 0 6-9 10 0"/></svg>Wave</button>
     <button class="toy" type="button" data-toy="zigzag"><svg viewBox="0 0 34 34"><path d="M3 22l5-10 5 10 5-10 5 10 5-10 3 6"/></svg>Zigzag</button>
+    <button class="toy" type="button" data-toy="call"><svg viewBox="0 0 34 34"><path d="M4 26c3-9 8-14 14-15"/><circle cx="23" cy="10" r="1.6" fill="currentColor"/><circle cx="27" cy="10" r="1.6" fill="currentColor"/><circle cx="31" cy="10" r="1.6" fill="currentColor"/></svg>Call</button>
     <button class="toy" type="button" data-toy="drop"><svg viewBox="0 0 34 34"><path d="M17 4v26M11 24l6 6 6-6"/></svg>Drop</button>
     <button class="toy" type="button" data-toy="beat"><svg viewBox="0 0 34 34"><rect x="4" y="22" width="5" height="5"/><rect x="11" y="7" width="5" height="5"/><rect x="18" y="15" width="5" height="5"/><rect x="25" y="7" width="5" height="5"/></svg>Beat</button>
     <button class="toy" type="button" data-toy="shaker"><svg viewBox="0 0 34 34"><ellipse cx="17" cy="12" rx="7" ry="8"/><path d="M17 20v10M10 7l-3-2M24 7l3-2M27 13h3M4 13h3"/></svg>Shaker</button>
@@ -554,15 +557,20 @@ kbd {
     <span class="seg" data-insp="rhythm"><button class="btn" type="button" data-v="drawn" title="When you drew each note">as drawn</button><button class="btn" type="button" data-v="even" title="The same notes, evenly spaced">even</button><button class="btn" type="button" data-v="euclid" title="Spread over the beat steps as evenly as they allow">euclidean</button></span></div>
   <div class="insprow" data-level="2"><span class="lbl">Direction</span>
     <span class="seg" data-insp="dir"><button class="btn" type="button" data-v="fwd">forward</button><button class="btn" type="button" data-v="rev">reverse</button><button class="btn" type="button" data-v="pingpong">ping-pong</button></span></div>
-  <div class="insprow"><span class="lbl">Plays</span>
+  <div class="insprow" data-level="2"><span class="lbl">Plays</span>
     <span class="seg" data-insp="every"><button class="btn" type="button" data-v="1">every pass</button><button class="btn" type="button" data-v="2">every other</button><button class="btn" type="button" data-v="3">1 in 3</button></span></div>
+  <div class="insprow" data-level="2"><span class="lbl">Waits</span>
+    <span class="seg" data-insp="wait"><button class="btn" type="button" data-v="0" title="Starts again as soon as it ends">no</button><button class="btn" type="button" data-v="1">1 beat</button><button class="btn" type="button" data-v="2">2 beats</button><button class="btn" type="button" data-v="4">a bar</button></span></div>
+  <div class="insprow" data-level="2"><span class="lbl">Starts</span>
+    <span class="seg"><button class="btn" type="button" id="inspEarlier" title="Start one step earlier">◀ earlier</button><button class="btn" type="button" id="inspLater" title="Start one step later">later ▶</button></span>
+    <small class="inspval" id="inspStarts"></small></div>
   <div class="insprow" data-level="2"><span class="lbl">Chord</span>
     <span class="seg" data-insp="chord"><button class="btn" type="button" data-v="single">single</button><button class="btn" type="button" data-v="fifth">fifths</button><button class="btn" type="button" data-v="triad">triads</button><button class="btn" type="button" data-v="seventh">sevenths</button><button class="btn" type="button" data-v="sus">sus</button></span></div>
   <div class="insprow"><span class="lbl">Volume</span>
     <input id="inspGain" type="range" min="0" max="1.5" step="0.05" value="1" aria-label="This loop's volume"></div>
   <div class="insprow" data-level="2"><span class="lbl">Timing</span>
     <span class="seg" data-insp="trigger"><button class="btn" type="button" data-v="sheet" title="Free or on the grid, following Lock">follow Lock</button><button class="btn" type="button" data-v="free" title="Always as drawn (snapped to the division)">as drawn</button><button class="btn" type="button" data-v="lock" title="Always read on the grid">on the grid</button></span></div>
-  <div class="insprow"><button class="btn" type="button" id="inspMute" aria-pressed="false">Mute</button><button class="btn" type="button" id="inspEdit" data-level="2">Edit notes</button><button class="btn" type="button" id="inspDup">Duplicate</button><button class="btn" type="button" id="inspKeep">Keep as a toy</button><button class="btn" type="button" id="inspErase">Erase</button></div>
+  <div class="insprow"><button class="btn" type="button" id="inspMute" aria-pressed="false">Mute</button><button class="btn" type="button" id="inspEdit" data-level="2">Edit notes</button><button class="btn" type="button" id="inspDup" data-level="2">Duplicate</button><button class="btn" type="button" id="inspKeep">Keep as a toy</button><button class="btn" type="button" id="inspErase">Erase</button></div>
  </div>
 </div>
 
@@ -590,7 +598,7 @@ kbd {
     <dt><kbd>\</kbd></dt><dd>Simple → More → Everything</dd>
     <dt><kbd>R</kbd> <kbd>W</kbd> <kbd>O</kbd></dt><dd>Revoice (new loops) · Walk · Drone</dd>
     <dt><kbd>Esc</kbd></dt><dd>Close whatever is open</dd>
-    <dt><kbd>?</kbd></dt><dd>This list</dd>
+    <dt><kbd>?</kbd> <kbd>H</kbd></dt><dd>This list</dd>
   </dl>
 </div>
 
@@ -1063,6 +1071,7 @@ function newStroke(start) {
     gain: 1,                                // this loop's volume
     rhythm: "drawn", chord: "single",       // see offsOf() and chordSteps()
     dir: "fwd", every: 1,                   // forward / reverse / ping-pong; play 1 pass in `every`
+    wait: 0,                                // drawn beats of rest after each pass
     uid: ++uidSeq,                          // stable identity (playflows refer to loops by it)
     pts: [], events: [], start, L: 1, ts: 1, cursor: start, lastPass: 0, muted: false,
     c: { x: 0.5, y: 0.5 },
@@ -1083,7 +1092,8 @@ const passOf = (lp, b) => Math.max(0, Math.floor((b - lp.start) / loopBeats(lp))
 const locked = (lp) => lp.trigger === "lock" || (lp.trigger === "sheet" && state.lock);
 /** Old scenes said "path" (free when drawn) or "lock"; both map onto the live model. */
 const normTrigger = (v) => (v === "lock" ? "lock" : v === "free" ? "free" : "sheet");
-const loopBeats = (lp) => lp.L * lp.ts;
+/** A pass: the path (L drawn beats) plus its wait, both scaled by the loop's speed. */
+const loopBeats = (lp) => (lp.L + (lp.wait || 0)) * lp.ts;
 
 /** Drawn (normalized) → where it is now (px). */
 function place(lp, x, y, W, H) {
@@ -1251,10 +1261,10 @@ function sound(voice, xN, yN, vel, t, b, deg, chord = "single") {
   }
 }
 /** Sound a stored (free-mode) event of loop `lp`, wherever the loop is now. */
-function play(lp, ev, t, b, phase) {
+function play(lp, ev, t, b, phase, air = 1) {
   const W = sheet.clientWidth, H = sheet.clientHeight;
   const [px, py] = notePos(lp, ev, phase, W, H);
-  sound(voiceOf(lp, ev), px / W, py / H, ev.vel * (lp.gain ?? 1), t, b, undefined, lp.chord);
+  sound(voiceOf(lp, ev), px / W, py / H, ev.vel * (lp.gain ?? 1) * air, t, b, undefined, lp.chord);
 }
 /** THE rule for a note: it sounds when the playhead reaches it, at the
  *  playhead's place at that moment. With a beat division, that moment is
@@ -1420,18 +1430,59 @@ function sampleLoop(lp, phase) {
 
 /* Air: breathing room when the scene gets busy. Notes per beat are counted
  * over the last two beats; above a target set by Air (0 = never thin,
- * 1 = about one note a beat), weak-beat notes rest with a probability that
- * grows with the crowd. Downbeats always play. Live drawing is never thinned. */
+ * 1 = about one note a beat), notes rest in order of how little they matter
+ * to the bar: Barlow's indispensability, the Suite's version (as in
+ * @enkerli/theory's rhythm.ts and Serpe), which handles any number of
+ * steps through its prime factors. Downbeats always play. Air also shapes
+ * expression: the less indispensable the position, the softer it plays.
+ * Live drawing is never thinned. */
 let strikeLog = [];
+function primeFactors(n) {
+  const out = [];
+  for (let d = 2; n > 1; d++) while (n % d === 0) { out.push(d); n /= d; }
+  return out;
+}
+const gcd = (a, b) => { while (b) [a, b] = [b, a % b]; return a; };
+/** Indispensability of `position` in a meter of `length` steps (downbeat 1, pickup 0.75). */
+function indispensability(position, length) {
+  if (position === 0) return 1;
+  if (position === length - 1) return 0.75;                 // the anacrusis
+  const strata = primeFactors(length).sort((a, b) => a - b);
+  let total = 0;
+  strata.forEach((p, level) => {
+    const size = length / Math.pow(p, level + 1);
+    if (size > 0 && position % size === 0) total += 1 / Math.pow(p, level + 1);
+  });
+  if (total === 0) { total = 1; for (const p of primeFactors(length / gcd(position, length))) total /= p; }
+  return Math.min(total, 1);
+}
+/** Each step of a bar → 0 (matters least) … 1 (the downbeat), by rank of indispensability. */
+const barWeights = (() => {
+  const cache = {};
+  return (length) => cache[length] ||= (() => {
+    const t = [...Array(length)].map((_, i) => indispensability(i, length));
+    const levels = [...new Set(t)].sort((a, b) => a - b);
+    return t.map((v) => (levels.length > 1 ? levels.indexOf(v) / (levels.length - 1) : 1));
+  })();
+})();
+function weightAt(b) {
+  const per = perBeat() || 4, n = Math.round(BAR * per);
+  return barWeights(n)[mod(Math.round(b * per), n)];
+}
+/** 0 = let this note rest; otherwise a loudness factor (weaker positions a little softer). */
 function airKeep(b) {
   strikeLog = strikeLog.filter((x) => x > b - 2);
+  let gain = 1;
   if (state.air > 0) {
-    const busy = strikeLog.length / 2, target = 1 + (1 - state.air) * 11;
-    const strong = Math.abs(b - Math.round(b)) < 1e-6;
-    if (busy > target && !strong && Math.random() > target / busy) return false;
+    const w = weightAt(b), busy = strikeLog.length / 2, target = 1 + (1 - state.air) * 11;
+    if (busy > target && w < 1) {
+      const drop = 1 - target / busy;                        // the share of notes to let rest
+      if (w + (Math.random() - 0.5) * 0.2 < drop) return 0;
+    }
+    gain = (1 - state.air * 0.4 * (1 - w)) * (1 + (Math.random() - 0.5) * 0.12 * state.air);
   }
   strikeLog.push(b);
-  return true;
+  return gain;
 }
 
 /** One step of a locked loop (or live stroke): strike, or hold. */
@@ -1441,9 +1492,10 @@ function lockStep(lp, x, y, heading, beat, t, thin = false) {
   const held = state.density !== "dense" && band === lp.lastBand && voice === lp.lastVoice;
   lp.lastBand = band; lp.lastVoice = voice;
   if (held) return null;
-  if (thin && !airKeep(beat)) return null;
+  const air = thin ? airKeep(beat) : 1;
+  if (!air) return null;
   const onBeat = Math.abs(beat - Math.round(beat)) < 1e-6;
-  sound(voice, x / W, y / H, (onBeat ? 0.9 : 0.62) * (lp.gain ?? 1), t, beat, undefined, lp.chord);
+  sound(voice, x / W, y / H, (onBeat ? 0.9 : 0.62) * (lp.gain ?? 1) * air, t, beat, undefined, lp.chord);
   fires.push({ x, y, voice, t });
   if (fires.length > 240) fires.splice(0, fires.length - 240);
   return voice;
@@ -1486,9 +1538,10 @@ function schedule() {
           const key = `${b}|${voiceOf(lp, ev)}`;
           if (struck.has(key)) continue;                         // two notes snapped together: one strike
           struck.add(key);
-          if (!airKeep(b)) continue;                             // Air: let it breathe
+          const air = airKeep(b);                                // Air: let it breathe
+          if (!air) continue;
           const t = Math.max(now, timeAt(b)), rel = (snapped - base) / lp.ts;
-          play(lp, ev, t, b, back ? lp.L - rel : rel); ev.flashAt = t;
+          play(lp, ev, t, b, back ? lp.L - rel : rel, air); ev.flashAt = t;
         }
       } else {
         // Lock: every grid step inside this pass and this window.
@@ -1590,6 +1643,9 @@ const TOYS = {
   // A straight line downwards: all drums. With Revoice off it stays all drums
   // however it turns, and its turning walks the drums up and down in pitch.
   drop: (r) => ({ beats: 1.8, n: 80, at: (u) => [Math.sin(u * 9) * 2, (u - 0.5) * r * 2.4] }),
+  // A quick rising call, then it waits a while: a loop that comes round now and then.
+  call: (r) => ({ beats: 0.9, n: 50, wait: 3,
+    at: (u) => [(u - 0.5) * r * 1.6, r * 0.3 - Math.sin(u * Math.PI * 0.9) * r * 0.7 - u * r * 0.3] }),
 };
 function polygon(r, sides, beats) {
   return { beats, n: sides * 30, at: (u) => {
@@ -1663,6 +1719,7 @@ function dropToy(kind, where) {
       }
     }
     if (kind === "drop") s.temper = "spin";
+    if (toy.wait) s.wait = toy.wait;
   }
   finishStroke(s, false);
 }
@@ -1998,8 +2055,14 @@ function duplicateLoop(lp) {
   if (!lp) { toast("Select a loop first (1–9)"); return; }
   const copy = buildLoop(loopData(lp), nextStart(), lp.revoice);
   copy.tx += 0.04; copy.ty += 0.04;
+  // Half a cycle behind the original (on a step), so even a one-beat loop answers itself.
+  const Lb = loopBeats(lp), step = 1 / (perBeat() || 4), lag = Math.max(step, Math.round(Lb / 2 / step) * step), nb = nowBeat();
+  let st = lp.start + lag;
+  if (st < nb) st += Math.ceil((nb - st) / Lb) * Lb;
+  copy.start = copy.cursor = st; copy.lastPass = 0;
   loops.push(copy); while (loops.length > MAX_LOOPS) fadeOut(loops.shift());
-  select(copy); renderLoopList(); toast(`Loop ${loops.indexOf(copy) + 1}: a copy, a beat behind · drag it somewhere`);
+  select(copy); renderLoopList();
+  toast(`Loop ${loops.indexOf(copy) + 1}: a copy, ${fmtBeats(lag)} beat${lag === 1 ? "" : "s"} behind (half its cycle) · drag it somewhere`);
 }
 function eraseLoop(lp) {
   const i = loops.indexOf(lp);
@@ -2127,7 +2190,7 @@ function drawBeatTicks(lp, W, H, alpha) {
   const k = Math.max(0, Math.floor((nb - lp.start) / Lb)), base = lp.start + k * Lb;
   g2.save(); g2.strokeStyle = colors.ink; g2.lineWidth = 2; g2.lineCap = "round"; g2.globalAlpha = alpha;
   const P = lp.pts;
-  for (let B = Math.ceil(base - 1e-9); B < base + Lb; B++) {
+  for (let B = Math.ceil(base - 1e-9); B < base + lp.L * lp.ts; B++) {     // not during its wait
     // A beat that falls while the playhead waits at an end gets its tick there.
     const rel = (B - base) / lp.ts, ph = backwards(lp, k) ? lp.L - rel : rel;
     const smp = sampleLoop(lp, Math.min(P[P.length - 1].b, Math.max(P[0].b, ph)));
@@ -2192,11 +2255,14 @@ function frame() {
       }
     }
     // Its number, by where it starts (so keys 1–9 and the chips are findable).
+    // Hidden unless asked for (drawer → Numbers, or a digit key); the selected loop always shows its own.
+    if (showNumbers || sel) {
     const [nx, ny] = place(lp, lp.pts[0].x, lp.pts[0].y, W, H), num = String(loops.indexOf(lp) + 1);
     g2.save(); g2.font = colors.monoFont; g2.textAlign = "center"; g2.textBaseline = "middle";
     if (sel) { g2.fillStyle = colors.accent; g2.beginPath(); g2.arc(nx - 12, ny - 12, 9, 0, 7); g2.fill(); g2.fillStyle = colors.paper; }
     else { g2.globalAlpha = lp.muted ? 0.35 : 0.7; g2.fillStyle = colors["ink-muted"]; }
     g2.fillText(num, nx - 12, ny - 12); g2.restore();
+    }
   }
   // While resizing, show the loop's clock ratio and length right next to it.
   if (pinch) {
@@ -2262,6 +2328,7 @@ function loopData(lp) {
     tx: r4(lp.tx + lp.m.tx), ty: r4(lp.ty + lp.m.ty), rot: r4(lp.rot + lp.m.rot), s: r4(lp.s),
     temper: lp.temper, spinDir: lp.spinDir, revoice: !!lp.revoice, zone: lp.zone || "any", gain: r4(lp.gain ?? 1),
     rhythm: lp.rhythm || "drawn", chord: lp.chord || "single", dir: lp.dir || "fwd", every: lp.every || 1,
+    wait: lp.wait || 0, ph: r4(mod(lp.start, loopBeats(lp))),
   };
 }
 /** Plain data → a loop starting at beat `start` (not yet on the sheet). */
@@ -2273,8 +2340,10 @@ function buildLoop(d, start, fallbackRevoice = false) {
     trigger: normTrigger(d.trigger), pen: d.pen || "auto", gain: d.gain ?? 1,
     c: { x: d.c[0], y: d.c[1] }, L: d.L, ts: d.ts, muted: d.muted, tx: d.tx, ty: d.ty, rot: d.rot, s: d.s, temper: d.temper, spinDir: d.spinDir,
     revoice: d.revoice ?? fallbackRevoice, zone: d.zone || "any",
-    rhythm: d.rhythm || "drawn", chord: d.chord || "single", dir: d.dir || "fwd", every: d.every || 1,
+    rhythm: d.rhythm || "drawn", chord: d.chord || "single", dir: d.dir || "fwd", every: d.every || 1, wait: d.wait || 0,
   });
+  // Keep its place in the cycle (offsets survive saving): start mid-pass, sounding from `start` on.
+  if (d.ph != null) { lp.start = start - mod(start - d.ph, loopBeats(lp)); lp.lastPass = Math.floor((start - lp.start) / loopBeats(lp)); }
   return lp;
 }
 
@@ -2402,12 +2471,12 @@ function packScene(sc) {
       d.events.flatMap(([off, x, y, h, fixed, vel]) => [qb(off), q(x), q(y), k(h), FIXED_CODES.indexOf(fixed), Math.round(vel * 100)]),
       d.revoice ? 1 : 0, Math.max(0, ZONE_ORDER.indexOf(d.zone || "any")), Math.round((d.gain ?? 1) * 100),
       Math.max(0, RHYTHM_ORDER.indexOf(d.rhythm || "drawn")), Math.max(0, CHORD_ORDER.indexOf(d.chord || "single")),
-      Math.max(0, DIR_ORDER.indexOf(d.dir || "fwd")), d.every || 1];
+      Math.max(0, DIR_ORDER.indexOf(d.dir || "fwd")), d.every || 1, d.wait || 0, d.ph == null ? -1 : qb(d.ph)];
   }) };
 }
 function unpackScene(pk) {
   if (!pk || pk.v !== 1 || !Array.isArray(pk.l)) throw new Error("not a Twirl scene");
-  return { settings: pk.st || {}, loops: pk.l.map(([lock, pen, L, ts, muted, temper, spinDir, cx, cy, tx, ty, rot, s, flat, ev, revoice, zone, gain, rhythm, chord, dir, every]) => {
+  return { settings: pk.st || {}, loops: pk.l.map(([lock, pen, L, ts, muted, temper, spinDir, cx, cy, tx, ty, rot, s, flat, ev, revoice, zone, gain, rhythm, chord, dir, every, wait, ph]) => {
     const pts = []; let x = 0, y = 0, b = 0;
     for (let i = 0; i < flat.length; i += 3) { x += flat[i]; y += flat[i + 1]; b += flat[i + 2]; pts.push([x / QXY, y / QXY, b / QB]); }
     const events = [];
@@ -2415,7 +2484,8 @@ function unpackScene(pk) {
     return { trigger: ["sheet", "lock", "free"][lock] || "sheet", pen, L, ts: ts / 1000, muted: !!muted, temper: TEMPER_ORDER[temper] || "drift", spinDir,
       c: [cx / QXY, cy / QXY], tx: tx / QXY, ty: ty / QXY, rot: rot / 1000, s: s / 1000, pts, events,
       revoice: revoice === undefined ? undefined : !!revoice, zone: ZONE_ORDER[zone] || "any", gain: gain === undefined ? 1 : gain / 100,
-      rhythm: RHYTHM_ORDER[rhythm] || "drawn", chord: CHORD_ORDER[chord] || "single", dir: DIR_ORDER[dir] || "fwd", every: every || 1 };
+      rhythm: RHYTHM_ORDER[rhythm] || "drawn", chord: CHORD_ORDER[chord] || "single", dir: DIR_ORDER[dir] || "fwd", every: every || 1,
+      wait: wait || 0, ph: ph === undefined || ph < 0 ? undefined : ph / QB };
   }) };
 }
 
@@ -2599,7 +2669,7 @@ function keepToy(lp) {
   const rel = ([x, y]) => [r4((x - cx) / m), r4((y - cy) / m)];
   const turn = state.revoice ? totalRot(lp) : 0;   // keep the voices you were hearing
   addToy({
-    trigger: lp.trigger, pen: lp.pen, L: lp.L, ts: lp.ts, muted: false, temper: lp.temper, spinDir: lp.spinDir, revoice: !!lp.revoice, zone: lp.zone || "any", gain: lp.gain ?? 1, rhythm: lp.rhythm || "drawn", chord: lp.chord || "single", dir: lp.dir || "fwd", every: lp.every || 1,
+    trigger: lp.trigger, pen: lp.pen, L: lp.L, ts: lp.ts, muted: false, temper: lp.temper, spinDir: lp.spinDir, revoice: !!lp.revoice, zone: lp.zone || "any", gain: lp.gain ?? 1, rhythm: lp.rhythm || "drawn", chord: lp.chord || "single", dir: lp.dir || "fwd", every: lp.every || 1, wait: lp.wait || 0,
     c: [0, 0], tx: 0, ty: 0, rot: 0, s: 1,
     pts: lp.pts.map((p, i) => [...rel(P[i]), r4(p.b)]),
     events: lp.events.map((e) => [e.off, ...rel(place(lp, e.x, e.y, W, H)), r4(e.heading + turn), e.fixed, r4(e.vel)]),
@@ -2830,6 +2900,15 @@ $("arc").addEventListener("change", (e) => { state.arc = e.target.value; updateD
 $("droneVol").addEventListener("input", (e) => setDroneVol(Number(e.target.value)));
 $("droneVoicing").addEventListener("change", (e) => { state.droneVoicing = e.target.value; if (state.drone) setDrone(true); });
 
+/* Loop numbers on the sheet: a viewing preference of this browser, not part of a scene. */
+let showNumbers = store.get("twirl:numbers") === true;
+function setNumbers(on) {
+  showNumbers = !!on; store.set("twirl:numbers", showNumbers);
+  $("numBtn").setAttribute("aria-pressed", String(showNumbers));
+}
+$("numBtn").addEventListener("click", () => setNumbers(!showNumbers));
+setNumbers(showNumbers);
+
 /* ── Pen palette: a small floating card you can drag anywhere ───────────── */
 const PEN_GLYPH = {
   auto: '<path d="M8 1.5v13M1.5 8h13M8 1.5l-2 2M8 1.5l2 2M14.5 8l-2-2M14.5 8l-2 2" fill="none" stroke="currentColor" stroke-width="1.4"/>',
@@ -2897,17 +2976,25 @@ function toggleRecording() {
   rec.onstop = () => {
     const type = rec.mimeType || mime || "audio/webm", ext = type.includes("mp4") ? "mp4" : "webm";
     const blob = new Blob(chunks, { type });
-    rec.take.blob = blob; rec.take.url = URL.createObjectURL(blob); rec.take.ext = ext;
-    if (shelfTab === "takes" && !$("shelf").hidden) renderTakes();
+    rec.result = { blob, url: URL.createObjectURL(blob), ext };
+    if (rec.take) { Object.assign(rec.take, rec.result); if (shelfTab === "takes" && !$("shelf").hidden) renderTakes(); }
+    else if (recorder === rec) stopRecording();       // the browser stopped it (iPadOS can, on an audio interruption)
   };
+  rec.onerror = () => { if (recorder === rec) stopRecording(); };
   recorder.start();
 }
 async function stopRecording() {
   const secs = (performance.now() - recStart) / 1000;
-  const take = { secs, flowId: null };
-  if (recorder) { recorder.take = take; recorder.stop(); takes.push(take); }
-  recorder = null; clearInterval(recTimer); syncRec();
-  const f = await flowStop(secs);
+  const take = { secs, flowId: null }, rec = recorder;
+  recorder = null; clearInterval(recTimer);
+  const flowDone = flowStop(secs);                          // lets go of the flow at once (the code is packed after)
+  syncRec();                                                // so ● Rec shows stopped now, whatever the recorder does next
+  if (rec) {
+    rec.take = take; takes.push(take);
+    if (rec.result) Object.assign(take, rec.result);
+    else try { rec.stop(); } catch (_) { /* already stopped: its onstop has run or will */ }
+  }
+  const f = await flowDone;
   take.flowId = f ? f.id : null;
   openShelf("takes"); toast(`Take ${f ? f.n : takes.length} · ${fmtTime(secs)}`);
 }
@@ -2935,7 +3022,7 @@ function shapeKey(lp) {
   for (const p of lp.pts) h += p.x * 3 + p.y * 7 + p.b;
   for (const e of lp.events) h += e.off * 11 + e.x * 13 + e.y * 17;
   return [lp.pts.length, lp.events.length, h.toFixed(4), lp.pen, lp.trigger, lp.rhythm, lp.chord, lp.temper,
-    lp.zone, lp.revoice, lp.L, lp.dir, lp.every].join("|");
+    lp.zone, lp.revoice, lp.L, lp.dir, lp.every, lp.wait].join("|");
 }
 /** A loop for a flow: its own placement, without Morph's wandering. */
 const flowLoop = (lp) => packScene({ settings: {}, loops: [{ ...loopData(lp), tx: r4(lp.tx), ty: r4(lp.ty), rot: r4(lp.rot) }] }).l[0];
@@ -3037,7 +3124,7 @@ function applyFrame(f) {
   for (const [uid, packed, startRel] of f.add || []) {
     const d = unpackScene({ v: 1, st: {}, l: [packed] }).loops[0];
     const lp = buildLoop(d, r.b0 + startRel, d.revoice);
-    lp.replaying = true;
+    lp.start = lp.cursor = r.b0 + startRel; lp.lastPass = 0; lp.replaying = true;
     const old = r.map.get(uid), i = old ? loops.indexOf(old) : -1;
     if (i >= 0) {                          // the same loop, reshaped: carry on where it was
       loops[i] = lp; lp.cursor = old.cursor; lp.lastPass = old.lastPass; lp.m = old.m; lp.mt = old.mt;
@@ -3151,7 +3238,7 @@ function syncInspector() {
   const lp = insp;
   if (!lp) return;
   $("inspTitle").textContent = `Loop ${loops.indexOf(lp) + 1} · ${fmtBeats(loopBeats(lp))} beats · ×${fmtRatio(lp.ts)} · ${locked(lp) ? "on the grid" : "as drawn"}`;
-  const val = { temper: lp.temper, zone: lp.zone || "any", ts: lp.ts, trigger: lp.trigger, rhythm: lp.rhythm || "drawn", chord: lp.chord || "single", dir: lp.dir || "fwd", every: String(lp.every || 1) };
+  const val = { temper: lp.temper, zone: lp.zone || "any", ts: lp.ts, trigger: lp.trigger, rhythm: lp.rhythm || "drawn", chord: lp.chord || "single", dir: lp.dir || "fwd", every: String(lp.every || 1), wait: String(lp.wait || 0) };
   $("inspGain").value = String(lp.gain ?? 1);
   document.querySelectorAll("[data-insp]").forEach((seg) => seg.querySelectorAll("[data-v]").forEach((b) => {
     const v = seg.dataset.insp === "ts" ? Math.abs(Number(b.dataset.v) - val.ts) < 0.01 : b.dataset.v === val[seg.dataset.insp];
@@ -3161,7 +3248,22 @@ function syncInspector() {
   $("inspRevoice").setAttribute("aria-pressed", String(!!lp.revoice));
   $("inspRevoice").disabled = (lp.pen || "auto") !== "auto";
   $("inspMute").setAttribute("aria-pressed", String(lp.muted)); $("inspMute").textContent = lp.muted ? "Muted" : "Mute";
+  const ph = mod(lp.start, loopBeats(lp));
+  $("inspStarts").textContent = `${fmtBeats(ph)} beat${ph === 1 ? "" : "s"} into every ${fmtBeats(loopBeats(lp))}` + (lp.nudged ? ` · moved ${lp.nudged > 0 ? "+" : ""}${lp.nudged} step${Math.abs(lp.nudged) === 1 ? "" : "s"}` : "");
 }
+/** Change how long a pass is, keeping where the loop is in the current one. */
+function repass(lp, change) {
+  const nb = nowBeat(), into = mod(nb - lp.start, loopBeats(lp));
+  change();
+  lp.start = nb - Math.min(into, loopBeats(lp) - 1e-6); lp.lastPass = 0;
+}
+/** Start a loop a step earlier or later (relative to every other loop). */
+function nudgeLoop(lp, steps) {
+  lp.start += steps * (1 / (perBeat() || 4));
+  lp.nudged = (lp.nudged || 0) + steps;
+}
+$("inspEarlier").addEventListener("click", () => { if (insp) { nudgeLoop(insp, -1); syncInspector(); } });
+$("inspLater").addEventListener("click", () => { if (insp) { nudgeLoop(insp, 1); syncInspector(); } });
 document.querySelectorAll("[data-insp]").forEach((seg) => seg.addEventListener("click", (e) => {
   const b = e.target.closest("[data-v]"); if (!b || !insp) return;
   const lp = insp, k = seg.dataset.insp, v = b.dataset.v;
@@ -3172,6 +3274,7 @@ document.querySelectorAll("[data-insp]").forEach((seg) => seg.addEventListener("
   if (k === "chord") lp.chord = v;
   if (k === "dir") lp.dir = v;
   if (k === "every") lp.every = Number(v);
+  if (k === "wait") repass(lp, () => (lp.wait = Number(v)));
   if (k === "ts") { const r = RATIOS.reduce((best, x) => (Math.abs(x - Number(v)) < Math.abs(best - Number(v)) ? x : best), 1); lp.s = Math.min(2.5, Math.max(0.4, r)); retime(lp, r); }
   syncInspector(); renderLoopList();
 }));
@@ -3316,6 +3419,7 @@ const KEYS = {
   d: () => duplicateLoop(selected),
   "<": () => speedSelected(-1), ">": () => speedSelected(1),
   "?": () => ($("keys").hidden ? openKeys() : closeKeys()),
+  h: () => ($("keys").hidden ? openKeys() : closeKeys()),
   "|": () => KEYS["\\"](),
 };
 document.addEventListener("keydown", (e) => {
@@ -3334,7 +3438,8 @@ document.addEventListener("keydown", (e) => {
   }
   // Digits: 1–9 select a loop; with Shift, 1–6 pick the pen (palette order). Uses the key's
   // position (e.code), so Shift+1 works whatever the layout prints on it.
-  const digit = /^Digit([0-9])$/.exec(e.code || "");
+  // (Unless the key is itself a shortcut: on some layouts ? is ⇧6, < and > are ⇧, and ⇧.)
+  const digit = !"?<>".includes(e.key) && /^Digit([0-9])$/.exec(e.code || "");
   // Picking a loop by key lets go of a focused button (Play, a chip…), so Enter
   // then opens that loop's settings instead of pressing the button again.
   const letGo = () => { const a = document.activeElement; if (a && a !== document.body && a.closest && a.closest("button")) a.blur(); };
@@ -3342,7 +3447,7 @@ document.addEventListener("keydown", (e) => {
     e.preventDefault(); const d = Number(digit[1]); letGo();
     if (e.shiftKey) { if (d >= 1 && d <= 6) { setPen(PEN_ORDER[d - 1]); toast($("pen").selectedOptions[0].textContent); } return; }
     if (d === 0) { select(null); return; }
-    if (loops[d - 1]) select(loops[d - 1]); else toast(`There's no loop ${d}`);
+    if (loops[d - 1]) { if (!showNumbers) setNumbers(true); select(loops[d - 1]); } else toast(`There's no loop ${d}`);
     return;
   }
   if (key === " " && e.shiftKey) { e.preventDefault(); toggleRecording(); return; }
@@ -3368,6 +3473,14 @@ document.addEventListener("keydown", (e) => {
   fn(e.shiftKey);
   syncPower();
 });
+
+// A button pressed with a finger or a mouse lets go of the focus, so Space and
+// Enter keep their Twirl meanings afterwards (Space after ● Rec used to press
+// Rec again). Keyboard users, who tab to buttons, keep theirs.
+document.addEventListener("click", (e) => {
+  const b = e.detail > 0 && e.target.closest && e.target.closest("button");
+  if (b) b.blur();
+}, true);
 
 /** The footer: one chip per loop. Tap a chip to select that loop and open
  *  its settings, the dependable way to reach a loop that's small, crowded

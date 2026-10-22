@@ -34,6 +34,8 @@ What it covers:
 | Recording | ⇧Space records a take, and it shows in Takes |
 | Selection | open settings follow the selected loop (1, Enter, 2); Enter after pressing Play opens settings instead of pausing |
 | Direction, breathing, arcs | ping-pong alternates; reverse plays a note drawn at t at L − t; *every other* rests on odd passes; Air thins a busy stretch; a 4-bar Arc runs home, away, pull, resolve and resolving lands on the home chord's steps; D duplicates |
+| Keys, numbers, recording | ? typed as ⇧6 opens the list without touching the pen; H opens it; numbers hidden by default, shown by a digit, hidden by the drawer button; ● Rec shows stopped once stopped; Space after ● Rec doesn't start another take; a recorder the browser stops ends the take |
+| Waits, offsets, Barlow | Barlow weights for 16ths and triplets; Air keeps the most indispensable steps and plays weak ones softer; a wait lengthens the pass and stays silent; Starts moves a step; a duplicate is half a cycle behind; scenes keep wait and phase; the Call toy waits |
 | Playflows | ● Rec keeps a flow; Replay clears the sheet, rebuilds it, and ends where you left off (drawn, moved, muted, erased, tempo changed); touching the sheet takes over; a take's code pastes into another browser's Takes |
 | Field links | the three links in `test/fixtures/`, exactly as received (stray `!`, line breaks, a 3,300-character Safari link), all open by pasting |
 | Phone | no sideways scrolling at 375px; the drawer opens; levels reveal controls |
