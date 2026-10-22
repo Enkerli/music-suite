@@ -376,6 +376,21 @@ console.log("\nPhone");
   const { page } = await newPage({ width: 375, height: 664 });
   await page.goto(PAGE); await page.waitForTimeout(300);
   check(await page.evaluate(() => document.body.scrollWidth) <= 375, "no sideways scrolling at 375px");
+  // The bar clips rather than scrolls, so check that its last button (☰) is on screen.
+  for (const w of [320, 375]) {
+    const bar = await newPage({ width: w, height: 664 });
+    await bar.page.goto(PAGE); await bar.page.waitForTimeout(300); await bar.page.click("#power");
+    const fits = [];
+    for (const lvl of [1, 2, 3]) for (const rec of [false, true]) {
+      const right = await bar.page.evaluate(async ([l, r]) => {
+        setLevel(l); if (r) toggleRecording(); await new Promise((ok) => setTimeout(ok, 600));
+        const x = $("menuBtn").getBoundingClientRect().right; if (r) toggleRecording(); await new Promise((ok) => setTimeout(ok, 200));
+        return x;
+      }, [lvl, rec]);
+      if (right > w) fits.push(`level ${lvl}${rec ? " recording" : ""}: ☰ ends at ${Math.round(right)}`);
+    }
+    check(fits.length === 0, `the top bar fits at ${w}px, every level, recording or not`, fits.join("; "));
+  }
   await page.click("#menuBtn"); await page.waitForTimeout(300);
   check(await page.evaluate(() => document.body.classList.contains("drawer-open")), "☰ opens the drawer");
   await page.click('[data-set-level="3"]');

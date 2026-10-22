@@ -368,6 +368,28 @@ kbd {
 .is-drawer .hint h1 { font-size: 2rem; }
 .is-drawer .hint p { font-size: 0.875rem; }
 @media (prefers-reduced-motion: reduce) { .is-drawer .strip { transition: none; } }
+/* Phones: the bar has to fit Rec, Play, Lock, Toybox, Pen and ☰ in 320–390px.
+ * The wordmark goes (it's in the drawer), Rec and Pen become icons (Rec
+ * shows its time while recording), and the buttons tighten. */
+#toyBtn .short { display: none; }
+.vh { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+@media (max-width: 440px) {
+  .is-drawer .phonebar { gap: 4px; }
+  .is-drawer .phonebar .wordmark { display: none; }
+  .is-drawer .phonebar .btn { padding: 0 10px; }
+  .is-drawer .recbtn[aria-pressed="false"] #recLabel, .is-drawer .penbtn span {
+    position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap;
+  }
+  .is-drawer .recbtn[aria-pressed="false"], .is-drawer .penbtn { min-width: 44px; padding: 0; justify-content: center; }
+  .is-drawer .recbtn[aria-pressed="true"] .dot { display: none; }      /* the red fill says it; the time fits */
+}
+@media (max-width: 360px) {
+  .is-drawer .phonebar { gap: 3px; padding-left: 8px; padding-right: 8px; }
+  .is-drawer .phonebar .btn { padding: 0 7px; }
+  .is-drawer .recbtn[aria-pressed="false"], .is-drawer .penbtn, .is-drawer .menubtn { min-width: 40px; }
+  .is-drawer #toyBtn .long { display: none; }
+  .is-drawer #toyBtn .short { display: inline; }
+}
 </style>
 
 <canvas id="sheet" aria-label="Drawing surface. Draw with one or more fingers to make sounds and loops."></canvas>
@@ -460,7 +482,7 @@ kbd {
   </span>
   <span class="spacer"></span>
   <span class="group">
-    <button class="btn" id="toyBtn" type="button" aria-expanded="false" aria-controls="toybox">Toybox</button>
+    <button class="btn" id="toyBtn" type="button" aria-expanded="false" aria-controls="toybox"><span class="long">Toybox</span><span class="short" aria-hidden="true">Toys</span></button>
     <button class="btn" id="myToyBtn" type="button" aria-expanded="false" aria-controls="mytoys">My toys</button>
     <button class="btn" id="sceneBtn" type="button" aria-expanded="false" aria-controls="scenes">Scenes</button>
     <button class="btn" id="clear" type="button">Clear</button>

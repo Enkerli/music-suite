@@ -38,7 +38,7 @@ What it covers:
 | Waits, offsets, Barlow | Barlow weights for 16ths and triplets; Air keeps the most indispensable steps and plays weak ones softer; a wait lengthens the pass and stays silent; Starts moves a step; a duplicate is half a cycle behind; scenes keep wait and phase; the Call toy waits |
 | Playflows | ● Rec keeps a flow; Replay clears the sheet, rebuilds it, and ends where you left off (drawn, moved, muted, erased, tempo changed); touching the sheet takes over; a take's code pastes into another browser's Takes |
 | Field links | the three links in `test/fixtures/`, exactly as received (stray `!`, line breaks, a 3,300-character Safari link), all open by pasting |
-| Phone | no sideways scrolling at 375px; the drawer opens; levels reveal controls |
+| Phone | no sideways scrolling at 375px; the top bar's last button (☰) stays on screen at 320 and 375px, at every level, recording or not (the bar clips rather than scrolls, so a page-width check can't see it); the drawer opens; levels reveal controls |
 | Everywhere | no page errors |
 
 **Fixtures are field reports.** When a shared link or code fails for

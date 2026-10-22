@@ -191,6 +191,12 @@ junk-tolerant links and a paste box after field links arrived mangled.
   Duplicate are at More; loop numbers are off by default (drawer →
   Numbers, or press a digit).
 
+**v9.1**: *"Toolbar cut on the phone."* At More, Rec, Play, Lock, Toybox,
+Pen and ☰ needed ~470px. On phones the wordmark goes (it's in the
+drawer), Rec and Pen become icons (Rec shows its time while recording),
+buttons tighten, and below 360px Toybox reads "Toys". Tested at 320 and
+375px.
+
 ## Design choices worth arguing with
 
 1. **Notes come from distance *and* turning.** This is the one idea the toy
