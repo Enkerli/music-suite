@@ -867,6 +867,7 @@ function ensureAudio() {
   if (!ctx) {
     const AC = window.AudioContext || window.webkitAudioContext;
     ctx = new AC({ latencyHint: "interactive" });
+    watchAudio();
     t0 = ctx.currentTime;
 
     const comp = compressor = ctx.createDynamicsCompressor();
@@ -892,6 +893,7 @@ function ensureAudio() {
     setDrone(state.drone);
   }
   if (ctx.state !== "running") {
+    userPaused = false; lostSound = false;
     ctx.resume();
     const t = ctx.currentTime;                                    // back from a pause: fade in, no click
     master.gain.cancelScheduledValues(t); master.gain.setValueAtTime(0, t); master.gain.linearRampToValueAtTime(state.volume, t + 0.05);
@@ -3437,8 +3439,25 @@ const fmtRatio = (r) => ({ 0.5: "½", 0.75: "¾", 1: "1", 1.5: "1½", 2: "2" }[r
 /* Pause fades the master out before suspending. Suspending mid-note froze the
  * audio device on its last buffer, which some devices repeat for a moment: a
  * short pitched buzz (iPad Safari, 2026-10-24). Resuming fades back in (ensureAudio). */
+/* Who paused? Only Pause (the button, Space) should. If the sound stops by
+ * itself (iPadOS can interrupt it: a call, another app's audio, a system
+ * sound, sometimes a recording), Twirl says so and comes back at the next
+ * touch or key, instead of quietly looking paused. */
+let userPaused = false, lostSound = false;
+function watchAudio() {
+  ctx.onstatechange = () => {
+    syncPower();
+    if (ctx.state !== "running" && ctx.state !== "closed" && !userPaused && !lostSound) {
+      lostSound = true; toast("The sound was interrupted · touch the sheet or press a key to bring it back");
+    }
+  };
+}
+for (const type of ["pointerdown", "keydown"]) document.addEventListener(type, () => {
+  if (lostSound && ctx && ctx.state !== "running") { lostSound = false; ensureAudio(); setTimeout(syncPower, 80); }
+}, true);
 async function pauseAudio() {
   if (!ctx || ctx.state !== "running") return;
+  userPaused = true;
   const t = ctx.currentTime;
   master.gain.cancelScheduledValues(t); master.gain.setValueAtTime(master.gain.value, t);
   master.gain.linearRampToValueAtTime(0, t + 0.06);
@@ -4405,6 +4424,10 @@ document.addEventListener("keydown", (e) => {
   const fn = KEYS[e.key === "?" || e.key === "<" || e.key === ">" ? e.key : key === "Enter" ? "enter" : key];
   if (!fn) return;
   if ((e.key === " " || e.key === "Enter") && e.target.closest && e.target.closest("button")) return;   // Space/Enter on a focused button press that button
+  // Space inside an open panel (a loop's settings, a shelf, the key list) is never
+  // Play/Pause: Safari leaves focus on the panel's title, not on its buttons, so a
+  // Space meant for a control paused the whole sheet (iPad, while recording, 2026-10-24).
+  if (e.key === " " && !e.shiftKey && e.target.closest && e.target.closest("#inspWrap, #shelf, #keys, [role=dialog]")) { e.preventDefault(); return; }
   e.preventDefault();
   if (e.key !== " ") ensureAudio();                              // Space decides for itself: play or pause
   hint.hidden = true;

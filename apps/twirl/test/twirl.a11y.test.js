@@ -271,3 +271,29 @@ describe.skipIf(!browser)("Twirl · pause", () => {
     await context.close();
   });
 });
+
+describe.skipIf(!browser)("Twirl · the sound only pauses when you pause it", () => {
+  it("Space inside a loop's settings doesn't pause the sheet (while recording, too)", async () => {
+    const { page, context } = await openTwirl(browser);
+    await page.mouse.click(600, 600); await page.waitForTimeout(200);
+    await page.keyboard.press("Shift+Space"); await page.waitForTimeout(300);
+    await page.keyboard.press("1"); await page.keyboard.press("Enter");          // its settings, focus on the title
+    await page.waitForFunction(() => document.activeElement && document.activeElement.id === "inspTitle");
+    await page.keyboard.press("Space"); await page.waitForTimeout(300);
+    expect(await page.evaluate(() => [ctx.state, !!(recorder || flowRec)])).toEqual(["running", true]);
+    await context.close();
+  });
+
+  it("if the system interrupts the sound, Twirl says so and brings it back at the next touch", async () => {
+    const { page, context } = await openTwirl(browser);
+    await page.mouse.click(600, 600); await page.waitForTimeout(200);
+    await page.evaluate(() => ctx.suspend());                                     // not through Pause: an interruption
+    await page.waitForFunction(() => ctx.state === "suspended" && lostSound && !$("toast").hidden);
+    await page.mouse.click(300, 700);
+    await page.waitForFunction(() => ctx.state === "running");
+    await page.keyboard.press("Space");                                           // and Pause still pauses, quietly
+    await page.waitForFunction(() => ctx.state === "suspended");
+    expect(await page.evaluate(() => lostSound)).toBe(false);
+    await context.close();
+  });
+});

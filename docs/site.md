@@ -1675,7 +1675,7 @@ leaving marks. **H** lists every key inside Twirl.
 
 | Keys | What they do |
 |---|---|
-| Space | Play / pause (⇧ Space: record) |
+| Space | Play / pause, from the sheet (⇧ Space: record). Inside a panel, Space never pauses |
 | 1–9, or Tab / ⇧ Tab | Pick a loop |
 | Enter | Its settings (Enter again closes them) |
 | Arrows · `,` `.` | Move it · turn it |
@@ -1696,6 +1696,9 @@ Keyboard → Hardware Keyboard → Modifier Keys. Safari's Tab usually skips
 buttons (⌥ Tab reaches them), which sent focus off to the address bar; that
 is why Tab steps through loops in Twirl, and C, Enter and T take you into
 the controls.
+
+If the system interrupts the sound (a call, another app's audio), Twirl
+says so, and the next touch or key brings it back.
 
 ## Full screen
 
