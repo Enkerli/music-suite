@@ -325,11 +325,35 @@ describe.skipIf(!browser)("Twirl · contacts (crossing a line, meeting a playhea
     await waitBeats(page, 1);
     await page.evaluate((b) => { loops.find((l) => l.uid === b).tx = 0; }, b);
     await waitBeats(page, 1.5);
-    const r = await page.evaluate((a) => ({ n: loops.length, lineage: loops.at(-1).lineage }), a);
+    const r = await page.evaluate((a) => ({ n: loops.length, lineage: loops.at(-1).lineage, meets: loops.at(-1).meets }), a);
     expect(r.n).toBe(3);
     expect(r.lineage).toBe(a);
+    expect(r.meets).toBe("sound");                                             // a child never inherits breeding
     await waitBeats(page, 4);                                                  // more contacts, inside the wait
     expect(await page.evaluate(() => loops.length)).toBe(3);
+    await context.close();
+  });
+
+  it("Vary: no two notes quite alike (loudness, timing, cents, colour); off, every repeat the same; MIDI stays on whole notes", async () => {
+    const { page, context } = await openTwirl(browser);
+    const r = await page.evaluate(() => {
+      ensureAudio();
+      const t = ctx.currentTime + 0.5, on = [], off = [];
+      state.vary = true; for (let i = 0; i < 20; i++) on.push([...varied(0.6, t, 60), nuance]);
+      state.vary = false; for (let i = 0; i < 5; i++) off.push([...varied(0.6, t, 60), nuance]);
+      const sent = []; const real = window.sendMidi; window.sendMidi = (...a) => sent.push(a[1]);
+      state.vary = true; sound("pluck", 0.5, 0.5, 0.6, t, 0); window.sendMidi = real;
+      return { on, off, sent, t };
+    });
+    expect(new Set(r.on.map((x) => x.join())).size).toBe(20);
+    for (const [v, at, m, n] of r.on) {
+      expect(Math.abs(v / 0.6 - 1)).toBeLessThanOrEqual(0.16 + 1e-9);
+      expect(Math.abs(at - r.t)).toBeLessThanOrEqual(0.007 + 1e-9);
+      expect(Math.abs(m - 60)).toBeLessThanOrEqual(0.06 + 1e-9);
+      expect(Math.abs(n)).toBeLessThanOrEqual(1);
+    }
+    expect(r.off.every(([v, at, m, n]) => v === 0.6 && at === r.t && m === 60 && n === 0)).toBe(true);
+    expect(r.sent.every(Number.isInteger)).toBe(true);
     await context.close();
   });
 
@@ -348,7 +372,7 @@ describe.skipIf(!browser)("Twirl · contacts (crossing a line, meeting a playhea
     expect(r.dir.fwd / 600).toBeGreaterThan(0.55);
     expect(Object.keys(r.dir).sort()).toEqual(["fwd", "pingpong", "rev"]);
     expect(Object.keys(r.rhythm).sort()).toEqual(["drawn", "euclid", "even"]);
-    expect(Object.keys(r.meets).sort()).toEqual(["breed", "bump", "infect", "sound", "trade"]);
+    expect(Object.keys(r.meets).sort()).toEqual(["bump", "sound", "trade"]);       // never breed or infect: chosen by hand
     expect(r.toys).toEqual(["fwd/drawn"]);
     expect(r.off).toEqual(["fwd", "drawn", "sound"]);
     await context.close();

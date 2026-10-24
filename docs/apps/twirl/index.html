@@ -498,7 +498,8 @@ kbd {
     </select>
     <button class="btn" id="lockBtn" type="button" aria-pressed="false" data-level="2" title="Every loop (unless it opts out) is read on the beat grid, like DrawnQurve: a steady pulse, pitch snapped to the lines">Lock</button>
     <button class="btn" id="meetBtn" type="button" aria-pressed="true" data-level="2" title="When a playhead crosses a line, or two playheads meet, the loops answer: each loop's settings say how (Meets)">Meet</button>
-    <button class="btn" id="diceBtn" type="button" aria-pressed="true" data-level="2" title="New loops get a direction, a rhythm and a way of meeting at random (mostly the usual ones). Off: forward, as drawn, sound">Surprise</button>
+    <button class="btn" id="diceBtn" type="button" aria-pressed="true" data-level="2" title="New loops get a direction, a rhythm and a way of meeting at random (mostly the usual ones; never breed). Off: forward, as drawn, sound">Surprise</button>
+    <button class="btn" id="varyBtn" type="button" aria-pressed="true" data-level="2" title="No two notes quite alike: each one a little louder or softer, earlier or later, brighter or duller, like a sampler's round-robin. Off: every repeat the same">Vary</button>
     <button class="btn" id="morphBtn" type="button" aria-pressed="true" title="Loops move on their own; hold a loop to choose how">Morph</button>
     <button class="btn" id="editBtn" type="button" aria-pressed="false" title="Drag the square handles to bend a path; tap a path to add a note, tap a note to remove it; hold a loop to smooth it">Edit notes</button>
     <button class="btn" id="numBtn" type="button" aria-pressed="false" title="Show each loop's number on the sheet (keys 1–9 pick them; pressing one shows them)">Numbers</button>
@@ -809,6 +810,7 @@ const state = {
   air: 0, arc: "off",                      // breathing room; tension & release (see harmonyAt)
   // Morph moves every loop on its own; with "reduce motion" set in the OS, it starts off (the Morph button turns it on).
   meet: true,                              // contacts: crossings and meetings (section 7b)
+  vary: true,                              // Vary: no two notes quite alike (round-robin-like, section 3)
   dice: true,                              // Surprise: new loops' direction, rhythm and Meets drawn at random
   lock: false, loop: true, morph: !matchMedia("(prefers-reduced-motion: reduce)").matches, revoice: false, walk: false, drone: false, edit: false,
   out: "sound",               // "sound" | "midi:<id>" | "both:<id>"
@@ -874,7 +876,11 @@ function ensureAudio() {
     loops.forEach((lp) => { lp.start = 0; lp.cursor = 0; lp.lastPass = 0; });
     setDrone(state.drone);
   }
-  if (ctx.state !== "running") ctx.resume();
+  if (ctx.state !== "running") {
+    ctx.resume();
+    const t = ctx.currentTime;                                    // back from a pause: fade in, no click
+    master.gain.cancelScheduledValues(t); master.gain.setValueAtTime(0, t); master.gain.linearRampToValueAtTime(state.volume, t + 0.05);
+  }
 }
 
 const mtof = (m) => 440 * Math.pow(2, (m - 69) / 12);
@@ -904,15 +910,15 @@ const VOICES = {
     const o = ctx.createOscillator(), f = ctx.createBiquadFilter(), g = ctx.createGain();
     o.type = "sawtooth"; o.frequency.value = mtof(midi);
     f.type = "lowpass"; f.Q.value = 3;
-    f.frequency.setValueAtTime(600 + 4200 * vel, t);
+    f.frequency.setValueAtTime((600 + 4200 * vel) * (1 + 0.25 * nuance), t);   // nuance: brighter or duller
     f.frequency.exponentialRampToValueAtTime(320, t + 0.35);
-    env(g, t, 0.22 * vel, 0.55);
+    env(g, t, 0.22 * vel, 0.55 * (1 + 0.15 * nuance));
     o.connect(f).connect(g); out(g, pan); o.start(t); o.stop(t + 0.7);
   },
   bell(t, midi, vel, pan) {                 // two-operator FM, inharmonic ratio
     const c = ctx.createOscillator(), m = ctx.createOscillator(), mg = ctx.createGain(), g = ctx.createGain();
     const f0 = mtof(midi + 12);
-    c.frequency.value = f0; m.frequency.value = f0 * 3.5;
+    c.frequency.value = f0; m.frequency.value = f0 * (3.5 + 0.08 * nuance);   // nuance: more or less inharmonic
     mg.gain.setValueAtTime(f0 * 2.2 * vel, t);
     mg.gain.exponentialRampToValueAtTime(1, t + 1.2);
     env(g, t, 0.16 * vel, 1.8, 0.002);
@@ -925,15 +931,15 @@ const VOICES = {
     o.frequency.setValueAtTime(mtof(midi + 12) * 1.5, t);
     o.frequency.exponentialRampToValueAtTime(mtof(midi + 12), t + 0.04);
     f.type = "lowpass"; f.frequency.value = 3200;
-    env(g, t, 0.1 * vel, 0.16, 0.002);
-    o.connect(f).connect(g); out(g, pan, 0.9); o.start(t); o.stop(t + 0.25);
+    env(g, t, 0.1 * vel, 0.16 * (1 + 0.3 * nuance), 0.002);           // nuance: shorter or longer
+    o.connect(f).connect(g); out(g, pan, 0.9); o.start(t); o.stop(t + 0.3);
   },
   /** Drums are pitched: height tunes them, and picks the kind (drumKind). */
   drum(t, midi, vel, pan, yN) {
     const kind = drumKind(yN);
     if (kind === "hat") {                     // brighter as it goes up
       const f = ctx.createBiquadFilter(), g = ctx.createGain();
-      f.type = "highpass"; f.frequency.value = 5000 + 6000 * (0.28 - yN) / 0.28;
+      f.type = "highpass"; f.frequency.value = (5000 + 6000 * (0.28 - yN) / 0.28) * (1 + 0.1 * nuance);
       env(g, t, 0.28 * vel, 0.05, 0.001);
       noise(t, 0.08).connect(f).connect(g); out(g, pan, 0.3);
     } else if (kind === "snare") {            // its body tuned to the note
@@ -1222,7 +1228,7 @@ const TEMPERS = {
 const TEMPER_ORDER = ["still", "drift", "spin", "jitter"];
 const clampW = (v) => Math.min(0.2, Math.max(-0.2, v));
 /* Surprise (drawer, More; on by default): new loops get a direction, a rhythm
- * and a way of meeting drawn at random, mostly the usual ones, the same way
+ * and a way of meeting (sound, bump, trade; never breed) drawn at random, mostly the usual ones, the same way
  * their temperament already is. Off: always forward, as drawn, sound. */
 function pickFrom(weights) {
   let r = Math.random();
@@ -1231,7 +1237,8 @@ function pickFrom(weights) {
 }
 const pickDir = () => (state.dice ? pickFrom([["fwd", 0.7], ["rev", 0.15], ["pingpong", 0.15]]) : "fwd");
 const pickRhythm = () => (state.dice ? pickFrom([["drawn", 0.7], ["even", 0.15], ["euclid", 0.15]]) : "drawn");
-const pickMeets = () => (state.dice ? pickFrom([["sound", 0.45], ["bump", 0.2], ["trade", 0.15], ["breed", 0.15], ["infect", 0.05]]) : "sound");
+// Never breed or infect: those are chosen by hand, so the sheet doesn't fill up by surprise.
+const pickMeets = () => (state.dice ? pickFrom([["sound", 0.55], ["bump", 0.25], ["trade", 0.2]]) : "sound");
 function pickTemper() {
   const r = Math.random();
   return r < 0.45 ? "drift" : r < 0.7 ? "spin" : r < 0.85 ? "jitter" : "still";
@@ -1338,6 +1345,23 @@ function chordSteps(name) {
 }
 
 /** Sound one note: voice at screen position (normalized), audio time t, beat b. */
+/* Vary (drawer, More; on by default): no two notes come out quite alike, as a
+ * sampler's round-robin plays a different take of the same note each time.
+ * Each note (each note of a chord too) gets a little loudness, a little
+ * timing (a few ms, never early into the past), a few cents of tuning, and a
+ * `nuance` (-1..1) that some voices read as colour: the pluck's brightness,
+ * the bell's inharmonicity, the blip's length, the hat's size. MIDI gets the
+ * loudness and timing, not the cents. Against the typewriter / machine-gun
+ * effect of identical repeats (Alex, 2026-10-24). Later, pressure and a
+ * terrain could feed the same nuance (ROADMAP, Terrain). */
+const VARY = { vel: 0.16, ms: 7, cents: 6 };
+let nuance = 0;
+function varied(vel, t, midi) {
+  if (!state.vary) { nuance = 0; return [vel, t, midi]; }
+  const r = () => Math.random() * 2 - 1;
+  nuance = r();
+  return [Math.min(1, vel * (1 + VARY.vel * r())), Math.max(ctx.currentTime, t + (VARY.ms / 1000) * r()), midi + (VARY.cents / 100) * r()];
+}
 function sound(voice, xN, yN, vel, t, b, deg, chord = "single") {
   if (!ctx) return;
   xN = Math.min(1, Math.max(0, xN)); yN = Math.min(1, Math.max(0, yN));
@@ -1346,11 +1370,12 @@ function sound(voice, xN, yN, vel, t, b, deg, chord = "single") {
   const each = vel / Math.sqrt(stack.length);
   for (const step of stack) {
     const midi = midiForDegree(withWalk(root + step, b));
+    const [v, at, m] = varied(each, t, midi);
     if (state.out === "sound" || state.out.startsWith("both")) {
-      if (voice === "shake") voiceFn("shake")(t, each, pan, 1 - yN);
-      else voiceFn(voice)(t, midi, each, pan, yN);
+      if (voice === "shake") voiceFn("shake")(at, v, pan, 1 - yN);
+      else voiceFn(voice)(at, m, v, pan, yN);
     }
-    sendMidi(voice, midi, each, t, yN);
+    sendMidi(voice, midi, v, at, yN);
   }
 }
 /** Sound a stored (free-mode) event of loop `lp`, wherever the loop is now. */
@@ -1700,7 +1725,7 @@ let lineTick = 0;
 const TOUCH_R = 9, TOUCH_COOL = 1, BUMP = 0.035;
 const touchLast = new Map();     // "crosser>crossed" → beat of the last crossing
 const touchLog = [];             // the last few crossings: { b, x, y, did }
-const MEET_R = 26, MEET_COOL = 1, TRADE_COOL = 2 * BAR, BREED_COOL = 8 * BAR;
+const MEET_R = 26, MEET_COOL = 1, TRADE_COOL = 2 * BAR, BREED_COOL = 16 * BAR;   // breeding: once in a while (was 8 bars: too often, 2026-10-24)
 const TRADES = ["pen", "chord", "rhythm", "dir"];
 const TRADE_NAMES = { pen: "its voice", chord: "its chords", rhythm: "its rhythm", dir: "its direction" };
 const meetLast = new Map();      // pair → beat of their last meeting
@@ -2443,6 +2468,10 @@ function mutateLoop(parent, opts = {}) {
   if (!parent) return null;
   if (opts.quiet && loops.length >= MAX_LOOPS) return null;     // breeding never pushes a loop out
   const d = loopData(parent);
+  // A child never inherits breeding: being a breeder is a choice made by hand
+  // (its settings → Meets), or children of breeders breed, and the sheet fills
+  // up (Alex, 2026-10-24: "breeding is a bit too frequent").
+  if (BREEDERS.has(d.meets)) d.meets = "sound";
   const rand = () => Math.random();
   const clamp01 = (v) => Math.max(0.015, Math.min(0.985, v));
   const strength = 0.22; // intentionally modest: recognizable offspring
@@ -2735,10 +2764,10 @@ const store = {
 };
 
 function serialize() {
-  const { bpm, volume, grid, tuning, root, range, div, pen, lock, loop, morph, revoice, walk, drone, pack, density, swing, droneVol, droneVoicing, air, arc, meet, dice } = state;
+  const { bpm, volume, grid, tuning, root, range, div, pen, lock, loop, morph, revoice, walk, drone, pack, density, swing, droneVol, droneVoicing, air, arc, meet, dice, vary } = state;
   return {
     v: 3, at: Date.now(),
-    settings: { bpm, volume, grid, tuning, root, range, div, pen, lock, loop, morph, revoice, walk, drone, pack, density, swing, droneVol, droneVoicing, air, arc, meet, dice },
+    settings: { bpm, volume, grid, tuning, root, range, div, pen, lock, loop, morph, revoice, walk, drone, pack, density, swing, droneVol, droneVoicing, air, arc, meet, dice, vary },
     loops: loops.map(loopData),
   };
 }
@@ -2784,7 +2813,7 @@ function applySettings(st) {
   $("swing").value = String(state.swing || 0); $("air").value = String(state.air || 0); $("arc").value = state.arc || "off"; $("droneVol").value = String(state.droneVol ?? 0.5); $("droneVoicing").value = state.droneVoicing || "fifth";
   if (typeof syncPen === "function") syncPen();
   for (const id of ["grid", "tuning", "root", "range", "div", "pen", "pack", "density"]) $(id).value = String(state[id]);
-  for (const [id, key] of [["lockBtn", "lock"], ["loopBtn", "loop"], ["morphBtn", "morph"], ["meetBtn", "meet"], ["diceBtn", "dice"], ["revoiceBtn", "revoice"], ["walkBtn", "walk"], ["droneBtn", "drone"]])
+  for (const [id, key] of [["lockBtn", "lock"], ["loopBtn", "loop"], ["morphBtn", "morph"], ["meetBtn", "meet"], ["diceBtn", "dice"], ["varyBtn", "vary"], ["revoiceBtn", "revoice"], ["walkBtn", "walk"], ["droneBtn", "drone"]])
     $(id).setAttribute("aria-pressed", String(state[key]));
   syncTuningPicker();
   if (ctx) { setDrone(state.drone); updateDrone(nowBeat(), true); if (delayLine) delayLine.delayTime.setTargetAtTime(0.75 / bps(), ctx.currentTime, 0.05); }
@@ -3202,8 +3231,19 @@ function toast(msg) {
 const fmtBeats = (v) => String(Math.round(v * 100) / 100);
 const fmtRatio = (r) => ({ 0.5: "½", 0.75: "¾", 1: "1", 1.5: "1½", 2: "2" }[r] || (Math.abs(r - 2 / 3) < 1e-6 ? "⅔" : Math.abs(r - 4 / 3) < 1e-6 ? "4⁄3" : fmtBeats(r)));
 
+/* Pause fades the master out before suspending. Suspending mid-note froze the
+ * audio device on its last buffer, which some devices repeat for a moment: a
+ * short pitched buzz (iPad Safari, 2026-10-24). Resuming fades back in (ensureAudio). */
+async function pauseAudio() {
+  if (!ctx || ctx.state !== "running") return;
+  const t = ctx.currentTime;
+  master.gain.cancelScheduledValues(t); master.gain.setValueAtTime(master.gain.value, t);
+  master.gain.linearRampToValueAtTime(0, t + 0.06);
+  await new Promise((r) => setTimeout(r, 90));
+  if (ctx.state === "running") await ctx.suspend();
+}
 $("power").addEventListener("click", async () => {
-  if (ctx && ctx.state === "running") await ctx.suspend();
+  if (ctx && ctx.state === "running") await pauseAudio();
   else { ensureAudio(); requestWakeLock(); }
   hint.hidden = true;
   setTimeout(syncPower, 80);
@@ -3246,6 +3286,7 @@ function toggle(id, key, after) {
 toggle("lockBtn", "lock", (on) => { loops.forEach((lp) => (lp.lastBand = null)); toast(on ? "Lock: loops are read on the beat grid: a steady pulse, pitch snapped to the lines" : "Free: loops play as drawn, snapped to the division"); });
 toggle("loopBtn", "loop");
 toggle("meetBtn", "meet", (on) => toast(on ? "Meet: loops answer when a playhead crosses a line or meets another" : "Meet off: loops pass each other by"));
+toggle("varyBtn", "vary", (on) => toast(on ? "Vary: no two notes quite alike" : "Vary off: every repeat the same"));
 toggle("diceBtn", "dice", (on) => toast(on ? "Surprise: new loops may play backwards, evenly, or meet in other ways" : "Surprise off: new loops play forward, as drawn, and sound when they meet"));
 toggle("morphBtn", "morph", (on) => { if (!on) loops.forEach((lp) => (lp.mt = { ...lp.m })); });   // off = freeze where they are
 $("morphBtn").setAttribute("aria-pressed", String(state.morph));   // may start off (reduced motion)

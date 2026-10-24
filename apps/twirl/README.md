@@ -38,7 +38,9 @@ turns sharply (`DENSITY`; few / some / many; `retrace` re-spaces a loop).
 two lines come into contact (also trade) or two playheads meet (also trade,
 breed), each loop answers as its Meets says; an infectious loop breeds at
 any contact (section 7b of the script). **Surprise** gives new loops a random
-direction, rhythm and Meets, mostly the usual ones. The
+direction, rhythm and Meets (never breed), mostly the usual ones; children
+never inherit breeding. **Vary** gives each note a little loudness, timing,
+tuning and colour (`varied`, `nuance`), like a sampler's round-robin. The
 comment block at the top of the script maps each rule to the one place it
 lives in the code.
 
@@ -105,8 +107,11 @@ What they hold in place:
   breed has exactly one child, then waits, and never at the 14-loop cap.
   Lines that come into contact count once, at that moment, not where they
   were drawn overlapping; infect breeds there, breed doesn't.
-  Surprise draws direction, rhythm and Meets mostly from the usual; toys
-  keep theirs.
+  Surprise draws direction, rhythm and Meets mostly from the usual, never
+  breed or infect; toys keep theirs; a child of a breeder doesn't breed.
+- **Vary and pause.** Varied notes stay within their small ranges, MIDI
+  notes stay whole; Vary off repeats exactly. Pause fades out, then
+  suspends; Play fades back in.
 - **Notes.** New strokes default to few; any loop can be re-spaced (many
   gives more, in order, along the same path); fixed shaker and beat notes
   stay put. In Edit, a tap anywhere on a path adds a note and a tap on a

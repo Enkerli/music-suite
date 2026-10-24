@@ -1588,15 +1588,25 @@ Each loop answers in its own way (its settings → **Meets**):
 - **no**: it stays out of it.
 
 A loop crosses a given line at most once a beat; a loop trades at most once
-every two bars and breeds at most once every eight, and never when the sheet
-is full (14 loops). **Meet** in the controls (More) turns all of it off.
+every two bars and breeds at most once every sixteen, and never when the
+sheet is full (14 loops). Breeding is always your choice: a child never
+inherits it, and Surprise never gives it. **Meet** in the controls (More)
+turns all of it off.
 
 **Surprise** (More, on at first): a new loop may get a different direction
-(reverse, ping-pong), rhythm (even, Euclidean) or way of meeting. The usual
+(reverse, ping-pong), rhythm (even, Euclidean) or way of meeting (bump,
+trade; never breed). The usual
 ones stay the most likely, a message says when a loop got something else,
 and you can change it in the loop's settings. Turn Surprise off and every
 new loop plays forward, as drawn, and sounds when it touches. The Toybox's
 beat and shaker keep their own feel either way.
+
+**Vary** (More, on at first): no two notes come out quite alike. Each one is
+a little louder or softer, a few milliseconds earlier or later, a few cents
+off, and a little brighter or duller (the bell more or less clangorous, the
+blip longer or shorter), the way a sampler plays a different take of the
+same note each time. It takes the edge off fast repeats. Turn it off for
+exact, identical repeats.
 
 ## Toys, scenes, takes and codes
 

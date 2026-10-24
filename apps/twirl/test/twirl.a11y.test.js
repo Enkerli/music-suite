@@ -236,3 +236,20 @@ describe.skipIf(!browser)("Twirl · pointer alternatives and preferences", () =>
     await context.close();
   });
 });
+
+describe.skipIf(!browser)("Twirl · pause", () => {
+  it("Pause fades out before it suspends (no buzz), and Play fades back in", async () => {
+    const { page, context } = await openTwirl(browser);
+    await page.evaluate(() => ensureAudio());
+    await page.waitForTimeout(200);
+    await page.keyboard.press("Space");
+    await page.waitForTimeout(400);
+    const paused = await page.evaluate(() => [ctx.state, master.gain.value]);
+    expect(paused).toEqual(["suspended", 0]);
+    await page.keyboard.press("Space");
+    await page.waitForTimeout(300);
+    const back = await page.evaluate(() => [ctx.state, Math.abs(master.gain.value - state.volume) < 1e-3]);
+    expect(back).toEqual(["running", true]);
+    await context.close();
+  });
+});
