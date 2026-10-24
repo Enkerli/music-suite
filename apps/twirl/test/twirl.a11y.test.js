@@ -99,13 +99,86 @@ describe.skipIf(!browser)("Twirl · keyboard and focus", () => {
     await context.close();
   });
 
-  it("buttons show a focus ring when reached by keyboard", async () => {
+  it("Tab and Shift+Tab step through the loops from the page, and wrap (never off to the address bar)", async () => {
     const { page, context } = await openTwirl(browser);
+    const sel = () => page.evaluate(() => loops.indexOf(selected));
+    await page.keyboard.press("Tab"); expect(await sel()).toBe(0);
+    await page.keyboard.press("Tab"); expect(await sel()).toBe(1);
+    await page.keyboard.press("Tab"); await page.keyboard.press("Tab"); expect(await sel()).toBe(0);   // 3 loops: wraps
+    await page.keyboard.press("Shift+Tab"); expect(await sel()).toBe(2);
+    expect(await page.evaluate(() => document.activeElement === document.body)).toBe(true);
+    await context.close();
+  });
+
+  it("C takes focus into the controls, where Tab reaches buttons with a visible ring", async () => {
+    const { page, context } = await openTwirl(browser);
+    await page.keyboard.press("c");
+    expect(await page.evaluate(() => document.activeElement.id)).toBe("drawerClose");
     await page.keyboard.press("Tab");
     const ring = await page.evaluate(() => { const s = getComputedStyle(document.activeElement); return [document.activeElement.tagName, s.outlineStyle, parseFloat(s.outlineWidth)]; });
     expect(ring[0]).toBe("BUTTON");
     expect(ring[1]).not.toBe("none");
     expect(ring[2]).toBeGreaterThanOrEqual(2);
+    await page.keyboard.press("Escape");
+    expect(await page.evaluate(() => [document.body.classList.contains("drawer-open"), $("strip").contains(document.activeElement)])).toEqual([false, false]);
+    await context.close();
+  });
+
+  it("without an Esc key: ` and ⌘. close what's open, and Enter closes a loop's settings", async () => {
+    const { page, context } = await openTwirl(browser);
+    await page.keyboard.press("h");
+    expect(await page.isVisible("#keys")).toBe(true);
+    await page.keyboard.press("`");
+    expect(await page.isVisible("#keys")).toBe(false);
+    await page.keyboard.press("t");
+    expect(await page.isVisible("#shelf")).toBe(true);
+    await page.keyboard.press("Meta+.");
+    expect(await page.isVisible("#shelf")).toBe(false);
+    await page.keyboard.press("1");
+    await page.keyboard.press("Enter");
+    expect(await page.isVisible("#inspector")).toBe(true);
+    await page.keyboard.press("Enter");                         // focus is on the panel's title, not a button
+    expect(await page.isVisible("#inspector")).toBe(false);
+    await context.close();
+  });
+
+  it("a shifted digit always picks a pen, even where it types ? (⇧6 on Canadian French)", async () => {
+    const { page, context } = await openTwirl(browser);
+    await page.evaluate(() => document.dispatchEvent(new KeyboardEvent("keydown", { key: "?", code: "Digit6", shiftKey: true, bubbles: true })));
+    expect(await page.evaluate(() => [state.pen, $("keys").hidden])).toEqual(["shake", true]);
+    await page.keyboard.press("h");                             // help is H
+    expect(await page.isVisible("#keys")).toBe(true);
+    await context.close();
+  });
+
+  it("a loop's settings can switch Simple / More / Everything themselves", async () => {
+    const { page, context } = await openTwirl(browser);
+    await page.evaluate(() => { setLevel(1); openInspector(loops[0]); });
+    expect(await page.isVisible("#inspMutate")).toBe(false);
+    await page.click('#inspector [data-set-level="3"]');
+    expect(await page.evaluate(() => level)).toBe(3);
+    expect(await page.isVisible("#inspMutate")).toBe(true);
+    expect(await page.getAttribute('#strip [data-set-level="3"]', "aria-pressed")).toBe("true");   // one setting, shown in both places
+    await context.close();
+  });
+
+  it("F toggles full screen, and the button says which", async () => {
+    const { page, context } = await openTwirl(browser);
+    await page.mouse.click(40, 500);                            // full screen needs a user gesture in the page
+    await page.keyboard.press("f");
+    await page.waitForFunction(() => !!document.fullscreenElement);
+    expect(await page.getAttribute("#fsBtn", "aria-pressed")).toBe("true");
+    await page.keyboard.press("f");
+    await page.waitForFunction(() => !document.fullscreenElement);
+    expect(await page.getAttribute("#fsBtn", "aria-pressed")).toBe("false");
+    await context.close();
+  });
+
+  it("on its own site: a quiet Fork me on GitHub, and no 'now lives on Pages' note", async () => {
+    const { page, context } = await openTwirl(browser);
+    expect(await page.isVisible("#forkMe")).toBe(true);
+    expect(await page.evaluate(() => $("homeNote").hidden)).toBe(true);
+    expect(await page.getAttribute("#forkMe", "href")).toContain("github.com/Enkerli/music-suite");
     await context.close();
   });
 
