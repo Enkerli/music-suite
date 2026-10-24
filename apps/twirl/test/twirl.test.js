@@ -494,8 +494,11 @@ describe.skipIf(!browser)("Twirl · chimes, sounds across banks, Start over", ()
     const before = await page.evaluate(() => { state.bpm = 140; state.grid = "chromatic"; dropToy("ring", [200, 200]); return loops.map((l) => l.uid).join(); });
     await page.evaluate(() => { $("initBtn").click(); });
     expect(await page.evaluate(() => [loops.length, state.bpm, $("initBtn").textContent])).toEqual([4, 140, "Start over?"]);   // one tap only arms it
-    const after = await page.evaluate(() => { $("initBtn").click(); return { n: loops.length, bpm: state.bpm, grid: state.grid, chimes: loops[0].pack, label: $("initBtn").textContent }; });
-    expect(after).toEqual({ n: 3, bpm: 96, grid: "pentMaj", chimes: "chimes", label: "Bring it back" });
+    const after = await page.evaluate(() => { $("initBtn").click(); return { n: loops.length, bpm: state.bpm, grid: state.grid, root: state.root, chimes: loops[0].pack, label: $("initBtn").textContent }; });
+    expect(after).toMatchObject({ n: 3, chimes: "chimes", label: "Bring it back" });
+    expect(after.bpm).toBeGreaterThanOrEqual(84); expect(after.bpm).toBeLessThanOrEqual(112);          // a fresh sheet: its own key and tempo, within reason
+    expect(["pentMaj", "pentMin"]).toContain(after.grid);
+    expect([0, 2, 3, 5, 7, 9, 10]).toContain(after.root);
     const back = await page.evaluate(() => { $("initBtn").click(); return { n: loops.length, bpm: state.bpm, grid: state.grid, label: $("initBtn").textContent }; });
     expect(back).toEqual({ n: 4, bpm: 140, grid: "chromatic", label: "Start over" });
     expect(before.split(",").length).toBe(4);
@@ -510,35 +513,63 @@ describe.skipIf(!browser)("Twirl · Life: loops that change over the passes", ()
     retrace(lp, "dense", 0); lp.temper = "still"; return lp.events.length;
   });
 
-  it("swell: from its strongest notes to all of them and back; its drawn notes never change", async () => {
+  it("bloom: notes beyond the drawn ones come in and leave again; the drawn ones always play and never change", async () => {
     const { page, context } = await openTwirl(browser);
-    const n = await ring(page);
+    await page.evaluate(() => { loops.splice(0).forEach(fadeOut); state.morph = false; dropToy("ring", [sheet.clientWidth / 2, sheet.clientHeight / 2]); retrace(loops[0], "sparse", 0); loops[0].temper = "still"; });
     const r = await page.evaluate(() => {
-      const lp = loops[0], before = JSON.stringify(lp.events.map((e) => [e.off, e.x, e.y]));
-      const playing = (age) => { lp.life = "swell"; lp.age = age; return lp.events.filter((_, i) => lifePlays(lp, i)).length; };
-      const out = [0, 4, 8, 12, 16].map(playing);
-      lp.life = "steady"; lp.age = 0;
-      return { out, same: before === JSON.stringify(lp.events.map((e) => [e.off, e.x, e.y])), steady: lp.events.filter((_, i) => lifePlays(lp, i)).length };
+      const lp = loops[0], n = lp.events.length, before = JSON.stringify(lp.events.map((e) => [e.off, e.x, e.y]));
+      const at = (age) => { lp.life = "bloom"; lp.age = age; return [bloomNow(lp).length, lp.events.filter((_, i) => lifePlays(lp, i)).length]; };
+      const out = [0, 4, 8, 12, 16].map(at);
+      return { n, out, extra: bloomNotes(lp).length, same: before === JSON.stringify(lp.events.map((e) => [e.off, e.x, e.y])) };
     });
-    expect(r.out[0]).toBeLessThan(n / 2);                                  // starts sparse
-    expect(r.out[1]).toBeGreaterThan(r.out[0]);                           // fills in
-    expect(r.out[2]).toBe(n);                                             // all of them at the top
-    expect(r.out[3]).toBeLessThan(n);                                     // thins out again
-    expect(r.out[4]).toBe(r.out[0]);                                      // and round again
+    expect(r.extra).toBeGreaterThan(r.n);                                 // "over the initial density": more than drawn
+    expect(r.out.map((x) => x[0])).toEqual([0, expect.any(Number), r.extra, expect.any(Number), 0]);
+    expect(r.out[1][0]).toBeGreaterThan(0);
+    expect(r.out.every((x) => x[1] === r.n)).toBe(true);                  // every drawn note, always
     expect(r.same).toBe(true);
-    expect(r.steady).toBe(n);
     await context.close();
   });
 
-  it("swell keeps the notes that matter most to the beat: the downbeat is always among them", async () => {
+  it("bloom's extra notes come in strongest first: the downbeat before the rest", async () => {
+    const { page, context } = await openTwirl(browser);
+    const r = await page.evaluate(() => {
+      loops.splice(0).forEach(fadeOut); dropToy("ring", [sheet.clientWidth / 2, sheet.clientHeight / 2]); const lp = loops[0];
+      const all = bloomNotes(lp), first = all.filter((e) => e.order < Math.max(1, Math.round(all.length / 4)));
+      return Math.min(...first.map((e) => e.rank)) >= Math.max(...all.filter((e) => !first.includes(e)).map((e) => e.rank)) - 1e-3;
+    });
+    expect(r).toBe(true);
+    await context.close();
+  });
+
+  it("swell: louder and back, again and again; brief: fills in to its drawn notes, then fades and goes", async () => {
     const { page, context } = await openTwirl(browser);
     await ring(page);
     const r = await page.evaluate(() => {
-      const lp = loops[0]; lp.life = "swell"; lp.age = 0;
-      const per = perBeat() || 4, offs = offsOf(lp);
-      return lp.events.map((_, i) => [Math.round(offs[i] * per) % (per * BAR) === 0, lifePlays(lp, i)]).filter(([down]) => down).every(([, plays]) => plays);
+      const lp = loops[0], n = lp.events.length;
+      lp.life = "swell"; const sw = [0, 8, 16].map((a) => ((lp.age = a), lifeState(lp).vital));
+      lp.life = "brief"; const br = [0, 7, 8, 12].map((a) => ((lp.age = a), [lp.events.filter((_, i) => lifePlays(lp, i)).length, lifeState(lp).vital]));
+      lp.age = 16; const done = lifeState(lp).done;
+      return { n, sw, br, done };
     });
-    expect(r).toBe(true);
+    expect(r.sw[0]).toBeLessThan(0.5); expect(r.sw[1]).toBe(1); expect(r.sw[2]).toBeCloseTo(r.sw[0]);
+    expect(r.br[0][0]).toBeLessThan(r.n / 2); expect(r.br[2][0]).toBe(r.n);
+    expect(r.br[3][1]).toBeLessThan(1);
+    expect(r.done).toBe(true);
+    await context.close();
+  });
+
+  it("Surprise gives a life only once the sheet is busy, brief most often; never to a first stroke on a quiet sheet", async () => {
+    const { page, context } = await openTwirl(browser);
+    const r = await page.evaluate(() => {
+      state.dice = true; loops.splice(0).forEach(fadeOut);
+      const quiet = new Set(); for (let i = 0; i < 200; i++) quiet.add(pickLife());
+      for (let i = 0; i < 5; i++) dropToy("ring", [80 + i * 40, 600]);
+      const busy = {}; for (let i = 0; i < 1000; i++) { const v = pickLife(); busy[v] = (busy[v] || 0) + 1; }
+      return { quiet: [...quiet], busy };
+    });
+    expect(r.quiet).toEqual(["steady"]);
+    expect(r.busy.brief).toBeGreaterThan(r.busy.bloom + r.busy.swell);
+    expect(r.busy.steady).toBeGreaterThan(600);
     await context.close();
   });
 
@@ -576,7 +607,7 @@ describe.skipIf(!browser)("Twirl · Life: loops that change over the passes", ()
   it("a loop with a Life ages as it plays, pass by pass", async () => {
     const { page, context } = await openTwirl(browser);
     await ring(page);
-    await page.evaluate(() => { ensureAudio(); state.bpm = 240; const lp = loops[0]; lp.life = "swell"; lp.age = 0; });
+    await page.evaluate(() => { ensureAudio(); state.bpm = 240; const lp = loops[0]; lp.life = "bloom"; lp.age = 0; });
     await page.waitForFunction(() => loops[0].age >= 2, null, { timeout: 20_000 });
     await context.close();
   });

@@ -531,7 +531,7 @@ Things to try: drag a loop somewhere else and hear it change; hold one to
 see its settings (speed, rhythm, chords, how it moves); open the
 **Toybox** for ready-made shapes (wind chimes, roses, a drum beat); at the
 **More** level, **Mutate** gives a loop a child, a close variation that
-answers it, and **Life** lets a loop swell, fade, or come and go. With a keyboard, `?` lists every key.
+answers it, and **Life** lets a loop bloom, swell, fade, or come and go. With a keyboard, `?` lists every key.
 
 ---
 
@@ -1464,7 +1464,9 @@ included. Nothing to install, no account; your work stays in your browser.
 ## The first minute
 
 Tap anywhere: that starts the sound (browsers wait for a touch). Three
-loops are already on the sheet: wind chimes, a dropped line and a shaker.
+loops are already on the sheet: wind chimes, a dropped line and a shaker,
+in a key and at a tempo of their own (a fresh sheet picks a common key,
+major or minor pentatonic, between 84 and 112 beats a minute).
 **Start over**, in the controls, brings Twirl back to this first visit:
 the starting sheet, every setting as Twirl begins, the Simple level (two
 taps). Your saved scenes, toys and takes stay, and for ten seconds after,
@@ -1612,17 +1614,24 @@ beat and shaker keep their own feel either way.
 A loop can change over the passes instead of playing the same way for good.
 Hold it → **Life**:
 
-- **steady**: as drawn, for good (every loop starts this way);
-- **swell**: it breathes. From its strongest notes (the downbeat and the
-  notes that matter most to the beat) it fills in to all of them over eight
-  passes, then thins out again over eight, and round again. It starts from
-  the notes you gave it, so **Notes: many** makes a fuller swell;
+- **steady**: as drawn, for good (most loops);
+- **bloom**: denser, and back. More notes come in, beyond the ones you
+  drew (the same path, read more finely), over eight passes, and leave over
+  eight, and round again. The notes that matter most to the beat come
+  first; your own notes always play;
+- **swell**: louder, and back: from soft to full over eight passes, then
+  softer again;
 - **fade**: a little quieter each pass, and gone after sixteen;
-- **brief**: fills in over eight passes, fades over eight, and it's gone.
+- **brief**: comes and goes. It starts from its strongest notes, fills in
+  to all of yours over eight passes, fades over eight, and it's gone.
 
 You can see it: the line gets thicker as a loop fills and paler as it
-fades, and the notes resting at that point are faint. The loop's settings
-say where it is ("filling in · pass 5 of 16"). A loop whose life ends goes
+fades; a bloom's extra notes show small while they play, and resting notes
+are faint. The loop's settings say where it is ("blooming · pass 5 of
+16"). Shakers, beats and chimes have fixed notes, so they don't bloom.
+With **Surprise** on, once the sheet has four loops or more, a new loop is
+sometimes given a life, most often brief, so a busy sheet keeps changing;
+a message says so, and a first stroke on a quiet sheet always stays. A loop whose life ends goes
 where undo puts loops: **⌘Z** brings it back, steady. A loop only ages while
 it plays (not muted, not held), and **Evolve** in the controls (More) holds
 every life where it is. Its drawn notes never change: choosing **steady**
