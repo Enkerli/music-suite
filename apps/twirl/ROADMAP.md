@@ -158,6 +158,37 @@ Make readings switchable and, where meaningful, interpolable: one drawing
 heard through several spaces. Label tuning assumptions; connect to the
 pitch-ontology work through practice, not terminology.
 
+## Brainstorm: the suite's notations, semi-hidden
+
+*Open, not planned (2026-10-24). Possibly for forks.* Twirl already stands on
+two of the suite's notations without showing them: its scale grids are
+pitch-class sets (leftmost-LSB masks, CONVENTIONS.md), and Lock and Air read
+loops as rhythm patterns (Barlow weights, Euclidean spacing). The idea is to
+let people *find* them, through progressive disclosure, without them ever
+standing between a first touch and a first sound.
+
+Places they could surface, from quietest to most exposed:
+
+- **Readouts.** A loop's settings (at Everything) show its rhythm as
+  **UPI**, e.g. `10010010` / `0x94:8` / `E(3,8)` when it is one, and the
+  grid shows its **PCS** as a decimal mask and a small ring (`2741`, Ionian).
+  Read-only and copyable; nothing changes by looking.
+- **Typed input as a toy.** Type a UPI pattern (`E(5,8)`, `0x94:8`) and drop
+  it as a loop: a rhythm toy, its pitches from where you drop it. Type a PCS
+  (`2741`, or `{0,2,4,7,9}`) and get a custom grid. This turns notation into
+  another way to *make* things, which is the playful use of it.
+- **Round trips with the suite.** A loop's rhythm out to **Serpe**, the grid
+  out to **PitchFold** or **PickPCS**, over the suite's protocol, and back in.
+  (Twirl would join `APPS` in `@enkerli/library` at that point.)
+- **Codes as notation.** Twirl's share codes are opaque; a "readable" view of
+  a sheet (UPI per loop, PCS for the grid) could sit beside them.
+
+Guard-rails, from the rules above: never at Simple; never required to play;
+always the suite's own conventions (match `packages/upi/vectors` and
+`packages/theory/vectors`, or import the packages once Twirl has a build);
+and every readout labels its convention (leftmost = LSB), because the
+reversed reading is a different real thing (2741 vs 2773).
+
 ## The plugin and standalone path
 
 Twirl should also become a plugin and a standalone, as most of the suite
