@@ -1661,7 +1661,9 @@ exact, identical repeats.
   last sheet also comes back by itself.
 - **Takes**: press **● Rec**, play, press it again. A take keeps what you
   *did* (strokes, moves, settings) and replays it on the sheet, even after
-  a reload; its sound stays until you close the page, unless you save it:
+  a reload (during a replay, the timer and Stop shrink to a small dot after
+  a moment, out of the picture for a screen recording; tap it to get them
+  back); its sound stays until you close the page, unless you save it:
   **Save sound** gives you a WAV file, which opens everywhere.
 - **Codes**: a sheet, a toy, a take, or everything you have, as a line of
   text (`twirl:s1.…`). Send it any way you like; paste it into Scenes →
@@ -1675,7 +1677,7 @@ leaving marks. **H** lists every key inside Twirl.
 
 | Keys | What they do |
 |---|---|
-| Space | Play / pause (⇧ Space: record) |
+| Space | Play / pause, from the sheet (⇧ Space: record). Inside a panel, Space never pauses |
 | 1–9, or Tab / ⇧ Tab | Pick a loop |
 | Enter | Its settings (Enter again closes them) |
 | Arrows · `,` `.` | Move it · turn it |
@@ -1696,6 +1698,19 @@ Keyboard → Hardware Keyboard → Modifier Keys. Safari's Tab usually skips
 buttons (⌥ Tab reaches them), which sent focus off to the address bar; that
 is why Tab steps through loops in Twirl, and C, Enter and T take you into
 the controls.
+
+If the system interrupts the sound (a call, another app's audio), Twirl
+says so, and the next touch or key brings it back.
+
+## Messages
+
+Twirl keeps quiet about what it does. When something happens (a setting
+changes, a loop trades, a child is born, a loop fades away), a small dot
+in the footer lights up; tap it for **What just happened**, the last few
+messages. **Show them as they happen**, in that list, puts them back on the
+sheet as they come. The few that need you (the sound was interrupted, a
+save that failed, Start over's undo) always show. Screen readers hear every
+message either way.
 
 ## Full screen
 

@@ -283,6 +283,35 @@ kbd {
 .share small { flex-basis: 100%; font: 400 0.6875rem/1.3 var(--font-mono); color: var(--ink-muted); }
 .traynote { align-self: center; max-width: 170px; padding: 0 6px; font-size: 0.75rem; line-height: 1.35; color: var(--ink-muted); }
 
+/* ── messages: quiet by default, a dot that says something happened ──────── */
+.foot .msgbtn { order: 2; margin-left: auto; flex: none; align-self: center; }
+.foot .msgbtn:not([hidden]) + .forkme { margin-left: 12px; }
+.msgbtn {
+  display: inline-flex; align-items: center; gap: 6px; min-height: 32px; padding: 0 8px;
+  font: 400 0.6875rem/1 var(--font-mono); color: var(--ink-muted); background: transparent;
+  border: 1px solid transparent; border-radius: 999px; cursor: pointer; pointer-events: auto;
+}
+.msgbtn:hover, .msgbtn:focus-visible { border-color: var(--rule-strong); color: var(--ink); }
+.msgdot { width: 8px; height: 8px; border-radius: 50%; background: var(--rule-strong); flex: none; }
+.msgbtn.unseen .msgdot { background: var(--accent); }
+.msgbtn.pulse .msgdot { animation: msgpulse 0.9s ease-out 1; }
+@keyframes msgpulse { 0% { transform: scale(1); } 35% { transform: scale(2.1); } 100% { transform: scale(1); } }
+@media (prefers-reduced-motion: reduce) { .msgbtn.pulse .msgdot { animation: none; } }
+.msglog {
+  position: fixed; z-index: 22; right: 12px; bottom: calc(var(--foot-h, 56px) + 8px);
+  width: min(340px, calc(100% - 24px)); max-height: 55vh; overflow-y: auto; overscroll-behavior: contain;
+  padding: 10px 12px; border-radius: 14px; background: var(--paper); border: 1px solid var(--rule-strong);
+  box-shadow: 0 8px 28px rgb(0 0 0 / 0.12);
+}
+.msglog ol { list-style: none; margin: 8px 0 10px; padding: 0; display: grid; gap: 6px; }
+.msglog li { font: 400 0.8125rem/1.35 var(--font-sans); color: var(--ink); }
+.msglog li small { display: block; font: 400 0.6875rem/1.2 var(--font-mono); color: var(--ink-muted); }
+.replaymini { display: none; width: 28px; height: 28px; padding: 0; align-items: center; justify-content: center; background: transparent; border: 0; cursor: pointer; }
+.replaybar.mini { padding: 0; gap: 0; opacity: 0.7; }
+.replaybar.mini > .dot, .replaybar.mini #replayLabel, .replaybar.mini #replayStop { display: none; }
+.replaybar.mini .replaymini { display: inline-flex; }
+.replaybar:not(.mini) .replaymini { display: none; }
+
 /* ── toast ─────────────────────────────────────────────────────────────── */
 .toast {
   position: fixed; left: 50%; transform: translateX(-50%);
@@ -706,10 +735,18 @@ kbd {
 </div>
 
 
-<div class="replaybar" id="replayBar" hidden><span class="dot" aria-hidden="true"></span><span id="replayLabel">Replaying</span><button class="btn" type="button" id="replayStop">Stop</button></div>
-<div class="toast" id="toast" role="status" hidden></div>
+<div class="replaybar" id="replayBar" hidden><span class="dot" aria-hidden="true"></span><button class="replaymini" id="replayMini" type="button" aria-label="Replaying: show the timer and Stop"><span class="dot" aria-hidden="true"></span></button><span id="replayLabel">Replaying</span><button class="btn" type="button" id="replayStop">Stop</button></div>
+<div class="toast" id="toast" aria-hidden="true" hidden></div>
+<!-- The one live region for messages: every message is announced, shown or not. -->
+<div class="vh" id="srStatus" role="status"></div>
+<div class="msglog" id="msgLog" role="dialog" aria-labelledby="msgLogTitle" hidden>
+  <div class="shelfhead"><strong id="msgLogTitle" tabindex="-1">What just happened</strong><button class="btn" type="button" id="msgLogClose">Close</button></div>
+  <ol id="msgList"></ol>
+  <button class="btn" type="button" id="msgLoudBtn" aria-pressed="false" title="Show each message on the sheet as it happens (they're always here, and always announced to screen readers)">Show them as they happen</button>
+</div>
 
 <footer class="foot" id="foot">
+  <button class="msgbtn" id="msgBtn" type="button" aria-haspopup="dialog" aria-expanded="false" hidden><span class="msgdot" aria-hidden="true"></span><span class="vh">Messages: </span><span id="msgBtnLabel">What happened</span></button>
   <a class="forkme" id="forkMe" href="https://github.com/Enkerli/music-suite/tree/main/apps/twirl" target="_blank" rel="noopener" hidden>Fork me on GitHub</a>
   <!-- Not a live region: it re-renders on every resize step of a pinch, and the
        toasts (role=status) already announce what changed. -->
@@ -867,6 +904,7 @@ function ensureAudio() {
   if (!ctx) {
     const AC = window.AudioContext || window.webkitAudioContext;
     ctx = new AC({ latencyHint: "interactive" });
+    watchAudio();
     t0 = ctx.currentTime;
 
     const comp = compressor = ctx.createDynamicsCompressor();
@@ -892,6 +930,7 @@ function ensureAudio() {
     setDrone(state.drone);
   }
   if (ctx.state !== "running") {
+    userPaused = false; lostSound = false;
     ctx.resume();
     const t = ctx.currentTime;                                    // back from a pause: fade in, no click
     master.gain.cancelScheduledValues(t); master.gain.setValueAtTime(0, t); master.gain.linearRampToValueAtTime(state.volume, t + 0.05);
@@ -3081,7 +3120,7 @@ function renderSlots() {
 }
 function saveTo(i) {
   if (!loops.length) { toast("Nothing to save yet: draw something first"); return; }
-  toast(store.set(slotKey(i), serialize()) ? `Saved scene ${i}` : "This browser won't store scenes here");
+  (store.set(slotKey(i), serialize()) ? toast(`Saved scene ${i}`) : toast("This browser won't store scenes here", true));
   const hadFocus = document.activeElement && document.activeElement.closest && document.activeElement.closest("#slots");
   renderSlots();
   if (hadFocus) $("slots").children[i - 1]?.focus();     // the slot was rebuilt: keep the keyboard where it was
@@ -3427,18 +3466,83 @@ function syncPower() {
 function hideHint() { hint.hidden = true; setTimeout(syncPower, 80); }
 
 let toastTimer = null;
-function toast(msg) {
-  const el = $("toast"); el.textContent = msg; el.hidden = false;
-  clearTimeout(toastTimer); toastTimer = setTimeout(() => (el.hidden = true), 1800);
+/* Messages (2026-10-24, Alex: "maybe they don't need to show by default. The
+ * naïve view could work well without them. Maybe there's a subtle indicator,
+ * somewhere, which shows that something just happened, and we can expand for
+ * more info."). Every message goes to a short log, and is announced to
+ * screen readers (one live region, WCAG 4.1.3), but by default it isn't shown
+ * on the sheet: a small dot in the footer lights up and pulses instead, and
+ * opens the log. "Show them as they happen" (in the log) brings the old
+ * toasts back. The few that need you to act (the sound was interrupted, full
+ * screen, a save that failed, Start over's undo) always show. */
+const MSG_KEY = "twirl:messages", msgLog = [];
+let msgsLoud = store.get(MSG_KEY) === "show", msgUnseen = 0;
+function toast(msg, always = false) {
+  msgLog.unshift({ msg, at: Date.now() }); if (msgLog.length > 30) msgLog.pop();
+  $("srStatus").textContent = msg;
+  if (msgsLoud || always) {
+    const el = $("toast"); el.textContent = msg; el.hidden = false;
+    clearTimeout(toastTimer); toastTimer = setTimeout(() => (el.hidden = true), 1800);
+  } else if ($("msgLog").hidden) msgUnseen++;
+  syncMsgBtn(!msgsLoud && !always);
+  if (!$("msgLog").hidden) renderMsgLog();
 }
+function syncMsgBtn(pulse) {
+  const b = $("msgBtn"); b.hidden = !msgLog.length;
+  b.classList.toggle("unseen", msgUnseen > 0);
+  $("msgBtnLabel").textContent = msgUnseen ? `${msgUnseen} new` : "What happened";
+  if (pulse) { b.classList.remove("pulse"); void b.offsetWidth; b.classList.add("pulse"); }
+}
+const ago = (t) => { const s = Math.round((Date.now() - t) / 1000); return s < 5 ? "just now" : s < 60 ? `${s} s ago` : `${Math.round(s / 60)} min ago`; };
+function renderMsgLog() {
+  const ol = $("msgList"); ol.textContent = "";
+  for (const m of msgLog.slice(0, 12)) { const li = document.createElement("li"); li.textContent = m.msg; const sm = document.createElement("small"); sm.textContent = ago(m.at); li.append(sm); ol.append(li); }
+  $("msgLoudBtn").setAttribute("aria-pressed", String(msgsLoud));
+}
+let msgReturn = null;
+function openMsgLog() {
+  msgReturn = document.activeElement; msgUnseen = 0; renderMsgLog(); syncMsgBtn(false);
+  $("msgLog").hidden = false; $("msgBtn").setAttribute("aria-expanded", "true"); $("msgLogTitle").focus();
+}
+function closeMsgLog() {
+  if ($("msgLog").hidden) return;
+  $("msgLog").hidden = true; $("msgBtn").setAttribute("aria-expanded", "false");
+  if (msgReturn && msgReturn.isConnected && msgReturn !== document.body) msgReturn.focus(); else $("msgBtn").focus();
+  msgReturn = null;
+}
+$("msgBtn").addEventListener("click", () => ($("msgLog").hidden ? openMsgLog() : closeMsgLog()));
+$("msgLogClose").addEventListener("click", closeMsgLog);
+$("msgLoudBtn").addEventListener("click", () => {
+  msgsLoud = !msgsLoud; store.set(MSG_KEY, msgsLoud ? "show" : "quiet"); renderMsgLog();
+  toast(msgsLoud ? "Messages show on the sheet as they happen" : "Messages stay here, behind the dot");
+});
+document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !$("msgLog").hidden) { closeMsgLog(); e.stopImmediatePropagation(); } }, true);
+document.addEventListener("pointerdown", (e) => { if (!$("msgLog").hidden && !$("msgLog").contains(e.target) && !$("msgBtn").contains(e.target)) closeMsgLog(); }, true);
 const fmtBeats = (v) => String(Math.round(v * 100) / 100);
 const fmtRatio = (r) => ({ 0.5: "½", 0.75: "¾", 1: "1", 1.5: "1½", 2: "2" }[r] || (Math.abs(r - 2 / 3) < 1e-6 ? "⅔" : Math.abs(r - 4 / 3) < 1e-6 ? "4⁄3" : fmtBeats(r)));
 
 /* Pause fades the master out before suspending. Suspending mid-note froze the
  * audio device on its last buffer, which some devices repeat for a moment: a
  * short pitched buzz (iPad Safari, 2026-10-24). Resuming fades back in (ensureAudio). */
+/* Who paused? Only Pause (the button, Space) should. If the sound stops by
+ * itself (iPadOS can interrupt it: a call, another app's audio, a system
+ * sound, sometimes a recording), Twirl says so and comes back at the next
+ * touch or key, instead of quietly looking paused. */
+let userPaused = false, lostSound = false;
+function watchAudio() {
+  ctx.onstatechange = () => {
+    syncPower();
+    if (ctx.state !== "running" && ctx.state !== "closed" && !userPaused && !lostSound) {
+      lostSound = true; toast("The sound was interrupted · touch the sheet or press a key to bring it back", true);
+    }
+  };
+}
+for (const type of ["pointerdown", "keydown"]) document.addEventListener(type, () => {
+  if (lostSound && ctx && ctx.state !== "running") { lostSound = false; ensureAudio(); setTimeout(syncPower, 80); }
+}, true);
 async function pauseAudio() {
   if (!ctx || ctx.state !== "running") return;
+  userPaused = true;
   const t = ctx.currentTime;
   master.gain.cancelScheduledValues(t); master.gain.setValueAtTime(master.gain.value, t);
   master.gain.linearRampToValueAtTime(0, t + 0.06);
@@ -3807,7 +3911,7 @@ function addFlow(token, flow, at = Date.now(), secs = flowSecs(flow)) {
     at, secs: Math.round(secs * 10) / 10, loops: flowLoops(flow), token };
   flows.push(entry);
   while (flows.length > MAX_FLOWS) flows.shift();
-  if (!store.set(FLOWS_KEY, flows)) toast("This browser is full: the take plays now but won't be kept");
+  if (!store.set(FLOWS_KEY, flows)) toast("This browser is full: the take plays now but won't be kept", true);
   return entry;
 }
 function deleteFlow(id) { store.set(FLOWS_KEY, loadFlows().filter((x) => x.id !== id)); }
@@ -3824,7 +3928,7 @@ async function startReplay(entry) {
   applySettingsKeepBeat({ tuning: "equal", pen: "auto", lock: false, swing: 0, droneVol: 0.5, droneVoicing: "fifth", air: 0, arc: "off", ...flow.st });
   replay = { flow, i: 0, b0: Math.ceil(nowBeat()), map: new Map(), n: entry.n, shown: "" };
   closeShelf(); renderLoopList();
-  $("replayBar").hidden = false; syncReplayBar();
+  $("replayBar").hidden = false; syncReplayBar(); shrinkReplayBarSoon();
   if (ctx.state !== "running") $("power").click();
 }
 function applySettingsKeepBeat(st) {
@@ -3870,6 +3974,16 @@ function applyFrame(f) {
     Object.assign(lp, { tx, ty, rot, s, muted: !!muted, gain, start: r.b0 + startRel, ts });
   }
 }
+// The replay bar shrinks to a small dot after a few seconds, so a screen
+// recording shows the sheet, not a timer; tap the dot (or Tab to it) for the
+// timer and Stop again. (Alex, 2026-10-24, recording replays for screen capture.)
+let replayMiniTimer = null;
+function shrinkReplayBarSoon() {
+  clearTimeout(replayMiniTimer); $("replayBar").classList.remove("mini");
+  replayMiniTimer = setTimeout(() => { if (replay && !$("replayBar").contains(document.activeElement)) $("replayBar").classList.add("mini"); }, 3000);
+}
+$("replayMini").addEventListener("click", () => { shrinkReplayBarSoon(); $("replayStop").focus(); });
+$("replayBar").addEventListener("focusout", () => { if (replay) shrinkReplayBarSoon(); });
 function syncReplayBar() {
   if (!replay) return;
   const secs = Math.max(0, (nowBeat() - replay.b0) / bps()), total = replay.flow.beats / bps();
@@ -3918,11 +4032,11 @@ async function saveTake(t, n) {
   toast("Preparing the sound file…");
   const wav = await takeWav(t);
   const data = wav || t.blob, filename = `twirl-take-${n}.${wav ? "wav" : t.ext}`;
-  if (!wav) toast(`This browser can't convert its recording: saving it as .${t.ext}`);
+  if (!wav) toast(`This browser can't convert its recording: saving it as .${t.ext}`, true);
   const dl = window.claude && window.claude.use ? await window.claude.use("downloads").catch(() => null) : null;
   if (dl) {
     try { await dl.save({ filename, data }); toast(`Saved ${filename}`); }
-    catch (e) { toast(e && e.code === "declined" ? "Not saved" : "Saving isn't available here: play the take and record it another way"); }
+    catch (e) { toast(e && e.code === "declined" ? "Not saved" : "Saving isn't available here: play the take and record it another way", true); }
     return;
   }
   const url = wav ? URL.createObjectURL(wav) : t.url;
@@ -4159,7 +4273,7 @@ $("initBtn").addEventListener("click", () => {
   hint.hidden = false; $("hintSmall").textContent = "Tap anywhere to start the sound.";
   initLabel("Bring it back");
   undoInit = { scene, view, timer: setTimeout(() => { undoInit = null; initLabel("Start over"); }, 10000) };
-  toast("Started over, as a first visit · Bring it back (controls) undoes it for 10 s");
+  toast("Started over, as a first visit · Bring it back (controls) undoes it for 10 s", true);
 });
 
 // Share (section 12b): build the link, then copy it in the same tap that asks.
@@ -4308,9 +4422,9 @@ document.addEventListener("touchmove", (e) => { if (fsActive() && e.target === s
 for (const ev of ["fullscreenchange", "webkitfullscreenchange"]) document.addEventListener(ev, () => {
   if (fsActive()) fsWanted = true;
   else if (fsWanted) {                                           // not left through Twirl: a pull-down, or the browser's own control?
-    if (sheetPointers.size) { fsLost = true; toast("Full screen comes back when you lift your finger"); }
+    if (sheetPointers.size) { fsLost = true; toast("Full screen comes back when you lift your finger", true); }
     else if (performance.now() - lastSheetTouch < 700) {        // the finger just lifted: its gesture may still count
-      enterFullscreen(() => { fsLost = true; toast("Tap the sheet to go back to full screen"); });
+      enterFullscreen(() => { fsLost = true; toast("Tap the sheet to go back to full screen", true); });
     }
     else fsWanted = false;
   }
@@ -4405,6 +4519,10 @@ document.addEventListener("keydown", (e) => {
   const fn = KEYS[e.key === "?" || e.key === "<" || e.key === ">" ? e.key : key === "Enter" ? "enter" : key];
   if (!fn) return;
   if ((e.key === " " || e.key === "Enter") && e.target.closest && e.target.closest("button")) return;   // Space/Enter on a focused button press that button
+  // Space inside an open panel (a loop's settings, a shelf, the key list) is never
+  // Play/Pause: Safari leaves focus on the panel's title, not on its buttons, so a
+  // Space meant for a control paused the whole sheet (iPad, while recording, 2026-10-24).
+  if (e.key === " " && !e.shiftKey && e.target.closest && e.target.closest("#inspWrap, #shelf, #keys, [role=dialog]")) { e.preventDefault(); return; }
   e.preventDefault();
   if (e.key !== " ") ensureAudio();                              // Space decides for itself: play or pause
   hint.hidden = true;

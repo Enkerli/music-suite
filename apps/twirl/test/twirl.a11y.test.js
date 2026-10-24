@@ -36,6 +36,7 @@ const STATES = {
   "a loop's settings, Everything": async (p) => { await p.evaluate(() => { setLevel(3); openInspector(loops[0]); }); },
   "keyboard list": async (p) => { await p.keyboard.press("?"); },
   "pen palette": async (p) => { await p.evaluate(() => setLevel(2)); await p.keyboard.press("v"); },
+  "messages, quiet dot and its log": async (p) => { await p.evaluate(() => { toast("Lock on"); toast("Loop 2 took its chords from loop 1"); }); await p.click("#msgBtn"); },
 };
 
 describe.skipIf(!browser)("Twirl · axe, every state, both schemes", () => {
@@ -270,4 +271,71 @@ describe.skipIf(!browser)("Twirl · pause", () => {
     expect(back).toEqual(["running", true]);
     await context.close();
   });
+});
+
+describe.skipIf(!browser)("Twirl · the sound only pauses when you pause it", () => {
+  it("Space inside a loop's settings doesn't pause the sheet (while recording, too)", async () => {
+    const { page, context } = await openTwirl(browser);
+    await page.mouse.click(600, 600); await page.waitForTimeout(200);
+    await page.keyboard.press("Shift+Space"); await page.waitForTimeout(300);
+    await page.keyboard.press("1"); await page.keyboard.press("Enter");          // its settings, focus on the title
+    await page.waitForFunction(() => document.activeElement && document.activeElement.id === "inspTitle");
+    await page.keyboard.press("Space"); await page.waitForTimeout(300);
+    expect(await page.evaluate(() => [ctx.state, !!(recorder || flowRec)])).toEqual(["running", true]);
+    await context.close();
+  });
+
+  it("if the system interrupts the sound, Twirl says so and brings it back at the next touch", async () => {
+    const { page, context } = await openTwirl(browser);
+    await page.mouse.click(600, 600); await page.waitForTimeout(200);
+    await page.evaluate(() => ctx.suspend());                                     // not through Pause: an interruption
+    await page.waitForFunction(() => ctx.state === "suspended" && lostSound && !$("toast").hidden);
+    await page.mouse.click(300, 700);
+    await page.waitForFunction(() => ctx.state === "running");
+    await page.keyboard.press("Space");                                           // and Pause still pauses, quietly
+    await page.waitForFunction(() => ctx.state === "suspended");
+    expect(await page.evaluate(() => lostSound)).toBe(false);
+    await context.close();
+  });
+});
+
+describe.skipIf(!browser)("Twirl · messages stay quiet, behind a dot; replays stay out of the picture", () => {
+  it("a message doesn't show on the sheet by default: the dot lights up, its log has it, and screen readers still hear it", async () => {
+    const { page, context } = await openTwirl(browser);
+    await page.evaluate(() => toast("Lock on"));
+    expect(await page.evaluate(() => [$("toast").hidden, $("msgBtn").hidden, $("msgBtnLabel").textContent, $("srStatus").textContent])).toEqual([true, false, "1 new", "Lock on"]);
+    await page.click("#msgBtn");
+    expect(await page.evaluate(() => [$("msgLog").hidden, $("msgList").textContent.includes("Lock on"), document.activeElement.id])).toEqual([false, true, "msgLogTitle"]);
+    await page.keyboard.press("Escape");
+    expect(await page.evaluate(() => [$("msgLog").hidden, $("msgBtnLabel").textContent, document.activeElement.id])).toEqual([true, "What happened", "msgBtn"]);
+    await context.close();
+  });
+
+  it("'Show them as they happen' brings the toasts back, and is remembered; messages that need you always show", async () => {
+    const { page, context } = await openTwirl(browser);
+    await page.evaluate(() => toast("The sound was interrupted · touch the sheet or press a key to bring it back", true));
+    expect(await page.evaluate(() => $("toast").hidden)).toBe(false);
+    await page.click("#msgBtn"); await page.click("#msgLoudBtn");
+    expect(await page.evaluate(() => [store.get("twirl:messages"), $("msgLoudBtn").getAttribute("aria-pressed")])).toEqual(["show", "true"]);
+    await page.keyboard.press("Escape");
+    await page.evaluate(() => { $("toast").hidden = true; toast("Lock off"); });
+    expect(await page.evaluate(() => $("toast").hidden)).toBe(false);
+    await context.close();
+  });
+
+  it("during a replay, the timer and Stop shrink to a dot after a moment; the dot brings them back", async () => {
+    const { page, context } = await openTwirl(browser);
+    await page.mouse.click(600, 600);
+    await page.keyboard.press("Shift+Space"); await page.waitForTimeout(400);
+    await page.evaluate(() => dropToy("ring", [300, 300]));
+    await page.waitForTimeout(5500);                                         // a take longer than the 3 s before the bar shrinks
+    await page.keyboard.press("Shift+Space");
+    await page.waitForFunction(() => loadFlows().length > 0);
+    await page.evaluate(() => { closeShelf(); startReplay(loadFlows()[0]); });
+    await page.waitForFunction(() => !$("replayBar").hidden && !$("replayBar").classList.contains("mini"));
+    await page.waitForFunction(() => $("replayBar").classList.contains("mini"), null, { timeout: 6000 });
+    await page.click("#replayMini");
+    expect(await page.evaluate(() => [$("replayBar").classList.contains("mini"), document.activeElement.id])).toEqual([false, "replayStop"]);
+    await context.close();
+  }, 30_000);
 });
