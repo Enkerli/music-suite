@@ -7,11 +7,14 @@
  * passing. The rest pins what mutation, saving and sharing promise, and holds
  * Twirl to the suite's shared contracts (Barlow vectors, leftmost-LSB masks).
  */
-import { describe, it, expect, beforeAll, afterAll } from "vitest";
+import { describe, it, expect, beforeAll, afterAll, vi } from "vitest";
 import { readFileSync } from "node:fs";
 import { launch, openTwirl, drawStroke, listen, heard, loopPoint } from "./harness.js";
 
 const browser = await launch();
+// These tests run in real time (sound, playheads, meetings), some for several
+// beats: Vitest's 5-second default is too short for them, on a busy CI runner most.
+vi.setConfig({ testTimeout: 30_000 });
 afterAll(() => browser?.close());
 
 describe.skipIf(!browser)("Twirl · first contact", () => {
@@ -247,7 +250,7 @@ describe.skipIf(!browser)("Twirl · meetings (playheads that meet)", () => {
     const { page, context, errors } = await openTwirl(browser);
     await crossing(page);
     await listen(page);
-    await waitBeats(page, 3.2);
+    await waitBeats(page, 5.2);
     const log = await page.evaluate(() => meetLog.slice());
     expect(log.length).toBeGreaterThanOrEqual(1);
     expect((await heard(page)).length).toBeGreaterThanOrEqual(2);         // one note from each loop
@@ -260,11 +263,11 @@ describe.skipIf(!browser)("Twirl · meetings (playheads that meet)", () => {
     await drawStroke(page, { ms: 400 });
     expect(await page.evaluate(() => loops.at(-1).meets)).toBe("sound");
     await crossing(page, { meets: "ignore" });
-    await waitBeats(page, 3.2);
+    await waitBeats(page, 5.2);
     expect(await page.evaluate(() => meetLog.length)).toBe(0);
     await crossing(page);
     await page.evaluate(() => { state.meet = false; });
-    await waitBeats(page, 3.2);
+    await waitBeats(page, 5.2);
     expect(await page.evaluate(() => meetLog.length)).toBe(0);
     await context.close();
   });
@@ -272,7 +275,7 @@ describe.skipIf(!browser)("Twirl · meetings (playheads that meet)", () => {
   it("trade: a loop borrows one thing it doesn't share from the loop it meets", async () => {
     const { page, context } = await openTwirl(browser);
     const [, b] = await crossing(page, { chord: "triad" }, { meets: "trade", chord: "single" });
-    await waitBeats(page, 3.2);
+    await waitBeats(page, 5.2);
     const r = await page.evaluate((b) => { const B = loops.find((l) => l.uid === b); return [B.chord, meetLog.flatMap((m) => m.did)]; }, b);
     expect(r[0]).toBe("triad");
     expect(r[1].join(" ")).toMatch(/took its chords/);
@@ -282,7 +285,7 @@ describe.skipIf(!browser)("Twirl · meetings (playheads that meet)", () => {
   it("breed: a meeting has one child (a mutation of the breeder), then waits before another", async () => {
     const { page, context } = await openTwirl(browser);
     const [a] = await crossing(page, { meets: "breed" });
-    await waitBeats(page, 3.2);
+    await waitBeats(page, 5.2);
     const one = await page.evaluate((a) => ({ n: loops.length, child: loops.at(-1).generation, lineage: loops.at(-1).lineage, a }), a);
     expect(one.n).toBe(3);
     expect(one.child).toBe(1);
@@ -297,7 +300,7 @@ describe.skipIf(!browser)("Twirl · meetings (playheads that meet)", () => {
     await crossing(page, { meets: "breed" });
     await page.evaluate(() => { while (loops.length < MAX_LOOPS) dropToy("ring", [60, 60]); loops.slice(2).forEach((l) => (l.meets = "ignore")); });
     const before = await page.evaluate(() => loops.map((l) => l.uid).join());
-    await waitBeats(page, 3.2);
+    await waitBeats(page, 5.2);
     expect(await page.evaluate(() => [loops.length, meetLog.length > 0])).toEqual([14, true]);
     expect(await page.evaluate(() => loops.map((l) => l.uid).join())).toBe(before);
     await context.close();

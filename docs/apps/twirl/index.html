@@ -1686,11 +1686,15 @@ function checkMeetings(nb, now, W, H) {
     const smp = playheadAt(lp, nb);
     if (!smp) continue;
     const [x, y] = place(lp, smp.x, smp.y, W, H);
-    cur.set(lp, { x, y, heading: smp.heading });
+    cur.set(lp, { x, y, heading: smp.heading, k: passOf(lp, nb) });
   }
   if (state.meet) {
     const live = [...cur.entries()];
-    const jumped = (p0, p1) => !p0 || Math.hypot(p1.x - p0.x, p1.y - p0.y) > 120;   // wrapped round, or new
+    // A playhead that started a new pass since the last tick jumped back to its
+    // start: don't interpolate across that. (Judged by pass, not by distance: on a
+    // slow, busy machine a late tick makes an ordinary move look like a jump, and
+    // the meeting slipped past unseen: CI, 2026-10-24.)
+    const jumped = (p0, p1) => !p0 || p0.k !== p1.k;
     for (let i = 0; i < live.length; i++) for (let j = i + 1; j < live.length; j++) {
       const [A, a1] = live[i], [B, b1] = live[j];
       const a0 = jumped(meetPrev.get(A), a1) ? a1 : meetPrev.get(A), b0 = jumped(meetPrev.get(B), b1) ? b1 : meetPrev.get(B);
