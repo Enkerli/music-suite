@@ -34,9 +34,10 @@ plays slower, snapping to musical ratios. A loop plays either as drawn
 changing Lock, the division or the scale is heard on the next note.
 **Notes land** each time the line has gone a set distance, or as soon as it
 turns sharply (`DENSITY`; few / some / many; `retrace` re-spaces a loop).
-**Contacts**: when a playhead crosses another loop's line (sound, bump) or
-meets another playhead (also trade, breed), each loop answers as its Meets
-says (section 7b of the script). **Surprise** gives new loops a random
+**Contacts**: when a playhead crosses another loop's line (sound, bump),
+two lines come into contact (also trade) or two playheads meet (also trade,
+breed), each loop answers as its Meets says; an infectious loop breeds at
+any contact (section 7b of the script). **Surprise** gives new loops a random
 direction, rhythm and Meets, mostly the usual ones. The
 comment block at the top of the script maps each rule to the one place it
 lives in the code.
@@ -102,6 +103,8 @@ What they hold in place:
   line sounds there, and bump nudges that line along its way, inside the
   sheet; Meets: no, or Meet off, silences them; trade borrows a trait;
   breed has exactly one child, then waits, and never at the 14-loop cap.
+  Lines that come into contact count once, at that moment, not where they
+  were drawn overlapping; infect breeds there, breed doesn't.
   Surprise draws direction, rhythm and Meets mostly from the usual; toys
   keep theirs.
 - **Notes.** New strokes default to few; any loop can be re-spaced (many

@@ -154,6 +154,24 @@ another loop's line**. So there are two kinds of contact:
   stay forward and as drawn. A toast names anything unusual a new loop got,
   so it's never a mystery. Off: forward, as drawn, sound.
 
+### Shipped (v3, 2026-10-24): lines touching, infect
+
+Alex: "There's the other kind of contact: any point of contact between
+loops. That could work for sound, bump… and even trade. Breed is the only
+'dangerous' one, as it increases density. Still, it could happen when an
+especially 'infectious' loop runs into another loop."
+
+- **Lines touching**: every 4th tick (100 ms), each pair of lines (≤ 48
+  segments each, bounding boxes first) is checked for contact. Only the
+  *onset* counts: a pair seen for the first time is just noted, so a loop
+  drawn over another, or a child born on its parent, isn't a contact.
+  Answers: sound (each loop, at the contact), bump (pushes the other loop
+  away, centre from centre), trade. About 6 ms for 14 overlapping spirals
+  on a desktop, worst case.
+- **infect** (appended to `MEET_ORDER`): has a child at any contact:
+  crossings, lines touching, playheads meeting, with breed's 8-bar wait and
+  the 14-loop cap. Surprise gives it to 1 new loop in 20.
+
 ### Next
 
 - **Distribute more** the same way, as Alex suggested: timing (Lock /

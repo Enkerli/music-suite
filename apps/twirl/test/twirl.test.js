@@ -296,6 +296,43 @@ describe.skipIf(!browser)("Twirl · contacts (crossing a line, meeting a playhea
     await context.close();
   });
 
+  it("lines touching: a contact only when they come into touch, not where they started; bump pushes apart", async () => {
+    const { page, context } = await openTwirl(browser);
+    const [a, b] = await crossing(page, { muted: true }, { muted: true });     // muted: no playheads, only lines
+    await page.evaluate(([a, b]) => { lineLog.length = 0; }, [a, b]);
+    await waitBeats(page, 1);
+    expect(await page.evaluate(() => lineLog.length)).toBe(0);                // drawn crossing: noted, not a contact
+    await page.evaluate((b) => { loops.find((l) => l.uid === b).tx = 0.3; }, b);   // pull B clear of A…
+    await waitBeats(page, 1);
+    await page.evaluate((b) => { const B = loops.find((l) => l.uid === b); B.tx = 0; B.muted = false; B.meets = "bump"; }, b);   // …and back: contact
+    await waitBeats(page, 1.5);
+    const r = await page.evaluate((a) => ({ log: lineLog.slice(), tx: loops.find((l) => l.uid === a).tx }), a);
+    expect(r.log.length).toBe(1);
+    expect(r.log[0].did).toContain("bump");
+    expect(Math.abs(r.tx)).toBeGreaterThan(0);                                 // A was pushed away from B
+    await context.close();
+  });
+
+  it("infect: a child at any contact, then the 8-bar wait; plain breed only when playheads meet", async () => {
+    const { page, context } = await openTwirl(browser);
+    const [a, b] = await crossing(page, { muted: true }, { muted: true, meets: "breed" });
+    await page.evaluate((b) => { loops.find((l) => l.uid === b).tx = 0.3; }, b);
+    await waitBeats(page, 1);
+    await page.evaluate((b) => { loops.find((l) => l.uid === b).tx = 0; }, b);
+    await waitBeats(page, 1.5);
+    expect(await page.evaluate(() => [loops.length, lineLog.length])).toEqual([2, 1]);   // breed: lines touching isn't enough
+    await page.evaluate(([a, b]) => { const A = loops.find((l) => l.uid === a); A.meets = "infect"; A.muted = false; loops.find((l) => l.uid === b).tx = 0.3; }, [a, b]);
+    await waitBeats(page, 1);
+    await page.evaluate((b) => { loops.find((l) => l.uid === b).tx = 0; }, b);
+    await waitBeats(page, 1.5);
+    const r = await page.evaluate((a) => ({ n: loops.length, lineage: loops.at(-1).lineage }), a);
+    expect(r.n).toBe(3);
+    expect(r.lineage).toBe(a);
+    await waitBeats(page, 4);                                                  // more contacts, inside the wait
+    expect(await page.evaluate(() => loops.length)).toBe(3);
+    await context.close();
+  });
+
   it("Surprise: new loops' direction, rhythm and Meets are drawn at random, mostly the usual; toys keep their feel", async () => {
     const { page, context } = await openTwirl(browser);
     const r = await page.evaluate(() => {
@@ -311,7 +348,7 @@ describe.skipIf(!browser)("Twirl · contacts (crossing a line, meeting a playhea
     expect(r.dir.fwd / 600).toBeGreaterThan(0.55);
     expect(Object.keys(r.dir).sort()).toEqual(["fwd", "pingpong", "rev"]);
     expect(Object.keys(r.rhythm).sort()).toEqual(["drawn", "euclid", "even"]);
-    expect(Object.keys(r.meets).sort()).toEqual(["breed", "bump", "sound", "trade"]);
+    expect(Object.keys(r.meets).sort()).toEqual(["breed", "bump", "infect", "sound", "trade"]);
     expect(r.toys).toEqual(["fwd/drawn"]);
     expect(r.off).toEqual(["fwd", "drawn", "sound"]);
     await context.close();
@@ -354,12 +391,12 @@ describe.skipIf(!browser)("Twirl · contacts (crossing a line, meeting a playhea
   it("Meets and Notes travel in share codes; older codes meet with 'sound'", async () => {
     const { page, context } = await openTwirl(browser);
     const r = await page.evaluate(async () => {
-      loops[0].meets = "breed"; loops[1].meets = "bump"; retrace(loops[0], "dense");
+      loops[0].meets = "breed"; loops[1].meets = "infect"; retrace(loops[0], "dense");
       const back = await decodeScene(await encodeScene(serialize()));
       const pk = packScene(serialize()); pk.l = pk.l.map((row) => row.slice(0, 24));
       return { meets: back.loops.map((d) => d.meets), dens: back.loops[0].density, old: unpackScene(pk).loops.map((d) => d.meets) };
     });
-    expect(r.meets.slice(0, 2)).toEqual(["breed", "bump"]);
+    expect(r.meets.slice(0, 2)).toEqual(["breed", "infect"]);
     expect(r.dens).toBe("dense");
     expect(new Set(r.old)).toEqual(new Set(["sound"]));
     await context.close();
