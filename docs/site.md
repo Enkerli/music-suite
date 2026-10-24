@@ -1561,10 +1561,13 @@ Children can have children; the chips show the generation (`g1`, `g2`…).
 
 ## When loops touch
 
-Loops touch in two ways, and a small ring flashes where they do:
+Loops touch in three ways, and a small ring flashes where they do:
 
 - a loop's playhead (its blue dot) **crosses another loop's line**. This
   happens all the time, wherever lines overlap;
+- two **lines come into contact**, when loops move into each other
+  (drifting, bumped, or dragged). Lines that already overlap don't count:
+  only the moment they touch;
 - two **playheads meet**: they reach the same place at the same moment.
   This is rarer, and you can aim for it by moving loops around.
 
@@ -1572,14 +1575,16 @@ Each loop answers in its own way (its settings → **Meets**):
 
 - **sound**: it plays a note where it touches, so a crossing adds a note
   and a meeting is an interval, two voices at once;
-- **bump**: it also nudges the lines it crosses out of its way, so loops
-  push each other around the sheet;
-- **trade**: when its playhead meets another, it also borrows one thing
-  from the other loop: its voice, its chords, its rhythm or its direction,
-  one per meeting, in turn;
+- **bump**: it also pushes the lines it crosses or touches out of its way,
+  so loops push each other around the sheet;
+- **trade**: when its line touches another, or its playhead meets another,
+  it also borrows one thing from the other loop: its voice, its chords, its
+  rhythm or its direction, one at a time, in turn;
 - **breed**: when its playhead meets another, it also has a child, a
   variation of itself (like Mutate) that borrows one thing from the other
   loop;
+- **infect**: an infectious loop has a child at *any* contact. Use it
+  sparingly: children fill the sheet;
 - **no**: it stays out of it.
 
 A loop crosses a given line at most once a beat; a loop trades at most once

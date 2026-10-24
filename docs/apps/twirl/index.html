@@ -632,7 +632,7 @@ kbd {
     <span class="seg" data-insp="density"><button class="btn" type="button" data-v="sparse" title="A note every couple of grid columns, and at sharp turns">few</button><button class="btn" type="button" data-v="medium">some</button><button class="btn" type="button" data-v="dense" title="A note under every grid column, and at gentle turns">many</button></span>
     <button class="btn" type="button" id="inspReroll" title="Space the notes again, a little differently each time">↻ again</button></div>
   <div class="insprow" data-level="2"><span class="lbl">Meets</span>
-    <span class="seg" data-insp="meets"><button class="btn" type="button" data-v="ignore" title="Stays out of it: no notes, no nudges, no trades">no</button><button class="btn" type="button" data-v="sound" title="Plays a note when its playhead crosses another loop's line, or meets another playhead">sound</button><button class="btn" type="button" data-v="bump" title="…and nudges the lines it crosses out of the way">bump</button><button class="btn" type="button" data-v="trade" title="…and when two playheads meet, borrows one thing from the other loop: voice, chords, rhythm or direction">trade</button><button class="btn" type="button" data-v="breed" title="…and when two playheads meet, has a child with the other loop">breed</button></span></div>
+    <span class="seg" data-insp="meets"><button class="btn" type="button" data-v="ignore" title="Stays out of it: no notes, no nudges, no trades">no</button><button class="btn" type="button" data-v="sound" title="Plays a note when its playhead crosses another loop's line, or meets another playhead">sound</button><button class="btn" type="button" data-v="bump" title="…and nudges the lines it crosses, or touches, out of the way">bump</button><button class="btn" type="button" data-v="trade" title="…and when its line touches another, or two playheads meet, borrows one thing from the other loop: voice, chords, rhythm or direction">trade</button><button class="btn" type="button" data-v="breed" title="…and when two playheads meet, has a child with the other loop">breed</button><button class="btn" type="button" data-v="infect" title="Infectious: has a child at any contact (a crossing, lines touching, playheads meeting), at most once every 8 bars">infect</button></span></div>
   <div class="insprow" data-level="2"><span class="lbl">Voice</span>
     <select class="sel" id="inspPen" aria-label="This loop's voice">
       <option value="auto">by direction</option><option value="drum">drums</option><option value="pluck">pluck</option>
@@ -1231,7 +1231,7 @@ function pickFrom(weights) {
 }
 const pickDir = () => (state.dice ? pickFrom([["fwd", 0.7], ["rev", 0.15], ["pingpong", 0.15]]) : "fwd");
 const pickRhythm = () => (state.dice ? pickFrom([["drawn", 0.7], ["even", 0.15], ["euclid", 0.15]]) : "drawn");
-const pickMeets = () => (state.dice ? pickFrom([["sound", 0.5], ["bump", 0.2], ["trade", 0.15], ["breed", 0.15]]) : "sound");
+const pickMeets = () => (state.dice ? pickFrom([["sound", 0.45], ["bump", 0.2], ["trade", 0.15], ["breed", 0.15], ["infect", 0.05]]) : "sound");
 function pickTemper() {
   const r = Math.random();
   return r < 0.45 ? "drift" : r < 0.7 ? "spin" : r < 0.85 ? "jitter" : "still";
@@ -1663,32 +1663,40 @@ function schedule() {
 }
 setInterval(schedule, 25);
 
-/* ── 7b. Contacts: crossing a line, meeting a playhead ─────────────────── */
-// Two kinds of contact, each loop answering in its own way (its settings → Meets):
+/* ── 7b. Contacts: crossing a line, lines touching, meeting a playhead ──── */
+// Three kinds of contact, each loop answering in its own way (its settings → Meets):
 //
-//               | its playhead CROSSES another loop's line  | two PLAYHEADS MEET
-//   ------------+-------------------------------------------+-------------------------
-//   no          |  –                                        |  –
-//   sound       |  a note, where it crosses                 |  a note (two: an interval)
-//   bump        |  a note, and the line it crossed is       |  a note
-//               |  nudged away along the playhead's way     |
-//   trade       |  a note                                   |  a note, and it borrows one thing
-//               |                                           |  from the other loop (voice, chords,
-//               |                                           |  rhythm, direction, in turn)
-//   breed       |  a note                                   |  a note, and a child: a Mutation that
-//               |                                           |  borrows one thing from the other loop
+//          | its playhead CROSSES     | two LINES come into     | two PLAYHEADS MEET
+//          | another loop's line      | contact (loops moving)  |
+//   -------+--------------------------+-------------------------+--------------------------
+//   no     |  –                       |  –                      |  –
+//   sound  |  a note where it crosses |  a note where they touch|  a note (two: an interval)
+//   bump   |  …and nudges that line   |  …and pushes the other  |  a note
+//          |  along the playhead's way|  loop away from itself  |
+//   trade  |  a note                  |  …and borrows one thing |  …and borrows one thing
+//   breed  |  a note                  |  a note                 |  …and has a child
+//   infect |  …and has a child        |  …and has a child       |  …and has a child
 //
-// Crossings are frequent (lines are everywhere), so they carry the light
-// behaviours; playheads meeting is rarer (two loops in the same place at the
-// same moment), so it carries the ones that change the sheet. (Alex,
-// 2026-10-24, after trying playhead-only.) Both kinds are found by closest
-// approach between scheduler ticks, so a fast playhead can't slip past.
-// Cooldowns keep it musical, and finite: a loop crosses a given line at most
-// once a beat, a pair meets at most once a beat, a loop trades at most once
-// every 2 bars and breeds at most once every 8, never at the 14-loop cap.
+// Trades borrow voice, chords, rhythm or direction, in turn; a child is a
+// Mutation that borrows one thing from the other loop. Crossings are
+// frequent, so they carry the light behaviours; playheads meeting is rarer,
+// so it carries breeding; lines touching happens when loops move into each
+// other (drift, bump, a drag), only at the moment they come into contact.
+// Breeding raises density, so only an "infectious" loop breeds on any
+// contact. (Alex, 2026-10-24, after trying playhead-only.) Crossings and
+// meetings are found by closest approach between scheduler ticks, so a fast
+// playhead can't slip past. Cooldowns keep it musical, and finite: a loop
+// crosses a given line at most once a beat, a pair meets or touches at most
+// once a beat, a loop trades at most once every 2 bars and breeds at most
+// once every 8, never at the 14-loop cap.
 // The drawer's Meet (More) turns all of it off. A replayed take only sounds:
 // what bumps, trades and children changed is already in the take.
-const MEET_ORDER = ["ignore", "sound", "trade", "breed", "bump"];
+const MEET_ORDER = ["ignore", "sound", "trade", "breed", "bump", "infect"];
+const BREEDERS = new Set(["breed", "infect"]);                 // who has children when playheads meet
+const LINE_EVERY = 4, LINE_SEGS = 48, LINE_R = 2.5;            // lines: checked every 4th tick (100 ms), ≤ 48 segments each
+const lineTouching = new Map();  // "a|b" → true while two lines are in contact (a pair seen once has an entry)
+const lineLog = [];              // the last few line contacts: { b, a, b2, did }
+let lineTick = 0;
 const TOUCH_R = 9, TOUCH_COOL = 1, BUMP = 0.035;
 const touchLast = new Map();     // "crosser>crossed" → beat of the last crossing
 const touchLog = [];             // the last few crossings: { b, x, y, did }
@@ -1763,8 +1771,71 @@ function checkMeetings(nb, now, W, H) {
         touch(X, p1, Y, hit, nb, now, W, H);
       }
     }
+    // Lines touching: every pair whose lines are in contact now and weren't at
+    // the last look. A pair seen for the first time is only noted (a loop drawn
+    // over another, or a child born on its parent, doesn't count as a contact).
+    if (++lineTick % LINE_EVERY === 0) {
+      const seen = new Set();
+      for (let i = 0; i < loops.length; i++) for (let j = i + 1; j < loops.length; j++) {
+        const A = loops[i], B = loops[j];
+        if (A.meets === "ignore" && B.meets === "ignore") continue;
+        const key = A.uid < B.uid ? `${A.uid}|${B.uid}` : `${B.uid}|${A.uid}`;
+        seen.add(key);
+        const a = lineOf(A), b = lineOf(B);
+        let at = null;
+        if (!(a.box[2] < b.box[0] || b.box[2] < a.box[0] || a.box[3] < b.box[1] || b.box[3] < a.box[1])) {
+          const sa = Math.max(1, Math.ceil(a.P.length / LINE_SEGS)), sb = Math.max(1, Math.ceil(b.P.length / LINE_SEGS));
+          for (let m = 0; m + sa < a.P.length && !at; m += sa) {
+            const p0 = { x: a.P[m][0], y: a.P[m][1] }, p1 = { x: a.P[m + sa][0], y: a.P[m + sa][1] };
+            for (let n = 0; n + sb < b.P.length && !at; n += sb) if (segDist(p0, p1, b.P[n], b.P[n + sb]) <= LINE_R) at = [(p0.x + p1.x) / 2, (p0.y + p1.y) / 2];
+          }
+        }
+        const was = lineTouching.get(key);
+        lineTouching.set(key, !!at);
+        if (!at || was !== false) continue;                     // contact only at the moment it starts
+        if (nb - (meetLast.get("~" + key) ?? -Infinity) < MEET_COOL) continue;
+        meetLast.set("~" + key, nb);
+        linesTouch(A, B, at, nb, now, W, H);
+      }
+      for (const k of lineTouching.keys()) if (!seen.has(k)) lineTouching.delete(k);
+    }
   }
   meetPrev = cur;
+}
+/** A has a child with B (a Mutation of A that borrows one thing from B), if A may. Returns a line for the toast. */
+function breedWith(A, B, nb) {
+  if (nb - (A.lastBred ?? -Infinity) < BREED_COOL || loops.length >= MAX_LOOPS) return null;
+  const child = mutateLoop(A, { quiet: true, mate: B });
+  if (!child) return null;
+  A.lastBred = child.lastBred = nb;
+  return `loops ${loops.indexOf(A) + 1} and ${loops.indexOf(B) + 1} had a child: loop ${loops.indexOf(child) + 1}`;
+}
+/** A's and B's lines just came into contact at `at` (screen px): each answers as its Meets says. */
+function linesTouch(A, B, at, nb, now, W, H) {
+  const beat = snapUp(nb), t = Math.max(now, timeAt(beat)), did = [];
+  for (const [X, Y] of [[A, B], [B, A]]) {
+    if (X.meets === "ignore" || X.muted) continue;
+    sound(voiceFor(X, null, 0), at[0] / W, at[1] / H, 0.5 * (X.gain ?? 1), t, beat, undefined, X.chord);
+    if (replay) continue;
+    if (X.meets === "bump" && !Y.held) {                          // push the other loop away, centre from centre
+      const [xx, xy] = place(X, X.c.x, X.c.y, W, H), [yx, yy] = place(Y, Y.c.x, Y.c.y, W, H);
+      const d = Math.hypot(yx - xx, yy - xy) || 1;
+      Y.push = { x: (Y.push?.x || 0) + ((yx - xx) / d) * BUMP * 1.5, y: (Y.push?.y || 0) + ((yy - xy) / d) * BUMP * 1.5 };
+      did.push("bump");
+    } else if (X.meets === "trade" && nb - (X.lastTrade ?? -Infinity) >= TRADE_COOL) {
+      const got = borrow(X, Y);
+      if (got) { X.lastTrade = nb; did.push(`loop ${loops.indexOf(X) + 1} took ${got} from loop ${loops.indexOf(Y) + 1}`); }
+    } else if (X.meets === "infect") {
+      const kid = breedWith(X, Y, nb);
+      if (kid) did.push(kid);
+    }
+  }
+  meetFlashes.push({ x: at[0], y: at[1], t, small: true });
+  if (meetFlashes.length > 40) meetFlashes.shift();
+  lineLog.push({ b: nb, a: A.uid, b2: B.uid, did });
+  if (lineLog.length > 50) lineLog.shift();
+  const said = did.filter((d) => d !== "bump");
+  if (said.length) { toast(said.join(" · ")); renderLoopList(); if (insp) syncInspector(); }
 }
 /** Shortest distance between segment a0–a1 (points {x, y}) and segment b0–b1 ([x, y]); 0 if they cross. */
 function segDist(a0, a1, b0, b1) {
@@ -1788,6 +1859,9 @@ function touch(X, p, Y, q, nb, now, W, H) {
     const h = p.heading + totalRot(X);                          // the playhead's way, on screen
     Y.push = { x: (Y.push?.x || 0) + Math.cos(h) * BUMP, y: (Y.push?.y || 0) - Math.sin(h) * BUMP };
     did = "bump";
+  } else if (X.meets === "infect" && !replay) {
+    const kid = breedWith(X, Y, nb);
+    if (kid) { did = "infect"; toast(kid); renderLoopList(); if (insp) syncInspector(); }
   }
   meetFlashes.push({ x: q[0], y: q[1], t, small: true });
   if (meetFlashes.length > 40) meetFlashes.shift();
@@ -1812,11 +1886,9 @@ function meet(A, pa, B, pb, nb, now, W, H) {
       const got = borrow(X, Y);
       if (got) { X.lastTrade = nb; did.push(`loop ${n(X)} took ${got} from loop ${n(Y)}`); }
     }
-    const parent = [A, B].find((X) => X.meets === "breed" && nb - (X.lastBred ?? -Infinity) >= BREED_COOL);
-    if (parent && loops.length < MAX_LOOPS) {
-      const mate = parent === A ? B : A, child = mutateLoop(parent, { quiet: true, mate });
-      if (child) { parent.lastBred = child.lastBred = nb; did.push(`loops ${n(parent)} and ${n(mate)} had a child: loop ${n(child)}`); }
-    }
+    const parent = [A, B].find((X) => BREEDERS.has(X.meets) && nb - (X.lastBred ?? -Infinity) >= BREED_COOL);
+    const kid = parent && breedWith(parent, parent === A ? B : A, nb);
+    if (kid) did.push(kid);
   }
   meetFlashes.push({ x: (pa.x + pb.x) / 2, y: (pa.y + pb.y) / 2, t });
   if (meetFlashes.length > 40) meetFlashes.shift();
@@ -2129,7 +2201,7 @@ function endStroke(id) {
   if (!kept && s.pts.length > 1) fadeOut(s);
   if (kept) {                                                    // a Surprise is announced, so it's never a mystery
     const odd = [{ rev: "plays in reverse", pingpong: "plays ping-pong" }[s.dir], { even: "evenly spaced", euclid: "a Euclidean rhythm" }[s.rhythm],
-      { bump: "bumps the lines it crosses", trade: "trades when it meets", breed: "breeds when it meets", ignore: "passes others by" }[s.meets]].filter(Boolean);
+      { bump: "bumps the lines it crosses", trade: "trades when it meets", breed: "breeds when it meets", infect: "is infectious: a child at any contact", ignore: "passes others by" }[s.meets]].filter(Boolean);
     if (odd.length) toast(`Loop ${loops.indexOf(s) + 1}: ${odd.join(" · ")} · hold it to change`);
   }
 }
