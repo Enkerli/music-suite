@@ -4256,10 +4256,13 @@ try { window.focus(); } catch (_) { /* fine */ }
  *  shaker. Chimes replaced the spiral on 2026-10-24 (Alex: "not in love with
  *  the default map… mostly the spiral"). */
 function startingSheet() {
-  const W = sheet.clientWidth, H = sheet.clientHeight;
-  dropToy("chimes", [W * 0.28, H * 0.45]);
-  dropToy("drop", [W * 0.7, H * 0.5]);
-  dropToy("shaker", [W * 0.52, H * 0.22]);
+  const W = sheet.clientWidth, H = sheet.clientHeight, dice = state.dice;
+  state.dice = false;                                            // the first sheet is always the same three, played plainly
+  try {
+    dropToy("chimes", [W * 0.28, H * 0.45]);
+    dropToy("drop", [W * 0.7, H * 0.5]);
+    dropToy("shaker", [W * 0.52, H * 0.22]);
+  } finally { state.dice = dice; }
 }
 (async function boot() {
   const defaults = () => {

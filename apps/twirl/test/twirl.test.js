@@ -260,9 +260,11 @@ describe.skipIf(!browser)("Twirl · contacts (crossing a line, meeting a playhea
 
   it("a new loop meets with 'sound' by default; Meets: no, or Meet off, and nothing happens", async () => {
     const { page, context } = await openTwirl(browser);
-    await page.evaluate(() => { state.dice = false; });
-    await drawStroke(page, { ms: 400 });
-    expect(await page.evaluate(() => [loops.at(-1).meets, loops.at(-1).dir, loops.at(-1).rhythm])).toEqual(["sound", "fwd", "drawn"]);
+    // A new loop's defaults with Surprise off, checked on the stroke itself (on a slow
+    // CI machine a drawn stroke may not land, and the last loop was a starting toy).
+    expect(await page.evaluate(() => { state.dice = false; const s = newStroke(nextStart()); return [s.meets, s.dir, s.rhythm]; })).toEqual(["sound", "fwd", "drawn"]);
+    // The starting sheet is played plainly, Surprise or not.
+    expect(await page.evaluate(() => loops.map((l) => [l.meets, l.dir, l.rhythm].join()))).toEqual(Array(3).fill("sound,fwd,drawn"));
     await crossing(page, { meets: "ignore" });
     await waitBeats(page, 5.2);
     expect(await page.evaluate(() => meetLog.length)).toBe(0);
