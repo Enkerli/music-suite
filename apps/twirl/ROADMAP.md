@@ -25,7 +25,10 @@ they can't:
    Test: *codes made before generations existed still open*.
 5. **The accessibility floor holds.** axe stays clean on every state in
    both schemes. Every gesture keeps a single-pointer or keyboard
-   alternative, and no shortcut steals Tab. Tests: `test/twirl.a11y.test.js`;
+   alternative. The keyboard never gets stranded: from the page, Tab steps
+   through loops (Safari would otherwise send it to the address bar), and
+   stated keys take focus into each panel; every panel closes without an
+   Esc key. Tests: `test/twirl.a11y.test.js`;
    record in [A11Y.md](A11Y.md).
 6. **Shared contracts stay shared.** Rhythm weights match
    `packages/theory/vectors/`, and masks are leftmost-LSB. If Twirl needs

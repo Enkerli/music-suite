@@ -134,7 +134,7 @@
       <div class="card-body">
         <div class="card-head"><img src="assets/icons/twirl.svg" alt=""><h3>Twirl</h3></div>
         <p>Draw a gesture and hear it. It keeps looping on its own clock, drifting, spinning, and spawning variations of itself. Works with a finger or a pencil on iPad, too.</p>
-        <div class="card-links"><a class="chip open" data-app="twirl" href="apps/twirl/">Open app ↗</a></div>
+        <div class="card-links"><a class="chip open" data-app="twirl" href="apps/twirl/">Open app ↗</a><a class="chip" href="doc.html?p=twirl-guide">Docs</a></div>
       </div>
     </article>
 
@@ -151,12 +151,13 @@
     <a class="doc" href="doc.html?p=user-guide"><b>ProgGenie User Guide</b><span>How to use the ProgGenie chord progression generator, step by step.</span></a>
     <a class="doc" href="doc.html?p=control-plane"><b>Connecting &amp; Automating the Tools</b><span>The command line, tool-to-tool messages, keyboard &amp; MIDI shortcuts, and the workspace.</span></a>
     <a class="doc" href="doc.html?p=architecture"><b>Architecture</b><span>The code: data model, theory modules, the three runtimes.</span></a>
+    <a class="doc" href="doc.html?p=twirl-guide"><b>Twirl — Guide</b><span>Draw, hear, and play with loops that have a life of their own: every gesture, setting and key.</span></a>
     <a class="doc" href="doc.html?p=history"><b>History &amp; Roadmap</b><span>How it got here, and where it's going.</span></a>
   </div>
 </div></section>
 
 <section><div class="wrap">
-  <p class="note"><strong>Hosting note.</strong> Every card opens a live build served from this same GitHub Pages site (<code>docs/apps/&lt;slug&gt;/</code>). The six monorepo apps build with <code>npm run build -w &lt;workspace&gt; -- --base=./ --outDir docs/apps/&lt;slug&gt; --emptyOutDir</code>. <strong>PitchFold, DrawnQurve, and Vane are JUCE plugins in separate repos</strong> — what's deployed here is each plugin's WebView UI, built from its own repo and copied in, so it runs standalone in the browser (without the plugin's audio/host).</p>
+  <p class="note"><strong>Hosting note.</strong> Every card opens a live build served from this same GitHub Pages site (<code>docs/apps/&lt;slug&gt;/</code>). All of them are built from source in the <a href="https://github.com/Enkerli/music-suite">music-suite repo</a> on every change, including the web UIs that PitchFold, DrawnQurve, Vane and Serpe also run inside their plugins. In the browser those run standalone, without a plugin host. Twirl is a single HTML file with nothing to build.</p>
 </div></section>
 
 </main>

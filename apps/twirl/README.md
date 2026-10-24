@@ -48,8 +48,15 @@ moves. The choice is remembered in this browser.
 Every touch on the sheet draws, so the keyboard is how to steer without
 leaving marks. `?` in the app lists every key. The essentials: `Space`
 play/pause, `T` the Toybox (ready-made shapes, no drawing needed), `1`–`9` pick a loop and `Enter`
-opens its settings, arrows move it, `,` `.` turn it, `Esc` closes whatever
-is open. `Tab` moves through the controls, then one chip per loop.
+opens its settings (Enter again closes them), `Tab` / `⇧ Tab` step through
+the loops, arrows move the selected one, `,` `.` turn it, `F` is full screen,
+`Esc` closes whatever is open. `C` takes you into the controls, where `Tab`
+moves through them. On an iPad keyboard without `Esc`, `` ` `` or `⌘ .`
+does the same. ⇧ + a digit always picks a pen; help is `H`.
+
+The full player's guide is on the site:
+<https://enkerli.github.io/music-suite/doc.html?p=twirl-guide> (its source is
+the `twirl-guide` page in [docs/site.md](../../docs/site.md)).
 
 ## Saving and sharing
 
@@ -107,7 +114,7 @@ fail instead: `tests.yml` installs the browser.
 | Where | Status |
 |---|---|
 | Pages: `…/music-suite/apps/twirl/` | Deployed from `main` by `deploy-pages.yml` (an in-repo app, so CI rebuilds it) |
-| claude.ai artifact | The page it started as. Its share links point there when Twirl runs inside claude.ai. |
+| claude.ai artifacts | The pages it started as, kept in step with this file. There, a note in the drawer says Twirl lives on Pages now, and share links point to Pages. On Pages (or a local copy), a quiet "Fork me on GitHub" sits in the footer instead. |
 | Plugin / standalone (AUv3, LV2…) | Not yet: see [ROADMAP.md](ROADMAP.md#the-plugin-and-standalone-path) |
 
 ## History

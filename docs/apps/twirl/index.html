@@ -203,6 +203,14 @@ kbd {
 .chip[aria-pressed="true"] strong { color: var(--accent); }
 .chip:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
 [tabindex="-1"]:focus { outline: none; }   /* a panel's title takes focus only to announce the panel */
+.insplevels { justify-self: start; width: auto; }
+.insplevels .btn { flex: none; min-height: 32px; padding: 0 10px; font-size: 0.8125rem; }
+.drawerlinks, .homenote { margin: 0; font-size: 0.8125rem; line-height: 1.45; color: var(--ink-muted); }
+.drawerlinks a, .homenote a, .keysnote a, .forkme { color: var(--accent); }
+.homenote { padding: 8px 10px; border: 1px solid var(--rule); border-radius: 10px; background: var(--paper); }
+/* Fork me on GitHub: a quiet line in the footer, never over the sheet's controls. */
+.forkme { pointer-events: auto; font: 400 0.6875rem/1 var(--font-mono); text-decoration: none; opacity: 0.75; white-space: nowrap; padding: 6px 0; }
+.forkme:hover, .forkme:focus-visible { opacity: 1; text-decoration: underline; }
 .recbtn { display: inline-flex; align-items: center; gap: 6px; font-variant-numeric: tabular-nums; }
 .recbtn .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--drum); }
 .recbtn[aria-pressed="true"] { background: var(--drum); border-color: var(--drum); color: var(--paper); }
@@ -305,12 +313,11 @@ kbd {
 /* ── first-frame hint ──────────────────────────────────────────────────── */
 .hint {
   position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%);
-  width: min(460px, calc(100% - 32px));
-  padding: 18px 20px;
-  background: var(--raised); border: 1px solid var(--rule); border-radius: 14px;
-  box-shadow: 0 8px 30px rgb(0 0 0 / 0.12);
+  max-width: calc(100% - 32px); box-sizing: border-box;
+  padding: 14px 22px; text-align: center;
+  background: color-mix(in srgb, var(--raised) 88%, transparent); border: 1px solid var(--rule); border-radius: 14px;
   pointer-events: none;
-  display: grid; gap: 8px;
+  display: grid; gap: 6px;
 }
 .hint h1 { margin: 0; font: 600 2.4rem/1 var(--font-hand); text-wrap: balance; }
 .hint p { margin: 0; font-size: 0.9375rem; line-height: 1.45; color: var(--ink); }
@@ -407,6 +414,9 @@ kbd {
   .is-drawer #toyBtn .long { display: none; }
   .is-drawer #toyBtn .short { display: inline; }
 }
+/* The footer shares its line: loop chips take what's left beside the fork link. */
+.foot .forkme { order: 2; margin-left: auto; flex: none; align-self: center; }
+.is-drawer #loops { flex: 1 1 0; width: auto; min-width: 0; }
 </style>
 </head>
 <body>
@@ -415,8 +425,7 @@ kbd {
 <canvas id="sheet" role="img" aria-label="The sheet: draw on it with a finger, pencil or mouse to make loops that play. From the keyboard, T opens the Toybox of ready-made shapes, digits pick a loop, and ? lists every key."></canvas>
 <div class="hint" id="hint">
   <h1>Draw something.</h1>
-  <p>Every stroke plays as you draw it, then keeps looping on its own clock. Spirals climb and tumble. Scribble fast for a shaker. Drag a loop to move it; hold it to change it.</p>
-  <p class="small" id="hintSmall">A spiral, a dropped line and a shaker are already on the page. Touch anywhere to start the sound (or press Space).</p>
+  <p class="small" id="hintSmall">Tap anywhere to start the sound.</p>
 </div>
 <div class="palette" id="palette" role="group" aria-label="Pen palette" hidden>
   <div class="grip" id="palGrip" title="Drag to move" aria-hidden="true"></div>
@@ -523,7 +532,10 @@ kbd {
     <button class="btn" id="sceneBtn" type="button" aria-expanded="false" aria-controls="scenes">Scenes</button>
     <button class="btn" id="clear" type="button">Clear</button>
   </span>
-  <button class="btn" id="keysBtn" type="button" aria-haspopup="dialog">Keyboard shortcuts <kbd>?</kbd></button>
+  <button class="btn" id="fsBtn" type="button" aria-pressed="false" hidden>Full screen <kbd>F</kbd></button>
+  <button class="btn" id="keysBtn" type="button" aria-haspopup="dialog">Keyboard shortcuts <kbd>H</kbd></button>
+  <p class="drawerlinks"><a href="https://enkerli.github.io/music-suite/doc.html?p=twirl-guide" target="_blank" rel="noopener">Twirl guide ↗</a> · <a href="https://github.com/Enkerli/music-suite/tree/main/apps/twirl" target="_blank" rel="noopener">Source ↗</a></p>
+  <p class="homenote" id="homeNote" hidden>Twirl now lives on GitHub Pages, with the rest of the Music Suite: <a href="https://enkerli.github.io/music-suite/apps/twirl/" target="_blank" rel="noopener">enkerli.github.io/music-suite/apps/twirl</a>. Codes made here open there too.</p>
   <div class="drawerlegend" id="drawerLegend"></div>
 </aside>
 
@@ -599,6 +611,12 @@ kbd {
 <div class="traywrap" id="inspWrap" hidden>
  <div class="shelf inspector" id="inspector" role="dialog" aria-labelledby="inspTitle">
   <div class="shelfhead"><strong id="inspTitle" tabindex="-1">This loop</strong><button class="btn" type="button" id="inspClose">Done</button></div>
+  <!-- The same three levels as the drawer's: a loop's settings can show more without a trip to the drawer. -->
+  <div class="seg levels insplevels" role="group" aria-label="How many settings to show">
+    <button class="btn" type="button" data-set-level="1" aria-pressed="true">Simple</button>
+    <button class="btn" type="button" data-set-level="2" aria-pressed="false">More</button>
+    <button class="btn" type="button" data-set-level="3" aria-pressed="false">Everything</button>
+  </div>
   <div class="insprow"><span class="lbl">Moves</span>
     <span class="seg" data-insp="temper"><button class="btn" type="button" data-v="still">still</button><button class="btn" type="button" data-v="drift">drift</button><button class="btn" type="button" data-v="spin">spin</button><button class="btn" type="button" data-v="jitter">jitter</button></span></div>
   <div class="insprow"><span class="lbl">Lives</span>
@@ -639,12 +657,13 @@ kbd {
 
 <div class="keys" id="keys" role="dialog" aria-labelledby="keysTitle" hidden>
   <div class="shelfhead"><h2 id="keysTitle">Keyboard</h2><button class="btn" type="button" id="keysClose">Close</button></div>
-  <p class="keysnote">With a keyboard, you can steer without touching the sheet, where every touch draws.</p>
+  <p class="keysnote">With a keyboard, you can steer without touching the sheet, where every touch draws. Everything else is in the <a href="https://enkerli.github.io/music-suite/doc.html?p=twirl-guide" target="_blank" rel="noopener">Twirl guide ↗</a>.</p>
+  <p class="keysnote">On iPad: tap the page once so it hears the keyboard. No <kbd>Esc</kbd> key? <kbd>`</kbd> (top left) or <kbd>⌘ .</kbd> does the same.</p>
   <dl>
     <dt><kbd>Space</kbd></dt><dd>Play / pause</dd>
     <dt><kbd>⇧ Space</kbd></dt><dd>Record / stop (takes are in Toybox → Takes)</dd>
-    <dt><kbd>1</kbd>…<kbd>9</kbd></dt><dd>Select a loop (its number is on the sheet and in the chips). <kbd>0</kbd> or <kbd>Esc</kbd> deselects. <kbd>Tab</kbd> moves through the controls, then one chip per loop</dd>
-    <dt><kbd>Enter</kbd></dt><dd>The selected loop's settings</dd>
+    <dt><kbd>1</kbd>…<kbd>9</kbd></dt><dd>Select a loop (its number is on the sheet and in the chips). <kbd>Tab</kbd> <kbd>⇧ Tab</kbd> step through the loops. <kbd>0</kbd> or <kbd>Esc</kbd> deselects</dd>
+    <dt><kbd>Enter</kbd></dt><dd>The selected loop's settings (Enter again closes them)</dd>
     <dt><kbd>←↑↓→</kbd> <kbd>,</kbd> <kbd>.</kbd></dt><dd>Move the selected loop (<kbd>⇧</kbd>: further) · turn it</dd>
     <dt><kbd>&lt;</kbd> <kbd>&gt;</kbd> <kbd>X</kbd> <kbd>D</kbd></dt><dd>Selected loop slower / faster · mute it · duplicate it</dd>
     <dt><kbd>⇧1</kbd>…<kbd>⇧6</kbd></dt><dd>Pen: direction · drums · pluck · bell · blip · shaker</dd>
@@ -657,11 +676,12 @@ kbd {
     <dt><kbd>[</kbd> <kbd>]</kbd></dt><dd>Tempo down / up. With <kbd>⇧</kbd>: by 10</dd>
     <dt><kbd>-</kbd> <kbd>=</kbd></dt><dd>Volume down / up</dd>
     <dt><kbd>T</kbd> <kbd>Y</kbd> <kbd>S</kbd></dt><dd>Toybox · My toys · Scenes</dd>
-    <dt><kbd>C</kbd></dt><dd>Controls drawer</dd>
+    <dt><kbd>C</kbd></dt><dd>Controls drawer (from there, <kbd>Tab</kbd> moves through the controls)</dd>
+    <dt><kbd>F</kbd></dt><dd>Full screen, on and off</dd>
     <dt><kbd>\</kbd></dt><dd>Simple → More → Everything</dd>
     <dt><kbd>R</kbd> <kbd>W</kbd> <kbd>O</kbd></dt><dd>Revoice (new loops) · Walk · Drone</dd>
-    <dt><kbd>Esc</kbd></dt><dd>Close whatever is open</dd>
-    <dt><kbd>?</kbd> <kbd>H</kbd></dt><dd>This list</dd>
+    <dt><kbd>Esc</kbd> <kbd>`</kbd></dt><dd>Close whatever is open</dd>
+    <dt><kbd>H</kbd> <kbd>?</kbd></dt><dd>This list (<kbd>?</kbd> where it isn't a shifted digit; <kbd>⇧</kbd> digits always pick pens)</dd>
   </dl>
 </div>
 
@@ -670,6 +690,7 @@ kbd {
 <div class="toast" id="toast" role="status" hidden></div>
 
 <footer class="foot" id="foot">
+  <a class="forkme" id="forkMe" href="https://github.com/Enkerli/music-suite/tree/main/apps/twirl" target="_blank" rel="noopener" hidden>Fork me on GitHub</a>
   <!-- Not a live region: it re-renders on every resize step of a pinch, and the
        toasts (role=status) already announce what changed. -->
   <div id="loops" role="group" aria-label="Loops on the sheet: each opens its settings"></div>
@@ -2523,7 +2544,8 @@ function saveTo(i) {
 // Paths are simplified first (Ramer–Douglas–Peucker, shape-preserving), so a
 // busy sheet is a few KB of link rather than tens.
 
-const SHARE_PUBLIC = "https://claude.ai/artifact/9rrJeJUm3NJgKaxbuQ2Pkn";   // the mutation take (the original Twirl: NErPKSQ1XZ2JEXZ4j5CxTa)
+// Twirl's home (since 2026-10-24). Links made in a copy elsewhere (claude.ai) point here.
+const SHARE_PUBLIC = "https://enkerli.github.io/music-suite/apps/twirl/";
 const FIXED_CODES = [null, "shake", "drum", "pluck", "bell", "blip"];
 const QXY = 4096, QB = 96;                 // 1/4096 of the sheet; 1/96 of a beat (exact for every division)
 
@@ -2681,18 +2703,20 @@ const tokenId = (t) => `${t.length}:${t.slice(-24)}`;
 
 /** Where a link should point: this page when it has a real address of its
  *  own (GitHub Pages, a LAN server, a local file), else the published artifact. */
-function shareBase() {
+const ownAddress = (() => {
   const h = location.hostname;
-  const ownAddress = location.protocol === "file:" || h === "localhost" || h.endsWith("github.io") || h.endsWith(".local") || /^\d+\.\d+\.\d+\.\d+$/.test(h);
-  return ownAddress ? location.href.split("#")[0] : SHARE_PUBLIC;
-}
+  return location.protocol === "file:" || h === "localhost" || h.endsWith("github.io") || h.endsWith(".local") || /^\d+\.\d+\.\d+\.\d+$/.test(h);
+})();
+function shareBase() { return ownAddress ? location.href.split("#")[0] : SHARE_PUBLIC; }
 
 /** A code is the token with a label: "twirl:s1.…". It travels as plain text
  *  (Messages, Notes, Universal Clipboard) and pastes into Scenes → Paste a
  *  code. A link carries the same token after "#", but claude.ai only passes
  *  short, clean fragments to the page, so long links may open empty. */
 const codeOf = (token) => `twirl:${token}`;
-const LINK_OK = 1500;                            // links longer than this may not open on claude.ai
+// Links now open on Pages (or a local copy), which passes any #fragment through:
+// claude.ai only passed short, clean ones, hence the old 1500-character limit.
+const LINK_OK = 30000;
 function showShare(row, field, info, token, what) {
   const link = `${shareBase()}#${token}`;
   $(row).hidden = false; $(field).value = codeOf(token); $(field).dataset.link = link;
@@ -2928,6 +2952,7 @@ function applyLayout() {
 }
 function setDrawer(open) {
   if (open) hint.hidden = true;
+  else if ($("strip").contains(document.activeElement) && document.body.classList.contains("is-drawer")) document.activeElement.blur();   // never leave focus inside a closed drawer
   document.body.classList.toggle("drawer-open", open);
   $("menuBtn").setAttribute("aria-expanded", String(open));
   $("strip").inert = document.body.classList.contains("is-drawer") && !open;   // closed drawer: not tabbable
@@ -3562,6 +3587,39 @@ function closeKeys() {
 $("keysBtn").addEventListener("click", openKeys);
 $("keysClose").addEventListener("click", closeKeys);
 
+/* No Esc key (the iPad's Magic Keyboard has none): the key where Esc usually
+ * sits, ` (unshifted), and ⌘. both act as Escape, re-sent as a real Escape so
+ * every Escape handler (drawer, shelf, settings, key list) answers it. */
+document.addEventListener("keydown", (e) => {
+  if (e.target.closest && e.target.closest("input, textarea, select")) return;
+  const asEscape = (e.key === "`" && !e.metaKey && !e.ctrlKey && !e.altKey) || (e.metaKey && e.key === ".");
+  if (!asEscape) return;
+  e.preventDefault(); e.stopImmediatePropagation();
+  document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", code: "Escape", bubbles: true }));
+}, true);
+
+/* Full screen: the whole page, so the controls come along. Hidden where the
+ * browser (or an embedding frame, as on claude.ai) doesn't allow it. Older
+ * iPadOS Safari only has the webkit-prefixed calls. */
+const fsTarget = document.documentElement;
+const fsAllowed = () => !!(document.fullscreenEnabled || document.webkitFullscreenEnabled);
+const fsActive = () => !!(document.fullscreenElement || document.webkitFullscreenElement);
+function toggleFullscreen() {
+  if (!fsAllowed()) { toast("Full screen isn't available here"); return; }
+  try {
+    const r = fsActive() ? (document.exitFullscreen || document.webkitExitFullscreen).call(document)
+                         : (fsTarget.requestFullscreen || fsTarget.webkitRequestFullscreen).call(fsTarget);
+    if (r && r.catch) r.catch(() => toast("The browser said no to full screen"));
+  } catch (_) { toast("The browser said no to full screen"); }
+}
+for (const ev of ["fullscreenchange", "webkitfullscreenchange"]) document.addEventListener(ev, () => {
+  $("fsBtn").setAttribute("aria-pressed", String(fsActive()));
+  $("fsBtn").firstChild.textContent = fsActive() ? "Leave full screen " : "Full screen ";
+  resize();
+});
+$("fsBtn").hidden = !fsAllowed();
+$("fsBtn").addEventListener("click", () => { setDrawer(false); toggleFullscreen(); });
+
 const KEYS = {
   " ": () => $("power").click(),
   l: () => pressToggle("lockBtn", "Lock"), m: () => pressToggle("morphBtn", "Morph"), e: () => pressToggle("editBtn", "Edit"),
@@ -3572,11 +3630,19 @@ const KEYS = {
   "-": () => { setVolume(state.volume - 0.1); toast(`Volume ${Math.round(state.volume * 100)}%`); },
   "=": () => { setVolume(state.volume + 0.1); toast(`Volume ${Math.round(state.volume * 100)}%`); },
   t: () => openShelf("toybox"), y: () => openShelf("mytoys"), s: () => openShelf("scenes"),
-  c: () => { closeShelf(); closeInspector(); setDrawer(!document.body.classList.contains("drawer-open")); },
+  c: () => {
+    closeShelf(); closeInspector();
+    const open = !document.body.classList.contains("drawer-open");
+    setDrawer(open);
+    if (open) $("drawerClose").focus(); else if ($("strip").contains(document.activeElement)) document.activeElement.blur();
+  },
   "\\": () => { setLevel(level % 3 + 1); toast(["Simple", "More", "Everything"][level - 1]); },
   v: () => togglePalette(),
   x: () => { if (!selected) { toast("Select a loop first (1–9)"); return; } selected.muted = !selected.muted; renderLoopList(); toast(selected.muted ? "Muted" : "Unmuted"); },
-  enter: () => { if (selected) openInspector(selected); else toast("Select a loop first (1–9)"); },
+  // Enter opens the selected loop's settings, and closes them again: the
+  // iPad's Magic Keyboard has no Esc key, and Done is a long way by Tab.
+  enter: () => { if (insp) closeInspector(); else if (selected) openInspector(selected); else toast("Select a loop first (1–9, or Tab)"); },
+  f: () => toggleFullscreen(),
   ",": () => turnSelected(1), ".": () => turnSelected(-1),
   d: () => duplicateLoop(selected),
   "<": () => speedSelected(-1), ">": () => speedSelected(1),
@@ -3599,9 +3665,10 @@ document.addEventListener("keydown", (e) => {
     return;
   }
   // Digits: 1–9 select a loop; with Shift, 1–6 pick the pen (palette order). Uses the key's
-  // position (e.code), so Shift+1 works whatever the layout prints on it.
-  // (Unless the key is itself a shortcut: on some layouts ? is ⇧6, < and > are ⇧, and ⇧.)
-  const digit = !"?<>".includes(e.key) && /^Digit([0-9])$/.exec(e.code || "");
+  // position (e.code), so Shift+1 works whatever the layout prints on it. A shifted
+  // digit is ALWAYS a pen, even where it prints "?" (⇧6 on Canadian French): the
+  // pens need all six, and help has H. (2026-10-24: ⇧6 opened help instead of the shaker.)
+  const digit = /^Digit([0-9])$/.exec(e.code || "");
   // Picking a loop by key lets go of a focused button (Play, a chip…), so Enter
   // then opens that loop's settings instead of pressing the button again.
   const letGo = () => { const a = document.activeElement; if (a && a !== document.body && a.closest && a.closest("button")) a.blur(); };
@@ -3613,10 +3680,20 @@ document.addEventListener("keydown", (e) => {
     return;
   }
   if (key === " " && e.shiftKey) { e.preventDefault(); toggleRecording(); return; }
-  // Tab is left to the browser. It used to step through loops whenever focus
-  // was on the page itself, which is where every tap leaves it, so the
-  // controls could never be reached by Tab (WCAG 2.1.1). Loops are reachable
-  // by digit, and every loop's chip is in the Tab order.
+  // Tab / Shift+Tab step through the loops while focus is on the page itself
+  // (where every tap leaves it). Not handed to the browser: Safari's Tab skips
+  // buttons by default, so a released Tab went straight to the address bar and
+  // the keyboard was lost until the next tap (iPad + Magic Keyboard,
+  // 2026-10-24). The way to the controls is a key that takes focus INTO a
+  // panel: C (controls), Enter (this loop), T / Y / S (shelf), H (keys); from
+  // there Tab moves natively. The key list says so (WCAG 2.1.2: the way out is
+  // stated). Once focus is on a control, Tab is the browser's again.
+  if (key === "Tab" && [document.body, document.documentElement, sheet].includes(e.target) && loops.length) {
+    e.preventDefault();
+    const i = loops.indexOf(selected), n = loops.length;
+    select(loops[(i < 0 ? (e.shiftKey ? n - 1 : 0) : i + (e.shiftKey ? n - 1 : 1)) % n]);
+    return;
+  }
   if (selected && key.startsWith("Arrow")) {
     e.preventDefault();
     const st = e.shiftKey ? 0.05 : 0.01;
@@ -3679,11 +3756,20 @@ async function requestWakeLock() {
 
 /* ── 14. First frame: your last sheet if there is one, else examples ─────── */
 
+// Where am I? On Twirl's own site: a quiet "Fork me on GitHub". In a copy
+// elsewhere (the claude.ai artifacts it started as): a note in the drawer
+// saying where Twirl lives now.
+$("forkMe").hidden = !ownAddress;
+$("homeNote").hidden = ownAddress;
+// Ask for the keyboard's attention: iPad Safari leaves it in the address bar
+// after a page loads, until the page is tapped (the hint says to tap).
+try { window.focus(); } catch (_) { /* fine */ }
+
 (async function boot() {
   const defaults = () => {
     const last = store.get(LAST_KEY);
     if (last && last.loops && last.loops.length && recall(last)) {
-      $("hintSmall").textContent = "Your last sheet is back. Touch anywhere to start the sound.";
+      $("hintSmall").textContent = "Your last sheet is back. Tap anywhere to start the sound.";
     } else {
       const W = sheet.clientWidth, H = sheet.clientHeight;
       dropToy("spiral", [W * 0.3, H * 0.6]);
