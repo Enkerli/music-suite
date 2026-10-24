@@ -56,6 +56,23 @@ If you'd rather hear a **groove** — a bassline or a comping pattern with
 rhythm to it — walk through Door 6 to the Workspace and add its
 **GloriArp** module, or see MIDIcurator's groove panel (Door 4).
 
+Or, if you'd rather make the sound with your hands, open **Twirl**:
+<https://enkerli.github.io/music-suite/apps/twirl/>
+
+Draw anything on the sheet. You hear it as you draw it, and when you
+let go it keeps going round as a **loop**, on its own clock. Higher on
+the sheet is higher in pitch; the direction you move picks the sound
+(right plucks, up rings a bell, down drums); a fast scribble is a shaker.
+It works with a finger or a pencil on an iPad, too.
+
+![Twirl: a spiral, a dropped line, a shaker and a three-petalled rose on a lined sheet, each with its playhead and coloured note shapes](assets/guide/twirl.png)
+
+Things to try: drag a loop somewhere else and hear it change; hold one to
+see its settings (speed, rhythm, chords, how it moves); open the
+**Toybox** for ready-made shapes (spirals, roses, a drum beat); at the
+**More** level, **Mutate** gives a loop a child, a close variation that
+answers it. With a keyboard, `?` lists every key.
+
 ---
 
 ## Door 2 · "I like rhythm"
