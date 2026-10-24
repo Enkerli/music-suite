@@ -2058,7 +2058,7 @@ const BEATS = ["k h s h k k s h", "k h h s h k s h", "k . s . k k s .", "k h s k
 
 function nextStart() { return ctx ? Math.ceil(nowBeat()) : 0; }
 
-function dropToy(kind, where) {
+function dropToy(kind, where, size = 1) {
   const W = sheet.clientWidth, H = sheet.clientHeight, m = Math.min(W, H);
   const kinds = Object.keys(TOYS).concat(["shaker", "beat", "chimes"]);
   if (kind === "dice") kind = kinds[Math.floor(Math.random() * kinds.length)];
@@ -2101,7 +2101,7 @@ function dropToy(kind, where) {
     // (Chimes), whatever the sheet's pack: a toy's sound across banks.
     // The clapper sways slowly sideways and swings quickly up and down, so
     // each strike in a gust lands on a different "tube" (height = pitch).
-    const r = m * (0.1 + Math.random() * 0.05), beats = [11, 13, 15][Math.floor(Math.random() * 3)] - 0.3, n = 240, ph = Math.random() * 6;
+    const r = m * (0.1 + Math.random() * 0.05) * size, beats = [11, 13, 15][Math.floor(Math.random() * 3)] - 0.3, n = 240, ph = Math.random() * 6;
     const at = (u) => { const a = 2 * Math.PI * u; return [cx + r * (0.7 * Math.sin(2 * a + ph) + 0.15 * Math.sin(5 * a)), cy + r * 1.2 * (0.75 * Math.sin(9 * a + ph) + 0.25 * Math.sin(4 * a + 1))]; };
     for (let i = 0; i <= n; i++) { const u = i / n, [x, y] = at(u); s.pts.push({ x: x / W, y: y / H, b: u * beats }); }
     const gusts = 2 + Math.floor(Math.random() * 2);
@@ -4259,7 +4259,7 @@ function startingSheet() {
   const W = sheet.clientWidth, H = sheet.clientHeight, dice = state.dice;
   state.dice = false;                                            // the first sheet is always the same three, played plainly
   try {
-    dropToy("chimes", [W * 0.28, H * 0.45]);
+    dropToy("chimes", [W * 0.2, H * 0.34], 0.6);                // small and up-left: where people start drawing stays free
     dropToy("drop", [W * 0.7, H * 0.5]);
     dropToy("shaker", [W * 0.52, H * 0.22]);
   } finally { state.dice = dice; }
