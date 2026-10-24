@@ -225,6 +225,52 @@ the line doesn't).
   loops at once: then move, turn, mute, mutate or set Meets for all of them.
   Needs a clear way in and out of the mode, so drawing stays the default.
 
+### Terrain: a background that colours the sound (to workshop)
+
+Alex, 2026-10-24: "a colourful background which affects the sound or other
+parameters. So, the bell sound may get more inharmonicity on darker
+background or less on a lighter one. A blip may get longer on a continuous
+background… This way, movement has an impact on the musical development and
+things get less repetitive. (Maybe associated with round-robin and
+expressiveness.) As fun as this is, it does get quite repetitive pretty
+easily."
+
+The problem it answers is real: a loop replays the same notes each pass, so
+a sheet settles into a groove and stays there. Moving loops (drift, spin,
+bump, Morph) already change *where* notes land; terrain would make where
+they land change *how they sound*, so movement becomes musical development.
+
+The idea, as a starting point:
+- **The sheet gets a painted ground**: soft regions of colour under the
+  lines, generated or painted by hand (a "paint" pen beside the lasso?).
+- **Each note reads the ground where it sounds**, and a few qualities of
+  the ground map to a few qualities of the voice. Alex's examples:
+  - **lightness → inharmonicity** for the bell: darker, more clangorous;
+    lighter, purer;
+  - **continuity → length** for the blip: on an even field it sustains;
+    on a broken, textured one it stays short.
+  - Others to try: hue → timbre or filter, saturation → brightness or
+    drive, texture → grain or jitter of timing.
+- **Same loop, different place, different sound**: a drifting loop changes
+  colour as it crosses the ground, and a bump can send it somewhere new.
+
+Questions for the workshop:
+- **Legibility.** Each voice gets one or two mappings, named in the guide
+  and in a loop's settings, so it's never a mystery why a note changed.
+  Is the ground always visible, or only when asked?
+- **Who makes the ground**: generated (with a seed, for codes), painted, a
+  photo, or several presets (dusk, tiles, marble)?
+- **How it relates to pitch.** Height already sets pitch; the ground must
+  not fight that. It changes *timbre and articulation*, never the note.
+- **Round-robin and expressiveness** (Alex's link): round-robin varies each
+  repeat of the same note slightly, as samplers do; terrain varies it by
+  place. They could share one per-note "variation" input, which also takes
+  pressure (section 3) and, later, a silent zone (the ground's zero).
+- **Immediate satisfaction.** A plain sheet stays the default; terrain is
+  something you turn on or pick, and the first stroke still sounds at once.
+- **Codes and takes**: the ground has to travel (a seed or a small grid),
+  and takes have to replay the same colours.
+
 ## 4. Loop personalities
 
 Extend still / drift / spin / jitter into opt-in relationships: Listener,
