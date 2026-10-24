@@ -3,10 +3,10 @@ name: Deploy site to GitHub Pages
 # Builds and publishes the showcase site fresh on every push, so editing any
 # in-repo app's SOURCE (or docs/site.md) and pushing is enough — no manual
 # rebuild step. Two stages run in the build job:
-#   1. sync-apps --monorepo → rebuilds the in-repo workspace apps into docs/apps/
-#      (the external plugin apps — PitchFold, DrawnQurve, Vane — live in separate
-#       repos CI can't reach, so they're skipped; their committed builds ship
-#       as-is and still need a local `npm run sync-apps` when they change).
+#   1. sync-apps --monorepo → rebuilds every app into docs/apps/. All twelve
+#      have their source in apps/ now (the plugin WebUIs were consolidated
+#      here), so none is skipped; an entry marked `external` in sync-apps'
+#      MANIFEST would be, and there are none today.
 #   2. build-site.mjs → regenerates index.html + content/* from docs/site.md.
 # The whole docs/ tree is then uploaded as the Pages artifact (nothing committed
 # back), so the live site always matches source.

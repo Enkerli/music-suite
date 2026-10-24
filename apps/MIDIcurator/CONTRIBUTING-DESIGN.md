@@ -407,4 +407,4 @@ Every design decision we make today shapes the experiences of musicians, learner
 - [docs/design/01-personas.md](docs/design/01-personas.md) — 5 user personas
 - [docs/design/11-principles.md](docs/design/11-principles.md) — 8 design principles
 - [docs/design/09-accessibility-audit.md](docs/design/09-accessibility-audit.md) — WCAG audit findings
-- [CONTRIBUTING.md](CONTRIBUTING.md) — General contribution guide (code, documentation)
+- `CONTRIBUTING.md` — a general contribution guide (code, documentation): not written yet

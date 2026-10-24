@@ -61,8 +61,19 @@ naming a sender/target in the protocol.
 - **exquisite-fingerings** — fingering builder for isomorphic grid
   instruments (Exquis / Launchpad-style). (App id: `exquisite-fingerings`.)
 - **style-gallery** — the design-system showcase (not a user tool).
+- **drums** — not an app with a window: the synthesised kit
+  (`@enkerli/drumsynth`), addressable like `vane` because it is the same kind
+  of thing, an instrument that takes notes (the Workspace's Drum Kit module).
+- **rnd-companion** — RND Companion, the patch-seed companion for the
+  Cymaforma RND Synth hardware (a plugin; its UI is `apps/rnd-companion`).
 - **external** — the reserved sender id for anything outside the suite (a
   CLI-originated message, a DAW, a Shortcut).
+
+Two tools are not on this list because they don't send or receive
+protocol messages: **Workspace** (the hub the messages travel through) and
+**Twirl** (a gesture toy: draw a stroke, hear it, and it keeps looping on
+its own clock; MIDI out only, through Web MIDI). An app joins `APPS` when it
+starts speaking the protocol.
 
 ## Conventions
 

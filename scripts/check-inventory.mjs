@@ -60,8 +60,21 @@ const commands = [...new Set([...cliSrc.matchAll(/^\s*case "([a-z]+)":/gm)].map(
 check("cli commands", commands.length, claimed(/## `msuite` CLI \((\d+) commands\)/, "CLI command"),
   `cases: ${commands.join(", ")}`);
 
+// 4. Webapps on Pages: the slugs in scripts/sync-apps.mjs's MANIFEST, which
+//    is what CI deploys. (2026-10-24: INVENTORY listed rnd-companion, which was
+//    never deployed, and couldn't know about twirl.)
+const syncSrc = read("scripts/sync-apps.mjs");
+const slugs = [...syncSrc.slice(syncSrc.indexOf("const MANIFEST")).matchAll(/\{\s*slug:\s*"([a-z0-9-]+)"/g)].map((m) => m[1]);
+check("webapps on Pages", slugs.length, claimed(/## Webapps \((\d+),/, "webapp"), `MANIFEST slugs: ${slugs.join(", ")}`);
+// The list is the paragraph under the heading, up to the "—" that starts the prose.
+const webappSection = (inventory.split("## Webapps")[1] || "");
+const webappLine = webappSection.slice(webappSection.indexOf("\n")).split("\n## ")[0].split("—")[0];
+const listed = [...webappLine.matchAll(/\b([a-z][a-z0-9-]+)\b/g)].map((m) => m[1]);
+const extra = listed.filter((w) => !slugs.includes(w));
+if (extra.length) problems.push(`webapp(s) listed in INVENTORY.md but not deployed by sync-apps: ${extra.join(", ")}`);
+
 // Names, not just counts — a swap keeps the number and still drifts.
-for (const [label, names] of [["package", packages], ["module", moduleTitles], ["command", commands]]) {
+for (const [label, names] of [["package", packages], ["module", moduleTitles], ["command", commands], ["webapp", slugs]]) {
   const missing = names.filter((n) => !inventory.includes(n));
   if (missing.length) problems.push(`${label}(s) missing from INVENTORY.md by name: ${missing.join(", ")}`);
 }

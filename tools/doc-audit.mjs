@@ -126,7 +126,11 @@ export function auditDocs() {
         const ref = m[1];
         // `doc.html?p=user-guide` is a site route, not a file on disk.
         if (ref.includes("?")) continue;
-        if (!existsSync(resolve(dir, ref))) add("link", file, n, `link target missing: ${ref}`);
+        // docs/content/*.md is rendered by docs/doc.html, which lives in docs/,
+        // so its relative links resolve from there (assets/guide/*.png), not
+        // from content/. Twelve false findings on 2026-10-24.
+        const base = relative(SUITE, dir) === join("docs", "content") ? dirname(dir) : dir;
+        if (!existsSync(resolve(base, ref))) add("link", file, n, `link target missing: ${ref}`);
       }
 
       // ── backticked paths that look like repo files (have a slash and an ext)
@@ -161,7 +165,14 @@ export function auditDocs() {
         const owner = ownerRoot(dir);
         const hit = existsSync(resolve(SUITE, rel)) || existsSync(resolve(dir, rel))
           || (owner && existsSync(resolve(owner, rel)))
-          || SIBLINGS.some((sib) => existsSync(resolve(sib, rel)));
+          // …and against that app's src/: exquisite-fingerings' ARCHITECTURE
+          // names `core/music.js`, meaning apps/exquisite-fingerings/src/core/.
+          || (owner && existsSync(resolve(owner, "src", rel)))
+          || SIBLINGS.some((sib) => existsSync(resolve(sib, rel)))
+          // `Vane/Tools/wasm/build.sh`, `enkerli-juce/tools/validate.sh`: a
+          // path that NAMES its sibling repo resolves from the folder they
+          // share. Five false findings on 2026-10-24.
+          || (SIBLINGS.length > 0 && existsSync(resolve(SUITE, "..", rel)));
         if (!hit) add("path", file, n, `no such file: ${ref}`);
       }
 

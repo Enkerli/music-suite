@@ -5,6 +5,24 @@ another person, another agent, another toolchain — without access to any
 prior conversation history. Everything here was verified against the repos
 on that date.*
 
+> **Currency note 2026-10-24.** The map below is still the right map, but
+> its numbers have moved, so trust these over the body:
+>
+> - **Apps:** thirteen directories under `apps/`, twelve on Pages (Twirl
+>   joined 2026-10-24; RND Companion's UI is plugin-only). All their source
+>   is in this repo now, so **every** app auto-deploys on push, the plugin
+>   WebUIs included (BUILD.md §2). The "ten web UIs / ten apps" below is
+>   July's count.
+> - **Packages:** sixteen, not the six listed in §2. One line each in
+>   [docs/INVENTORY.md](docs/INVENTORY.md), which `npm run check-inventory`
+>   holds to the tree (now including the webapp list).
+> - **Plugin repos:** eight (`rnd-companion` joined the seven).
+> - **Tests:** 2242, all green, on 2026-10-24 (847 on 2026-07-01). Twirl's
+>   run in headless Chromium: `npx playwright install chromium` once.
+> - **The live check on all of this** is `node tools/doc-audit.mjs` (links,
+>   paths, commands, counts) and `npm run check-inventory` (packages,
+>   modules, commands, webapps). Prose is still checked by people.
+
 ## 1. What this is
 
 A suite of music tools (harmony, rhythm, gesture, pitch-collection,
