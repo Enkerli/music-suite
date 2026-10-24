@@ -521,6 +521,23 @@ always the suite's own conventions (match `packages/upi/vectors` and
 and every readout labels its convention (leftmost = LSB), because the
 reversed reading is a different real thing (2741 vs 2773).
 
+## An optimization pass (Alex, 2026-10-24)
+
+A pause while recording turned out to be a stall, not a stop ("the
+recording doesn't pause"): the main thread was busy enough for the sound
+to break up. Twirl has grown a lot of per-tick and per-frame work: contacts
+(three kinds, every tick), Life (`lifePlays` ranks notes on each call),
+bloom tracing, Morph, drawing every loop with Bézier paths, the MediaRecorder
+on top. To do, measured on the iPad first (Safari's timeline):
+- profile a busy sheet (14 loops, contacts on, recording) and find the top
+  costs before changing anything;
+- cache per-loop work that only changes with the loop (screen points for
+  contacts per frame, note ranks for Life, bloom notes, already cached);
+- draw less: skip unchanged loops, or draw still loops to an offscreen layer;
+- move the scheduler's timing off `setInterval` jitter (a worklet clock or a
+  Worker tick), so a busy frame never delays a note;
+- a performance budget test: a busy sheet's frame and tick times, in CI.
+
 ## Harmony: to brainstorm and workshop (Alex, 2026-10-24)
 
 "How harmony is handled. Chords from each loop (what voicing and chord
