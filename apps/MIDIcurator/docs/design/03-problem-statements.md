@@ -151,8 +151,8 @@ This document frames design challenges as "How Might We" (HMW) questions derived
 - Default view must satisfy 80% of use cases (don't force users to dig for basic info)
 
 **Related Documents**:
-- [ARCHITECTURE.md](../../ARCHITECTURE.md) — Section on "Concentric Clarity"
-- [OPEN_NOTES.md](../../OPEN_NOTES.md) — Transparency and explicit state
+- [ARCHITECTURE.md](../ARCHITECTURE.md) — Section on "Concentric Clarity"
+- [OPEN_NOTES.md](../OPEN_NOTES.md) — Transparency and explicit state
 
 ---
 
@@ -180,7 +180,7 @@ This document frames design challenges as "How Might We" (HMW) questions derived
 
 **Related Documents**:
 - [01-personas.md](01-personas.md) — Marcus (Music Educator)
-- [METADATA_MIDI.md](../../METADATA_MIDI.md) — Round-trip fidelity scheme
+- [METADATA_MIDI.md](../METADATA_MIDI.md) — Round-trip fidelity scheme
 
 ---
 
@@ -235,7 +235,7 @@ This document frames design challenges as "How Might We" (HMW) questions derived
 - Round-trip must preserve user overrides (not just auto-detected chords)
 
 **Related Documents**:
-- [METADATA_MIDI.md](../../METADATA_MIDI.md) — Text event scheme
+- [METADATA_MIDI.md](../METADATA_MIDI.md) — Text event scheme
 - [11-principles.md](11-principles.md) — Principle 5 (Preserve Meaning)
 
 ---
@@ -263,7 +263,7 @@ This document frames design challenges as "How Might We" (HMW) questions derived
 - Variants must not overwrite originals (non-destructive)
 
 **Related Documents**:
-- [ARCHITECTURE.md](../../ARCHITECTURE.md) — Transform layer
+- [ARCHITECTURE.md](../ARCHITECTURE.md) — Transform layer
 - [01-personas.md](01-personas.md) — Jordan, Aisha use cases
 
 ---
@@ -294,7 +294,7 @@ This document frames design challenges as "How Might We" (HMW) questions derived
 
 **Related Documents**:
 - [11-principles.md](11-principles.md) — Principle 2 (Analysis is Assistive, Not Authoritative)
-- [HARMONY_ENGINE.md](../../HARMONY_ENGINE.md) — Chord detection algorithm
+- [HARMONY_ENGINE.md](../HARMONY_ENGINE.md) — Chord detection algorithm
 
 ---
 
@@ -373,7 +373,7 @@ This document frames design challenges as "How Might We" (HMW) questions derived
 - iPad Safari has unique quirks (test on real device)
 
 **Related Documents**:
-- [OPEN_NOTES.md](../../OPEN_NOTES.md) — iPadOS touch handling bug
+- [OPEN_NOTES.md](../OPEN_NOTES.md) — iPadOS touch handling bug
 - [10-accessibility-plan.md](10-accessibility-plan.md) — Tier 2.1 (Fix iPadOS Touch Handling)
 
 ---

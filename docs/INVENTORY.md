@@ -7,7 +7,7 @@ module registries, CMake targets) — update this file in the same commit
 that adds or removes a deliverable. Vocabulary lives in
 [GLOSSARY.md](GLOSSARY.md); build steps in [../BUILD.md](../BUILD.md).*
 
-## Plugins (7 repos, JUCE on enkerli-juce except Vane/DrawnQurve)
+## Plugins (8 repos, JUCE on enkerli-juce except Vane/DrawnQurve)
 
 | Plugin | Code | Formats | What it does |
 |---|---|---|---|
@@ -18,14 +18,22 @@ that adds or removes a deliverable. Vocabulary lives in
 | ProgGenie | `aumi Prst` | AU·VST3·Standalone·AUv3 | Chord-progression generator/editor over corpus statistics |
 | MIDIcurator | `aumi Mcur` | AU·VST3·Standalone·AUv3 | Clip library and curation; host-synced auditioning; file-backed library |
 | Suite Workspace | `aumi Wksp` | AU·VST3·Standalone·AUv3; LV2·VST3·CLAP·Standalone on Linux | The workspace webapp in a DAW: bus notes out as host MIDI, host MIDI in to bindings |
+| RND Companion | `aumi Rndc` | AUv3·AU·VST3·CLAP·LV2·Standalone (its repo's CMake; not yet in `suite-build`) | Capture, send and curate patch seeds on a Cymaforma RND Synth, over SysEx |
+
+Planned, not built: a Twirl plugin (an aumi MIDI effect on the Workspace
+pattern; [apps/twirl/ROADMAP.md](../apps/twirl/ROADMAP.md)).
 
 ## Webapps (12, on Pages: `…/music-suite/apps/<slug>/`)
 
 workspace · proggenie · midicurator · serpe · pitchfold · vane ·
 drawnqurve · pickpcs · chord-dictionary · exquisite · style-gallery ·
-rnd-companion
-— see GLOSSARY.md for what each one is; five (serpe, pitchfold, vane,
-drawnqurve, rnd-companion) are the same code the plugins embed.
+twirl
+— see GLOSSARY.md for what each one is. Five of them (serpe, pitchfold,
+vane, drawnqurve, workspace) are the same code their plugins embed, and
+proggenie and midicurator are embedded whole by theirs. A thirteenth app
+directory, `apps/rnd-companion`, is the RND Companion plugin's UI and is not
+on Pages. The slugs above are checked against `scripts/sync-apps.mjs`'s
+`MANIFEST` by `npm run check-inventory`.
 
 ## Packages (16, `@enkerli/*`, TypeScript/JS)
 

@@ -333,11 +333,11 @@ Every artifact connects to **#MTILT** (Music Tech: Inclusive Learning & Teaching
 ## Related Documents (Outside This Directory)
 
 ### Existing Architecture & Philosophy
-- **[../../ARCHITECTURE.md](../../ARCHITECTURE.md)** — Core principles (shorter version)
-- **[../../HARMONY_ENGINE.md](../../HARMONY_ENGINE.md)** — Chord detection technical spec
-- **[../../SEGMENTATION.md](../../SEGMENTATION.md)** — Scissors tool interaction design
-- **[../../METADATA_MIDI.md](../../METADATA_MIDI.md)** — Round-trip fidelity scheme
-- **[../../OPEN_NOTES.md](../../OPEN_NOTES.md)** — Research directions, design debt
+- **[../../ARCHITECTURE.md](../ARCHITECTURE.md)** — Core principles (shorter version)
+- **[../../HARMONY_ENGINE.md](../HARMONY_ENGINE.md)** — Chord detection technical spec
+- **[../../SEGMENTATION.md](../SEGMENTATION.md)** — Scissors tool interaction design
+- **[../../METADATA_MIDI.md](../METADATA_MIDI.md)** — Round-trip fidelity scheme
+- **[../../OPEN_NOTES.md](../OPEN_NOTES.md)** — Research directions, design debt
 
 ### Implementation
 - **[../../src/components/](../../src/components/)** — UI components (MidiCurator.tsx, PianoRoll.tsx, etc.)

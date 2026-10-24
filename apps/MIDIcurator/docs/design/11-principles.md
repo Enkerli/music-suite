@@ -4,7 +4,7 @@
 
 ## Overview
 
-This document expands the core principles from [ARCHITECTURE.md](../../ARCHITECTURE.md) into actionable design guidelines. These principles inform all design decisions and connect directly to persona needs and problem statements.
+This document expands the core principles from [ARCHITECTURE.md](../ARCHITECTURE.md) into actionable design guidelines. These principles inform all design decisions and connect directly to persona needs and problem statements.
 
 **Purpose**:
 - Guide feature development and UI decisions
@@ -280,7 +280,7 @@ If yes, preserve meaning even if it's computationally harder.
 
 ### Related Documents
 
-- [HARMONY_ENGINE.md](../../HARMONY_ENGINE.md) — Enharmonic spelling logic
+- [HARMONY_ENGINE.md](../HARMONY_ENGINE.md) — Enharmonic spelling logic
 - [chord-dictionary.ts](../../src/lib/chord-dictionary.ts) — `spellRoot()` implementation
 
 ---
@@ -335,7 +335,7 @@ Both must be true.
 
 ### Related Documents
 
-- [OPEN_NOTES.md](../../OPEN_NOTES.md) — Concentric clarity philosophy
+- [OPEN_NOTES.md](../OPEN_NOTES.md) — Concentric clarity philosophy
 - [02-empathy-maps.md](02-empathy-maps.md) — Jordan's fear of jargon
 
 ---
@@ -547,7 +547,7 @@ If no, add confirmation or make action reversible.
 
 ## Related Documents
 
-- [ARCHITECTURE.md](../../ARCHITECTURE.md) — Original principles (shorter version)
+- [ARCHITECTURE.md](../ARCHITECTURE.md) — Original principles (shorter version)
 - [01-personas.md](01-personas.md) — Persona needs informing principles
 - [03-problem-statements.md](03-problem-statements.md) — HMW questions addressed by principles
 - [09-accessibility-audit.md](09-accessibility-audit.md) — Accessibility principle application

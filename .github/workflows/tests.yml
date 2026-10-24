@@ -1,8 +1,8 @@
 name: tests
 
 # The suite had never run in CI. The only workflow was the Pages deploy, which
-# installs, typechecks and builds the site but runs no tests — so 1886 tests
-# across two engines held in deliberate parity (the JS in packages/upi and the
+# installs, typechecks and builds the site but runs no tests — so the tests
+# (1886 of them then) across two engines held in deliberate parity (the JS in packages/upi and the
 # C++ UPIParser in rhythm_pattern_explorer) were local-only. Silent drift
 # between those two is the failure mode this project keeps finding by hand;
 # leaving the one instrument that catches it off the runner made that a matter
@@ -47,14 +47,21 @@ jobs:
           cache: npm
       - name: Install workspace dependencies
         run: npm ci
+      # Twirl's tests (apps/twirl/test/) drive the real page in headless
+      # Chromium: draw-and-hear, mutation, sharing, and axe on every state in
+      # both colour schemes. Playwright's browser isn't an npm dependency, so
+      # it's fetched here, at the version apps/twirl/package.json pins. With
+      # CI set, those tests FAIL rather than skip if the browser is missing.
+      - name: Install Chromium for Playwright (Twirl's browser tests)
+        run: npx playwright install --with-deps chromium
       # `pretest` runs build-packages (tsc -b) first, so this both emits the
       # shared packages' compiled output — which several tests import — and
       # runs the suite. No separate typecheck step needed here.
       #
       # tools/bridge-audit.test.mjs self-skips: it needs the plugin repos
-      # checked out beside this one and CI cannot see them (BUILD.md §4). That
-      # is 3 of the 1889 tests, and it is why the guard against half-wired
-      # bridge events does not actually run anywhere yet.
+      # checked out beside this one, which this job doesn't do (BUILD.md §4).
+      # Its 3 tests skip HERE; the `bridge` job below clones the plugin repos
+      # and is where the audit actually runs.
       - name: Run the test suite
         run: npm test
 

@@ -1,5 +1,9 @@
 # Accessibility test plan — Enkerli Music Suite
 
+> **Currency pass 2026-10-24.** Twirl added to the app table (twelve apps on
+> Pages now). It has had an automated pass, recorded in its own
+> `apps/twirl/A11Y.md`; like `workspace`, it has had no manual pass.
+>
 > **Currency pass 2026-07-30.** The app table below listed ten apps. There are
 > now **eleven** — `workspace` landed 2026-07-15, four days *after* the
 > automated sweep in [A11Y_AUDIT](A11Y_AUDIT.md), and has never been through
@@ -55,14 +59,18 @@ Live apps (GitHub Pages): `https://enkerli.github.io/music-suite/apps/<name>/`
 | `drawnqurve` | Gesture/automation curve editor | Canvas curve drawing (pointer-heavy), MIDI out |
 | `vane` | Synth UI + browser-playable voice | Tabbed panels, knobs/sliders, WebAudio playback, MIDI in (Chromium only) |
 | `workspace` | **NEVER AUDITED** — cross-app control surface: binds keys and MIDI to commands in the other apps | Key-capture field ("press a key…"), MIDI learn, per-module sliders/pads, a global key listener |
+| `twirl` | Gesture toy: draw a stroke, it plays and keeps looping. **Automated pass done 2026-10-24** (axe, keyboard, focus, gesture alternatives; [apps/twirl/A11Y.md](../apps/twirl/A11Y.md)); **no manual or AT pass yet** | Full-screen canvas drawing (path-dependent; multi-touch drag, pinch-turn, hold), loop settings panel (incl. one-tap Place: move/turn), Toybox/Scenes/Takes tabs, a document-level key listener (single keys, like `workspace`), WebAudio, MIDI out (Chromium only) |
 | `style-gallery` | **Design-system reference page** | Every token, control style, and shared component in one place — the best first stop to test components in isolation |
 
 Notes for testers:
 - **WebMIDI works only in desktop Chromium.** In Safari/Firefox the apps
   must degrade gracefully (MIDI as progressive enhancement) — absence of
   MIDI is expected there, broken layout or dead-end UI is a finding.
-- `drawnqurve` and `serpe` render heavily to `<canvas>`; these are the
-  highest-risk apps for screen-reader users and deserve extra attention.
+- `drawnqurve`, `serpe` and `twirl` render heavily to `<canvas>`; these are
+  the highest-risk apps for screen-reader users and deserve extra attention.
+  Twirl's sheet is the whole app: its keyboard routes (Toybox, digits, loop
+  settings) give the music without the drawing, and whether that's a good
+  experience is the question to answer, not just whether it's possible.
 - **`workspace` is the highest-risk app for keyboard users, and untested.** It
   installs a document-level key listener and binds bare single keys (`]`, `[`,
   `m`) to commands in other apps. The only guard is `isTyping(e.target)`, which

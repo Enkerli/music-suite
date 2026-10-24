@@ -3,21 +3,21 @@
  * sync-apps — rebuild every suite app's web UI into docs/apps/<slug>/ so the
  * GitHub Pages showcase stays in step with the apps, wherever they're developed.
  *
- * Six apps live in this monorepo (built via npm workspaces). Four are JUCE
- * plugins in *separate* repos (PitchFold, DrawnQurve, Vane, Serpe) whose
- * WebView UIs are built/copied in. Each app keeps being developed independently;
- * running this brings its latest web build into the shared repo with one command.
+ * Every app's source lives in this monorepo under apps/ (the four plugin
+ * WebUIs — PitchFold, DrawnQurve, Vane, Serpe — were consolidated here; their
+ * JUCE repos read them at CMake time). CI runs this with --monorepo on every
+ * deploy, so pushing source is enough; run it locally to commit matching builds.
+ * An entry marked `external: true` (none today) is source kept outside the repo,
+ * skipped when not found.
  *
  *   node scripts/sync-apps.mjs              # all apps
  *   node scripts/sync-apps.mjs pitchfold serpe   # a subset by slug
  *   node scripts/sync-apps.mjs --monorepo  # only the in-repo workspace apps
  *   node scripts/sync-apps.mjs --external   # only the separate-repo plugin UIs
  *
- * External repo locations: defaults below are the maintainer's layout. Override
- * per machine with scripts/apps.local.json (gitignored), mapping slug → source
- * path, e.g. { "pitchfold": "/Users/you/code/PitchFold/Source/WebUI" }. Apps
- * whose source can't be found are skipped with a warning, so the script still
- * works for someone who only has this repo checked out.
+ * Per-machine overrides: scripts/apps.local.json (gitignored) maps slug →
+ * source path, e.g. { "pitchfold": "/Users/you/code/PitchFold/Source/WebUI" },
+ * to build a slug from somewhere else.
  */
 import { execFileSync } from "node:child_process";
 import { existsSync, rmSync, mkdirSync, cpSync, copyFileSync, readFileSync } from "node:fs";
@@ -55,6 +55,10 @@ const MANIFEST = [
   // Suite Workspace: the single-page, movable-module projection of the control
   // & interop plane (docs/CONTROL_PLANE.md). In-repo only (no plugin twin).
   { slug: "workspace",        title: "Suite Workspace",      kind: "esbuild",   dir: join(ROOT, "apps", "workspace"), dist: "dist" },
+  // Twirl: a gesture toy, one self-contained HTML file (no build step, no
+  // dependencies). In-repo only for now; a plugin/standalone twin is on its
+  // roadmap (apps/twirl/ROADMAP.md).
+  { slug: "twirl",            title: "Twirl",                kind: "static-file", file: join(ROOT, "apps", "twirl", "index.html") },
 ];
 
 // Per-machine source overrides for the external apps.

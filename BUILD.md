@@ -85,15 +85,21 @@ are in **§4** below.
 ## 0. The pieces
 
 - **This repo** (`music-suite`): shared TypeScript packages, the `msuite`
-  CLI, and **eleven** apps under `apps/` — Workspace, MIDIcurator, Progression
-  Studio, PickPCS, Chord Dictionary, Exquisite Fingerings, Style Gallery,
-  Serpe, PitchFold, Vane, DrawnQurve. The last four are webapps *and* the
-  WebView UI of their plugins; the rest are webapp-only.
+  CLI, and **thirteen** apps under `apps/` — Workspace, MIDIcurator,
+  Progression Studio, PickPCS, Chord Dictionary, Exquisite Fingerings, Style
+  Gallery, Serpe, PitchFold, Vane, DrawnQurve, RND Companion, Twirl. Twelve
+  are on the live site; RND Companion's UI is built only into its plugin.
+  Serpe, PitchFold, Vane, DrawnQurve, Workspace and RND Companion are also
+  the WebView UI of their plugins; MIDIcurator and Progression Studio are
+  embedded whole by theirs. Twirl is one self-contained HTML file with no
+  build step (its plugin is on [its roadmap](apps/twirl/ROADMAP.md)).
 - **Seven separate plugin repos**: JUCE plugins (AU/VST3/AUv3/CLAP/LV2/
   Standalone) — Serpe, PitchFold, Vane, DrawnQurve, MIDIcurator, Progression
   Studio, Suite Workspace. Their WebView UI is the same code as the app of the
   same name; MIDIcurator's and Progression Studio's plugins embed their whole
-  app via a build script, the rest bundle at cmake time.
+  app via a build script, the rest bundle at cmake time. An eighth,
+  **`rnd-companion`** (the Cymaforma RND Synth companion, `aumi Rndc`), is
+  built the same way but on its own: `suite-build` doesn't know it yet.
 - **`enkerli-juce`**, the shared CMake foundation, is a submodule of **five**
   of them (Serpe, PitchFold, MIDIcurator, Progression Studio, Suite Workspace).
   **Vane and DrawnQurve reimplement it inline** and so inherit nothing from it —
@@ -111,10 +117,11 @@ are in **§4** below.
 git clone https://github.com/Enkerli/music-suite
 cd music-suite
 npm install          # also compiles the TS packages (the "prepare" script)
-npm test             # 1257 tests, should be all green
+npx playwright install chromium   # once per machine: Twirl's browser tests use it
+npm test             # 2242 tests on 2026-10-24, all green
 ```
 
-That's it for the Node/TypeScript side. Two things worth knowing:
+That's it for the Node/TypeScript side. Three things worth knowing:
 
 - **`npm run build-packages`** recompiles the shared packages
   (theory/midi/library/protocol/control/accompaniment/cli/…). `npm install`
@@ -123,39 +130,44 @@ That's it for the Node/TypeScript side. Two things worth knowing:
 - **The `msuite` CLI**: `npm run msuite -- <command> …` works with no setup.
   For a bare `msuite` on your PATH: `sudo npm link -w @enkerli/cli` (needs
   `sudo` on most systems — the error if you omit it doesn't say so).
+- **Browser tests**: Twirl's tests (`apps/twirl/test/`) drive the real page in
+  headless Chromium through Playwright. Without the browser they skip, with a
+  note; in CI (`CI` set) they fail instead, and `tests.yml` installs it.
 
 ---
 
 ## 2. The webapps — use the deployed site, not localhost
 
-The six in-repo apps **auto-deploy**: `.github/workflows/deploy-pages.yml`
+All twelve webapps **auto-deploy**: `.github/workflows/deploy-pages.yml`
 rebuilds and publishes `docs/` on every push to `main` that touches
-`apps/`, `packages/`, or `docs/`. So for these apps, the whole workflow is:
+`apps/`, `packages/`, or `docs/`. Every app's source lives in this repo now
+(the four plugin WebUIs — Serpe, PitchFold, Vane, DrawnQurve — were
+consolidated into `apps/`), so for all of them the whole workflow is:
 
 ```bash
-# edit apps/workspace/... (or MIDIcurator, progression-studio, etc.)
+# edit apps/<app>/... (Workspace, MIDIcurator, Serpe, Twirl, …)
 git add -A && git commit -m "…" && git push
 ```
 
 Wait ~1–2 minutes (check the Actions tab), then reload
 `https://enkerli.github.io/music-suite/apps/<slug>/`. No local server, no
-`sync-apps` needed for these six.
-
-**The four plugin-repo WebUIs are different**: Serpe, PitchFold, Vane, and
-DrawnQurve live in separate repos GitHub Actions here can't reach, so their
-committed builds under `docs/apps/<slug>/` only update when you run this
-locally and push:
+`sync-apps` needed. The built copies under `docs/apps/<slug>/` are committed
+too; CI rebuilds them from source anyway, so a stale committed copy can't
+reach the site. To refresh them locally (say, to commit a matching build):
 
 ```bash
-node scripts/sync-apps.mjs serpe pitchfold vane drawnqurve   # or omit names for all
-git add docs/apps && git commit -m "sync plugin webuis" && git push
+node scripts/sync-apps.mjs                 # all apps
+node scripts/sync-apps.mjs twirl serpe     # or just some, by slug
 ```
 
-This only rebuilds source it can find. By default it looks for each plugin
-repo as a **sibling directory** on your machine (e.g. `~/Vane`,
-`~/Desktop/PitchFold`); if yours are elsewhere, copy
-`scripts/apps.local.json.example` to `scripts/apps.local.json` and set the
-real paths.
+The slugs and how each app is built are the `MANIFEST` in
+`scripts/sync-apps.mjs`. **Adding an app to the site** takes three things:
+a `MANIFEST` entry, a `card` block in `docs/site.md`, and an icon at
+`docs/assets/icons/<slug>.svg` (the screenshot at
+`docs/assets/screenshots/<slug>.png` is refreshed by hand).
+`scripts/apps.local.json` can still point a slug at source elsewhere on your
+machine (`scripts/apps.local.json.example`), for trying out a build from a
+plugin repo's own checkout.
 
 **If you only want to browse the apps, ignore all of this and just open the
 deployed URLs.** Local dev servers (`npm run dev -w <app>`) are only for
@@ -222,7 +234,8 @@ build flag does.
 
 The Quickstart's clone step lays down nine repos (ten with a shared JUCE) in
 one parent: `enkerli-juce` (the shared CMake foundation), `music-suite` (this
-repo — the WebUI source for five of the plugins), and the seven plugin repos.
+repo — the WebUI source for the plugins), and the seven plugin repos
+(`rnd-companion` makes an eighth, cloned and built separately for now).
 What the build tools expect, and how to bend it:
 
 - **Verify a fresh checkout** before building anything:

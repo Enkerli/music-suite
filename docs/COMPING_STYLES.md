@@ -41,7 +41,7 @@ Two routes to the same destination, kept in parallel on purpose.
 | `tools/comp-style-audit.mjs` | the share/don't-share gate — is output distinct and abstract? |
 | `tools/build-all-models.sh` | the whole local set, one command |
 
-The learning lives in `@enkerli/cli` (`src/comping.ts`), beside `learnStyle`:
+The learning lives in `@enkerli/cli` (`packages/cli/src/comping.ts`), beside `learnStyle`:
 same destination, different source material. `comp-learn.mjs` is a thin wrapper
 over it for the bulk path, **not** a second implementation — two copies of a
 rule drift, and this suite has the scars (INTENT L5). They produce numerically

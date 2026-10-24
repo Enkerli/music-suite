@@ -30,7 +30,7 @@ Every notation below inherits [CONVENTIONS.md](../CONVENTIONS.md):
 
 Authority: [`packages/theory/src/rhythm.ts`](../packages/theory/src/rhythm.ts);
 headless via `msuite pattern`; the full notation language is Serpe's **UPI**
-(`apps/serpe/engine/upi.js`, the `@enkerli/upi` promotion candidate).
+([`packages/upi/src/upi.js`](../packages/upi/src/upi.js), promoted out of Serpe into `@enkerli/upi`).
 
 | Form | Example (tresillo, 8 steps) | Notes |
 |---|---|---|
