@@ -1,10 +1,10 @@
 # Twirl — roadmap
 
-*Rewritten 2026-10-24, when Twirl joined the monorepo. The order of work
-comes from a prioritization exercise done with another agent. Its criterion:
-how much new musical behaviour a feature brings, relative to how hard it is
-to build. The first section is the part that does not change: the rules
-every step has to keep.*
+*Rewritten 2026-10-24, when Twirl joined the monorepo, and reassessed the
+same evening after a day of play (next section). The first order of work
+came from a prioritization exercise done with another agent; its criterion,
+how much new musical behaviour a feature brings relative to how hard it is
+to build, still holds. The rules section is the part that does not change.*
 
 ## The rules every change keeps
 
@@ -35,7 +35,86 @@ they can't:
    something the suite already has, it matches the suite's vectors (or
    imports the package, once Twirl has a build step).
 
-## Priorities
+## Where we are (reassessed 2026-10-24, evening)
+
+**What a day of play changed.** Mutation shipped as a prototype; collisions
+grew into three kinds of contact (crossings, lines touching, playheads
+meeting) with sound, bump, trade, breed and infect; Surprise, Vary, chimes
+with their own sound, Start over and a sturdier full screen followed. The
+one complaint that kept coming back is not about any feature: *"as fun as
+this is, it does get quite repetitive pretty easily."* Loops replay the same
+notes each pass, and a sheet settles into a groove and stays there. Most of
+Alex's ideas since (terrain, shapeshifting, density that swells and fades,
+loops that die away, loops that strengthen or weaken each other) are answers
+to that one problem: **things should change over time**.
+
+**So the next theme is the evolving patch** (section below): a sheet you can
+leave running that keeps developing, slowly, legibly, reversibly. It pulls
+together pieces that were scattered across the old list (ecology controls
+from collisions, relationships from personalities, Vary's next steps, the
+ideas from play).
+
+**Before building much more: targeted playtests** ([PLAYTESTING.md](PLAYTESTING.md)).
+Twirl's surface has grown fast: Meets alone has six answers, and the drawer
+has Meet, Surprise and Vary side by side. Whether first contact still holds,
+whether people can say *why* a note happened, and when it gets repetitive
+for them (not only for us) are questions a few sessions answer better than
+more features. Evolving-patch v1 is small enough to build alongside.
+
+**The reassessed order**
+
+| # | Track | Effort | Value | Why now |
+|---|---|---|---|---|
+| 0 | **Playtests** (5–8 people, targeted) | 2/5 | 5/5 | Validate first contact and legibility before the surface grows further |
+| 1 | **Evolving patch v1**: life cycles, influence | 3/5 | 5/5 | The repetition problem; builds on contacts, Vary and Morph |
+| 2 | **Sound variety**: toys with their own sounds, per-pack nuance, accents from the beat, pressure as thickness | 2/5 | 4/5 | Cheap variety with no new concepts; chimes showed the way |
+| 3 | **Mutation v2** (musical, seeded) | 3/5 | 4/5 | Breeding and evolution sound only as good as the mutations |
+| 4 | **Terrain** (workshop first) | 4/5 | 4/5 | Movement as development; wants the evolving patch's legibility rules first |
+| 5 | **Hands-on tools**: lasso, silent zone | 3/5 | 3/5 | Steering a busy, evolving sheet |
+| 6 | **Plugin and standalone** | 4/5 | 4/5 | A parallel track (Linux first), not blocked by any of the above |
+| 7 | Later: pitch geometries, performance animation, generative accompaniment | 4–5/5 | 4/5 | Still wanted; each is a project of its own |
+
+Personalities (old #4) are folded into the evolving patch's *influence*:
+the same idea, made of the contact rules Twirl already has.
+
+## The evolving patch (next)
+
+Alex, 2026-10-24: "Other things which can change over time: a loop can get
+denser or sparser (fluctuate in density, maybe over a significant number of
+repetitions, build up then fade away), a loop can disappear with time, a
+loop can weaken or strengthen another… All in the service of an 'evolving
+patch'."
+
+Rules for anything that evolves (from the rules above, sharpened):
+- **Slow.** Changes happen over many passes (8, 16, 32), not every note, so
+  a groove has time to be a groove before it moves on.
+- **Visible.** What a loop is going through shows on the sheet: a line that
+  thickens as it fills, fades as it dies away, a glow when it's fed.
+- **Legible.** A loop's settings say what it's doing ("swelling: 6 of 16
+  passes"), and a toast names anything that happens to it.
+- **Reversible and stoppable.** One switch (like Meet) freezes all
+  evolution; Start over and undo still work; nothing evolving is lost
+  without a trace (a loop that dies away can be brought back, like undo).
+- **Opt-in by default for each loop** at first; Surprise may hand it out
+  later, like it hands out bump and trade, once playtests say it's welcome.
+
+**v1, proposed:**
+1. **Life** (a loop setting): *steady* (as now) · *swell* (its notes fill
+   in over N passes, then thin out again, using `retrace` toward many and
+   back toward few: density that breathes) · *fade* (a little quieter each
+   pass, then gone, into undo) · *short-lived* (fades after one swell).
+2. **Influence** (two new contact answers, on lines touching and
+   meetings): *feed* (the other loop gets louder or denser) and *drain*
+   (quieter or sparser). With fade, a sheet gets an ecology: loops that
+   others keep alive, and loops that die when left alone.
+3. **Evolve** switch in the drawer (More), on by default only if playtests
+   agree; a loop's settings show its life stage.
+
+Later: shapeshifting (shape over time, from Morph and Mutation), terrain,
+seasons (a slow sheet-wide cycle that shades every loop's density and
+loudness), and Surprise handing out lives.
+
+## The original priorities (2026-10-24, morning)
 
 | # | Feature | Effort | Value | What it adds |
 |---|---|---|---|---|
@@ -217,6 +296,19 @@ timing, whole notes. Drawer → Vary (More), on by default. Next:
 - feed `nuance` from pressure and, later, terrain, as one per-note input;
 - true sampled round-robin, if a sample pack ever arrives.
 
+**Sounds across banks (shipped 2026-10-24).** Alex: "toys could come with
+their own sounds… across banks. As much as I love the simplicity of the 5
+voices per bank, bringing sounds over could add an element of variety."
+A loop can play another pack's sounds (`lp.pack`; its settings → Voice →
+Sounds; saved in scenes, toys and codes, appended to the packed row), and a
+toy can bring its own. The first is **Chimes** (Alex: "bells remind me of
+windchimes"): a new pack (free-bar partials 1 : 2.76 : 5.40 : 8.93, long
+shimmering tails), and a Toybox toy whose clapper sways over a long, odd
+cycle (11, 13 or 15 beats), striking in gusts off the grid. It replaced the
+spiral on the starting sheet. Next: more toys with their own sounds (a music
+box, a gong, a rain stick, a thumb piano run), each one a small,
+recognizable instrument, and per-pack nuance.
+
 **Pressure you can see as well as hear** (Alex, 2026-10-24). With an Apple
 Pencil or a graphics tablet, pressing harder should draw a **thicker line**
 as well as play louder. Today it only plays louder (the dot sizes show it;
@@ -235,7 +327,7 @@ the line doesn't).
   - or a slow press-and-hold that swells.
   Worth trying each on the iPad; the first is free where it exists.
 
-### Ideas from play (Alex, 2026-10-24), not yet placed
+### Ideas from play (Alex, 2026-10-24), now part of the evolving patch and hands-on tools
 
 - **Shapeshifting.** Morph moves a loop across the sheet; a loop could also
   change its *shape* over time: breathe, stretch, untwist, drift toward
@@ -277,6 +369,17 @@ The idea, as a starting point:
     drive, texture → grain or jitter of timing.
 - **Same loop, different place, different sound**: a drifting loop changes
   colour as it crosses the ground, and a bump can send it somewhere new.
+
+**Traces: loops that paint the ground** (Alex, 2026-10-24, after a canvas
+bug left smears where loops had moved: "we have background/terrain… some
+loops could leave traces!"). A loop that moves (drift, bump, Morph) could
+leave a fading trail, and the trails *are* the terrain: where loops have
+been changes how later notes sound there. That answers "who makes the
+ground" without a paint tool, and ties terrain to the evolving patch: a
+sheet's history becomes its landscape. To settle: which loops leave traces
+(a Life or Meets choice, or a toy), how fast trails fade, whether they keep
+the loop's colour or voice, and how traces travel in codes (they would be
+the sheet's history, so takes already carry them by replaying).
 
 Questions for the workshop:
 - **Legibility.** Each voice gets one or two mappings, named in the guide

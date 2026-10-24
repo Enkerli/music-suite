@@ -266,8 +266,8 @@ describe.skipIf(!browser)("Twirl · contacts (crossing a line, meeting a playhea
     await crossing(page, { meets: "ignore" });
     await waitBeats(page, 5.2);
     expect(await page.evaluate(() => meetLog.length)).toBe(0);
+    await page.evaluate(() => { state.meet = false; });                       // off first: under load, the playheads can meet before the next step
     await crossing(page);
-    await page.evaluate(() => { state.meet = false; });
     await waitBeats(page, 5.2);
     expect(await page.evaluate(() => meetLog.length)).toBe(0);
     await context.close();
@@ -415,14 +415,71 @@ describe.skipIf(!browser)("Twirl · contacts (crossing a line, meeting a playhea
   it("Meets and Notes travel in share codes; older codes meet with 'sound'", async () => {
     const { page, context } = await openTwirl(browser);
     const r = await page.evaluate(async () => {
-      loops[0].meets = "breed"; loops[1].meets = "infect"; retrace(loops[0], "dense");
+      loops[1].meets = "breed"; loops[2].meets = "infect"; retrace(loops[1], "dense");    // loops[0] is the chimes: fixed notes
       const back = await decodeScene(await encodeScene(serialize()));
       const pk = packScene(serialize()); pk.l = pk.l.map((row) => row.slice(0, 24));
-      return { meets: back.loops.map((d) => d.meets), dens: back.loops[0].density, old: unpackScene(pk).loops.map((d) => d.meets) };
+      return { meets: back.loops.slice(1).map((d) => d.meets), dens: back.loops[1].density, old: unpackScene(pk).loops.map((d) => d.meets) };
     });
     expect(r.meets.slice(0, 2)).toEqual(["breed", "infect"]);
     expect(r.dens).toBe("dense");
     expect(new Set(r.old)).toEqual(new Set(["sound"]));
+    await context.close();
+  });
+});
+
+describe.skipIf(!browser)("Twirl · chimes, sounds across banks, Start over", () => {
+  it("the starting sheet is chimes, a drop and a shaker; the chimes bring their own sound", async () => {
+    const { page, context } = await openTwirl(browser);
+    const r = await page.evaluate(() => loops.map((l) => [l.pack || null, l.events.every((e) => e.fixed === "bell"), l.L]));
+    expect(r.length).toBe(3);
+    expect(r[0][0]).toBe("chimes");
+    expect(r[0][1]).toBe(true);
+    expect(r[0][2]).toBeGreaterThanOrEqual(11);                              // a long, odd cycle
+    expect(r.slice(1).map((x) => x[0])).toEqual([null, null]);
+    await context.close();
+  });
+
+  it("a loop with its own sounds plays them, whatever the sheet's pack; they travel in codes", async () => {
+    const { page, context } = await openTwirl(browser);
+    const r = await page.evaluate(async () => {
+      ensureAudio(); state.pack = "chip";
+      const used = []; const keep = { ...PACKS };
+      for (const k of Object.keys(PACKS)) PACKS[k] = new Proxy(keep[k], { get: (o, v) => (used.push(k + "." + String(v)), o[v]) });
+      const lp = loops[1]; lp.pack = "mallets";
+      sound("pluck", 0.5, 0.5, 0.5, ctx.currentTime + 0.2, 0, undefined, "single", lp.pack);
+      sound("pluck", 0.5, 0.5, 0.5, ctx.currentTime + 0.2, 0);
+      Object.assign(PACKS, keep);
+      const back = await decodeScene(await encodeScene(serialize()));
+      return { used, packs: back.loops.map((d) => d.pack) };
+    });
+    expect(r.used).toEqual(["mallets.pluck", "chip.pluck"]);
+    expect(r.packs).toEqual(["chimes", "mallets", null]);
+    await context.close();
+  });
+
+  it("the sheet never keeps stale pixels: a buffer that's the wrong size is fixed on the next frame, and every pixel is cleared", async () => {
+    const { page, context } = await openTwirl(browser);
+    const r = await page.evaluate(async () => {
+      sheet.height = sheet.height + 240;                          // a size change the page wasn't told about
+      g2.fillStyle = "#ff0000"; g2.setTransform(1, 0, 0, 1, 0, 0); g2.fillRect(0, 0, sheet.width, sheet.height);
+      await new Promise((ok) => requestAnimationFrame(() => requestAnimationFrame(ok)));
+      const dpr = Math.min(2, window.devicePixelRatio || 1), px = g2.getImageData(2, sheet.height - 2, 1, 1).data;
+      return { fits: sheet.height === Math.round(sheet.clientHeight * dpr), red: px[0] > 200 && px[1] < 60 && px[2] < 60 };
+    });
+    expect(r).toEqual({ fits: true, red: false });
+    await context.close();
+  });
+
+  it("Start over: the starting sheet and default settings, two taps; Bring it back undoes it", async () => {
+    const { page, context } = await openTwirl(browser);
+    const before = await page.evaluate(() => { state.bpm = 140; state.grid = "chromatic"; dropToy("ring", [200, 200]); return loops.map((l) => l.uid).join(); });
+    await page.evaluate(() => { $("initBtn").click(); });
+    expect(await page.evaluate(() => [loops.length, state.bpm, $("initBtn").textContent])).toEqual([4, 140, "Start over?"]);   // one tap only arms it
+    const after = await page.evaluate(() => { $("initBtn").click(); return { n: loops.length, bpm: state.bpm, grid: state.grid, chimes: loops[0].pack, label: $("initBtn").textContent }; });
+    expect(after).toEqual({ n: 3, bpm: 96, grid: "pentMaj", chimes: "chimes", label: "Bring it back" });
+    const back = await page.evaluate(() => { $("initBtn").click(); return { n: loops.length, bpm: state.bpm, grid: state.grid, label: $("initBtn").textContent }; });
+    expect(back).toEqual({ n: 4, bpm: 140, grid: "chromatic", label: "Start over" });
+    expect(before.split(",").length).toBe(4);
     await context.close();
   });
 });
@@ -459,7 +516,11 @@ describe.skipIf(!browser)("Twirl · notes: few by default, re-spaced per loop", 
 describe.skipIf(!browser)("Twirl · Edit notes", () => {
   it("a tap anywhere on a path adds a note, even right by a bend handle", async () => {
     const { page, context } = await openTwirl(browser);
-    await page.evaluate(() => { state.morph = false; ensureAudio(); hint.hidden = true; $("editBtn").click(); });
+    await page.evaluate(() => {
+      state.morph = false; ensureAudio(); hint.hidden = true;
+      loops.splice(0).forEach(fadeOut); dropToy("ring", [sheet.clientWidth / 2, sheet.clientHeight / 2]); loops[0].temper = "still";   // a plain, uncrossed path
+      $("editBtn").click();
+    });
     for (const j of [7, 23, 39, 41]) {                         // 39 = 3 × handleStep(13): on a handle
       const [x, y, n] = await page.evaluate((j) => { const lp = loops[0], q = lp.pts[j]; return [...place(lp, q.x, q.y, sheet.clientWidth, sheet.clientHeight), lp.events.length]; }, j);
       const onNote = await page.evaluate(([x, y]) => !!hitEvent(x, y), [x, y]);

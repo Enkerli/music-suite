@@ -64,6 +64,7 @@
 
 html, body { height: 100%; }
 [hidden] { display: none !important; }
+html { overscroll-behavior: none; overflow: hidden; height: 100%; }
 body {
   margin: 0;
   background: var(--paper);
@@ -468,6 +469,7 @@ kbd {
     <select class="sel" id="pack" aria-label="Sounds">
       <option value="paper">Sounds: paper</option><option value="mallets">Sounds: mallets</option><option value="felt">Sounds: felt</option>
       <option value="steel">Sounds: steel</option><option value="kalimba">Sounds: kalimba</option><option value="chip">Sounds: chip</option>
+      <option value="chimes">Sounds: chimes</option>
     </select>
     <select class="sel" id="density" aria-label="How many notes a new stroke makes" title="A note lands each time the line has gone a set distance, and wherever it turns sharply. Each loop can change its own later (hold it → Notes)">
       <option value="sparse" selected>Notes: few</option><option value="medium">Notes: some</option><option value="dense">Notes: many</option>
@@ -534,6 +536,7 @@ kbd {
     <button class="btn" id="myToyBtn" type="button" aria-expanded="false" aria-controls="mytoys">My toys</button>
     <button class="btn" id="sceneBtn" type="button" aria-expanded="false" aria-controls="scenes">Scenes</button>
     <button class="btn" id="clear" type="button">Clear</button>
+    <button class="btn" id="initBtn" type="button" title="A fresh start: the starting sheet and every setting back to how Twirl begins. Your volume, MIDI output, saved scenes and My toys stay. Two taps; for 10 seconds after, it can bring everything back">Start over</button>
   </span>
   <button class="btn" id="fsBtn" type="button" aria-pressed="false" hidden>Full screen <kbd>F</kbd></button>
   <button class="btn" id="keysBtn" type="button" aria-haspopup="dialog">Keyboard shortcuts <kbd>H</kbd></button>
@@ -564,6 +567,7 @@ kbd {
     <button class="toy" type="button" data-toy="wave"><svg viewBox="0 0 34 34" aria-hidden="true"><path d="M3 17c4-9 7-9 9 0s5 9 9 0 6-9 10 0"/></svg>Wave</button>
     <button class="toy" type="button" data-toy="zigzag"><svg viewBox="0 0 34 34" aria-hidden="true"><path d="M3 22l5-10 5 10 5-10 5 10 5-10 3 6"/></svg>Zigzag</button>
     <button class="toy" type="button" data-toy="call"><svg viewBox="0 0 34 34" aria-hidden="true"><path d="M4 26c3-9 8-14 14-15"/><circle cx="23" cy="10" r="1.6" fill="currentColor"/><circle cx="27" cy="10" r="1.6" fill="currentColor"/><circle cx="31" cy="10" r="1.6" fill="currentColor"/></svg>Call</button>
+    <button class="toy" type="button" data-toy="chimes"><svg viewBox="0 0 34 34" aria-hidden="true"><path d="M6 6h22M10 6v14M15 6v20M20 6v11M25 6v17M17 12l-3 9"/></svg>Chimes</button>
     <button class="toy" type="button" data-toy="drop"><svg viewBox="0 0 34 34" aria-hidden="true"><path d="M17 4v26M11 24l6 6 6-6"/></svg>Drop</button>
     <button class="toy" type="button" data-toy="beat"><svg viewBox="0 0 34 34" aria-hidden="true"><rect x="4" y="22" width="5" height="5"/><rect x="11" y="7" width="5" height="5"/><rect x="18" y="15" width="5" height="5"/><rect x="25" y="7" width="5" height="5"/></svg>Beat</button>
     <button class="toy" type="button" data-toy="shaker"><svg viewBox="0 0 34 34" aria-hidden="true"><ellipse cx="17" cy="12" rx="7" ry="8"/><path d="M17 20v10M10 7l-3-2M24 7l3-2M27 13h3M4 13h3"/></svg>Shaker</button>
@@ -633,11 +637,15 @@ kbd {
     <span class="seg" data-insp="density"><button class="btn" type="button" data-v="sparse" title="A note every couple of grid columns, and at sharp turns">few</button><button class="btn" type="button" data-v="medium">some</button><button class="btn" type="button" data-v="dense" title="A note under every grid column, and at gentle turns">many</button></span>
     <button class="btn" type="button" id="inspReroll" title="Space the notes again, a little differently each time">↻ again</button></div>
   <div class="insprow" data-level="2"><span class="lbl">Meets</span>
-    <span class="seg" data-insp="meets"><button class="btn" type="button" data-v="ignore" title="Stays out of it: no notes, no nudges, no trades">no</button><button class="btn" type="button" data-v="sound" title="Plays a note when its playhead crosses another loop's line, or meets another playhead">sound</button><button class="btn" type="button" data-v="bump" title="…and nudges the lines it crosses, or touches, out of the way">bump</button><button class="btn" type="button" data-v="trade" title="…and when its line touches another, or two playheads meet, borrows one thing from the other loop: voice, chords, rhythm or direction">trade</button><button class="btn" type="button" data-v="breed" title="…and when two playheads meet, has a child with the other loop">breed</button><button class="btn" type="button" data-v="infect" title="Infectious: has a child at any contact (a crossing, lines touching, playheads meeting), at most once every 8 bars">infect</button></span></div>
+    <span class="seg" data-insp="meets"><button class="btn" type="button" data-v="ignore" title="Stays out of it: no notes, no nudges, no trades">no</button><button class="btn" type="button" data-v="sound" title="Plays a note when its playhead crosses another loop's line, or meets another playhead">sound</button><button class="btn" type="button" data-v="bump" title="…and nudges the lines it crosses, or touches, out of the way">bump</button><button class="btn" type="button" data-v="trade" title="…and when its line touches another, or two playheads meet, borrows one thing from the other loop: voice, chords, rhythm or direction">trade</button><button class="btn" type="button" data-v="breed" title="…and when two playheads meet, has a child with the other loop">breed</button><button class="btn" type="button" data-v="infect" title="Infectious: has a child at any contact (a crossing, lines touching, playheads meeting), at most once every 16 bars">infect</button></span></div>
   <div class="insprow" data-level="2"><span class="lbl">Voice</span>
     <select class="sel" id="inspPen" aria-label="This loop's voice">
       <option value="auto">by direction</option><option value="drum">drums</option><option value="pluck">pluck</option>
       <option value="bell">bell</option><option value="blip">blip</option><option value="shake">shaker</option>
+    </select>
+    <select class="sel" id="inspPack" aria-label="This loop's sounds" title="Bring sounds over from another pack, whatever the sheet's">
+      <option value="">the sheet's sounds</option><option value="paper">paper</option><option value="mallets">mallets</option><option value="felt">felt</option>
+      <option value="steel">steel</option><option value="kalimba">kalimba</option><option value="chip">chip</option><option value="chimes">chimes</option>
     </select>
     <button class="btn" type="button" id="inspRevoice" aria-pressed="false" data-level="3" title="When this loop turns, its voices change with the new directions">Turning changes voices</button></div>
   <div class="insprow" data-level="2"><span class="lbl">Speed</span>
@@ -816,6 +824,8 @@ const state = {
   out: "sound",               // "sound" | "midi:<id>" | "both:<id>"
 };
 
+/** What Start over goes back to (before any saved sheet or shared code changes `state`). */
+const STATE_DEFAULTS = JSON.parse(JSON.stringify(state));
 const gridNow = () => GRID[state.grid];
 const stepsOf = (g) => (g.pcs ? g.pcs.map((pc) => TUNINGS[state.tuning][pc]) : g.steps);
 const periodOf = (g) => g.period || 1200;
@@ -1081,8 +1091,27 @@ const KALIMBA = {                           // thumb piano: a clean tine, a high
   blip(t, midi, vel, pan) { partials(t, mtof(midi + 24), vel, pan, [[1, 0.13, 0.3], [5.95, 0.03, 0.03]], 0.002, 0.45); },
   drum: MALLETS.drum,
 };
-const PACKS = { paper: VOICES, mallets: MALLETS, chip: CHIP, felt: FELT, steel: STEEL, kalimba: KALIMBA };
-const voiceFn = (voice) => (PACKS[state.pack] || VOICES)[voice] || VOICES[voice];
+/* Wind chimes: tuned bars, struck by a clapper the wind moves. A free bar's
+ * partials are inharmonic (1 : 2.76 : 5.40 : 8.93); a twin fundamental a hair
+ * apart gives the slow shimmer. Long, quiet tails. `nuance` (Vary) bends the
+ * upper partials a little: some strikes clang more than others. */
+const CHIMES = {
+  bell(t, midi, vel, pan) {                 // a wind chime: long and shimmering
+    const f = mtof(midi + 12), k = 1 + 0.006 * nuance;
+    partials(t, f, vel, pan, [[1, 0.09, 4.5], [1.0016, 0.04, 4], [2.756 * k, 0.05, 2.4], [5.404 * k, 0.025, 1.1], [8.933 * k, 0.012, 0.5]], 0.002, 0.9);
+  },
+  pluck(t, midi, vel, pan) {                // the same bar, damped: a short chime
+    partials(t, mtof(midi), vel, pan, [[1, 0.14, 1.4], [2.756, 0.05, 0.6], [5.404, 0.02, 0.25]], 0.003, 0.6);
+  },
+  blip(t, midi, vel, pan) {                 // a tiny high chime
+    partials(t, mtof(midi + 24), vel, pan, [[1, 0.07, 1.2], [2.756, 0.025, 0.5]], 0.001, 0.9);
+  },
+};
+const PACKS = { paper: VOICES, mallets: MALLETS, chip: CHIP, felt: FELT, steel: STEEL, kalimba: KALIMBA, chimes: CHIMES };
+const PACK_ORDER = ["paper", "mallets", "felt", "steel", "kalimba", "chip", "chimes"];   // codes store the index: append only
+/** A loop can bring its own sounds from another pack (a toy's own, or its
+ *  settings → Sounds); otherwise it plays the sheet's. Missing voices fall back to Paper. */
+const voiceFn = (voice, pack) => (PACKS[pack || state.pack] || VOICES)[voice] || VOICES[voice];
 
 /* ── 3b. MIDI out (progressive enhancement) ──────────────────────────────── */
 // Where the browser has Web MIDI (Chromium, incl. on Linux; not WebKit, and
@@ -1362,7 +1391,7 @@ function varied(vel, t, midi) {
   nuance = r();
   return [Math.min(1, vel * (1 + VARY.vel * r())), Math.max(ctx.currentTime, t + (VARY.ms / 1000) * r()), midi + (VARY.cents / 100) * r()];
 }
-function sound(voice, xN, yN, vel, t, b, deg, chord = "single") {
+function sound(voice, xN, yN, vel, t, b, deg, chord = "single", pack = null) {
   if (!ctx) return;
   xN = Math.min(1, Math.max(0, xN)); yN = Math.min(1, Math.max(0, yN));
   const pan = xN * 1.7 - 0.85, root = deg ?? bandAt(yN);
@@ -1372,8 +1401,8 @@ function sound(voice, xN, yN, vel, t, b, deg, chord = "single") {
     const midi = midiForDegree(withWalk(root + step, b));
     const [v, at, m] = varied(each, t, midi);
     if (state.out === "sound" || state.out.startsWith("both")) {
-      if (voice === "shake") voiceFn("shake")(at, v, pan, 1 - yN);
-      else voiceFn(voice)(at, m, v, pan, yN);
+      if (voice === "shake") voiceFn("shake", pack)(at, v, pan, 1 - yN);
+      else voiceFn(voice, pack)(at, m, v, pan, yN);
     }
     sendMidi(voice, midi, v, at, yN);
   }
@@ -1382,7 +1411,7 @@ function sound(voice, xN, yN, vel, t, b, deg, chord = "single") {
 function play(lp, ev, t, b, phase, air = 1) {
   const W = sheet.clientWidth, H = sheet.clientHeight;
   const [px, py] = notePos(lp, ev, phase, W, H);
-  sound(voiceOf(lp, ev), px / W, py / H, ev.vel * (lp.gain ?? 1) * air, t, b, undefined, lp.chord);
+  sound(voiceOf(lp, ev), px / W, py / H, ev.vel * (lp.gain ?? 1) * air, t, b, undefined, lp.chord, lp.pack);
 }
 /** THE rule for a note: it sounds when the playhead reaches it, at the
  *  playhead's place at that moment. With a beat division, that moment is
@@ -1621,7 +1650,7 @@ function lockStep(lp, x, y, heading, beat, t, thin = false) {
   const air = thin ? airKeep(beat) : 1;
   if (!air) return null;
   const onBeat = Math.abs(beat - Math.round(beat)) < 1e-6;
-  sound(voice, x / W, y / H, (onBeat ? 0.9 : 0.62) * (lp.gain ?? 1) * air, t, beat, undefined, lp.chord);
+  sound(voice, x / W, y / H, (onBeat ? 0.9 : 0.62) * (lp.gain ?? 1) * air, t, beat, undefined, lp.chord, lp.pack);
   fires.push({ x, y, voice, t });
   if (fires.length > 240) fires.splice(0, fires.length - 240);
   return voice;
@@ -1840,7 +1869,7 @@ function linesTouch(A, B, at, nb, now, W, H) {
   const beat = snapUp(nb), t = Math.max(now, timeAt(beat)), did = [];
   for (const [X, Y] of [[A, B], [B, A]]) {
     if (X.meets === "ignore" || X.muted) continue;
-    sound(voiceFor(X, null, 0), at[0] / W, at[1] / H, 0.5 * (X.gain ?? 1), t, beat, undefined, X.chord);
+    sound(voiceFor(X, null, 0), at[0] / W, at[1] / H, 0.5 * (X.gain ?? 1), t, beat, undefined, X.chord, X.pack);
     if (replay) continue;
     if (X.meets === "bump" && !Y.held) {                          // push the other loop away, centre from centre
       const [xx, xy] = place(X, X.c.x, X.c.y, W, H), [yx, yy] = place(Y, Y.c.x, Y.c.y, W, H);
@@ -1878,7 +1907,7 @@ function segDist(a0, a1, b0, b1) {
 /** X's playhead (at p) crossed Y's line (at q): X plays there, and a bumper nudges Y. */
 function touch(X, p, Y, q, nb, now, W, H) {
   const beat = snapUp(nb), t = Math.max(now, timeAt(beat));
-  sound(voiceFor(X, null, p.heading), q[0] / W, q[1] / H, 0.55 * (X.gain ?? 1), t, beat, undefined, X.chord);
+  sound(voiceFor(X, null, p.heading), q[0] / W, q[1] / H, 0.55 * (X.gain ?? 1), t, beat, undefined, X.chord, X.pack);
   let did = null;
   if (X.meets === "bump" && !replay && !Y.held) {               // never pull a loop out from under a finger
     const h = p.heading + totalRot(X);                          // the playhead's way, on screen
@@ -1903,7 +1932,7 @@ function borrow(X, Y) {
 }
 function meet(A, pa, B, pb, nb, now, W, H) {
   const beat = snapUp(nb), t = Math.max(now, timeAt(beat));     // on the grid, like everything else
-  for (const [X, p] of [[A, pa], [B, pb]]) sound(voiceFor(X, null, p.heading), p.x / W, p.y / H, 0.7 * (X.gain ?? 1), t, beat, undefined, X.chord);
+  for (const [X, p] of [[A, pa], [B, pb]]) sound(voiceFor(X, null, p.heading), p.x / W, p.y / H, 0.7 * (X.gain ?? 1), t, beat, undefined, X.chord, X.pack);
   const did = [], n = (X) => loops.indexOf(X) + 1;
   if (!replay) {
     for (const [X, Y] of [[A, B], [B, A]]) {
@@ -2031,7 +2060,7 @@ function nextStart() { return ctx ? Math.ceil(nowBeat()) : 0; }
 
 function dropToy(kind, where) {
   const W = sheet.clientWidth, H = sheet.clientHeight, m = Math.min(W, H);
-  const kinds = Object.keys(TOYS).concat(["shaker", "beat"]);
+  const kinds = Object.keys(TOYS).concat(["shaker", "beat", "chimes"]);
   if (kind === "dice") kind = kinds[Math.floor(Math.random() * kinds.length)];
   const cx = where ? where[0] : W * (0.2 + Math.random() * 0.6);
   const cy = where ? where[1] : H * (0.25 + Math.random() * 0.5);
@@ -2065,6 +2094,28 @@ function dropToy(kind, where) {
     });
     s.pts.push({ x: (cx + 4 * w) / W, y: s.pts[s.pts.length - 1].y, b: 3.99 });
     s.temper = "still"; s.trigger = "free"; s.dir = "fwd"; s.rhythm = "drawn";
+  } else if (kind === "chimes") {
+    // Wind chimes: a slow sway (an uneven 2:3 figure) over a long, odd cycle,
+    // so they hardly ever line up with the rest. Strikes come in gusts, off
+    // the grid, softer as a gust dies away. They bring their own sound
+    // (Chimes), whatever the sheet's pack: a toy's sound across banks.
+    // The clapper sways slowly sideways and swings quickly up and down, so
+    // each strike in a gust lands on a different "tube" (height = pitch).
+    const r = m * (0.1 + Math.random() * 0.05), beats = [11, 13, 15][Math.floor(Math.random() * 3)] - 0.3, n = 240, ph = Math.random() * 6;
+    const at = (u) => { const a = 2 * Math.PI * u; return [cx + r * (0.7 * Math.sin(2 * a + ph) + 0.15 * Math.sin(5 * a)), cy + r * 1.2 * (0.75 * Math.sin(9 * a + ph) + 0.25 * Math.sin(4 * a + 1))]; };
+    for (let i = 0; i <= n; i++) { const u = i / n, [x, y] = at(u); s.pts.push({ x: x / W, y: y / H, b: u * beats }); }
+    const gusts = 2 + Math.floor(Math.random() * 2);
+    for (let g = 0; g < gusts; g++) {
+      let b = ((g + Math.random() * 0.5) * beats) / gusts;
+      const k = 2 + Math.floor(Math.random() * 3);
+      for (let j = 0; j < k && b < beats - 0.1; j++) {
+        const [x, y] = at(b / beats);
+        s.events.push({ off: b, x: x / W, y: y / H, heading: Math.PI / 2, fixed: "bell", vel: 0.75 * Math.pow(0.72, j) * (0.85 + Math.random() * 0.3), ms: 0, flashAt: -1 });
+        b += 0.25 + Math.random() * 0.6;
+      }
+    }
+    s.events.sort((a, b) => a.off - b.off);
+    s.pack = "chimes"; s.temper = "drift"; s.trigger = "free"; s.dir = "fwd"; s.rhythm = "drawn";
   } else {
     const toy = TOYS[kind](m * (0.09 + Math.random() * 0.1), Math.random() < 0.5);
     const tr = new Tracer(stridePx(), 0, false);
@@ -2096,7 +2147,7 @@ const stridePx = (d = state.density) => Math.max(28, (DENSITY[d].stride * sheet.
  *  Loudness is kept from the nearest note you drew. Shakers and beats have
  *  fixed notes, and are left alone. */
 function retrace(lp, d = lp.density || state.density, scatter = 0.18) {
-  if (lp.events.some((e) => e.fixed)) { toast("This loop's notes are fixed (a shaker or a beat): nothing to re-space"); return false; }
+  if (lp.events.some((e) => e.fixed)) { toast("This loop's notes are fixed (a shaker, a beat or chimes): nothing to re-space"); return false; }
   const W = sheet.clientWidth, H = sheet.clientHeight, msPerBeat = 60000 / state.bpm;
   const vary = () => 1 + (Math.random() * 2 - 1) * scatter;
   const tr = new Tracer(stridePx(d) * vary(), 0, false, turnTrigger(d) * vary());
@@ -2195,7 +2246,7 @@ function extendStroke(s, x, y, ms, pressure = null) {
   const fire = (ev) => {
     if (!ctx) return;
     const fireB = snapUp(b), t = Math.max(ctx.currentTime, timeAt(fireB));
-    sound(voiceOf(s, ev), ev.x, ev.y, ev.vel, t, fireB); ev.flashAt = t;
+    sound(voiceOf(s, ev), ev.x, ev.y, ev.vel, t, fireB, undefined, "single", s.pack); ev.flashAt = t;
   };
   if (hit && hit.shake) {
     // Shake just recognised: the wiggles that led up to it were the shake,
@@ -2533,6 +2584,9 @@ function resize() {
   g2.setTransform(dpr, 0, 0, dpr, 0, 0);
 }
 window.addEventListener("resize", resize);
+// Safari can change the sheet's size with no resize event (leaving full
+// screen, its toolbars sliding in): watch the sheet itself too.
+if (window.ResizeObserver) new ResizeObserver(() => resize()).observe(sheet);
 resize();
 
 /** The grid. Horizontal: one line per pitch step, firmer at each period.
@@ -2661,7 +2715,14 @@ function frame() {
   const at = nowAudio(), b = nowBeat();
   const tNow = performance.now(), dt = Math.min(0.1, (tNow - lastFrame) / 1000);
   lastFrame = tNow;
-  g2.fillStyle = colors.paper; g2.fillRect(0, 0, W, H);
+  // Clear EVERY pixel of the buffer, whatever size it has. A buffer left
+  // larger than the sheet (a size change with no event) kept a strip at the
+  // bottom that was never cleared, and everything drawn there piled up into
+  // smears (iPad Safari, replaying a take, 2026-10-24). And if the sizes
+  // disagree, fix them now rather than wait for an event.
+  const dpr = Math.min(2, window.devicePixelRatio || 1);
+  if (sheet.width !== Math.round(W * dpr) || sheet.height !== Math.round(H * dpr)) resize();
+  g2.save(); g2.setTransform(1, 0, 0, 1, 0, 0); g2.fillStyle = colors.paper; g2.fillRect(0, 0, sheet.width, sheet.height); g2.restore();
   drawGrid(W, H);
 
   for (const lp of loops) {
@@ -2784,7 +2845,7 @@ function loopData(lp) {
     rhythm: lp.rhythm || "drawn", chord: lp.chord || "single", dir: lp.dir || "fwd", every: lp.every || 1,
     wait: lp.wait || 0, ph: r4(mod(lp.start, loopBeats(lp))),
     lineage: lp.lineage || null, generation: lp.generation || 0,
-    meets: lp.meets || "sound", density: lp.density || null,
+    meets: lp.meets || "sound", density: lp.density || null, pack: lp.pack || null,
   };
 }
 /** Plain data → a loop starting at beat `start` (not yet on the sheet). */
@@ -2798,7 +2859,7 @@ function buildLoop(d, start, fallbackRevoice = false) {
     revoice: d.revoice ?? fallbackRevoice, zone: d.zone || "any",
     rhythm: d.rhythm || "drawn", chord: d.chord || "single", dir: d.dir || "fwd", every: d.every || 1, wait: d.wait || 0,
     lineage: d.lineage || null, generation: d.generation || 0,
-    meets: d.meets || "sound", density: d.density || null,
+    meets: d.meets || "sound", density: d.density || null, pack: PACKS[d.pack] ? d.pack : null,
   });
   // Keep its place in the cycle (offsets survive saving): start mid-pass, sounding from `start` on.
   if (d.ph != null) { lp.start = start - mod(start - d.ph, loopBeats(lp)); lp.lastPass = Math.floor((start - lp.start) / loopBeats(lp)); }
@@ -2938,12 +2999,12 @@ function packScene(sc) {
       Math.max(0, RHYTHM_ORDER.indexOf(d.rhythm || "drawn")), Math.max(0, CHORD_ORDER.indexOf(d.chord || "single")),
       Math.max(0, DIR_ORDER.indexOf(d.dir || "fwd")), d.every || 1, d.wait || 0, d.ph == null ? -1 : qb(d.ph),
       d.generation || 0, d.lineage || 0,                  // appended last: older codes simply lack them
-      Math.max(0, MEET_ORDER.indexOf(d.meets || "sound")), d.density ? DENSITY_ORDER.indexOf(d.density) : -1];
+      Math.max(0, MEET_ORDER.indexOf(d.meets || "sound")), d.density ? DENSITY_ORDER.indexOf(d.density) : -1, d.pack ? PACK_ORDER.indexOf(d.pack) : -1];
   }) };
 }
 function unpackScene(pk) {
   if (!pk || pk.v !== 1 || !Array.isArray(pk.l)) throw new Error("not a Twirl scene");
-  return { settings: pk.st || {}, loops: pk.l.map(([lock, pen, L, ts, muted, temper, spinDir, cx, cy, tx, ty, rot, s, flat, ev, revoice, zone, gain, rhythm, chord, dir, every, wait, ph, generation, lineage, meets, density]) => {
+  return { settings: pk.st || {}, loops: pk.l.map(([lock, pen, L, ts, muted, temper, spinDir, cx, cy, tx, ty, rot, s, flat, ev, revoice, zone, gain, rhythm, chord, dir, every, wait, ph, generation, lineage, meets, density, pack]) => {
     const pts = []; let x = 0, y = 0, b = 0;
     for (let i = 0; i < flat.length; i += 3) { x += flat[i]; y += flat[i + 1]; b += flat[i + 2]; pts.push([x / QXY, y / QXY, b / QB]); }
     const events = [];
@@ -2954,7 +3015,7 @@ function unpackScene(pk) {
       rhythm: RHYTHM_ORDER[rhythm] || "drawn", chord: CHORD_ORDER[chord] || "single", dir: DIR_ORDER[dir] || "fwd", every: every || 1,
       wait: wait || 0, ph: ph === undefined || ph < 0 ? undefined : ph / QB,
       generation: generation || 0, lineage: lineage || null,
-      meets: MEET_ORDER[meets] || "sound", density: DENSITY_ORDER[density] || null };
+      meets: MEET_ORDER[meets] || "sound", density: DENSITY_ORDER[density] || null, pack: PACK_ORDER[pack] || null };
   }) };
 }
 
@@ -3141,7 +3202,7 @@ function keepToy(lp) {
   const turn = state.revoice ? totalRot(lp) : 0;   // keep the voices you were hearing
   addToy({
     trigger: lp.trigger, pen: lp.pen, L: lp.L, ts: lp.ts, muted: false, temper: lp.temper, spinDir: lp.spinDir, revoice: !!lp.revoice, zone: lp.zone || "any", gain: lp.gain ?? 1, rhythm: lp.rhythm || "drawn", chord: lp.chord || "single", dir: lp.dir || "fwd", every: lp.every || 1, wait: lp.wait || 0,
-    generation: lp.generation || 0, lineage: lp.lineage || null, meets: lp.meets || "sound", density: lp.density || null,
+    generation: lp.generation || 0, lineage: lp.lineage || null, meets: lp.meets || "sound", density: lp.density || null, pack: lp.pack || null,
     c: [0, 0], tx: 0, ty: 0, rot: 0, s: 1,
     pts: lp.pts.map((p, i) => [...rel(P[i]), r4(p.b)]),
     events: lp.events.map((e) => [e.off, ...rel(place(lp, e.x, e.y, W, H)), r4(e.heading + turn), e.fixed, r4(e.vel)]),
@@ -3168,7 +3229,7 @@ function dropSavedToy(t, where) {
   const cx = where ? where[0] : W * (0.25 + Math.random() * 0.5);
   const cy = where ? where[1] : H * (0.3 + Math.random() * 0.4);
   const s = newStroke(nextStart());
-  Object.assign(s, { trigger: normTrigger(t.trigger), pen: t.pen, temper: t.temper, spinDir: t.spinDir, revoice: t.revoice ?? s.revoice, zone: t.zone || "any", gain: t.gain ?? 1, rhythm: t.rhythm || "drawn", chord: t.chord || "single", dir: t.dir || "fwd", every: t.every || 1, generation: t.generation || 0, lineage: t.lineage || null, meets: t.meets || "sound", density: t.density || null });
+  Object.assign(s, { trigger: normTrigger(t.trigger), pen: t.pen, temper: t.temper, spinDir: t.spinDir, revoice: t.revoice ?? s.revoice, zone: t.zone || "any", gain: t.gain ?? 1, rhythm: t.rhythm || "drawn", chord: t.chord || "single", dir: t.dir || "fwd", every: t.every || 1, generation: t.generation || 0, lineage: t.lineage || null, meets: t.meets || "sound", density: t.density || null, pack: PACKS[t.pack] ? t.pack : null });
   s.pts = t.pts.map(([x, y, b]) => ({ x: (cx + x * m) / W, y: (cy + y * m) / H, b }));
   s.events = t.events.map(([off, x, y, heading, fixed, vel]) => ({ off, x: (cx + x * m) / W, y: (cy + y * m) / H, heading, fixed, vel, ms: 0, flashAt: -1 }));
   if (finishStroke(s, false)) s.ts = t.ts;
@@ -3774,6 +3835,7 @@ function syncInspector() {
     b.setAttribute("aria-pressed", String(v));
   }));
   $("inspPen").value = lp.pen || "auto";
+  $("inspPack").value = lp.pack || "";
   $("inspRevoice").setAttribute("aria-pressed", String(!!lp.revoice));
   $("inspRevoice").disabled = (lp.pen || "auto") !== "auto";
   $("inspMute").setAttribute("aria-pressed", String(lp.muted)); $("inspMute").textContent = lp.muted ? "Muted" : "Mute";
@@ -3828,6 +3890,7 @@ $("inspReroll").addEventListener("click", () => {
   if (insp && retrace(insp, insp.density || state.density)) { toast(`Notes spaced again · ${insp.events.length}`); syncInspector(); }
 });
 $("inspGain").addEventListener("input", (e) => { if (insp) insp.gain = Number(e.target.value); });
+$("inspPack").addEventListener("change", (e) => { if (insp) { insp.pack = e.target.value || null; toast(insp.pack ? `Loop ${loops.indexOf(insp) + 1} plays ${insp.pack} sounds, whatever the sheet's` : "Back to the sheet's sounds"); } });
 $("inspPen").addEventListener("change", (e) => { if (insp) { insp.pen = e.target.value; syncInspector(); } });
 $("inspRevoice").addEventListener("click", () => { if (insp) { insp.revoice = !insp.revoice; syncInspector(); } });
 $("inspMute").addEventListener("click", () => { if (insp) { insp.muted = !insp.muted; syncInspector(); renderLoopList(); } });
@@ -3862,6 +3925,28 @@ $("clear").addEventListener("click", () => {
   disarmClear(); endReplay();
   [...loops].forEach(eraseLoop); setDrawer(false);
   toast("Sheet cleared · saved scenes and My toys are untouched");
+});
+
+// Start over (init): the starting sheet and the default settings, two taps
+// like Clear. For 10 seconds after, the same button brings back what was
+// there (sheet and settings), so starting over is never a loss.
+let initTimer = null, undoInit = null;
+function initLabel(text, armed = false) { $("initBtn").textContent = text; $("initBtn").classList.toggle("armed", armed); }
+$("initBtn").addEventListener("click", () => {
+  if (undoInit) {                                                // "Bring it back"
+    clearTimeout(undoInit.timer); recall(undoInit.scene); undoInit = null; initLabel("Start over");
+    toast("Your sheet and settings are back"); return;
+  }
+  if (!initTimer) { initLabel("Start over?", true); initTimer = setTimeout(() => { initTimer = null; initLabel("Start over"); }, 3000); return; }
+  clearTimeout(initTimer); initTimer = null; endReplay();
+  const scene = serialize();
+  [...loops].forEach(eraseLoop);
+  const { volume, out, edit, ...defaults } = STATE_DEFAULTS;
+  applySettings(defaults);
+  startingSheet(); renderLoopList();
+  initLabel("Bring it back");
+  undoInit = { scene, timer: setTimeout(() => { undoInit = null; initLabel("Start over"); }, 10000) };
+  toast("Started over · Bring it back, in the controls, undoes it for 10 s");
 });
 
 // Share (section 12b): build the link, then copy it in the same tap that asks.
@@ -3974,15 +4059,47 @@ document.addEventListener("keydown", (e) => {
 const fsTarget = document.documentElement;
 const fsAllowed = () => !!(document.fullscreenEnabled || document.webkitFullscreenEnabled);
 const fsActive = () => !!(document.fullscreenElement || document.webkitFullscreenElement);
+// Pulling down could take the page out of full screen (iPad Safari, 2026-10-24):
+// a downward stroke near the top read as the system's "leave" gesture. Two
+// defences. Touches on the sheet are never handed to the browser (touchmove
+// is cancelled while in full screen, with overscroll off). And if full screen
+// still slips away while a finger is drawing (or just was), it comes back when
+// the finger lifts: lifting a finger is a user gesture, which re-entering
+// needs. Leaving on purpose (the button, F, Esc, the browser's own control
+// when you're not drawing) is respected.
+let fsWanted = false, fsLost = false, lastSheetTouch = -Infinity;
+const sheetPointers = new Set();
+function enterFullscreen(onFail = () => { fsWanted = false; toast("The browser said no to full screen"); }) {
+  try {
+    const r = (fsTarget.requestFullscreen || fsTarget.webkitRequestFullscreen).call(fsTarget);
+    if (r && r.catch) r.catch(onFail);
+  } catch (_) { onFail(); }
+}
 function toggleFullscreen() {
   if (!fsAllowed()) { toast("Full screen isn't available here"); return; }
+  fsWanted = !fsActive(); fsLost = false;
   try {
     const r = fsActive() ? (document.exitFullscreen || document.webkitExitFullscreen).call(document)
                          : (fsTarget.requestFullscreen || fsTarget.webkitRequestFullscreen).call(fsTarget);
     if (r && r.catch) r.catch(() => toast("The browser said no to full screen"));
   } catch (_) { toast("The browser said no to full screen"); }
 }
+document.addEventListener("pointerdown", (e) => { if (e.target === sheet) { sheetPointers.add(e.pointerId); lastSheetTouch = performance.now(); } }, true);
+document.addEventListener("pointermove", (e) => { if (sheetPointers.has(e.pointerId)) lastSheetTouch = performance.now(); }, true);
+for (const type of ["pointerup", "pointercancel"]) document.addEventListener(type, (e) => {
+  sheetPointers.delete(e.pointerId);
+  if (type === "pointerup" && fsLost && !sheetPointers.size && !fsActive() && fsAllowed()) { fsLost = false; enterFullscreen(); }
+}, true);
+document.addEventListener("touchmove", (e) => { if (fsActive() && e.target === sheet) e.preventDefault(); }, { passive: false });
 for (const ev of ["fullscreenchange", "webkitfullscreenchange"]) document.addEventListener(ev, () => {
+  if (fsActive()) fsWanted = true;
+  else if (fsWanted) {                                           // not left through Twirl: a pull-down, or the browser's own control?
+    if (sheetPointers.size) { fsLost = true; toast("Full screen comes back when you lift your finger"); }
+    else if (performance.now() - lastSheetTouch < 700) {        // the finger just lifted: its gesture may still count
+      enterFullscreen(() => { fsLost = true; toast("Tap the sheet to go back to full screen"); });
+    }
+    else fsWanted = false;
+  }
   $("fsBtn").setAttribute("aria-pressed", String(fsActive()));
   $("fsBtn").firstChild.textContent = fsActive() ? "Leave full screen " : "Full screen ";
   resize();
@@ -4135,6 +4252,15 @@ $("homeNote").hidden = ownAddress;
 // after a page loads, until the page is tapped (the hint says to tap).
 try { window.focus(); } catch (_) { /* fine */ }
 
+/** The examples on a first visit (and after Start over): chimes, a drop, a
+ *  shaker. Chimes replaced the spiral on 2026-10-24 (Alex: "not in love with
+ *  the default map… mostly the spiral"). */
+function startingSheet() {
+  const W = sheet.clientWidth, H = sheet.clientHeight;
+  dropToy("chimes", [W * 0.28, H * 0.45]);
+  dropToy("drop", [W * 0.7, H * 0.5]);
+  dropToy("shaker", [W * 0.52, H * 0.22]);
+}
 (async function boot() {
   const defaults = () => {
     const last = store.get(LAST_KEY);
@@ -4142,9 +4268,7 @@ try { window.focus(); } catch (_) { /* fine */ }
       $("hintSmall").textContent = "Your last sheet is back. Tap anywhere to start the sound.";
     } else {
       const W = sheet.clientWidth, H = sheet.clientHeight;
-      dropToy("spiral", [W * 0.3, H * 0.6]);
-      dropToy("drop", [W * 0.7, H * 0.5]);
-      dropToy("shaker", [W * 0.52, H * 0.22]);
+      startingSheet();
     }
   };
   // A shared sheet wins over your last one. A shared toy lands on top of it.
