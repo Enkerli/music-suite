@@ -237,15 +237,15 @@ const crossing = (page, a = {}, b = {}) => page.evaluate(([a, b]) => {
     const s = newStroke(nextStart() + 1);
     for (let i = 0; i <= 40; i++) { const u = i / 40; s.pts.push({ x: x0 + (x1 - x0) * u, y: y0 + (y1 - y0) * u, b: u * 1.9 }); }
     s.events.push({ off: 0, x: x0, y: y0, heading: 0, fixed: null, vel: 0.6, ms: 0, flashAt: -1 });
-    finishStroke(s, false); Object.assign(s, { temper: "still" }, extra);
+    finishStroke(s, false); Object.assign(s, { temper: "still", dir: "fwd", rhythm: "drawn", meets: "sound" }, extra);
     return s.uid;
   };
-  meetLog.length = 0;
+  meetLog.length = 0; touchLog.length = 0;
   return [line(0.3, 0.5, 0.7, 0.5, a), line(0.5, 0.3, 0.5, 0.7, b)];
 }, [a, b]);
 const waitBeats = (page, n) => page.waitForTimeout((n * 60 / 120) * 1000);
 
-describe.skipIf(!browser)("Twirl · meetings (playheads that meet)", () => {
+describe.skipIf(!browser)("Twirl · contacts (crossing a line, meeting a playhead)", () => {
   it("two playheads that reach the same place at the same time meet, and both sound", async () => {
     const { page, context, errors } = await openTwirl(browser);
     await crossing(page);
@@ -260,8 +260,9 @@ describe.skipIf(!browser)("Twirl · meetings (playheads that meet)", () => {
 
   it("a new loop meets with 'sound' by default; Meets: no, or Meet off, and nothing happens", async () => {
     const { page, context } = await openTwirl(browser);
+    await page.evaluate(() => { state.dice = false; });
     await drawStroke(page, { ms: 400 });
-    expect(await page.evaluate(() => loops.at(-1).meets)).toBe("sound");
+    expect(await page.evaluate(() => [loops.at(-1).meets, loops.at(-1).dir, loops.at(-1).rhythm])).toEqual(["sound", "fwd", "drawn"]);
     await crossing(page, { meets: "ignore" });
     await waitBeats(page, 5.2);
     expect(await page.evaluate(() => meetLog.length)).toBe(0);
@@ -269,6 +270,50 @@ describe.skipIf(!browser)("Twirl · meetings (playheads that meet)", () => {
     await page.evaluate(() => { state.meet = false; });
     await waitBeats(page, 5.2);
     expect(await page.evaluate(() => meetLog.length)).toBe(0);
+    await context.close();
+  });
+
+  it("a playhead crossing another loop's line sounds there; 'no' stays out of it", async () => {
+    const { page, context } = await openTwirl(browser);
+    const [a, b] = await crossing(page, {}, { meets: "ignore" });
+    await waitBeats(page, 5.2);
+    const log = await page.evaluate(() => touchLog.slice());
+    expect(log.some((t) => t.x === a && t.y === b)).toBe(true);
+    expect(log.some((t) => t.x === b)).toBe(false);
+    await context.close();
+  });
+
+  it("bump: the line it crosses is nudged along the playhead's way, and stays on the sheet", async () => {
+    const { page, context } = await openTwirl(browser);
+    const [, b] = await crossing(page, { meets: "bump" });
+    const tx0 = await page.evaluate((b) => loops.find((l) => l.uid === b).tx, b);
+    await waitBeats(page, 5.2);
+    const r = await page.evaluate((b) => { const B = loops.find((l) => l.uid === b); return { tx: B.tx, ty: B.ty, did: touchLog.map((t) => t.did), cx: B.c.x }; }, b);
+    expect(r.did).toContain("bump");
+    expect(r.tx).toBeGreaterThan(tx0);                                    // A runs left to right: B goes right
+    expect(Math.abs(r.ty)).toBeLessThan(0.01);
+    expect(r.cx + r.tx).toBeLessThanOrEqual(0.95);
+    await context.close();
+  });
+
+  it("Surprise: new loops' direction, rhythm and Meets are drawn at random, mostly the usual; toys keep their feel", async () => {
+    const { page, context } = await openTwirl(browser);
+    const r = await page.evaluate(() => {
+      state.dice = true;
+      const n = 600, tally = (f) => { const c = {}; for (let i = 0; i < n; i++) { const v = f(); c[v] = (c[v] || 0) + 1; } return c; };
+      const out = { dir: tally(pickDir), rhythm: tally(pickRhythm), meets: tally(pickMeets) };
+      loops.splice(0).forEach(fadeOut);
+      for (let i = 0; i < 6; i++) { dropToy("shaker", [100 + i * 30, 200]); dropToy("beat", [100 + i * 30, 400]); }
+      out.toys = [...new Set(loops.map((l) => l.dir + "/" + l.rhythm))];
+      state.dice = false; out.off = [pickDir(), pickRhythm(), pickMeets()];
+      return out;
+    });
+    expect(r.dir.fwd / 600).toBeGreaterThan(0.55);
+    expect(Object.keys(r.dir).sort()).toEqual(["fwd", "pingpong", "rev"]);
+    expect(Object.keys(r.rhythm).sort()).toEqual(["drawn", "euclid", "even"]);
+    expect(Object.keys(r.meets).sort()).toEqual(["breed", "bump", "sound", "trade"]);
+    expect(r.toys).toEqual(["fwd/drawn"]);
+    expect(r.off).toEqual(["fwd", "drawn", "sound"]);
     await context.close();
   });
 
@@ -309,12 +354,12 @@ describe.skipIf(!browser)("Twirl · meetings (playheads that meet)", () => {
   it("Meets and Notes travel in share codes; older codes meet with 'sound'", async () => {
     const { page, context } = await openTwirl(browser);
     const r = await page.evaluate(async () => {
-      loops[0].meets = "breed"; loops[1].meets = "ignore"; retrace(loops[0], "dense");
+      loops[0].meets = "breed"; loops[1].meets = "bump"; retrace(loops[0], "dense");
       const back = await decodeScene(await encodeScene(serialize()));
       const pk = packScene(serialize()); pk.l = pk.l.map((row) => row.slice(0, 24));
       return { meets: back.loops.map((d) => d.meets), dens: back.loops[0].density, old: unpackScene(pk).loops.map((d) => d.meets) };
     });
-    expect(r.meets.slice(0, 2)).toEqual(["breed", "ignore"]);
+    expect(r.meets.slice(0, 2)).toEqual(["breed", "bump"]);
     expect(r.dens).toBe("dense");
     expect(new Set(r.old)).toEqual(new Set(["sound"]));
     await context.close();

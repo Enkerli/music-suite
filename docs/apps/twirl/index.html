@@ -497,7 +497,8 @@ kbd {
       <option value="blip">Pen: blip</option><option value="shake">Pen: shaker</option>
     </select>
     <button class="btn" id="lockBtn" type="button" aria-pressed="false" data-level="2" title="Every loop (unless it opts out) is read on the beat grid, like DrawnQurve: a steady pulse, pitch snapped to the lines">Lock</button>
-    <button class="btn" id="meetBtn" type="button" aria-pressed="true" data-level="2" title="When two playheads meet, the loops answer: each loop's settings say how (Meets)">Meet</button>
+    <button class="btn" id="meetBtn" type="button" aria-pressed="true" data-level="2" title="When a playhead crosses a line, or two playheads meet, the loops answer: each loop's settings say how (Meets)">Meet</button>
+    <button class="btn" id="diceBtn" type="button" aria-pressed="true" data-level="2" title="New loops get a direction, a rhythm and a way of meeting at random (mostly the usual ones). Off: forward, as drawn, sound">Surprise</button>
     <button class="btn" id="morphBtn" type="button" aria-pressed="true" title="Loops move on their own; hold a loop to choose how">Morph</button>
     <button class="btn" id="editBtn" type="button" aria-pressed="false" title="Drag the square handles to bend a path; tap a path to add a note, tap a note to remove it; hold a loop to smooth it">Edit notes</button>
     <button class="btn" id="numBtn" type="button" aria-pressed="false" title="Show each loop's number on the sheet (keys 1–9 pick them; pressing one shows them)">Numbers</button>
@@ -631,7 +632,7 @@ kbd {
     <span class="seg" data-insp="density"><button class="btn" type="button" data-v="sparse" title="A note every couple of grid columns, and at sharp turns">few</button><button class="btn" type="button" data-v="medium">some</button><button class="btn" type="button" data-v="dense" title="A note under every grid column, and at gentle turns">many</button></span>
     <button class="btn" type="button" id="inspReroll" title="Space the notes again, a little differently each time">↻ again</button></div>
   <div class="insprow" data-level="2"><span class="lbl">Meets</span>
-    <span class="seg" data-insp="meets"><button class="btn" type="button" data-v="ignore" title="Passes other loops by">no</button><button class="btn" type="button" data-v="sound" title="Plays a note where it meets another loop">sound</button><button class="btn" type="button" data-v="trade" title="…and borrows one thing from it: voice, chords, rhythm or direction">trade</button><button class="btn" type="button" data-v="breed" title="…and has a child with it: a variation that borrows one thing from the other loop">breed</button></span></div>
+    <span class="seg" data-insp="meets"><button class="btn" type="button" data-v="ignore" title="Stays out of it: no notes, no nudges, no trades">no</button><button class="btn" type="button" data-v="sound" title="Plays a note when its playhead crosses another loop's line, or meets another playhead">sound</button><button class="btn" type="button" data-v="bump" title="…and nudges the lines it crosses out of the way">bump</button><button class="btn" type="button" data-v="trade" title="…and when two playheads meet, borrows one thing from the other loop: voice, chords, rhythm or direction">trade</button><button class="btn" type="button" data-v="breed" title="…and when two playheads meet, has a child with the other loop">breed</button></span></div>
   <div class="insprow" data-level="2"><span class="lbl">Voice</span>
     <select class="sel" id="inspPen" aria-label="This loop's voice">
       <option value="auto">by direction</option><option value="drum">drums</option><option value="pluck">pluck</option>
@@ -807,7 +808,8 @@ const state = {
   droneVol: 0.5, droneVoicing: "fifth",
   air: 0, arc: "off",                      // breathing room; tension & release (see harmonyAt)
   // Morph moves every loop on its own; with "reduce motion" set in the OS, it starts off (the Morph button turns it on).
-  meet: true,                              // playheads that meet answer each other (section 7b)
+  meet: true,                              // contacts: crossings and meetings (section 7b)
+  dice: true,                              // Surprise: new loops' direction, rhythm and Meets drawn at random
   lock: false, loop: true, morph: !matchMedia("(prefers-reduced-motion: reduce)").matches, revoice: false, walk: false, drone: false, edit: false,
   out: "sound",               // "sound" | "midi:<id>" | "both:<id>"
 };
@@ -1147,11 +1149,11 @@ function newStroke(start) {
   return {
     trigger: "sheet", pen: state.pen,      // timing: "sheet" follows Lock; "free" or "lock" decide for themselves
     gain: 1,                                // this loop's volume
-    rhythm: "drawn", chord: "single",       // see offsOf() and chordSteps()
-    dir: "fwd", every: 1,                   // forward / reverse / ping-pong; play 1 pass in `every`
+    rhythm: pickRhythm(), chord: "single",  // see offsOf() and chordSteps(); rhythm and direction may be a Surprise
+    dir: pickDir(), every: 1,               // forward / reverse / ping-pong; play 1 pass in `every`
     wait: 0,                                // drawn beats of rest after each pass
     uid: ++uidSeq,                          // stable identity (playflows refer to loops by it)
-    meets: "sound",                         // what this loop does when its playhead meets another's (MEET_ORDER)
+    meets: pickMeets(),                     // what it does when its playhead crosses a line or meets a playhead (MEET_ORDER)
     density: state.density,                 // how its notes were spaced (retrace() re-spaces them)
     pts: [], events: [], start, L: 1, ts: 1, cursor: start, lastPass: 0, muted: false,
     c: { x: 0.5, y: 0.5 },
@@ -1219,6 +1221,17 @@ const TEMPERS = {
 };
 const TEMPER_ORDER = ["still", "drift", "spin", "jitter"];
 const clampW = (v) => Math.min(0.2, Math.max(-0.2, v));
+/* Surprise (drawer, More; on by default): new loops get a direction, a rhythm
+ * and a way of meeting drawn at random, mostly the usual ones, the same way
+ * their temperament already is. Off: always forward, as drawn, sound. */
+function pickFrom(weights) {
+  let r = Math.random();
+  for (const [v, w] of weights) if ((r -= w) < 0) return v;
+  return weights[0][0];
+}
+const pickDir = () => (state.dice ? pickFrom([["fwd", 0.7], ["rev", 0.15], ["pingpong", 0.15]]) : "fwd");
+const pickRhythm = () => (state.dice ? pickFrom([["drawn", 0.7], ["even", 0.15], ["euclid", 0.15]]) : "drawn");
+const pickMeets = () => (state.dice ? pickFrom([["sound", 0.5], ["bump", 0.2], ["trade", 0.15], ["breed", 0.15]]) : "sound");
 function pickTemper() {
   const r = Math.random();
   return r < 0.45 ? "drift" : r < 0.7 ? "spin" : r < 0.85 ? "jitter" : "still";
@@ -1650,21 +1663,35 @@ function schedule() {
 }
 setInterval(schedule, 25);
 
-/* ── 7b. Meetings: when two playheads meet ───────────────────────────────── */
-// Playheads, not paths. Lines cross all the time; two PLAYHEADS meet only when
-// two loops are in the same place at the same moment, which you can hear, and
-// aim for by moving loops. Both loops take part unless one says Meets: no.
-// What a meeting does is each loop's own choice (its settings → Meets):
-//   sound — it plays a note where it is (two loops meeting: an interval)
-//   trade — …and borrows one thing from the other loop: its voice, chords,
-//           rhythm or direction, in turn (one per meeting, the next that differs)
-//   breed — …and has a child: a Mutation that also borrows one thing from the
-//           other loop. Never at the 14-loop cap (no loop is pushed out).
-// Cooldowns keep it musical, and finite: a pair meets at most once a beat; a
-// loop trades at most once every 2 bars, and breeds at most once every 8.
-// The drawer's Meet (More) turns all of it off. A replayed take only sounds
-// its meetings: what they changed is already in the take.
-const MEET_ORDER = ["ignore", "sound", "trade", "breed"];
+/* ── 7b. Contacts: crossing a line, meeting a playhead ─────────────────── */
+// Two kinds of contact, each loop answering in its own way (its settings → Meets):
+//
+//               | its playhead CROSSES another loop's line  | two PLAYHEADS MEET
+//   ------------+-------------------------------------------+-------------------------
+//   no          |  –                                        |  –
+//   sound       |  a note, where it crosses                 |  a note (two: an interval)
+//   bump        |  a note, and the line it crossed is       |  a note
+//               |  nudged away along the playhead's way     |
+//   trade       |  a note                                   |  a note, and it borrows one thing
+//               |                                           |  from the other loop (voice, chords,
+//               |                                           |  rhythm, direction, in turn)
+//   breed       |  a note                                   |  a note, and a child: a Mutation that
+//               |                                           |  borrows one thing from the other loop
+//
+// Crossings are frequent (lines are everywhere), so they carry the light
+// behaviours; playheads meeting is rarer (two loops in the same place at the
+// same moment), so it carries the ones that change the sheet. (Alex,
+// 2026-10-24, after trying playhead-only.) Both kinds are found by closest
+// approach between scheduler ticks, so a fast playhead can't slip past.
+// Cooldowns keep it musical, and finite: a loop crosses a given line at most
+// once a beat, a pair meets at most once a beat, a loop trades at most once
+// every 2 bars and breeds at most once every 8, never at the 14-loop cap.
+// The drawer's Meet (More) turns all of it off. A replayed take only sounds:
+// what bumps, trades and children changed is already in the take.
+const MEET_ORDER = ["ignore", "sound", "trade", "breed", "bump"];
+const TOUCH_R = 9, TOUCH_COOL = 1, BUMP = 0.035;
+const touchLast = new Map();     // "crosser>crossed" → beat of the last crossing
+const touchLog = [];             // the last few crossings: { b, x, y, did }
 const MEET_R = 26, MEET_COOL = 1, TRADE_COOL = 2 * BAR, BREED_COOL = 8 * BAR;
 const TRADES = ["pen", "chord", "rhythm", "dir"];
 const TRADE_NAMES = { pen: "its voice", chord: "its chords", rhythm: "its rhythm", dir: "its direction" };
@@ -1709,8 +1736,63 @@ function checkMeetings(nb, now, W, H) {
       const at = (p0, p1) => ({ x: p0.x + (p1.x - p0.x) * u, y: p0.y + (p1.y - p0.y) * u, heading: p1.heading });
       meet(A, at(a0, a1), B, at(b0, b1), nb, now, W, H);
     }
+    // Crossings: each live playhead's path since the last tick, against every
+    // other loop's line (muted lines too: they are still there to cross).
+    const lines = new Map();
+    const lineOf = (Y) => {
+      if (!lines.has(Y)) {
+        const P = Y.pts.map((q) => place(Y, q.x, q.y, W, H));
+        let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+        for (const [x, y] of P) { x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x); y1 = Math.max(y1, y); }
+        lines.set(Y, { P, box: [x0 - TOUCH_R, y0 - TOUCH_R, x1 + TOUCH_R, y1 + TOUCH_R] });
+      }
+      return lines.get(Y);
+    };
+    for (const [X, p1] of live) {
+      const p0 = jumped(meetPrev.get(X), p1) ? p1 : meetPrev.get(X);
+      for (const Y of loops) {
+        if (Y === X) continue;
+        const key = `${X.uid}>${Y.uid}`;
+        if (nb - (touchLast.get(key) ?? -Infinity) < TOUCH_COOL) continue;
+        const { P, box } = lineOf(Y);
+        if (Math.max(p0.x, p1.x) < box[0] || Math.min(p0.x, p1.x) > box[2] || Math.max(p0.y, p1.y) < box[1] || Math.min(p0.y, p1.y) > box[3]) continue;
+        let hit = null;
+        for (let j = 0; j < P.length - 1 && !hit; j++) if (segDist(p0, p1, P[j], P[j + 1]) <= TOUCH_R) hit = P[j];
+        if (!hit) continue;
+        touchLast.set(key, nb);
+        touch(X, p1, Y, hit, nb, now, W, H);
+      }
+    }
   }
   meetPrev = cur;
+}
+/** Shortest distance between segment a0–a1 (points {x, y}) and segment b0–b1 ([x, y]); 0 if they cross. */
+function segDist(a0, a1, b0, b1) {
+  const [bx0, by0] = b0, [bx1, by1] = b1;
+  const cross = (ax, ay, bx, by, cx, cy) => (bx - ax) * (cy - ay) - (by - ay) * (cx - ax);
+  const d1 = cross(a0.x, a0.y, a1.x, a1.y, bx0, by0), d2 = cross(a0.x, a0.y, a1.x, a1.y, bx1, by1);
+  const d3 = cross(bx0, by0, bx1, by1, a0.x, a0.y), d4 = cross(bx0, by0, bx1, by1, a1.x, a1.y);
+  if (d1 * d2 < 0 && d3 * d4 < 0) return 0;
+  const pt = (px, py, ax, ay, bx, by) => {
+    const vx = bx - ax, vy = by - ay, vv = vx * vx + vy * vy, u = vv > 1e-9 ? Math.min(1, Math.max(0, ((px - ax) * vx + (py - ay) * vy) / vv)) : 0;
+    return Math.hypot(ax + vx * u - px, ay + vy * u - py);
+  };
+  return Math.min(pt(a0.x, a0.y, bx0, by0, bx1, by1), pt(a1.x, a1.y, bx0, by0, bx1, by1), pt(bx0, by0, a0.x, a0.y, a1.x, a1.y), pt(bx1, by1, a0.x, a0.y, a1.x, a1.y));
+}
+/** X's playhead (at p) crossed Y's line (at q): X plays there, and a bumper nudges Y. */
+function touch(X, p, Y, q, nb, now, W, H) {
+  const beat = snapUp(nb), t = Math.max(now, timeAt(beat));
+  sound(voiceFor(X, null, p.heading), q[0] / W, q[1] / H, 0.55 * (X.gain ?? 1), t, beat, undefined, X.chord);
+  let did = null;
+  if (X.meets === "bump" && !replay && !Y.held) {               // never pull a loop out from under a finger
+    const h = p.heading + totalRot(X);                          // the playhead's way, on screen
+    Y.push = { x: (Y.push?.x || 0) + Math.cos(h) * BUMP, y: (Y.push?.y || 0) - Math.sin(h) * BUMP };
+    did = "bump";
+  }
+  meetFlashes.push({ x: q[0], y: q[1], t, small: true });
+  if (meetFlashes.length > 40) meetFlashes.shift();
+  touchLog.push({ b: nb, x: X.uid, y: Y.uid, did });
+  if (touchLog.length > 50) touchLog.shift();
 }
 function borrow(X, Y) {
   for (let k = 0; k < TRADES.length; k++) {
@@ -1871,7 +1953,7 @@ function dropToy(kind, where) {
         vel: feel[k % feel.length] * (0.85 + Math.random() * 0.15), ms: 0, flashAt: -1 });
     }
     s.pts.push({ x: (cx - amp) / W, y: cy / H, b: beats - 0.01 });
-    s.temper = "jitter"; s.trigger = "free";
+    s.temper = "jitter"; s.trigger = "free"; s.dir = "fwd"; s.rhythm = "drawn";
   } else if (kind === "beat") {
     // A drum pattern drawn as a staircase over heights (kick low, snare
     // middle, hat high), with every note fixed to drums.
@@ -1885,7 +1967,7 @@ function dropToy(kind, where) {
         vel: ch === "h" ? 0.55 : 0.9, ms: 0, flashAt: -1 });
     });
     s.pts.push({ x: (cx + 4 * w) / W, y: s.pts[s.pts.length - 1].y, b: 3.99 });
-    s.temper = "still"; s.trigger = "free";
+    s.temper = "still"; s.trigger = "free"; s.dir = "fwd"; s.rhythm = "drawn";
   } else {
     const toy = TOYS[kind](m * (0.09 + Math.random() * 0.1), Math.random() < 0.5);
     const tr = new Tracer(stridePx(), 0, false);
@@ -2042,7 +2124,14 @@ function endStroke(id) {
   if (!s) return;
   const isTap = !s.moved && performance.now() - s.downAt < 300;
   if (s.tracer.shaking || s.events.some((e) => e.fixed === "shake")) s.temper = "jitter";
-  if (!(state.loop && !isTap && finishStroke(s)) && s.pts.length > 1) fadeOut(s);
+  if (s.events.some((e) => e.fixed === "shake")) { s.dir = "fwd"; s.rhythm = "drawn"; }   // a shake keeps its feel
+  const kept = state.loop && !isTap && finishStroke(s);
+  if (!kept && s.pts.length > 1) fadeOut(s);
+  if (kept) {                                                    // a Surprise is announced, so it's never a mystery
+    const odd = [{ rev: "plays in reverse", pingpong: "plays ping-pong" }[s.dir], { even: "evenly spaced", euclid: "a Euclidean rhythm" }[s.rhythm],
+      { bump: "bumps the lines it crosses", trade: "trades when it meets", breed: "breeds when it meets", ignore: "passes others by" }[s.meets]].filter(Boolean);
+    if (odd.length) toast(`Loop ${loops.indexOf(s) + 1}: ${odd.join(" · ")} · hold it to change`);
+  }
 }
 
 // Handling loops ---------------------------------------------------------------
@@ -2476,6 +2565,13 @@ function frame() {
 
   for (const lp of loops) {
     easeMorph(lp, dt);
+    if (lp.push) {                                                // bumped: glide away, ease to a stop, stay on the sheet
+      const k = Math.min(1, dt * 4);
+      lp.tx += lp.push.x * k; lp.ty += lp.push.y * k;
+      lp.push.x *= 1 - k; lp.push.y *= 1 - k;
+      lp.tx = Math.min(0.95 - lp.c.x, Math.max(0.05 - lp.c.x, lp.tx)); lp.ty = Math.min(0.92 - lp.c.y, Math.max(0.08 - lp.c.y, lp.ty));
+      if (Math.hypot(lp.push.x, lp.push.y) < 1e-4) delete lp.push;
+    }
     const sel = lp === selected;
     strokePath(lp, W, H, lp.muted ? 0.25 : lp.held || sel ? 0.9 : 0.55, lp.held || sel ? 3 : 2, lp.muted, sel ? colors.accent : colors.ink);
     drawBeatTicks(lp, W, H, lp.muted ? 0.25 : 0.7);
@@ -2540,7 +2636,7 @@ function frame() {
   for (const f of meetFlashes) {
     const since = at - f.t; if (since < 0) continue;
     g2.save(); g2.strokeStyle = colors.accent; g2.lineWidth = 2; g2.globalAlpha = 1 - since / 0.5;
-    g2.beginPath(); g2.arc(f.x, f.y, reduceMotion ? 14 : 8 + since * 40, 0, 7); g2.stroke(); g2.restore();
+    g2.beginPath(); g2.arc(f.x, f.y, f.small ? (reduceMotion ? 6 : 4 + since * 16) : reduceMotion ? 14 : 8 + since * 40, 0, 7); g2.stroke(); g2.restore();
   }
   fires = fires.filter((f) => at - f.t < 0.25);
   for (const f of fires) { const since = at - f.t; if (since >= 0) glyph(f.voice, f.x, f.y, reduceMotion ? 5 : 9 - since * 20, 1); }
@@ -2567,10 +2663,10 @@ const store = {
 };
 
 function serialize() {
-  const { bpm, volume, grid, tuning, root, range, div, pen, lock, loop, morph, revoice, walk, drone, pack, density, swing, droneVol, droneVoicing, air, arc, meet } = state;
+  const { bpm, volume, grid, tuning, root, range, div, pen, lock, loop, morph, revoice, walk, drone, pack, density, swing, droneVol, droneVoicing, air, arc, meet, dice } = state;
   return {
     v: 3, at: Date.now(),
-    settings: { bpm, volume, grid, tuning, root, range, div, pen, lock, loop, morph, revoice, walk, drone, pack, density, swing, droneVol, droneVoicing, air, arc, meet },
+    settings: { bpm, volume, grid, tuning, root, range, div, pen, lock, loop, morph, revoice, walk, drone, pack, density, swing, droneVol, droneVoicing, air, arc, meet, dice },
     loops: loops.map(loopData),
   };
 }
@@ -2616,7 +2712,7 @@ function applySettings(st) {
   $("swing").value = String(state.swing || 0); $("air").value = String(state.air || 0); $("arc").value = state.arc || "off"; $("droneVol").value = String(state.droneVol ?? 0.5); $("droneVoicing").value = state.droneVoicing || "fifth";
   if (typeof syncPen === "function") syncPen();
   for (const id of ["grid", "tuning", "root", "range", "div", "pen", "pack", "density"]) $(id).value = String(state[id]);
-  for (const [id, key] of [["lockBtn", "lock"], ["loopBtn", "loop"], ["morphBtn", "morph"], ["meetBtn", "meet"], ["revoiceBtn", "revoice"], ["walkBtn", "walk"], ["droneBtn", "drone"]])
+  for (const [id, key] of [["lockBtn", "lock"], ["loopBtn", "loop"], ["morphBtn", "morph"], ["meetBtn", "meet"], ["diceBtn", "dice"], ["revoiceBtn", "revoice"], ["walkBtn", "walk"], ["droneBtn", "drone"]])
     $(id).setAttribute("aria-pressed", String(state[key]));
   syncTuningPicker();
   if (ctx) { setDrone(state.drone); updateDrone(nowBeat(), true); if (delayLine) delayLine.delayTime.setTargetAtTime(0.75 / bps(), ctx.currentTime, 0.05); }
@@ -3077,7 +3173,8 @@ function toggle(id, key, after) {
 }
 toggle("lockBtn", "lock", (on) => { loops.forEach((lp) => (lp.lastBand = null)); toast(on ? "Lock: loops are read on the beat grid: a steady pulse, pitch snapped to the lines" : "Free: loops play as drawn, snapped to the division"); });
 toggle("loopBtn", "loop");
-toggle("meetBtn", "meet", (on) => toast(on ? "Meet: when two playheads meet, the loops answer" : "Meet off: loops pass each other by"));
+toggle("meetBtn", "meet", (on) => toast(on ? "Meet: loops answer when a playhead crosses a line or meets another" : "Meet off: loops pass each other by"));
+toggle("diceBtn", "dice", (on) => toast(on ? "Surprise: new loops may play backwards, evenly, or meet in other ways" : "Surprise off: new loops play forward, as drawn, and sound when they meet"));
 toggle("morphBtn", "morph", (on) => { if (!on) loops.forEach((lp) => (lp.mt = { ...lp.m })); });   // off = freeze where they are
 $("morphBtn").setAttribute("aria-pressed", String(state.morph));   // may start off (reduced motion)
 toggle("revoiceBtn", "revoice");
