@@ -72,6 +72,7 @@ more features. Evolving-patch v1 is small enough to build alongside.
 | 4 | **Terrain** (workshop first) | 4/5 | 4/5 | Movement as development; wants the evolving patch's legibility rules first |
 | 5 | **Hands-on tools**: lasso, silent zone | 3/5 | 3/5 | Steering a busy, evolving sheet |
 | 6 | **Plugin and standalone** | 4/5 | 4/5 | A parallel track (Linux first), not blocked by any of the above |
+| 6b | **Workspace, MIDI in, design pass** | 3/5 | 4/5 | Twirl among the Suite's modules; controllers for performance; one look |
 | 7 | Later: pitch geometries, performance animation, generative accompaniment | 4–5/5 | 4/5 | Still wanted; each is a project of its own |
 
 Personalities (old #4) are folded into the evolving patch's *influence*:
@@ -457,6 +458,52 @@ always the suite's own conventions (match `packages/upi/vectors` and
 `packages/theory/vectors`, or import the packages once Twirl has a build);
 and every readout labels its convention (leftmost = LSB), because the
 reversed reading is a different real thing (2741 vs 2773).
+
+## MIDI in, for control (Alex, 2026-10-24)
+
+"MIDI input for controls. Select a loop by notes (1–14, perhaps organized
+differently to make things easier to find). Use CC to change parameters.
+Some controls can be grouped by family or all loops on a sheet. Some global
+controls."
+
+- **Notes select loops.** Fourteen notes, laid out so they're easy to find
+  on a keyboard: e.g. the white keys from C3 (C = loop 1 … B = 7, then the
+  next octave for 8–14), with the black keys as *families* (C♯ = the first
+  loop's whole family…). One octave lower: **all loops** and the sheet. The
+  layout is one table, shown under Keyboard shortcuts, and can be learned
+  (below).
+- **CCs change the selected target**: volume, speed (snapping to ratios),
+  notes (few/some/many), chord, direction, Meets; on a family or on all
+  loops, the same CC moves them together (relative, so they keep their
+  differences).
+- **Global CCs**: tempo, swing, Air, Arc, drone level, Morph, Lock, Vary,
+  Surprise; transport on notes or MMC (play/pause, Rec).
+- **MIDI learn** at Everything: touch a control, move a knob. Mappings saved
+  per device, like settings.
+- Same rules as the keyboard: everything a controller does is also one tap
+  or one key away, and toasts say what changed. Web MIDI input works in
+  Chromium (Linux first, as for output); on iPad it waits for the plugin.
+
+## A design pass, and Twirl in Workspace (Alex, 2026-10-24)
+
+- **Design pass** with the design agent, aligning Twirl with the rest of
+  the Suite: tokens and type from `packages/ui` (Twirl already shares its
+  theme key, `enkerli.theme`), the drawer and panels as the Suite's
+  components, iconography, and the guide's screenshots refreshed after.
+  Twirl keeps its paper and hand-drawn feel where it's the point (the
+  sheet), and matches the Suite everywhere else (controls, dialogs).
+- **Twirl in [Workspace](https://enkerli.github.io/music-suite/apps/workspace/).**
+  Workspace is modules on one SuiteBus (`@enkerli/protocol` messages,
+  bridged across tabs by BroadcastChannel). Twirl joins it the same way:
+  - as a module (a tile hosting the sheet) or as its own tab on the bus;
+  - **out**: its notes as note events (the same seam as `sendMidi`), and
+    on request a loop's rhythm (UPI) or the grid (PCS), so Serpe, PickPCS
+    or GloriArp can pick them up;
+  - **in**: tempo and transport from the bus, scale and grid from PickPCS
+    or PitchFold, and the MIDI-in control map above, as bus commands;
+  - one clock: Twirl follows Workspace's tempo when it's on the bus.
+  This is also the step where Twirl joins `APPS` in `@enkerli/library`
+  (the notations brainstorm above needs it too).
 
 ## The plugin and standalone path
 

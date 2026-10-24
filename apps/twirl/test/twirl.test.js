@@ -250,7 +250,7 @@ describe.skipIf(!browser)("Twirl · contacts (crossing a line, meeting a playhea
     const { page, context, errors } = await openTwirl(browser);
     await crossing(page);
     await listen(page);
-    await waitBeats(page, 5.2);
+    await page.waitForFunction(() => meetLog.length > 0, null, { timeout: 20_000 });
     const log = await page.evaluate(() => meetLog.slice());
     expect(log.length).toBeGreaterThanOrEqual(1);
     expect((await heard(page)).length).toBeGreaterThanOrEqual(2);         // one note from each loop
@@ -278,7 +278,8 @@ describe.skipIf(!browser)("Twirl · contacts (crossing a line, meeting a playhea
   it("a playhead crossing another loop's line sounds there; 'no' stays out of it", async () => {
     const { page, context } = await openTwirl(browser);
     const [a, b] = await crossing(page, {}, { meets: "ignore" });
-    await waitBeats(page, 5.2);
+    await page.waitForFunction(([a, b]) => touchLog.some((t) => t.x === a && t.y === b), [a, b], { timeout: 20_000 });
+    await waitBeats(page, 2);                                              // and a little more, for B to (not) answer
     const log = await page.evaluate(() => touchLog.slice());
     expect(log.some((t) => t.x === a && t.y === b)).toBe(true);
     expect(log.some((t) => t.x === b)).toBe(false);
@@ -289,7 +290,8 @@ describe.skipIf(!browser)("Twirl · contacts (crossing a line, meeting a playhea
     const { page, context } = await openTwirl(browser);
     const [, b] = await crossing(page, { meets: "bump" });
     const tx0 = await page.evaluate((b) => loops.find((l) => l.uid === b).tx, b);
-    await waitBeats(page, 5.2);
+    await page.waitForFunction(() => touchLog.some((t) => t.did === "bump"), null, { timeout: 20_000 });
+    await waitBeats(page, 1);                                              // let the push ease out
     const r = await page.evaluate((b) => { const B = loops.find((l) => l.uid === b); return { tx: B.tx, ty: B.ty, did: touchLog.map((t) => t.did), cx: B.c.x }; }, b);
     expect(r.did).toContain("bump");
     expect(r.tx).toBeGreaterThan(tx0);                                    // A runs left to right: B goes right
@@ -383,7 +385,7 @@ describe.skipIf(!browser)("Twirl · contacts (crossing a line, meeting a playhea
   it("trade: a loop borrows one thing it doesn't share from the loop it meets", async () => {
     const { page, context } = await openTwirl(browser);
     const [, b] = await crossing(page, { chord: "triad" }, { meets: "trade", chord: "single" });
-    await waitBeats(page, 5.2);
+    await page.waitForFunction((b) => loops.find((l) => l.uid === b).chord === "triad", b, { timeout: 20_000 });   // the event, not a fixed time: CI runs slow
     const r = await page.evaluate((b) => { const B = loops.find((l) => l.uid === b); return [B.chord, meetLog.flatMap((m) => m.did)]; }, b);
     expect(r[0]).toBe("triad");
     expect(r[1].join(" ")).toMatch(/took its chords/);
@@ -393,7 +395,7 @@ describe.skipIf(!browser)("Twirl · contacts (crossing a line, meeting a playhea
   it("breed: a meeting has one child (a mutation of the breeder), then waits before another", async () => {
     const { page, context } = await openTwirl(browser);
     const [a] = await crossing(page, { meets: "breed" });
-    await waitBeats(page, 5.2);
+    await page.waitForFunction(() => loops.length === 3, null, { timeout: 20_000 });
     const one = await page.evaluate((a) => ({ n: loops.length, child: loops.at(-1).generation, lineage: loops.at(-1).lineage, a }), a);
     expect(one.n).toBe(3);
     expect(one.child).toBe(1);
@@ -408,7 +410,8 @@ describe.skipIf(!browser)("Twirl · contacts (crossing a line, meeting a playhea
     await crossing(page, { meets: "breed" });
     await page.evaluate(() => { while (loops.length < MAX_LOOPS) dropToy("ring", [60, 60]); loops.slice(2).forEach((l) => (l.meets = "ignore")); });
     const before = await page.evaluate(() => loops.map((l) => l.uid).join());
-    await waitBeats(page, 5.2);
+    // The rule under test is the cap, not the detection (tested above): meet directly.
+    await page.evaluate(() => { const W = sheet.clientWidth, H = sheet.clientHeight, p = { x: W / 2, y: H / 2, heading: 0 }; meet(loops[0], p, loops[1], p, nowBeat(), ctx.currentTime, W, H); });
     expect(await page.evaluate(() => [loops.length, meetLog.length > 0])).toEqual([14, true]);
     expect(await page.evaluate(() => loops.map((l) => l.uid).join())).toBe(before);
     await context.close();
