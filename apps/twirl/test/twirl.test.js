@@ -233,8 +233,11 @@ describe.skipIf(!browser)("Twirl · the suite's shared contracts", () => {
 const crossing = (page, a = {}, b = {}) => page.evaluate(([a, b]) => {
   ensureAudio(); state.morph = false; state.bpm = 120;
   loops.splice(0).forEach(fadeOut);
+  // ONE start for both: asked separately, a beat boundary between the two calls
+  // started them a beat apart, half a pass out of phase, and they never met (CI).
+  const st = nextStart() + 1;
   const line = (x0, y0, x1, y1, extra) => {
-    const s = newStroke(nextStart() + 1);
+    const s = newStroke(st);
     for (let i = 0; i <= 40; i++) { const u = i / 40; s.pts.push({ x: x0 + (x1 - x0) * u, y: y0 + (y1 - y0) * u, b: u * 1.9 }); }
     s.events.push({ off: 0, x: x0, y: y0, heading: 0, fixed: null, vel: 0.6, ms: 0, flashAt: -1 });
     finishStroke(s, false); Object.assign(s, { temper: "still", dir: "fwd", rhythm: "drawn", meets: "sound" }, extra);
