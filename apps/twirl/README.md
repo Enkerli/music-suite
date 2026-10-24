@@ -43,8 +43,10 @@ direction, rhythm and Meets (never breed), mostly the usual ones; children
 never inherit breeding. **Vary** gives each note a little loudness, timing,
 tuning and colour (`varied`, `nuance`), like a sampler's round-robin. A loop
 can play another pack's sounds (`lp.pack`), so a toy can bring its own
-(Chimes). **Life** (section 6b) lets a loop swell, fade or be brief, pass
-by pass (`lifeState`, `lifePlays`, `ageLoop`). **Start over** resets to
+(Chimes). **Life** (section 6b) lets a loop bloom (extra notes, `bloomNotes`),
+swell (louder and back), fade or be brief, pass by pass (`lifeState`,
+`lifePlays`, `ageLoop`). A fresh sheet has its own key and tempo
+(`freshKey`). **Start over** resets to
 `STATE_DEFAULTS`, the Simple level and `startingSheet()`. Takes save as WAV
 (`encodeWav`). The
 comment block at the top of the script maps each rule to the one place it
@@ -118,8 +120,10 @@ What they hold in place:
 - **Vary and pause.** Varied notes stay within their small ranges, MIDI
   notes stay whole; Vary off repeats exactly. Pause fades out, then
   suspends; Play fades back in.
-- **Life.** A swell goes from its strongest notes (the downbeat always) to
-  all of them and back, without changing its drawn notes; fade gets quieter
+- **Life.** A bloom adds notes beyond the drawn ones and takes them away
+  again, strongest first, never changing the drawn ones; a swell gets louder
+  and back; brief starts from its strongest notes (the downbeat always);
+  Surprise gives lives only on a busy sheet, brief most often; fade gets quieter
   each pass and leaves into undo after 16; Evolve off, muted and held loops
   don't age; life and age travel in codes; a child starts at age 0.
 - **Start over and chimes.** Start over is a first visit (Simple level, no

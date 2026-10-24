@@ -111,6 +111,17 @@ it is ("filling in · pass 5 of 16 · 60% of its notes"); `life` and `age`
 travel in codes; a child starts its own life at age 0. Tests: *Twirl ·
 Life*.
 
+**Life v1.1 (same evening).** Alex: "Brief is fine and could be
+semi-frequent in new loops. Swell sounds like it should be about increasing
+in volume, which is separate from this relative densification (which should
+probably go over the initial density)." So: **bloom** (new) adds notes
+*beyond* the drawn ones, traced from the same path at a finer stride,
+strongest first, and takes them away again; **swell** is now loudness
+(soft → full → soft); **brief** unchanged. `LIFE_ORDER` index 1 (v1's
+thinning swell) reads as bloom, the nearest behaviour. **Surprise** hands out
+lives once the sheet has four loops or more (brief .2, bloom .04, swell .04,
+otherwise steady), never on a quiet sheet, so a first stroke always stays.
+
 **v1, as proposed:**
 1. **Life** (a loop setting): *steady* (as now) · *swell* (its notes fill
    in over N passes, then thin out again, using `retrace` toward many and
@@ -277,6 +288,16 @@ a while." Both:
 - **Surprise never gives breed or infect** (sound .55, bump .25, trade .2);
 - the wait between children doubles: **16 bars**.
 
+**At the 14-loop cap** (Alex, 2026-10-24: breeding "can still happen when
+we reach the limit, and it replaces previous loops"). By design, breeding
+and contacts never remove a loop: `breedWith` and `mutateLoop({quiet})`
+stop at 14. What does take the oldest loop at the cap is drawing a stroke,
+dropping a toy, pressing Mutate, and a take's replay adding loops, which may
+be what showed up. Worth deciding on purpose: should breeding at the cap
+replace the oldest loop (or the oldest of its own family, or a faded one),
+so a sheet at the cap keeps evolving? That fits the evolving patch, with
+Life's undo as the safety net.
+
 ### Next
 
 - **Distribute more** the same way, as Alex suggested: timing (Lock /
@@ -311,6 +332,26 @@ timing, whole notes. Drawer → Vary (More), on by default. Next:
 - feed `nuance` from pressure and, later, terrain, as one per-note input;
 - true sampled round-robin, if a sample pack ever arrives.
 
+**Longer, sustained sounds** (Alex, 2026-10-24): "Except for the drone,
+all sounds are short, though some resonate a bit longer. Longer sounds,
+legato passages, pads… those could be fun as well. Though they might
+require a bit of forethought in terms of not triggering too quickly."
+- **What to add:** a sustained voice per pack (a bowed or blown sound, a
+  pad, a held organ tone), and **legato**: one loop played as a line whose
+  pitch glides from note to note instead of restriking.
+- **The forethought:** a sustained voice can't restrike at every note of a
+  busy loop, or it turns to mush. Options: a note holds until the loop's
+  next note (monophonic per loop, retriggered only when the pitch changes,
+  as Lock already "holds" a repeated band); a minimum length per note
+  (an eighth, a beat) that merges anything faster into the held note; and a
+  voice budget per sheet (the oldest held note lets go).
+- **How it's chosen:** a direction (a fifth heading?) or the Pen; a loop's
+  Voice; a toy that brings it (a "bow" stroke, a pad toy). Pressure (or
+  speed) could set the swell inside a held note, which ties in with Vary's
+  nuance and the Pencil.
+- **MIDI:** note-on/off with real lengths, and pitch bend for legato glides
+  (per-loop channels, or MPE).
+
 **Sounds across banks (shipped 2026-10-24).** Alex: "toys could come with
 their own sounds… across banks. As much as I love the simplicity of the 5
 voices per bank, bringing sounds over could add an element of variety."
@@ -320,7 +361,14 @@ toy can bring its own. The first is **Chimes** (Alex: "bells remind me of
 windchimes"): a new pack (free-bar partials 1 : 2.76 : 5.40 : 8.93, long
 shimmering tails), and a Toybox toy whose clapper sways over a long, odd
 cycle (11, 13 or 15 beats), striking in gusts off the grid. It replaced the
-spiral on the starting sheet. Next: more toys with their own sounds (a music
+spiral on the starting sheet; redrawn the same evening as a bar with five
+tubes of graded lengths, struck at their ends (longer is lower, five
+distinct notes). **Chimes that behave like chimes** (Alex): today the path
+walks along the bar and down and up each tube; real chimes are struck by a
+clapper the wind swings, and hit one another now and then. A later version
+could model that: a clapper that sways (Morph-like), striking whichever tube
+it reaches, tubes that touch and ring each other (lines touching, already a
+contact), and the wind's gusts as the only clock. Next: more toys with their own sounds (a music
 box, a gong, a rain stick, a thumb piano run), each one a small,
 recognizable instrument, and per-pack nuance.
 

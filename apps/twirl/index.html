@@ -640,7 +640,7 @@ kbd {
   <div class="insprow" data-level="2"><span class="lbl">Meets</span>
     <span class="seg" data-insp="meets"><button class="btn" type="button" data-v="ignore" title="Stays out of it: no notes, no nudges, no trades">no</button><button class="btn" type="button" data-v="sound" title="Plays a note when its playhead crosses another loop's line, or meets another playhead">sound</button><button class="btn" type="button" data-v="bump" title="…and nudges the lines it crosses, or touches, out of the way">bump</button><button class="btn" type="button" data-v="trade" title="…and when its line touches another, or two playheads meet, borrows one thing from the other loop: voice, chords, rhythm or direction">trade</button><button class="btn" type="button" data-v="breed" title="…and when two playheads meet, has a child with the other loop">breed</button><button class="btn" type="button" data-v="infect" title="Infectious: has a child at any contact (a crossing, lines touching, playheads meeting), at most once every 16 bars">infect</button></span></div>
   <div class="insprow" data-level="2"><span class="lbl">Life</span>
-    <span class="seg" data-insp="life"><button class="btn" type="button" data-v="steady" title="As drawn, for good">steady</button><button class="btn" type="button" data-v="swell" title="Breathes: from its strongest notes to all of them and back, over 16 passes, again and again">swell</button><button class="btn" type="button" data-v="fade" title="A little quieter each pass, gone after 16 (⌘Z brings it back)">fade</button><button class="btn" type="button" data-v="brief" title="Fills in over 8 passes, fades over 8, then it's gone (⌘Z brings it back)">brief</button></span>
+    <span class="seg" data-insp="life"><button class="btn" type="button" data-v="steady" title="As drawn, for good">steady</button><button class="btn" type="button" data-v="bloom" title="Denser and back: notes beyond the ones you drew come in over 8 passes and leave over 8, again and again">bloom</button><button class="btn" type="button" data-v="swell" title="Louder and back: from soft to full over 8 passes, and back, again and again">swell</button><button class="btn" type="button" data-v="fade" title="A little quieter each pass, gone after 16 (⌘Z brings it back)">fade</button><button class="btn" type="button" data-v="brief" title="Fills in over 8 passes, fades over 8, then it's gone (⌘Z brings it back)">brief</button></span>
     <small class="inspval" id="inspLife" aria-live="polite"></small></div>
   <div class="insprow" data-level="2"><span class="lbl">Voice</span>
     <select class="sel" id="inspPen" aria-label="This loop's voice">
@@ -1194,7 +1194,7 @@ function newStroke(start) {
     wait: 0,                                // drawn beats of rest after each pass
     uid: ++uidSeq,                          // stable identity (playflows refer to loops by it)
     meets: pickMeets(),                     // what it does when its playhead crosses a line or meets a playhead (MEET_ORDER)
-    life: "steady", age: 0,                 // Life (section 6b): steady / swell / fade / brief, and passes lived
+    life: pickLife(), age: 0,               // Life (section 6b), sometimes a Surprise once the sheet is busy; and passes lived
     density: state.density,                 // how its notes were spaced (retrace() re-spaces them)
     pts: [], events: [], start, L: 1, ts: 1, cursor: start, lastPass: 0, muted: false,
     c: { x: 0.5, y: 0.5 },
@@ -1273,6 +1273,9 @@ function pickFrom(weights) {
 const pickDir = () => (state.dice ? pickFrom([["fwd", 0.7], ["rev", 0.15], ["pingpong", 0.15]]) : "fwd");
 const pickRhythm = () => (state.dice ? pickFrom([["drawn", 0.7], ["even", 0.15], ["euclid", 0.15]]) : "drawn");
 // Never breed or infect: those are chosen by hand, so the sheet doesn't fill up by surprise.
+// A life, once the sheet is busy (four loops or more): brief now and then, so a full sheet
+// keeps changing; a first stroke on a quiet sheet always stays (rule 1).
+const pickLife = () => (state.dice && loops.length >= 4 ? pickFrom([["steady", 0.72], ["brief", 0.2], ["bloom", 0.04], ["swell", 0.04]]) : "steady");
 const pickMeets = () => (state.dice ? pickFrom([["sound", 0.55], ["bump", 0.25], ["trade", 0.2]]) : "sound");
 function pickTemper() {
   const r = Math.random();
@@ -1648,38 +1651,75 @@ function airKeep(b) {
 
 /* ── 6b. Life: loops that change over the passes ───────────────────────────
  * The first piece of the "evolving patch" (ROADMAP). Each loop has a Life:
- *   steady  as drawn, for good (every new loop)
- *   swell   breathes: from its strongest notes to all of them and back,
- *           over 16 passes, again and again
+ *   steady  as drawn, for good (most new loops)
+ *   bloom   denser and back: notes beyond the ones you drew (traced from the
+ *           same path, at "many") come in over 8 passes and leave over 8,
+ *           again and again; the drawn notes always play
+ *   swell   louder and back: from soft to full over 8 passes, and back
  *   fade    a little quieter each pass, gone after 16
- *   brief   fills in over 8 passes, then fades over 8, then gone
+ *   brief   comes and goes: fills in to its drawn notes over 8 passes, then
+ *           fades over 8, then gone
+ * (2026-10-24, Alex: "Swell sounds like it should be about increasing in
+ * volume, which is separate from this relative densification, which should
+ * go over the initial density." The first version's swell thinned BELOW the
+ * drawn notes; that became bloom, and goes above them.)
  * Age is counted in passes the loop actually plays (not muted, not held,
- * and only while Evolve is on), so a loop's life is something you can
- * watch, pause and rewind (Start over, undo). Which notes play while a loop
- * fills is decided by the Suite's Barlow indispensability (as Air does):
- * the notes that matter most to the beat come first. Its drawn notes never
- * change, so choosing steady again gives the loop back exactly. A loop
+ * and only while Evolve is on). Which notes come first is the Suite's Barlow
+ * indispensability (as Air): the ones that matter most to the beat. A loop's
+ * drawn notes never change, so choosing steady gives it back exactly. A loop
  * whose life ends goes where undo puts loops: ⌘Z brings it back, steady.
- * Shown on the sheet: the line thickens as it fills and fades as it fades;
+ * Seen on the sheet: the line thickens as it fills, pales as it fades;
  * resting notes are faint. */
-const LIFE_ORDER = ["steady", "swell", "fade", "brief"];         // codes store the index: append only
-const LIFE_SPAN = 16, LIFE_FLOOR = 0.25;                         // passes in a cycle; the share of notes a swell starts from
-/** Where a loop is in its life: fill (share of its notes that play), vital (loudness), done (its life is over). */
+const LIFE_ORDER = ["steady", "bloom", "fade", "brief", "swell"];  // codes store the index: append only (1 was v1's thinning swell)
+const LIFE_SPAN = 16, LIFE_FLOOR = 0.25, SWELL_FLOOR = 0.3;
+/** Where a loop is in its life: thin (share of its drawn notes that play), bloom (share of the extra notes),
+ *  vital (loudness), done (its life is over). */
 function lifeState(lp) {
   const a = lp.age || 0, half = LIFE_SPAN / 2, ease = (u) => 0.5 - 0.5 * Math.cos(Math.PI * Math.min(1, Math.max(0, u)));
+  const wave = () => { const u = (a % LIFE_SPAN) / half; return ease(u <= 1 ? u : 2 - u); };   // 0 → 1 → 0 over a cycle
+  const base = { thin: 1, bloom: 0, vital: 1, done: false };
   switch (lp.life) {
-    case "swell": { const u = (a % LIFE_SPAN) / half; return { fill: LIFE_FLOOR + (1 - LIFE_FLOOR) * ease(u <= 1 ? u : 2 - u), vital: 1, done: false }; }
-    case "fade": return { fill: 1, vital: Math.max(0, 1 - a / LIFE_SPAN), done: a >= LIFE_SPAN };
-    case "brief": return a < half ? { fill: LIFE_FLOOR + (1 - LIFE_FLOOR) * ease(a / half), vital: 1, done: false }
-                                  : { fill: 1, vital: Math.max(0, 1 - (a - half) / half), done: a >= LIFE_SPAN };
-    default: return { fill: 1, vital: 1, done: false };
+    case "bloom": return { ...base, bloom: wave() };
+    case "swell": return { ...base, vital: SWELL_FLOOR + (1 - SWELL_FLOOR) * wave() };
+    case "fade": return { ...base, vital: Math.max(0, 1 - a / LIFE_SPAN), done: a >= LIFE_SPAN };
+    case "brief": return a < half ? { ...base, thin: LIFE_FLOOR + (1 - LIFE_FLOOR) * ease(a / half) }
+                                  : { ...base, vital: Math.max(0, 1 - (a - half) / half), done: a >= LIFE_SPAN };
+    default: return base;
   }
+}
+/** The notes a bloom can add: the path traced again at "many", minus any near a drawn note. Cached per shape. */
+function bloomNotes(lp) {
+  if (lp.events.some((e) => e.fixed)) return [];                 // shakers, beats, chimes: their notes are the point
+  const key = `${lp.pts.length}|${lp.events.length}|${lp.L}|${state.div}`;
+  if (lp._bloom && lp._bloom.key === key) return lp._bloom.notes;
+  const W = sheet.clientWidth, H = sheet.clientHeight, msPerBeat = 60000 / state.bpm;
+  const tr = new Tracer(stridePx("dense") * 0.5, 0, false, turnTrigger("dense"));
+  const notes = [];
+  for (const p of lp.pts) {
+    const hit = tr.push(p.x * W, p.y * H, p.b * msPerBeat);
+    if (!hit || p.b >= lp.L || lp.events.some((e) => Math.abs(e.off - p.b) < 0.12)) continue;
+    const ev = makeEvent(hit, p.x, p.y); ev.off = Math.max(0, p.b); ev.vel *= 0.8; ev.extra = true;
+    notes.push(ev);
+  }
+  const per = perBeat() || 4, n = Math.max(1, Math.round(lp.L * per)), w = barWeights(n);
+  notes.forEach((e, i) => (e.rank = w[mod(Math.round(e.off * per), n)] - i * 1e-6));
+  const order = notes.slice().sort((x, y) => y.rank - x.rank);
+  notes.forEach((e) => (e.order = order.indexOf(e)));
+  lp._bloom = { key, notes };
+  return notes;
+}
+/** The extra notes playing at this point of a bloom. */
+function bloomNow(lp) {
+  const { bloom } = lifeState(lp);
+  if (bloom <= 0) return [];
+  const all = bloomNotes(lp), k = Math.round(bloom * all.length);
+  return all.filter((e) => e.order < k);
 }
 /** A loop's loudness: its own volume times where it is in its life. */
 const gainOf = (lp) => (lp.gain ?? 1) * lifeState(lp).vital;
 /** Does note i play at this point in the loop's life? The most indispensable notes first. */
 function lifePlays(lp, i) {
-  const { fill } = lifeState(lp);
+  const fill = lifeState(lp).thin;
   if (fill >= 1) return true;
   const per = perBeat() || 4, n = Math.max(1, Math.round(lp.L * per)), w = barWeights(n);
   const offs = offsOf(lp);
@@ -1752,12 +1792,13 @@ function schedule() {
       if (!locked(lp)) {
         // Free: each note at the moment you drew it, snapped NOW to the
         // current division (change the division and every loop follows).
-        const struck = new Set(), offs = offsOf(lp);
-        for (let i = 0; i < lp.events.length; i++) {
+        const struck = new Set(), offs = offsOf(lp), extra = bloomNow(lp), nn = lp.events.length;
+        for (let i = 0; i < nn + extra.length; i++) {
+          // Drawn notes first, then a bloom's extra notes (Life), at their own moments.
+          const ev = i < nn ? lp.events[i] : extra[i - nn], off = i < nn ? offs[i] : ev.off;
           // Backwards, the playhead reaches a note drawn at `off` at L − off.
-          const at = back ? Math.max(0, lp.L - offs[i] - 1e-6) : offs[i];
-          const ev = lp.events[i];
-          if (!lifePlays(lp, i)) continue;                         // Life: this note rests at this point of its life
+          const at = back ? Math.max(0, lp.L - off - 1e-6) : off;
+          if (i < nn && !lifePlays(lp, i)) continue;               // Life: this note rests at this point of its life
           const snapped = snapNear(base + at * lp.ts), b = swung(snapped);
           if (b < a || b >= z) continue;
           const key = `${b}|${voiceOf(lp, ev)}`;
@@ -1776,7 +1817,7 @@ function schedule() {
           if (!smp) { lp.lastBand = null; continue; }                // resting: the next note is new
           const [px, py] = place(lp, smp.x, smp.y, W, H);
           const late = j % 2 && perBeat() ? state.swing * sb : 0;      // swing the odd steps
-          const fill = lifeState(lp).fill;
+          const fill = lifeState(lp).thin;
           if (fill < 1 && weightAt(beat) < 1 - fill) { lp.lastBand = null; continue; }   // Life: the strongest steps first
           lockStep(lp, px, py, smp.heading + 0, beat, Math.max(now, timeAt(beat + late)), true);
         }
@@ -2367,7 +2408,8 @@ function endStroke(id) {
   if (!kept && s.pts.length > 1) fadeOut(s);
   if (kept) {                                                    // a Surprise is announced, so it's never a mystery
     const odd = [{ rev: "plays in reverse", pingpong: "plays ping-pong" }[s.dir], { even: "evenly spaced", euclid: "a Euclidean rhythm" }[s.rhythm],
-      { bump: "bumps the lines it crosses", trade: "trades when it meets", breed: "breeds when it meets", infect: "is infectious: a child at any contact", ignore: "passes others by" }[s.meets]].filter(Boolean);
+      { bump: "bumps the lines it crosses", trade: "trades when it meets", breed: "breeds when it meets", infect: "is infectious: a child at any contact", ignore: "passes others by" }[s.meets],
+      { brief: "comes and goes (brief)", bloom: "blooms", swell: "swells", fade: "fades" }[s.life]].filter(Boolean);
     if (odd.length) toast(`Loop ${loops.indexOf(s) + 1}: ${odd.join(" · ")} · hold it to change`);
   }
 }
@@ -2826,7 +2868,7 @@ function frame() {
       if (Math.hypot(lp.push.x, lp.push.y) < 1e-4) delete lp.push;
     }
     const sel = lp === selected, life = lifeState(lp);
-    const lifeA = 0.15 + 0.85 * life.vital, lifeW = lp.life === "swell" || lp.life === "brief" ? 0.6 + 0.9 * life.fill : 1;   // Life, seen: fading, filling
+    const lifeA = 0.15 + 0.85 * life.vital, lifeW = lp.life === "brief" ? 0.6 + 0.9 * life.thin : lp.life === "bloom" ? 1 + 0.8 * life.bloom : 1;   // Life, seen: fading, filling
     strokePath(lp, W, H, (lp.muted ? 0.25 : lp.held || sel ? 0.9 : 0.55) * lifeA, (lp.held || sel ? 3 : 2) * lifeW, lp.muted, sel ? colors.accent : colors.ink);
     drawBeatTicks(lp, W, H, lp.muted ? 0.25 : 0.7);
     if (locked(lp)) drawLockMarks(lp, W, H, lp.muted ? 0.25 : 0.65);
@@ -2838,13 +2880,18 @@ function frame() {
     // On a locked loop they rest (the grid reads the path instead), so faint.
     const isLocked = locked(lp);
     for (const [ei, ev] of lp.events.entries()) {
-      const resting = life.fill < 1 && !lifePlays(lp, ei);        // Life: not playing at this point of its life
+      const resting = life.thin < 1 && !lifePlays(lp, ei);        // Life: not playing at this point of its life
       const since = at - ev.flashAt;
       const lit = ctx && !isLocked && ev.flashAt >= 0 && since >= 0 && since < 0.18;
       const loud = Math.min(1.3, ev.vel * gainOf(lp));
       const r = (2.5 + 4 * loud) + (lit && !reduceMotion ? 5 - since * 25 : 0);
       const [x, y] = notePos(lp, ev, undefined, W, H);
       glyph(voiceOf(lp, ev), x, y, r, (lp.muted ? 0.3 : isLocked || resting ? 0.15 : lit ? 1 : 0.75) * lifeA, state.edit && !isLocked);
+    }
+    for (const ev of bloomNow(lp)) {                                // a bloom's extra notes, while they play: small
+      const since = at - ev.flashAt, lit = ctx && !isLocked && ev.flashAt >= 0 && since >= 0 && since < 0.18;
+      const [x, y] = notePos(lp, ev, undefined, W, H);
+      glyph(voiceOf(lp, ev), x, y, 2 + 2.5 * ev.vel + (lit && !reduceMotion ? 3 - since * 15 : 0), (lp.muted ? 0.2 : lit ? 0.9 : 0.45) * lifeA, false);
     }
     if (state.edit) drawHandles(lp, W, H);
     if (ctx && !lp.muted) {
@@ -3980,11 +4027,12 @@ function syncInspector() {
 /** The Life row's status: where this loop is in its life, in words. */
 function syncLifeNote(lp) {
   const el = $("inspLife"); if (!el) return;
-  const a = lp.age || 0, st = lifeState(lp), pct = `${Math.round(st.fill * 100)}% of its notes`;
+  const a = lp.age || 0, st = lifeState(lp), pct = `${Math.round(st.thin * 100)}% of its notes`, k = (a % LIFE_SPAN) + 1, up = (a % LIFE_SPAN) < LIFE_SPAN / 2;
   const frozen = state.evolve ? "" : " · on hold (Evolve is off)";
   el.textContent = {
     steady: "",
-    swell: `${(a % LIFE_SPAN) < LIFE_SPAN / 2 ? "filling in" : "thinning out"} · pass ${(a % LIFE_SPAN) + 1} of ${LIFE_SPAN} · ${pct}`,
+    bloom: bloomNotes(lp).length ? `${up ? "blooming" : "settling"} · pass ${k} of ${LIFE_SPAN} · ${bloomNow(lp).length} more notes` : "its notes are fixed: nothing to add",
+    swell: `${up ? "getting louder" : "getting softer"} · pass ${k} of ${LIFE_SPAN} · ${Math.round(st.vital * 100)}% as loud`,
     fade: `fading · pass ${a + 1} of ${LIFE_SPAN} · ${Math.round(st.vital * 100)}% as loud`,
     brief: a < LIFE_SPAN / 2 ? `filling in · pass ${a + 1} of ${LIFE_SPAN} · ${pct}` : `fading · pass ${a + 1} of ${LIFE_SPAN} · ${Math.round(st.vital * 100)}% as loud`,
   }[lp.life || "steady"] + (lp.life && lp.life !== "steady" ? frozen : "");
@@ -4029,7 +4077,8 @@ document.querySelectorAll("[data-insp]").forEach((seg) => seg.addEventListener("
   if (k === "meets") lp.meets = v;
   if (k === "life") {
     lp.life = v; lp.age = 0;
-    toast({ steady: "Life: steady · as drawn, for good", swell: "Life: swell · its notes fill in and thin out, over 16 passes, again and again",
+    toast({ steady: "Life: steady · as drawn, for good", bloom: "Life: bloom · more notes come in and leave again, over 16 passes, again and again",
+      swell: "Life: swell · louder, then softer, over 16 passes, again and again",
       fade: "Life: fade · quieter each pass, gone after 16 (⌘Z brings it back)", brief: "Life: brief · fills in over 8 passes, fades over 8, then gone" }[v]);
   }
   if (k === "density" && retrace(lp, v)) toast(`Notes: ${DENSITY[v].label} · ${lp.events.length} along this loop (choose it again for another spacing)`);
@@ -4420,7 +4469,18 @@ try { window.focus(); } catch (_) { /* fine */ }
 /** The examples on a first visit (and after Start over): chimes, a drop, a
  *  shaker. Chimes replaced the spiral on 2026-10-24 (Alex: "not in love with
  *  the default map… mostly the spiral"). */
+/* A fresh sheet (a first visit, Start over) is in a key and at a tempo of its
+ * own, within reason: a common key (C, D, E♭, F, G, A, B♭), major pentatonic
+ * two times in three and minor otherwise, 84–112 bpm. (Alex, 2026-10-24:
+ * "start fresh maps in different keys and tempos".) Pitch still comes from
+ * height, so nothing about playing changes; only the colour of the sheet. */
+const FRESH_ROOTS = [0, 2, 3, 5, 7, 9, 10];
+function freshKey() {
+  const pick = (a) => a[Math.floor(Math.random() * a.length)];
+  return { root: pick(FRESH_ROOTS), grid: Math.random() < 2 / 3 ? "pentMaj" : "pentMin", bpm: 84 + 4 * Math.floor(Math.random() * 8) };
+}
 function startingSheet() {
+  applySettingsKeepBeat(freshKey());                             // keeps the beat where it is if the sound is on
   const W = sheet.clientWidth, H = sheet.clientHeight, dice = state.dice;
   state.dice = false;                                            // the first sheet is always the same three, played plainly
   try {
