@@ -529,7 +529,7 @@ It works with a finger or a pencil on an iPad, too.
 
 Things to try: drag a loop somewhere else and hear it change; hold one to
 see its settings (speed, rhythm, chords, how it moves); open the
-**Toybox** for ready-made shapes (spirals, roses, a drum beat); at the
+**Toybox** for ready-made shapes (wind chimes, roses, a drum beat); at the
 **More** level, **Mutate** gives a loop a child, a close variation that
 answers it. With a keyboard, `?` lists every key.
 
@@ -1464,7 +1464,10 @@ included. Nothing to install, no account; your work stays in your browser.
 ## The first minute
 
 Tap anywhere: that starts the sound (browsers wait for a touch). Three
-loops are already on the sheet: a spiral, a dropped line and a shaker.
+loops are already on the sheet: wind chimes, a dropped line and a shaker.
+**Start over**, in the controls, brings this starting sheet back, with
+every setting as Twirl begins (two taps; for ten seconds after, the same
+button brings back what you had).
 Draw something of your own. Then drag one of the loops somewhere else and
 listen to what changes.
 
@@ -1544,7 +1547,8 @@ Hold a loop (or tap its chip, or press its number then Enter). From top to
 bottom: how it **moves** on its own and where it **lives** (high, middle,
 low: it wanders but comes home), **Place** (move and turn), and its
 **volume**. From More up: its **notes** (few, some, many, or ↻ again),
-what it does when it **touches** another loop (below), its **voice**, **speed**, **rhythm** (as drawn,
+what it does when it **touches** another loop (below), its **voice** and
+**sounds** (the sheet's, or another pack's: a loop can bring its own), **speed**, **rhythm** (as drawn,
 evenly spaced, or Euclidean), **direction** (forward, reverse,
 ping-pong), how often it **plays** and **waits**, when it **starts**,
 **chords** (fifths, triads, sevenths, sus, always in the scale you're in),
@@ -1611,7 +1615,9 @@ exact, identical repeats.
 ## Toys, scenes, takes and codes
 
 - **Toybox**: ready-made shapes (spiral, ring, rose, Lissajous, a drum
-  beat, a shaker, dice for a surprise). Tap one to drop it.
+  beat, a shaker, wind chimes, dice for a surprise). Tap one to drop it.
+  **Chimes** bring their own sound, whatever the sheet's pack: they sway
+  over a long cycle and ring in gusts, off the beat.
 - **My toys**: "Keep a loop", then tap a loop on the sheet, and it becomes
   a toy you can drop again anywhere.
 - **Scenes**: six slots for whole sheets. Tap an empty slot to save, a
@@ -1657,7 +1663,9 @@ the controls.
 ## Full screen
 
 **F**, or **Full screen** in the controls drawer: a bigger sheet, and a
-clean frame for screen recordings. F again (or Esc) to leave. Full screen
+clean frame for screen recordings. F again (or Esc) to leave. If drawing
+downward knocks the page out of full screen (some tablets read it as the
+"leave" gesture), it comes back as soon as you lift your finger. Full screen
 isn't available everywhere: browsers inside other apps often don't allow
 it, and the button only appears where it works.
 

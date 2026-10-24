@@ -175,6 +175,24 @@ describe.skipIf(!browser)("Twirl · keyboard and focus", () => {
     await context.close();
   });
 
+  it("full screen that slips away mid-stroke (a pull-down) comes back when the finger lifts; leaving on purpose stays left", async () => {
+    const { page, context } = await openTwirl(browser);
+    await page.mouse.click(40, 500);
+    await page.keyboard.press("f");
+    await page.waitForFunction(() => !!document.fullscreenElement && $("fsBtn").getAttribute("aria-pressed") === "true");
+    await page.mouse.move(300, 80); await page.mouse.down(); await page.mouse.move(300, 300, { steps: 5 });
+    await page.evaluate(() => document.exitFullscreen());                     // what the system's pull-down does
+    await page.waitForFunction(() => !document.fullscreenElement && $("fsBtn").getAttribute("aria-pressed") === "false");   // the system's exit lands mid-stroke
+    await page.mouse.up();
+    await page.waitForFunction(() => !!document.fullscreenElement && $("fsBtn").getAttribute("aria-pressed") === "true");
+    await page.keyboard.press("f");                                            // leaving on purpose…
+    await page.waitForFunction(() => !document.fullscreenElement);
+    await page.mouse.click(300, 400);                                          // …and the next stroke doesn't undo that
+    await page.waitForTimeout(300);
+    expect(await page.evaluate(() => !!document.fullscreenElement)).toBe(false);
+    await context.close();
+  });
+
   it("on its own site: a quiet Fork me on GitHub, and no 'now lives on Pages' note", async () => {
     const { page, context } = await openTwirl(browser);
     expect(await page.isVisible("#forkMe")).toBe(true);

@@ -19,6 +19,7 @@ Public Domain (CC0-1.0), like the rest of the suite.
 | `test/` | Browser tests (Vitest + Playwright): draw-and-hear, mutation, saving and sharing, the suite's shared contracts, and accessibility. See [Tests](#tests). |
 | `ROADMAP.md` | Where Twirl goes next, in what order, and the rules every change has to keep. |
 | `A11Y.md` | The accessibility audit record: what was found, what was fixed, what's still untested. |
+| `PLAYTESTING.md` | A plan for targeted sessions with people: what to learn, who, how, and what it feeds back into. |
 
 ## How it works, in one paragraph
 
@@ -40,7 +41,9 @@ breed), each loop answers as its Meets says; an infectious loop breeds at
 any contact (section 7b of the script). **Surprise** gives new loops a random
 direction, rhythm and Meets (never breed), mostly the usual ones; children
 never inherit breeding. **Vary** gives each note a little loudness, timing,
-tuning and colour (`varied`, `nuance`), like a sampler's round-robin. The
+tuning and colour (`varied`, `nuance`), like a sampler's round-robin. A loop
+can play another pack's sounds (`lp.pack`), so a toy can bring its own
+(Chimes). **Start over** resets to `STATE_DEFAULTS` and `startingSheet()`. The
 comment block at the top of the script maps each rule to the one place it
 lives in the code.
 
@@ -56,7 +59,7 @@ moves. The choice is remembered in this browser.
 
 Every touch on the sheet draws, so the keyboard is how to steer without
 leaving marks. `?` in the app lists every key. The essentials: `Space`
-play/pause, `T` the Toybox (ready-made shapes, no drawing needed), `1`–`9` pick a loop and `Enter`
+play/pause, `T` the Toybox (ready-made shapes, no drawing needed; Chimes bring their own sound), `1`–`9` pick a loop and `Enter`
 opens its settings (Enter again closes them), `Tab` / `⇧ Tab` step through
 the loops, arrows move the selected one, `,` `.` turn it, `F` is full screen,
 `Esc` closes whatever is open. `C` takes you into the controls, where `Tab`
