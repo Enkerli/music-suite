@@ -169,8 +169,19 @@ especially 'infectious' loop runs into another loop."
   away, centre from centre), trade. About 6 ms for 14 overlapping spirals
   on a desktop, worst case.
 - **infect** (appended to `MEET_ORDER`): has a child at any contact:
-  crossings, lines touching, playheads meeting, with breed's 8-bar wait and
-  the 14-loop cap. Surprise gives it to 1 new loop in 20.
+  crossings, lines touching, playheads meeting, with breed's wait and the
+  14-loop cap.
+
+### Breeding made deliberate (2026-10-24)
+
+Alex: "Breeding is a bit too frequent. Maybe it needs to be a deliberate
+choice to switch a loop to be a breeder. Or make breeding work only once in
+a while." Both:
+- the cause was compounding: a child inherited Meets, so children of
+  breeders bred too. Now **a child never inherits breed or infect** (it
+  sounds), whether born of a meeting or of Mutate;
+- **Surprise never gives breed or infect** (sound .55, bump .25, trade .2);
+- the wait between children doubles: **16 bars**.
 
 ### Next
 
@@ -192,6 +203,19 @@ continuously changing voice, not only as note events. On the MIDI side:
 configurable channels, then MPE-style per-note expression. The current
 fixed voice-to-channel map (pluck 1, bell 2, blip 3, drums 10) would need
 channel allocation. A natural partner is **Vane** (breath CC2, MPE).
+
+**Vary (shipped 2026-10-24): round-robin against the typewriter effect.**
+Alex: "roundrobin. Reducing the typewriter/machinegun effect." Each note gets
+small random loudness (±16 %), timing (±7 ms, never into the past) and
+tuning (±6 cents), plus a `nuance` (−1..1) that voices read as colour: the
+pluck's brightness and length, the bell's inharmonicity (modulator ratio
+3.5 ± 0.08), the blip's length, the hat's size. MIDI gets loudness and
+timing, whole notes. Drawer → Vary (More), on by default. Next:
+- per-pack nuance (Mallets, Felt, Chip… read only loudness so far);
+- accents from the beat: Barlow weights already thin notes (Air); they
+  could also shade loudness, so a fast run has a shape, not just variety;
+- feed `nuance` from pressure and, later, terrain, as one per-note input;
+- true sampled round-robin, if a sample pack ever arrives.
 
 **Pressure you can see as well as hear** (Alex, 2026-10-24). With an Apple
 Pencil or a graphics tablet, pressing harder should draw a **thicker line**
