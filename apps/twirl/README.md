@@ -43,7 +43,10 @@ direction, rhythm and Meets (never breed), mostly the usual ones; children
 never inherit breeding. **Vary** gives each note a little loudness, timing,
 tuning and colour (`varied`, `nuance`), like a sampler's round-robin. A loop
 can play another pack's sounds (`lp.pack`), so a toy can bring its own
-(Chimes). **Start over** resets to `STATE_DEFAULTS` and `startingSheet()`. The
+(Chimes). **Life** (section 6b) lets a loop swell, fade or be brief, pass
+by pass (`lifeState`, `lifePlays`, `ageLoop`). **Start over** resets to
+`STATE_DEFAULTS`, the Simple level and `startingSheet()`. Takes save as WAV
+(`encodeWav`). The
 comment block at the top of the script maps each rule to the one place it
 lives in the code.
 
@@ -115,6 +118,14 @@ What they hold in place:
 - **Vary and pause.** Varied notes stay within their small ranges, MIDI
   notes stay whole; Vary off repeats exactly. Pause fades out, then
   suspends; Play fades back in.
+- **Life.** A swell goes from its strongest notes (the downbeat always) to
+  all of them and back, without changing its drawn notes; fade gets quieter
+  each pass and leaves into undo after 16; Evolve off, muted and held loops
+  don't age; life and age travel in codes; a child starts at age 0.
+- **Start over and chimes.** Start over is a first visit (Simple level, no
+  Edit, the hint) and Bring it back restores the view too; the starting
+  sheet plays plainly; chimes bring their own sound; the canvas never keeps
+  stale pixels.
 - **Notes.** New strokes default to few; any loop can be re-spaced (many
   gives more, in order, along the same path); fixed shaker and beat notes
   stay put. In Edit, a tap anywhere on a path adds a note and a tap on a

@@ -66,10 +66,11 @@ more features. Evolving-patch v1 is small enough to build alongside.
 | # | Track | Effort | Value | Why now |
 |---|---|---|---|---|
 | 0 | **Playtests** (5–8 people, targeted) | 2/5 | 5/5 | Validate first contact and legibility before the surface grows further |
-| 1 | **Evolving patch v1**: life cycles, influence | 3/5 | 5/5 | The repetition problem; builds on contacts, Vary and Morph |
+| 1 | **Evolving patch v1**: life cycles, influence | 3/5 | 5/5 | The repetition problem; builds on contacts, Vary and Morph. *Life and Evolve shipped; influence next.* |
 | 2 | **Sound variety**: toys with their own sounds, per-pack nuance, accents from the beat, pressure as thickness | 2/5 | 4/5 | Cheap variety with no new concepts; chimes showed the way |
 | 3 | **Mutation v2** (musical, seeded) | 3/5 | 4/5 | Breeding and evolution sound only as good as the mutations |
 | 4 | **Terrain** (workshop first) | 4/5 | 4/5 | Movement as development; wants the evolving patch's legibility rules first |
+| 4b | **Harmony** (workshop first) | 4/5 | 4/5 | Chord types, voicings, a progression loops adapt to; never in the naïve path |
 | 5 | **Hands-on tools**: lasso, silent zone | 3/5 | 3/5 | Steering a busy, evolving sheet |
 | 6 | **Plugin and standalone** | 4/5 | 4/5 | A parallel track (Linux first), not blocked by any of the above |
 | 6b | **Workspace, MIDI in, design pass** | 3/5 | 4/5 | Twirl among the Suite's modules; controllers for performance; one look |
@@ -99,7 +100,18 @@ Rules for anything that evolves (from the rules above, sharpened):
 - **Opt-in by default for each loop** at first; Surprise may hand it out
   later, like it hands out bump and trade, once playtests say it's welcome.
 
-**v1, proposed:**
+**v1, shipped 2026-10-24: Life and Evolve** (items 1 and 3 below; item 2,
+influence, is next). As built: age counts passes a loop actually plays (not
+muted, not held, Evolve on); a swell picks its notes by Barlow
+indispensability (the downbeat always plays), so its drawn notes never
+change and *steady* gives the loop back exactly; a loop whose life ends goes
+into undo (⌘Z brings it back, steady); the line thickens as it fills and
+fades as it fades, and resting notes are faint; a loop's settings say where
+it is ("filling in · pass 5 of 16 · 60% of its notes"); `life` and `age`
+travel in codes; a child starts its own life at age 0. Tests: *Twirl ·
+Life*.
+
+**v1, as proposed:**
 1. **Life** (a loop setting): *steady* (as now) · *swell* (its notes fill
    in over N passes, then thin out again, using `retrace` toward many and
    back toward few: density that breathes) · *fade* (a little quieter each
@@ -111,7 +123,9 @@ Rules for anything that evolves (from the rules above, sharpened):
 3. **Evolve** switch in the drawer (More), on by default only if playtests
    agree; a loop's settings show its life stage.
 
-Later: shapeshifting (shape over time, from Morph and Mutation), terrain,
+**Next:** influence (*feed* and *drain* at contact); Surprise handing out
+lives, once playtests say lives are welcome; a sheet-wide "season" that
+shades every loop. Later: shapeshifting (shape over time, from Morph and Mutation), terrain,
 seasons (a slow sheet-wide cycle that shades every loop's density and
 loudness), and Surprise handing out lives.
 
@@ -458,6 +472,48 @@ always the suite's own conventions (match `packages/upi/vectors` and
 `packages/theory/vectors`, or import the packages once Twirl has a build);
 and every readout labels its convention (leftmost = LSB), because the
 reversed reading is a different real thing (2741 vs 2773).
+
+## Harmony: to brainstorm and workshop (Alex, 2026-10-24)
+
+"How harmony is handled. Chords from each loop (what voicing and chord
+type?). Adapting to a chord progression? (All the while making sure that the
+'naïve' experience isn't disrupted.)"
+
+Where it stands: every note is a scale step (the grid); a loop's **Chord**
+stacks scale steps on each note (fifths `[0, n·4/7]`, triads `[0, 2, 4]`,
+sevenths `[0, 2, 4, 6]`, sus `[0, 1, 4]`), so chords are always diatonic to
+the grid, in close position, from the note up. **Walk** drifts the whole
+sheet along four degree shifts; **Arc** shapes 4 or 8 bars as home → away →
+pull → resolve, snapping notes to the home chord at the end; the **Drone**
+voices the current harmony underneath.
+
+Questions to work through:
+- **Chord type per loop.** Is a loop's chord a *quality* (triad, seventh,
+  sus, quartal, cluster) stacked from each note, or a *role* (the loop plays
+  the chord tones of the current harmony, the bass, a pedal)? The second is
+  closer to how a band thinks, and fits loops as players.
+- **Voicing.** Close, open (drop-2), spread over the sheet's range, shell
+  (root, 3rd, 7th), and voice leading between successive chords (each voice
+  moves to the nearest tone). Who decides: the loop, the sheet, or height
+  (higher on the sheet = higher inversion)?
+- **A progression.** A sheet-level progression (I–vi–IV–V, ii–V–I, a modal
+  vamp, a 12-bar blues) that every loop adapts to: notes snap to chord tones
+  on strong beats and pass freely on weak ones (Barlow weights again), so
+  drawings stay drawings but sit in the harmony. Walk and Arc become two
+  presets of this one mechanism.
+- **From the Suite.** Progression Studio already makes progressions,
+  MIDIcurator curates them, GloriArp voices and arpeggiates; Twirl could take
+  a progression from them over the bus (Workspace) or as a code, rather than
+  growing its own editor.
+- **Harmonic loops.** A loop could *be* the harmony: its notes set the
+  current chord for the others (a bass line that steers), which is a
+  personality (Harmonizer, Anchor) made literal.
+
+Guard-rails: the naïve experience stays as it is. Single notes, in the scale,
+from height; anything harmonic is at More or Everything, off by default, and
+named in words ("follows the chords", "plays the bass"), never in theory
+first. Chord symbols and Roman numerals can appear as readouts (the
+notations brainstorm), not as requirements.
 
 ## MIDI in, for control (Alex, 2026-10-24)
 

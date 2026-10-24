@@ -475,6 +475,17 @@ describe.skipIf(!browser)("Twirl · chimes, sounds across banks, Start over", ()
     await context.close();
   });
 
+  it("Start over is a first visit: Simple level, no Edit, no numbers, nothing selected, the hint, the drawer closed; Bring it back restores the view too", async () => {
+    const { page, context } = await openTwirl(browser);
+    await page.evaluate(() => { setLevel(3); setNumbers(true); $("editBtn").click(); select(loops[0]); hint.hidden = true; setDrawer(true); });
+    const r = await page.evaluate(() => { $("initBtn").click(); $("initBtn").click();
+      return { level, numbers: showNumbers, edit: state.edit, sel: selected, hint: !hint.hidden, drawer: document.body.classList.contains("drawer-open"), n: loops.length }; });
+    expect(r).toEqual({ level: 1, numbers: false, edit: false, sel: null, hint: true, drawer: false, n: 3 });
+    const b = await page.evaluate(() => { $("initBtn").click(); return { level, numbers: showNumbers, edit: state.edit }; });
+    expect(b).toEqual({ level: 3, numbers: true, edit: true });
+    await context.close();
+  });
+
   it("Start over: the starting sheet and default settings, two taps; Bring it back undoes it", async () => {
     const { page, context } = await openTwirl(browser);
     const before = await page.evaluate(() => { state.bpm = 140; state.grid = "chromatic"; dropToy("ring", [200, 200]); return loops.map((l) => l.uid).join(); });
@@ -485,6 +496,100 @@ describe.skipIf(!browser)("Twirl · chimes, sounds across banks, Start over", ()
     const back = await page.evaluate(() => { $("initBtn").click(); return { n: loops.length, bpm: state.bpm, grid: state.grid, label: $("initBtn").textContent }; });
     expect(back).toEqual({ n: 4, bpm: 140, grid: "chromatic", label: "Start over" });
     expect(before.split(",").length).toBe(4);
+    await context.close();
+  });
+});
+
+describe.skipIf(!browser)("Twirl · Life: loops that change over the passes", () => {
+  const ring = (page) => page.evaluate(() => {
+    loops.splice(0).forEach(fadeOut); state.morph = false;
+    dropToy("ring", [sheet.clientWidth / 2, sheet.clientHeight / 2]); const lp = loops[0];
+    retrace(lp, "dense", 0); lp.temper = "still"; return lp.events.length;
+  });
+
+  it("swell: from its strongest notes to all of them and back; its drawn notes never change", async () => {
+    const { page, context } = await openTwirl(browser);
+    const n = await ring(page);
+    const r = await page.evaluate(() => {
+      const lp = loops[0], before = JSON.stringify(lp.events.map((e) => [e.off, e.x, e.y]));
+      const playing = (age) => { lp.life = "swell"; lp.age = age; return lp.events.filter((_, i) => lifePlays(lp, i)).length; };
+      const out = [0, 4, 8, 12, 16].map(playing);
+      lp.life = "steady"; lp.age = 0;
+      return { out, same: before === JSON.stringify(lp.events.map((e) => [e.off, e.x, e.y])), steady: lp.events.filter((_, i) => lifePlays(lp, i)).length };
+    });
+    expect(r.out[0]).toBeLessThan(n / 2);                                  // starts sparse
+    expect(r.out[1]).toBeGreaterThan(r.out[0]);                           // fills in
+    expect(r.out[2]).toBe(n);                                             // all of them at the top
+    expect(r.out[3]).toBeLessThan(n);                                     // thins out again
+    expect(r.out[4]).toBe(r.out[0]);                                      // and round again
+    expect(r.same).toBe(true);
+    expect(r.steady).toBe(n);
+    await context.close();
+  });
+
+  it("swell keeps the notes that matter most to the beat: the downbeat is always among them", async () => {
+    const { page, context } = await openTwirl(browser);
+    await ring(page);
+    const r = await page.evaluate(() => {
+      const lp = loops[0]; lp.life = "swell"; lp.age = 0;
+      const per = perBeat() || 4, offs = offsOf(lp);
+      return lp.events.map((_, i) => [Math.round(offs[i] * per) % (per * BAR) === 0, lifePlays(lp, i)]).filter(([down]) => down).every(([, plays]) => plays);
+    });
+    expect(r).toBe(true);
+    await context.close();
+  });
+
+  it("fade: quieter each pass, gone after 16 into undo; ⌘Z brings it back, steady", async () => {
+    const { page, context } = await openTwirl(browser);
+    await ring(page);
+    const r = await page.evaluate(() => {
+      const lp = loops[0]; lp.life = "fade"; lp.age = 0;
+      const vit = []; for (let k = 0; k < 16; k++) { vit.push(lifeState(lp).vital); ageLoop(lp); }
+      buryDead();
+      const gone = !loops.includes(lp), inUndo = undone.at(-1) === lp;
+      redoLoop();
+      return { vit, gone, inUndo, back: loops.includes(lp), life: lp.life, age: lp.age };
+    });
+    expect(r.vit[0]).toBe(1);
+    expect(r.vit.every((v, i) => !i || v < r.vit[i - 1])).toBe(true);
+    expect(r).toMatchObject({ gone: true, inUndo: true, back: true, life: "steady", age: 0 });
+    await context.close();
+  });
+
+  it("Evolve off holds every life where it is; muted and held loops don't age", async () => {
+    const { page, context } = await openTwirl(browser);
+    await ring(page);
+    const r = await page.evaluate(() => {
+      const lp = loops[0]; lp.life = "brief"; lp.age = 3;
+      state.evolve = false; ageLoop(lp); const off = lp.age;
+      state.evolve = true; lp.muted = true; ageLoop(lp); const muted = lp.age;
+      lp.muted = false; ageLoop(lp);
+      return [off, muted, lp.age];
+    });
+    expect(r).toEqual([3, 3, 4]);
+    await context.close();
+  });
+
+  it("a loop with a Life ages as it plays, pass by pass", async () => {
+    const { page, context } = await openTwirl(browser);
+    await ring(page);
+    await page.evaluate(() => { ensureAudio(); state.bpm = 240; const lp = loops[0]; lp.life = "swell"; lp.age = 0; });
+    await page.waitForFunction(() => loops[0].age >= 2, null, { timeout: 20_000 });
+    await context.close();
+  });
+
+  it("Life and age travel in codes; a child starts its own life at age 0; old codes are steady", async () => {
+    const { page, context } = await openTwirl(browser);
+    await ring(page);
+    const r = await page.evaluate(async () => {
+      const lp = loops[0]; lp.life = "brief"; lp.age = 5;
+      const back = await decodeScene(await encodeScene(serialize()));
+      const pk = packScene(serialize()); pk.l = pk.l.map((row) => row.slice(0, 29));
+      const old = unpackScene(pk).loops[0];
+      const child = mutateLoop(lp);
+      return { life: back.loops[0].life, age: back.loops[0].age, old: [old.life, old.age], child: [child.life, child.age] };
+    });
+    expect(r).toEqual({ life: "brief", age: 5, old: ["steady", 0], child: ["brief", 0] });
     await context.close();
   });
 });

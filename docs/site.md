@@ -525,13 +525,13 @@ the sheet is higher in pitch; the direction you move picks the sound
 (right plucks, up rings a bell, down drums); a fast scribble is a shaker.
 It works with a finger or a pencil on an iPad, too.
 
-![Twirl: a spiral, a dropped line, a shaker and a three-petalled rose on a lined sheet, each with its playhead and coloured note shapes](assets/guide/twirl.png)
+![Twirl: wind chimes, a dropped line, a shaker and a three-petalled rose on a lined sheet, each with its playhead and coloured note shapes](assets/guide/twirl.png)
 
 Things to try: drag a loop somewhere else and hear it change; hold one to
 see its settings (speed, rhythm, chords, how it moves); open the
 **Toybox** for ready-made shapes (wind chimes, roses, a drum beat); at the
 **More** level, **Mutate** gives a loop a child, a close variation that
-answers it. With a keyboard, `?` lists every key.
+answers it, and **Life** lets a loop swell, fade, or come and go. With a keyboard, `?` lists every key.
 
 ---
 
@@ -1465,9 +1465,10 @@ included. Nothing to install, no account; your work stays in your browser.
 
 Tap anywhere: that starts the sound (browsers wait for a touch). Three
 loops are already on the sheet: wind chimes, a dropped line and a shaker.
-**Start over**, in the controls, brings this starting sheet back, with
-every setting as Twirl begins (two taps; for ten seconds after, the same
-button brings back what you had).
+**Start over**, in the controls, brings Twirl back to this first visit:
+the starting sheet, every setting as Twirl begins, the Simple level (two
+taps). Your saved scenes, toys and takes stay, and for ten seconds after,
+the same button brings back what you had.
 Draw something of your own. Then drag one of the loops somewhere else and
 listen to what changes.
 
@@ -1547,7 +1548,8 @@ Hold a loop (or tap its chip, or press its number then Enter). From top to
 bottom: how it **moves** on its own and where it **lives** (high, middle,
 low: it wanders but comes home), **Place** (move and turn), and its
 **volume**. From More up: its **notes** (few, some, many, or ↻ again),
-what it does when it **touches** another loop (below), its **voice** and
+what it does when it **touches** another loop (below), its **life**
+(below), its **voice** and
 **sounds** (the sheet's, or another pack's: a loop can bring its own), **speed**, **rhythm** (as drawn,
 evenly spaced, or Euclidean), **direction** (forward, reverse,
 ping-pong), how often it **plays** and **waits**, when it **starts**,
@@ -1605,6 +1607,29 @@ and you can change it in the loop's settings. Turn Surprise off and every
 new loop plays forward, as drawn, and sounds when it touches. The Toybox's
 beat and shaker keep their own feel either way.
 
+## Loops with a life
+
+A loop can change over the passes instead of playing the same way for good.
+Hold it → **Life**:
+
+- **steady**: as drawn, for good (every loop starts this way);
+- **swell**: it breathes. From its strongest notes (the downbeat and the
+  notes that matter most to the beat) it fills in to all of them over eight
+  passes, then thins out again over eight, and round again. It starts from
+  the notes you gave it, so **Notes: many** makes a fuller swell;
+- **fade**: a little quieter each pass, and gone after sixteen;
+- **brief**: fills in over eight passes, fades over eight, and it's gone.
+
+You can see it: the line gets thicker as a loop fills and paler as it
+fades, and the notes resting at that point are faint. The loop's settings
+say where it is ("filling in · pass 5 of 16"). A loop whose life ends goes
+where undo puts loops: **⌘Z** brings it back, steady. A loop only ages while
+it plays (not muted, not held), and **Evolve** in the controls (More) holds
+every life where it is. Its drawn notes never change: choosing **steady**
+gives it back exactly.
+
+## Vary
+
 **Vary** (More, on at first): no two notes come out quite alike. Each one is
 a little louder or softer, a few milliseconds earlier or later, a few cents
 off, and a little brighter or duller (the bell more or less clangorous, the
@@ -1616,8 +1641,10 @@ exact, identical repeats.
 
 - **Toybox**: ready-made shapes (spiral, ring, rose, Lissajous, a drum
   beat, a shaker, wind chimes, dice for a surprise). Tap one to drop it.
-  **Chimes** bring their own sound, whatever the sheet's pack: they sway
-  over a long cycle and ring in gusts, off the beat.
+  **Chimes** look like chimes: a bar with tubes of different lengths, and
+  the longer the tube, the lower its note. They ring in gusts, off the
+  beat, over a long cycle, and bring their own sound, whatever the sheet's
+  pack.
 - **My toys**: "Keep a loop", then tap a loop on the sheet, and it becomes
   a toy you can drop again anywhere.
 - **Scenes**: six slots for whole sheets. Tap an empty slot to save, a
@@ -1625,7 +1652,8 @@ exact, identical repeats.
   last sheet also comes back by itself.
 - **Takes**: press **● Rec**, play, press it again. A take keeps what you
   *did* (strokes, moves, settings) and replays it on the sheet, even after
-  a reload; its sound stays until you close the page, unless you save it.
+  a reload; its sound stays until you close the page, unless you save it:
+  **Save sound** gives you a WAV file, which opens everywhere.
 - **Codes**: a sheet, a toy, a take, or everything you have, as a line of
   text (`twirl:s1.…`). Send it any way you like; paste it into Scenes →
   Paste a code, on any device. Nothing is uploaded anywhere: the music is
@@ -1686,7 +1714,8 @@ Twirl is Public Domain (CC0), one HTML file you can read, copy and change:
 Its [README](https://github.com/Enkerli/music-suite/blob/main/apps/twirl/README.md)
 explains how it works inside, the
 [roadmap](https://github.com/Enkerli/music-suite/blob/main/apps/twirl/ROADMAP.md)
-where it's going (shapeshifting, silent zones and a lasso are among the ideas), and
+where it's going (loops that feed and drain each other, terrain, harmony,
+Workspace and a plugin are among the next steps), and
 the [accessibility record](https://github.com/Enkerli/music-suite/blob/main/apps/twirl/A11Y.md)
 what has and hasn't been tested.
 
