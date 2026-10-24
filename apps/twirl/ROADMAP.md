@@ -108,16 +108,38 @@ family-aware undo.
 Suggested milestone: 1, 2 and 4, plus the parent–child line from 5. Musical
 control comes before collisions start spawning things on their own.
 
-## 2. Musical collisions
+## 2. Musical collisions: meetings
 
-Detect visual crossings and *temporal* coincidence separately: two loops
-can cross on screen while sounding at different moments. On a meeting,
-they can exchange something (notes, a rhythmic fragment, a voice, part of
-their shape), trigger an accent, harmonize, or spawn a child (which is why
-Mutation v2 comes first). Needs: collision probability, cooldowns,
-per-loop participation, and voice budgets and event throttling so a busy
-sheet can't run away. Air (Barlow-weighted thinning) is the existing tool
-for density.
+### Shipped (v1, 2026-10-24)
+
+Decided with Alex: **playheads only**, not paths (lines cross constantly;
+two playheads meeting is an event you can hear and aim for); **sound** for
+every new loop; **breeding built on Mutation**.
+
+- A meeting is two playheads within 26 px at the same moment, found by
+  closest approach between scheduler ticks (fast playheads can pass between
+  two ticks). Both loops take part unless one says **Meets: no**.
+- Per loop (its settings, More): **no · sound · trade · breed**. Sound plays
+  the loop's voice where it is, so a meeting is an interval. Trade borrows
+  one thing from the other loop: voice, chords, rhythm, direction, in turn,
+  the next one that differs. Breed has a child: `mutateLoop` plus one trait
+  borrowed from the mate.
+- Cooldowns: a pair once a beat, trading once per 2 bars, breeding once per
+  8. Breeding never evicts a loop at the 14-loop cap (Mutate does).
+- **Meet** in the drawer (More) turns it all off. A replayed take only
+  sounds its meetings, because what they changed is already in the take.
+- Saved in scenes, toys and codes (`meets`, appended to the packed row);
+  older codes meet with "sound". Tests: *Twirl · meetings*.
+
+### Next
+
+- **Path crossings** as a second, opt-in kind of meeting (the other half of
+  the original idea), visibly distinct.
+- **Seeded breeding.** With Mutation v2's seeds, a family could be replayed.
+  Not decided yet.
+- **More to trade:** a rhythmic fragment, an interval, a piece of shape.
+- **Ecology controls:** a per-sheet density budget so trading and breeding
+  can't crowd a sheet; meeting probability; who may breed with whom.
 
 ## 3. Expressive gesture mapping
 
@@ -128,6 +150,24 @@ continuously changing voice, not only as note events. On the MIDI side:
 configurable channels, then MPE-style per-note expression. The current
 fixed voice-to-channel map (pluck 1, bell 2, blip 3, drums 10) would need
 channel allocation. A natural partner is **Vane** (breath CC2, MPE).
+
+**Pressure you can see as well as hear** (Alex, 2026-10-24). With an Apple
+Pencil or a graphics tablet, pressing harder should draw a **thicker line**
+as well as play louder. Today it only plays louder (the dot sizes show it;
+the line doesn't).
+- Store pressure per point (a 4th field in `pts`, quantized to 16 levels so
+  codes stay small; old codes have none, so the line stays uniform).
+- Draw the stroke with varying width (a filled outline along the path, or
+  short segments at their point's width), on the live stroke and the loop.
+- Keep loudness and width from the same number, so what you see is what
+  you hear. That also gives `retrace` real per-point pressure instead of
+  borrowing the nearest note's loudness.
+- **For plain touch,** something to stand in for pressure:
+  - the contact size, where the browser reports it (`PointerEvent.width` /
+    `height`; iPad Safari may not);
+  - or drawing speed, inverted like ink: slower is heavier;
+  - or a slow press-and-hold that swells.
+  Worth trying each on the iPad; the first is free where it exists.
 
 ## 4. Loop personalities
 

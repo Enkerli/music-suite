@@ -224,3 +224,139 @@ describe.skipIf(!browser)("Twirl · the suite's shared contracts", () => {
     for (const [id, ok] of [...r.grids, ...r.tunings]) expect(ok, id).toBe(true);
   });
 });
+
+/* Two still lines crossing at the middle of the sheet, drawn to take the same
+ * time, starting together: their playheads meet at the crossing, once a pass. */
+const crossing = (page, a = {}, b = {}) => page.evaluate(([a, b]) => {
+  ensureAudio(); state.morph = false; state.bpm = 120;
+  loops.splice(0).forEach(fadeOut);
+  const line = (x0, y0, x1, y1, extra) => {
+    const s = newStroke(nextStart() + 1);
+    for (let i = 0; i <= 40; i++) { const u = i / 40; s.pts.push({ x: x0 + (x1 - x0) * u, y: y0 + (y1 - y0) * u, b: u * 1.9 }); }
+    s.events.push({ off: 0, x: x0, y: y0, heading: 0, fixed: null, vel: 0.6, ms: 0, flashAt: -1 });
+    finishStroke(s, false); Object.assign(s, { temper: "still" }, extra);
+    return s.uid;
+  };
+  meetLog.length = 0;
+  return [line(0.3, 0.5, 0.7, 0.5, a), line(0.5, 0.3, 0.5, 0.7, b)];
+}, [a, b]);
+const waitBeats = (page, n) => page.waitForTimeout((n * 60 / 120) * 1000);
+
+describe.skipIf(!browser)("Twirl · meetings (playheads that meet)", () => {
+  it("two playheads that reach the same place at the same time meet, and both sound", async () => {
+    const { page, context, errors } = await openTwirl(browser);
+    await crossing(page);
+    await listen(page);
+    await waitBeats(page, 3.2);
+    const log = await page.evaluate(() => meetLog.slice());
+    expect(log.length).toBeGreaterThanOrEqual(1);
+    expect((await heard(page)).length).toBeGreaterThanOrEqual(2);         // one note from each loop
+    expect(errors).toEqual([]);
+    await context.close();
+  });
+
+  it("a new loop meets with 'sound' by default; Meets: no, or Meet off, and nothing happens", async () => {
+    const { page, context } = await openTwirl(browser);
+    await drawStroke(page, { ms: 400 });
+    expect(await page.evaluate(() => loops.at(-1).meets)).toBe("sound");
+    await crossing(page, { meets: "ignore" });
+    await waitBeats(page, 3.2);
+    expect(await page.evaluate(() => meetLog.length)).toBe(0);
+    await crossing(page);
+    await page.evaluate(() => { state.meet = false; });
+    await waitBeats(page, 3.2);
+    expect(await page.evaluate(() => meetLog.length)).toBe(0);
+    await context.close();
+  });
+
+  it("trade: a loop borrows one thing it doesn't share from the loop it meets", async () => {
+    const { page, context } = await openTwirl(browser);
+    const [, b] = await crossing(page, { chord: "triad" }, { meets: "trade", chord: "single" });
+    await waitBeats(page, 3.2);
+    const r = await page.evaluate((b) => { const B = loops.find((l) => l.uid === b); return [B.chord, meetLog.flatMap((m) => m.did)]; }, b);
+    expect(r[0]).toBe("triad");
+    expect(r[1].join(" ")).toMatch(/took its chords/);
+    await context.close();
+  });
+
+  it("breed: a meeting has one child (a mutation of the breeder), then waits before another", async () => {
+    const { page, context } = await openTwirl(browser);
+    const [a] = await crossing(page, { meets: "breed" });
+    await waitBeats(page, 3.2);
+    const one = await page.evaluate((a) => ({ n: loops.length, child: loops.at(-1).generation, lineage: loops.at(-1).lineage, a }), a);
+    expect(one.n).toBe(3);
+    expect(one.child).toBe(1);
+    expect(one.lineage).toBe(a);
+    await waitBeats(page, 4.5);                                            // more meetings, inside the 8-bar wait
+    expect(await page.evaluate(() => loops.length)).toBe(3);
+    await context.close();
+  });
+
+  it("breeding never pushes a loop out at the 14-loop cap", async () => {
+    const { page, context } = await openTwirl(browser);
+    await crossing(page, { meets: "breed" });
+    await page.evaluate(() => { while (loops.length < MAX_LOOPS) dropToy("ring", [60, 60]); loops.slice(2).forEach((l) => (l.meets = "ignore")); });
+    const before = await page.evaluate(() => loops.map((l) => l.uid).join());
+    await waitBeats(page, 3.2);
+    expect(await page.evaluate(() => [loops.length, meetLog.length > 0])).toEqual([14, true]);
+    expect(await page.evaluate(() => loops.map((l) => l.uid).join())).toBe(before);
+    await context.close();
+  });
+
+  it("Meets and Notes travel in share codes; older codes meet with 'sound'", async () => {
+    const { page, context } = await openTwirl(browser);
+    const r = await page.evaluate(async () => {
+      loops[0].meets = "breed"; loops[1].meets = "ignore"; retrace(loops[0], "dense");
+      const back = await decodeScene(await encodeScene(serialize()));
+      const pk = packScene(serialize()); pk.l = pk.l.map((row) => row.slice(0, 24));
+      return { meets: back.loops.map((d) => d.meets), dens: back.loops[0].density, old: unpackScene(pk).loops.map((d) => d.meets) };
+    });
+    expect(r.meets.slice(0, 2)).toEqual(["breed", "ignore"]);
+    expect(r.dens).toBe("dense");
+    expect(new Set(r.old)).toEqual(new Set(["sound"]));
+    await context.close();
+  });
+});
+
+describe.skipIf(!browser)("Twirl · notes: few by default, re-spaced per loop", () => {
+  it("new strokes default to few notes", async () => {
+    const { page, context } = await openTwirl(browser);
+    expect(await page.evaluate(() => [state.density, $("density").selectedOptions[0].textContent])).toEqual(["sparse", "Notes: few"]);
+    await context.close();
+  });
+
+  it("a loop's notes can be re-spaced: many gives more than few, along the same path, in order", async () => {
+    const { page, context } = await openTwirl(browser);
+    const r = await page.evaluate(() => {
+      const lp = loops.find((l) => !l.events.some((e) => e.fixed));      // the spiral
+      retrace(lp, "sparse", 0); const few = lp.events.length;
+      retrace(lp, "dense", 0); const many = lp.events.length;
+      return { few, many, ok: lp.events.every((e, i, a) => e.off >= 0 && e.off < lp.L && (!i || a[i - 1].off <= e.off)), d: lp.density };
+    });
+    expect(r.many).toBeGreaterThan(r.few);
+    expect(r.ok).toBe(true);
+    expect(r.d).toBe("dense");
+    await context.close();
+  });
+
+  it("shakers and beats keep their fixed notes", async () => {
+    const { page, context } = await openTwirl(browser);
+    const r = await page.evaluate(() => { const sh = loops.find((l) => l.events.some((e) => e.fixed === "shake")); const n = sh.events.length; return [retrace(sh, "dense"), sh.events.length === n]; });
+    expect(r).toEqual([false, true]);
+    await context.close();
+  });
+});
+
+describe.skipIf(!browser)("Twirl · Edit notes", () => {
+  it("a tap anywhere on a path adds a note, even right by a bend handle", async () => {
+    const { page, context } = await openTwirl(browser);
+    await page.evaluate(() => { state.morph = false; ensureAudio(); hint.hidden = true; $("editBtn").click(); });
+    for (const j of [7, 23, 39, 41]) {                         // 39 = 3 × handleStep(13): on a handle
+      const [x, y, n] = await page.evaluate((j) => { const lp = loops[0], q = lp.pts[j]; return [...place(lp, q.x, q.y, sheet.clientWidth, sheet.clientHeight), lp.events.length]; }, j);
+      const onNote = await page.evaluate(([x, y]) => !!hitEvent(x, y), [x, y]);
+      await page.mouse.click(x, y); await page.waitForTimeout(80);
+      expect(await page.evaluate(() => loops[0].events.length), `point ${j}`).toBe(onNote ? n - 1 : n + 1);
+    }
+    await context.close();
+  });
+});
