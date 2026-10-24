@@ -34,8 +34,10 @@ plays slower, snapping to musical ratios. A loop plays either as drawn
 changing Lock, the division or the scale is heard on the next note.
 **Notes land** each time the line has gone a set distance, or as soon as it
 turns sharply (`DENSITY`; few / some / many; `retrace` re-spaces a loop).
-**Meetings**: when two playheads meet, each loop answers as its Meets says
-(sound, trade, breed; section 7b of the script). The
+**Contacts**: when a playhead crosses another loop's line (sound, bump) or
+meets another playhead (also trade, breed), each loop answers as its Meets
+says (section 7b of the script). **Surprise** gives new loops a random
+direction, rhythm and Meets, mostly the usual ones. The
 comment block at the top of the script maps each rule to the one place it
 lives in the code.
 
@@ -96,9 +98,12 @@ What they hold in place:
   one grid step of the touch; after release it loops and plays again on its
   own. Also with Lock on, from a tap, and from the keyboard via the Toybox.
   Every roadmap experiment has to keep these green.
-- **Meetings.** Two playheads that meet both sound; Meets: no, or Meet
-  off, silences them; trade borrows a trait; breed has exactly one child,
-  then waits, and never at the 14-loop cap.
+- **Contacts.** Two playheads that meet both sound; a playhead crossing a
+  line sounds there, and bump nudges that line along its way, inside the
+  sheet; Meets: no, or Meet off, silences them; trade borrows a trait;
+  breed has exactly one child, then waits, and never at the 14-loop cap.
+  Surprise draws direction, rhythm and Meets mostly from the usual; toys
+  keep theirs.
 - **Notes.** New strokes default to few; any loop can be re-spaced (many
   gives more, in order, along the same path); fixed shaker and beat notes
   stay put. In Edit, a tap anywhere on a path adds a note and a tap on a

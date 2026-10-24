@@ -1544,7 +1544,7 @@ Hold a loop (or tap its chip, or press its number then Enter). From top to
 bottom: how it **moves** on its own and where it **lives** (high, middle,
 low: it wanders but comes home), **Place** (move and turn), and its
 **volume**. From More up: its **notes** (few, some, many, or ↻ again),
-what it does when it **meets** another loop (below), its **voice**, **speed**, **rhythm** (as drawn,
+what it does when it **touches** another loop (below), its **voice**, **speed**, **rhythm** (as drawn,
 evenly spaced, or Euclidean), **direction** (forward, reverse,
 ping-pong), how often it **plays** and **waits**, when it **starts**,
 **chords** (fifths, triads, sevenths, sus, always in the scale you're in),
@@ -1559,26 +1559,39 @@ the same voice, rhythm and timing, a slightly different shape, and a few
 notes nudged. It starts half a cycle behind its parent, so it answers it.
 Children can have children; the chips show the generation (`g1`, `g2`…).
 
-## When loops meet
+## When loops touch
 
-When two loops' playheads (the blue dots) reach the same place at the same
-moment, they **meet**: a ring flashes there, and each loop answers in its
-own way (its settings → **Meets**):
+Loops touch in two ways, and a small ring flashes where they do:
 
-- **sound** (every new loop): it plays a note where it is, so a meeting
-  is an interval, two voices at once;
-- **trade**: it also borrows one thing from the other loop: its voice, its
-  chords, its rhythm or its direction, one per meeting, in turn;
-- **breed**: it also has a child, a variation of itself (like Mutate) that
-  borrows one thing from the other loop;
-- **no**: it passes other loops by.
+- a loop's playhead (its blue dot) **crosses another loop's line**. This
+  happens all the time, wherever lines overlap;
+- two **playheads meet**: they reach the same place at the same moment.
+  This is rarer, and you can aim for it by moving loops around.
 
-Only the playheads count, not the lines: paths cross all the time, but
-playheads meet only when two loops are in the same place *together*, which
-you can aim for by moving loops around. A pair meets at most once a beat; a
-loop trades at most once every two bars and breeds at most once every eight,
-and never when the sheet is full (14 loops). **Meet** in the controls (More)
-turns meetings off altogether.
+Each loop answers in its own way (its settings → **Meets**):
+
+- **sound**: it plays a note where it touches, so a crossing adds a note
+  and a meeting is an interval, two voices at once;
+- **bump**: it also nudges the lines it crosses out of its way, so loops
+  push each other around the sheet;
+- **trade**: when its playhead meets another, it also borrows one thing
+  from the other loop: its voice, its chords, its rhythm or its direction,
+  one per meeting, in turn;
+- **breed**: when its playhead meets another, it also has a child, a
+  variation of itself (like Mutate) that borrows one thing from the other
+  loop;
+- **no**: it stays out of it.
+
+A loop crosses a given line at most once a beat; a loop trades at most once
+every two bars and breeds at most once every eight, and never when the sheet
+is full (14 loops). **Meet** in the controls (More) turns all of it off.
+
+**Surprise** (More, on at first): a new loop may get a different direction
+(reverse, ping-pong), rhythm (even, Euclidean) or way of meeting. The usual
+ones stay the most likely, a message says when a loop got something else,
+and you can change it in the loop's settings. Turn Surprise off and every
+new loop plays forward, as drawn, and sounds when it touches. The Toybox's
+beat and shaker keep their own feel either way.
 
 ## Toys, scenes, takes and codes
 
@@ -1650,7 +1663,7 @@ Twirl is Public Domain (CC0), one HTML file you can read, copy and change:
 Its [README](https://github.com/Enkerli/music-suite/blob/main/apps/twirl/README.md)
 explains how it works inside, the
 [roadmap](https://github.com/Enkerli/music-suite/blob/main/apps/twirl/ROADMAP.md)
-where it's going (loops that meet and exchange something are next), and
+where it's going (shapeshifting, silent zones and a lasso are among the ideas), and
 the [accessibility record](https://github.com/Enkerli/music-suite/blob/main/apps/twirl/A11Y.md)
 what has and hasn't been tested.
 
