@@ -166,10 +166,11 @@ describe.skipIf(!browser)("Twirl · keyboard and focus", () => {
     const { page, context } = await openTwirl(browser);
     await page.mouse.click(40, 500);                            // full screen needs a user gesture in the page
     await page.keyboard.press("f");
-    await page.waitForFunction(() => !!document.fullscreenElement);
-    expect(await page.getAttribute("#fsBtn", "aria-pressed")).toBe("true");
+    // The button follows the browser's fullscreenchange event, which can land a
+    // moment after fullscreenElement changes: wait for the button, not the page.
+    await page.waitForFunction(() => !!document.fullscreenElement && $("fsBtn").getAttribute("aria-pressed") === "true");
     await page.keyboard.press("f");
-    await page.waitForFunction(() => !document.fullscreenElement);
+    await page.waitForFunction(() => !document.fullscreenElement && $("fsBtn").getAttribute("aria-pressed") === "false");
     expect(await page.getAttribute("#fsBtn", "aria-pressed")).toBe("false");
     await context.close();
   });

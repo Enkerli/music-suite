@@ -31,7 +31,11 @@ vertical lines are the beat division). **Direction picks the voice**: → pluck,
 ↑ bell, ← blip, ↓ drum, a fast scribble is a shaker. **Size is speed**: bigger
 plays slower, snapping to musical ratios. A loop plays either as drawn
 (Free) or read on the beat grid (Lock); the scheduler decides at playback, so
-changing Lock, the division or the scale is heard on the next note. The
+changing Lock, the division or the scale is heard on the next note.
+**Notes land** each time the line has gone a set distance, or as soon as it
+turns sharply (`DENSITY`; few / some / many; `retrace` re-spaces a loop).
+**Meetings**: when two playheads meet, each loop answers as its Meets says
+(sound, trade, breed; section 7b of the script). The
 comment block at the top of the script maps each rule to the one place it
 lives in the code.
 
@@ -92,6 +96,13 @@ What they hold in place:
   one grid step of the touch; after release it loops and plays again on its
   own. Also with Lock on, from a tap, and from the keyboard via the Toybox.
   Every roadmap experiment has to keep these green.
+- **Meetings.** Two playheads that meet both sound; Meets: no, or Meet
+  off, silences them; trade borrows a trait; breed has exactly one child,
+  then waits, and never at the 14-loop cap.
+- **Notes.** New strokes default to few; any loop can be re-spaced (many
+  gives more, in order, along the same path); fixed shaker and beat notes
+  stay put. In Edit, a tap anywhere on a path adds a note and a tap on a
+  note removes it.
 - **Mutation.** A child inherits the parent's voice, chord, rhythm, timing and
   motion, and leaves the parent untouched. Generations count up within one
   family. The 14-loop cap holds and the selection never points at a removed

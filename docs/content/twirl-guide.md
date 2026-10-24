@@ -33,6 +33,13 @@ listen to what changes.
   of different sizes still meet up.
 - **Loud is fast (or firm).** Drawing faster makes louder notes; with a
   pencil, pressing harder does. Bigger dots are louder.
+- **Where the notes land.** As you draw, a note lands each time the line
+  has gone a set distance, and wherever it turns sharply, so corners and
+  curls get notes and long straight runs get them evenly spaced. **Notes:
+  few / some / many** sets that distance (few, the default, is about two
+  grid columns). Any loop can change its own later: hold it → **Notes**.
+  Choosing the same setting again re-rolls: the notes land a little
+  differently each time.
 
 A blue dot, the **playhead**, travels each loop; a note sounds when the
 playhead reaches it.
@@ -84,16 +91,42 @@ The ones worth knowing:
 Hold a loop (or tap its chip, or press its number then Enter). From top to
 bottom: how it **moves** on its own and where it **lives** (high, middle,
 low: it wanders but comes home), **Place** (move and turn), and its
-**volume**. From More up: its **voice**, **speed**, **rhythm** (as drawn,
+**volume**. From More up: its **notes** (few, some, many, or ↻ again),
+what it does when it **meets** another loop (below), its **voice**, **speed**, **rhythm** (as drawn,
 evenly spaced, or Euclidean), **direction** (forward, reverse,
 ping-pong), how often it **plays** and **waits**, when it **starts**,
 **chords** (fifths, triads, sevenths, sus, always in the scale you're in),
 and its **timing** (follow Lock, always as drawn, or always on the grid).
 
+**Edit notes** (More and up) changes a loop by hand: tap anywhere on its
+path to add a note, tap a note to remove it, drag a square to bend the
+path, hold to smooth it.
+
 **Mutate** (More and up) gives the loop a child: a close variation with
 the same voice, rhythm and timing, a slightly different shape, and a few
 notes nudged. It starts half a cycle behind its parent, so it answers it.
 Children can have children; the chips show the generation (`g1`, `g2`…).
+
+## When loops meet
+
+When two loops' playheads (the blue dots) reach the same place at the same
+moment, they **meet**: a ring flashes there, and each loop answers in its
+own way (its settings → **Meets**):
+
+- **sound** (every new loop): it plays a note where it is, so a meeting
+  is an interval, two voices at once;
+- **trade**: it also borrows one thing from the other loop: its voice, its
+  chords, its rhythm or its direction, one per meeting, in turn;
+- **breed**: it also has a child, a variation of itself (like Mutate) that
+  borrows one thing from the other loop;
+- **no**: it passes other loops by.
+
+Only the playheads count, not the lines: paths cross all the time, but
+playheads meet only when two loops are in the same place *together*, which
+you can aim for by moving loops around. A pair meets at most once a beat; a
+loop trades at most once every two bars and breeds at most once every eight,
+and never when the sheet is full (14 loops). **Meet** in the controls (More)
+turns meetings off altogether.
 
 ## Toys, scenes, takes and codes
 
