@@ -678,7 +678,7 @@ kbd {
 
 <div class="traywrap" id="inspWrap" hidden>
  <div class="shelf inspector" id="inspector" role="dialog" aria-labelledby="inspTitle">
-  <div class="shelfhead"><strong id="inspTitle" tabindex="-1">This loop</strong><button class="btn" type="button" id="inspClose">Done</button></div>
+  <div class="shelfhead"><strong id="inspTitle" tabindex="-1">This loop</strong><span class="seg"><button class="btn" type="button" id="inspPrev" aria-label="Previous loop's settings (PageUp)" title="Previous loop (PageUp)">◀</button><button class="btn" type="button" id="inspNext" aria-label="Next loop's settings (PageDown)" title="Next loop (PageDown)">▶</button></span><button class="btn" type="button" id="inspClose">Done</button></div>
   <!-- The same three levels as the drawer's: a loop's settings can show more without a trip to the drawer. -->
   <div class="seg levels insplevels" role="group" aria-label="How many settings to show">
     <button class="btn" type="button" data-set-level="1" aria-pressed="true">Simple</button>
@@ -782,6 +782,7 @@ kbd {
     <dt><kbd>T</kbd> <kbd>Y</kbd> <kbd>S</kbd></dt><dd>Toybox · My toys · Scenes</dd>
     <dt><kbd>C</kbd></dt><dd>Controls drawer (from there, <kbd>Tab</kbd> moves through the controls)</dd>
     <dt><kbd>F</kbd></dt><dd>Full screen, on and off</dd>
+    <dt><kbd>1</kbd>…<kbd>9</kbd>, <kbd>1</kbd><kbd>0</kbd>…<kbd>1</kbd><kbd>4</kbd></dt><dd>Pick a loop (two digits quickly for 10–14); in its settings, PageDown / PageUp (fn ↓ / fn ↑) for the next or previous loop, and Tab past the last control moves on to the next loop</dd>
     <dt><kbd>I</kbd></dt><dd>Messages: shown as they happen, or quiet behind the dot</dd>
     <dt><kbd>Q</kbd> <kbd>⇧Q</kbd></dt><dd>Diagnostics: frames a second, how late the clock runs, notes a second, errors, where the last tap landed · ⇧Q copies a report</dd>
     <dt><kbd>\</kbd></dt><dd>Simple → More → Everything</dd>
@@ -918,7 +919,7 @@ const state = {
   air: 0, arc: "off",                      // breathing room; tension & release (see harmonyAt)
   // Morph moves every loop on its own; with "reduce motion" set in the OS, it starts off (the Morph button turns it on).
   meet: true,                              // contacts: crossings and meetings (section 7b)
-  evolve: true,                            // Evolve: loops' lives move on (section 6b); off freezes them all
+  evolve: true,                            // Evolve: loops' lives move on (section 6c); off freezes them all
   vary: true,                              // Vary: no two notes quite alike (round-robin-like, section 3)
   dice: true,                              // Surprise: new loops' direction, rhythm and Meets drawn at random
   lock: false, loop: true, morph: !matchMedia("(prefers-reduced-motion: reduce)").matches, revoice: false, walk: false, drone: false, edit: false,
@@ -1053,6 +1054,9 @@ function out(node, pan, send = 0.6) {
   const s = ctx.createGain(); s.gain.value = send; p.connect(s).connect(delaySend);
 }
 function env(g, t, peak, decay, attack = 0.004) {
+  // An exponential ramp can't reach 0 (Safari: "RangeError: value cannot be 0",
+  // seen in Alex's diagnostics, 2026-10-25, from a note at the very end of a fade).
+  peak = Math.max(0.0002, peak);
   g.gain.setValueAtTime(0.0001, t);
   g.gain.exponentialRampToValueAtTime(peak, t + attack);
   g.gain.exponentialRampToValueAtTime(0.0001, t + attack + decay);
@@ -1339,10 +1343,15 @@ function newStroke(start) {
     wait: 0,                                // drawn beats of rest after each pass
     uid: ++uidSeq,                          // stable identity (playflows refer to loops by it)
     meets: pickMeets(),                     // what it does when its playhead crosses a line or meets a playhead (MEET_ORDER)
-    life: pickLife(), age: 0,
+    life: pickLife(), age: 0,               // Life (section 6c), sometimes a Surprise once the sheet is busy; and passes lived
     span: 0,                                // a life's length in passes (set just below, from the life it got)
-    walk: "moves",                          // its part in Walk: moves / stays / fits
-    gives: pickInfluence(), strength: 1,    // Influence (section 6b): what it does to the loops it touches; how strong it is now               // Life (section 6b), sometimes a Surprise once the sheet is busy; and passes lived
+    // Its part in Walk. New loops FIT (2026-10-25, Alex: "I really enjoy a bit of
+    // voiceleading… parallel motion in this grid would imply that loops move
+    // vertically each time, which might be jarring"): they stay in place and land
+    // each note on the nearest tone of the chord Walk moved to, while the Drone
+    // carries the motion. Saved loops keep what they had ("moves" before this).
+    walk: "fits",
+    gives: pickInfluence(), strength: 1,    // Influence (section 6c): what it does to the loops it touches; how strong it is now
     density: state.density,                 // how its notes were spaced (retrace() re-spaces them)
     pts: [], events: [], start, L: 1, ts: 1, cursor: start, lastPass: 0, muted: false,
     c: { x: 0.5, y: 0.5 },
@@ -1576,7 +1585,7 @@ function varied(vel, t, midi) {
   return [Math.min(1, vel * (1 + VARY.vel * r())), Math.max(ctx.currentTime, t + (VARY.ms / 1000) * r()), midi + (VARY.cents / 100) * r()];
 }
 function sound(voice, xN, yN, vel, t, b, deg, chord = "single", pack = null, walkRole = "moves") {
-  if (!ctx) return;
+  if (!ctx || !(vel > 0.0005)) return;                           // a silent note (a fade's last moment, volume at 0): nothing to make
   diag.notes.push(performance.now()); if (diag.notes.length > 2000) diag.notes.splice(0, 1000);
   xN = Math.min(1, Math.max(0, xN)); yN = Math.min(1, Math.max(0, yN));
   const pan = xN * 1.7 - 0.85, root = deg ?? bandAt(yN);
@@ -1837,7 +1846,7 @@ function airKeep(b) {
   return gain;
 }
 
-/* ── 6b. Life: loops that change over the passes ───────────────────────────
+/* ── 6c. Life: loops that change over the passes ───────────────────────────
  * The first piece of the "evolving patch" (ROADMAP). Each loop has a Life:
  *   steady  as drawn, for good (most new loops)
  *   bloom   denser and back: notes beyond the ones you drew (traced from the
@@ -4675,6 +4684,8 @@ $("inspGain").addEventListener("input", (e) => { if (insp) insp.gain = Number(e.
 $("inspSpan").addEventListener("change", (e) => {                // the same point of its life, on the new length
   if (!insp) return; const f = lifeProgress(insp); insp.span = Number(e.target.value); setLifeProgress(insp, f); syncInspector();
 });
+$("inspPrev").addEventListener("click", () => stepInspector(-1));
+$("inspNext").addEventListener("click", () => stepInspector(1));
 $("inspFeel").addEventListener("input", (e) => { if (insp) { insp.feel = Number(e.target.value); syncInspector(); } });
 /* Timing carried over (Alex, 2026-10-24: "setting these parameters in each loop
  * is tedious… this shouldn't be something which gets assigned arbitrarily when a
@@ -4918,6 +4929,13 @@ document.addEventListener("keydown", (e) => {
   document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", code: "Escape", bubbles: true }));
 }, true);
 
+let lastDigit = null;
+/** Move the open settings to the next (+1) or previous (−1) loop, focus on its title. */
+function stepInspector(dir) {
+  if (!insp || !loops.length) return;
+  const i = loops.indexOf(insp), next = loops[mod(i + dir, loops.length)];
+  openInspector(next); $("inspTitle").focus();
+}
 /* Tab inside an open panel (a loop's settings, the drawer, a shelf, the key
  * list, the messages) moves through ITS controls and wraps around at the ends,
  * instead of leaving for the address bar. Twirl moves the focus itself, the
@@ -4936,6 +4954,13 @@ document.addEventListener("keydown", (e) => {
   const panel = openPanel(); if (!panel) return;
   const list = focusables(panel); if (!list.length) return;
   const i = list.indexOf(document.activeElement);
+  // In a loop's settings, Tab past its last control moves on to the next loop's
+  // settings, and ⇧Tab from its title back to the previous loop's: Tab steps
+  // through the loops' settings as it did (Alex, 2026-10-25), never out of the page.
+  if (panel === $("inspWrap") && loops.length > 1) {
+    if (!e.shiftKey && i === list.length - 1) { e.preventDefault(); e.stopImmediatePropagation(); stepInspector(1); return; }
+    if (e.shiftKey && document.activeElement === $("inspTitle")) { e.preventDefault(); e.stopImmediatePropagation(); stepInspector(-1); return; }
+  }
   const next = list[(i < 0 ? (e.shiftKey ? list.length - 1 : 0) : i + (e.shiftKey ? list.length - 1 : 1)) % list.length];
   e.preventDefault(); e.stopImmediatePropagation(); next.focus();
 }, true);
@@ -5058,10 +5083,20 @@ document.addEventListener("keydown", (e) => {
   if (digit) {
     e.preventDefault(); const d = Number(digit[1]); letGo();
     if (e.shiftKey) { if (d >= 1 && d <= 6) { setPen(PEN_ORDER[d - 1]); toast($("pen").selectedOptions[0].textContent); } return; }
+    // Two digits, quickly, for loops 10–14: 1 then 0–4 within 0.7 s (loop 1 is
+    // picked at once; the second digit moves on to 1x). Alex, 2026-10-25: "numbers
+    // still work… and don't cover the full range of 14 loops".
+    const now = performance.now();
+    if (lastDigit && lastDigit.d === 1 && now - lastDigit.at < 700 && d <= 4 && loops[9 + d]) {
+      lastDigit = null; if (!showNumbers) setNumbers(true); select(loops[9 + d]); return;
+    }
+    lastDigit = { d, at: now };
     if (d === 0) { select(null); return; }
     if (loops[d - 1]) { if (!showNumbers) setNumbers(true); select(loops[d - 1]); } else toast(`There's no loop ${d}`);
     return;
   }
+  // PageDown / PageUp (fn+↓ / fn+↑ on a Magic Keyboard): the next / previous loop's settings.
+  if (insp && (key === "PageDown" || key === "PageUp")) { e.preventDefault(); stepInspector(key === "PageDown" ? 1 : -1); return; }
   if (key === " " && e.shiftKey) { e.preventDefault(); toggleRecording(); return; }
   // Tab / Shift+Tab step through the loops while focus is on the page itself
   // (where every tap leaves it). Not handed to the browser: Safari's Tab skips

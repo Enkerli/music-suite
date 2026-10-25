@@ -173,6 +173,59 @@ slendro or 7-EDO for a fresh sheet), compared against the pentatonic start.
 If people don't notice, or like it, a fresh sheet could sometimes start
 there.
 
+### Later on 2026-10-25: tools, zones, and what Twirl is becoming
+
+Shipped: **Walk's new default**, new loops *fit* (they stay where they are and
+land each note on the nearest tone of the walked chord, voice leading, while
+the Drone carries the motion; saved loops keep *moves*), to be compared in
+playtests against parallel motion; **moving between loops' settings** from
+the keyboard (PageDown/PageUp, ◀ ▶, Tab past the end), **loops 10–14** by two
+digits; a fix for the **zero-loudness error** Safari reported (a fade's last
+note).
+
+**More tool palettes, and tools that act on loops** (Alex: "I really enjoy
+those. And there could be tools to affect loops on touch or selection"). The
+pen palette is the model: a few tools a tap away, at More. Candidates:
+- *brushes* that change whatever loop they touch: a fade brush (touch loops
+  to start them fading), a mute brush, a freeze brush (Evolve off for one
+  loop), a feed brush, a Walk-part brush (fits / moves / stays);
+- *selection tools*: the lasso (#3), and "tap to add to the selection",
+  then one Copy for all of them;
+- *a palette per family*: Life, Meets, Influence as palettes, so the
+  settings panel is for one loop and the palette for many.
+Keep the pen the default tool; a tool is always visibly *on* and goes back
+to the pen with one tap or Esc.
+
+**Zones: controllers on the sheet** (Alex: "bring back more HLO inspo. Some
+static 'zones' which are playable: you move through an area and it plays a
+drum (different kit pieces in different directions?); another area plays
+melodic notes as you slide a ball… Not completely sure if the two ideas mesh
+well. One is about semi-autonomous looping objects. The other is more about
+controllers"). They can mesh, through what Twirl already has:
+- a **zone** is a fixed area of the sheet with its own instrument and rule
+  (a drum pad that picks the kit piece by direction; a melodic strip that
+  plays as something slides along it; a pad that bends or filters);
+- **a finger** in a zone plays it live, as a controller (performance
+  gestures, which can be recorded as a take or kept as a loop);
+- **a loop's playhead** in a zone plays it too: the loop becomes the player,
+  the zone the instrument. That is a *contact* (section 7b) with an area
+  instead of a line, so zones join Meets, Influence and the silent zone and
+  terrain ideas: the sheet gets places, and loops become performers moving
+  through them.
+So the two ideas meet in the middle: loops that perform zones, and hands that
+perform both. A workshop item, after playtests.
+
+**What Twirl is becoming** (Alex: "it's becoming relatively close to the
+'Ambient Music' apps out there, from Brian Eno and Jean-Michel Jarre to
+casual devs. It wasn't my original intention. And there's a bit of
+'carcinogenesis' involved"). Worth keeping in view rather than resolving now:
+the evolving patch pulls toward generative ambience (a sheet that plays
+itself), zones and controllers pull back toward the hand and performance.
+The rules above keep the first touch the point either way; playtests can say
+which pull people feel. Guard against carcinogenesis: each new feature joins
+an existing idea (contacts, lives, tools, zones) rather than adding a new
+one, and the roadmap's order stays the brake.
+
 ## Where we were (reassessed 2026-10-24, evening)
 
 **What a day of play changed.** Mutation shipped as a prototype; collisions
