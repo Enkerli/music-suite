@@ -327,7 +327,7 @@ describe.skipIf(!browser)("Twirl · messages stay quiet, behind a dot; replays s
     const { page, context } = await openTwirl(browser);
     await page.evaluate(() => { toast("one"); toast("two"); $("initBtn").click(); $("initBtn").click(); });
     expect(await page.evaluate(() => $("toast").hidden)).toBe(true);
-    await page.click("#menuBtn"); await page.click("#msgModeBtn");
+    await page.click("#menuBtn"); await page.click('#strip [data-set-level="3"]'); await page.click("#msgModeBtn");   // Everything → View
     expect(await page.evaluate(() => [$("msgModeBtn").getAttribute("aria-pressed"), msgsLoud])).toEqual(["true", true]);
     await page.evaluate(() => { toast("Lock on"); toast("Morph off"); toast("Loop 2 took its rhythm"); });
     expect(await page.evaluate(() => [...$("toast").children].map((d) => d.textContent).slice(-3))).toEqual(["Lock on", "Morph off", "Loop 2 took its rhythm"]);

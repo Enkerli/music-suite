@@ -1469,8 +1469,10 @@ tempo of their own. Draw something. Then drag a loop somewhere else and
 listen to what changes.
 
 That is all Twirl asks. Everything below is there when you want it: the
-controls (☰) open at **Simple**; **More** and **Everything** add to them,
-and each level only adds, nothing moves. **Start over**, in the controls,
+controls (☰) open at **Simple** (Play, volume, sounds, sheets and toys);
+**Everything** adds labelled sections below (Drawing, Time, Pitch, Loops
+together, Harmony, Sound and room, View), each one folding, and nothing from
+Simple moves. **Start over**, in the controls,
 brings back this first visit (two taps; for ten seconds the same button
 brings back what you had).
 
@@ -1482,7 +1484,7 @@ brings back what you had).
   close notes sound muddy in the bass; up high every note of the scale has a
   row. **Spacing: even** (Everything) gives every note its own row.
 - **Distance along the path is time.** The sheet's width is one bar of four
-  beats. **Beats** (at More) shows where they fall: ticks across each loop,
+  beats. **Beats** (Everything → View) shows where they fall: ticks across each loop,
   and lines down the sheet (those are always there with **Lock**, where
   they're what plays).
 - **Direction picks the sound.** Right plucks, up rings a bell, left blips,
@@ -1490,7 +1492,7 @@ brings back what you had).
   *and* shape (● ○ ▲ ■ ◆), and the line takes the colour of its notes, so a
   loop that changes sound changes colour along the way.
 - **Lines settle when you lift.** A new stroke smooths into a curve (a
-  scribble stays a scribble); **Smooth** (at More) turns that off.
+  scribble stays a scribble); **Smooth** (Everything → Drawing) turns that off.
 - **Size is speed.** Bigger plays slower, smaller faster, snapping to
   musical ratios (½ … 2), so loops of different sizes still line up.
 - **Faster (or firmer, with a pencil) is louder.** Bigger dots are louder.
@@ -1519,7 +1521,7 @@ small or busy loop.
 
 Hold a loop, tap its chip, or press its number then Enter. At Simple: how it
 **moves** on its own, where it **lives** (high, middle, low), **Place**
-(move, turn), **volume**, **Mute** and **Erase**. From **More** up:
+(move, turn), **volume**, **Mute** and **Erase**. At **Everything**:
 
 - **Notes** (few, some, many, ↻ again) · **Voice** and **Sounds** (by
   direction or one voice; the sheet's sound pack or another one) · **Speed**
@@ -1554,13 +1556,18 @@ meet** (rarer: aim for it by moving loops). Each loop answers in its own way
 - **trade**: and, on contact or a meeting, it borrows one thing from the
   other loop (its voice, chords, rhythm or direction, in turn);
 - **breed**: and, when playheads meet, it has a child with the other loop;
-  **infect** has one at any contact. Breeding is always your choice: a child
-  never inherits it, Surprise never gives it, and it waits sixteen bars
-  between children. On a full sheet (14 loops) a child takes the oldest
-  loop's place (⌘Z brings it back);
+  **infect** has one at any contact. Breeding is your choice: Surprise never
+  gives it, it waits sixteen bars between children, and a child inherits it
+  only from a parent that fades or comes and goes (so a population of them
+  keeps itself in check, as the Tadpoles do). On a full sheet (14 loops) a
+  child takes the oldest loop's place (⌘Z brings it back);
+- **merge**: when its line touches another, or playheads meet, the two become
+  one loop, its path and then the other's, notes and all (up to 16 beats);
+  the other goes where undo keeps loops. Breeding adds loops, merging takes
+  them away;
 - **no**: it stays out of it.
 
-**Meet** in the controls (More) turns all contact off.
+**Meet** (Everything → Loops together) turns all contact off.
 
 ## Loops that change over time
 
@@ -1583,11 +1590,11 @@ stays.
 
 You can see it all: a filling or fed line is thicker, a fading or drained
 one paler, resting notes are faint, and the settings say where a loop is
-("fading · pass 5 of 16"). **Evolve** (More) holds every life where it is.
+("fading · pass 5 of 16"). **Evolve** (Everything → Loops together) holds every life where it is.
 To fade several loops together, give one a fade, **Copy** its life to the
 others (they all start together), then change each one's length.
 
-**Surprise** (More, on at first) gives new loops a little variety: a
+**Surprise** (Everything → Drawing, on at first) gives new loops a little variety: a
 different direction, rhythm or way of meeting now and then; and, once the
 sheet is busy (four loops or more), sometimes a life (brief, or a fade of
 16 or 32 passes) or an influence. The usual stays the most likely, a
@@ -1610,7 +1617,7 @@ plain.
   leading), **moves** (every note shifts by the same number of scale steps:
   parallel motion, a melody keeping its shape, chords following the scale),
   or **stays** (ignores Walk: a pedal, a riff).
-- **Scales and tunings**: the grid (More) and its root; at Everything,
+- **Scales and tunings** (Everything → Pitch): the grid and its root; at Everything,
   tunings for 12-note scales (just, Pythagorean, meantone, Werckmeister III)
   and microtonal scales (5-, 7-, 19-, 24-EDO, slendro, pelog, maqam Rast,
   harmonics, Bohlen–Pierce).
@@ -1624,7 +1631,7 @@ plain.
 
 Seven **packs** (paper, mallets, felt, steel, kalimba, chip, chimes) give the
 five voices different instruments; a loop can bring its own pack, whatever
-the sheet's. **Vary** (More, on at first) makes no two notes quite alike, a
+the sheet's. **Vary** (Everything → Sound and room, on at first) makes no two notes quite alike, a
 little louder or softer, earlier or later, brighter or duller, as a sampler
 plays a different take of the same note.
 
@@ -1641,8 +1648,9 @@ beat) or **rotate** like a Leslie speaker.
   longer the tube, the lower the note) and ring in gusts, off the beat, in
   their own sound. A **Spinner** is a beat-long arpeggio that folds, opens
   and flips as it spins. **Tadpoles** are five small figures with one note
-  each and a long rest: they drift, have children when they touch, and fade,
-  so a sea of them grows, thins and changes on its own. Play over it.
+  each and a long rest, and a long steady line across them (a current to run
+  into): they drift, have children when they touch, and fade, so a sea of
+  them grows, thins and changes on its own. Play over it.
 - **My toys**: keep any loop as a toy, to drop again anywhere.
 - **Scenes**: six slots for whole sheets; your last sheet comes back by
   itself.

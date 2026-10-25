@@ -1252,7 +1252,9 @@ describe.skipIf(!browser)("Twirl · spacing by register, warmth, tadpoles", () =
     const { page, context, errors } = await openTwirl(browser);
     const r = await page.evaluate(() => {
       loops.splice(0); state.dice = false;
-      const made = dropTadpoles(400, 300, sheet.clientWidth, sheet.clientHeight, 600);
+      const all = dropTadpoles(400, 300, sheet.clientWidth, sheet.clientHeight, 600);
+      const made = all.slice(0, 5), current = all[5];                 // five tadpoles, then the current they run into
+      const currentKind = `${current.meets}/${current.life}/${current.events.length > 2}`;
       const kinds = [...new Set(made.map((l) => `${l.meets}/${l.life}/${l.temper}`))];
       const kid = mutateLoop(made[0]);
       const plain = loops.find((l) => !made.includes(l) && l !== kid) || made[1];
@@ -1260,16 +1262,94 @@ describe.skipIf(!browser)("Twirl · spacing by register, warmth, tadpoles", () =
       return {
         n: made.length, notes: made.map((l) => l.events.length), waits: made.map((l) => l.wait),
         kinds,
-        kid: kid && [kid.meets, kid.life], kid2: kid2 && kid2.meets,
+        kid: kid && [kid.meets, kid.life], kid2: kid2 && kid2.meets, all: all.length, currentKind,
       };
     });
     expect(r.n).toBe(5);
+    expect(r.all).toBe(6);
+    expect(r.currentKind).toBe("sound/steady/true");          // a steady line across them, with a few notes
     expect(r.notes).toEqual([1, 1, 1, 1, 1]);
     expect(r.waits.every((w) => w >= 4)).toBe(true);
     expect(r.kinds).toEqual(["infect/fade/drift"]);
     expect(r.kid).toEqual(["infect", "fade"]);
     expect(r.kid2).toBe("sound");
     expect(errors).toEqual([]);
+    await context.close();
+  });
+});
+
+describe.skipIf(!browser)("Twirl · merging, the drone's level, two modes", () => {
+  it("merge: one loop swallows the other, its path then the other's, notes and all, where they were; the other goes to undo", async () => {
+    const { page, context, errors } = await openTwirl(browser);
+    const r = await page.evaluate(() => {
+      loops.splice(0); state.dice = false;
+      dropToy("ring", [300, 300]); dropToy("wave", [600, 400]);
+      const [X, Y] = loops, W = sheet.clientWidth, H = sheet.clientHeight;
+      Y.rot = 0.7; Y.tx = 0.05;                                       // turned and moved: baked in as it is now
+      const before = [...X.events, ...Y.events].length, yFirst = place(Y, Y.events[0].x, Y.events[0].y, W, H);
+      const xL = X.pts.at(-1).b, ywas = Y.uid;
+      X.meets = "merge";
+      const said = mergeLoops(X, Y, nowBeat());
+      const e = X.events.find((ev) => ev.off >= xL + BRIDGE - 1e-9), at = place(X, e.x, e.y, W, H);
+      const again = mergeLoops(X, X, nowBeat());
+      return { said: !!said, n: loops.length, notes: X.events.length, before, moved: Math.hypot(at[0] - yFirst[0], at[1] - yFirst[1]), undone: undone.at(-1).uid === ywas, L: X.L, rot: X.rot, again };
+    });
+    expect(r.said).toBe(true);
+    expect(r.n).toBe(1);
+    expect(r.notes).toBe(r.before);
+    expect(r.moved).toBeLessThan(1);                                // Y's first note is where it was on screen
+    expect(r.undone).toBe(true);
+    expect(r.L).toBeLessThanOrEqual(16);
+    expect(r.rot).toBe(0);
+    expect(r.again).toBe(null);
+    expect(errors).toEqual([]);
+    await context.close();
+  });
+
+  it("merge: not past 16 beats, not twice within 4 bars; a merger answers when lines touch", async () => {
+    const { page, context } = await openTwirl(browser);
+    const r = await page.evaluate(() => {
+      loops.splice(0); state.dice = false;
+      dropToy("ring", [300, 300]); dropToy("ring", [600, 300]); dropToy("ring", [450, 500]);
+      const [A, B, C] = loops; A.meets = "merge";
+      const one = mergeLoops(A, B, 100), soon = mergeLoops(A, C, 101);
+      A.L = 15; A.pts.at(-1).b = 14.9; const long = mergeLoops(A, C, 200);
+      return { one: !!one, soon, long, n: loops.length, order: MEET_ORDER.at(-1) };
+    });
+    expect(r).toEqual({ one: true, soon: null, long: null, n: 2, order: "merge" });
+    await context.close();
+  });
+
+  it("the drone is about as loud as one loop at its default, and a fresh sheet draws its space", async () => {
+    const { page, context } = await openTwirl(browser);
+    const r = await page.evaluate(() => {
+      const spaces = new Set(); for (let i = 0; i < 60; i++) spaces.add(freshKey().droneSpace);
+      return { gain: DRONE_GAIN * STATE_DEFAULTS.droneVol, spaces: [...spaces].every((s) => s in DRONE_SPACES), many: spaces.size > 1 };
+    });
+    expect(r.gain).toBeLessThanOrEqual(0.012);                       // was 0.05: four times a loop's loudness
+    expect(r.spaces).toBe(true);
+    expect(r.many).toBe(true);
+    await context.close();
+  });
+
+  it("two modes: Simple shows a few controls, Everything adds labelled, folding sections; More is gone", async () => {
+    const { page, context } = await openTwirl(browser);
+    await page.click("#menuBtn");
+    const simple = await page.evaluate(() => [...document.querySelectorAll("#strip button, #strip select, #strip input")].filter((e) => e.offsetParent).length);
+    const levels = await page.$$eval('#strip [data-set-level]', (b) => b.map((x) => x.textContent));
+    await page.click('#strip [data-set-level="3"]');
+    const r = await page.evaluate(() => ({
+      every: [...document.querySelectorAll("#strip button, #strip select, #strip input")].filter((e) => e.offsetParent).length,
+      secs: [...document.querySelectorAll("#strip details.dsec .dtitle")].map((t) => t.textContent),
+      two: (setLevel(2), level),
+    }));
+    expect(levels).toEqual(["Simple", "Everything"]);
+    expect(simple).toBeLessThanOrEqual(12);
+    expect(r.every).toBeGreaterThan(simple * 2);
+    expect(r.secs).toEqual(["Drawing", "Time", "Pitch", "Loops together", "Harmony", "Sound and room", "View"]);
+    expect(r.two).toBe(3);                                           // an old "More" opens Everything
+    await page.click('#strip details[data-sec="pitch"] > summary');
+    expect(await page.evaluate(() => [document.querySelector('details[data-sec="pitch"]').open, store.get("twirl:sec:pitch")])).toEqual([false, false]);
     await context.close();
   });
 });
