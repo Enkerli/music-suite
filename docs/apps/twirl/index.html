@@ -1366,6 +1366,7 @@ function sendMidi(voice, midi, vel, t, yN) {
   try {
     port.send([0x90 | ch, note, Math.max(1, Math.round(vel * 127))], at);
     port.send([0x80 | ch, note, 0], at + len);
+    diag.midiSent++; diag.midiLast = { ch: ch + 1, note, vel: Math.max(1, Math.round(vel * 127)), voice, inMs: Math.round(at - performance.now()) };
   } catch (_) { /* port went away */ }
 }
 
@@ -3458,6 +3459,17 @@ document.addEventListener("pointerdown", (e) => {
   diag.lastTap = name + label;
 }, true);
 try { new PerformanceObserver((l) => (diag.longTasks += l.getEntries().length)).observe({ type: "longtask", buffered: false }); } catch (_) { /* not in Safari */ }
+/* For testing on new hardware (PLAN.md, phase 1: Linux, a graphics tablet, a
+ * synth over Web MIDI): what the last pointer on the sheet reported, and what
+ * MIDI sees and sends. Read-only; shown in the ⇧Q report. */
+diag.pen = null; diag.midiSent = 0; diag.midiLast = null;
+document.addEventListener("pointermove", (e) => {
+  if (e.target !== sheet && !(sheet && sheet.contains && sheet.contains(e.target))) return;
+  const p = diag.pen || (diag.pen = { type: "", pressure: 0, maxPressure: 0, tilt: [0, 0], buttons: 0, events: 0, coalesced: 0 });
+  p.type = e.pointerType; p.pressure = Math.round(e.pressure * 1000) / 1000; p.maxPressure = Math.max(p.maxPressure, p.pressure);
+  p.tilt = [e.tiltX || 0, e.tiltY || 0]; p.buttons = e.buttons; p.events++;
+  if (e.getCoalescedEvents) p.coalesced += e.getCoalescedEvents().length;
+}, { passive: true, capture: true });
 function diagReport() {
   const t = performance.now(); diag.notes = diag.notes.filter((x) => t - x < 1000);
   const mem = performance.memory ? `${Math.round(performance.memory.usedJSHeapSize / 1048576)} MB` : "n/a";
@@ -3467,7 +3479,11 @@ function diagReport() {
     notesPerSecond: diag.notes.length, loops: loops.length, notes: loops.reduce((a, l) => a + l.events.length, 0), fading: fading.length, undo: undone.length,
     memory: mem, longTasks: diag.longTasks, skippedNotes: diag.skipped || 0, errors: diag.errors.slice(), lastTap: diag.lastTap, audio: ctx ? ctx.state : "none",
     panels: { settings: !$("inspWrap").hidden, shelf: !$("shelf").hidden, drawer: document.body.classList.contains("drawer-open"), messages: !$("msgLog").hidden },
-    replaying: !!replay, recording: !!(recorder || flowRec), level, ua: navigator.userAgent,
+    replaying: !!replay, recording: !!(recorder || flowRec), level,
+    pen: diag.pen,
+    midi: typeof midiAccess === "undefined" || !midiAccess ? (navigator.requestMIDIAccess ? "not allowed (yet)" : "no Web MIDI here")
+      : { out: state.out, outputs: [...midiAccess.outputs.values()].map((o) => o.name), sent: diag.midiSent, last: diag.midiLast },
+    ua: navigator.userAgent,
   };
 }
 function perfShow(dtMs) {
