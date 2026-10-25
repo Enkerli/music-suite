@@ -173,6 +173,65 @@ slendro or 7-EDO for a fresh sheet), compared against the pentatonic start.
 If people don't notice, or like it, a fresh sheet could sometimes start
 there.
 
+### 2026-10-25, later: spacing, warmth, tadpoles, and the smidgen vibe
+
+Shipped:
+- **Spacing by register** (the default for a fresh sheet; saved sheets open
+  even, as they were): notes further apart low down, closer up high, after
+  critical-band roughness, with every octave the same height. On the default
+  sheet the lowest octave plays the home chord; seven-note and microtonal
+  scales thin gradually (thirds low, whole steps in the middle, every step on
+  top). Chords under G3 open up (root, fifth, tenth). Spacing: even, at
+  Everything, for the old layout.
+- **Warmth** (Everything, 0.5 to begin with): a breath of pink noise, the odd
+  vinyl crackle, a hint of tape wow and flutter on the whole mix, all under
+  the master. Meant to be felt, not heard: a "presence".
+- **The Drone's space**: still, drifting (default), binaural (left and right
+  3 Hz apart: a beat on headphones, and nothing more claimed), rotating (a
+  slow Leslie: swinging pan, swell, Doppler); and a few cents of wobble.
+- **Tadpoles** (Toybox): five one-note figures with long rests that drift,
+  have children when they touch and fade; *mortal* breeders pass breeding on
+  (a loop that fades or comes and goes), so the population keeps itself going
+  and in check. A sea, a little like the Game of Life.
+- Fixed: Smooth now works by distance on screen (it was too light to see),
+  and **Beats** governs the ticks across loops, the lines Alex meant.
+
+**The smidgen vibe** (Alex, after playing a tadpole: "Really enjoy this
+integration of generative with performing, as per my 'smidgen' vibe. Let's
+document this"). Written into [docs/INTENT.md](../../docs/INTENT.md) (B1) as
+the line to hold: what you draw is performed, then handed over to its own
+life, and you can step back in at any time. Each feature should keep both
+halves in reach.
+
+**Next, soon: languages, a glossary, and templates by URL** (Alex: "we
+should prep for localization & internationalization. There's a lot of text in
+here. Could even contribute to a glossary for the Suite. Some things could be
+more graphic than textual… passing parameters through the URL could help us
+build in some templates. Preserving the simple immediate experience could go
+through the existence of more elaborate templates, loaded through the URL"):
+- *Prepare for translation* before adding more text: every string the player
+  reads (buttons, titles, toasts, the key list, aria labels) gathered into one
+  table keyed by id, English first and French next (MTILT is bilingual), with
+  plurals and numbers formatted by `Intl`. A first count of strings tells how
+  big the job is.
+- *A Suite glossary* fed from that table: Twirl's words (loop, pass, Meets,
+  Life, Walk, fits, Warmth, Spacing…) next to the other apps', so one idea has
+  one name across the suite, in both languages.
+- *Graphic before textual*: where a symbol or a small picture says it (a
+  voice's shape and colour, a life's curve, Meets as two little lines), use
+  it, with the word as its accessible name; less to translate, and kinder to
+  newcomers and to people who read less easily.
+- *Templates by URL*: `?start=macro` already opens a different first sheet.
+  Generalize it: `?template=<name>` (tadpole sea, ambient room with Drone and
+  Warmth up, a drum-and-bells starter, a Lock grid, a microtonal sheet), each
+  a stored scene plus its settings, and optionally the level to open at. The
+  plain URL stays the simple first minute; anything elaborate is one link
+  away, for a workshop, a lesson or a playtest condition.
+
+To try (Alex's own playtests): tadpole seas over long stretches (do they die
+out, settle, or fill the cap?); warmth at 0 vs 0.5, unannounced (does anyone
+notice; does it feel warmer?); binaural vs rotating on headphones and speakers.
+
 ### 2026-10-25, a calmer, more colourful sheet
 
 Shipped (Alex: "auto-smooth new curves. Not show the beat lines by default.
@@ -228,6 +287,7 @@ controllers"). They can mesh, through what Twirl already has:
 So the two ideas meet in the middle: loops that perform zones, and hands that
 perform both. A workshop item, after playtests.
 
+<a id="what-twirl-is-becoming"></a>
 **What Twirl is becoming** (Alex: "it's becoming relatively close to the
 'Ambient Music' apps out there, from Brian Eno and Jean-Michel Jarre to
 casual devs. It wasn't my original intention. And there's a bit of

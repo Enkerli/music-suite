@@ -112,6 +112,14 @@ much they matter, before deciding.
   rhythm without the vertical lines? Does the colour of a line help people
   guess its sound before it plays? Include a colour-blind participant.
 
+- **Warmth, unannounced.** Half the sessions at Warmth 0, half at 0.5, without
+  saying so. Does anyone hear the hiss or a crackle (and think it's a fault)?
+  Do people describe the 0.5 sheets differently ("warmer", "alive")?
+- **Spacing by register.** Do newcomers' bass lines sound less muddy? Does
+  anyone notice the lower rows are taller, or miss notes down there?
+- **Tadpoles (Alex's own runs first).** Leave a sea for 10–20 minutes: does it
+  die out, settle, or fill the cap? Is it pleasant to perform over?
+
 ## A condition to compare: where a fresh sheet starts
 
 Half the newcomer sessions open Twirl as usual (pentatonic, major or minor,

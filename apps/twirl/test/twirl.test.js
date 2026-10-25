@@ -1111,22 +1111,37 @@ describe.skipIf(!browser)("Twirl · a smoother, more colourful sheet", () => {
     await page.evaluate(() => {
       window.__rough = [];
       const rough = (lp) => lp.pts.slice(1, -1).reduce((a, p, j) => a + Math.hypot(lp.pts[j].x - 2 * p.x + lp.pts[j + 2].x, lp.pts[j].y - 2 * p.y + lp.pts[j + 2].y), 0);
-      const orig = smoothLoop;
-      window.smoothLoop = function (lp, ...rest) { const before = rough(lp); orig.call(this, lp, ...rest); window.__rough.push([before, rough(lp)]); };
+      const orig = settleStroke;
+      window.settleStroke = function (lp, ...rest) { const before = rough(lp); orig.call(this, lp, ...rest); window.__rough.push([before, rough(lp)]); };
       loops.splice(0);                                              // an empty sheet: the stroke can't land on a loop
       Math.random = () => 0.8;                                      // Surprise's "jitter" way of moving: still smoothed (only scribbles aren't)
     });
-    await drawStroke(page);
+    // A trembling hand: a slow line with a 3 px wobble across it.
+    await page.mouse.move(260, 420); await page.mouse.down();
+    for (let k = 1; k <= 80; k++) { await page.mouse.move(260 + k * 4, 420 - k * 1.5 + (k % 2 ? 3 : -3)); await page.waitForTimeout(12); }
+    await page.mouse.up();
     const r = await page.evaluate(() => {
       const lp = loops.at(-1);
       return { rough: window.__rough.slice(), onLine: lp.events.every((e) => lp.pts.some((p) => p.x === e.x && p.y === e.y)) };
     });
     expect(r.rough.length).toBe(1);
-    expect(r.rough[0][1]).toBeLessThan(r.rough[0][0]);
+    expect(r.rough[0][1]).toBeLessThan(r.rough[0][0] * 0.5);   // visibly smoother, not a token pass (2026-10-25: "curves aren't automatically smoothened")
     expect(r.onLine).toBe(true);
     await page.evaluate(() => { setSmooth(false); loops.splice(0); });
     await drawStroke(page);
     expect(await page.evaluate(() => [window.__rough.length, store.get("twirl:smooth")])).toEqual([1, false]);
+    await context.close();
+  });
+
+  it("the ticks across loops come and go with Beats (off by default)", async () => {
+    const { page, context } = await openTwirl(browser);
+    const count = () => page.evaluate(async () => {
+      let n = 0; const orig = drawBeatTicks; window.drawBeatTicks = (...a) => { n++; return orig(...a); };
+      await new Promise((ok) => setTimeout(ok, 300)); window.drawBeatTicks = orig; return n;
+    });
+    expect(await count()).toBe(0);
+    await page.evaluate(() => setBeats(true));
+    expect(await count()).toBeGreaterThan(0);
     await context.close();
   });
 
@@ -1145,6 +1160,115 @@ describe.skipIf(!browser)("Twirl · a smoother, more colourful sheet", () => {
     expect(r.first).toBe(r.drum);
     expect(r.last).toBe(r.blip);
     await page.waitForTimeout(300);                                 // a few frames drawn in colour
+    expect(errors).toEqual([]);
+    await context.close();
+  });
+});
+
+describe.skipIf(!browser)("Twirl · spacing by register, warmth, tadpoles", () => {
+  // Alex, 2026-10-25: "wider gaps between bass notes, tighter between top notes.
+  // Following loosely an acoustic principle about dissonance."
+  it("by register: fewer, wider rows low down, every row up high, octaves always kept and equally tall", async () => {
+    const { page, context } = await openTwirl(browser);
+    const r = await page.evaluate(() => {
+      Object.assign(state, { grid: "ionian", root: 0, range: 3, spread: "register" });
+      const { degs, edge } = sheetRows(), n = stepCount();
+      const inOct = (o) => degs.filter((d) => Math.floor(d / n) === o).length;
+      const octEdges = degs.map((d, i) => (d % n === 0 ? edge[i] : null)).filter((v) => v !== null);
+      const fromY = [0.99, 0.5, 0.01].map((y) => bandAt(y));
+      state.spread = "even"; const even = sheetRows().degs.length, evenTop = bandAt(0.01);
+      state.spread = "register";
+      return { counts: [0, 1, 2].map(inOct), n, octEdges, fromY, even, evenTop, all: degs.every((d) => Number.isInteger(d)) };
+    });
+    expect(r.counts[0]).toBeLessThan(r.counts[1]);           // the bass octave is thinned most
+    expect(r.counts[1]).toBeLessThanOrEqual(r.counts[2]);
+    expect(r.counts[2]).toBe(r.n);                            // the top octave keeps every step
+    expect(r.octEdges.map((e) => Math.round(e * 300) / 100)).toEqual([0, 1, 2]);   // each octave a third of the sheet
+    expect(r.even).toBe(r.n * 3);
+    expect(r.fromY[0]).toBe(0);
+    expect(r.fromY[2]).toBe(r.evenTop);                       // the top row is the top step either way
+    expect(r.all).toBe(true);
+    await context.close();
+  });
+
+  it("older sheets open as they were (even); a fresh sheet is by register; chords low down open up", async () => {
+    const { page, context } = await openTwirl(browser);
+    const r = await page.evaluate(() => {
+      const fresh = STATE_DEFAULTS.spread;
+      const sc = serialize(); delete sc.settings.spread; recall(sc);
+      const old = state.spread;
+      Object.assign(state, { spread: "register", root: 0, range: 3, grid: "pentMaj" });   // the bottom note: C3, under G3 (a fresh sheet's key is random)
+      const seen = []; const orig = midiForDegree;
+      window.midiForDegree = (d) => { seen.push(d); return orig(d); };
+      ensureAudio(); sound("pluck", 0.5, 0.99, 0.5, ctx.currentTime + 0.05, 0, 0, "triad");
+      window.midiForDegree = orig;
+      return { fresh, old, saved: serialize().settings.spread, seen };
+    });
+    expect(r.fresh).toBe("register");
+    expect(r.old).toBe("even");
+    expect(r.saved).toBe("register");
+    expect(r.seen.some((d) => d >= 5)).toBe(true);            // a triad on the bottom note: its third an octave up
+    await context.close();
+  });
+
+  it("warmth: hiss, crackle and wobble under the master, scaled and turned off by Warmth", async () => {
+    const { page, context, errors } = await openTwirl(browser);
+    const r = await page.evaluate(async () => {
+      ensureAudio(); await new Promise((ok) => setTimeout(ok, 300));
+      const at = () => [room.hissG.gain.value, room.crG.gain.value, room.wowG.gain.value];
+      const half = at(); setWarmth(0); await new Promise((ok) => setTimeout(ok, 800)); const none = at();
+      setWarmth(1); await new Promise((ok) => setTimeout(ok, 800));
+      return { half, none, full: at(), saved: serialize().settings.warmth };
+    });
+    expect(r.half.every((v) => v > 0)).toBe(true);
+    expect(r.none.every((v) => v < 1e-4)).toBe(true);
+    expect(r.full[0]).toBeGreaterThan(r.half[0]);
+    expect(r.half[0]).toBeLessThan(0.01);                     // barely there
+    expect(r.saved).toBe(1);
+    expect(errors).toEqual([]);
+    await context.close();
+  });
+
+  it("the drone takes each space; binaural sets its left and right apart", async () => {
+    const { page, context, errors } = await openTwirl(browser);
+    const r = await page.evaluate(async () => {
+      ensureAudio(); const out = {};
+      for (const sp of Object.keys(DRONE_SPACES)) { state.droneSpace = sp; setDrone(true); out[sp] = drone.split; }
+      await new Promise((ok) => setTimeout(ok, 1500));
+      const [l, rr] = drone.voices[0].pair.map((o) => o.frequency.value);
+      state.droneSpace = "binaural"; setDrone(true); await new Promise((ok) => setTimeout(ok, 2500));
+      const [bl, br] = drone.voices[0].pair.map((o) => o.frequency.value);
+      setDrone(false);
+      return { out, still: Math.abs(l - rr), apart: br - bl };
+    });
+    expect(r.out.binaural).toBe(3);
+    expect(r.still).toBeLessThan(0.01);
+    expect(r.apart).toBeGreaterThan(2.5);
+    expect(errors).toEqual([]);
+    await context.close();
+  });
+
+  it("tadpoles: five single-note, drifting, fading breeders; their children breed too, other children don't", async () => {
+    const { page, context, errors } = await openTwirl(browser);
+    const r = await page.evaluate(() => {
+      loops.splice(0); state.dice = false;
+      const made = dropTadpoles(400, 300, sheet.clientWidth, sheet.clientHeight, 600);
+      const kinds = [...new Set(made.map((l) => `${l.meets}/${l.life}/${l.temper}`))];
+      const kid = mutateLoop(made[0]);
+      const plain = loops.find((l) => !made.includes(l) && l !== kid) || made[1];
+      plain.life = "steady"; plain.meets = "breed"; const kid2 = mutateLoop(plain);
+      return {
+        n: made.length, notes: made.map((l) => l.events.length), waits: made.map((l) => l.wait),
+        kinds,
+        kid: kid && [kid.meets, kid.life], kid2: kid2 && kid2.meets,
+      };
+    });
+    expect(r.n).toBe(5);
+    expect(r.notes).toEqual([1, 1, 1, 1, 1]);
+    expect(r.waits.every((w) => w >= 4)).toBe(true);
+    expect(r.kinds).toEqual(["infect/fade/drift"]);
+    expect(r.kid).toEqual(["infect", "fade"]);
+    expect(r.kid2).toBe("sound");
     expect(errors).toEqual([]);
     await context.close();
   });

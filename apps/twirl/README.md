@@ -11,6 +11,11 @@ MIDI out appears where the browser has Web MIDI (Chromium, Linux included).
 The player's guide: <https://enkerli.github.io/music-suite/doc.html?p=twirl-guide>
 (its source is the `twirl-guide` page in [docs/site.md](../../docs/site.md)).
 
+It is semi-generative play at its plainest ("smidgen", Alex's jokey word for
+the semi-generative approach running through his explorations; see
+[INTENT B1](../../docs/INTENT.md)): what you draw is performed, then handed
+over to a life of its own, and you can step back in at any time.
+
 Public Domain (CC0-1.0), like the rest of the suite.
 
 ## What's in this folder
@@ -43,14 +48,14 @@ rules. Where to find things:
 | Scales, tunings, divisions | 1 | `GRIDS`, `TUNINGS`, `DIVS` |
 | The clock; timing freedom (Snap, Feel, Clock) | 2, 2b | `nowBeat`, `snapLoop`, `feelOf`, `clockFactor` |
 | Voices, packs, Vary, MIDI | 3, 3a, 3b | `sound`, `VOICES`, `PACKS`, `varied`, `sendMidi` |
-| Loops, temperaments, Walk and Arc | 4, 5 | `newStroke`, `TEMPERS`, `harmonyAt`, `walkShift`, `walkFor` |
+| Loops, temperaments, Walk and Arc; spacing by register | 4, 5 | `newStroke`, `TEMPERS`, `harmonyAt`, `walkShift`, `walkFor`, `sheetRows`, `bandAt` |
 | Where notes land; Lock | 6a, 6b | `Tracer`, `DENSITY`, `retrace`, `lockStep`, `airKeep` |
 | Life and Influence | 6c | `lifeState`, `bloomNotes`, `ageLoop`, `influence`, `settle` |
 | The scheduler | 7 | `schedule`, `lookahead` (adapts to late ticks) |
 | Contacts: crossings, lines touching, meetings | 7b | `checkMeetings`, `touch`, `linesTouch`, `meet`, `breedWith` |
-| Drone | 8 | `setDrone`, `updateDrone` |
-| Toybox (chimes, spinner…) | 9 | `TOYS`, `dropToy`, `startingSheet`, `freshKey` |
-| Touch: draw, drag, pinch, Edit, smoothing | 10 | `endStroke`, `smoothLoop`, `pointerEnd`, `addNoteAt`, `NOTE_SOUNDS` |
+| Drone and its space; Warmth (hiss, crackle, wobble) | 8, 8b | `setDrone`, `DRONE_SPACES`, `updateDrone`, `buildRoom`, `setWarmth` |
+| Toybox (chimes, spinner, tadpoles…) | 9 | `TOYS`, `dropToy`, `dropTadpoles`, `startingSheet`, `freshKey` |
+| Touch: draw, drag, pinch, Edit, smoothing | 10 | `endStroke`, `settleStroke`, `smoothLoop`, `pointerEnd`, `addNoteAt`, `NOTE_SOUNDS` |
 | Drawing; colours by voice; the grid layer; sharpness | 11 | `frame`, `voiceColours`, `strokePath`, `drawGridCached`, `adaptQuality`, `diagReport` |
 | Scenes, codes, toys, files | 12–12c | `serialize`, `packScene`, `encodeScene`, `collection` |
 | Controls, settings, Copy, takes, keys, messages | 13 | `syncInspector`, `copySettings`, `toggleRecording`, `KEYS`, `toast` |
@@ -95,8 +100,13 @@ What they hold in place, in `test/twirl.test.js` and `test/twirl.a11y.test.js`:
   sound; Mutate; Copy to a family, all loops or chosen loops.
 - **Saving.** Codes, toys, scenes, takes and JSON files round-trip; older
   codes open.
-- **The look.** Beat lines hidden unless asked for (or with Lock); new
-  strokes smoothed, notes still on the line; paths in their voices' colours.
+- **The look.** Beats (ticks and lines) hidden unless asked for (the lines
+  show with Lock); a trembling stroke visibly smoothed, notes still on the
+  line; paths in their voices' colours.
+- **Spacing, warmth, tadpoles.** Rows by register (the bass thinned, octaves
+  equal, older sheets even), chords opened low down; Warmth's hiss, crackle
+  and wobble scaled and silenced; the Drone's spaces (binaural sets left and
+  right apart); tadpoles, and which children inherit breeding.
 - **Sound and performance.** Vary, pause without a buzz, no zero-loudness
   errors; a busy sheet inside a frame budget, the adaptive lookahead and
   sharpness, the grid layer.
