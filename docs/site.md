@@ -1741,6 +1741,8 @@ leaving marks. **H** lists every key inside Twirl.
 | L · M · E | Lock · Morph · Edit notes |
 | F | Full screen |
 | I | Messages: shown as they happen, or quiet |
+| W · ⇧W | Walk: off, then each way in turn (⇧W: back) |
+| Q | Performance readout (frames a second, how late the clock runs) |
 | ⌘Z · ⇧⌘Z | Remove the newest loop · bring it back |
 | Esc (or `` ` ``, or ⌘ .) | Close whatever is open |
 
@@ -1755,6 +1757,10 @@ the controls.
 
 If the system interrupts the sound (a call, another app's audio), Twirl
 says so, and the next touch or key brings it back.
+
+On a busy sheet or a slower device, Twirl looks further ahead when it
+schedules notes, so they don't drop, and may draw the sheet a little less
+sharply until things calm down. **Q** shows how it's keeping up.
 
 ## Messages
 

@@ -863,6 +863,74 @@ describe.skipIf(!browser)("Twirl · session tools: life length, Walk, shared tim
   });
 });
 
+describe.skipIf(!browser)("Twirl · performance: a busy sheet keeps up", () => {
+  const busy = (page) => page.evaluate(() => {
+    ensureAudio(); hint.hidden = true;
+    const kinds = ["spiral", "rose", "lissajous", "ring", "star", "spinner", "chimes", "shaker", "beat", "drop", "spiral", "rose", "lissajous", "ring"];
+    loops.splice(0).forEach(fadeOut);
+    kinds.forEach((k, i) => dropToy(k, [300 + (i % 5) * 140, 250 + Math.floor(i / 5) * 160]));
+    loops.forEach((l, i) => { if (!l.events.some((e) => e.fixed)) retrace(l, "dense", 0); l.meets = ["sound", "bump", "trade", "sound"][i % 4]; l.life = ["steady", "bloom", "brief", "swell"][i % 4]; l.gives = ["none", "feed", "none", "drain"][i % 4]; });
+  });
+
+  it("a budget: 14 dense loops with contacts, lives and influence; a frame's script and a scheduler tick stay well under a frame", async () => {
+    const { page, context } = await openTwirl(browser);
+    await busy(page);
+    const r = await page.evaluate(() => {
+      const W = sheet.clientWidth, H = sheet.clientHeight, f = [], t = [];
+      for (let i = 0; i < 60; i++) { const a = performance.now(); frame(); f.push(performance.now() - a); }
+      for (let i = 0; i < 60; i++) { const a = performance.now(); schedule(); t.push(performance.now() - a); }
+      const p95 = (x) => x.sort((a, b) => a - b)[Math.floor(x.length * 0.95)];
+      return { frame: p95(f), tick: p95(t), notes: loops.reduce((a, l) => a + l.events.length, 0) };
+    });
+    expect(r.notes).toBeGreaterThan(150);
+    expect(r.frame).toBeLessThan(25);                                        // generous for CI; about 5 ms on a laptop
+    expect(r.tick).toBeLessThan(12);
+    await context.close();
+  });
+
+  it("late ticks: the scheduler looks further ahead (up to 0.4 s) and comes back slowly", async () => {
+    const { page, context } = await openTwirl(browser);
+    const r = await page.evaluate(() => {
+      ensureAudio(); lookahead = LOOKAHEAD;
+      lastTickAt = performance.now() - 200; schedule(); const after = lookahead;      // a 200 ms gap
+      lastTickAt = performance.now() - 2000; schedule(); const capped = lookahead;    // a 2 s one
+      for (let i = 0; i < 50; i++) { lastTickAt = performance.now() - 25; schedule(); }
+      return { after, capped, settling: lookahead };
+    });
+    expect(r.after).toBeGreaterThan(0.3);
+    expect(r.capped).toBe(0.4);
+    expect(r.settling).toBeLessThan(0.4); expect(r.settling).toBeGreaterThan(0.12);
+    await context.close();
+  });
+
+  it("sharpness drops when frames are slow and comes back when calm; Q shows the readout", async () => {
+    const { page, context } = await openTwirl(browser, { viewport: { width: 1180, height: 820 } });
+    const r = await page.evaluate(() => {
+      const dpr = Math.min(2, window.devicePixelRatio || 1);
+      frameTimes = []; for (let i = 0; i < 30; i++) adaptQuality(50); const slow = quality;
+      for (let i = 0; i < 90; i++) adaptQuality(10); const calm = quality;
+      return { dpr, slow, calm };
+    });
+    if (r.dpr > 1) { expect(r.slow).toBeLessThan(1); expect(r.calm).toBeGreaterThan(r.slow); }
+    else expect([r.slow, r.calm]).toEqual([1, 1]);                          // at 1× there's nothing to drop
+    await page.mouse.click(600, 600); await page.keyboard.press("q"); await page.waitForTimeout(700);
+    expect(await page.evaluate(() => [$("perf").hidden, /fps/.test($("perf").textContent)])).toEqual([false, true]);
+    await context.close();
+  });
+
+  it("the paper and its lines are a layer of their own, drawn only when they change", async () => {
+    const { page, context } = await openTwirl(browser);
+    const r = await page.evaluate(async () => {
+      const raf = () => new Promise((ok) => requestAnimationFrame(() => requestAnimationFrame(ok)));
+      await raf(); const k1 = gridCache.key; await raf(); const same = gridCache.key === k1;
+      applySettings({ root: (state.root + 2) % 12 }); await raf();
+      return { same, changed: gridCache.key !== k1, layer: $("gridLayer").width > 0 };
+    });
+    expect(r).toEqual({ same: true, changed: true, layer: true });
+    await context.close();
+  });
+});
+
 describe.skipIf(!browser)("Twirl · notes: few by default, re-spaced per loop", () => {
   it("new strokes default to few notes", async () => {
     const { page, context } = await openTwirl(browser);

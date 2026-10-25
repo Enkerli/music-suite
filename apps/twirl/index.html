@@ -83,6 +83,9 @@ body {
   touch-action: none;           /* every touch is ours: no scroll, no zoom */
   display: block;
 }
+/* The paper and its lines, under the sheet: drawn only when they change, and
+   composited by the browser, so a frame only paints what moves. */
+#gridLayer { position: fixed; inset: 0; width: 100%; height: 100%; display: block; pointer-events: none; }
 
 /* ── control strip ─────────────────────────────────────────────────────── */
 .strip {
@@ -312,6 +315,13 @@ kbd {
 .replaybar.mini .replaymini { display: inline-flex; }
 .replaybar:not(.mini) .replaymini { display: none; }
 
+/* ── performance readout (Q) ───────────────────────────────────────────── */
+.perf {
+  position: fixed; z-index: 61; left: 12px; bottom: calc(var(--foot-h, 56px) + 8px);
+  padding: 6px 10px; border-radius: 8px; background: var(--paper); border: 1px solid var(--rule-strong);
+  font: 400 0.6875rem/1.4 var(--font-mono); color: var(--ink); white-space: pre; pointer-events: none;
+}
+
 /* ── toast ─────────────────────────────────────────────────────────────── */
 .toast {
   position: fixed; left: 50%; transform: translateX(-50%);
@@ -456,6 +466,7 @@ kbd {
 <body>
 
 <main>
+<canvas id="gridLayer" aria-hidden="true"></canvas>
 <canvas id="sheet" role="img" aria-label="The sheet: draw on it with a finger, pencil or mouse to make loops that play. From the keyboard, T opens the Toybox of ready-made shapes, digits pick a loop, and ? lists every key."></canvas>
 <div class="hint" id="hint">
   <h1>Draw something.</h1>
@@ -755,8 +766,9 @@ kbd {
     <dt><kbd>C</kbd></dt><dd>Controls drawer (from there, <kbd>Tab</kbd> moves through the controls)</dd>
     <dt><kbd>F</kbd></dt><dd>Full screen, on and off</dd>
     <dt><kbd>I</kbd></dt><dd>Messages: shown as they happen, or quiet behind the dot</dd>
+    <dt><kbd>Q</kbd></dt><dd>Performance readout: frames a second, how late the clock runs, sharpness</dd>
     <dt><kbd>\</kbd></dt><dd>Simple → More → Everything</dd>
-    <dt><kbd>R</kbd> <kbd>W</kbd> <kbd>O</kbd></dt><dd>Revoice (new loops) · Walk · Drone</dd>
+    <dt><kbd>R</kbd> <kbd>W</kbd> <kbd>O</kbd></dt><dd>Revoice (new loops) · Walk: off, then each way in turn (⇧W back) · Drone</dd>
     <dt><kbd>Esc</kbd> <kbd>`</kbd></dt><dd>Close whatever is open</dd>
     <dt><kbd>H</kbd> <kbd>?</kbd></dt><dd>This list (<kbd>?</kbd> where it isn't a shifted digit; <kbd>⇧</kbd> digits always pick pens)</dd>
   </dl>
@@ -767,6 +779,7 @@ kbd {
 <div class="toast" id="toast" aria-hidden="true" hidden></div>
 <!-- The one live region for messages: every message is announced, shown or not. -->
 <div class="vh" id="srStatus" role="status"></div>
+<div class="perf" id="perf" aria-hidden="true" hidden></div>
 <div class="msglog" id="msgLog" role="dialog" aria-labelledby="msgLogTitle" hidden>
   <div class="shelfhead"><strong id="msgLogTitle" tabindex="-1">What just happened</strong><button class="btn" type="button" id="msgLogClose">Close</button></div>
   <ol id="msgList"></ol>
@@ -1548,7 +1561,7 @@ function play(lp, ev, t, b, phase, air = 1) {
  *  note's snapped time in the current pass. */
 function notePhase(lp, ev) {
   const Lb = loopBeats(lp), k = passOf(lp, nowBeat()), base = lp.start + k * Lb, back = backwards(lp, k);
-  const off = offsOf(lp)[lp.events.indexOf(ev)] ?? ev.off;
+  const off = offOfEvent(lp, ev) ?? ev.off;
   const rel = (snapLoop(lp, base + (back ? Math.max(0, lp.L - off - 1e-6) : off) * lp.ts) - base) / lp.ts;
   return back ? lp.L - rel : rel;
 }
@@ -1561,7 +1574,19 @@ function notePhase(lp, ev) {
  * Pitch still follows the playhead, so re-timing a loop re-shapes its tune. */
 const RHYTHM_ORDER = ["drawn", "even", "euclid"];
 const DIR_ORDER = ["fwd", "rev", "pingpong"];
+/* offsOf is asked for every note of every loop, every frame (where each note
+ * is drawn) and every tick: memoized per frame/tick (`offsEpoch`), with each
+ * note's index alongside, so finding one note's offset isn't a search. */
+let offsEpoch = 0;
 function offsOf(lp) {
+  const key = `${offsEpoch}|${lp.events.length}|${lp.rhythm}|${lp.L}|${state.div}`;
+  if (lp._offs && lp._offs.key === key) return lp._offs.v;
+  const v = offsOfRaw(lp);
+  lp._offs = { key, v, idx: new Map(lp.events.map((e, i) => [e, i])) };
+  return v;
+}
+const offOfEvent = (lp, ev) => { const v = offsOf(lp), i = lp._offs.idx.get(ev); return i == null ? undefined : v[i]; };
+function offsOfRaw(lp) {
   const ev = lp.events, n = ev.length, L = lp.L;
   if (lp.rhythm === "even") return ev.map((_, i) => (i * L) / n);
   if (lp.rhythm === "euclid") {
@@ -1883,13 +1908,17 @@ const gainOf = (lp) => (lp.gain ?? 1) * lifeState(lp).vital * Math.pow(strengthO
 function lifePlays(lp, i) {
   const s = strengthOf(lp), fill = Math.min(lifeState(lp).thin, s < 1 ? Math.max(LIFE_FLOOR, 1 - (1 - s) * 1.25) : 1);   // Life, and a drained loop
   if (fill >= 1) return true;
-  const per = perBeat() || 4, n = Math.max(1, Math.round(lp.L * per)), w = barWeights(n);
-  const offs = offsOf(lp);
-  const score = (j) => w[mod(Math.round(offs[j] * per), n)] - j * 1e-6;   // ties: earlier notes first
-  const mine = score(i);
-  let above = 0;
-  for (let j = 0; j < lp.events.length; j++) if (j !== i && score(j) > mine) above++;
-  return above < Math.max(1, Math.round(fill * lp.events.length));
+  return lifeRanks(lp)[i] < Math.max(1, Math.round(fill * lp.events.length));
+}
+/** Each note's rank by indispensability (0 = matters most), worked out once per shape, rhythm and division. */
+function lifeRanks(lp) {
+  const key = `${lp.events.length}|${lp.L}|${lp.rhythm}|${state.div}|${lp.events[0] ? lp.events[0].off : 0}|${lp.events.length ? lp.events[lp.events.length - 1].off : 0}`;
+  if (lp._ranks && lp._ranks.key === key) return lp._ranks.r;
+  const per = perBeat() || 4, n = Math.max(1, Math.round(lp.L * per)), w = barWeights(n), offs = offsOf(lp);
+  const order = lp.events.map((_, j) => j).sort((a, b) => (w[mod(Math.round(offs[b] * per), n)] - b * 1e-6) - (w[mod(Math.round(offs[a] * per), n)] - a * 1e-6));
+  const r = []; order.forEach((j, k) => (r[j] = k));
+  lp._ranks = { key, r };
+  return r;
 }
 /** A pass went by: one step older (if it's alive and Evolve is on). */
 function ageLoop(lp) {
@@ -1935,10 +1964,19 @@ function lockStep(lp, x, y, heading, beat, t, thin = false) {
 // decisions are made at playback, so changing Division or Lock is heard
 // on the next note.
 
-const LOOKAHEAD = 0.12;
+/* How far ahead notes are scheduled. 0.12 s when the page keeps up; when the
+ * main thread is busy (a full sheet, a recording, a slow device) ticks arrive
+ * late, and a note due inside the gap would be late or lost: the stall Alex
+ * heard while recording (2026-10-24). So the lookahead grows to cover the
+ * worst recent gap between ticks (up to 0.4 s), and shrinks back slowly. */
+const LOOKAHEAD = 0.12, LOOKAHEAD_MAX = 0.4;
+let lookahead = LOOKAHEAD, lastTickAt = 0;
 function schedule() {
   if (!ctx || ctx.state !== "running") return;
-  const now = ctx.currentTime, nb = beatAt(now), hb = beatAt(now + LOOKAHEAD);
+  const tNow = performance.now(), gap = lastTickAt ? (tNow - lastTickAt) / 1000 : 0.025; lastTickAt = tNow; offsEpoch++;
+  if (tickLate.length < 400) tickLate.push(Math.max(0, gap * 1000 - 25));
+  lookahead = Math.min(LOOKAHEAD_MAX, Math.max(LOOKAHEAD, gap * 1.6 + 0.04, lookahead * 0.995));
+  const now = ctx.currentTime, nb = beatAt(now), hb = beatAt(now + lookahead);
   const W = sheet.clientWidth, H = sheet.clientHeight;
   tickReplay();
   for (const lp of loops) {
@@ -2076,7 +2114,21 @@ function checkMeetings(nb, now, W, H) {
     }
     // Crossings: each live playhead's path since the last tick, against every
     // other loop's line (muted lines too: they are still there to cross).
-    const lines = new Map();
+    const lines = new Map(), boxes = new Map();
+    // A loop's screen box from its own box's four corners (place() is affine), so most
+    // loops are ruled out without placing their points at all.
+    const boxOf = (Y) => {
+      if (!boxes.has(Y)) {
+        if (!Y._lbox || Y._lbox.n !== Y.pts.length) {
+          let a = Infinity, b2 = Infinity, c = -Infinity, d = -Infinity;
+          for (const q of Y.pts) { a = Math.min(a, q.x); b2 = Math.min(b2, q.y); c = Math.max(c, q.x); d = Math.max(d, q.y); }
+          Y._lbox = { n: Y.pts.length, b: [a, b2, c, d] };
+        }
+        const [a, b2, c, d] = Y._lbox.b, P = [place(Y, a, b2, W, H), place(Y, c, b2, W, H), place(Y, a, d, W, H), place(Y, c, d, W, H)];
+        boxes.set(Y, [Math.min(...P.map((p) => p[0])) - TOUCH_R, Math.min(...P.map((p) => p[1])) - TOUCH_R, Math.max(...P.map((p) => p[0])) + TOUCH_R, Math.max(...P.map((p) => p[1])) + TOUCH_R]);
+      }
+      return boxes.get(Y);
+    };
     const lineOf = (Y) => {
       if (!lines.has(Y)) {
         const P = Y.pts.map((q) => place(Y, q.x, q.y, W, H));
@@ -2092,6 +2144,8 @@ function checkMeetings(nb, now, W, H) {
         if (Y === X) continue;
         const key = `${X.uid}>${Y.uid}`;
         if (nb - (touchLast.get(key) ?? -Infinity) < TOUCH_COOL) continue;
+        const qb = boxOf(Y);
+        if (Math.max(p0.x, p1.x) < qb[0] || Math.min(p0.x, p1.x) > qb[2] || Math.max(p0.y, p1.y) < qb[1] || Math.min(p0.y, p1.y) > qb[3]) continue;
         const { P, box } = lineOf(Y);
         if (Math.max(p0.x, p1.x) < box[0] || Math.min(p0.x, p1.x) > box[2] || Math.max(p0.y, p1.y) < box[1] || Math.min(p0.y, p1.y) > box[3]) continue;
         let hit = null;
@@ -2111,6 +2165,8 @@ function checkMeetings(nb, now, W, H) {
         if (A.meets === "ignore" && B.meets === "ignore") continue;
         const key = A.uid < B.uid ? `${A.uid}|${B.uid}` : `${B.uid}|${A.uid}`;
         seen.add(key);
+        const qa = boxOf(A), qb2 = boxOf(B);
+        if (qa[2] < qb2[0] || qb2[2] < qa[0] || qa[3] < qb2[1] || qb2[3] < qa[1]) { lineTouching.set(key, false); continue; }
         const a = lineOf(A), b = lineOf(B);
         let at = null;
         if (!(a.box[2] < b.box[0] || b.box[2] < a.box[0] || a.box[3] < b.box[1] || b.box[3] < a.box[1])) {
@@ -2458,7 +2514,7 @@ function dropToy(kind, where, size = 1) {
 /* ── 10. Touch: draw, shake, drag, turn, resize, edit ────────────────────── */
 
 const sheet = document.getElementById("sheet");
-const g2 = sheet.getContext("2d");
+let g2 = sheet.getContext("2d");                                // let: the grid cache draws into its own canvas for a moment
 /** One grid column = one stride. Free still uses 16 columns' worth. */
 const stridePx = (d = state.density) => Math.max(28, (DENSITY[d].stride * sheet.clientWidth) / ((perBeat() || 4) * BAR));
 /** Re-space a loop's notes along its path at density `d`, the same way drawing
@@ -2899,8 +2955,33 @@ readColors();
 matchMedia("(prefers-color-scheme: dark)").addEventListener("change", readColors);
 new MutationObserver(readColors).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
 
+/* Sharpness adapts: when frames get slow (a full sheet, a slow device, Retina
+ * pixels to paint), the sheet draws at 3/4 or 1/2 of the screen's pixel
+ * density until things calm down, then goes back. Lines get a little softer;
+ * motion stays smooth and, more to the point, notes stay on time. */
+let quality = 1, frameTimes = [];
+const canvasDpr = () => Math.max(1, Math.min(2, window.devicePixelRatio || 1) * quality);
+function adaptQuality(dtMs) {
+  frameTimes.push(dtMs); if (frameTimes.length > 90) frameTimes.shift();
+  if (frameTimes.length < 30) return;
+  const recent = frameTimes.slice(-30), avg = recent.reduce((a, b) => a + b, 0) / recent.length;
+  const calm = frameTimes.length >= 90 && frameTimes.reduce((a, b) => a + b, 0) / frameTimes.length < 19;
+  const next = avg > 34 ? Math.max(0.5, quality - 0.25) : calm ? Math.min(1, quality + 0.25) : quality;
+  if (next !== quality && Math.min(2, window.devicePixelRatio || 1) > 1) { quality = next; frameTimes = []; resize(); }
+}
+/* Q shows how the page keeps up, on the device itself (for the optimization
+ * pass, and for playtests): frames a second, the slowest recent frame, how
+ * late the scheduler's ticks run, how far ahead notes are scheduled, and the
+ * sheet's sharpness. */
+let perfLast = 0, tickLate = [];
+function perfShow(dtMs) {
+  const t = performance.now(); if (t - perfLast < 500) return; perfLast = t;
+  const f = frameTimes.slice(-30), avg = f.length ? f.reduce((a, b) => a + b, 0) / f.length : 0;
+  const late = tickLate.length ? Math.max(...tickLate) : 0; tickLate = [];
+  $("perf").textContent = `${avg ? Math.round(1000 / avg) : "–"} fps · slowest ${Math.round(Math.max(0, ...f))} ms\nticks late ≤ ${Math.round(late)} ms · ahead ${Math.round(lookahead * 1000)} ms\nsharpness ${Math.round(quality * 100)}% · ${loops.length} loops`;
+}
 function resize() {
-  const dpr = Math.min(2, window.devicePixelRatio || 1);
+  const dpr = canvasDpr();
   sheet.width = Math.round(sheet.clientWidth * dpr);
   sheet.height = Math.round(sheet.clientHeight * dpr);
   g2.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -2914,6 +2995,20 @@ resize();
 /** The grid. Horizontal: one line per pitch step, firmer at each period.
  *  Vertical: one bar across, one line per division, firmer on the beat.
  *  In Lock mode the lines are what play, so they're drawn a little firmer. */
+/* The grid is the same frame after frame: it's drawn once into its own canvas
+ * and copied, redrawn only when something it shows changes (size, scale, root,
+ * range, division, Lock, colours). Drawn line by line every frame, it was the
+ * largest share of a busy frame. */
+const gridCache = { key: "" };
+function drawGridCached(W, H) {
+  const dpr = Math.min(2, window.devicePixelRatio || 1), cv = $("gridLayer");
+  const key = [W, H, dpr, state.grid, state.tuning, state.root, state.range, state.div, state.lock, colors.paper, colors.rule, colors["rule-soft"], colors["ink-muted"]].join("|");
+  if (gridCache.key === key) return;
+  cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr);
+  const real = g2; g2 = cv.getContext("2d"); g2.setTransform(dpr, 0, 0, dpr, 0, 0);
+  try { g2.fillStyle = colors.paper; g2.fillRect(0, 0, W, H); drawGrid(W, H); } finally { g2 = real; }
+  gridCache.key = key;
+}
 function drawGrid(W, H) {
   const g = gridNow(), n = stepCount(), N = bandCount();
   g2.lineWidth = state.lock ? 1.5 : 1; g2.font = colors.monoFont;
@@ -2964,7 +3059,7 @@ function strokePath(lp, W, H, alpha, width, dash, color = colors.ink, upto = Inf
 
 /** Each voice has a shape as well as a colour. */
 function glyph(voice, x, y, r, alpha, ring) {
-  g2.save(); g2.globalAlpha = alpha;
+  g2.globalAlpha = alpha;                                         // no save/restore: hundreds a frame, and it showed
   if (ring) { g2.strokeStyle = colors.ink; g2.lineWidth = 1; g2.beginPath(); g2.arc(x, y, r + 6, 0, 7); g2.stroke(); }
   const c = colors[voice];
   g2.fillStyle = c; g2.strokeStyle = c; g2.lineWidth = 2;
@@ -2974,7 +3069,7 @@ function glyph(voice, x, y, r, alpha, ring) {
   else if (voice === "blip") { g2.moveTo(x, y - r); g2.lineTo(x + r, y + r * 0.8); g2.lineTo(x - r, y + r * 0.8); g2.closePath(); g2.fill(); }
   else if (voice === "shake") { g2.moveTo(x, y - r); g2.lineTo(x + r, y); g2.lineTo(x, y + r); g2.lineTo(x - r, y); g2.closePath(); g2.fill(); }
   else { g2.rect(x - r * 0.85, y - r * 0.85, r * 1.7, r * 1.7); g2.fill(); }
-  g2.restore();
+  g2.globalAlpha = 1;
 }
 function drawHandles(lp, W, H) {
   const st = handleStep(lp);
@@ -3035,6 +3130,7 @@ const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
 let lastFrame = performance.now();
 
 function frame() {
+  offsEpoch++;
   const W = sheet.clientWidth, H = sheet.clientHeight;
   const at = nowAudio(), b = nowBeat();
   const tNow = performance.now(), dt = Math.min(0.1, (tNow - lastFrame) / 1000);
@@ -3044,10 +3140,12 @@ function frame() {
   // bottom that was never cleared, and everything drawn there piled up into
   // smears (iPad Safari, replaying a take, 2026-10-24). And if the sizes
   // disagree, fix them now rather than wait for an event.
-  const dpr = Math.min(2, window.devicePixelRatio || 1);
+  const dpr = canvasDpr();
   if (sheet.width !== Math.round(W * dpr) || sheet.height !== Math.round(H * dpr)) resize();
-  g2.save(); g2.setTransform(1, 0, 0, 1, 0, 0); g2.fillStyle = colors.paper; g2.fillRect(0, 0, sheet.width, sheet.height); g2.restore();
-  drawGrid(W, H);
+  g2.save(); g2.setTransform(1, 0, 0, 1, 0, 0); g2.clearRect(0, 0, sheet.width, sheet.height); g2.restore();   // the paper is the layer underneath
+  drawGridCached(W, H);
+  adaptQuality(dt * 1000);
+  if (!$("perf").hidden) perfShow(dt * 1000);
 
   for (const lp of loops) {
     easeMorph(lp, dt);
@@ -3671,7 +3769,10 @@ function syncMsgBtn(pulse) {
   const b = $("msgBtn"); b.hidden = !msgLog.length;
   b.classList.toggle("unseen", msgUnseen > 0);
   $("msgBtnLabel").textContent = msgUnseen ? `${msgUnseen} new` : "What happened";
-  if (pulse) { b.classList.remove("pulse"); void b.offsetWidth; b.classList.add("pulse"); }
+  if (pulse && !reduceMotion && !b.hidden && b.animate) {      // the Web Animations API: no forced layout (the old class trick reflowed the page)
+    const dot = b.querySelector(".msgdot");
+    dot.animate([{ transform: "scale(1)" }, { transform: "scale(2.1)", offset: 0.35 }, { transform: "scale(1)" }], { duration: 900, easing: "ease-out" });
+  }
 }
 const ago = (t) => { const s = Math.round((Date.now() - t) / 1000); return s < 5 ? "just now" : s < 60 ? `${s} s ago` : `${Math.round(s / 60)} min ago`; };
 function renderMsgLog() {
@@ -4574,6 +4675,15 @@ function nudgeTempo(d) {
   const r = $("bpm"); r.value = String(Math.min(160, Math.max(60, Number(r.value) + d)));
   r.dispatchEvent(new Event("input")); toast(`${r.value} bpm`);
 }
+/** W: Walk off → a progression → sway → by fifths → climb → wander → off (⇧W: back). */
+function cycleWalk(back) {
+  const seq = ["off", ...WALK_WAYS], now = state.walk ? state.walkWay : "off";
+  const next = seq[mod(seq.indexOf(now) + (back ? -1 : 1), seq.length)];
+  if (next === "off") { if (state.walk) $("walkBtn").click(); }
+  else { state.walkWay = next; $("walkWay").value = next; if (!state.walk) $("walkBtn").click(); }
+  updateDrone(nowBeat(), true);
+  toast(next === "off" ? "Walk off" : `Walk: ${$("walkWay").selectedOptions[0].textContent.replace(/^Walk: /, "")}`);
+}
 function pressToggle(id, label) {
   $(id).click();
   toast(`${label} ${$(id).getAttribute("aria-pressed") === "true" ? "on" : "off"}`);
@@ -4666,11 +4776,12 @@ $("fsBtn").addEventListener("click", () => { setDrawer(false); toggleFullscreen(
 const KEYS = {
   " ": () => $("power").click(),
   l: () => pressToggle("lockBtn", "Lock"), m: () => pressToggle("morphBtn", "Morph"), e: () => pressToggle("editBtn", "Edit"),
-  r: () => pressToggle("revoiceBtn", "Revoice for new loops"), w: () => pressToggle("walkBtn", "Walk"), o: () => pressToggle("droneBtn", "Drone"),
+  r: () => pressToggle("revoiceBtn", "Revoice for new loops"), w: (b) => cycleWalk(b), o: () => pressToggle("droneBtn", "Drone"),
   p: (b) => cycleSelect("pen", b), n: (b) => cycleSelect("density", b), b: (b) => cycleSelect("pack", b), g: (b) => cycleSelect("grid", b),
   "[": (b) => nudgeTempo(b ? -10 : -2), "]": (b) => nudgeTempo(b ? 10 : 2),
   "{": () => nudgeTempo(-10), "}": () => nudgeTempo(10),
   i: () => setMsgsLoud(!msgsLoud),
+  q: () => { $("perf").hidden = !$("perf").hidden; toast($("perf").hidden ? "Performance readout off" : "Performance readout on (Q)"); },
   "-": () => { setVolume(state.volume - 0.1); toast(`Volume ${Math.round(state.volume * 100)}%`); },
   "=": () => { setVolume(state.volume + 0.1); toast(`Volume ${Math.round(state.volume * 100)}%`); },
   t: () => openShelf("toybox"), y: () => openShelf("mytoys"), s: () => openShelf("scenes"),

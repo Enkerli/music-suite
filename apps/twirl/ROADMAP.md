@@ -609,7 +609,36 @@ Next, to think through:
 drum then rising bells, evenly spaced, spinning, so the arpeggio folds and
 opens and flips as it turns.
 
-## An optimization pass (Alex, 2026-10-24)
+## An optimization pass (Alex, 2026-10-24) — v1 shipped the same night
+
+**Measured** (headless Chromium, CPU slowed 4×, a busy sheet: 14 dense loops,
+contacts, lives, influence, recording): about 30 frames a second, slow frames
+of 70 ms, and scheduler ticks up to **217 ms late**, against a 120 ms
+lookahead: notes in the gap were dropped (the "pause" Alex heard). Most of a
+frame was the browser painting the canvas; Twirl's own script was ~5 ms.
+
+**Done:**
+- **Adaptive lookahead**: it grows to cover the worst recent gap between
+  ticks (up to 0.4 s) and settles back. On a 6×-slowed busy sheet, 536 notes
+  sounded in 8 s instead of 470 (fewer dropped).
+- **The paper and grid on their own layer** (`#gridLayer`), redrawn only when
+  they change; each frame paints only what moves.
+- **Adaptive sharpness**: slow frames drop the sheet to ¾ or ½ of the
+  screen's pixel density, and it comes back when calm.
+- **Less per frame and tick**: contacts rule loops out by their box before
+  placing their points; Life ranks notes once per shape; note offsets are
+  memoized per frame; note marks skip save/restore; the message dot pulses
+  without forcing a layout.
+- **Q**: a readout (fps, slowest frame, how late ticks run, lookahead,
+  sharpness), to measure on the device itself.
+- **A budget test** in CI (*Twirl · performance*).
+
+**Still to do:** measure on the iPad (Q), since headless paints without a
+GPU and exaggerates painting; move the scheduler tick off the main thread's
+timer (a Worker or an AudioWorklet clock), so a busy frame can't delay it at
+all; fewer Web Audio nodes per note (a small voice pool) on very dense sheets.
+
+### The pass, as first planned
 
 A pause while recording turned out to be a stall, not a stop ("the
 recording doesn't pause"): the main thread was busy enough for the sound
