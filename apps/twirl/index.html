@@ -554,6 +554,8 @@ kbd {
     <button class="btn" id="morphBtn" type="button" aria-pressed="true" title="Loops move on their own; hold a loop to choose how">Morph</button>
     <button class="btn" id="editBtn" type="button" aria-pressed="false" title="Drag the square handles to bend a path; tap a path to add a note, tap a note to remove it, double-tap a note to change its sound; hold a loop to smooth it">Edit notes</button>
     <button class="btn" id="numBtn" type="button" aria-pressed="false" title="Show each loop's number on the sheet (keys 1–9 pick them; pressing one shows them)">Numbers</button>
+    <button class="btn" id="beatsBtn" type="button" aria-pressed="false" data-level="2" title="Show the beat lines across the sheet (always shown with Lock, where they're what plays)">Beats</button>
+    <button class="btn" id="smoothBtn" type="button" aria-pressed="true" data-level="2" title="New strokes settle into a smooth curve when you lift (scribbles stay scribbles). Off: kept exactly as drawn">Smooth</button>
   </span>
   <select class="sel" id="arc" data-level="2" aria-label="Arc: tension and release over bars" title="Home, away, pull, then home on the last bar, where melodies resolve to the home chord">
     <option value="off">Arc: off</option><option value="4">Arc: 4 bars</option><option value="8">Arc: 8 bars</option>
@@ -2719,6 +2721,7 @@ function endStroke(id) {
   const isTap = !s.moved && performance.now() - s.downAt < 300;
   if (s.tracer.shaking || s.events.some((e) => e.fixed === "shake")) s.temper = "jitter";
   if (s.events.some((e) => e.fixed === "shake")) { s.dir = "fwd"; s.rhythm = "drawn"; }   // a shake keeps its feel
+  if (smoothNew && !isTap && s.temper !== "jitter" && s.pts.length > 4) smoothLoop(s, 2, true);   // a scribble stays a scribble
   const kept = state.loop && !isTap && finishStroke(s);
   if (!kept && s.pts.length > 1) fadeOut(s);
   if (kept) {                                                    // a Surprise is announced, so it's never a mystery
@@ -2775,9 +2778,10 @@ function bend(gr, dxp, dyp) {
   lp.pts.forEach((p, j) => { const k = w(j); p.x += dx * k; p.y += dy * k; });
   lp.events.forEach((e, i) => { const k = e === gr.ev ? 1 : w(gr.evIdx[i]); e.x += dx * k; e.y += dy * k; });
 }
-/** Edit: hold = smooth. Three passes of neighbour-averaging; ends stay put. */
-function smoothLoop(lp) {
-  for (let pass = 0; pass < 3; pass++) {
+/** Edit: hold = smooth. Three passes of neighbour-averaging; ends stay put.
+ *  New strokes get a lighter version (two passes, silently) when lifted. */
+function smoothLoop(lp, passes = 3, quiet = false) {
+  for (let pass = 0; pass < passes; pass++) {
     const P = lp.pts.map((p) => ({ ...p }));
     for (let j = 1; j < P.length - 1; j++) {
       lp.pts[j].x = (P[j - 1].x + 2 * P[j].x + P[j + 1].x) / 4;
@@ -2785,7 +2789,7 @@ function smoothLoop(lp) {
     }
   }
   for (const e of lp.events) { const p = lp.pts[nearestIdxDrawn(lp, e.x, e.y)]; e.x = p.x; e.y = p.y; }
-  toast("Smoothed");
+  if (!quiet) toast("Smoothed");
 }
 function addNoteAt(lp, px, py) {
   if (locked(lp)) { toast("This loop is read on the grid: bend the path to change its notes"); return; }
@@ -3115,7 +3119,7 @@ resize();
 const gridCache = { key: "" };
 function drawGridCached(W, H) {
   const dpr = Math.min(2, window.devicePixelRatio || 1), cv = $("gridLayer");
-  const key = [W, H, dpr, state.grid, state.tuning, state.root, state.range, state.div, state.lock, colors.paper, colors.rule, colors["rule-soft"], colors["ink-muted"]].join("|");
+  const key = [W, H, dpr, state.grid, state.tuning, state.root, state.range, state.div, state.lock, showBeats, colors.paper, colors.rule, colors["rule-soft"], colors["ink-muted"]].join("|");
   if (gridCache.key === key) return;
   cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr);
   const real = g2; g2 = cv.getContext("2d"); g2.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -3127,7 +3131,7 @@ function drawGrid(W, H) {
   g2.lineWidth = state.lock ? 1.5 : 1; g2.font = colors.monoFont;
   const soft = state.lock ? colors.rule : colors["rule-soft"];
   const p = perBeat();
-  if (p) {
+  if (p && (showBeats || state.lock)) {
     const cols = p * BAR;
     for (let i = 1; i < cols; i++) {
       const x = Math.round((W * i) / cols) + 0.5;
@@ -3154,16 +3158,36 @@ function drawGrid(W, H) {
  *  as cubic Béziers), so notes always sit on the line, even on sparse paths. */
 /** How much of a loop is drawn at beat b: all of it, except a replayed loop in its first pass (its drawing). */
 const drawnUpTo = (lp, b) => (lp.replaying && ctx && b - lp.start < lp.L * lp.ts ? (b - lp.start) / lp.ts : Infinity);
+/* Colour (Alex, 2026-10-25: "strokes can have their voice's colour… a more
+ * colourful playground"). Each stretch of a path takes the colour of the note
+ * it leads from, so a loop that changes voice changes colour along the way, and
+ * follows its voices as they change (Revoice, the Pen, a note's own sound).
+ * `color` = a function from a point index to a colour, or one colour. */
+function voiceColours(lp, pts) {
+  const ev = lp.events; if (!ev || !ev.length) return null;
+  const out = new Array(pts.length); let k = 0;
+  const vc = ev.map((e) => colors[voiceOf(lp, e)] || colors.ink);
+  for (let i = 0; i < pts.length; i++) {
+    while (k + 1 < ev.length && ev[k + 1].off <= pts[i].b) k++;
+    out[i] = vc[k];
+  }
+  return out;
+}
 function strokePath(lp, W, H, alpha, width, dash, color = colors.ink, upto = Infinity) {
   const pts = upto === Infinity ? lp.pts : lp.pts.filter((p) => p.b <= upto);   // a replayed drawing: only what's drawn so far
   if (pts.length < 2) return;
   g2.save();
-  g2.globalAlpha = alpha; g2.strokeStyle = color; g2.lineWidth = width;
+  g2.globalAlpha = alpha; g2.lineWidth = width;
   g2.lineCap = "round"; g2.lineJoin = "round";
   if (dash) g2.setLineDash([4, 7]);
   const P = pts.map((p) => place(lp, p.x, p.y, W, H));
+  const C = Array.isArray(color) ? color : null;
+  g2.strokeStyle = C ? C[0] : color;
   g2.beginPath(); g2.moveTo(P[0][0], P[0][1]);
   for (let i = 0; i < P.length - 1; i++) {
+    if (C && i > 0 && C[i] !== C[i - 1]) {                       // a new voice: finish this run, start the next in its colour
+      g2.stroke(); g2.strokeStyle = C[i]; g2.beginPath(); g2.moveTo(P[i][0], P[i][1]);
+    }
     const a = P[Math.max(0, i - 1)], b = P[i], c = P[i + 1], d = P[Math.min(P.length - 1, i + 2)];
     g2.bezierCurveTo(b[0] + (c[0] - a[0]) / 6, b[1] + (c[1] - a[1]) / 6, c[0] - (d[0] - b[0]) / 6, c[1] - (d[1] - b[1]) / 6, c[0], c[1]);
   }
@@ -3277,7 +3301,10 @@ function frame() {
     // in the drawing's own time (Alex, 2026-10-24: "replay the time the loop is drawn").
     const drawnTo = drawnUpTo(lp, b);
     if (drawnTo < 0) continue;                                       // not begun yet
-    strokePath(lp, W, H, (lp.muted ? 0.25 : lp.held || sel ? 0.9 : 0.55) * lifeA, (lp.held || sel ? 3 : 2) * lifeW, lp.muted, sel ? colors.accent : colors.ink, drawnTo);
+    // Selected: a soft ink halo under the colours (the accent blue is too close to the pluck's).
+    if (sel && !lp.muted) strokePath(lp, W, H, 0.22 * lifeA, 8 * lifeW, false, colors.ink, drawnTo);
+    const pathCol = lp.muted ? colors.ink : voiceColours(lp, drawnTo === Infinity ? lp.pts : lp.pts.filter((p) => p.b <= drawnTo)) || colors.ink;
+    strokePath(lp, W, H, (lp.muted ? 0.25 : lp.held || sel ? 0.95 : 0.8) * lifeA, (lp.held || sel ? 3.5 : 2.5) * lifeW, lp.muted, pathCol, drawnTo);
     if (drawnTo === Infinity) drawBeatTicks(lp, W, H, lp.muted ? 0.25 : 0.7);
     if (locked(lp)) drawLockMarks(lp, W, H, lp.muted ? 0.25 : 0.65);
     if (insp && insp === lp && ZONES[lp.zone]) {                     // the open loop's zone, shaded
@@ -3356,10 +3383,10 @@ function frame() {
   for (const f of fires) { const since = at - f.t; if (since >= 0) glyph(f.voice, f.x, f.y, reduceMotion ? 5 : 9 - since * 20, 1); }
 
   fading = fading.filter((s) => tNow - s.fadeFrom < 1400);
-  for (const s of fading) strokePath(s, W, H, 0.55 * (1 - (tNow - s.fadeFrom) / 1400), 2);
+  for (const s of fading) strokePath(s, W, H, 0.55 * (1 - (tNow - s.fadeFrom) / 1400), 2, false, voiceColours(s, s.pts) || colors.ink);
 
   for (const s of strokes.values()) {
-    strokePath(s, W, H, 0.95, 3);
+    strokePath(s, W, H, 0.95, 3, false, voiceColours(s, s.pts) || colors.ink);   // colours appear as the notes do
     for (const ev of s.events) { const [x, y] = place(s, ev.x, ev.y, W, H); glyph(voiceOf(s, ev), x, y, 5, 0.9); }
   }
   requestAnimationFrame(frame);
@@ -4137,6 +4164,23 @@ function setNumbers(on) {
 }
 $("numBtn").addEventListener("click", () => setNumbers(!showNumbers));
 setNumbers(showNumbers);
+
+/* Two more preferences of this browser (Alex, 2026-10-25: "auto-smooth new curves.
+ * Not show the beat lines by default"). Beats: the vertical lines, off unless
+ * asked for, and always there under Lock, where they're what plays. Smooth: a new
+ * stroke settles into a curve when it's lifted. */
+let showBeats = store.get("twirl:beats") === true, smoothNew = store.get("twirl:smooth") !== false;
+function setBeats(on) {
+  showBeats = !!on; store.set("twirl:beats", showBeats);
+  $("beatsBtn").setAttribute("aria-pressed", String(showBeats));
+}
+function setSmooth(on) {
+  smoothNew = !!on; store.set("twirl:smooth", smoothNew);
+  $("smoothBtn").setAttribute("aria-pressed", String(smoothNew));
+}
+$("beatsBtn").addEventListener("click", () => { setBeats(!showBeats); toast(showBeats ? "Beat lines shown" : state.lock ? "Beat lines: shown while Lock is on" : "Beat lines hidden"); });
+$("smoothBtn").addEventListener("click", () => { setSmooth(!smoothNew); toast(smoothNew ? "Smooth: new strokes settle into curves" : "Smooth off: new strokes stay as drawn"); });
+setBeats(showBeats); setSmooth(smoothNew);
 
 /* ── Pen palette: a small floating card you can drag anywhere ───────────── */
 const PEN_GLYPH = {
