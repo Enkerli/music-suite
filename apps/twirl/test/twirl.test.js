@@ -1450,3 +1450,16 @@ describe.skipIf(!browser)("Twirl · steps below the sheet", () => {
     await context.close();
   });
 });
+
+describe.skipIf(!browser)("Twirl · diagnostics for new hardware", () => {
+  it("⇧Q's report says what the pointer reported and what MIDI sees", async () => {
+    const { page, context } = await openTwirl(browser);
+    await drawStroke(page);
+    const r = await page.evaluate(() => { const d = diagReport(); return { pen: d.pen, midi: d.midi, keys: Object.keys(d) }; });
+    expect(r.pen.type).toBe("mouse");
+    expect(r.pen.events).toBeGreaterThan(5);
+    expect(typeof r.midi === "string" || Array.isArray(r.midi.outputs)).toBe(true);
+    expect(r.keys).toContain("skippedNotes");
+    await context.close();
+  });
+});

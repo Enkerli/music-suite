@@ -24,7 +24,8 @@ Public Domain (CC0-1.0), like the rest of the suite.
 |---|---|
 | `index.html` | **The whole app.** One self-contained file: markup, styles and one script. No build step, no dependencies. `scripts/sync-apps.mjs` copies it to `docs/apps/twirl/` for Pages. |
 | `test/` | Browser tests (Vitest + Playwright). See [Tests](#tests). |
-| `ROADMAP.md` | Where Twirl goes next: principles, one priority table, every idea by theme. |
+| `PLAN.md` | The work in order: phases with checklists (who, how, where), and questions for each workshop. |
+| `ROADMAP.md` | Where Twirl goes next: principles, the triage's decisions, every idea by theme. |
 | `HISTORY.md` | What shipped, when and why, with the details worth keeping. |
 | `DESIGN_BRIEF.md`, `design/` | The brief for the design pass, and screenshots of where things stand. |
 | `PLAYTESTING.md` | Targeted sessions with people: what to learn, who, how, conditions to compare. |

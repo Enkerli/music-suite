@@ -3,7 +3,8 @@
 *Consolidated 2026-10-25: everything gathered from two days of play and
 ideas, brought together by theme and prioritized, instead of added in the
 order it came. What already shipped, with its details, is in
-[HISTORY.md](HISTORY.md). Quotes are Alex's.*
+[HISTORY.md](HISTORY.md). **The work itself, in order with checklists and
+the workshops' questions, is in [PLAN.md](PLAN.md).** Quotes are Alex's.*
 
 ## Principles
 
@@ -62,6 +63,10 @@ nothing ruled out), with Alex's value (1–5). E is Claude's effort estimate.
 Within a group: value first, then less effort.
 
 ### Next
+
+Turned into phases in [PLAN.md](PLAN.md): Linux first (the Mac is in the
+shop), then French as one package ("That's a package. Coming soon"), then
+templates, the clock, the design pass, playtests.
 
 | | Idea | Value | E | Theme | Note |
 |---|---|---|---|---|---|
