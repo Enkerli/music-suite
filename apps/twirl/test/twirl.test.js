@@ -408,15 +408,18 @@ describe.skipIf(!browser)("Twirl · contacts (crossing a line, meeting a playhea
     await context.close();
   });
 
-  it("breeding never pushes a loop out at the 14-loop cap", async () => {
+  it("at the 14-loop cap, breeding replaces the oldest loop (never a parent), into undo", async () => {
     const { page, context } = await openTwirl(browser);
     await crossing(page, { meets: "breed" });
-    await page.evaluate(() => { while (loops.length < MAX_LOOPS) dropToy("ring", [60, 60]); loops.slice(2).forEach((l) => (l.meets = "ignore")); });
-    const before = await page.evaluate(() => loops.map((l) => l.uid).join());
-    // The rule under test is the cap, not the detection (tested above): meet directly.
-    await page.evaluate(() => { const W = sheet.clientWidth, H = sheet.clientHeight, p = { x: W / 2, y: H / 2, heading: 0 }; meet(loops[0], p, loops[1], p, nowBeat(), ctx.currentTime, W, H); });
-    expect(await page.evaluate(() => [loops.length, meetLog.length > 0])).toEqual([14, true]);
-    expect(await page.evaluate(() => loops.map((l) => l.uid).join())).toBe(before);
+    await page.evaluate(() => { const two = loops.slice(); loops.splice(0); while (loops.length < MAX_LOOPS - 2) dropToy("ring", [60, 60]); loops.forEach((l) => (l.meets = "ignore")); loops.push(...two); });
+    const r = await page.evaluate(() => {
+      const W = sheet.clientWidth, H = sheet.clientHeight, p = { x: W / 2, y: H / 2, heading: 0 };
+      const oldest = loops[0], A = loops.at(-2), B = loops.at(-1);
+      meet(A, p, B, p, nowBeat(), ctx.currentTime, W, H);
+      return { n: loops.length, oldestGone: !loops.includes(oldest), inUndo: undone.at(-1) === oldest, parents: loops.includes(A) && loops.includes(B), child: loops.at(-1).lineage === A.uid, said: msgLog[0].msg };
+    });
+    expect(r).toMatchObject({ n: 14, oldestGone: true, inUndo: true, parents: true, child: true });
+    expect(r.said).toMatch(/made room/);
     await context.close();
   });
 
@@ -624,6 +627,80 @@ describe.skipIf(!browser)("Twirl · Life: loops that change over the passes", ()
       return { life: back.loops[0].life, age: back.loops[0].age, old: [old.life, old.age], child: [child.life, child.age] };
     });
     expect(r).toEqual({ life: "brief", age: 5, old: ["steady", 0], child: ["brief", 0] });
+    await context.close();
+  });
+});
+
+describe.skipIf(!browser)("Twirl · Influence: loops that feed and drain the loops they touch", () => {
+  const two = (page) => page.evaluate(() => {
+    loops.splice(0).forEach(fadeOut); state.morph = false;
+    dropToy("ring", [400, 400]); dropToy("rose", [800, 400]);
+    loops.forEach((l) => { l.temper = "still"; retrace(l, "sparse", 0); });
+  });
+
+  it("feeds: the touched loop grows louder and denser; drains: quieter and sparser; once a beat per pair", async () => {
+    const { page, context } = await openTwirl(browser);
+    await two(page);
+    const r = await page.evaluate(() => {
+      const [X, Y] = loops, n = Y.events.length, g0 = gainOf(Y);
+      X.gives = "feed";
+      influence(X, Y, 10); influence(X, Y, 10.5);                         // the second is inside the beat: ignored
+      const once = Y.strength;
+      for (let b = 11; b < 15; b++) influence(X, Y, b);
+      const fed = { s: Y.strength, louder: gainOf(Y) > g0, extra: bloomNow(Y).length, drawn: Y.events.filter((_, i) => lifePlays(Y, i)).length };
+      Y.strength = 1; X.gives = "drain";
+      for (let b = 20; b < 25; b++) influence(X, Y, b);
+      const drained = { s: Y.strength, quieter: gainOf(Y) < g0, drawn: Y.events.filter((_, i) => lifePlays(Y, i)).length, extra: bloomNow(Y).length };
+      return { n, once, fed, drained };
+    });
+    expect(r.once).toBeCloseTo(1.15);
+    expect(r.fed).toMatchObject({ louder: true, drawn: r.n });
+    expect(r.fed.s).toBeGreaterThan(1.5); expect(r.fed.extra).toBeGreaterThan(0);
+    expect(r.drained).toMatchObject({ quieter: true, extra: 0 });
+    expect(r.drained.s).toBeLessThan(0.5); expect(r.drained.drawn).toBeLessThan(r.n);
+    await context.close();
+  });
+
+  it("strength settles back each pass; feeding keeps a fading loop young, draining ages it; Evolve off freezes it all", async () => {
+    const { page, context } = await openTwirl(browser);
+    await two(page);
+    const r = await page.evaluate(() => {
+      const [X, Y] = loops; X.gives = "feed"; Y.strength = 1.5;
+      const back = []; for (let k = 0; k < 4; k++) { settle(Y); back.push(Y.strength); }
+      for (let k = 0; k < 40; k++) settle(Y);
+      const home = Y.strength;
+      Y.life = "fade"; Y.age = 10; influence(X, Y, 100); const young = Y.age;
+      X.gives = "drain"; influence(X, Y, 101); influence(X, Y, 102); const aged = Y.age;
+      state.evolve = false; const s0 = Y.strength; influence(X, Y, 200); Y.strength = 1.4; settle(Y);
+      return { back, home, young, aged, frozen: [s0 === s0, Y.strength] };
+    });
+    expect(r.back.every((v, i) => v < (i ? r.back[i - 1] : 1.5) && v > 1)).toBe(true);
+    expect(r.home).toBe(1);
+    expect(r.young).toBe(9);
+    expect(r.aged).toBe(11);
+    expect(r.frozen[1]).toBe(1.4);
+    await context.close();
+  });
+
+  it("influence happens at real contacts: a feeding loop crossing another's line makes it stronger", async () => {
+    const { page, context } = await openTwirl(browser);
+    const [a, b] = await crossing(page, { gives: "feed" });
+    await page.waitForFunction((b) => (loops.find((l) => l.uid === b).strength ?? 1) > 1, b, { timeout: 20_000 });
+    await context.close();
+  });
+
+  it("influence and strength travel in codes; children start at full strength; Surprise gives influence only on a busy sheet", async () => {
+    const { page, context } = await openTwirl(browser);
+    await two(page);
+    const r = await page.evaluate(async () => {
+      const [X, Y] = loops; X.gives = "drain"; Y.strength = 0.7;
+      const back = await decodeScene(await encodeScene(serialize()));
+      const child = mutateLoop(Y);
+      state.dice = true; loops.splice(0).forEach(fadeOut);
+      const quiet = new Set(); for (let i = 0; i < 200; i++) quiet.add(pickInfluence());
+      return { gives: back.loops[0].gives, strength: back.loops[1].strength, child: child.strength, quiet: [...quiet] };
+    });
+    expect(r).toEqual({ gives: "drain", strength: 0.7, child: 1, quiet: ["none"] });
     await context.close();
   });
 });

@@ -45,7 +45,10 @@ tuning and colour (`varied`, `nuance`), like a sampler's round-robin. A loop
 can play another pack's sounds (`lp.pack`), so a toy can bring its own
 (Chimes). **Life** (section 6b) lets a loop bloom (extra notes, `bloomNotes`),
 swell (louder and back), fade or be brief, pass by pass (`lifeState`,
-`lifePlays`, `ageLoop`). A fresh sheet has its own key and tempo
+`lifePlays`, `ageLoop`). **Influence** (`influence`, `settle`): a
+loop can feed or drain the loops it touches, changing their strength
+(louder and denser, or quieter and sparser), which settles back each
+pass; at the cap, breeding replaces the oldest loop. A fresh sheet has its own key and tempo
 (`freshKey`). **Start over** resets to
 `STATE_DEFAULTS`, the Simple level and `startingSheet()`. Takes save as WAV
 (`encodeWav`). The
@@ -123,7 +126,12 @@ What they hold in place:
 - **Life.** A bloom adds notes beyond the drawn ones and takes them away
   again, strongest first, never changing the drawn ones; a swell gets louder
   and back; brief starts from its strongest notes (the downbeat always);
-  Surprise gives lives only on a busy sheet, brief most often; fade gets quieter
+  Surprise gives lives only on a busy sheet, brief most often;
+- **Influence.** Feeding makes the touched loop louder and denser, draining
+  quieter and sparser, once a beat per pair; strength settles back each
+  pass; feeding keeps a fading loop young; Evolve off freezes it; it
+  happens at real contacts, travels in codes; at the cap, breeding replaces
+  the oldest loop, never a parent, into undo; fade gets quieter
   each pass and leaves into undo after 16; Evolve off, muted and held loops
   don't age; life and age travel in codes; a child starts at age 0.
 - **Start over and chimes.** Start over is a first visit (Simple level, no

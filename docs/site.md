@@ -1550,8 +1550,8 @@ Hold a loop (or tap its chip, or press its number then Enter). From top to
 bottom: how it **moves** on its own and where it **lives** (high, middle,
 low: it wanders but comes home), **Place** (move and turn), and its
 **volume**. From More up: its **notes** (few, some, many, or ↻ again),
-what it does when it **touches** another loop (below), its **life**
-(below), its **voice** and
+what it does when it **touches** another loop (below), its **life** and
+its **influence** (below), its **voice** and
 **sounds** (the sheet's, or another pack's: a loop can bring its own), **speed**, **rhythm** (as drawn,
 evenly spaced, or Euclidean), **direction** (forward, reverse,
 ping-pong), how often it **plays** and **waits**, when it **starts**,
@@ -1596,8 +1596,10 @@ Each loop answers in its own way (its settings → **Meets**):
 - **no**: it stays out of it.
 
 A loop crosses a given line at most once a beat; a loop trades at most once
-every two bars and breeds at most once every sixteen, and never when the
-sheet is full (14 loops). Breeding is always your choice: a child never
+every two bars and breeds at most once every sixteen. On a full sheet (14
+loops), a child takes the oldest loop's place (never one of its parents),
+so a full sheet keeps evolving; **⌘Z** brings the old one back. Breeding is
+always your choice: a child never
 inherits it, and Surprise never gives it. **Meet** in the controls (More)
 turns all of it off.
 
@@ -1636,6 +1638,26 @@ where undo puts loops: **⌘Z** brings it back, steady. A loop only ages while
 it plays (not muted, not held), and **Evolve** in the controls (More) holds
 every life where it is. Its drawn notes never change: choosing **steady**
 gives it back exactly.
+
+## Loops that feed and drain each other
+
+A loop can also change the loops it touches (any of the three kinds of
+contact). Hold it → **Influence**:
+
+- **none**: it leaves them as they are (most loops);
+- **feeds**: the loop it touches grows stronger, louder and denser (more
+  notes come in, as in a bloom). A loop that fades, or is brief, is kept
+  young while it's fed;
+- **drains**: the loop it touches grows weaker, quieter and sparser. A
+  fading loop runs out sooner.
+
+Strength settles back a little every pass, so it lasts only as long as the
+touching goes on. Put a fading loop where a feeder keeps crossing it and it
+stays; move it away and it dies out. You can see it: a fed line is thicker,
+a drained one paler, and a double ring (feed) or a dashed one (drain)
+flashes where it happens. A loop's settings show its strength. **Evolve**
+off holds it all where it is; **Meet** off stops all contact. With
+**Surprise**, once the sheet is busy, a new loop sometimes feeds or drains.
 
 ## Vary
 
@@ -1738,8 +1760,8 @@ Twirl is Public Domain (CC0), one HTML file you can read, copy and change:
 Its [README](https://github.com/Enkerli/music-suite/blob/main/apps/twirl/README.md)
 explains how it works inside, the
 [roadmap](https://github.com/Enkerli/music-suite/blob/main/apps/twirl/ROADMAP.md)
-where it's going (loops that feed and drain each other, terrain, harmony,
-Workspace and a plugin are among the next steps), and
+where it's going (sustained sounds, terrain, harmony, Workspace and a plugin
+are among the next steps), and
 the [accessibility record](https://github.com/Enkerli/music-suite/blob/main/apps/twirl/A11Y.md)
 what has and hasn't been tested.
 
