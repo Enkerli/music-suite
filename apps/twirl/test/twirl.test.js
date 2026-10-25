@@ -1114,6 +1114,7 @@ describe.skipIf(!browser)("Twirl · a smoother, more colourful sheet", () => {
       const orig = smoothLoop;
       window.smoothLoop = function (lp, ...rest) { const before = rough(lp); orig.call(this, lp, ...rest); window.__rough.push([before, rough(lp)]); };
       loops.splice(0);                                              // an empty sheet: the stroke can't land on a loop
+      Math.random = () => 0.8;                                      // Surprise's "jitter" way of moving: still smoothed (only scribbles aren't)
     });
     await drawStroke(page);
     const r = await page.evaluate(() => {

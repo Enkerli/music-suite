@@ -2719,9 +2719,10 @@ function endStroke(id) {
   const s = strokes.get(id); strokes.delete(id);
   if (!s) return;
   const isTap = !s.moved && performance.now() - s.downAt < 300;
-  if (s.tracer.shaking || s.events.some((e) => e.fixed === "shake")) s.temper = "jitter";
+  const scribble = s.tracer.shaking || s.events.some((e) => e.fixed === "shake");
+  if (scribble) s.temper = "jitter";
   if (s.events.some((e) => e.fixed === "shake")) { s.dir = "fwd"; s.rhythm = "drawn"; }   // a shake keeps its feel
-  if (smoothNew && !isTap && s.temper !== "jitter" && s.pts.length > 4) smoothLoop(s, 2, true);   // a scribble stays a scribble
+  if (smoothNew && !isTap && !scribble && s.pts.length > 4) smoothLoop(s, 2, true);   // a scribble stays a scribble (not `temper`: Morph's jitter is also given at random)
   const kept = state.loop && !isTap && finishStroke(s);
   if (!kept && s.pts.length > 1) fadeOut(s);
   if (kept) {                                                    // a Surprise is announced, so it's never a mystery
