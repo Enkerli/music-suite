@@ -441,3 +441,41 @@ describe.skipIf(!browser)("Twirl · Space is Play/Pause (outside panels), whatev
     await context.close();
   });
 });
+
+describe.skipIf(!browser)("Twirl · moving between loops' settings from the keyboard", () => {
+  it("PageDown / PageUp and the ◀ ▶ buttons step through loops' settings; Tab past the last control moves on; ⇧Tab from the title goes back", async () => {
+    const { page, context } = await openTwirl(browser);
+    await page.mouse.click(5, 400);
+    await page.keyboard.press("1"); await page.keyboard.press("Enter");
+    await page.waitForFunction(() => document.activeElement && document.activeElement.id === "inspTitle");
+    const which = () => page.evaluate(() => loops.indexOf(insp));
+    await page.keyboard.press("PageDown"); expect(await which()).toBe(1);
+    await page.keyboard.press("PageUp"); expect(await which()).toBe(0);
+    await page.click("#inspNext"); expect(await which()).toBe(1);
+    await page.keyboard.press("Shift+Tab"); expect(await which()).toBe(0);            // from the title: the previous loop
+    const n = await page.evaluate(() => focusables($("inspWrap")).length);
+    for (let i = 0; i <= n; i++) await page.keyboard.press("Tab");                    // through every control, then one more
+    expect(await which()).toBe(1);                                                  // past the last control: the next loop
+    expect(await page.evaluate(() => document.activeElement.id)).toBe("inspTitle");
+    await context.close();
+  });
+
+  it("two digits quickly pick loops 10 to 14", async () => {
+    const { page, context } = await openTwirl(browser);
+    await page.evaluate(() => { state.dice = false; while (loops.length < 12) dropToy("ring", [100 + loops.length * 40, 600]); });
+    await page.mouse.click(5, 300);
+    await page.keyboard.press("1"); expect(await page.evaluate(() => loops.indexOf(selected))).toBe(0);
+    await page.keyboard.press("2"); expect(await page.evaluate(() => loops.indexOf(selected))).toBe(11);   // loop 12
+    await page.waitForTimeout(800); await page.keyboard.press("1"); await page.waitForTimeout(800); await page.keyboard.press("2");
+    expect(await page.evaluate(() => loops.indexOf(selected))).toBe(1);                                    // slowly: loop 2
+    await context.close();
+  });
+
+  it("a note at zero loudness (a fade's last moment) is simply not made: no error", async () => {
+    const { page, context, errors } = await openTwirl(browser);
+    await page.evaluate(() => { ensureAudio(); sound("pluck", 0.5, 0.5, 0, ctx.currentTime + 0.1, 0); env(ctx.createGain(), ctx.currentTime + 0.1, 0, 0.2); });
+    await page.waitForTimeout(200);
+    expect(errors).toEqual([]);
+    await context.close();
+  });
+});

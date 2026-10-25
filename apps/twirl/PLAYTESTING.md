@@ -100,6 +100,14 @@ much they matter, before deciding.
 - **Walk.** Do people find the ways (W cycles them), and which do they keep?
   Do they hear the difference between a loop that moves, stays or fits?
 
+- **Walk: parallel or voice leading?** New loops now *fit* (stay, adapt to
+  the chord); old ones *move* (parallel, the whole loop shifting up and
+  down). With musicians, try both on the same sheet: which sounds better,
+  which is jarring?
+- **Keyboard shortcuts and naïve use.** Do single-key shortcuts get in the
+  way of someone who only touches (a stray key on an iPad keyboard)? Note
+  any surprise from a key nobody meant to press.
+
 ## A condition to compare: where a fresh sheet starts
 
 Half the newcomer sessions open Twirl as usual (pentatonic, major or minor,

@@ -79,7 +79,7 @@ Explore rhythmic patterns and morph them.
 
 <!-- card twirl link=apps/twirl/ docs=twirl-guide -->
 Twirl
-Draw a gesture and hear it. It keeps looping on its own clock, drifting, spinning, and spawning variations of itself. Works with a finger or a pencil on iPad, too.
+Draw a gesture and hear it. It keeps looping, drifting and spinning; loops touch, trade, have children and change over time. Works with a finger or a pencil on iPad, too.
 
 <!-- docs -->
 Documentation
@@ -520,7 +520,7 @@ Or, if you'd rather make the sound with your hands, open **Twirl**:
 <https://enkerli.github.io/music-suite/apps/twirl/>
 
 Draw anything on the sheet. You hear it as you draw it, and when you
-let go it keeps going round as a **loop**, on its own clock. Higher on
+let go it keeps going round as a **loop**. Higher on
 the sheet is higher in pitch; the direction you move picks the sound
 (right plucks, up rings a bell, down drums); a fast scribble is a shaker.
 It works with a finger or a pencil on an iPad, too.
@@ -531,7 +531,7 @@ Things to try: drag a loop somewhere else and hear it change; hold one to
 see its settings (speed, rhythm, chords, how it moves); open the
 **Toybox** for ready-made shapes (wind chimes, roses, a drum beat); at the
 **More** level, **Mutate** gives a loop a child, a close variation that
-answers it, and **Life** lets a loop bloom, swell, fade, or come and go. With a keyboard, `?` lists every key.
+answers it, and **Life** lets a loop bloom, swell, fade, or come and go. With a keyboard, **H** lists every key. The [Twirl guide](doc.html?p=twirl-guide) has the rest.
 
 ---
 
@@ -1452,383 +1452,250 @@ the accumulating gesture-curation data.
 
 # Twirl — Guide
 
-Twirl is a toy for drawing music. Draw a stroke and you hear it as you
-draw it. Let go and it keeps going round, as a **loop**, on its own clock.
-Draw another and the two play together. Loops drift, spin, can be moved,
-turned, stretched, muted, and can have children.
+Twirl is a toy for drawing music. Draw a stroke and you hear it as you draw
+it. Let go and it keeps going round, as a **loop**. Draw another and the two
+play together. Loops can be moved, turned, stretched and muted; they drift
+and spin, touch each other, and can change over time.
 
-**Play it:** <https://enkerli.github.io/music-suite/apps/twirl/>. It works
-with a finger, a pencil or a mouse, in any current browser, iPad Safari
-included. Nothing to install, no account; your work stays in your browser.
+**Play it:** <https://enkerli.github.io/music-suite/apps/twirl/>, with a
+finger, a pencil or a mouse, in any current browser, iPad Safari included.
+Nothing to install, no account; your work stays in your browser.
 
 ## The first minute
 
-Tap anywhere: that starts the sound (browsers wait for a touch). Three
-loops are already on the sheet: wind chimes, a dropped line and a shaker,
-in a key and at a tempo of their own (a fresh sheet picks a common key,
-major or minor pentatonic, between 84 and 112 beats a minute).
-**Start over**, in the controls, brings Twirl back to this first visit:
-the starting sheet, every setting as Twirl begins, the Simple level (two
-taps). Your saved scenes, toys and takes stay, and for ten seconds after,
-the same button brings back what you had.
-Draw something of your own. Then drag one of the loops somewhere else and
+Tap anywhere to start the sound (browsers wait for a touch). Three loops
+are already there: wind chimes, a dropped line and a shaker, in a key and a
+tempo of their own. Draw something. Then drag a loop somewhere else and
 listen to what changes.
+
+That is all Twirl asks. Everything below is there when you want it: the
+controls (☰) open at **Simple**; **More** and **Everything** add to them,
+and each level only adds, nothing moves. **Start over**, in the controls,
+brings back this first visit (two taps; for ten seconds the same button
+brings back what you had).
 
 ## How a drawing becomes music
 
-- **Higher on the sheet is higher in pitch.** The horizontal lines are the
-  notes of the scale you're in (pentatonic, to begin with). The lines
-  labelled C4, C5… are the octaves.
+- **Higher is higher in pitch.** The horizontal lines are the notes of the
+  scale (pentatonic, to begin with); the labelled ones are octaves.
 - **Distance along the path is time.** The sheet's width is one bar of four
-  beats; the vertical lines are the beat divided. The little ticks across a
-  loop show where each beat falls on it.
-- **The direction you move picks the sound.** Right plucks, up rings a
-  bell, left blips, down drums. Scribble back and forth quickly and you get
-  a shaker. Each sound has its own colour *and* shape (● ○ ▲ ■ ◆), so you
-  never need the colour to tell them apart.
-- **Size is speed.** Make a loop bigger and it plays slower; smaller,
-  faster. Sizes snap to musical ratios (½, ⅔, ¾, 1, 4⁄3, 1½, 2), so loops
-  of different sizes still meet up.
-- **Loud is fast (or firm).** Drawing faster makes louder notes; with a
-  pencil, pressing harder does. Bigger dots are louder.
-- **Where the notes land.** As you draw, a note lands each time the line
-  has gone a set distance, and wherever it turns sharply, so corners and
-  curls get notes and long straight runs get them evenly spaced. **Notes:
-  few / some / many** sets that distance (few, the default, is about two
-  grid columns). Any loop can change its own later: hold it → **Notes**.
-  Choosing the same setting again re-rolls: the notes land a little
-  differently each time.
+  beats; the vertical lines divide the beat. Ticks across a loop show where
+  its beats fall.
+- **Direction picks the sound.** Right plucks, up rings a bell, left blips,
+  down drums; a quick scribble is a shaker. Each sound has its own colour
+  *and* shape (● ○ ▲ ■ ◆).
+- **Size is speed.** Bigger plays slower, smaller faster, snapping to
+  musical ratios (½ … 2), so loops of different sizes still line up.
+- **Faster (or firmer, with a pencil) is louder.** Bigger dots are louder.
+- **Where the notes land:** each time the line has gone a set distance, and
+  wherever it turns sharply. **Notes: few / some / many** sets the distance
+  (few to begin with); each loop can change its own later.
 
-A blue dot, the **playhead**, travels each loop; a note sounds when the
-playhead reaches it.
+A blue dot, the **playhead**, travels each loop; a note sounds when it gets
+there.
 
-## Touching loops
+## Handling loops
 
 | Gesture | What it does |
 |---|---|
-| Drag a loop | Move it (its pitches and timing change with where it is) |
-| Flick it off the edge | Throw it away |
-| Two fingers on a loop | Turn it and resize it (resize = speed) |
-| Tap | Mute / unmute |
-| Double-tap | Change how it moves on its own: still, drift, spin, jitter |
+| Drag | Move it (its pitches and timing change with where it is) |
+| Flick off the edge | Throw it away |
+| Two fingers | Turn it and resize it (resize = speed) |
+| Tap · double-tap | Mute · change how it moves (still, drift, spin, jitter) |
 | Hold | Its settings |
 
-Every one of these also has a one-tap or keyboard way to do it: the
-loop's settings have **Place** buttons (move and turn), **Mute** and
-**Erase**, and the keys are listed below. Each loop also has a numbered
-chip along the bottom; tapping a chip opens that loop's settings, which
-is the easy way to reach a small or busy loop.
-
-## Simple, More, Everything
-
-Twirl opens at **Simple**: draw, hear, toys, scenes. **More** adds the
-musical controls: the scale (*grid*) and its root, the range in octaves,
-how the beat is divided, the pen, **Lock**, **Morph**, swing, **Air** and
-**Arc**. **Everything** adds tunings, **Revoice**, **Walk** and **Drone**.
-Each level only adds; nothing moves. Switch levels in the controls drawer
-(☰) or right in a loop's settings.
-
-The ones worth knowing:
-
-- **Lock** reads every loop on the beat grid instead of as you drew it: a
-  steady pulse, with the pitch snapped to the lines. Move a locked loop and
-  its rhythm changes, because it crosses different lines.
-- **Morph** lets loops move on their own. Off, they stay where you put
-  them. (If your device asks for reduced motion, Twirl starts with it off.)
-- **Air** gives a busy sheet room to breathe: the notes that matter least
-  in the bar rest, and weaker beats play softer. Downbeats always play.
-- **Arc** shapes 4 or 8 bars as tension and release: home, away, pull, and
-  home again, where melodies resolve.
-- **Walk** (Everything) moves everything, the Drone too, along the scale
-  every few bars: *a progression* (round and round), *sway* (home and the
-  fourth), *by fifths* (through every degree), *climb* (a step at a time),
-  or *wander* (a step or a fifth, up or down); every 1, 2, 4 or 8 bars;
-  **W** cycles through them. What it does: every note moves by the same
-  number of *scale steps*, so a melody keeps its shape and moves within the
-  scale (its intervals follow the scale: a major third may become minor),
-  and a chord loop's chords follow too, their quality set by the scale (as
-  I becomes vi). Each loop can take its own part (its settings, Everything
-  → Walk): **moves** (as above), **stays** (holds while the rest moves: a
-  pedal, a riff), or **fits** (keeps its own pitches, but each note goes to
-  the nearest tone of the chord Walk has moved to: a line that adapts).
-- **Tunings** (Everything): equal, just, Pythagorean, meantone and
-  Werckmeister III for 12-note scales; microtonal scales (5-, 7-, 19-,
-  24-EDO, slendro, pelog, maqam Rast, harmonics, Bohlen–Pierce) bring their
-  own.
+Every gesture has a button or a key too. Each loop has a numbered **chip**
+along the bottom: tap it for that loop's settings, the easy way to reach a
+small or busy loop.
 
 ## A loop's settings
 
-Hold a loop (or tap its chip, or press its number then Enter). From top to
-bottom: how it **moves** on its own and where it **lives** (high, middle,
-low: it wanders but comes home), **Place** (move and turn), and its
-**volume**. From More up: its **notes** (few, some, many, or ↻ again),
-what it does when it **touches** another loop (below), its **life** and
-its **influence** (below), its **voice** and
-**sounds** (the sheet's, or another pack's: a loop can bring its own), **speed**, **rhythm** (as drawn,
-evenly spaced, or Euclidean), **direction** (forward, reverse,
-ping-pong), how often it **plays** and **waits**, when it **starts**,
-**chords** (fifths, triads, sevenths, sus, always in the scale you're in),
-and its **timing** (follow Lock, always as drawn, or always on the grid).
+Hold a loop, tap its chip, or press its number then Enter. At Simple: how it
+**moves** on its own, where it **lives** (high, middle, low), **Place**
+(move, turn), **volume**, **Mute** and **Erase**. From **More** up:
 
-**Edit notes** (More and up) changes a loop by hand: tap anywhere on its
-path to add a note, tap a note to remove it, double-tap a note to change
-its sound (pluck, bell, blip, drum, shaker, or back to by direction), drag a
-square to bend the path, hold to smooth it.
+- **Notes** (few, some, many, ↻ again) · **Voice** and **Sounds** (by
+  direction or one voice; the sheet's sound pack or another one) · **Speed**
+  · **Rhythm** (as drawn, even, Euclidean) · **Direction** (forward,
+  reverse, ping-pong) · **Plays**, **Waits**, **Starts** · **Chord** (fifths,
+  triads, sevenths, sus, in the scale) · **Timing** (follow Lock, as drawn,
+  on the grid);
+- **Meets**, **Life** and **Influence**, below;
+- **Copy**: give this loop's life, influence, way of meeting, sound, part in
+  Walk or timing to its **family**, **all loops**, or **loops you choose**
+  (tap *to loops I choose…*, tap their chips, then **Apply**);
+- **Edit notes**: tap a path to add a note, tap a note to remove it,
+  double-tap a note to change its sound, drag a square to bend the path,
+  hold to smooth it;
+- **Mutate**: a child, a close variation that starts half a cycle behind and
+  answers its parent. Children can have children (`g1`, `g2` on the chips).
 
-**Mutate** (More and up) gives the loop a child: a close variation with
-the same voice, rhythm and timing, a slightly different shape, and a few
-notes nudged. It starts half a cycle behind its parent, so it answers it.
-Children can have children; the chips show the generation (`g1`, `g2`…).
+At **Everything**: its part in **Walk**, and its **Snap**, **Feel** and
+**Clock** (all below). **◀ ▶** at the top go to the previous or next loop.
 
 ## When loops touch
 
-Loops touch in three ways, and a small ring flashes where they do:
+Loops touch in three ways, and a small ring flashes where they do: a
+**playhead crosses another loop's line** (all the time), two **lines come
+into contact** as loops move (the moment they touch), and two **playheads
+meet** (rarer: aim for it by moving loops). Each loop answers in its own way
+(**Meets**):
 
-- a loop's playhead (its blue dot) **crosses another loop's line**. This
-  happens all the time, wherever lines overlap;
-- two **lines come into contact**, when loops move into each other
-  (drifting, bumped, or dragged). Lines that already overlap don't count:
-  only the moment they touch;
-- two **playheads meet**: they reach the same place at the same moment.
-  This is rarer, and you can aim for it by moving loops around.
-
-Each loop answers in its own way (its settings → **Meets**):
-
-- **sound**: it plays a note where it touches, so a crossing adds a note
-  and a meeting is an interval, two voices at once;
-- **bump**: it also pushes the lines it crosses or touches out of its way,
-  so loops push each other around the sheet;
-- **trade**: when its line touches another, or its playhead meets another,
-  it also borrows one thing from the other loop: its voice, its chords, its
-  rhythm or its direction, one at a time, in turn;
-- **breed**: when its playhead meets another, it also has a child, a
-  variation of itself (like Mutate) that borrows one thing from the other
-  loop;
-- **infect**: an infectious loop has a child at *any* contact. Use it
-  sparingly: children fill the sheet;
+- **sound** (most loops): a note where it touches, so a meeting is an
+  interval;
+- **bump**: and it pushes the other loop out of its way;
+- **trade**: and, on contact or a meeting, it borrows one thing from the
+  other loop (its voice, chords, rhythm or direction, in turn);
+- **breed**: and, when playheads meet, it has a child with the other loop;
+  **infect** has one at any contact. Breeding is always your choice: a child
+  never inherits it, Surprise never gives it, and it waits sixteen bars
+  between children. On a full sheet (14 loops) a child takes the oldest
+  loop's place (⌘Z brings it back);
 - **no**: it stays out of it.
 
-A loop crosses a given line at most once a beat; a loop trades at most once
-every two bars and breeds at most once every sixteen. On a full sheet (14
-loops), a child takes the oldest loop's place (never one of its parents),
-so a full sheet keeps evolving; **⌘Z** brings the old one back. Breeding is
-always your choice: a child never
-inherits it, and Surprise never gives it. **Meet** in the controls (More)
-turns all of it off.
+**Meet** in the controls (More) turns all contact off.
 
-**Surprise** (More, on at first): a new loop may get a different direction
-(reverse, ping-pong), rhythm (even, Euclidean) or way of meeting (bump,
-trade; never breed). The usual
-ones stay the most likely, a message says when a loop got something else,
-and you can change it in the loop's settings. Turn Surprise off and every
-new loop plays forward, as drawn, and sounds when it touches. The Toybox's
-beat and shaker keep their own feel either way.
+## Loops that change over time
 
-## Loops with a life
+Twirl's loops don't have to repeat the same way for good.
 
-A loop can change over the passes instead of playing the same way for good.
-Hold it → **Life**:
+**Life** (a loop's settings): **steady** (as drawn); **bloom** (more notes
+come in beyond yours, then leave, again and again); **swell** (louder, then
+softer); **fade** (a little quieter each pass, then gone); **brief** (fills
+in, fades, gone). Its length: 8 to 64 **passes** of the loop, or 1 to 32
+**bars** (so loops of different sizes can fade over the same time). A loop
+only ages while it plays; one whose life ends goes where undo puts loops
+(⌘Z brings it back, steady). Its own notes never change: **steady** gives it
+back exactly.
 
-- **steady**: as drawn, for good (most loops);
-- **bloom**: denser, and back. More notes come in, beyond the ones you
-  drew (the same path, read more finely), over eight passes, and leave over
-  eight, and round again. The notes that matter most to the beat come
-  first; your own notes always play;
-- **swell**: louder, and back: from soft to full over eight passes, then
-  softer again;
-- **fade**: a little quieter each pass, and gone after sixteen;
-- **brief**: comes and goes. It starts from its strongest notes, fills in
-  to all of yours over eight passes, fades over eight, and it's gone.
+**Influence**: a loop can **feed** the loops it touches (louder, denser; a
+fading one is kept young) or **drain** them (quieter, sparser; a fading one
+runs out sooner). Strength settles back each pass, so it lasts as long as
+the touching does: put a fading loop where a feeder keeps crossing it and it
+stays.
 
-Next to Life, its length: **8, 16, 32 or 64 passes** of the loop, or **1 to
-32 bars**: a cycle for bloom and swell, the whole life for fade and brief
-(16 passes to begin with). In bars, loops of different sizes fade over the
-same time.
+You can see it all: a filling or fed line is thicker, a fading or drained
+one paler, resting notes are faint, and the settings say where a loop is
+("fading · pass 5 of 16"). **Evolve** (More) holds every life where it is.
+To fade several loops together, give one a fade, **Copy** its life to the
+others (they all start together), then change each one's length.
 
-**Copy** (in a loop's settings, More) gives this loop's life, influence,
-way of meeting, sound, part in Walk or timing to **its family**, **all
-loops**, or **loops you choose**: tap *to loops I choose…*, tap their chips
-at the bottom, then **Apply**. Copying a life starts them all together,
-this loop too; then each one's length can be changed on its own (several
-loops fading at once, at different rates).
+**Surprise** (More, on at first) gives new loops a little variety: a
+different direction, rhythm or way of meeting now and then; and, once the
+sheet is busy (four loops or more), sometimes a life (brief, or a fade of
+16 or 32 passes) or an influence. The usual stays the most likely, a
+message says what a loop got, and a first stroke on a quiet sheet is always
+plain.
 
-You can see it: the line gets thicker as a loop fills and paler as it
-fades; a bloom's extra notes show small while they play, and resting notes
-are faint. The loop's settings say where it is ("blooming · pass 5 of
-16"). Shakers, beats and chimes have fixed notes, so they don't bloom.
-With **Surprise** on, once the sheet has four loops or more, a new loop is
-sometimes given a life (brief, or a fade of 16 or 32 passes, most often), so a busy sheet keeps changing;
-a message says so, and a first stroke on a quiet sheet always stays. A loop whose life ends goes
-where undo puts loops: **⌘Z** brings it back, steady. A loop only ages while
-it plays (not muted, not held), and **Evolve** in the controls (More) holds
-every life where it is. Its drawn notes never change: choosing **steady**
-gives it back exactly.
+## Harmony and time
 
-## Timing, more freely (Everything)
+- **Lock** reads every loop on the beat grid instead of as drawn: a steady
+  pulse, pitches snapped to the lines.
+- **Morph** lets loops move on their own (off if your device asks for
+  reduced motion).
+- **Air** gives a busy sheet room: the notes that matter least to the bar
+  rest. **Arc** shapes 4 or 8 bars as home, away, pull and home again.
+- **Walk** (Everything) moves the harmony every few bars: *a progression*,
+  *sway*, *by fifths*, *climb* or *wander*, every 1, 2, 4 or 8 bars (**W**
+  cycles through them). The **Drone** follows it. Each loop has a part:
+  **fits** (new loops: it stays where it is and lands each note on the
+  nearest tone of the new chord, so lines move by small steps, voice
+  leading), **moves** (every note shifts by the same number of scale steps:
+  parallel motion, a melody keeping its shape, chords following the scale),
+  or **stays** (ignores Walk: a pedal, a riff).
+- **Scales and tunings**: the grid (More) and its root; at Everything,
+  tunings for 12-note scales (just, Pythagorean, meantone, Werckmeister III)
+  and microtonal scales (5-, 7-, 19-, 24-EDO, slendro, pelog, maqam Rast,
+  harmonics, Bohlen–Pierce).
+- **Timing, more freely** (a loop's settings, Everything): **Snap** to the
+  division, to 1/64, or not at all; **Feel**, up to 40 ms ahead of the beat
+  or behind it; **Clock** in step, or drifting 1 % ahead or behind so it
+  phases against the others. The sheet's division goes from 1/4 to 1/64, or
+  **Free**. A new loop is always in step, snapped and on the beat.
 
-Every loop keeps time with the sheet and snaps to its division (the
-vertical lines): that's what keeps things together, and it's how Twirl
-starts. At **Everything**, a loop's settings add three ways out:
+## Sounds
 
-- **Snap**: to the *division* (as always), *fine* (1/64: almost as drawn,
-  still in time), or *none* (exactly when you drew it);
-- **Feel**: ahead of the beat (pushing) or behind it (laid back), up to
-  40 ms either way, the same every pass (Vary is the random kind);
-- **Clock**: *in step*, or *drifts ahead* / *drifts behind*: one per cent
-  fast or slow, so it slides against the others and, many passes later,
-  comes round into step again (phasing). A drifting loop plays unsnapped.
+Seven **packs** (paper, mallets, felt, steel, kalimba, chip, chimes) give the
+five voices different instruments; a loop can bring its own pack, whatever
+the sheet's. **Vary** (More, on at first) makes no two notes quite alike, a
+little louder or softer, earlier or later, brighter or duller, as a sampler
+plays a different take of the same note.
 
-The sheet's **division** (More) now goes down to 1/64 too, or **Free**.
-Setting these loop by loop gets tedious, so **Same for: its family · all
-loops** hands one loop's Snap, Feel and Clock to its family (its parent and
-children) or to the whole sheet. Only when you ask: a new loop is always in
-step, snapped, on the beat.
+## Toys, scenes, takes, files and codes
 
-## Loops that feed and drain each other
-
-A loop can also change the loops it touches (any of the three kinds of
-contact). Hold it → **Influence**:
-
-- **none**: it leaves them as they are (most loops);
-- **feeds**: the loop it touches grows stronger, louder and denser (more
-  notes come in, as in a bloom). A loop that fades, or is brief, is kept
-  young while it's fed;
-- **drains**: the loop it touches grows weaker, quieter and sparser. A
-  fading loop runs out sooner.
-
-Strength settles back a little every pass, so it lasts only as long as the
-touching goes on. Put a fading loop where a feeder keeps crossing it and it
-stays; move it away and it dies out. You can see it: a fed line is thicker,
-a drained one paler, and a double ring (feed) or a dashed one (drain)
-flashes where it happens. A loop's settings show its strength. **Evolve**
-off holds it all where it is; **Meet** off stops all contact. With
-**Surprise**, once the sheet is busy, a new loop sometimes feeds or drains.
-
-## Vary
-
-**Vary** (More, on at first): no two notes come out quite alike. Each one is
-a little louder or softer, a few milliseconds earlier or later, a few cents
-off, and a little brighter or duller (the bell more or less clangorous, the
-blip longer or shorter), the way a sampler plays a different take of the
-same note each time. It takes the edge off fast repeats. Turn it off for
-exact, identical repeats.
-
-## Toys, scenes, takes and codes
-
-- **Toybox**: ready-made shapes (spiral, ring, rose, Lissajous, a drum
-  beat, a shaker, wind chimes, a spinner, dice for a surprise). Tap one to
-  drop it. A **Spinner** is a quick flick upward, a beat long: a drum, then
-  bells rising, evenly spaced. It spins, so the little arpeggio folds toward
-  one note as it turns sideways, opens up again, and turns upside down.
-  **Chimes** look like chimes: a bar with tubes of different lengths, and
-  the longer the tube, the lower its note. They ring in gusts, off the
-  beat, over a long cycle, and bring their own sound, whatever the sheet's
-  pack.
-- **My toys**: "Keep a loop", then tap a loop on the sheet, and it becomes
-  a toy you can drop again anywhere.
-- **Scenes**: six slots for whole sheets. Tap an empty slot to save, a
-  full one to recall; hold it (or Shift-tap, Shift-Enter) to overwrite. Your
-  last sheet also comes back by itself.
-- **Takes**: press **● Rec**, play, press it again. A take keeps what you
-  *did* (strokes, moves, settings) and replays it on the sheet, even after
-  a reload. In a replay each loop appears as it was drawn, in the
-  drawing's own time; the timer and Stop shrink to a small dot after a
-  moment, out of the picture for a screen recording (tap it to get them
-  back); its sound stays until you close the page, unless you save it:
-  **Save sound** gives you a WAV file, which opens everywhere.
-- **Download everything**, in Scenes: a JSON file of your sheet, scene
-  slots, My toys and takes (what you did, not their sound), readable and
-  yours to keep; **Open a file** brings one back (scenes fill empty slots,
-  the sheet comes in as a scene, toys and takes join yours).
-- **Codes**: a sheet, a toy, a take, or everything you have, as a line of
-  text (`twirl:s1.…`). Send it any way you like; paste it into Scenes →
-  Paste a code, on any device. Nothing is uploaded anywhere: the music is
-  inside the code.
-
-## Keyboard
-
-Every touch on the sheet draws, so the keyboard is how to steer without
-leaving marks. **H** lists every key inside Twirl.
-
-| Keys | What they do |
-|---|---|
-| Space | Play / pause, wherever the focus is (⇧ Space: record). Inside an open panel it presses the focused button instead, and never pauses; Enter presses a focused button anywhere |
-| 1–9, or Tab / ⇧ Tab | Pick a loop |
-| Enter | Its settings (Enter again closes them) |
-| Arrows · `,` `.` | Move it · turn it |
-| `<` `>` · X · D | Slower / faster · mute · duplicate |
-| ⇧1 … ⇧6 | Pen: by direction, drums, pluck, bell, blip, shaker |
-| T · Y · S | Toybox · My toys · Scenes |
-| C | Controls (Tab then moves through them) |
-| L · M · E | Lock · Morph · Edit notes |
-| F | Full screen |
-| I | Messages: shown as they happen, or quiet |
-| W · ⇧W | Walk: off, then each way in turn (⇧W: back) |
-| Q · ⇧Q | Diagnostics (frames a second, how late the clock runs, notes a second, errors, where the last tap landed) · ⇧Q copies a report |
-| ⌘Z · ⇧⌘Z | Remove the newest loop · bring it back |
-| Esc (or `` ` ``, or ⌘ .) | Close whatever is open |
-
-**Tab** moves through the controls of whatever panel is open (a loop's
-settings, the controls, a shelf) and wraps around at the ends, so it never
-falls out into the address bar; in a dropdown too, `` ` `` or ⌘ . closes
-the panel.
-
-**On an iPad with a keyboard:** tap the page once after it loads, so it
-hears the keys (Safari keeps the keyboard in the address bar until then).
-The Magic Keyboard has no Esc key: use `` ` `` (where Esc would be) or
-⌘ . instead, or turn Caps Lock into Escape in Settings → General →
-Keyboard → Hardware Keyboard → Modifier Keys. Safari's Tab usually skips
-buttons (⌥ Tab reaches them), which sent focus off to the address bar; that
-is why Tab steps through loops in Twirl, and C, Enter and T take you into
-the controls.
-
-If the system interrupts the sound (a call, another app's audio), Twirl
-says so, and the next touch or key brings it back.
-
-On a busy sheet or a slower device, Twirl looks further ahead when it
-schedules notes, so they don't drop, and may draw the sheet a little less
-sharply until things calm down. **Q** shows how it's keeping up.
+- **Toybox**: ready-made shapes (spiral, ring, rose, Lissajous, a drum beat,
+  a shaker, wind chimes, a spinner, dice). **Chimes** look like chimes (the
+  longer the tube, the lower the note) and ring in gusts, off the beat, in
+  their own sound. A **Spinner** is a beat-long arpeggio that folds, opens
+  and flips as it spins.
+- **My toys**: keep any loop as a toy, to drop again anywhere.
+- **Scenes**: six slots for whole sheets; your last sheet comes back by
+  itself.
+- **Takes**: **● Rec**, play, **● Rec** again. A take keeps what you did and
+  replays it on the sheet, each loop appearing as it was drawn (the timer
+  shrinks to a dot, out of the picture for a screen recording). **Save
+  sound** gives a WAV file.
+- **Download everything** (Scenes): a readable JSON file of your sheet,
+  scenes, toys and takes; **Open a file** brings it back.
+- **Codes**: a sheet, a toy, a take or everything, as a line of text
+  (`twirl:s1.…`) to send any way you like and paste into Scenes → Paste a
+  code. Nothing is uploaded: the music is inside the code.
 
 ## Messages
 
-Twirl keeps quiet about what it does. When something happens (a setting
-changes, a loop trades, a child is born, a loop fades away), a small dot
-in the footer lights up; tap it for **What just happened**, the last few
-messages. **Show messages** in the controls (or the key **I**, or the
-switch in that list) shows every message on the sheet as it happens,
-stacked, so none is lost. Both are handy for a screen recording: quiet for
-a clean picture, shown to explain what's going on. Only a problem that needs
-you (the sound was interrupted, a save that failed) shows when quiet.
-Screen readers hear every message either way.
+Twirl keeps quiet about what it does: when something happens, a dot in the
+footer lights up; tap it for **What just happened**. **Show messages** (in
+the controls, or **I**) shows every message on the sheet as it happens.
+Quiet makes a clean screen recording, shown explains one. A problem that
+needs you always shows; screen readers hear every message either way.
 
-## Full screen
+## Keyboard
 
-**F**, or **Full screen** in the controls drawer: a bigger sheet, and a
-clean frame for screen recordings. F again (or Esc) to leave. If drawing
-downward knocks the page out of full screen (some tablets read it as the
-"leave" gesture), it comes back as soon as you lift your finger. Full screen
-isn't available everywhere: browsers inside other apps often don't allow
-it, and the button only appears where it works.
+The sheet answers every touch by drawing, so the keyboard steers without
+leaving marks. **H** lists every key in Twirl.
+
+| Keys | What they do |
+|---|---|
+| Space · ⇧ Space | Play / pause, wherever the focus is · record. Inside an open panel, Space presses the focused button instead |
+| 1–9 · 1 then 0–4 · Tab | Pick a loop (two digits quickly for 10–14; Tab steps through them) |
+| Enter | Its settings; there, PageDown / PageUp (fn ↓ / fn ↑) or Tab past the end go to the next loop |
+| Arrows · `,` `.` · `<` `>` | Move · turn · slower / faster |
+| X · D · ⌘Z · ⇧⌘Z | Mute · duplicate · remove the newest loop · bring it back |
+| ⇧1 … ⇧6 | Pen: by direction, drums, pluck, bell, blip, shaker |
+| T · Y · S · C | Toybox · My toys · Scenes · controls |
+| L · M · E · W | Lock · Morph · Edit notes · Walk (⇧W back) |
+| F · I · Q | Full screen · messages · diagnostics (⇧Q copies a report) |
+| Esc, `` ` ``, ⌘ . | Close whatever is open |
+
+In any open panel, Tab moves through its controls and wraps around, never
+out to the address bar. **On an iPad with a keyboard**, tap the page once
+after it loads so it hears the keys; the Magic Keyboard has no Esc, so use
+`` ` `` or ⌘ . (or make Caps Lock an Escape key in Settings → General →
+Keyboard → Hardware Keyboard → Modifier Keys).
+
+## Full screen, iPad and performance
+
+**F** (or Full screen in the controls) gives a bigger sheet and a clean
+frame for recordings; if drawing downward knocks the page out of it, it
+comes back when you lift your finger. If the system interrupts the sound,
+Twirl says so and the next touch brings it back. On a busy sheet Twirl
+schedules further ahead so notes don't drop, and may draw a little less
+sharply until things calm down; **Q** shows how it's keeping up.
 
 ## MIDI out
 
-In browsers with Web MIDI (Chrome, Edge and other Chromium browsers,
-including on Linux), an **Out** picker appears at the Everything level:
-send Twirl's notes to a synth, a DAW or hardware, with or without Twirl's
-own sound. Plucks go out on channel 1, bells on 2, blips on 3, drums and
-the shaker on 10 (General MIDI drum notes). Microtonal pitches are rounded
-to the nearest semitone for now. Safari has no Web MIDI; a plugin version
+Where the browser has Web MIDI (Chrome, Edge and other Chromium browsers,
+Linux included), an **Out** picker appears at Everything: Twirl's notes to a
+synth, a DAW or hardware, with or without its own sound (plucks on channel
+1, bells 2, blips 3, drums and shaker 10). Safari has no Web MIDI; a plugin
 is on the [roadmap](https://github.com/Enkerli/music-suite/blob/main/apps/twirl/ROADMAP.md).
 
 ## Behind it
 
 Twirl is Public Domain (CC0), one HTML file you can read, copy and change:
-[source on GitHub](https://github.com/Enkerli/music-suite/tree/main/apps/twirl).
-Its [README](https://github.com/Enkerli/music-suite/blob/main/apps/twirl/README.md)
-explains how it works inside, the
-[roadmap](https://github.com/Enkerli/music-suite/blob/main/apps/twirl/ROADMAP.md)
-where it's going (sustained sounds, terrain, harmony, Workspace and a plugin
-are among the next steps), and
-the [accessibility record](https://github.com/Enkerli/music-suite/blob/main/apps/twirl/A11Y.md)
-what has and hasn't been tested.
-
+[source](https://github.com/Enkerli/music-suite/tree/main/apps/twirl), with
+a [README](https://github.com/Enkerli/music-suite/blob/main/apps/twirl/README.md)
+on how it works inside, a
+[roadmap](https://github.com/Enkerli/music-suite/blob/main/apps/twirl/ROADMAP.md),
+a [playtesting plan](https://github.com/Enkerli/music-suite/blob/main/apps/twirl/PLAYTESTING.md)
+and an [accessibility record](https://github.com/Enkerli/music-suite/blob/main/apps/twirl/A11Y.md).
