@@ -38,11 +38,15 @@ Pages URL. Twirl needs nothing installed; the synth does.
 
 ### 1a. Twirl itself in Chromium on Linux
 
-- [ ] Open Pages, tap, draw: sound on the first touch, a loop after release.
+- [x] Open Pages, tap, draw: sound on the first touch, a loop after release.
 - [ ] Draw for a minute, open the drawer (☰), switch to Everything, fold and
       unfold a section; Start over (two taps).
-- [ ] A busy sheet: Toybox several times, or `?template=tadpoles`; leave it two
+- [x] A busy sheet: Toybox several times, or `?template=tadpoles`; leave it two
       minutes. **Q** shows fps, slowest frame and ticks late; **⇧Q** copies it.
+      (Brave on Linux, 2026-10-25: 60 fps, slowest frame 17 ms, no errors;
+      "some hiccups" when adding short loops quickly, about 59 notes a
+      second. ⇧Q now also reports `ticksLateMs` and `audioDevice`, to tell a
+      late scheduler from an audio buffer running dry.)
 - [ ] Full screen (F) and leaving it; keyboard: Space, Tab, digits, H.
 - [ ] Report: ⇧Q, plus anything that sounded or looked wrong.
 
@@ -62,11 +66,23 @@ Setup, one of:
   channel's worth of sound, but it's the suite's own synth).
 - **Surge XT** standalone, or anything in Carla, listening on its MIDI input.
 
-Then:
-- [ ] `aconnect -l` lists the synth's input; Chromium shows it as a MIDI output.
-- [ ] In Twirl: Everything → Sound and room → **Out** (appears once Chromium
-      sees a MIDI output; the first time, Chromium asks to allow MIDI).
-      Choose **MIDI · <synth>**, then **sound + MIDI** to compare.
+Then (as found on Alex's Linux machine, 2026-10-25: Brave lists *Midi
+Through Port-0* and four *VirMIDI* ports; synths running as their own apps,
+such as Surge XT or Bitwig, don't appear as outputs, so Twirl goes through
+**Midi Through** and the synth listens to it):
+- [x] Brave (or Chromium) lists MIDI outputs: ⇧Q's `midi.outputs`.
+- [ ] In Twirl: Everything → Sound and room → **Out: MIDI · Midi Through
+      Port-0** (or **sound + MIDI**, to hear both). ⇧Q's `midi.out` should
+      no longer say `sound`, and `midi.sent` climbs as notes play.
+- [ ] Check it leaves the browser: `aseqdump -p "Midi Through"` in a terminal
+      prints note-ons as Twirl plays.
+- [ ] The synth listens to Midi Through: **Surge XT** standalone, its menu →
+      Audio/MIDI settings → tick *Midi Through Port-0*; **Bitwig**, Settings →
+      Controllers → add a generic MIDI keyboard on *Midi Through Port-0*, then
+      arm an instrument track (input: all channels). Or wire it by hand:
+      `aconnect -l`, then `aconnect "Midi Through":0 <synth>:0`.
+- [ ] (VirMIDI ports carry MIDI between a raw-MIDI app and the sequencer; for
+      browser → synth, Midi Through is the simpler road.)
 - [ ] Each voice on its channel: draw right (pluck), up (bell), left (blip),
       down (drums), scribble (shaker). ⇧Q shows `midi.last` (channel, note,
       velocity) and `midi.sent`.
