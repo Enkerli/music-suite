@@ -534,6 +534,9 @@ kbd {
       <option value="1">1 oct</option><option value="2">2 oct</option>
       <option value="3" selected>3 oct</option><option value="4">4 oct</option>
     </select>
+    <select class="sel" id="spread" data-level="3" aria-label="Spacing: where the notes are on the sheet" title="By register: notes further apart low down, closer up high, as the ear hears roughness (a third is muddy in the bass); every octave the same height. Even: every step of the scale one row">
+      <option value="register" selected>Spacing: by register</option><option value="even">Spacing: even</option>
+    </select>
     <select class="sel" id="div" aria-label="Beat division (vertical lines): snap, and Lock's pulse">
       <option value="free">Free</option><option value="4">1/4</option><option value="8">1/8</option>
       <option value="8t">1/8T</option><option value="16" selected>1/16</option><option value="16t">1/16T</option>
@@ -554,7 +557,7 @@ kbd {
     <button class="btn" id="morphBtn" type="button" aria-pressed="true" title="Loops move on their own; hold a loop to choose how">Morph</button>
     <button class="btn" id="editBtn" type="button" aria-pressed="false" title="Drag the square handles to bend a path; tap a path to add a note, tap a note to remove it, double-tap a note to change its sound; hold a loop to smooth it">Edit notes</button>
     <button class="btn" id="numBtn" type="button" aria-pressed="false" title="Show each loop's number on the sheet (keys 1–9 pick them; pressing one shows them)">Numbers</button>
-    <button class="btn" id="beatsBtn" type="button" aria-pressed="false" data-level="2" title="Show the beat lines across the sheet (always shown with Lock, where they're what plays)">Beats</button>
+    <button class="btn" id="beatsBtn" type="button" aria-pressed="false" data-level="2" title="Show where the beats fall: ticks across each loop, and lines down the sheet (those always show with Lock, where they're what plays)">Beats</button>
     <button class="btn" id="smoothBtn" type="button" aria-pressed="true" data-level="2" title="New strokes settle into a smooth curve when you lift (scribbles stay scribbles). Off: kept exactly as drawn">Smooth</button>
   </span>
   <select class="sel" id="arc" data-level="2" aria-label="Arc: tension and release over bars" title="Home, away, pull, then home on the last bar, where melodies resolve to the home chord">
@@ -587,6 +590,11 @@ kbd {
       <option value="triad">Drone: triad</option><option value="open">Drone: open</option>
     </select>
     <label class="tempo" for="droneVol">Level <input id="droneVol" type="range" min="0" max="1" step="0.05" value="0.5"></label>
+    <select class="sel" id="droneSpace" aria-label="Drone space" title="Still: in the middle. Drifting: a little wide, wandering. Binaural: left and right a few hertz apart, a slow beat on headphones. Rotating: like a Leslie speaker, slowly">
+      <option value="still">Space: still</option><option value="drift" selected>Space: drifting</option>
+      <option value="binaural">Space: binaural</option><option value="rotate">Space: rotating</option>
+    </select>
+    <label class="tempo" for="warmth" title="The room: a breath of hiss, the odd crackle, a hint of tape wobble. Meant to be felt more than heard; 0 turns it off">Warmth <input id="warmth" type="range" min="0" max="1" step="0.05" value="0.5"></label>
   </span>
   <span class="spacer"></span>
   <span class="group">
@@ -628,6 +636,7 @@ kbd {
     <button class="toy" type="button" data-toy="call"><svg viewBox="0 0 34 34" aria-hidden="true"><path d="M4 26c3-9 8-14 14-15"/><circle cx="23" cy="10" r="1.6" fill="currentColor"/><circle cx="27" cy="10" r="1.6" fill="currentColor"/><circle cx="31" cy="10" r="1.6" fill="currentColor"/></svg>Call</button>
     <button class="toy" type="button" data-toy="spinner"><svg viewBox="0 0 34 34" aria-hidden="true"><path d="M17 5v24M17 29l-3-3M24 9a10 10 0 0 1 0 16M10 25a10 10 0 0 1 0-16"/></svg>Spinner</button>
     <button class="toy" type="button" data-toy="chimes"><svg viewBox="0 0 34 34" aria-hidden="true"><path d="M6 6h22M10 6v14M15 6v20M20 6v11M25 6v17M17 12l-3 9"/></svg>Chimes</button>
+    <button class="toy" type="button" data-toy="tadpoles"><svg viewBox="0 0 34 34" aria-hidden="true"><circle cx="9" cy="13" r="3" fill="currentColor"/><path d="M11.5 14.5c4 2 6-2 10 0s5 3 8 1"/><circle cx="17" cy="24" r="2.4" fill="currentColor"/><path d="M19 25c3 1 4-2 7-1"/></svg>Tadpoles</button>
     <button class="toy" type="button" data-toy="drop"><svg viewBox="0 0 34 34" aria-hidden="true"><path d="M17 4v26M11 24l6 6 6-6"/></svg>Drop</button>
     <button class="toy" type="button" data-toy="beat"><svg viewBox="0 0 34 34" aria-hidden="true"><rect x="4" y="22" width="5" height="5"/><rect x="11" y="7" width="5" height="5"/><rect x="18" y="15" width="5" height="5"/><rect x="25" y="7" width="5" height="5"/></svg>Beat</button>
     <button class="toy" type="button" data-toy="shaker"><svg viewBox="0 0 34 34" aria-hidden="true"><ellipse cx="17" cy="12" rx="7" ry="8"/><path d="M17 20v10M10 7l-3-2M24 7l3-2M27 13h3M4 13h3"/></svg>Shaker</button>
@@ -738,7 +747,7 @@ kbd {
   <div class="insprow" data-level="2"><span class="lbl">Plays</span>
     <span class="seg" data-insp="every"><button class="btn" type="button" data-v="1">every pass</button><button class="btn" type="button" data-v="2">every other</button><button class="btn" type="button" data-v="3">1 in 3</button></span></div>
   <div class="insprow" data-level="2"><span class="lbl">Waits</span>
-    <span class="seg" data-insp="wait"><button class="btn" type="button" data-v="0" title="Starts again as soon as it ends">no</button><button class="btn" type="button" data-v="1">1 beat</button><button class="btn" type="button" data-v="2">2 beats</button><button class="btn" type="button" data-v="4">a bar</button></span></div>
+    <span class="seg" data-insp="wait"><button class="btn" type="button" data-v="0" title="Starts again as soon as it ends">no</button><button class="btn" type="button" data-v="1">1 beat</button><button class="btn" type="button" data-v="2">2 beats</button><button class="btn" type="button" data-v="4">a bar</button><button class="btn" type="button" data-v="8">2 bars</button></span></div>
   <div class="insprow" data-level="2"><span class="lbl">Starts</span>
     <span class="seg"><button class="btn" type="button" id="inspEarlier" title="Start one step earlier">◀ earlier</button><button class="btn" type="button" id="inspLater" title="Start one step later">later ▶</button></span>
     <small class="inspval" id="inspStarts"></small></div>
@@ -916,6 +925,9 @@ const RATIOS = [0.5, 2 / 3, 0.75, 1, 4 / 3, 1.5, 2];   // time-scales a resize s
 const state = {
   walkWay: "steps", walkPace: 2,           // Walk (Everything): how, and how often (bars)
   bpm: 96, volume: 0.8, grid: "pentMaj", tuning: "equal", root: 0, range: 3, div: "16", pen: "auto",
+  spread: "register",
+  warmth: 0.5,                 // the room: hiss, crackle, wobble, all barely there (section 8b); 0 = none
+  droneSpace: "drift",         // how the Drone sits in space: still | drift | binaural | rotate (section 8)          // where the notes are on the sheet: "register" (further apart low down) or "even" (section 5)
   pack: "paper", density: "sparse", swing: 0,                 // few notes by default (2026-10-24)
   droneVol: 0.5, droneVoicing: "fifth",
   air: 0, arc: "off",                      // breathing room; tension & release (see harmonyAt)
@@ -1019,7 +1031,8 @@ function ensureAudio() {
     const comp = compressor = ctx.createDynamicsCompressor();
     comp.threshold.value = -14; comp.ratio.value = 4;
     master = ctx.createGain(); master.gain.value = state.volume;
-    master.connect(comp).connect(ctx.destination);
+    comp.connect(ctx.destination);
+    master.connect(buildRoom(comp));                              // through the tape's wobble (section 8b)
 
     // A loopy dotted-eighth delay, darkened each time round.
     delaySend = ctx.createGain(); delaySend.gain.value = 0.28;
@@ -1511,7 +1524,54 @@ function voiceFor(lp, fixed, heading) {
 const voiceOf = (lp, ev) => voiceFor(lp, ev.fixed, ev.heading);
 
 /** Height (0 = top, 1 = bottom) → band index from the bottom. */
-const bandAt = (yN) => Math.min(bandCount() - 1, Math.max(0, Math.floor((1 - yN) * bandCount())));
+/* Spacing by register (Alex, 2026-10-25: "larger to smaller intervals along the
+ * spectrum. So, wider gaps between bass notes, tighter between top notes.
+ * Following loosely an acoustic principle about dissonance"). Two notes a small
+ * interval apart sound rough when they fall inside one critical band of hearing,
+ * and the critical band is wide, as an interval, low down (Plomp & Levelt;
+ * Zwicker's critical bandwidth): a third is muddy in the bass and clear up high.
+ * So with Spacing "by register" (the default for a fresh sheet):
+ *   - the sheet is laid out by pitch: every octave is the same height, and each
+ *     note's row sits where its pitch is;
+ *   - going up from the bottom, a note of the scale gets its own row only if it's
+ *     far enough above the last one for its register (a quarter of a critical
+ *     band, roughly); the octaves always do.
+ * On the default sheet (3 octaves from C3) the lowest octave keeps the home
+ * chord's notes, the next ones the whole pentatonic; a seven-note or microtonal
+ * scale thins further up as well. Chords low down are opened up (see sound()).
+ * Everything else (Walk, chords, Arc, MIDI) is still in scale steps: only where
+ * a height lands changes. "Even" is the sheet as it was: every step one row. */
+const ROUGH = 0.28;
+const critBand = (f) => 25 + 75 * Math.pow(1 + 1.4 * (f / 1000) ** 2, 0.69);   // Hz (Zwicker & Terhardt, 1980)
+const minGapCents = (f) => 1200 * Math.log2(1 + (ROUGH * critBand(f)) / f);
+function degCents(d) { const g = gridNow(), st = stepsOf(g), n = st.length; return periodOf(g) * Math.floor(d / n) + st[mod(d, n)]; }
+const rowsCache = { key: "", rows: null };
+/** The sheet's rows, bottom up: { degs: the scale step each row plays, edge: its lower edge (0 = bottom, 1 = top) }. */
+function sheetRows() {
+  const key = [state.grid, state.tuning, state.root, state.range, state.spread].join("|");
+  if (rowsCache.key === key) return rowsCache.rows;
+  const n = stepCount(), N = bandCount();
+  let degs = Array.from({ length: N }, (_, d) => d), edge;
+  if (state.spread === "register") {
+    degs = [0];
+    for (let d = 1; d < N; d++) {
+      const last = degs[degs.length - 1], gap = degCents(d) - degCents(last), need = minGapCents(mtof(midiForDegree(last)));
+      if (d % n === 0) { if (gap < need && last % n) degs.pop(); degs.push(d); }   // an octave always; it pushes out a note too close under it
+      else if (gap >= need) degs.push(d);
+    }
+    const total = degCents(N);
+    edge = degs.map((d) => degCents(d) / total);
+  } else edge = degs.map((d) => d / N);
+  rowsCache.key = key; rowsCache.rows = { degs, edge };
+  return rowsCache.rows;
+}
+/** Height (0 = top, 1 = bottom) → the scale step it plays. */
+function bandAt(yN) {
+  const { degs, edge } = sheetRows(), u = 1 - yN;
+  let i = degs.length - 1;
+  while (i > 0 && edge[i] > u) i--;
+  return degs[i];
+}
 /* Harmony over time. Walk drifts along a progression. Arc is tension and
  * release over 4 or 8 bars: home (first half) → away → pull (toward the
  * dominant) → home again on the last bar, where every pitched note
@@ -1591,7 +1651,11 @@ function sound(voice, xN, yN, vel, t, b, deg, chord = "single", pack = null, wal
   diag.notes.push(performance.now()); if (diag.notes.length > 2000) diag.notes.splice(0, 1000);
   xN = Math.min(1, Math.max(0, xN)); yN = Math.min(1, Math.max(0, yN));
   const pan = xN * 1.7 - 0.85, root = deg ?? bandAt(yN);
-  const stack = voice === "drum" || voice === "shake" ? [0] : chordSteps(chord);
+  let stack = voice === "drum" || voice === "shake" ? [0] : chordSteps(chord);
+  // Low down, a close chord is muddy (the same reason the rows spread out there):
+  // with Spacing by register, a chord of three or more under G3 is opened up,
+  // every other note an octave higher (a triad: root, fifth, tenth).
+  if (state.spread === "register" && stack.length >= 3 && midiForDegree(root) < 55) stack = stack.map((st, i) => (i % 2 ? st + stepCount() : st));
   const each = vel / Math.sqrt(stack.length);
   for (const step of stack) {
     const midi = midiForDegree(walkFor(walkRole, root + step, b));
@@ -2366,10 +2430,23 @@ function meet(A, pa, B, pb, nb, now, W, H) {
 }
 
 /* ── 8. Drone (optional bed under everything; follows Walk) ──────────────── */
-// A slow pad: each note is two detuned saws, through a lowpass whose
-// cutoff breathes on a very slow LFO. Voicing picks the notes (in the
-// current scale, so it follows grid, tuning, root and Walk); a level slider
-// sets how loud. Changing the voicing rebuilds it.
+// A slow pad: each note is two detuned saws, through lowpasses whose cutoff
+// breathes on a very slow LFO. Voicing picks the notes (in the current scale,
+// so it follows grid, tuning, root and Walk); a level slider sets how loud.
+// Changing the voicing or the space rebuilds it.
+//
+// Space (Everything; Alex, 2026-10-25: "spatialization, maybe even with a bit of
+// those binaural beats… And/or Leslie-like rotation"). Each note's two saws go
+// one to the left, one to the right, and the whole drone through a "rotor":
+//   still     in the middle, as it always was
+//   drift     a little wide, wandering slowly across (the default: barely noticed)
+//   binaural  the two saws hard left and right, 3 Hz apart: on headphones, a slow
+//             beat that is made in the listener's head, not in the air (that's
+//             all binaural beats are; no claims about brainwaves)
+//   rotate    like a Leslie speaker's slow (chorale) horn: going round, it
+//             swings across, swells and fades a little, and its pitch shifts a
+//             hair as it comes toward you and goes away (Doppler)
+// With Warmth (8b), it also wobbles in pitch, a few cents, like tape.
 
 const DRONE_VOICINGS = {
   lowfifth: (n, f) => [-n, -n + f],
@@ -2377,30 +2454,53 @@ const DRONE_VOICINGS = {
   triad: (n, f) => [0, 2, f],
   open: (n, f) => [-n, 0, f, n + 2],
 };
+const DRONE_SPACES = {   // side pan, rotor: rate (Hz), pan swing, loudness swing, Doppler (s), binaural split (Hz)
+  still:    { side: 0,    rate: 0.01, pan: 0,    trem: 0,    dop: 0,       split: 0 },
+  drift:    { side: 0.35, rate: 0.031, pan: 0.35, trem: 0,   dop: 0,       split: 0 },
+  binaural: { side: 1,    rate: 0.023, pan: 0.1, trem: 0,    dop: 0,       split: 3 },
+  rotate:   { side: 0.2,  rate: 0.83, pan: 0.6,  trem: 0.18, dop: 0.00035, split: 0 },
+};
 function setDrone(on) {
   if (!ctx) return;
   if (drone) {                                      // fade out whatever is playing
     const d = drone; drone = null;
     d.g.gain.setTargetAtTime(0.0001, ctx.currentTime, 0.3);
-    d.oscs.forEach((o) => o.stop(ctx.currentTime + 2)); d.lfo.stop(ctx.currentTime + 2);
+    d.oscs.forEach((o) => o.stop(ctx.currentTime + 2));
   }
   if (!on) return;
-  const n = stepCount(), fifth = Math.max(1, Math.round((n * 4) / 7));
+  const n = stepCount(), fifth = Math.max(1, Math.round((n * 4) / 7)), now = ctx.currentTime;
   const degs = (DRONE_VOICINGS[state.droneVoicing] || DRONE_VOICINGS.fifth)(n, fifth);
-  const g = ctx.createGain(), f = ctx.createBiquadFilter(), lfo = ctx.createOscillator(), lg = ctx.createGain();
-  f.type = "lowpass"; f.frequency.value = 800; f.Q.value = 0.7;
-  lfo.frequency.value = 0.06; lg.gain.value = 350; lfo.connect(lg).connect(f.frequency); lfo.start();
-  g.gain.setValueAtTime(0.0001, ctx.currentTime);
-  g.gain.exponentialRampToValueAtTime(Math.max(0.0002, 0.1 * state.droneVol), ctx.currentTime + 2);
-  f.connect(g); out(g, 0, 0.35);
+  const sp = DRONE_SPACES[state.droneSpace] || DRONE_SPACES.drift;
+  const g = ctx.createGain(), lfo = ctx.createOscillator(), lg = ctx.createGain();
+  lfo.frequency.value = 0.06; lg.gain.value = 350; lfo.connect(lg); lfo.start();
+  g.gain.setValueAtTime(0.0001, now);
+  g.gain.exponentialRampToValueAtTime(Math.max(0.0002, 0.1 * state.droneVol), now + 2);
+  const pan = (v) => { const p = ctx.createStereoPanner ? ctx.createStereoPanner() : ctx.createGain(); if (p.pan) p.pan.value = v; return p; };
+  const sides = [-1, 1].map((side) => {
+    const f = ctx.createBiquadFilter(); f.type = "lowpass"; f.frequency.value = 800; f.Q.value = 0.7;
+    lg.connect(f.frequency); f.connect(pan(side * sp.side)).connect(g);
+    return f;
+  });
+  // The rotor: a moving delay (Doppler), a swinging pan, a swelling gain, all on one slow wheel.
+  const rot = ctx.createOscillator(), rd = ctx.createDelay(0.01), rp = pan(0), rt = ctx.createGain();
+  rot.frequency.value = sp.rate; rd.delayTime.value = 0.002; rt.gain.value = 1 - sp.trem;
+  const depth = (v, param) => { const k = ctx.createGain(); k.gain.value = v; rot.connect(k).connect(param); };
+  if (sp.dop) depth(sp.dop, rd.delayTime);
+  if (rp.pan && sp.pan) depth(sp.pan, rp.pan);
+  if (sp.trem) depth(sp.trem, rt.gain);
+  rot.start();
+  g.connect(rd).connect(rp).connect(rt); out(rt, 0, 0.35);
+  // Tape wobble: a few cents, slowly, scaled by Warmth.
+  const wob = ctx.createOscillator(), wg = ctx.createGain();
+  wob.frequency.value = 0.17 + Math.random() * 0.05; wg.gain.value = 5 * (state.warmth ?? 0); wob.connect(wg); wob.start();
   const voices = degs.map((deg, i) => {
-    const pair = [-6, 6].map((cents) => {
+    const pair = [-6, 6].map((cents, j) => {
       const o = ctx.createOscillator(); o.type = "sawtooth"; o.detune.value = cents + (i % 2 ? 3 : -3);
-      o.connect(f); o.start(); return o;
+      wg.connect(o.detune); o.connect(sides[j]); o.start(); return o;
     });
     return { deg, pair };
   });
-  drone = { g, f, lfo, voices, oscs: voices.flatMap((v) => v.pair), key: "" };
+  drone = { g, sides, lfo, rot, wob, wg, voices, split: sp.split, oscs: [lfo, rot, wob, ...voices.flatMap((v) => v.pair)], key: "" };
   updateDrone(nowBeat(), true);
 }
 function setDroneVol(v) {
@@ -2415,8 +2515,78 @@ function updateDrone(b, force = false) {
   drone.key = key;
   for (const v of drone.voices) {
     const f = mtof(midiForDegree(shift + v.deg + stepCount()) - 24);   // an octave under the sheet's middle
-    v.pair.forEach((o) => o.frequency.setTargetAtTime(f, ctx.currentTime, 0.4));
+    v.pair.forEach((o, j) => o.frequency.setTargetAtTime(f + (j ? 1 : -1) * drone.split / 2, ctx.currentTime, 0.4));   // binaural: left and right apart
   }
+}
+
+/* ── 8b. Warmth: the room the playground is in ───────────────────────────── */
+// Alex, 2026-10-25: "an almost inaudible amount of pink noise, extremely subtle.
+// And occasional artefacts, crackles, vinyl- or tape-like. Maybe even a tiny bit
+// of wobble. All of this super subtle. Someone playing in this playground
+// doesn't notice what's happening yet gets a tiny little sensation of presence
+// and warmth." Three things, all under the master volume (so Pause silences
+// them with everything else, and a take records them), all scaled by Warmth
+// (Everything; 0 turns them off, 0.5 to begin with):
+//   hiss     pink noise (equal energy per octave, so it's soft, not a hiss of
+//            highs), banded 60 Hz–7 kHz, near -58 dB at 0.5
+//   crackle  a few ticks and the odd pop, like dust on vinyl, from a 17-second
+//            loop (the hiss is a 6-second one; neither repeats in step)
+//   wobble   the whole mix through a delay that drifts by a fraction of a
+//            millisecond, slowly (wow) and a little faster (flutter): under
+//            2 cents of pitch at most, as on tape. The Drone wobbles a few
+//            cents more, on its own.
+let room = null;
+const ROOM = { hiss: 0.012, crackle: 0.03, wow: 0.0003, flutter: 0.00001 };
+function buildRoom(dest) {
+  const sr = ctx.sampleRate;
+  const wowLine = ctx.createDelay(0.05); wowLine.delayTime.value = 0.003;
+  const wow = ctx.createOscillator(), wowG = ctx.createGain(), flut = ctx.createOscillator(), flutG = ctx.createGain();
+  wow.frequency.value = 0.45; flut.frequency.value = 6.3;
+  wow.connect(wowG).connect(wowLine.delayTime); flut.connect(flutG).connect(wowLine.delayTime); wow.start(); flut.start();
+  wowLine.connect(dest);
+  // Pink noise (Paul Kellet's filter), two channels, normalized to an RMS of 0.2.
+  const hissBuf = ctx.createBuffer(2, sr * 6, sr);
+  for (let c = 0; c < 2; c++) {
+    const d = hissBuf.getChannelData(c); let b0 = 0, b1 = 0, b2 = 0, b3 = 0, b4 = 0, b5 = 0, b6 = 0, sq = 0;
+    for (let i = 0; i < d.length; i++) {
+      const w = Math.random() * 2 - 1;
+      b0 = 0.99886 * b0 + w * 0.0555179; b1 = 0.99332 * b1 + w * 0.0750759; b2 = 0.969 * b2 + w * 0.153852;
+      b3 = 0.8665 * b3 + w * 0.3104856; b4 = 0.55 * b4 + w * 0.5329522; b5 = -0.7616 * b5 - w * 0.016898;
+      d[i] = b0 + b1 + b2 + b3 + b4 + b5 + b6 + w * 0.5362; b6 = w * 0.115926; sq += d[i] * d[i];
+    }
+    const k = 0.2 / Math.sqrt(sq / d.length); for (let i = 0; i < d.length; i++) d[i] *= k;
+  }
+  // Crackle: sparse ticks (a sample's spike, ringing down over a few dozen), a few pops, some in one ear.
+  const crBuf = ctx.createBuffer(2, sr * 17, sr);
+  const L = crBuf.getChannelData(0), R = crBuf.getChannelData(1);
+  for (let n = 0; n < 9; n++) {
+    const at = Math.floor(Math.random() * (L.length - 400)), pop = Math.random() < 0.2, a = (pop ? 1 : 0.3 + Math.random() * 0.5);
+    const len = pop ? 60 + Math.random() * 120 : 6 + Math.random() * 24, where = Math.random();
+    for (let i = 0; i < len; i++) {
+      const v = a * Math.exp(-i / (len / 4)) * (i % 2 ? -1 : 1) * (0.6 + Math.random() * 0.4);
+      if (where < 0.7) L[at + i] += v;
+      if (where > 0.3) R[at + i] += v;
+    }
+  }
+  const loopOf = (buf) => { const src = ctx.createBufferSource(); src.buffer = buf; src.loop = true; src.start(); return src; };
+  const hiss = loopOf(hissBuf), hp = ctx.createBiquadFilter(), lp = ctx.createBiquadFilter(), hissG = ctx.createGain();
+  hp.type = "highpass"; hp.frequency.value = 60; lp.type = "lowpass"; lp.frequency.value = 7000;
+  hiss.connect(hp).connect(lp).connect(hissG).connect(master);
+  const crackle = loopOf(crBuf), cf = ctx.createBiquadFilter(), crG = ctx.createGain();
+  cf.type = "highpass"; cf.frequency.value = 1200;
+  crackle.connect(cf).connect(crG).connect(master);
+  room = { input: wowLine, hissG, crG, wowG, flutG };
+  setWarmth(state.warmth ?? 0.5, true);                         // set at once: a gain starts at 1, and a ramp from there was a burst of noise
+  return wowLine;
+}
+function setWarmth(v, now = false) {
+  state.warmth = Math.max(0, Math.min(1, Number(v) || 0));
+  if (!room || !ctx) return;
+  const t = ctx.currentTime, w = state.warmth;
+  const to = (param, x) => { if (now) { param.cancelScheduledValues(t); param.value = x; } else param.setTargetAtTime(x, t, 0.1); };
+  to(room.hissG.gain, ROOM.hiss * w); to(room.crG.gain, ROOM.crackle * w);
+  to(room.wowG.gain, ROOM.wow * w); to(room.flutG.gain, ROOM.flutter * w);
+  if (drone) to(drone.wg.gain, 5 * w);
 }
 
 /* ── 9. Toybox: ready-made shapes, through the same triggers ─────────────── */
@@ -2474,10 +2644,11 @@ function nextStart() { return ctx ? Math.ceil(nowBeat()) : 0; }
 
 function dropToy(kind, where, size = 1) {
   const W = sheet.clientWidth, H = sheet.clientHeight, m = Math.min(W, H);
-  const kinds = Object.keys(TOYS).concat(["shaker", "beat", "chimes", "spinner"]);
+  const kinds = Object.keys(TOYS).concat(["shaker", "beat", "chimes", "spinner", "tadpoles"]);
   if (kind === "dice") kind = kinds[Math.floor(Math.random() * kinds.length)];
   const cx = where ? where[0] : W * (0.2 + Math.random() * 0.6);
   const cy = where ? where[1] : H * (0.25 + Math.random() * 0.5);
+  if (kind === "tadpoles") { dropTadpoles(cx, cy, W, H, m); return; }
   const s = newStroke(nextStart());
   s.pen = "auto";                              // toys bring their own voices
 
@@ -2578,6 +2749,36 @@ function dropToy(kind, where, size = 1) {
     if (toy.wait) s.wait = toy.wait;
   }
   finishStroke(s, false);
+}
+
+/* Tadpoles (Alex, 2026-10-25: "small breeding and fading toys each with a single
+ * note and long pause, eventually creating this sea of tadpole-like figures
+ * moving in the space in a morphing ambiance. A bit like Conway's Game of
+ * Life"). Five small figures, each a head (its one note) and a wriggling tail
+ * (the rest of its pass, silent), then a long rest (a bar or two). They drift;
+ * when one touches another, it has a child (Meets: infect), at most once every
+ * 16 bars; each fades over 16 or 32 passes and goes. Their children are
+ * mortal breeders too (mutateLoop), so the sea grows, thins and changes on its
+ * own, up to the 14-loop cap, where a newborn takes the oldest loop's place. */
+function dropTadpoles(cx, cy, W, H, m) {
+  const made = [];
+  for (let k = 0; k < 5; k++) {
+    const hx = Math.min(W * 0.92, Math.max(W * 0.08, cx + (Math.random() - 0.5) * W * 0.36));
+    const hy = Math.min(H * 0.88, Math.max(H * 0.12, cy + (Math.random() - 0.5) * H * 0.4));
+    const s = newStroke(nextStart()), len = m * (0.05 + Math.random() * 0.03), ang = Math.random() * 2 * Math.PI, wig = len * 0.16;
+    const ux = Math.cos(ang), uy = -Math.sin(ang);                 // along the tail, on screen (y down)
+    for (let i = 0; i <= 14; i++) {
+      const u = i / 14, side = Math.sin(u * 3 * Math.PI) * wig * u;
+      s.pts.push({ x: (hx + ux * len * u - uy * side) / W, y: (hy + uy * len * u + ux * side) / H, b: u * 0.6 });
+    }
+    s.events.push({ off: 0, x: hx / W, y: hy / H, heading: ang, fixed: null, vel: 0.45 + Math.random() * 0.25, ms: 0, flashAt: -1 });
+    Object.assign(s, { pen: "auto", L: 1, wait: Math.random() < 0.5 ? 4 : 8, rhythm: "drawn", dir: "fwd", trigger: "free", temper: "drift",
+      meets: "infect", life: "fade", span: Math.random() < 0.5 ? 16 : 32, gives: "none", density: "sparse" });
+    s.start = s.cursor = nextStart() + Math.floor(Math.random() * 4);   // not all at once
+    finishStroke(s, false); made.push(s);
+  }
+  toast("Tadpoles: they drift, have children when they touch, and fade · leave them a while");
+  return made;
 }
 
 /* ── 10. Touch: draw, shake, drag, turn, resize, edit ────────────────────── */
@@ -2722,7 +2923,7 @@ function endStroke(id) {
   const scribble = s.tracer.shaking || s.events.some((e) => e.fixed === "shake");
   if (scribble) s.temper = "jitter";
   if (s.events.some((e) => e.fixed === "shake")) { s.dir = "fwd"; s.rhythm = "drawn"; }   // a shake keeps its feel
-  if (smoothNew && !isTap && !scribble && s.pts.length > 4) smoothLoop(s, 2, true);   // a scribble stays a scribble (not `temper`: Morph's jitter is also given at random)
+  if (smoothNew && !isTap && !scribble && s.pts.length > 4) settleStroke(s);   // a scribble stays a scribble (not `temper`: Morph's jitter is also given at random)
   const kept = state.loop && !isTap && finishStroke(s);
   if (!kept && s.pts.length > 1) fadeOut(s);
   if (kept) {                                                    // a Surprise is announced, so it's never a mystery
@@ -2779,8 +2980,7 @@ function bend(gr, dxp, dyp) {
   lp.pts.forEach((p, j) => { const k = w(j); p.x += dx * k; p.y += dy * k; });
   lp.events.forEach((e, i) => { const k = e === gr.ev ? 1 : w(gr.evIdx[i]); e.x += dx * k; e.y += dy * k; });
 }
-/** Edit: hold = smooth. Three passes of neighbour-averaging; ends stay put.
- *  New strokes get a lighter version (two passes, silently) when lifted. */
+/** Edit: hold = smooth. Three passes of neighbour-averaging; ends stay put. */
 function smoothLoop(lp, passes = 3, quiet = false) {
   for (let pass = 0; pass < passes; pass++) {
     const P = lp.pts.map((p) => ({ ...p }));
@@ -2791,6 +2991,30 @@ function smoothLoop(lp, passes = 3, quiet = false) {
   }
   for (const e of lp.events) { const p = lp.pts[nearestIdxDrawn(lp, e.x, e.y)]; e.x = p.x; e.y = p.y; }
   if (!quiet) toast("Smoothed");
+}
+/** A new stroke, as it's lifted, settles into a curve (Smooth, on to begin with).
+ *  Measured in pixels along the line, not in points: a finger or a pencil
+ *  leaves a point every 1 to 15 px depending on speed, so a fixed number of
+ *  passes did nothing visible (Alex, 2026-10-25: "curves aren't automatically
+ *  smoothened"). Each point moves to a Gaussian-weighted average of its
+ *  neighbours within 3σ along the line (σ ≈ 8 px): the tremble goes, the turns
+ *  stay. The window narrows toward the ends, so the ends stay put; timing
+ *  (each point's beat) is untouched, and the notes move onto the new line. */
+function settleStroke(lp, sigmaPx = 8) {
+  const W = sheet.clientWidth, H = sheet.clientHeight, P = lp.pts, n = P.length;
+  const at = [0];
+  for (let j = 1; j < n; j++) at.push(at[j - 1] + Math.hypot((P[j].x - P[j - 1].x) * W, (P[j].y - P[j - 1].y) * H));
+  const total = at[n - 1], out = P.map((p) => ({ x: p.x, y: p.y }));
+  for (let j = 1; j < n - 1; j++) {
+    const reach = Math.min(3 * sigmaPx, at[j], total - at[j]);
+    if (reach <= 0) continue;
+    let sx = 0, sy = 0, sw = 0;
+    for (let k = j; k >= 0 && at[j] - at[k] <= reach; k--) { const w = Math.exp(-((at[j] - at[k]) ** 2) / (2 * sigmaPx * sigmaPx)); sx += w * P[k].x; sy += w * P[k].y; sw += w; }
+    for (let k = j + 1; k < n && at[k] - at[j] <= reach; k++) { const w = Math.exp(-((at[k] - at[j]) ** 2) / (2 * sigmaPx * sigmaPx)); sx += w * P[k].x; sy += w * P[k].y; sw += w; }
+    out[j].x = sx / sw; out[j].y = sy / sw;
+  }
+  P.forEach((p, j) => { p.x = out[j].x; p.y = out[j].y; });
+  for (const e of lp.events) { const p = P[nearestIdxDrawn(lp, e.x, e.y)]; e.x = p.x; e.y = p.y; }
 }
 function addNoteAt(lp, px, py) {
   if (locked(lp)) { toast("This loop is read on the grid: bend the path to change its notes"); return; }
@@ -2987,10 +3211,13 @@ function mutateLoop(parent, opts = {}) {
   if (!parent) return null;
   if (opts.quiet && loops.length >= MAX_LOOPS) return null;     // breeding never pushes a loop out
   const d = loopData(parent);
-  // A child never inherits breeding: being a breeder is a choice made by hand
+  // A child doesn't inherit breeding: being a breeder is a choice made by hand
   // (its settings → Meets), or children of breeders breed, and the sheet fills
-  // up (Alex, 2026-10-24: "breeding is a bit too frequent").
-  if (BREEDERS.has(d.meets)) d.meets = "sound";
+  // up (Alex, 2026-10-24: "breeding is a bit too frequent"). Unless the parent
+  // is mortal (it fades, or comes and goes): then its children are too, and
+  // breed as it did, and a population keeps itself going and in check, born
+  // at contacts, gone after a while, like the Game of Life (the Tadpoles toy).
+  if (BREEDERS.has(d.meets) && !["fade", "brief"].includes(d.life)) d.meets = "sound";
   d.age = 0; d.ageB = 0; d.strength = 1;                                     // a child starts its own life (same kind as its parent's), at full strength
   const rand = () => Math.random();
   const clamp01 = (v) => Math.max(0.015, Math.min(0.985, v));
@@ -3120,7 +3347,7 @@ resize();
 const gridCache = { key: "" };
 function drawGridCached(W, H) {
   const dpr = Math.min(2, window.devicePixelRatio || 1), cv = $("gridLayer");
-  const key = [W, H, dpr, state.grid, state.tuning, state.root, state.range, state.div, state.lock, showBeats, colors.paper, colors.rule, colors["rule-soft"], colors["ink-muted"]].join("|");
+  const key = [W, H, dpr, state.grid, state.tuning, state.root, state.range, state.div, state.lock, showBeats, state.spread, colors.paper, colors.rule, colors["rule-soft"], colors["ink-muted"]].join("|");
   if (gridCache.key === key) return;
   cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr);
   const real = g2; g2 = cv.getContext("2d"); g2.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -3140,8 +3367,9 @@ function drawGrid(W, H) {
       g2.beginPath(); g2.moveTo(x, 0); g2.lineTo(x, H); g2.stroke();
     }
   }
-  for (let d = 1; d < N; d++) {
-    const y = Math.round(H * (1 - d / N)) + 0.5;
+  const rows = sheetRows();
+  for (let i = 1; i < rows.degs.length; i++) {
+    const d = rows.degs[i], y = Math.round(H * (1 - rows.edge[i])) + 0.5;
     const tonic = d % n === 0;
     g2.strokeStyle = tonic ? colors.rule : soft;
     g2.beginPath(); g2.moveTo(0, y); g2.lineTo(W, y); g2.stroke();
@@ -3306,7 +3534,7 @@ function frame() {
     if (sel && !lp.muted) strokePath(lp, W, H, 0.22 * lifeA, 8 * lifeW, false, colors.ink, drawnTo);
     const pathCol = lp.muted ? colors.ink : voiceColours(lp, drawnTo === Infinity ? lp.pts : lp.pts.filter((p) => p.b <= drawnTo)) || colors.ink;
     strokePath(lp, W, H, (lp.muted ? 0.25 : lp.held || sel ? 0.95 : 0.8) * lifeA, (lp.held || sel ? 3.5 : 2.5) * lifeW, lp.muted, pathCol, drawnTo);
-    if (drawnTo === Infinity) drawBeatTicks(lp, W, H, lp.muted ? 0.25 : 0.7);
+    if (drawnTo === Infinity && showBeats) drawBeatTicks(lp, W, H, lp.muted ? 0.25 : 0.7);   // the ticks across a line: with Beats
     if (locked(lp)) drawLockMarks(lp, W, H, lp.muted ? 0.25 : 0.65);
     if (insp && insp === lp && ZONES[lp.zone]) {                     // the open loop's zone, shaded
       const z = ZONES[lp.zone]; g2.save(); g2.globalAlpha = 0.08; g2.fillStyle = colors.accent;
@@ -3405,10 +3633,10 @@ const store = {
 };
 
 function serialize() {
-  const { bpm, volume, grid, tuning, root, range, div, pen, lock, loop, morph, revoice, walk, drone, pack, density, swing, droneVol, droneVoicing, air, arc, meet, dice, vary, evolve, walkWay, walkPace } = state;
+  const { bpm, volume, grid, tuning, root, range, spread, div, pen, lock, loop, morph, revoice, walk, drone, pack, density, swing, droneVol, droneVoicing, droneSpace, warmth, air, arc, meet, dice, vary, evolve, walkWay, walkPace } = state;
   return {
     v: 3, at: Date.now(),
-    settings: { bpm, volume, grid, tuning, root, range, div, pen, lock, loop, morph, revoice, walk, drone, pack, density, swing, droneVol, droneVoicing, air, arc, meet, dice, vary, evolve, walkWay, walkPace },
+    settings: { bpm, volume, grid, tuning, root, range, spread, div, pen, lock, loop, morph, revoice, walk, drone, pack, density, swing, droneVol, droneVoicing, droneSpace, warmth, air, arc, meet, dice, vary, evolve, walkWay, walkPace },
     loops: loops.map(loopData),
   };
 }
@@ -3457,8 +3685,11 @@ function applySettings(st) {
   $("bpm").value = state.bpm; $("bpmVal").textContent = state.bpm;
   if (typeof setVolume === "function") setVolume(state.volume ?? 0.8);
   $("swing").value = String(state.swing || 0); $("air").value = String(state.air || 0); $("arc").value = state.arc || "off"; $("droneVol").value = String(state.droneVol ?? 0.5); $("droneVoicing").value = state.droneVoicing || "fifth";
+  if (!DRONE_SPACES[state.droneSpace]) state.droneSpace = "drift";
+  $("droneSpace").value = state.droneSpace; $("warmth").value = String(state.warmth ?? 0.5); setWarmth(state.warmth ?? 0.5);
   if (typeof syncPen === "function") syncPen();
-  for (const id of ["grid", "tuning", "root", "range", "div", "pen", "pack", "density"]) $(id).value = String(state[id]);
+  if (!["register", "even"].includes(state.spread)) state.spread = "even";
+  for (const id of ["grid", "tuning", "root", "range", "spread", "div", "pen", "pack", "density"]) $(id).value = String(state[id]);
   if (!WALK_WAYS.includes(state.walkWay)) state.walkWay = "steps";
   if (![1, 2, 4, 8].includes(Number(state.walkPace))) state.walkPace = 2;
   $("walkWay").value = state.walkWay; $("walkPace").value = String(state.walkPace);
@@ -3473,7 +3704,7 @@ function recall(scene) {
   endReplay();
   loops.splice(0).forEach(fadeOut);
   const beatNow = nowBeat();
-  applySettings({ tuning: "equal", pen: "auto", lock: false, pack: state.pack, density: state.density, swing: 0, droneVol: 0.5, droneVoicing: "fifth", air: 0, arc: "off", ...(scene.settings || {}) });
+  applySettings({ tuning: "equal", spread: "even", pen: "auto", lock: false, pack: state.pack, density: state.density, swing: 0, droneVol: 0.5, droneVoicing: "fifth", air: 0, arc: "off", ...(scene.settings || {}) });
   if (ctx) t0 = nowAudio() - beatNow / bps();   // tempo may have changed: keep the beat continuous
   const start = nextStart();
   for (const d of scene.loops) loops.push(buildLoop(d, start, !!(scene.settings && scene.settings.revoice)));
@@ -4009,6 +4240,7 @@ $("grid").addEventListener("change", (e) => { state.grid = e.target.value; syncT
 $("tuning").addEventListener("change", (e) => { state.tuning = e.target.value; updateDrone(nowBeat(), true); });
 $("root").addEventListener("change", (e) => { state.root = Number(e.target.value); updateDrone(nowBeat(), true); });
 $("range").addEventListener("change", (e) => { state.range = Number(e.target.value); updateDrone(nowBeat(), true); });
+$("spread").addEventListener("change", (e) => { state.spread = e.target.value; toast(state.spread === "register" ? "Spacing by register: notes further apart low down, closer up high" : "Even spacing: every step of the scale one row"); });
 $("div").addEventListener("change", (e) => { state.div = e.target.value; loops.forEach((lp) => retime(lp, tsForSize(lp.s))); });
 $("pen").addEventListener("change", (e) => { state.pen = e.target.value; });
 $("out").addEventListener("change", (e) => { state.out = e.target.value; });
@@ -4156,6 +4388,8 @@ $("air").addEventListener("input", (e) => { state.air = Number(e.target.value); 
 $("arc").addEventListener("change", (e) => { state.arc = e.target.value; updateDrone(nowBeat(), true); });
 $("droneVol").addEventListener("input", (e) => setDroneVol(Number(e.target.value)));
 $("droneVoicing").addEventListener("change", (e) => { state.droneVoicing = e.target.value; if (state.drone) setDrone(true); });
+$("droneSpace").addEventListener("change", (e) => { state.droneSpace = e.target.value; if (state.drone) setDrone(true); });
+$("warmth").addEventListener("input", (e) => setWarmth(e.target.value));
 
 /* Loop numbers on the sheet: a viewing preference of this browser, not part of a scene. */
 let showNumbers = store.get("twirl:numbers") === true;
@@ -4167,8 +4401,10 @@ $("numBtn").addEventListener("click", () => setNumbers(!showNumbers));
 setNumbers(showNumbers);
 
 /* Two more preferences of this browser (Alex, 2026-10-25: "auto-smooth new curves.
- * Not show the beat lines by default"). Beats: the vertical lines, off unless
- * asked for, and always there under Lock, where they're what plays. Smooth: a new
+ * Not show the beat lines by default"). Beats: the ticks across each loop (the
+ * lines Alex meant: "the beats lines crossing the curves") and the vertical
+ * lines down the sheet, off unless asked for; the vertical lines are always
+ * there under Lock, where they're what plays. Smooth: a new
  * stroke settles into a curve when it's lifted. */
 let showBeats = store.get("twirl:beats") === true, smoothNew = store.get("twirl:smooth") !== false;
 function setBeats(on) {
@@ -4179,7 +4415,7 @@ function setSmooth(on) {
   smoothNew = !!on; store.set("twirl:smooth", smoothNew);
   $("smoothBtn").setAttribute("aria-pressed", String(smoothNew));
 }
-$("beatsBtn").addEventListener("click", () => { setBeats(!showBeats); toast(showBeats ? "Beat lines shown" : state.lock ? "Beat lines: shown while Lock is on" : "Beat lines hidden"); });
+$("beatsBtn").addEventListener("click", () => { setBeats(!showBeats); toast(showBeats ? "Beats shown: ticks across the loops, lines down the sheet" : "Beats hidden" + (state.lock ? " (Lock keeps the lines down the sheet)" : "")); });
 $("smoothBtn").addEventListener("click", () => { setSmooth(!smoothNew); toast(smoothNew ? "Smooth: new strokes settle into curves" : "Smooth off: new strokes stay as drawn"); });
 setBeats(showBeats); setSmooth(smoothNew);
 

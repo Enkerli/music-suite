@@ -63,6 +63,23 @@ wrote smidgen as *"a control whose unit is a smidgen"*, then as *"a small
 speculative amount"* — reading the ordinary English word off the page and
 guessing. It is a coinage. Alex had to say so.
 
+(Alex, 2026-10-25: *"'smidgen' is my jokey way to describe semi-generative
+approaches in much of my explorations."* A playful word, then, for an
+approach that runs through the work, not a formal term to define further.)
+
+**Where it shows most plainly: Twirl** (2026-10-25). Alex, after playing with
+the Tadpoles toy: *"Really enjoy this integration of generative with
+performing, as per my 'smidgen' vibe."* In Twirl the two are one gesture:
+what you draw is performed (it sounds as you draw it, in your hand's timing)
+and then handed over (it keeps looping, drifting, meeting other loops, having
+children, fading). You can step back in at any moment, by hand, and the
+sheet takes what you did into its own life. Neither half is the mode you
+switch to: the machine goes partway, you answer, it goes on from your answer.
+That is the line to hold as Twirl grows toward ambient generativity (a sheet
+that plays itself) on one side and controllers (zones, the hand) on the
+other: each feature should keep both halves in reach, not pick one. See
+[apps/twirl/ROADMAP.md](../apps/twirl/ROADMAP.md#what-twirl-is-becoming).
+
 ### B2 — Playfulness is a requirement, not a garnish
 Exploration, experimentation, lucky mistakes, "what if". Going away from what
 is generic, expected, common. This is how smidgen (B1) is actually practised.

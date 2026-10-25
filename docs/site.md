@@ -1477,11 +1477,14 @@ brings back what you had).
 ## How a drawing becomes music
 
 - **Higher is higher in pitch.** The horizontal lines are the notes of the
-  scale (pentatonic, to begin with); the labelled ones are octaves.
+  scale (pentatonic, to begin with); the labelled ones are octaves. Low down
+  the notes are further apart (the lowest octave plays the home chord), as
+  close notes sound muddy in the bass; up high every note of the scale has a
+  row. **Spacing: even** (Everything) gives every note its own row.
 - **Distance along the path is time.** The sheet's width is one bar of four
-  beats. Ticks across a loop show where its beats fall; **Beats** (at More)
-  shows lines dividing the sheet into beats, and they're always there with
-  **Lock**, where they're what plays.
+  beats. **Beats** (at More) shows where they fall: ticks across each loop,
+  and lines down the sheet (those are always there with **Lock**, where
+  they're what plays).
 - **Direction picks the sound.** Right plucks, up rings a bell, left blips,
   down drums; a quick scribble is a shaker. Each sound has its own colour
   *and* shape (● ○ ▲ ■ ◆), and the line takes the colour of its notes, so a
@@ -1625,13 +1628,21 @@ the sheet's. **Vary** (More, on at first) makes no two notes quite alike, a
 little louder or softer, earlier or later, brighter or duller, as a sampler
 plays a different take of the same note.
 
+**Warmth** (Everything) is the room the playground is in: a breath of hiss,
+the odd vinyl crackle, a hint of tape wobble, meant to be felt more than
+heard (0 turns it off). The **Drone** can sit still, drift (to begin with),
+go **binaural** (left and right a few hertz apart, so headphones hear a slow
+beat) or **rotate** like a Leslie speaker.
+
 ## Toys, scenes, takes, files and codes
 
 - **Toybox**: ready-made shapes (spiral, ring, rose, Lissajous, a drum beat,
   a shaker, wind chimes, a spinner, dice). **Chimes** look like chimes (the
   longer the tube, the lower the note) and ring in gusts, off the beat, in
   their own sound. A **Spinner** is a beat-long arpeggio that folds, opens
-  and flips as it spins.
+  and flips as it spins. **Tadpoles** are five small figures with one note
+  each and a long rest: they drift, have children when they touch, and fade,
+  so a sea of them grows, thins and changes on its own. Play over it.
 - **My toys**: keep any loop as a toy, to drop again anywhere.
 - **Scenes**: six slots for whole sheets; your last sheet comes back by
   itself.
