@@ -323,6 +323,25 @@ describe.skipIf(!browser)("Twirl · messages stay quiet, behind a dot; replays s
     await context.close();
   });
 
+  it("with 'Show them as they happen' on, a message is on top of whatever is open: the drawer, a loop's settings, a shelf, the log", async () => {
+    const { page, context } = await openTwirl(browser);
+    await page.evaluate(() => { toast("one"); });
+    await page.click("#msgBtn"); await page.click("#msgLoudBtn");
+    const onTop = () => page.evaluate(() => {
+      const t = $("toast"); if (t.hidden) return "hidden";
+      t.style.pointerEvents = "auto"; const r = t.getBoundingClientRect();
+      const top = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2); t.style.pointerEvents = "";
+      return t.contains(top) ? "on top" : `under ${top.id || top.className}`;
+    });
+    expect(await onTop()).toBe("on top");                                      // its own confirmation, over the log
+    await page.keyboard.press("Escape");
+    for (const open of [() => setDrawer(true), () => openInspector(loops[1]), () => openShelf("toybox"), () => openShelf("scenes")]) {
+      await page.evaluate((src) => { closeInspector(); closeShelf(); setDrawer(false); (0, eval)(`(${src})`)(); toast("Lock on"); }, open.toString());
+      expect(await onTop()).toBe("on top");
+    }
+    await context.close();
+  });
+
   it("during a replay, the timer and Stop shrink to a dot after a moment; the dot brings them back", async () => {
     const { page, context } = await openTwirl(browser);
     await page.mouse.click(600, 600);
