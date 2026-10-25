@@ -1539,6 +1539,10 @@ The ones worth knowing:
   in the bar rest, and weaker beats play softer. Downbeats always play.
 - **Arc** shapes 4 or 8 bars as tension and release: home, away, pull, and
   home again, where melodies resolve.
+- **Walk** (Everything) moves everything, the Drone too, along the scale
+  every few bars: *a progression* (round and round), *sway* (home and the
+  fourth), *by fifths* (through every degree), *climb* (a step at a time),
+  or *wander* (a step or a fifth, up or down); every 1, 2, 4 or 8 bars.
 - **Tunings** (Everything): equal, just, Pythagorean, meantone and
   Werckmeister III for 12-note scales; microtonal scales (5-, 7-, 19-,
   24-EDO, slendro, pelog, maqam Rast, harmonics, Bohlen–Pierce) bring their
@@ -1627,6 +1631,9 @@ Hold it → **Life**:
 - **brief**: comes and goes. It starts from its strongest notes, fills in
   to all of yours over eight passes, fades over eight, and it's gone.
 
+Next to Life, **8 · 16 · 32 · 64 passes** sets how long: a cycle for bloom
+and swell, the whole life for fade and brief (16 to begin with).
+
 You can see it: the line gets thicker as a loop fills and paler as it
 fades; a bloom's extra notes show small while they play, and resting notes
 are faint. The loop's settings say where it is ("blooming · pass 5 of
@@ -1654,6 +1661,10 @@ starts. At **Everything**, a loop's settings add three ways out:
   comes round into step again (phasing). A drifting loop plays unsnapped.
 
 The sheet's **division** (More) now goes down to 1/64 too, or **Free**.
+Setting these loop by loop gets tedious, so **Same for: its family · all
+loops** hands one loop's Snap, Feel and Clock to its family (its parent and
+children) or to the whole sheet. Only when you ask: a new loop is always in
+step, snapped, on the beat.
 
 ## Loops that feed and drain each other
 
@@ -1702,8 +1713,9 @@ exact, identical repeats.
   last sheet also comes back by itself.
 - **Takes**: press **● Rec**, play, press it again. A take keeps what you
   *did* (strokes, moves, settings) and replays it on the sheet, even after
-  a reload (during a replay, the timer and Stop shrink to a small dot after
-  a moment, out of the picture for a screen recording; tap it to get them
+  a reload. In a replay each loop appears as it was drawn, in the
+  drawing's own time; the timer and Stop shrink to a small dot after a
+  moment, out of the picture for a screen recording (tap it to get them
   back); its sound stays until you close the page, unless you save it:
   **Save sound** gives you a WAV file, which opens everywhere.
 - **Codes**: a sheet, a toy, a take, or everything you have, as a line of
@@ -1728,6 +1740,7 @@ leaving marks. **H** lists every key inside Twirl.
 | C | Controls (Tab then moves through them) |
 | L · M · E | Lock · Morph · Edit notes |
 | F | Full screen |
+| I | Messages: shown as they happen, or quiet |
 | ⌘Z · ⇧⌘Z | Remove the newest loop · bring it back |
 | Esc (or `` ` ``, or ⌘ .) | Close whatever is open |
 
@@ -1748,10 +1761,12 @@ says so, and the next touch or key brings it back.
 Twirl keeps quiet about what it does. When something happens (a setting
 changes, a loop trades, a child is born, a loop fades away), a small dot
 in the footer lights up; tap it for **What just happened**, the last few
-messages. **Show them as they happen**, in that list, puts them back on the
-sheet as they come. The few that need you (the sound was interrupted, a
-save that failed, Start over's undo) always show. Screen readers hear every
-message either way.
+messages. **Show messages** in the controls (or the key **I**, or the
+switch in that list) shows every message on the sheet as it happens,
+stacked, so none is lost. Both are handy for a screen recording: quiet for
+a clean picture, shown to explain what's going on. Only a problem that needs
+you (the sound was interrupted, a save that failed) shows when quiet.
+Screen readers hear every message either way.
 
 ## Full screen
 

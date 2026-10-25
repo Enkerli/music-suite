@@ -317,11 +317,14 @@ kbd {
   position: fixed; left: 50%; transform: translateX(-50%);
   top: calc(env(safe-area-inset-top, 0px) + 120px);
   max-width: calc(100% - 32px);
+  display: flex; flex-direction: column; align-items: center; gap: 6px;
+  pointer-events: none;
+  z-index: 60;                  /* above every panel, the drawer and its backdrop: most messages answer a control in there */
+}
+.toast > div {
   padding: 8px 14px; border-radius: 999px;
   background: var(--ink); color: var(--paper);
   font: 600 0.8125rem/1.3 var(--font-sans); text-align: center;
-  pointer-events: none;
-  z-index: 60;                  /* above every panel, the drawer and its backdrop: most messages answer a control in there */
 }
 
 /* ── bottom: loop list + legend ────────────────────────────────────────── */
@@ -550,7 +553,14 @@ kbd {
       <option value="werck">Werck. III</option>
     </select>
     <button class="btn" id="revoiceBtn" type="button" aria-pressed="false" title="For new loops: turning a loop changes its voices (each loop can be changed by holding it)">Revoice</button>
-    <button class="btn" id="walkBtn" type="button" aria-pressed="false" title="Every two bars, everything shifts along a little progression">Walk</button>
+    <button class="btn" id="walkBtn" type="button" aria-pressed="false" title="Every few bars, everything (and the Drone) shifts along the scale">Walk</button>
+    <select class="sel" id="walkWay" aria-label="How Walk moves">
+      <option value="steps">Walk: a progression</option><option value="sway">Walk: sway</option><option value="fifths">Walk: by fifths</option>
+      <option value="climb">Walk: climb</option><option value="wander">Walk: wander</option>
+    </select>
+    <select class="sel" id="walkPace" aria-label="How often Walk moves">
+      <option value="1">every bar</option><option value="2" selected>every 2 bars</option><option value="4">every 4 bars</option><option value="8">every 8 bars</option>
+    </select>
     <button class="btn" id="droneBtn" type="button" aria-pressed="false" title="A slow pad underneath, following Walk; voicing and level below">Drone</button>
     <select class="sel" id="out" aria-label="Output" hidden></select>
   </span>
@@ -567,6 +577,7 @@ kbd {
     <button class="btn" id="myToyBtn" type="button" aria-expanded="false" aria-controls="mytoys">My toys</button>
     <button class="btn" id="sceneBtn" type="button" aria-expanded="false" aria-controls="scenes">Scenes</button>
     <button class="btn" id="clear" type="button">Clear</button>
+    <button class="btn" id="msgModeBtn" type="button" aria-pressed="false" title="Show every message on the sheet as it happens (I). Off: they stay behind the dot in the footer; either way, screen readers hear them">Show messages <kbd>I</kbd></button>
     <button class="btn" id="initBtn" type="button" title="A fresh start: the starting sheet and every setting back to how Twirl begins. Your volume, MIDI output, saved scenes and My toys stay. Two taps; for 10 seconds after, it can bring everything back">Start over</button>
   </span>
   <button class="btn" id="fsBtn" type="button" aria-pressed="false" hidden>Full screen <kbd>F</kbd></button>
@@ -672,6 +683,7 @@ kbd {
     <span class="seg" data-insp="meets"><button class="btn" type="button" data-v="ignore" title="Stays out of it: no notes, no nudges, no trades">no</button><button class="btn" type="button" data-v="sound" title="Plays a note when its playhead crosses another loop's line, or meets another playhead">sound</button><button class="btn" type="button" data-v="bump" title="…and nudges the lines it crosses, or touches, out of the way">bump</button><button class="btn" type="button" data-v="trade" title="…and when its line touches another, or two playheads meet, borrows one thing from the other loop: voice, chords, rhythm or direction">trade</button><button class="btn" type="button" data-v="breed" title="…and when two playheads meet, has a child with the other loop">breed</button><button class="btn" type="button" data-v="infect" title="Infectious: has a child at any contact (a crossing, lines touching, playheads meeting), at most once every 16 bars">infect</button></span></div>
   <div class="insprow" data-level="2"><span class="lbl">Life</span>
     <span class="seg" data-insp="life"><button class="btn" type="button" data-v="steady" title="As drawn, for good">steady</button><button class="btn" type="button" data-v="bloom" title="Denser and back: notes beyond the ones you drew come in over 8 passes and leave over 8, again and again">bloom</button><button class="btn" type="button" data-v="swell" title="Louder and back: from soft to full over 8 passes, and back, again and again">swell</button><button class="btn" type="button" data-v="fade" title="A little quieter each pass, gone after 16 (⌘Z brings it back)">fade</button><button class="btn" type="button" data-v="brief" title="Fills in over 8 passes, fades over 8, then it's gone (⌘Z brings it back)">brief</button></span>
+    <span class="seg" data-insp="span" title="How long a life lasts, in passes: a cycle for bloom and swell, the whole life for fade and brief"><button class="btn" type="button" data-v="8">8</button><button class="btn" type="button" data-v="16">16</button><button class="btn" type="button" data-v="32">32</button><button class="btn" type="button" data-v="64">64 passes</button></span>
     <small class="inspval" id="inspLife" aria-live="polite"></small></div>
   <div class="insprow" data-level="2"><span class="lbl">Influence</span>
     <span class="seg" data-insp="gives"><button class="btn" type="button" data-v="none" title="Leaves the loops it touches as they are">none</button><button class="btn" type="button" data-v="feed" title="The loops it touches grow stronger: louder and denser; a fading one is kept young">feeds</button><button class="btn" type="button" data-v="drain" title="The loops it touches grow weaker: quieter and sparser; a fading one runs out sooner">drains</button></span>
@@ -710,6 +722,9 @@ kbd {
     <small class="inspval" id="inspFeelVal">on the beat</small></div>
   <div class="insprow" data-level="3"><span class="lbl">Clock</span>
     <span class="seg" data-insp="clock"><button class="btn" type="button" data-v="step" title="On the sheet's clock, like every loop">in step</button><button class="btn" type="button" data-v="ahead" title="1% fast: it slowly drifts ahead of the others, and comes round again">drifts ahead</button><button class="btn" type="button" data-v="behind" title="1% slow: it slowly drifts behind the others, and comes round again">drifts behind</button></span></div>
+  <div class="insprow" data-level="3"><span class="lbl">Same for</span>
+    <span class="seg"><button class="btn" type="button" id="inspTimingFamily" title="Give this loop's Snap, Feel and Clock to its whole family (its parent, children, siblings)">its family</button><button class="btn" type="button" id="inspTimingAll" title="Give this loop's Snap, Feel and Clock to every loop on the sheet">all loops</button></span>
+    <small class="inspval">its Snap, Feel and Clock</small></div>
   <div class="insprow" data-level="2"><span class="lbl">Timing</span>
     <span class="seg" data-insp="trigger"><button class="btn" type="button" data-v="sheet" title="Free or on the grid, following Lock">follow Lock</button><button class="btn" type="button" data-v="free" title="Always as drawn (snapped to the division)">as drawn</button><button class="btn" type="button" data-v="lock" title="Always read on the grid">on the grid</button></span></div>
   <div class="insprow"><button class="btn" type="button" id="inspMute" aria-pressed="false">Mute</button><button class="btn" type="button" id="inspEdit" data-level="2">Edit notes</button><button class="btn" type="button" id="inspDup" data-level="2">Duplicate</button><button class="btn" type="button" id="inspMutate" data-level="2" title="Create a related variation that inherits this loop’s musical identity">Mutate</button><button class="btn" type="button" id="inspKeep">Keep as a toy</button><button class="btn" type="button" id="inspErase">Erase</button></div>
@@ -739,6 +754,7 @@ kbd {
     <dt><kbd>T</kbd> <kbd>Y</kbd> <kbd>S</kbd></dt><dd>Toybox · My toys · Scenes</dd>
     <dt><kbd>C</kbd></dt><dd>Controls drawer (from there, <kbd>Tab</kbd> moves through the controls)</dd>
     <dt><kbd>F</kbd></dt><dd>Full screen, on and off</dd>
+    <dt><kbd>I</kbd></dt><dd>Messages: shown as they happen, or quiet behind the dot</dd>
     <dt><kbd>\</kbd></dt><dd>Simple → More → Everything</dd>
     <dt><kbd>R</kbd> <kbd>W</kbd> <kbd>O</kbd></dt><dd>Revoice (new loops) · Walk · Drone</dd>
     <dt><kbd>Esc</kbd> <kbd>`</kbd></dt><dd>Close whatever is open</dd>
@@ -865,6 +881,7 @@ const MAX_LOOPS = 14;
 const RATIOS = [0.5, 2 / 3, 0.75, 1, 4 / 3, 1.5, 2];   // time-scales a resize snaps to
 
 const state = {
+  walkWay: "steps", walkPace: 2,           // Walk (Everything): how, and how often (bars)
   bpm: 96, volume: 0.8, grid: "pentMaj", tuning: "equal", root: 0, range: 3, div: "16", pen: "auto",
   pack: "paper", density: "sparse", swing: 0,                 // few notes by default (2026-10-24)
   droneVol: 0.5, droneVoicing: "fifth",
@@ -887,10 +904,34 @@ const stepCount = () => stepsOf(gridNow()).length;
 const bandCount = () => stepCount() * state.range;
 const baseMidi = () => 60 - 12 * Math.floor(state.range / 2);   // keep the range centred-ish
 const perBeat = () => DIVS[state.div].perBeat;
-/** Walk: four diatonic-ish shifts, scaled to however many steps the grid has. */
-function walkShift(step) {
-  const n = stepCount();
-  return [0, Math.round((n * 5) / 7), Math.round((n * 3) / 7), Math.round((n * 4) / 7)][step] % n;
+/* Walk: everything (the loops, the Drone) shifts along the scale, a change
+ * every few bars. Ways to walk (Alex, 2026-10-24: "the drone is mostly
+ * interesting when it moves, even slowly. There should be different ways to
+ * Walk"), all in scale steps, scaled to however many steps the grid has:
+ *   steps   a little progression, round and round (home, 5, 3, 4 of 7)
+ *   sway    home and the fourth, back and forth
+ *   fifths  up a fifth each time, through every degree, like the circle
+ *   climb   up the scale one step at a time, and round
+ *   wander  a step or a fifth up or down, never the same twice in a row,
+ *           decided by the bar (so a replay walks the same way)
+ * Pace: a change every 1, 2 (as always), 4 or 8 bars. */
+const WALK_WAYS = ["steps", "sway", "fifths", "climb", "wander"];
+function walkShift(k) {                                         // k: which change we're at (0, 1, 2…)
+  const n = stepCount(), f = Math.round((n * 4) / 7), q = Math.round((n * 3) / 7);
+  switch (state.walkWay) {
+    case "sway": return k % 2 ? q % n : 0;
+    case "fifths": return mod(k * f, n);
+    case "climb": return mod(k, n);
+    case "wander": {
+      let d = 0;
+      for (let i = 1; i <= k % 64; i++) {                         // a repeatable path from the start of each 64 changes
+        const h = Math.sin(i * 12.9898 + 4.1) * 43758.5453, r = h - Math.floor(h);
+        d += [1, -1, f, -f][Math.floor(r * 4)];
+      }
+      return mod(d, n);
+    }
+    default: return [0, Math.round((n * 5) / 7), q, f][k % 4] % n;
+  }
 }
 
 /* ── 2. Clock ────────────────────────────────────────────────────────────── */
@@ -929,7 +970,7 @@ function snapLoop(lp, b) {
   return m === "none" ? b : m === "fine" ? Math.round(b * 16) / 16 : snapNear(b);
 }
 const feelOf = (lp) => Math.max(-40, Math.min(40, lp.feel || 0)) / 1000;
-const walkStep = (b) => Math.floor(b / (2 * BAR)) % 4;
+const walkStep = (b) => Math.floor(b / ((state.walkPace || 2) * BAR));
 
 /* ── 3. Sound ────────────────────────────────────────────────────────────── */
 
@@ -1749,19 +1790,20 @@ function airKeep(b) {
  * Seen on the sheet: the line thickens as it fills, pales as it fades;
  * resting notes are faint. */
 const LIFE_ORDER = ["steady", "bloom", "fade", "brief", "swell"];  // codes store the index: append only (1 was v1's thinning swell)
-const LIFE_SPAN = 16, LIFE_FLOOR = 0.25, SWELL_FLOOR = 0.3;
+const LIFE_SPAN = 16, LIFE_SPANS = [8, 16, 32, 64], LIFE_FLOOR = 0.25, SWELL_FLOOR = 0.3;
+const spanOf = (lp) => (LIFE_SPANS.includes(lp.span) ? lp.span : LIFE_SPAN);   // a loop's life length in passes (Alex: "not always 16")
 /** Where a loop is in its life: thin (share of its drawn notes that play), bloom (share of the extra notes),
  *  vital (loudness), done (its life is over). */
 function lifeState(lp) {
-  const a = lp.age || 0, half = LIFE_SPAN / 2, ease = (u) => 0.5 - 0.5 * Math.cos(Math.PI * Math.min(1, Math.max(0, u)));
-  const wave = () => { const u = (a % LIFE_SPAN) / half; return ease(u <= 1 ? u : 2 - u); };   // 0 → 1 → 0 over a cycle
+  const a = lp.age || 0, span = spanOf(lp), half = span / 2, ease = (u) => 0.5 - 0.5 * Math.cos(Math.PI * Math.min(1, Math.max(0, u)));
+  const wave = () => { const u = (a % span) / half; return ease(u <= 1 ? u : 2 - u); };   // 0 → 1 → 0 over a cycle
   const base = { thin: 1, bloom: 0, vital: 1, done: false };
   switch (lp.life) {
     case "bloom": return { ...base, bloom: wave() };
     case "swell": return { ...base, vital: SWELL_FLOOR + (1 - SWELL_FLOOR) * wave() };
-    case "fade": return { ...base, vital: Math.max(0, 1 - a / LIFE_SPAN), done: a >= LIFE_SPAN };
+    case "fade": return { ...base, vital: Math.max(0, 1 - a / span), done: a >= span };
     case "brief": return a < half ? { ...base, thin: LIFE_FLOOR + (1 - LIFE_FLOOR) * ease(a / half) }
-                                  : { ...base, vital: Math.max(0, 1 - (a - half) / half), done: a >= LIFE_SPAN };
+                                  : { ...base, vital: Math.max(0, 1 - (a - half) / half), done: a >= span };
     default: return base;
   }
 }
@@ -2902,8 +2944,10 @@ function drawGrid(W, H) {
 
 /** Paths are drawn as smooth curves that pass THROUGH every point (Catmull-Rom
  *  as cubic Béziers), so notes always sit on the line, even on sparse paths. */
-function strokePath(lp, W, H, alpha, width, dash, color = colors.ink) {
-  const pts = lp.pts;
+/** How much of a loop is drawn at beat b: all of it, except a replayed loop in its first pass (its drawing). */
+const drawnUpTo = (lp, b) => (lp.replaying && ctx && b - lp.start < lp.L * lp.ts ? (b - lp.start) / lp.ts : Infinity);
+function strokePath(lp, W, H, alpha, width, dash, color = colors.ink, upto = Infinity) {
+  const pts = upto === Infinity ? lp.pts : lp.pts.filter((p) => p.b <= upto);   // a replayed drawing: only what's drawn so far
   if (pts.length < 2) return;
   g2.save();
   g2.globalAlpha = alpha; g2.strokeStyle = color; g2.lineWidth = width;
@@ -3018,8 +3062,12 @@ function frame() {
     const sg = strengthOf(lp);
     const lifeA = (0.15 + 0.85 * life.vital) * (sg < 1 ? 0.45 + 0.55 * ((sg - STRENGTH_MIN) / (1 - STRENGTH_MIN)) : 1);   // Life, seen: fading; drained: paler
     const lifeW = (lp.life === "brief" ? 0.6 + 0.9 * life.thin : lp.life === "bloom" ? 1 + 0.8 * life.bloom : 1) * (sg > 1 ? 1 + 1.2 * (sg - 1) : 1);   // filling; fed: thicker
-    strokePath(lp, W, H, (lp.muted ? 0.25 : lp.held || sel ? 0.9 : 0.55) * lifeA, (lp.held || sel ? 3 : 2) * lifeW, lp.muted, sel ? colors.accent : colors.ink);
-    drawBeatTicks(lp, W, H, lp.muted ? 0.25 : 0.7);
+    // In a replay, a loop's first pass is its drawing: it appears as it was drawn,
+    // in the drawing's own time (Alex, 2026-10-24: "replay the time the loop is drawn").
+    const drawnTo = drawnUpTo(lp, b);
+    if (drawnTo < 0) continue;                                       // not begun yet
+    strokePath(lp, W, H, (lp.muted ? 0.25 : lp.held || sel ? 0.9 : 0.55) * lifeA, (lp.held || sel ? 3 : 2) * lifeW, lp.muted, sel ? colors.accent : colors.ink, drawnTo);
+    if (drawnTo === Infinity) drawBeatTicks(lp, W, H, lp.muted ? 0.25 : 0.7);
     if (locked(lp)) drawLockMarks(lp, W, H, lp.muted ? 0.25 : 0.65);
     if (insp && insp === lp && ZONES[lp.zone]) {                     // the open loop's zone, shaded
       const z = ZONES[lp.zone]; g2.save(); g2.globalAlpha = 0.08; g2.fillStyle = colors.accent;
@@ -3029,6 +3077,7 @@ function frame() {
     // On a locked loop they rest (the grid reads the path instead), so faint.
     const isLocked = locked(lp);
     for (const [ei, ev] of lp.events.entries()) {
+      if (ev.off > drawnTo) continue;                                // not drawn yet (a replay)
       const resting = life.thin < 1 && !lifePlays(lp, ei);        // Life: not playing at this point of its life
       const since = at - ev.flashAt;
       const lit = ctx && !isLocked && ev.flashAt >= 0 && since >= 0 && since < 0.18;
@@ -3117,10 +3166,10 @@ const store = {
 };
 
 function serialize() {
-  const { bpm, volume, grid, tuning, root, range, div, pen, lock, loop, morph, revoice, walk, drone, pack, density, swing, droneVol, droneVoicing, air, arc, meet, dice, vary, evolve } = state;
+  const { bpm, volume, grid, tuning, root, range, div, pen, lock, loop, morph, revoice, walk, drone, pack, density, swing, droneVol, droneVoicing, air, arc, meet, dice, vary, evolve, walkWay, walkPace } = state;
   return {
     v: 3, at: Date.now(),
-    settings: { bpm, volume, grid, tuning, root, range, div, pen, lock, loop, morph, revoice, walk, drone, pack, density, swing, droneVol, droneVoicing, air, arc, meet, dice, vary, evolve },
+    settings: { bpm, volume, grid, tuning, root, range, div, pen, lock, loop, morph, revoice, walk, drone, pack, density, swing, droneVol, droneVoicing, air, arc, meet, dice, vary, evolve, walkWay, walkPace },
     loops: loops.map(loopData),
   };
 }
@@ -3138,7 +3187,7 @@ function loopData(lp) {
     wait: lp.wait || 0, ph: r4(mod(lp.start, loopBeats(lp))),
     lineage: lp.lineage || null, generation: lp.generation || 0,
     meets: lp.meets || "sound", density: lp.density || null, pack: lp.pack || null, life: lp.life || "steady", age: lp.age || 0, gives: lp.gives || "none", strength: lp.strength ?? 1,
-    snap: lp.snap || "sheet", feel: lp.feel || 0, clock: lp.clock || "step",
+    snap: lp.snap || "sheet", feel: lp.feel || 0, clock: lp.clock || "step", span: spanOf(lp),
   };
 }
 /** Plain data → a loop starting at beat `start` (not yet on the sheet). */
@@ -3156,6 +3205,7 @@ function buildLoop(d, start, fallbackRevoice = false) {
     life: LIFE_ORDER.includes(d.life) ? d.life : "steady", age: d.age || 0,
     gives: INFLUENCE_ORDER.includes(d.gives) ? d.gives : "none", strength: Math.min(STRENGTH_MAX, Math.max(STRENGTH_MIN, d.strength ?? 1)),
     snap: SNAP_ORDER.includes(d.snap) ? d.snap : "sheet", feel: Math.max(-40, Math.min(40, d.feel || 0)), clock: CLOCK_ORDER.includes(d.clock) ? d.clock : "step",
+    span: LIFE_SPANS.includes(d.span) ? d.span : LIFE_SPAN,
   });
   // Keep its place in the cycle (offsets survive saving): start mid-pass, sounding from `start` on.
   if (d.ph != null) { lp.start = start - mod(start - d.ph, loopBeats(lp)); lp.lastPass = Math.floor((start - lp.start) / loopBeats(lp)); }
@@ -3170,6 +3220,9 @@ function applySettings(st) {
   $("swing").value = String(state.swing || 0); $("air").value = String(state.air || 0); $("arc").value = state.arc || "off"; $("droneVol").value = String(state.droneVol ?? 0.5); $("droneVoicing").value = state.droneVoicing || "fifth";
   if (typeof syncPen === "function") syncPen();
   for (const id of ["grid", "tuning", "root", "range", "div", "pen", "pack", "density"]) $(id).value = String(state[id]);
+  if (!WALK_WAYS.includes(state.walkWay)) state.walkWay = "steps";
+  if (![1, 2, 4, 8].includes(Number(state.walkPace))) state.walkPace = 2;
+  $("walkWay").value = state.walkWay; $("walkPace").value = String(state.walkPace);
   for (const [id, key] of [["lockBtn", "lock"], ["loopBtn", "loop"], ["morphBtn", "morph"], ["meetBtn", "meet"], ["diceBtn", "dice"], ["varyBtn", "vary"], ["evolveBtn", "evolve"], ["revoiceBtn", "revoice"], ["walkBtn", "walk"], ["droneBtn", "drone"]])
     $(id).setAttribute("aria-pressed", String(state[key]));
   syncTuningPicker();
@@ -3298,12 +3351,12 @@ function packScene(sc) {
       Math.max(0, MEET_ORDER.indexOf(d.meets || "sound")), d.density ? DENSITY_ORDER.indexOf(d.density) : -1, d.pack ? PACK_ORDER.indexOf(d.pack) : -1,
       Math.max(0, LIFE_ORDER.indexOf(d.life || "steady")), d.age || 0,
       Math.max(0, INFLUENCE_ORDER.indexOf(d.gives || "none")), Math.round((d.strength ?? 1) * 100),
-      Math.max(0, SNAP_ORDER.indexOf(d.snap || "sheet")), d.feel || 0, Math.max(0, CLOCK_ORDER.indexOf(d.clock || "step"))];
+      Math.max(0, SNAP_ORDER.indexOf(d.snap || "sheet")), d.feel || 0, Math.max(0, CLOCK_ORDER.indexOf(d.clock || "step")), d.span || LIFE_SPAN];
   }) };
 }
 function unpackScene(pk) {
   if (!pk || pk.v !== 1 || !Array.isArray(pk.l)) throw new Error("not a Twirl scene");
-  return { settings: pk.st || {}, loops: pk.l.map(([lock, pen, L, ts, muted, temper, spinDir, cx, cy, tx, ty, rot, s, flat, ev, revoice, zone, gain, rhythm, chord, dir, every, wait, ph, generation, lineage, meets, density, pack, life, age, gives, strength, snap, feel, clock]) => {
+  return { settings: pk.st || {}, loops: pk.l.map(([lock, pen, L, ts, muted, temper, spinDir, cx, cy, tx, ty, rot, s, flat, ev, revoice, zone, gain, rhythm, chord, dir, every, wait, ph, generation, lineage, meets, density, pack, life, age, gives, strength, snap, feel, clock, span]) => {
     const pts = []; let x = 0, y = 0, b = 0;
     for (let i = 0; i < flat.length; i += 3) { x += flat[i]; y += flat[i + 1]; b += flat[i + 2]; pts.push([x / QXY, y / QXY, b / QB]); }
     const events = [];
@@ -3316,7 +3369,7 @@ function unpackScene(pk) {
       generation: generation || 0, lineage: lineage || null,
       meets: MEET_ORDER[meets] || "sound", density: DENSITY_ORDER[density] || null, pack: PACK_ORDER[pack] || null, life: LIFE_ORDER[life] || "steady", age: age || 0,
       gives: INFLUENCE_ORDER[gives] || "none", strength: strength == null ? 1 : strength / 100,
-      snap: SNAP_ORDER[snap] || "sheet", feel: feel || 0, clock: CLOCK_ORDER[clock] || "step" };
+      snap: SNAP_ORDER[snap] || "sheet", feel: feel || 0, clock: CLOCK_ORDER[clock] || "step", span: span || LIFE_SPAN };
   }) };
 }
 
@@ -3503,7 +3556,7 @@ function keepToy(lp) {
   const turn = state.revoice ? totalRot(lp) : 0;   // keep the voices you were hearing
   addToy({
     trigger: lp.trigger, pen: lp.pen, L: lp.L, ts: lp.ts, muted: false, temper: lp.temper, spinDir: lp.spinDir, revoice: !!lp.revoice, zone: lp.zone || "any", gain: lp.gain ?? 1, rhythm: lp.rhythm || "drawn", chord: lp.chord || "single", dir: lp.dir || "fwd", every: lp.every || 1, wait: lp.wait || 0,
-    generation: lp.generation || 0, lineage: lp.lineage || null, meets: lp.meets || "sound", density: lp.density || null, pack: lp.pack || null, life: lp.life || "steady", gives: lp.gives || "none", snap: lp.snap || "sheet", feel: lp.feel || 0, clock: lp.clock || "step",
+    generation: lp.generation || 0, lineage: lp.lineage || null, meets: lp.meets || "sound", density: lp.density || null, pack: lp.pack || null, life: lp.life || "steady", gives: lp.gives || "none", snap: lp.snap || "sheet", feel: lp.feel || 0, clock: lp.clock || "step", span: spanOf(lp),
     c: [0, 0], tx: 0, ty: 0, rot: 0, s: 1,
     pts: lp.pts.map((p, i) => [...rel(P[i]), r4(p.b)]),
     events: lp.events.map((e) => [e.off, ...rel(place(lp, e.x, e.y, W, H)), r4(e.heading + turn), e.fixed, r4(e.vel)]),
@@ -3531,7 +3584,7 @@ function dropSavedToy(t, where) {
   const cy = where ? where[1] : H * (0.3 + Math.random() * 0.4);
   const s = newStroke(nextStart());
   Object.assign(s, { trigger: normTrigger(t.trigger), pen: t.pen, temper: t.temper, spinDir: t.spinDir, revoice: t.revoice ?? s.revoice, zone: t.zone || "any", gain: t.gain ?? 1, rhythm: t.rhythm || "drawn", chord: t.chord || "single", dir: t.dir || "fwd", every: t.every || 1, generation: t.generation || 0, lineage: t.lineage || null, meets: t.meets || "sound", density: t.density || null, pack: PACKS[t.pack] ? t.pack : null, life: LIFE_ORDER.includes(t.life) ? t.life : "steady", age: 0, gives: INFLUENCE_ORDER.includes(t.gives) ? t.gives : "none", strength: 1,
-    snap: SNAP_ORDER.includes(t.snap) ? t.snap : "sheet", feel: t.feel || 0, clock: CLOCK_ORDER.includes(t.clock) ? t.clock : "step" });
+    snap: SNAP_ORDER.includes(t.snap) ? t.snap : "sheet", feel: t.feel || 0, clock: CLOCK_ORDER.includes(t.clock) ? t.clock : "step", span: LIFE_SPANS.includes(t.span) ? t.span : LIFE_SPAN });
   s.pts = t.pts.map(([x, y, b]) => ({ x: (cx + x * m) / W, y: (cy + y * m) / H, b }));
   s.events = t.events.map(([off, x, y, heading, fixed, vel]) => ({ off, x: (cx + x * m) / W, y: (cy + y * m) / H, heading, fixed, vel, ms: 0, flashAt: -1 }));
   if (finishStroke(s, false)) s.ts = t.ts;
@@ -3598,13 +3651,19 @@ let toastTimer = null;
  * screen, a save that failed, Start over's undo) always show. */
 const MSG_KEY = "twirl:messages", msgLog = [];
 let msgsLoud = store.get(MSG_KEY) === "show", msgUnseen = 0;
+// Shown messages stack (up to four, each for 2.4 s), so a burst isn't lost to
+// the next one: with messages shown, every message shows (Alex, 2026-10-24).
+function showToast(msg) {
+  const box = $("toast"), line = document.createElement("div");
+  line.textContent = msg; box.append(line); box.hidden = false;
+  while (box.children.length > 4) box.firstChild.remove();
+  setTimeout(() => { line.remove(); if (!box.children.length) box.hidden = true; }, 2400);
+}
 function toast(msg, always = false) {
   msgLog.unshift({ msg, at: Date.now() }); if (msgLog.length > 30) msgLog.pop();
   $("srStatus").textContent = msg;
-  if (msgsLoud || always) {
-    const el = $("toast"); el.textContent = msg; el.hidden = false;
-    clearTimeout(toastTimer); toastTimer = setTimeout(() => (el.hidden = true), 1800);
-  } else if ($("msgLog").hidden) msgUnseen++;
+  if (msgsLoud || always) showToast(msg);
+  else if ($("msgLog").hidden) msgUnseen++;
   syncMsgBtn(!msgsLoud && !always);
   if (!$("msgLog").hidden) renderMsgLog();
 }
@@ -3633,10 +3692,18 @@ function closeMsgLog() {
 }
 $("msgBtn").addEventListener("click", () => ($("msgLog").hidden ? openMsgLog() : closeMsgLog()));
 $("msgLogClose").addEventListener("click", closeMsgLog);
-$("msgLoudBtn").addEventListener("click", () => {
-  msgsLoud = !msgsLoud; store.set(MSG_KEY, msgsLoud ? "show" : "quiet"); renderMsgLog();
-  toast(msgsLoud ? "Messages show on the sheet as they happen" : "Messages stay here, behind the dot");
-});
+/* Two modes, both useful for a screen recording: quiet (nothing on the sheet but
+ * a dot) and shown (every message, as it happens). One switch, in three places:
+ * the controls (Show messages), the key I, and the log itself. */
+function setMsgsLoud(on) {
+  msgsLoud = on; store.set(MSG_KEY, on ? "show" : "quiet");
+  $("msgModeBtn").setAttribute("aria-pressed", String(on)); renderMsgLog();
+  if (!on) { $("toast").textContent = ""; $("toast").hidden = true; }
+  toast(on ? "Messages: shown as they happen" : "Messages: quiet, behind the dot");
+}
+$("msgLoudBtn").addEventListener("click", () => setMsgsLoud(!msgsLoud));
+$("msgModeBtn").addEventListener("click", () => setMsgsLoud(!msgsLoud));
+$("msgModeBtn").setAttribute("aria-pressed", String(msgsLoud));
 document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !$("msgLog").hidden) { closeMsgLog(); e.stopImmediatePropagation(); } }, true);
 document.addEventListener("pointerdown", (e) => { if (!$("msgLog").hidden && !$("msgLog").contains(e.target) && !$("msgBtn").contains(e.target)) closeMsgLog(); }, true);
 const fmtBeats = (v) => String(Math.round(v * 100) / 100);
@@ -3721,6 +3788,9 @@ toggle("morphBtn", "morph", (on) => { if (!on) loops.forEach((lp) => (lp.mt = { 
 $("morphBtn").setAttribute("aria-pressed", String(state.morph));   // may start off (reduced motion)
 toggle("revoiceBtn", "revoice");
 toggle("walkBtn", "walk", () => updateDrone(nowBeat(), true));
+$("walkWay").addEventListener("change", (e) => { state.walkWay = e.target.value; updateDrone(nowBeat(), true);
+  toast({ steps: "Walk: a little progression, round and round", sway: "Walk: home and the fourth, back and forth", fifths: "Walk: up a fifth each time, through every degree", climb: "Walk: up the scale a step at a time", wander: "Walk: a step or a fifth, up or down, wherever it goes" }[state.walkWay] + (state.walk ? "" : " (turn Walk on to hear it)")); });
+$("walkPace").addEventListener("change", (e) => { state.walkPace = Number(e.target.value); updateDrone(nowBeat(), true); });
 toggle("droneBtn", "drone", (on) => { ensureAudio(); setDrone(on); });
 toggle("editBtn", "edit", (on) => toast(on ? "Edit: drag a square to bend · tap a path to add a note · tap a note to remove it · hold to smooth" : "Edit off"));
 
@@ -4244,7 +4314,7 @@ function syncInspector() {
   const lp = insp;
   if (!lp) return;
   $("inspTitle").textContent = `Loop ${loops.indexOf(lp) + 1}${lp.generation ? " · generation " + lp.generation : ""} · ${fmtBeats(loopBeats(lp))} beats · ×${fmtRatio(baseTs(lp))}${lp.clock && lp.clock !== "step" ? (lp.clock === "ahead" ? " (drifting ahead)" : " (drifting behind)") : ""} · ${locked(lp) ? "on the grid" : "as drawn"}`;
-  const val = { gives: lp.gives || "none", life: lp.life || "steady", density: lp.density || "", meets: lp.meets || "sound", temper: lp.temper, zone: lp.zone || "any", ts: baseTs(lp), trigger: lp.trigger, snap: lp.snap || "sheet", clock: lp.clock || "step", rhythm: lp.rhythm || "drawn", chord: lp.chord || "single", dir: lp.dir || "fwd", every: String(lp.every || 1), wait: String(lp.wait || 0) };
+  const val = { span: String(spanOf(lp)), gives: lp.gives || "none", life: lp.life || "steady", density: lp.density || "", meets: lp.meets || "sound", temper: lp.temper, zone: lp.zone || "any", ts: baseTs(lp), trigger: lp.trigger, snap: lp.snap || "sheet", clock: lp.clock || "step", rhythm: lp.rhythm || "drawn", chord: lp.chord || "single", dir: lp.dir || "fwd", every: String(lp.every || 1), wait: String(lp.wait || 0) };
   $("inspGain").value = String(lp.gain ?? 1);
   document.querySelectorAll("[data-insp]").forEach((seg) => seg.querySelectorAll("[data-v]").forEach((b) => {
     const v = seg.dataset.insp === "ts" ? Math.abs(Number(b.dataset.v) - val.ts) < 0.01 : b.dataset.v === val[seg.dataset.insp];
@@ -4268,14 +4338,14 @@ function syncInspector() {
 /** The Life row's status: where this loop is in its life, in words. */
 function syncLifeNote(lp) {
   const el = $("inspLife"); if (!el) return;
-  const a = lp.age || 0, st = lifeState(lp), pct = `${Math.round(st.thin * 100)}% of its notes`, k = (a % LIFE_SPAN) + 1, up = (a % LIFE_SPAN) < LIFE_SPAN / 2;
+  const a = lp.age || 0, span = spanOf(lp), st = lifeState(lp), pct = `${Math.round(st.thin * 100)}% of its notes`, k = (a % span) + 1, up = (a % span) < span / 2;
   const frozen = state.evolve ? "" : " · on hold (Evolve is off)";
   el.textContent = {
     steady: "",
-    bloom: bloomNotes(lp).length ? `${up ? "blooming" : "settling"} · pass ${k} of ${LIFE_SPAN} · ${bloomNow(lp).length} more notes` : "its notes are fixed: nothing to add",
-    swell: `${up ? "getting louder" : "getting softer"} · pass ${k} of ${LIFE_SPAN} · ${Math.round(st.vital * 100)}% as loud`,
-    fade: `fading · pass ${a + 1} of ${LIFE_SPAN} · ${Math.round(st.vital * 100)}% as loud`,
-    brief: a < LIFE_SPAN / 2 ? `filling in · pass ${a + 1} of ${LIFE_SPAN} · ${pct}` : `fading · pass ${a + 1} of ${LIFE_SPAN} · ${Math.round(st.vital * 100)}% as loud`,
+    bloom: bloomNotes(lp).length ? `${up ? "blooming" : "settling"} · pass ${k} of ${span} · ${bloomNow(lp).length} more notes` : "its notes are fixed: nothing to add",
+    swell: `${up ? "getting louder" : "getting softer"} · pass ${k} of ${span} · ${Math.round(st.vital * 100)}% as loud`,
+    fade: `fading · pass ${a + 1} of ${span} · ${Math.round(st.vital * 100)}% as loud`,
+    brief: a < span / 2 ? `filling in · pass ${a + 1} of ${span} · ${pct}` : `fading · pass ${a + 1} of ${span} · ${Math.round(st.vital * 100)}% as loud`,
   }[lp.life || "steady"] + (lp.life && lp.life !== "steady" ? frozen : "");
 }
 /** Change how long a pass is, keeping where the loop is in the current one. */
@@ -4317,6 +4387,7 @@ document.querySelectorAll("[data-insp]").forEach((seg) => seg.addEventListener("
   if (k === "dir") lp.dir = v;
   if (k === "meets") lp.meets = v;
   if (k === "snap") lp.snap = v;
+  if (k === "span") { const old = spanOf(lp); lp.span = Number(v); lp.age = Math.round((lp.age || 0) * lp.span / old); }   // the same point of its life, on the new length
   if (k === "clock") {
     const base = baseTs(lp); lp.clock = v; retime(lp, base);
     toast({ step: "Clock: in step with the sheet", ahead: "Clock: drifting ahead · 1% fast, it phases against the others", behind: "Clock: drifting behind · 1% slow, it phases against the others" }[v]);
@@ -4339,6 +4410,28 @@ $("inspReroll").addEventListener("click", () => {
 });
 $("inspGain").addEventListener("input", (e) => { if (insp) insp.gain = Number(e.target.value); });
 $("inspFeel").addEventListener("input", (e) => { if (insp) { insp.feel = Number(e.target.value); syncInspector(); } });
+/* Timing carried over (Alex, 2026-10-24: "setting these parameters in each loop
+ * is tedious… this shouldn't be something which gets assigned arbitrarily when a
+ * loop is created"). Only on request, from one loop to its family or the sheet;
+ * new loops are always in step, snapped and on the beat. */
+const familyOf = (lp) => lp.lineage || lp.uid;
+function shareTiming(from, to) {
+  for (const lp of to) {
+    if (lp === from) continue;
+    const base = baseTs(lp);
+    lp.snap = from.snap || "sheet"; lp.feel = from.feel || 0; lp.clock = from.clock || "step";
+    retime(lp, base);
+  }
+  return to.length - (to.includes(from) ? 1 : 0);
+}
+$("inspTimingAll").addEventListener("click", () => {
+  if (!insp) return; const n = shareTiming(insp, loops);
+  toast(`${n} loop${n === 1 ? "" : "s"} now share loop ${loops.indexOf(insp) + 1}'s timing`);
+});
+$("inspTimingFamily").addEventListener("click", () => {
+  if (!insp) return; const fam = loops.filter((l) => familyOf(l) === familyOf(insp)), n = shareTiming(insp, fam);
+  toast(n ? `${n} loop${n === 1 ? "" : "s"} of its family now share its timing` : "This loop has no family on the sheet yet (Mutate gives it one)");
+});
 $("inspPack").addEventListener("change", (e) => { if (insp) { insp.pack = e.target.value || null; toast(insp.pack ? `Loop ${loops.indexOf(insp) + 1} plays ${insp.pack} sounds, whatever the sheet's` : "Back to the sheet's sounds"); } });
 $("inspPen").addEventListener("change", (e) => { if (insp) { insp.pen = e.target.value; syncInspector(); } });
 $("inspRevoice").addEventListener("click", () => { if (insp) { insp.revoice = !insp.revoice; syncInspector(); } });
@@ -4407,7 +4500,7 @@ $("initBtn").addEventListener("click", () => {
   hint.hidden = false; $("hintSmall").textContent = "Tap anywhere to start the sound.";
   initLabel("Bring it back");
   undoInit = { scene, view, timer: setTimeout(() => { undoInit = null; initLabel("Start over"); }, 10000) };
-  toast("Started over, as a first visit · Bring it back (controls) undoes it for 10 s", true);
+  toast("Started over, as a first visit · Bring it back (controls) undoes it for 10 s");
 });
 
 // Share (section 12b): build the link, then copy it in the same tap that asks.
@@ -4577,6 +4670,7 @@ const KEYS = {
   p: (b) => cycleSelect("pen", b), n: (b) => cycleSelect("density", b), b: (b) => cycleSelect("pack", b), g: (b) => cycleSelect("grid", b),
   "[": (b) => nudgeTempo(b ? -10 : -2), "]": (b) => nudgeTempo(b ? 10 : 2),
   "{": () => nudgeTempo(-10), "}": () => nudgeTempo(10),
+  i: () => setMsgsLoud(!msgsLoud),
   "-": () => { setVolume(state.volume - 0.1); toast(`Volume ${Math.round(state.volume * 100)}%`); },
   "=": () => { setVolume(state.volume + 0.1); toast(`Volume ${Math.round(state.volume * 100)}%`); },
   t: () => openShelf("toybox"), y: () => openShelf("mytoys"), s: () => openShelf("scenes"),

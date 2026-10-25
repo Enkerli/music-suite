@@ -788,6 +788,81 @@ describe.skipIf(!browser)("Twirl · timing freedom: snap, feel, clock (Everythin
   });
 });
 
+describe.skipIf(!browser)("Twirl · session tools: life length, Walk, shared timing, replayed drawing", () => {
+  it("a life's length is a choice (8, 16, 32, 64 passes); changing it keeps the loop at the same point of its life", async () => {
+    const { page, context } = await openTwirl(browser);
+    const r = await page.evaluate(async () => {
+      const lp = loops[1]; lp.life = "fade"; lp.span = 8; lp.age = 7;
+      const short = [lifeState(lp).done, ((lp.age = 8), lifeState(lp).done)];
+      lp.age = 4; openInspector(lp); setLevel(2);
+      document.querySelector('[data-insp="span"] [data-v="32"]').click();
+      const moved = [lp.span, lp.age, $("inspLife").textContent];
+      const back = (await decodeScene(await encodeScene(serialize()))).loops[1].span;
+      return { short, moved, back, def: spanOf(loops[0]) };
+    });
+    expect(r.short).toEqual([false, true]);
+    expect(r.moved[0]).toBe(32); expect(r.moved[1]).toBe(16); expect(r.moved[2]).toMatch(/of 32/);
+    expect(r.back).toBe(32); expect(r.def).toBe(16);
+    await context.close();
+  });
+
+  it("Walk has ways (a progression, sway, fifths, climb, wander) and a pace; wander is repeatable", async () => {
+    const { page, context } = await openTwirl(browser);
+    const r = await page.evaluate(() => {
+      applySettings({ grid: "ionian" in GRID ? "ionian" : state.grid });
+      const n = stepCount(), ways = {};
+      for (const w of WALK_WAYS) { state.walkWay = w; ways[w] = [0, 1, 2, 3, 4, 5, 6, 7].map(walkShift); }
+      state.walkWay = "wander"; const again = [0, 1, 2, 3, 4, 5, 6, 7].map(walkShift);
+      state.walk = true; state.walkWay = "climb"; state.walkPace = 4;
+      const shifts = [0, 8, 16, 24].map((b) => harmonyAt(b).shift);
+      return { n, ways, again, shifts, saved: serialize().settings.walkWay };
+    });
+    expect(r.ways.steps.slice(0, 4)).toEqual(r.ways.steps.slice(4, 8));      // round and round
+    expect(new Set(r.ways.sway)).toEqual(new Set([0, r.ways.sway[1]]));
+    expect(new Set(r.ways.fifths).size).toBeGreaterThan(3);
+    expect(r.ways.climb.slice(0, 3)).toEqual([0, 1, 2]);
+    expect(r.again).toEqual(r.ways.wander);
+    expect(r.shifts).toEqual([0, 0, 1, 1]);                                 // every 4 bars (16 beats)
+    expect(r.saved).toBe("climb");
+    await context.close();
+  });
+
+  it("timing is shared only on request: to the loop's family, or to all loops", async () => {
+    const { page, context } = await openTwirl(browser);
+    const r = await page.evaluate(() => {
+      const lp = loops[1], child = mutateLoop(lp), other = loops[0];
+      setLevel(3); openInspector(lp); lp.snap = "none"; lp.feel = 20; const base = baseTs(lp); lp.clock = "behind"; retime(lp, base);
+      $("inspTimingFamily").click();
+      const fam = [child.snap, child.feel, child.clock, other.snap || "sheet"];
+      $("inspTimingAll").click();
+      const all = [other.snap, other.feel, other.clock, Math.abs(baseTs(other) - Math.round(baseTs(other) * 1000) / 1000) < 1e-3];
+      const fresh = newStroke(nextStart());
+      return { fam, all, fresh: [fresh.snap || "sheet", fresh.feel || 0, fresh.clock || "step"] };
+    });
+    expect(r.fam).toEqual(["none", 20, "behind", "sheet"]);
+    expect(r.all).toEqual(["none", 20, "behind", true]);
+    expect(r.fresh).toEqual(["sheet", 0, "step"]);                          // a new loop is always plain
+    await context.close();
+  });
+
+  it("in a replay, a loop's first pass is its drawing: it appears as it was drawn", async () => {
+    const { page, context } = await openTwirl(browser);
+    const r = await page.evaluate(() => {
+      ensureAudio(); const lp = loops[1], b0 = lp.start;
+      lp.replaying = true;
+      const at = (b) => drawnUpTo(lp, b);
+      const out = [at(b0 - 0.5), at(b0 + 0.25 * lp.ts), at(b0 + lp.L * lp.ts + 0.1)];
+      delete lp.replaying;
+      return { out, live: drawnUpTo(lp, b0 + 0.25) };
+    });
+    expect(r.out[0]).toBeLessThan(0);
+    expect(r.out[1]).toBeCloseTo(0.25, 6);
+    expect(r.out[2]).toBe(Infinity);
+    expect(r.live).toBe(Infinity);
+    await context.close();
+  });
+});
+
 describe.skipIf(!browser)("Twirl · notes: few by default, re-spaced per loop", () => {
   it("new strokes default to few notes", async () => {
     const { page, context } = await openTwirl(browser);
