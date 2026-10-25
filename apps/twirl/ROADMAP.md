@@ -173,6 +173,19 @@ slendro or 7-EDO for a fresh sheet), compared against the pentatonic start.
 If people don't notice, or like it, a fresh sheet could sometimes start
 there.
 
+### 2026-10-25, a calmer, more colourful sheet
+
+Shipped (Alex: "auto-smooth new curves. Not show the beat lines by default.
+And strokes can have their voice's colour… a more colourful playground"):
+**new strokes settle into a curve** when lifted (two light passes; scribbles
+stay scribbles; Smooth at More turns it off); **beat lines hidden** unless
+asked for (Beats at More) or Lock is on; **paths in their voices' colours**,
+stretch by stretch, following Revoice and each note's own sound. Muted loops
+stay grey; the selected loop gets an ink halo (the accent blue was too close
+to the pluck's). Colour still never carries meaning alone: the note shapes do.
+To watch: whether the beat ticks on loops should go too, and whether a
+colour-blind player loses anything (shapes should hold it).
+
 ### Later on 2026-10-25: tools, zones, and what Twirl is becoming
 
 Shipped: **Walk's new default**, new loops *fit* (they stay where they are and

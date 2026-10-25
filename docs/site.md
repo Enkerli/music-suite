@@ -1479,11 +1479,15 @@ brings back what you had).
 - **Higher is higher in pitch.** The horizontal lines are the notes of the
   scale (pentatonic, to begin with); the labelled ones are octaves.
 - **Distance along the path is time.** The sheet's width is one bar of four
-  beats; the vertical lines divide the beat. Ticks across a loop show where
-  its beats fall.
+  beats. Ticks across a loop show where its beats fall; **Beats** (at More)
+  shows lines dividing the sheet into beats, and they're always there with
+  **Lock**, where they're what plays.
 - **Direction picks the sound.** Right plucks, up rings a bell, left blips,
   down drums; a quick scribble is a shaker. Each sound has its own colour
-  *and* shape (● ○ ▲ ■ ◆).
+  *and* shape (● ○ ▲ ■ ◆), and the line takes the colour of its notes, so a
+  loop that changes sound changes colour along the way.
+- **Lines settle when you lift.** A new stroke smooths into a curve (a
+  scribble stays a scribble); **Smooth** (at More) turns that off.
 - **Size is speed.** Bigger plays slower, smaller faster, snapping to
   musical ratios (½ … 2), so loops of different sizes still line up.
 - **Faster (or firmer, with a pencil) is louder.** Bigger dots are louder.

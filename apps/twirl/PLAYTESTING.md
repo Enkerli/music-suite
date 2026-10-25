@@ -108,6 +108,10 @@ much they matter, before deciding.
   way of someone who only touches (a stray key on an iPad keyboard)? Note
   any surprise from a key nobody meant to press.
 
+- **Colour and the missing beat lines.** Do newcomers still find the
+  rhythm without the vertical lines? Does the colour of a line help people
+  guess its sound before it plays? Include a colour-blind participant.
+
 ## A condition to compare: where a fresh sheet starts
 
 Half the newcomer sessions open Twirl as usual (pentatonic, major or minor,

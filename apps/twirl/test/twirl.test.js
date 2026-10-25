@@ -1081,3 +1081,71 @@ describe.skipIf(!browser)("Twirl · Edit notes", () => {
     await context.close();
   });
 });
+
+describe.skipIf(!browser)("Twirl · a smoother, more colourful sheet", () => {
+  // Alex, 2026-10-25: "auto-smooth new curves. Not show the beat lines by
+  // default. And strokes can have their voice's colour."
+  it("beat lines are hidden by default, shown on request, and always under Lock", async () => {
+    const { page, context } = await openTwirl(browser);
+    const r = await page.evaluate(() => {
+      const verticals = () => {                       // count the full-height lines drawGrid draws
+        const real = g2, W = 800, H = 600; let n = 0;
+        g2 = new Proxy(real, { get: (t, k) => k === "lineTo" ? (x, y) => { if (y === H) n++; } : typeof t[k] === "function" ? t[k].bind(t) : t[k], set: (t, k, v) => ((t[k] = v), true) });
+        try { drawGrid(W, H); } finally { g2 = real; }
+        return n;
+      };
+      const off = verticals(); setBeats(true); const on = verticals(); const saved = store.get("twirl:beats");
+      setBeats(false); state.lock = true; const lock = verticals(); state.lock = false;
+      return { off, on, saved, lock, pressed: $("beatsBtn").getAttribute("aria-pressed") };
+    });
+    expect(r.off).toBe(0);
+    expect(r.on).toBeGreaterThan(0);
+    expect(r.lock).toBe(r.on);
+    expect(r.saved).toBe(true);
+    expect(r.pressed).toBe("false");
+    await context.close();
+  });
+
+  it("a new stroke settles into a smoother curve, notes still on the line; Smooth off keeps it as drawn", async () => {
+    const { page, context } = await openTwirl(browser);
+    await page.evaluate(() => {
+      window.__rough = [];
+      const rough = (lp) => lp.pts.slice(1, -1).reduce((a, p, j) => a + Math.hypot(lp.pts[j].x - 2 * p.x + lp.pts[j + 2].x, lp.pts[j].y - 2 * p.y + lp.pts[j + 2].y), 0);
+      const orig = smoothLoop;
+      window.smoothLoop = function (lp, ...rest) { const before = rough(lp); orig.call(this, lp, ...rest); window.__rough.push([before, rough(lp)]); };
+      loops.splice(0);                                              // an empty sheet: the stroke can't land on a loop
+      Math.random = () => 0.8;                                      // Surprise's "jitter" way of moving: still smoothed (only scribbles aren't)
+    });
+    await drawStroke(page);
+    const r = await page.evaluate(() => {
+      const lp = loops.at(-1);
+      return { rough: window.__rough.slice(), onLine: lp.events.every((e) => lp.pts.some((p) => p.x === e.x && p.y === e.y)) };
+    });
+    expect(r.rough.length).toBe(1);
+    expect(r.rough[0][1]).toBeLessThan(r.rough[0][0]);
+    expect(r.onLine).toBe(true);
+    await page.evaluate(() => { setSmooth(false); loops.splice(0); });
+    await drawStroke(page);
+    expect(await page.evaluate(() => [window.__rough.length, store.get("twirl:smooth")])).toEqual([1, false]);
+    await context.close();
+  });
+
+  it("a path takes its voices' colours, stretch by stretch, and following a change of sound", async () => {
+    const { page, context, errors } = await openTwirl(browser);
+    await drawStroke(page);
+    const r = await page.evaluate(() => {
+      const lp = loops.at(-1);
+      lp.events.forEach((e) => (e.fixed = "bell"));
+      const allBell = new Set(voiceColours(lp, lp.pts));
+      lp.events.forEach((e, i) => (e.fixed = i < lp.events.length / 2 ? "drum" : "blip"));
+      const mixed = voiceColours(lp, lp.pts);
+      return { allBell: [...allBell], first: mixed[0], last: mixed.at(-1), bell: colors.bell, drum: colors.drum, blip: colors.blip };
+    });
+    expect(r.allBell).toEqual([r.bell]);
+    expect(r.first).toBe(r.drum);
+    expect(r.last).toBe(r.blip);
+    await page.waitForTimeout(300);                                 // a few frames drawn in colour
+    expect(errors).toEqual([]);
+    await context.close();
+  });
+});

@@ -50,8 +50,8 @@ rules. Where to find things:
 | Contacts: crossings, lines touching, meetings | 7b | `checkMeetings`, `touch`, `linesTouch`, `meet`, `breedWith` |
 | Drone | 8 | `setDrone`, `updateDrone` |
 | Toybox (chimes, spinner…) | 9 | `TOYS`, `dropToy`, `startingSheet`, `freshKey` |
-| Touch: draw, drag, pinch, Edit | 10 | `pointerEnd`, `addNoteAt`, `NOTE_SOUNDS` |
-| Drawing; the grid layer; sharpness | 11 | `frame`, `drawGridCached`, `adaptQuality`, `diagReport` |
+| Touch: draw, drag, pinch, Edit, smoothing | 10 | `endStroke`, `smoothLoop`, `pointerEnd`, `addNoteAt`, `NOTE_SOUNDS` |
+| Drawing; colours by voice; the grid layer; sharpness | 11 | `frame`, `voiceColours`, `strokePath`, `drawGridCached`, `adaptQuality`, `diagReport` |
 | Scenes, codes, toys, files | 12–12c | `serialize`, `packScene`, `encodeScene`, `collection` |
 | Controls, settings, Copy, takes, keys, messages | 13 | `syncInspector`, `copySettings`, `toggleRecording`, `KEYS`, `toast` |
 | First frame | 14 | `boot` |
@@ -95,6 +95,8 @@ What they hold in place, in `test/twirl.test.js` and `test/twirl.a11y.test.js`:
   sound; Mutate; Copy to a family, all loops or chosen loops.
 - **Saving.** Codes, toys, scenes, takes and JSON files round-trip; older
   codes open.
+- **The look.** Beat lines hidden unless asked for (or with Lock); new
+  strokes smoothed, notes still on the line; paths in their voices' colours.
 - **Sound and performance.** Vary, pause without a buzz, no zero-loudness
   errors; a busy sheet inside a frame budget, the adaptive lookahead and
   sharpness, the grid layer.
