@@ -235,8 +235,10 @@ describe.skipIf(!browser)("Twirl · pointer alternatives and preferences", () =>
       const { page, context } = await openTwirl(browser, { viewport, hasTouch: true });
       await page.evaluate(() => { setLevel(3); openInspector(loops[0]); });
       // The Done button must be what a tap on it hits (it once sat under ● Rec).
-      const hit = await page.evaluate(() => { const r = $("inspClose").getBoundingClientRect(); return document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2)?.id; });
-      expect(hit).toBe("inspClose");
+      // Measured once the panel has settled (it slides in; a slow CI runner caught it mid-way).
+      const at = () => { const r = $("inspClose").getBoundingClientRect(); return document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2)?.id; };
+      await page.waitForFunction(at, null, { timeout: 3000 }).catch(() => {});
+      expect(await page.evaluate(at)).toBe("inspClose");
       await context.close();
     });
   }
