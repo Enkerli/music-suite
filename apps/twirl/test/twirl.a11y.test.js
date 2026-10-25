@@ -402,3 +402,42 @@ describe.skipIf(!browser)("Twirl · keyboard in panels, and diagnostics", () => 
     await context.close();
   });
 });
+
+describe.skipIf(!browser)("Twirl · Space is Play/Pause (outside panels), whatever has the focus", () => {
+  const spaceDoes = async (page) => {
+    const before = await page.evaluate(() => [ctx.state, !!(recorder || flowRec)]);
+    await page.keyboard.press("Space"); await page.waitForTimeout(350);
+    const after = await page.evaluate(() => [ctx.state, !!(recorder || flowRec)]);
+    return before[1] !== after[1] ? "recording" : before[0] !== after[0] ? "play/pause" : "nothing";
+  };
+  const fresh = async () => { const o = await openTwirl(browser); await o.page.mouse.click(600, 650); await o.page.waitForTimeout(150); return o; };
+
+  it("with Rec focused, after recording by key, after the Takes shelf, after the messages: Space plays or pauses", async () => {
+    for (const setup of [
+      (p) => p.evaluate(() => $("recBtn").focus()),
+      async (p) => { await p.keyboard.press("Shift+Space"); await p.waitForTimeout(150); await p.keyboard.press("Shift+Space"); },
+      async (p) => { await p.keyboard.press("Shift+Space"); await p.waitForTimeout(150); await p.keyboard.press("Shift+Space"); await p.keyboard.press("Escape"); },
+      async (p) => { await p.evaluate(() => toast("x")); await p.click("#msgBtn"); await p.keyboard.press("Escape"); },
+      (p) => p.evaluate(() => $("loops").children[0].focus()),
+    ]) {
+      const { page, context } = await fresh();
+      await setup(page); await page.waitForTimeout(250);
+      expect(await spaceDoes(page)).toBe("play/pause");
+      await context.close();
+    }
+  }, 40_000);
+
+  it("inside an open panel, Space presses the focused button (and never pauses); Enter presses a focused button anywhere", async () => {
+    const { page, context } = await fresh();
+    await page.keyboard.press("1"); await page.keyboard.press("Enter");
+    await page.waitForFunction(() => document.activeElement && document.activeElement.id === "inspTitle");
+    await page.focus("#inspMute");
+    const muted0 = await page.evaluate(() => loops[0].muted);
+    expect(await spaceDoes(page)).toBe("nothing");
+    expect(await page.evaluate(() => loops[0].muted)).toBe(!muted0);          // the button was pressed
+    await page.keyboard.press("Escape");
+    await page.evaluate(() => $("recBtn").focus()); await page.keyboard.press("Enter"); await page.waitForTimeout(300);
+    expect(await page.evaluate(() => !!(recorder || flowRec))).toBe(true);
+    await context.close();
+  });
+});

@@ -1752,7 +1752,7 @@ leaving marks. **H** lists every key inside Twirl.
 
 | Keys | What they do |
 |---|---|
-| Space | Play / pause, from the sheet (⇧ Space: record). Inside a panel, Space never pauses |
+| Space | Play / pause, wherever the focus is (⇧ Space: record). Inside an open panel it presses the focused button instead, and never pauses; Enter presses a focused button anywhere |
 | 1–9, or Tab / ⇧ Tab | Pick a loop |
 | Enter | Its settings (Enter again closes them) |
 | Arrows · `,` `.` | Move it · turn it |

@@ -764,7 +764,7 @@ kbd {
   <p class="keysnote">With a keyboard, you can steer without touching the sheet, where every touch draws. Everything else is in the <a href="https://enkerli.github.io/music-suite/doc.html?p=twirl-guide" target="_blank" rel="noopener">Twirl guide ↗</a>.</p>
   <p class="keysnote">On iPad: tap the page once so it hears the keyboard. No <kbd>Esc</kbd> key? <kbd>`</kbd> (top left) or <kbd>⌘ .</kbd> does the same.</p>
   <dl>
-    <dt><kbd>Space</kbd></dt><dd>Play / pause</dd>
+    <dt><kbd>Space</kbd></dt><dd>Play / pause, wherever the focus is, except inside an open panel (there it presses the focused button). Enter presses a focused button</dd>
     <dt><kbd>⇧ Space</kbd></dt><dd>Record / stop (takes are in Toybox → Takes)</dd>
     <dt><kbd>1</kbd>…<kbd>9</kbd></dt><dd>Select a loop (its number is on the sheet and in the chips). <kbd>Tab</kbd> <kbd>⇧ Tab</kbd> step through the loops. <kbd>0</kbd> or <kbd>Esc</kbd> deselects</dd>
     <dt><kbd>Enter</kbd></dt><dd>The selected loop's settings (Enter again closes them)</dd>
@@ -4039,7 +4039,7 @@ applyLayout();
  * stays open while you play, so you can drop several toys in a row. */
 const SHELF_BTNS = { toybox: "toyBtn", mytoys: "myToyBtn", scenes: "sceneBtn" };
 let shelfTab = "toybox";
-function openShelf(which) {
+function openShelf(which, { focus = true } = {}) {
   const wasOpen = !$("shelf").hidden;
   if (!wasOpen) shelfReturn = focusOrigin();
   setDrawer(false); if (typeof closeInspector === "function") closeInspector();   // one drawer at a time
@@ -4049,7 +4049,7 @@ function openShelf(which) {
     const on = t.dataset.tab === which;
     t.setAttribute("aria-selected", String(on)); t.tabIndex = on ? 0 : -1; $(t.dataset.tab).hidden = !on;
   });
-  if (!wasOpen && (shelfReturn || lastInput === "keyboard")) document.querySelector(`[data-tab="${which}"]`).focus();
+  if (focus && !wasOpen && (shelfReturn || lastInput === "keyboard")) document.querySelector(`[data-tab="${which}"]`).focus();
   for (const [tab, id] of Object.entries(SHELF_BTNS)) $(id).setAttribute("aria-expanded", String(tab === which));
   if (which === "scenes") { renderSlots(); $("share").hidden = true; $("openLink").hidden = true; $("backBtn").hidden = !store.get(BEFORE_KEY); }
   if (which === "mytoys") { renderMyToys(); $("toyShare").hidden = true; }
@@ -4220,7 +4220,11 @@ async function stopRecording() {
   }
   const f = await flowDone;
   take.flowId = f ? f.id : null;
-  openShelf("takes"); toast(`Take ${f ? f.n : takes.length} · ${fmtTime(secs)}`);
+  // Show the take, but leave the focus where it was: the next Space plays or pauses
+  // (it pressed a Takes tab, or Rec again, before: 2026-10-25).
+  const had = document.activeElement; openShelf("takes", { focus: false });
+  if (had && had.closest && had.closest("#recBtn")) had.blur();
+  toast(`Take ${f ? f.n : takes.length} · ${fmtTime(secs)}`);
 }
 function syncRec() {
   const on = !!(recorder || flowRec);
@@ -5082,11 +5086,19 @@ document.addEventListener("keydown", (e) => {
   }
   const fn = KEYS[e.key === "?" || e.key === "<" || e.key === ">" ? e.key : key === "Enter" ? "enter" : key];
   if (!fn) return;
-  if ((e.key === " " || e.key === "Enter") && e.target.closest && e.target.closest("button")) return;   // Space/Enter on a focused button press that button
-  // Space inside an open panel (a loop's settings, a shelf, the key list) is never
-  // Play/Pause: Safari leaves focus on the panel's title, not on its buttons, so a
-  // Space meant for a control paused the whole sheet (iPad, while recording, 2026-10-24).
-  if (e.key === " " && !e.shiftKey && e.target.closest && e.target.closest("#inspWrap, #shelf, #keys, [role=dialog]")) { e.preventDefault(); return; }
+  /* Space is Play/Pause, everywhere but inside an open panel (2026-10-25: Space
+   * toggled recording instead: focus had been left on Rec, or in the Takes shelf
+   * after a recording stopped, and Space pressed whatever had it):
+   *   - inside an open panel (a loop's settings, the controls drawer, a shelf, the
+   *     key list, the messages): on a button, Space presses it; anywhere else in
+   *     the panel (its title), nothing, never Play/Pause (2026-10-24: a Space
+   *     meant for a control paused the sheet)
+   *   - anywhere else (the sheet, the top bar, the chips): Play/Pause, even if a
+   *     button there has focus; Enter presses that button. */
+  const inPanel = e.target.closest && e.target.closest("#inspWrap, #shelf, #keys, #msgLog, #strip");
+  const panelOpen = inPanel && (inPanel.id !== "strip" || document.body.classList.contains("drawer-open"));
+  if (e.key === "Enter" && e.target.closest && e.target.closest("button")) return;            // Enter presses a focused button
+  if (e.key === " " && panelOpen) { if (!(e.target.closest && e.target.closest("button"))) e.preventDefault(); return; }
   e.preventDefault();
   if (e.key !== " ") ensureAudio();                              // Space decides for itself: play or pause
   hint.hidden = true;
