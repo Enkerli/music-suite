@@ -58,7 +58,13 @@ A life's length is per loop (`spanOf`). Messages are quiet or shown, stacked
 (`drawnUpTo`). **Performance:** the scheduler's lookahead adapts to late
 ticks (`lookahead`, up to 0.4 s); the paper and grid are a layer of their own
 (`#gridLayer`), redrawn only when they change; sharpness adapts to slow
-frames (`quality`); Q shows a readout. A fresh sheet has its own key and tempo
+frames (`quality`); Q shows diagnostics and ⇧Q copies them (`diagReport`). Lives can last bars
+(`lifeProgress`, `setLifeProgress`); **Copy** gives settings to a family, all
+loops or chosen loops (`copySettings`, `choosing`); each loop has a part in
+Walk (`walkFor`: moves / stays / fits); everything downloads as JSON and opens
+back (`collection`, `openCollection`); Tab wraps inside open panels
+(`openPanel`). `?start=macro` starts a fresh sheet in a macrotuning (a
+playtest condition). A fresh sheet has its own key and tempo
 (`freshKey`). **Start over** resets to
 `STATE_DEFAULTS`, the Simple level and `startingSheet()`. Takes save as WAV
 (`encodeWav`). The

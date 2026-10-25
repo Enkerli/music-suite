@@ -9,7 +9,7 @@
  */
 import { describe, it, expect, beforeAll, afterAll, vi } from "vitest";
 import { readFileSync } from "node:fs";
-import { launch, openTwirl, drawStroke, listen, heard, loopPoint } from "./harness.js";
+import { launch, openTwirl, drawStroke, listen, heard, loopPoint, PAGE } from "./harness.js";
 
 const browser = await launch();
 // These tests run in real time (sound, playheads, meetings), some for several
@@ -796,7 +796,7 @@ describe.skipIf(!browser)("Twirl · session tools: life length, Walk, shared tim
       const lp = loops[1]; lp.life = "fade"; lp.span = 8; lp.age = 7;
       const short = [lifeState(lp).done, ((lp.age = 8), lifeState(lp).done)];
       lp.age = 4; openInspector(lp); setLevel(2);
-      document.querySelector('[data-insp="span"] [data-v="32"]').click();
+      $("inspSpan").value = "32"; $("inspSpan").dispatchEvent(new Event("change"));
       const moved = [lp.span, lp.age, $("inspLife").textContent];
       const back = (await decodeScene(await encodeScene(serialize()))).loops[1].span;
       return { short, moved, back, def: spanOf(loops[0]) };
@@ -833,9 +833,10 @@ describe.skipIf(!browser)("Twirl · session tools: life length, Walk, shared tim
     const r = await page.evaluate(() => {
       const lp = loops[1], child = mutateLoop(lp), other = loops[0];
       setLevel(3); openInspector(lp); lp.snap = "none"; lp.feel = 20; const base = baseTs(lp); lp.clock = "behind"; retime(lp, base);
-      $("inspTimingFamily").click();
+      $("inspCopyWhat").value = "timing";
+      $("inspCopyFamily").click();
       const fam = [child.snap, child.feel, child.clock, other.snap || "sheet"];
-      $("inspTimingAll").click();
+      $("inspCopyAll").click();
       const all = [other.snap, other.feel, other.clock, Math.abs(baseTs(other) - Math.round(baseTs(other) * 1000) / 1000) < 1e-3];
       const fresh = newStroke(nextStart());
       return { fam, all, fresh: [fresh.snap || "sheet", fresh.feel || 0, fresh.clock || "step"] };
@@ -953,6 +954,83 @@ describe.skipIf(!browser)("Twirl · Edit: a note's own sound", () => {
     const [x2, y2] = await at(), m = await page.evaluate(() => loops[0].events.length);
     await page.mouse.click(x2, y2); await page.waitForTimeout(450);
     expect(await page.evaluate(() => loops[0].events.length)).toBe(m - 1);
+    await context.close();
+  });
+});
+
+describe.skipIf(!browser)("Twirl · lives in bars, copying to several loops, Walk roles, a file of everything", () => {
+  it("a life can last bars, not passes: a 2-bar fade ends after 8 beats, whatever the loop's size", async () => {
+    const { page, context } = await openTwirl(browser);
+    const r = await page.evaluate(async () => {
+      const lp = loops[1]; lp.life = "fade"; lp.span = -2; setLifeProgress(lp, 0);
+      const steps = []; while (!lifeState(lp).done && steps.length < 40) { ageLoop(lp); steps.push(+lp.ageB.toFixed(2)); }
+      const back = (await decodeScene(await encodeScene(serialize()))).loops[1];
+      return { beats: lp.ageB, pass: loopBeats(lp), back: [back.span, back.ageB] };
+    });
+    expect(r.beats).toBeGreaterThanOrEqual(8); expect(r.beats - r.pass).toBeLessThan(8);
+    expect(r.back[0]).toBe(-2); expect(r.back[1]).toBeCloseTo(r.beats, 1);
+    await context.close();
+  });
+
+  it("copy a life to loops you choose (tapping their chips): they all start together; each keeps its own length after", async () => {
+    const { page, context } = await openTwirl(browser);
+    await page.evaluate(() => { state.dice = false; dropToy("ring", [300, 300]); dropToy("rose", [700, 300]); setLevel(2); });   // no Surprise lives in the way
+    const r = await page.evaluate(() => {
+      const [a, b, c, d, e] = loops; a.life = "fade"; a.span = 16; setLifeProgress(a, 0.5); c.life = "bloom"; c.age = 5;
+      openInspector(a); $("inspCopyWhat").value = "life"; $("inspCopyChosen").click();
+      const chips = [...$("loops").children];
+      chips[2].click(); chips[3].click();                                        // c and d
+      const note = $("inspCopyNote").textContent;
+      $("inspCopyApply").click();
+      const out = { note, lives: loops.map((l) => [l.life, l.age || 0]), chosen: !!choosing };
+      d.span = -8; setLifeProgress(d, lifeProgress(d));
+      out.d = [d.span, lifeProgress(d)];
+      return out;
+    });
+    expect(r.note).toMatch(/2 chosen/);
+    expect(r.lives[0]).toEqual(["fade", 0]);                                   // the one copied from restarts too
+    expect(r.lives[2]).toEqual(["fade", 0]); expect(r.lives[3]).toEqual(["fade", 0]);
+    expect(r.lives[1][0]).not.toBe("fade"); expect(r.lives[4][0]).not.toBe("fade");
+    expect(r.chosen).toBe(false);
+    expect(r.d).toEqual([-8, 0]);
+    await context.close();
+  });
+
+  it("Walk roles: moves shifts by scale steps; stays ignores Walk; fits keeps its pitch and goes to the nearest tone of the walked chord", async () => {
+    const { page, context } = await openTwirl(browser);
+    const r = await page.evaluate(() => {
+      applySettings({ grid: "pentMaj", walk: true, walkWay: "climb", walkPace: 1, arc: "off" });
+      const b = 4 * BAR + 0.1, h = harmonyAt(b).shift, n = stepCount(), d = 7;
+      const fit = walkFor("fits", d, b), tones = [0, 2, 4].map((k) => mod(h + k, n));
+      return { h, moves: walkFor("moves", d, b), stays: walkFor("stays", d, b), fit, isTone: tones.includes(mod(fit, n)), near: Math.abs(fit - d) <= 2, atHome: walkFor("fits", d, 0.1) };
+    });
+    expect(r.h).toBeGreaterThan(0);
+    expect(r.moves).toBe(7 + r.h);
+    expect(r.stays).toBe(7);
+    expect(r.isTone).toBe(true); expect(r.near).toBe(true);
+    expect(r.atHome).toBe(7);                                                   // at home, nothing to fit
+    await context.close();
+  });
+
+  it("download everything as readable JSON, and open it back: scenes fill empty slots, toys and takes join", async () => {
+    const { page, context } = await openTwirl(browser);
+    const r = await page.evaluate(() => {
+      store.set(slotKey(1), { ...serialize(), v: 3, at: 1 });
+      const c = collection(), text = JSON.stringify(c);
+      for (let i = 1; i <= SLOTS; i++) localStorage.removeItem(slotKey(i));
+      openCollection(JSON.parse(text));
+      return { format: c.format, scenes: c.scenes.filter(Boolean).length, sheet: c.sheet.loops.length, filled: [...Array(SLOTS)].filter((_, i) => store.get(slotKey(i + 1))).length };
+    });
+    expect(r).toEqual({ format: "twirl-collection", scenes: 1, sheet: 3, filled: 2 });     // the sheet came in as a scene too
+    await context.close();
+  });
+
+  it("?start=macro: a fresh sheet starts in 5-EDO, slendro or 7-EDO; otherwise pentatonic as always", async () => {
+    const context = await browser.newContext(); const page = await context.newPage();
+    await page.route(/fonts\.(googleapis|gstatic)\.com/, (r) => r.abort());
+    await page.goto(PAGE + "?start=macro");
+    await page.waitForFunction(() => typeof loops !== "undefined" && loops.length > 0);
+    expect(["edo5", "slendro", "edo7"]).toContain(await page.evaluate(() => state.grid));
     await context.close();
   });
 });

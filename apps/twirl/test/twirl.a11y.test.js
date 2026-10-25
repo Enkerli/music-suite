@@ -372,3 +372,33 @@ describe.skipIf(!browser)("Twirl · messages stay quiet, behind a dot; replays s
     await context.close();
   }, 30_000);
 });
+
+describe.skipIf(!browser)("Twirl · keyboard in panels, and diagnostics", () => {
+  it("Tab wraps inside a loop's settings and never leaves for the address bar; ` closes a dropdown's panel", async () => {
+    const { page, context } = await openTwirl(browser);
+    await page.mouse.click(5, 400);
+    await page.keyboard.press("1"); await page.keyboard.press("Enter");
+    await page.waitForFunction(() => document.activeElement && document.activeElement.id === "inspTitle");
+    const seen = new Set();
+    for (let i = 0; i < 80; i++) { await page.keyboard.press("Tab"); seen.add(await page.evaluate(() => $("inspWrap").contains(document.activeElement))); }
+    expect([...seen]).toEqual([true]);                                          // always inside
+    await page.keyboard.press("Shift+Tab");
+    expect(await page.evaluate(() => $("inspWrap").contains(document.activeElement))).toBe(true);
+    await page.focus("#inspPen"); await page.keyboard.press("`");
+    expect(await page.evaluate(() => $("inspWrap").hidden)).toBe(true);
+    await context.close();
+  });
+
+  it("diagnostics: Q shows load, notes a second, errors and where the last tap landed; errors are caught", async () => {
+    const { page, context } = await openTwirl(browser);
+    await page.mouse.click(600, 600);
+    await page.evaluate(() => setTimeout(() => { throw new Error("test boom"); }, 0));
+    await page.waitForTimeout(100);
+    await page.keyboard.press("q"); await page.waitForTimeout(700);
+    const r = await page.evaluate(() => ({ text: $("perf").textContent, rep: diagReport() }));
+    expect(r.text).toMatch(/notes\/s/); expect(r.text).toMatch(/last tap: #sheet/); expect(r.text).toMatch(/errors: 1/);
+    expect(r.rep.errors[0]).toMatch(/test boom/);
+    expect(Object.keys(r.rep)).toEqual(expect.arrayContaining(["fps", "notesPerSecond", "memory", "lastTap", "panels"]));
+    await context.close();
+  });
+});

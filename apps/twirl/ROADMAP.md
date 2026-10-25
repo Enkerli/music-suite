@@ -61,7 +61,7 @@ disclosed.**
 |---|---|---|---|---|---|
 | 1 | **Optimization pass**: profile a busy sheet on the iPad, cache per-loop work, a steadier scheduler clock, a performance budget test | 4 | 3 | – | 3; and a stall spoils any playtest |
 | 2 | **Playtests**, round 1 (PLAYTESTING.md), Alex's session as one of the task scripts | 5 | 2 | 1 | everything after |
-| 3 | **Several loops at once**: "Same for: its family · all loops" on every setting (it exists for timing), then a lasso to pick any set | 4 | 2 → 3 | – | 4; MIDI in (groups) |
+| 3 | **Several loops at once**: Copy to a family, all loops or chosen loops (*shipped 2026-10-25*), then groups and a lasso | 4 | 2 → 3 | – | 4; MIDI in (groups) |
 | 4 | **Sustained sounds and legato**: a held voice per pack, glides, a voice budget, no restriking mush | 4 | 3 | 1 (CPU) | 2 |
 | 5 | **Small helpers for the session**: a kick toy (four on the floor, low), the Pen a tap away at Simple? (only if playtests say so) | 3 | 1 | 2 for the second | 1 |
 | 6 | **Mutation v2**: musical, scale-aware, seeded | 4 | 3 | – | breeding and evolution |
@@ -133,6 +133,45 @@ playtests): what people keep, share and come back to (toys, lives, Walk
 ways) could tune Surprise and the starting sheet. Only with consent, only
 aggregated, and only from what people choose to share; never from a sheet
 by default. A research question as much as a feature.
+
+### From the morning of 2026-10-25
+
+Shipped: **Download everything** as JSON and **Open a file**; **Tab** that
+wraps inside open panels and Escape keys that work in dropdowns (the
+address-bar escapes); **diagnostics** (Q: notes a second, memory where
+reported, errors, where the last tap landed; ⇧Q copies a report) after a
+spell of unresponsive buttons nobody could explain; **lives in bars** as
+well as passes; **Copy** to a family, all loops or chosen loops (the first
+piece of #3, "several loops at once"), with lives starting together; **Walk
+roles** per loop (moves / stays / fits); `?start=macro` as a playtest
+condition.
+
+**Multichannel** (Alex: "something perhaps a bit wild… each loop could have
+its own audio channel. Still summed to stereo, of course. Just as a way to
+process things independently. The main reason this wouldn't be in separate
+instances of the eventual plugin is the collision support"):
+- **In the page first**: each loop gets its own channel strip (a gain, a
+  pan, sends to the shared reverb and delay: the master FX idea), so loops
+  can be processed apart and soloed; still one stereo mix out. A small,
+  safe step, and it gives the Web Audio graph a shape (per-loop buses) that
+  helps performance too (fewer nodes per note).
+- **Out of the page**: where the browser and the interface allow more than
+  two output channels (Chromium can), route each loop (or each group) to
+  its own pair; in the **plugin**, multiple output buses (an AU/VST3/CLAP
+  instrument with up to 14 stereo outs, one per loop), so a DAW mixes and
+  processes them, while contacts stay inside one instance. MIDI: a channel
+  per loop as the counterpart.
+- Depends on: master FX (the sends), the plugin (multi-out), grouping (a
+  bus per group rather than per loop when there are many).
+
+**Starting in a macrotuning** (Alex: "major and minor pentatonic are modes
+of the same PCS in 12TET. And what they share with these small EDO or
+gamelan-inspired tunings is that there aren't dissonant intervals… Switching
+to alternative tunings may sound strange. Starting in one of them doesn't
+tend to sound strange."): a playtest condition (`?start=macro`: 5-EDO,
+slendro or 7-EDO for a fresh sheet), compared against the pentatonic start.
+If people don't notice, or like it, a fresh sheet could sometimes start
+there.
 
 ## Where we were (reassessed 2026-10-24, evening)
 

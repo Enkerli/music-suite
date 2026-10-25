@@ -98,6 +98,18 @@ much they matter, before deciding.
   than the notes as they sounded; contacts and Life aren't recorded as
   events. Compare a take's replay against its sound file.
 - **Walk.** Do people find the ways (W cycles them), and which do they keep?
+  Do they hear the difference between a loop that moves, stays or fits?
+
+## A condition to compare: where a fresh sheet starts
+
+Half the newcomer sessions open Twirl as usual (pentatonic, major or minor,
+in a common key); the other half open it with `?start=macro` (5-EDO,
+slendro or 7-EDO). Neither has dissonant intervals, so both should sound
+fine together. Do newcomers notice anything strange? Do musicians? Does it
+change how long people play, or what they say it sounds like? (Alex:
+"Switching to alternative tunings may sound strange. Starting in one of them
+doesn't tend to sound strange.") Note the condition on the observation
+sheet; don't mention it to the participant.
 
 ## Logistics to settle
 
