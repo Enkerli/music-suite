@@ -10,14 +10,14 @@ Twirl (in a Chromium browser, Out: MIDI) sends one MIDI channel per voice:
     channel 10  drums and shaker (drawn downward / scribbled), General MIDI
                 notes: kick 36, snare 38, hat 42, shaker 70
 
-This script asks Carla to build a patchbay with one instrument per voice, each
-behind a MIDI channel filter, all fed from Carla's MIDI input, all summed to
-Carla's audio output, and saves it as a .carxp project you open in Carla:
+This script asks Carla to build one instrument per voice, each behind a MIDI
+channel filter, all fed from Midi Through, all to your speakers, and saves it
+as a .carxp project you open in Carla:
 
-    Midi Input ─┬─ Ch 1  → Surge XT (pluck) ─┐
-                ├─ Ch 2  → Surge XT (bell)  ─┤
-                ├─ Ch 3  → Surge XT (blip)  ─┼─ Audio Output
-                └─ Ch 10 → GM drums (SF2)   ─┘   (or a fourth Surge XT)
+    Midi Through ─┬─ Ch 1  → Surge XT (pluck) ─┐
+                  ├─ Ch 2  → Surge XT (bell)  ─┤
+                  ├─ Ch 3  → Surge XT (blip)  ─┼─ speakers
+                  └─ Ch 10 → GM drums (SF2)   ─┘   (or a fourth Surge XT)
 
 It runs on YOUR machine, so it finds your own Surge XT (VST3 or LV2) and,
 for the drums, a General MIDI soundfont if one is installed
@@ -32,9 +32,10 @@ provides (run the script through `pw-jack` if Carla can't find JACK).
     python3 twirl-carla.py --drums surge         # a fourth Surge XT for drums
 
 Then: open the project in Carla, choose a patch in each Surge XT (open its
-editor: double-click), and save. Connect "Midi Through" to Carla's MIDI input
-(Carla's patchbay, qpwgraph, or `aconnect`), and in Twirl choose
+editor: double-click), and save. In Twirl choose
 Everything → Sound and room → Out: MIDI · Midi Through Port-0.
+If Midi Through or the speakers weren't found, the script says so; connect
+them in Carla's patchbay (or qpwgraph) and save.
 
 Public Domain (CC0-1.0), like the rest of the suite.
 """
@@ -45,7 +46,7 @@ LIB = "/usr/lib/carla/libcarla_standalone2.so"
 sys.path.insert(0, RES)
 try:
     from carla_backend import (CarlaHostDLL, EngineCallbackFunc,
-        ENGINE_OPTION_PROCESS_MODE, ENGINE_PROCESS_MODE_PATCHBAY, ENGINE_OPTION_TRANSPORT_MODE,
+        ENGINE_OPTION_PROCESS_MODE, ENGINE_PROCESS_MODE_PATCHBAY, ENGINE_PROCESS_MODE_MULTIPLE_CLIENTS, ENGINE_OPTION_TRANSPORT_MODE,
         ENGINE_TRANSPORT_MODE_JACK, ENGINE_OPTION_PATH_BINARIES, ENGINE_OPTION_PATH_RESOURCES,
         ENGINE_CALLBACK_PATCHBAY_CLIENT_ADDED, ENGINE_CALLBACK_PATCHBAY_PORT_ADDED,
         PATCHBAY_PORT_IS_INPUT, PATCHBAY_PORT_TYPE_AUDIO, PATCHBAY_PORT_TYPE_MIDI,
@@ -66,6 +67,9 @@ def main():
     ap.add_argument("--out", default=os.path.expanduser("~/twirl-surge.carxp"))
     ap.add_argument("--surge", help="path to Surge XT.vst3 (found automatically otherwise)")
     ap.add_argument("--drums", default="auto", help='"auto" (a GM soundfont if found), "surge", or a path to an .sf2')
+    ap.add_argument("--mode", default="multi", choices=["multi", "patchbay"],
+                    help='Carla\'s process mode: "multi" (each plugin its own JACK client, Carla\'s default on JACK; '
+                         'connections in the system graph, including Midi Through and your speakers) or "patchbay" (one client)')
     ap.add_argument("--stand-in", action="store_true", help=argparse.SUPPRESS)   # tests: channel filters instead of synths
     a = ap.parse_args()
 
@@ -81,7 +85,8 @@ def main():
 
     h = CarlaHostDLL(LIB, False)
     h.set_engine_callback(cb)
-    h.set_engine_option(ENGINE_OPTION_PROCESS_MODE, ENGINE_PROCESS_MODE_PATCHBAY, "")
+    multi = a.mode == "multi"
+    h.set_engine_option(ENGINE_OPTION_PROCESS_MODE, ENGINE_PROCESS_MODE_MULTIPLE_CLIENTS if multi else ENGINE_PROCESS_MODE_PATCHBAY, "")
     h.set_engine_option(ENGINE_OPTION_TRANSPORT_MODE, ENGINE_TRANSPORT_MODE_JACK, "")
     h.set_engine_option(ENGINE_OPTION_PATH_BINARIES, 0, "/usr/lib/carla")
     h.set_engine_option(ENGINE_OPTION_PATH_RESOURCES, 0, RES)
@@ -131,9 +136,14 @@ def main():
         inst = add_drums() if voice == "drums" else add_surge("%s (Surge XT)" % voice.capitalize())
         chain.append((ch, f, inst))
 
-    # Let the patchbay report its clients and ports.
-    h.patchbay_refresh(False)
-    for _ in range(40):
+    # Let the patchbay report its clients and ports. In "multi" mode that's the
+    # whole JACK (or PipeWire) graph: every plugin is a client of its own, and so
+    # are Midi Through and the sound card; the connections are saved in the
+    # project and restored when Carla opens it (Alex's first run, 2026-10-25,
+    # showed Carla on JACK opens projects this way, so "patchbay" connections
+    # had to be made again by hand).
+    h.patchbay_refresh(multi)
+    for _ in range(50):
         h.engine_idle(); time.sleep(0.02)
 
     def group_of_plugin(pid):
@@ -145,30 +155,52 @@ def main():
             if g == group and bool(hints & PATCHBAY_PORT_IS_INPUT) == want_input and hints & kind:
                 yield pid, name
 
-    midi_in = next((g for g, n in clients.items() if n.lower() in ("midi input", "midi in")), None)
-    audio_out = next((g for g, n in clients.items() if n.lower() in ("audio output", "audio out")), None)
+    plugin_names = {h.get_plugin_info(i)["name"] for i in range(h.get_current_plugin_count())}
+    if multi:
+        # Midi Through's capture port: "Midi-Bridge:Midi Through: Port-0 (capture)" on
+        # PipeWire, "a2j:Midi Through [14] (capture): Midi Through Port-0" with a2jmidid.
+        midi_src = next(((g, pid) for g, pid, hints, name in ports
+                         if not hints & PATCHBAY_PORT_IS_INPUT and hints & PATCHBAY_PORT_TYPE_MIDI
+                         and ("midi through" in name.lower() or "midi through" in clients.get(g, "").lower())), None)
+        # The speakers: "system" with JACK, the card's name with PipeWire ("CX20632 Analog:playback_FL").
+        cands = [g for g, n in clients.items() if n not in plugin_names and list(port(g, True, PATCHBAY_PORT_TYPE_AUDIO))
+                 and any("playback" in nm.lower() for _, nm in port(g, True, PATCHBAY_PORT_TYPE_AUDIO))]
+        audio_out = next((g for g in cands if clients[g] == "system"), cands[0] if cands else None)
+        midi_in = None
+    else:
+        midi_src = None
+        midi_in = next((g for g, n in clients.items() if n.lower() in ("midi input", "midi in")), None)
+        audio_out = next((g for g, n in clients.items() if n.lower() in ("audio output", "audio out")), None)
     made = 0
     for ch, f, inst in chain:
         gf, gi = group_of_plugin(f), group_of_plugin(inst)
-        if midi_in is not None and gf is not None:
-            for (po, _), (pi, _) in zip(port(midi_in, False, PATCHBAY_PORT_TYPE_MIDI), port(gf, True, PATCHBAY_PORT_TYPE_MIDI)):
-                made += bool(h.patchbay_connect(False, midi_in, po, gf, pi))
+        if gf is not None:
+            if midi_src is not None:
+                for pi, _ in list(port(gf, True, PATCHBAY_PORT_TYPE_MIDI))[:1]:
+                    made += bool(h.patchbay_connect(multi, midi_src[0], midi_src[1], gf, pi))
+            elif midi_in is not None:
+                for (po, _), (pi, _) in zip(port(midi_in, False, PATCHBAY_PORT_TYPE_MIDI), port(gf, True, PATCHBAY_PORT_TYPE_MIDI)):
+                    made += bool(h.patchbay_connect(multi, midi_in, po, gf, pi))
         if gf is not None and gi is not None:
             for (po, _), (pi, _) in zip(port(gf, False, PATCHBAY_PORT_TYPE_MIDI), port(gi, True, PATCHBAY_PORT_TYPE_MIDI)):
-                made += bool(h.patchbay_connect(False, gf, po, gi, pi))
+                made += bool(h.patchbay_connect(multi, gf, po, gi, pi))
         if gi is not None and audio_out is not None:
             outs, ins = list(port(gi, False, PATCHBAY_PORT_TYPE_AUDIO)), list(port(audio_out, True, PATCHBAY_PORT_TYPE_AUDIO))
             for k, (po, _) in enumerate(outs[:2]):    # the first stereo pair, L→L, R→R (mono to both)
                 for pi, _ in (ins[k:k + 1] if len(outs) > 1 else ins[:2]):
-                    made += bool(h.patchbay_connect(False, gi, po, audio_out, pi))
-    for _ in range(10):
+                    made += bool(h.patchbay_connect(multi, gi, po, audio_out, pi))
+    for _ in range(20):
         h.engine_idle(); time.sleep(0.02)
+    if multi and midi_src is None:
+        print("Midi Through wasn't found: connect it to the four 'Ch …' filters' inputs in Carla's patchbay (or qpwgraph).")
+    if multi and audio_out is None:
+        print("No sound card playback ports were found: connect the instruments' outputs to your speakers in Carla's patchbay.")
 
     if not h.save_project(a.out):
         sys.exit("Couldn't save %s: %s" % (a.out, h.get_last_error()))
     h.engine_close()
     print("Saved %s: %d instruments, %d connections." % (a.out, len(chain), made))
-    print("Open it in Carla, pick a patch in each Surge XT, save; connect Midi Through to Carla's MIDI input;")
+    print("Open it in Carla, pick a patch in each Surge XT, and save.")
     print("in Twirl: Everything → Sound and room → Out: MIDI · Midi Through Port-0.")
 
 
