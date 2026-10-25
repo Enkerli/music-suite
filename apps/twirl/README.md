@@ -48,7 +48,10 @@ swell (louder and back), fade or be brief, pass by pass (`lifeState`,
 `lifePlays`, `ageLoop`). **Influence** (`influence`, `settle`): a
 loop can feed or drain the loops it touches, changing their strength
 (louder and denser, or quieter and sparser), which settles back each
-pass; at the cap, breeding replaces the oldest loop. A fresh sheet has its own key and tempo
+pass; at the cap, breeding replaces the oldest loop. **Timing freedom**
+(section 2b, Everything): per-loop Snap (division / 1/64 / none), Feel
+(±40 ms) and Clock (in step, or drifting 1 % ahead or behind:
+`clockFactor`, `snapLoop`, `feelOf`). A fresh sheet has its own key and tempo
 (`freshKey`). **Start over** resets to
 `STATE_DEFAULTS`, the Simple level and `startingSheet()`. Takes save as WAV
 (`encodeWav`). The
@@ -127,6 +130,11 @@ What they hold in place:
   again, strongest first, never changing the drawn ones; a swell gets louder
   and back; brief starts from its strongest notes (the downbeat always);
   Surprise gives lives only on a busy sheet, brief most often;
+- **Timing and Spinner.** Snap rounds to the division, 1/64 or not at all;
+  a laid-back loop sounds its ms after its twin; a drifting clock changes the
+  pass by 1 % and unsnaps it, and in step restores the exact speed; all three
+  travel in codes. A Spinner is a beat long, a drum then rising bells, evenly
+  spaced, spinning.
 - **Influence.** Feeding makes the touched loop louder and denser, draining
   quieter and sparser, once a beat per pair; strength settles back each
   pass; feeding keeps a fading loop young; Evolve off freezes it; it

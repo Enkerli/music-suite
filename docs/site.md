@@ -1639,6 +1639,22 @@ it plays (not muted, not held), and **Evolve** in the controls (More) holds
 every life where it is. Its drawn notes never change: choosing **steady**
 gives it back exactly.
 
+## Timing, more freely (Everything)
+
+Every loop keeps time with the sheet and snaps to its division (the
+vertical lines): that's what keeps things together, and it's how Twirl
+starts. At **Everything**, a loop's settings add three ways out:
+
+- **Snap**: to the *division* (as always), *fine* (1/64: almost as drawn,
+  still in time), or *none* (exactly when you drew it);
+- **Feel**: ahead of the beat (pushing) or behind it (laid back), up to
+  40 ms either way, the same every pass (Vary is the random kind);
+- **Clock**: *in step*, or *drifts ahead* / *drifts behind*: one per cent
+  fast or slow, so it slides against the others and, many passes later,
+  comes round into step again (phasing). A drifting loop plays unsnapped.
+
+The sheet's **division** (More) now goes down to 1/64 too, or **Free**.
+
 ## Loops that feed and drain each other
 
 A loop can also change the loops it touches (any of the three kinds of
@@ -1671,7 +1687,10 @@ exact, identical repeats.
 ## Toys, scenes, takes and codes
 
 - **Toybox**: ready-made shapes (spiral, ring, rose, Lissajous, a drum
-  beat, a shaker, wind chimes, dice for a surprise). Tap one to drop it.
+  beat, a shaker, wind chimes, a spinner, dice for a surprise). Tap one to
+  drop it. A **Spinner** is a quick flick upward, a beat long: a drum, then
+  bells rising, evenly spaced. It spins, so the little arpeggio folds toward
+  one note as it turns sideways, opens up again, and turns upside down.
   **Chimes** look like chimes: a bar with tubes of different lengths, and
   the longer the tube, the lower its note. They ring in gusts, off the
   beat, over a long cycle, and bring their own sound, whatever the sheet's

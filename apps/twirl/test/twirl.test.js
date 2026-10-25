@@ -705,6 +705,89 @@ describe.skipIf(!browser)("Twirl · Influence: loops that feed and drain the loo
   });
 });
 
+describe.skipIf(!browser)("Twirl · Spinner (an ostinato that spins)", () => {
+  it("a beat long, a drum then rising bells, evenly spaced, spinning; tall enough to span pitches", async () => {
+    const { page, context } = await openTwirl(browser);
+    const r = await page.evaluate(() => {
+      dropToy("spinner", [600, 400]); const lp = loops.at(-1), H = sheet.clientHeight;
+      const ys = lp.events.map((e) => e.y), voices = lp.events.map((e) => voiceOf(lp, e));
+      return { L: lp.L, temper: lp.temper, rhythm: lp.rhythm, n: lp.events.length, offs: offsOf(lp), voices, span: (Math.max(...ys) - Math.min(...ys)) * H / H, rising: ys.every((y, i) => !i || y < ys[i - 1]) };
+    });
+    expect(r).toMatchObject({ L: 1, temper: "spin", rhythm: "even", rising: true });
+    expect(r.n).toBeGreaterThanOrEqual(3);
+    expect(r.voices[0]).toBe("drum"); expect(r.voices.slice(1).every((v) => v === "bell")).toBe(true);
+    expect(r.offs.every((o, i) => Math.abs(o - i / r.n) < 1e-9)).toBe(true);
+    expect(r.span).toBeGreaterThan(0.35);
+    await context.close();
+  });
+});
+
+describe.skipIf(!browser)("Twirl · timing freedom: snap, feel, clock (Everything)", () => {
+  it("snap: the division (default), fine (1/64) or none (exactly as drawn)", async () => {
+    const { page, context } = await openTwirl(browser);
+    const r = await page.evaluate(() => {
+      const lp = loops[1], b = 10.1234;
+      const at = (m) => ((lp.snap = m), snapLoop(lp, b));
+      return { def: snapOf(loops[0]), sheet: at("sheet"), fine: at("fine"), none: at("none"), div64: !!DIVS["64"] && !!$("div").querySelector('[value="64"]') };
+    });
+    expect(r.def).toBe("sheet");
+    expect(r.sheet).toBeCloseTo(10, 6);                                      // 1/16 grid: 10.1234 → 10
+    expect(r.fine).toBeCloseTo(10.125, 6);                                   // 1/64 of a bar = 1/16 of a beat
+    expect(r.none).toBe(10.1234);
+    expect(r.div64).toBe(true);
+    await context.close();
+  });
+
+  it("feel: a loop pushed or laid back sounds that many ms off the beat", async () => {
+    const { page, context } = await openTwirl(browser);
+    await page.evaluate(() => {
+      ensureAudio(); state.morph = false; state.vary = false; state.meet = false;   // contacts sound on the beat: not this test
+      loops.splice(0).forEach(fadeOut);
+      dropToy("ring", [400, 400]); const a = loops[0]; a.temper = "still";
+      const b = buildLoop(loopData(a), a.start, false); b.feel = 30; loops.push(b);
+      window.__t = []; const orig = sound;
+      window.sound = function (voice, xN, yN, vel, t, beat, ...rest) { __t.push([t, beat]); return orig.call(this, voice, xN, yN, vel, t, beat, ...rest); };
+    });
+    await page.waitForFunction(() => __t.length >= 6, null, { timeout: 20_000 });
+    const d = await page.evaluate(() => {
+      const byBeat = new Map(); for (const [t, b] of __t) { const k = b.toFixed(4); (byBeat.get(k) || byBeat.set(k, []).get(k)).push(t); }
+      const pairs = [...byBeat.entries()].filter(([k, v]) => Number(k) >= 1 && v.length === 2).map(([, [x, y]]) => Math.abs(y - x));   // past the first beat (which may be clamped to now)
+      return pairs;
+    });
+    expect(d.length).toBeGreaterThan(0);
+    for (const x of d) expect(x).toBeCloseTo(0.03, 3);
+    await context.close();
+  });
+
+  it("clock: drifting ahead or behind changes the pass by 1% and unsnaps it; in step brings the exact speed back", async () => {
+    const { page, context } = await openTwirl(browser);
+    const r = await page.evaluate(() => {
+      ensureAudio(); const lp = loops[1], ts0 = lp.ts, pass0 = loopBeats(lp);
+      const set = (v) => { const base = baseTs(lp); lp.clock = v; retime(lp, base); return [loopBeats(lp) / pass0, baseTs(lp), snapOf(lp)]; };
+      return { ahead: set("ahead"), behind: set("behind"), step: set("step"), ts0, ts: lp.ts };
+    });
+    expect(r.ahead[0]).toBeCloseTo(1 / 1.01, 6); expect(r.ahead[1]).toBeCloseTo(r.ts0, 9); expect(r.ahead[2]).toBe("none");
+    expect(r.behind[0]).toBeCloseTo(1.01, 6);
+    expect(r.step).toEqual([1, r.ts0, "sheet"]);
+    expect(r.ts).toBe(r.ts0);
+    await context.close();
+  });
+
+  it("snap, feel and clock travel in codes; old codes are in step, snapped, on the beat", async () => {
+    const { page, context } = await openTwirl(browser);
+    const r = await page.evaluate(async () => {
+      const lp = loops[1]; lp.snap = "fine"; lp.feel = -20; const base = baseTs(lp); lp.clock = "behind"; retime(lp, base);
+      const back = (await decodeScene(await encodeScene(serialize()))).loops[1];
+      const pk = packScene(serialize()); pk.l = pk.l.map((row) => row.slice(0, 33));
+      const old = unpackScene(pk).loops[1];
+      return { back: [back.snap, back.feel, back.clock], old: [old.snap, old.feel, old.clock] };
+    });
+    expect(r.back).toEqual(["fine", -20, "behind"]);
+    expect(r.old).toEqual(["sheet", 0, "step"]);
+    await context.close();
+  });
+});
+
 describe.skipIf(!browser)("Twirl · notes: few by default, re-spaced per loop", () => {
   it("new strokes default to few notes", async () => {
     const { page, context } = await openTwirl(browser);
