@@ -1253,8 +1253,8 @@ describe.skipIf(!browser)("Twirl · spacing by register, warmth, tadpoles", () =
     const r = await page.evaluate(() => {
       loops.splice(0); state.dice = false;
       const all = dropTadpoles(400, 300, sheet.clientWidth, sheet.clientHeight, 600);
-      const made = all.slice(0, 5), current = all[5];                 // five tadpoles, then the current they run into
-      const currentKind = `${current.meets}/${current.life}/${current.events.length > 2}`;
+      const made = all.slice(0, 5);                                    // just the five: the current is the template's, not the toy's
+      const c = dropCurrent(400, 300, sheet.clientWidth, sheet.clientHeight), currentKind = `${c.meets}/${c.life}/${c.events.length > 2}`;
       const kinds = [...new Set(made.map((l) => `${l.meets}/${l.life}/${l.temper}`))];
       const kid = mutateLoop(made[0]);
       const plain = loops.find((l) => !made.includes(l) && l !== kid) || made[1];
@@ -1266,7 +1266,7 @@ describe.skipIf(!browser)("Twirl · spacing by register, warmth, tadpoles", () =
       };
     });
     expect(r.n).toBe(5);
-    expect(r.all).toBe(6);
+    expect(r.all).toBe(5);
     expect(r.currentKind).toBe("sound/steady/true");          // a steady line across them, with a few notes
     expect(r.notes).toEqual([1, 1, 1, 1, 1]);
     expect(r.waits.every((w) => w >= 4)).toBe(true);
@@ -1352,5 +1352,81 @@ describe.skipIf(!browser)("Twirl · merging, the drone's level, two modes", () =
     await page.waitForFunction(() => store.get("twirl:sec:pitch") === false, null, { timeout: 2000 });   // "toggle" fires a moment after the click
     expect(await page.evaluate(() => [document.querySelector('details[data-sec="pitch"]').open, store.get("twirl:sec:pitch")])).toEqual([false, false]);
     await context.close();
+  });
+});
+
+describe.skipIf(!browser)("Twirl · undoing what happened, the chord, templates", () => {
+  it("a child born at a contact can be undone from the log; so can a merge (the swallowed loop comes back, the other as it was)", async () => {
+    const { page, context, errors } = await openTwirl(browser);
+    const r = await page.evaluate(() => {
+      loops.splice(0); state.dice = false; state.lock = false;
+      dropToy("ring", [300, 300]); dropToy("rose", [600, 300]); dropToy("wave", [450, 500]);
+      const [A, B, C] = loops;
+      breedWith(A, B, 1000); toast("a child", false, takeUndo());
+      const afterBirth = loops.length, entry = msgLog[0];
+      openMsgLog(); const btn = document.querySelector("#msgList .undo"); btn.click();
+      const afterUndo = loops.length, marked = entry.undone, label = btn.getAttribute("aria-label");
+      const L0 = A.L, n0 = A.events.length;
+      mergeLoops(A, C, 2000); toast("merged", false, takeUndo());
+      const merged = [loops.length, A.events.length > n0];
+      msgLog[0].undo();
+      return { afterBirth, afterUndo, marked, label, merged, back: [loops.length, loops.includes(C), A.L === L0, A.events.length === n0], leftover: undoBuf.length };
+    });
+    expect(r.afterBirth).toBe(4);
+    expect(r.afterUndo).toBe(3);
+    expect(r.marked).toBe(true);
+    expect(r.label).toBe("Undo: a child");
+    expect(r.merged).toEqual([2, true]);
+    expect(r.back).toEqual([3, true, true, true]);
+    expect(r.leftover).toBe(0);
+    expect(errors).toEqual([]);
+    await context.close();
+  });
+
+  it("a trade and a life's end can be undone too", async () => {
+    const { page, context } = await openTwirl(browser);
+    const r = await page.evaluate(() => {
+      loops.splice(0); state.dice = false;
+      dropToy("ring", [300, 300]); dropToy("drop", [600, 300]);
+      const [A, B] = loops; A.chord = "single"; B.chord = "triad"; A.pen = B.pen = "auto"; A.rhythm = B.rhythm = "drawn"; A.dir = B.dir = "fwd";
+      A.tradeNext = 0;                                                // next up: chords
+      const got = borrow(A, B), u = takeUndo(), traded = A.chord; u();
+      dying.push(B); buryDead();
+      const gone = !loops.includes(B); msgLog[0].undo();
+      return { got, traded, back: A.chord, gone, alive: loops.includes(B) };
+    });
+    expect(r).toEqual({ got: "its chords", traded: "triad", back: "single", gone: true, alive: true });
+    await context.close();
+  });
+
+  it("with Walk on, the sheet shows the chord it's on, named", async () => {
+    const { page, context } = await openTwirl(browser);
+    const r = await page.evaluate(() => {
+      Object.assign(state, { grid: "ionian", root: 0, tuning: "equal", walk: false, arc: "off" });
+      const home = chordLabel(0);
+      state.grid = "pentMaj"; const pent = chordLabel(0);
+      state.grid = "edo7"; const micro = chordLabel(0);
+      return { home, pent, micro };
+    });
+    expect(r.home).toBe("chord: C · step 1 of 7");
+    expect(r.pent).toBe("chord: Am/C · step 1 of 5");                 // C E A: A minor over C
+    expect(r.micro).toMatch(/^chord on step 1 of 7$/);
+    await context.close();
+  });
+
+  it("?template=tadpoles opens a tadpole sea with a current, keeps your sheet aside, and only once", async () => {
+    const ctx0 = await browser.newContext();
+    const page = await ctx0.newPage();
+    await page.route(/fonts\.(googleapis|gstatic)/, (r) => r.abort());
+    await page.goto(PAGE); await page.waitForTimeout(400);
+    await page.evaluate(() => autosave && autosave());
+    await page.goto(PAGE + "?template=tadpoles"); await page.waitForTimeout(500);
+    const r = await page.evaluate(() => ({ n: loops.length, steady: loops.filter((l) => l.life === "steady").length, drone: state.drone, level, before: !!store.get(BEFORE_KEY) }));
+    await page.evaluate(() => { loops.splice(0, 3); autosave(); });
+    await page.reload(); await page.waitForTimeout(500);
+    const again = await page.evaluate(() => loops.length);
+    expect(r).toEqual({ n: 11, steady: 1, drone: true, level: 3, before: true });
+    expect(again).toBe(8);                                           // a reload keeps what you've done since
+    await ctx0.close();
   });
 });
