@@ -24,6 +24,7 @@ Public Domain (CC0-1.0), like the rest of the suite.
 |---|---|
 | `index.html` | **The whole app.** One self-contained file: markup, styles and one script. No build step, no dependencies. `scripts/sync-apps.mjs` copies it to `docs/apps/twirl/` for Pages. |
 | `test/` | Browser tests (Vitest + Playwright). See [Tests](#tests). |
+| `tools/twirl-carla.py` | Builds a Carla project that plays Twirl's MIDI voices with Surge XT (and GM drums), on Linux. |
 | `PLAN.md` | The work in order: phases with checklists (who, how, where), and questions for each workshop. |
 | `ROADMAP.md` | Where Twirl goes next: principles, the triage's decisions, every idea by theme. |
 | `HISTORY.md` | What shipped, when and why, with the details worth keeping. |
