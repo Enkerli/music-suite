@@ -636,7 +636,7 @@ kbd {
       <option value="lowfifth">Drone: low fifth</option><option value="fifth" selected>Drone: fifth</option>
       <option value="triad">Drone: triad</option><option value="open">Drone: open</option>
     </select>
-      <label class="tempo" for="droneVol">Level <input id="droneVol" type="range" min="0" max="1" step="0.05" value="0.5"></label>
+      <label class="tempo" for="droneVol">Level <input id="droneVol" type="range" min="0" max="1" step="0.05" value="0.3"></label>
       <select class="sel" id="droneSpace" aria-label="Drone space" title="Still: in the middle. Drifting: a little wide, wandering. Binaural: left and right a few hertz apart, a slow beat on headphones. Rotating: like a Leslie speaker, slowly">
       <option value="still">Space: still</option><option value="drift" selected>Space: drifting</option>
       <option value="binaural">Space: binaural</option><option value="rotate">Space: rotating</option>
@@ -973,7 +973,7 @@ const state = {
   warmth: 0.5,                 // the room: hiss, crackle, wobble, all barely there (section 8b); 0 = none
   droneSpace: "drift",         // how the Drone sits in space: still | drift | binaural | rotate (section 8)          // where the notes are on the sheet: "register" (further apart low down) or "even" (section 5)
   pack: "paper", density: "sparse", swing: 0,                 // few notes by default (2026-10-24)
-  droneVol: 0.5, droneVoicing: "fifth",
+  droneVol: 0.3, droneVoicing: "fifth",
   air: 0, arc: "off",                      // breathing room; tension & release (see harmonyAt)
   // Morph moves every loop on its own; with "reduce motion" set in the OS, it starts off (the Morph button turns it on).
   meet: true,                              // contacts: crossings and meetings (section 7b)
@@ -1675,8 +1675,12 @@ function walkFor(role, d, b) {
   return best;
 }
 function midiForDegree(d) {
+  // mod, not %: a step below the sheet's bottom row (fits moving a low note down
+  // to the chord, 2026-10-25) is the scale's top step an octave down. With % it
+  // read st[-1], undefined, and the note's pitch was NaN ("The provided value is
+  // non-finite", 20 of them in one of Alex's diagnostics).
   const g = gridNow(), st = stepsOf(g), n = st.length;
-  return baseMidi() + state.root + (periodOf(g) * Math.floor(d / n) + st[d % n]) / 100;
+  return baseMidi() + state.root + (periodOf(g) * Math.floor(d / n) + st[mod(d, n)]) / 100;
 }
 
 /* Chords: each note can be a stack, built from every other step of the
@@ -1719,6 +1723,7 @@ function sound(voice, xN, yN, vel, t, b, deg, chord = "single", pack = null, wal
   const each = vel / Math.sqrt(stack.length);
   for (const step of stack) {
     const midi = midiForDegree(walkFor(walkRole, root + step, b));
+    if (!Number.isFinite(midi)) { diag.skipped = (diag.skipped || 0) + 1; continue; }   // never again an exception per note (Q shows the count)
     const [v, at, m] = varied(each, t, midi);
     if (state.out === "sound" || state.out.startsWith("both")) {
       if (voice === "shake") voiceFn("shake", pack)(at, v, pan, 1 - yN);
@@ -2574,7 +2579,12 @@ const DRONE_VOICINGS = {
  * lower"). Measured: at the old level (0.1 × the slider) the Drone at its
  * default was about four times a typical loop's RMS, 12 dB over it. Now the
  * slider's default (0.5) is a little under one loop, and its top about twice. */
-const DRONE_GAIN = 0.01;   // and softer again (Alex, the same day: "Drone could be even softer"): about half a loop
+const DRONE_GAIN = 0.1;
+/* Then, the same day: "Drone could be even softer"; then "now too soft. Wasn't
+ * really asking for a lower range. More that it should start soft." So the
+ * range is the old one (0.1 at the top), the slider is a curve (level², finer
+ * low down), and it starts at 0.3: a little under one loop. */
+const droneLevel = (v) => Math.max(0.0002, DRONE_GAIN * v * v);
 const DRONE_SPACES = {   // side pan, rotor: rate (Hz), pan swing, loudness swing, Doppler (s), binaural split (Hz)
   still:    { side: 0,    rate: 0.01, pan: 0,    trem: 0,    dop: 0,       split: 0 },
   drift:    { side: 0.35, rate: 0.031, pan: 0.35, trem: 0,   dop: 0,       split: 0 },
@@ -2595,7 +2605,7 @@ function setDrone(on) {
   const g = ctx.createGain(), lfo = ctx.createOscillator(), lg = ctx.createGain();
   lfo.frequency.value = 0.06; lg.gain.value = 350; lfo.connect(lg); lfo.start();
   g.gain.setValueAtTime(0.0001, now);
-  g.gain.exponentialRampToValueAtTime(Math.max(0.0002, DRONE_GAIN * state.droneVol), now + 2);
+  g.gain.exponentialRampToValueAtTime(droneLevel(state.droneVol), now + 2);
   const pan = (v) => { const p = ctx.createStereoPanner ? ctx.createStereoPanner() : ctx.createGain(); if (p.pan) p.pan.value = v; return p; };
   const sides = [-1, 1].map((side) => {
     const f = ctx.createBiquadFilter(); f.type = "lowpass"; f.frequency.value = 800; f.Q.value = 0.7;
@@ -2626,7 +2636,7 @@ function setDrone(on) {
 }
 function setDroneVol(v) {
   state.droneVol = v;
-  if (drone) drone.g.gain.setTargetAtTime(Math.max(0.0002, DRONE_GAIN * v), ctx.currentTime, 0.2);
+  if (drone) drone.g.gain.setTargetAtTime(droneLevel(v), ctx.currentTime, 0.2);
 }
 function updateDrone(b, force = false) {
   if (!drone) return;
@@ -2875,7 +2885,7 @@ function dropToy(kind, where, size = 1) {
 /* Tadpoles (Alex, 2026-10-25: "small breeding and fading toys each with a single
  * note and long pause, eventually creating this sea of tadpole-like figures
  * moving in the space in a morphing ambiance. A bit like Conway's Game of
- * Life"). Five small figures, each a head (its one note) and a wriggling tail
+ * Life"). Three small figures, close together, each a head (its one note) and a wriggling tail
  * (the rest of its pass, silent), then a long rest (a bar or two). They drift;
  * when one touches another, it has a child (Meets: infect), at most once every
  * 16 bars; each fades over 16 or 32 passes and goes. Their children are
@@ -2883,9 +2893,12 @@ function dropToy(kind, where, size = 1) {
  * own, up to the 14-loop cap, where a newborn takes the oldest loop's place. */
 function dropTadpoles(cx, cy, W, H, m) {
   const made = [];
-  for (let k = 0; k < 5; k++) {
-    const hx = Math.min(W * 0.92, Math.max(W * 0.08, cx + (Math.random() - 0.5) * W * 0.36));
-    const hy = Math.min(H * 0.88, Math.max(H * 0.12, cy + (Math.random() - 0.5) * H * 0.4));
+  // Three, close together (Alex: "fewer tadpoles at a time, possibly closer
+  // together. With a max of 14 loops, they crowd the sheet quickly instead of
+  // populating it"): a little school that meets itself, with room to grow.
+  for (let k = 0; k < 3; k++) {
+    const hx = Math.min(W * 0.92, Math.max(W * 0.08, cx + (Math.random() - 0.5) * W * 0.16));
+    const hy = Math.min(H * 0.88, Math.max(H * 0.12, cy + (Math.random() - 0.5) * H * 0.2));
     const s = newStroke(nextStart()), len = m * (0.05 + Math.random() * 0.03), ang = Math.random() * 2 * Math.PI, wig = len * 0.16;
     const ux = Math.cos(ang), uy = -Math.sin(ang);                 // along the tail, on screen (y down)
     for (let i = 0; i <= 14; i++) {
@@ -3452,7 +3465,7 @@ function diagReport() {
   return {
     fps: avg ? Math.round(1000 / avg) : 0, slowestFrameMs: Math.round(Math.max(0, ...f)), lookaheadMs: Math.round(lookahead * 1000), sharpness: quality,
     notesPerSecond: diag.notes.length, loops: loops.length, notes: loops.reduce((a, l) => a + l.events.length, 0), fading: fading.length, undo: undone.length,
-    memory: mem, longTasks: diag.longTasks, errors: diag.errors.slice(), lastTap: diag.lastTap, audio: ctx ? ctx.state : "none",
+    memory: mem, longTasks: diag.longTasks, skippedNotes: diag.skipped || 0, errors: diag.errors.slice(), lastTap: diag.lastTap, audio: ctx ? ctx.state : "none",
     panels: { settings: !$("inspWrap").hidden, shelf: !$("shelf").hidden, drawer: document.body.classList.contains("drawer-open"), messages: !$("msgLog").hidden },
     replaying: !!replay, recording: !!(recorder || flowRec), level, ua: navigator.userAgent,
   };
@@ -3828,7 +3841,7 @@ function applySettings(st) {
   if (!GRID[state.grid]) state.grid = "pentMaj";
   $("bpm").value = state.bpm; $("bpmVal").textContent = state.bpm;
   if (typeof setVolume === "function") setVolume(state.volume ?? 0.8);
-  $("swing").value = String(state.swing || 0); $("air").value = String(state.air || 0); $("arc").value = state.arc || "off"; $("droneVol").value = String(state.droneVol ?? 0.5); $("droneVoicing").value = state.droneVoicing || "fifth";
+  $("swing").value = String(state.swing || 0); $("air").value = String(state.air || 0); $("arc").value = state.arc || "off"; $("droneVol").value = String(state.droneVol ?? 0.3); $("droneVoicing").value = state.droneVoicing || "fifth";
   if (!DRONE_SPACES[state.droneSpace]) state.droneSpace = "drift";
   $("droneSpace").value = state.droneSpace; $("warmth").value = String(state.warmth ?? 0.5); setWarmth(state.warmth ?? 0.5);
   if (typeof syncPen === "function") syncPen();
@@ -3848,7 +3861,7 @@ function recall(scene) {
   endReplay();
   loops.splice(0).forEach(fadeOut);
   const beatNow = nowBeat();
-  applySettings({ tuning: "equal", spread: "even", pen: "auto", lock: false, pack: state.pack, density: state.density, swing: 0, droneVol: 0.5, droneVoicing: "fifth", air: 0, arc: "off", ...(scene.settings || {}) });
+  applySettings({ tuning: "equal", spread: "even", pen: "auto", lock: false, pack: state.pack, density: state.density, swing: 0, droneVol: 0.3, droneVoicing: "fifth", air: 0, arc: "off", ...(scene.settings || {}) });
   if (ctx) t0 = nowAudio() - beatNow / bps();   // tempo may have changed: keep the beat continuous
   const start = nextStart();
   for (const d of scene.loops) loops.push(buildLoop(d, start, !!(scene.settings && scene.settings.revoice)));
@@ -4816,7 +4829,7 @@ async function startReplay(entry) {
   endReplay();
   if (loops.length) store.set(BEFORE_KEY, serialize());
   loops.splice(0).forEach(fadeOut); selected = null;
-  applySettingsKeepBeat({ tuning: "equal", pen: "auto", lock: false, swing: 0, droneVol: 0.5, droneVoicing: "fifth", air: 0, arc: "off", ...flow.st });
+  applySettingsKeepBeat({ tuning: "equal", pen: "auto", lock: false, swing: 0, droneVol: 0.3, droneVoicing: "fifth", air: 0, arc: "off", ...flow.st });
   replay = { flow, i: 0, b0: Math.ceil(nowBeat()), map: new Map(), n: entry.n, shown: "" };
   closeShelf(); renderLoopList();
   $("replayBar").hidden = false; syncReplayBar(); shrinkReplayBarSoon();
@@ -5710,9 +5723,9 @@ function freshKey() {
  * URL"). ?template=<name> opens a ready-made sheet instead of the usual one;
  * your own last sheet is kept aside (Scenes → "Back to my sheet"), as when a
  * shared link opens. The first:
- *   tadpoles   a tadpole sea with a current to run into: a long, steady line
- *              across them (contacts are what keep a sea alive), Drone on,
- *              drifting, at Everything */
+ *   tadpoles   two small schools of tadpoles and a current to run into: a
+ *              long, steady line across them (contacts are what keep a sea
+ *              alive), Drone on, drifting, at Everything */
 const TEMPLATES = {
   tadpoles: { settings: { drone: true, droneSpace: "drift" }, level: 3, make(W, H) {
     const m = Math.min(W, H);

@@ -40,65 +40,94 @@ are marked.
    half in reach, not pick one.
 8. **No carcinogenesis** *(new)*. A new feature joins an existing idea
    (contacts, lives, tools, zones, templates) rather than adding a new kind of
-   thing; this table's order is the brake.
+   thing; the decisions below are the brake.
 
 ## Shipped lately (2026-10-25)
 
-- **Undo what happened**: every event the sheet makes on its own (a child, a
-  merge, a trade, a life's end, a loop thrown away) carries its own Undo in
-  the "What just happened" log, not only the latest.
-- **The current chord** shows at the top of the sheet while Walk or Arc runs.
-- **The Drone, softer still**: about half a loop's loudness at its default.
-- **Tadpoles are ephemeral again** ("they don't need that steady loop. It's
-  for a template to include that. The ephemeral tadpoles breeding a bit before
-  disappearing is semi-poetic"); the current moved to the first **template**,
-  `?template=tadpoles` (#3 has begun).
+Undo what happened (each event in the log carries its own Undo); the current
+chord on the sheet under Walk or Arc; Merge; tadpoles ephemeral and three at
+a time, close together ("they crowd the sheet quickly instead of populating
+it"), with the current moved to the first template, `?template=tadpoles`; the
+Drone with its old range but starting soft (a little under one loop); the
+Drone's space drawn per fresh sheet; the drawer in two modes with seven
+sections. Fixed: a note one step below the sheet's bottom row had no pitch
+(Walk's *fits* can move a low note there), which threw an error per note.
+Everything else is in [HISTORY.md](HISTORY.md).
 
-- **Merge** (Meets): a loop swallows the loops it runs into: its path, then
-  the other's, notes and all, as they are on the sheet (up to 16 beats; once
-  every 4 bars); the other goes to undo. Breeding adds loops, merging takes
-  them away, so a sheet can find a balance.
-- **A current** for tadpoles to run into ("A long tadpole run ended up being
-  rather short, as there were few collisions… Adding steady loops which cut
-  across multiple tadpoles can make that work"): now in the template.
-- **A quieter Drone** ("the equivalent volume of a single loop, maybe a bit
-  lower"): measured at four times a loop's loudness before; now a little
-  under one loop at its default.
-- **The Drone's space drawn per fresh sheet** ("if it isn't assigned
-  arbitrarily, it probably should be"), drifting most often. Loops were
-  already placed in space: left to right on the sheet is left to right.
-- **The drawer in two modes**, Everything in seven labelled, folding
-  sections: Drawing, Time, Pitch, Loops together, Harmony, Sound and room,
-  View. Next: the design pass ([DESIGN_BRIEF.md](DESIGN_BRIEF.md)).
+## Decisions (Alex's triage, 2026-10-25)
 
-Earlier the same day: spacing by register, Warmth, the Drone's spaces,
-Tadpoles, colourful paths, Smooth, Beats, Walk's *fits* default, keyboard
-moves between loops. See [HISTORY.md](HISTORY.md).
+Made in the [triage form](https://claude.ai/artifact/9cRP9c3bvqSRQG7NzPYXYA):
+76 ideas, each **Next**, **Workshop** or **Later** (nothing set to Now, and
+nothing ruled out), with Alex's value (1–5). E is Claude's effort estimate.
+Within a group: value first, then less effort.
 
-## Priorities
+### Next
 
-Value and effort are 1–5, qualitative. *Depends on* names what must come
-first.
-
-| # | What | Value | Effort | Depends on | Why now |
+| | Idea | Value | E | Theme | Note |
 |---|---|---|---|---|---|
-| 1 | **Playtests, round 1** ([PLAYTESTING.md](PLAYTESTING.md)) | 5 | 2 | – | Two days of features unseen by anyone but Alex; first contact, legibility, repetition, the two modes |
-| 2 | **Design pass**: the drawer, a loop's settings, symbols, palettes ([brief](DESIGN_BRIEF.md)) | 5 | 3 | this run of the drawer | The settings panel is the least designed surface; symbols cut text before translation |
-| 3 | **Templates by URL** (`?template=…`; the first, `tadpoles`, shipped) | 4 | 1 | – | Cheap; keeps Simple simple; workshop, lesson and playtest conditions in one link |
-| 4 | **Ready for translation**, and a Suite glossary | 4 | 3 | 2 (symbols first) | A lot of text; French next; one name per idea across the suite |
-| 5 | **Tools and palettes**: brushes, lasso and selection, groups | 4 | 3 | 2 | Steering a busy sheet; many loops at once |
-| 6 | **Sound**: sustained voices and legato, master FX, a channel per loop | 4 | 3 | – | Lines that sing; a mix that breathes; the multichannel path |
-| 7 | **The evolving patch, next**: lifetimes, tides, seasons, ecology, motion | 4 | 3 | 1 | Repetition, the complaint that keeps coming back |
-| 8 | **Mutation v2**: musical, seeded, families | 4 | 3 | – | Breeding sounds only as good as its mutations |
-| 9 | **Zones, terrain, traces** (workshop) | 4 | 4 | 1, 7 | Places on the sheet: controllers and colour; loops as performers |
-| 10 | **Harmony** (workshop) | 4 | 4 | 1 | Chords, voicings, a progression loops adapt to |
-| 11 | **MIDI in** for control | 4 | 3 | 5 (groups) | Performance with a controller |
-| 12 | **Workspace** and the suite's bus | 4 | 3 | 2 | Twirl among the suite's modules |
-| 13 | **Plugin and standalone** (Linux first) | 4 | 4 | the `sendMidi` seam (done) | A parallel track |
-| 14 | **Timing, next**: its own grid, polytempo, grooves, curves | 3 | 3 | 1 | – |
-| 15 | **Health**: the iPad measured, an off-thread clock, a voice pool | 3 | 3 | – | Before sheets get busier still |
-| 16 | **Notations**, semi-hidden (UPI, PCS readouts) | 3 | 2 | 12 | For the curious; never at Simple |
-| 17 | Later projects: pitch geometries, performance animation, generative accompaniment, personalities, learning from shared data | 4 | 4–5 | each its own | Still wanted |
+| 1 | **A synth from the Pages URL on Linux** | 5 | 1 | 13 | The first plugin step, no C++: Web MIDI in Chromium checks the channel map and timing |
+| 2 | **Measured on the iPad** | 5 | 1 | 15 | Q and ⇧Q on the device (one diagnostic already found a bug) |
+| 3 | **An off-thread clock** | 5 | 3 | 15 | A Worker or AudioWorklet tick, so a busy frame can't delay a note |
+| 4 | **More templates** | 4 | 1 | 3 | An ambient room, a drum-and-bells starter, a Lock grid, a microtonal sheet |
+| 5 | **Playtests, round 1** | 4 | 2 | 1 | [PLAYTESTING.md](PLAYTESTING.md) |
+| 6 | **Aligned with the suite** | 4 | 2 | 2 | Tokens and components from `packages/ui`; after or with the design pass |
+| 7 | **French** | 4 | 2 | 4 | Needs the string table (Workshop): the table comes first, as part of this |
+| 8 | **Design pass with the design agent** | 4 | 3 | 2 | [DESIGN_BRIEF.md](DESIGN_BRIEF.md) |
+
+One dependency to settle: French waits on *one table of strings*, which is
+in Workshop. Building the table is mostly mechanical; the workshop part is
+the glossary and the words themselves.
+
+### Workshop: each needs a conversation first
+
+Alex: "Most of the 'Workshop' ideas require notes." These are wanted, and
+want thinking before building. Value 5 first:
+
+- **Value 5.** Distance and time made visible · Readouts (UPI, PCS) · A
+  Suite glossary · Seeded, replayable mutation · CCs set loops · Groove
+  templates · Tempo curves · Typed input as a toy · Round trips with the
+  suite · Ecology controls · Scale- and grid-aware mutation · Traces ·
+  Chords as roles · Voicings · Progressions from the suite · DrawnQurve-style
+  quantize · A loop's own tempo · Shapeshifting · Zones · Terrain · A
+  progression loops adapt to · The plugin shell · Generative accompaniment.
+- **Value 4.** Playtest conditions as templates · Lifetimes in cycles or beats
+  · Seasons · Mutation strength and targets · A loop's own grid · Polyrhythm
+  per loop · One table of strings · Multi-out in the plugin · Performance
+  animation.
+- **Value 3.** A small symbol set · Copy a template link from any sheet · MIDI
+  learn · A voice pool · Twirl on the SuiteBus · Alternative pitch geometries ·
+  Loops that come back (tides).
+- **Value 2.** Conditions to compare · A loop's settings, redesigned.
+
+They cluster into a few conversations, which is how to run them (one at a
+time, notes taken by Claude, decisions written back here):
+1. **Time**: distance and time made visible, a loop's own tempo and grid,
+   polyrhythm, grooves, tempo curves, DrawnQurve-style quantize.
+2. **Harmony**: a progression, chords as roles, voicings, progressions from
+   the suite.
+3. **Places**: zones, terrain, traces.
+4. **Change over time**: ecology, shapeshifting, seasons, lifetimes, tides,
+   mutation (strength, scale-aware, seeds).
+5. **The suite**: readouts, typed input, round trips, the SuiteBus, the
+   glossary and string table, symbols.
+6. **Out of the page**: the plugin shell, multi-out, CCs and MIDI learn, a
+   voice pool, generative accompaniment, performance animation, pitch
+   geometries.
+
+### Later
+
+Wanted, not now (value 5 first): more toys with their own sounds · loops that
+speed up or slow down · notes pick loops (MIDI) · personalities · learning
+from shared data · Surprise hands out more · a silent zone · momentum · master
+FX · pressure you can see · arpeggio objects · Vary, next · space for loops ·
+more to trade · brushes · lasso and tap-to-select · groups · a path to travel
+· sustained voices and legato · a channel per loop · chimes that behave like
+chimes · merge, next · guide screenshots refreshed · Edit shows where a note
+can go · palettes per family · a family view · Alex's own long runs.
+
+Worth noticing: *CCs set loops* (Workshop) depends on *notes pick loops*
+(Later), and *multi-out in the plugin* on *a channel per loop* (Later). The
+workshops on MIDI and on the plugin can decide whether those move up.
 
 ## The themes
 

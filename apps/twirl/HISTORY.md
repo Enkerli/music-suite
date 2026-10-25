@@ -154,3 +154,10 @@ settings once grew wider than a phone (Meets' seventh answer): rows wrap now.
 **Undo what happened**: each event the sheet makes on its own carries its own
 Undo in the log. **The current chord** on the sheet under Walk. Tadpoles
 without the current; the current in `?template=tadpoles`, the first template.
+
+**After the triage** (Alex's decisions in the roadmap): tadpoles three at a
+time and closer together; the Drone back to its old range, starting soft (a
+level² slider from 0.3); a fix for notes one step below the sheet's bottom row
+("The provided value is non-finite", twenty in one diagnostic): `%` on a
+negative step read past the scale, now `mod`, and a note without a pitch is
+skipped and counted (Q: skippedNotes) rather than throwing.
