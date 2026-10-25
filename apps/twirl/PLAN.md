@@ -83,6 +83,19 @@ such as Surge XT or Bitwig, don't appear as outputs, so Twirl goes through
       `aconnect -l`, then `aconnect "Midi Through":0 <synth>:0`.
 - [ ] (VirMIDI ports carry MIDI between a raw-MIDI app and the sequencer; for
       browser → synth, Midi Through is the simpler road.)
+- [x] It works (Alex, 2026-10-25, through Midi Through).
+- [ ] **One instrument per voice, in Carla**:
+      [`tools/twirl-carla.py`](tools/twirl-carla.py) builds a Carla project
+      with a Surge XT for pluck, bell and blip (channels 1–3), each behind a
+      MIDI channel filter, and the General MIDI soundfont for drums on 10
+      (`sudo apt install fluid-soundfont-gm`; or `--drums surge`). Run
+      `python3 apps/twirl/tools/twirl-carla.py` (through `pw-jack` with
+      PipeWire), open `~/twirl-surge.carxp` in Carla, choose a patch in each
+      Surge XT, save. Then connect Midi Through to Carla's MIDI input.
+      (Built and checked against Carla 2.5.8 on a JACK server: the filters
+      pass only their channel, the wiring holds, channel 10 plays a kit.
+      Surge XT itself couldn't be installed for the check, so its loading is
+      the part to confirm on your machine.)
 - [ ] Each voice on its channel: draw right (pluck), up (bell), left (blip),
       down (drums), scribble (shaker). ⇧Q shows `midi.last` (channel, note,
       velocity) and `midi.sent`.
