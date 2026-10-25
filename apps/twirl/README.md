@@ -24,7 +24,9 @@ Public Domain (CC0-1.0), like the rest of the suite.
 |---|---|
 | `index.html` | **The whole app.** One self-contained file: markup, styles and one script. No build step, no dependencies. `scripts/sync-apps.mjs` copies it to `docs/apps/twirl/` for Pages. |
 | `test/` | Browser tests (Vitest + Playwright). See [Tests](#tests). |
-| `ROADMAP.md` | Where Twirl goes next, in what order, and the rules every change keeps. |
+| `ROADMAP.md` | Where Twirl goes next: principles, one priority table, every idea by theme. |
+| `HISTORY.md` | What shipped, when and why, with the details worth keeping. |
+| `DESIGN_BRIEF.md`, `design/` | The brief for the design pass, and screenshots of where things stand. |
 | `PLAYTESTING.md` | Targeted sessions with people: what to learn, who, how, conditions to compare. |
 | `A11Y.md` | The accessibility record: what was found, fixed, and still untested. |
 
@@ -127,7 +129,7 @@ instead (`tests.yml` installs the browser).
 |---|---|
 | Pages: `…/music-suite/apps/twirl/` | Deployed from `main` by `deploy-pages.yml` |
 | claude.ai artifacts | The pages it started as, kept in step with this file; there, the drawer says Twirl lives on Pages, and share links point there |
-| Plugin / standalone (AUv3, LV2…) | Not yet: see [ROADMAP.md](ROADMAP.md#the-plugin-and-standalone-path) |
+| Plugin / standalone (AUv3, LV2…) | Not yet: see [ROADMAP.md](ROADMAP.md#13-the-plugin-and-standalone-path) |
 
 ## History
 

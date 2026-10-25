@@ -164,8 +164,24 @@ body {
 /* Progressive disclosure: controls marked data-level only show from that level up. */
 .lvl-1 [data-level="2"], .lvl-1 [data-level="3"], .lvl-2 [data-level="3"] { display: none !important; }
 .levels { width: 100%; }
+/* The drawer's sections, at Everything: a labelled compartment each, folding. */
+.dsec { border-top: 1px solid var(--rule); padding-top: 10px; }
+.dsec > summary { cursor: pointer; list-style: none; display: flex; align-items: baseline; gap: 8px; min-height: 32px; }
+.dsec > summary::-webkit-details-marker { display: none; }
+.dsec > summary::before { content: "▸"; color: var(--ink-muted); font-size: 0.8rem; transition: transform 0.15s; }
+.dsec[open] > summary::before { transform: rotate(90deg); }
+.dsec > summary:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; border-radius: 6px; }
+.dtitle { font: 600 1.15rem/1.1 var(--font-hand); margin: 0; }
+.dsub { font: 400 0.75rem/1.2 var(--font-sans); color: var(--ink-muted); }
+.dsec > .group { margin-top: 8px; }
+.dsec-flat > .dtitle { margin-bottom: 8px; }
+.is-drawer .strip .dsec .tempo, .dsec #grid, .dsec #spread, .dsec #walkWay, .dsec #div, .dsec #droneSpace { grid-column: 1 / -1; }
+@media (prefers-reduced-motion: reduce) { .dsec > summary::before { transition: none; } }
 .levels .btn { flex: 1; }
-.inspector { max-width: 560px; }
+.inspector { max-width: min(560px, 100%); box-sizing: border-box; }
+/* A row of choices wraps rather than widening the panel past a phone's screen
+   (Meets' seventh answer, merge, once pushed Done off the edge at 390 px). */
+.insprow .seg { flex-wrap: wrap; max-width: 100%; }
 .insprow { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
 .insprow .lbl { min-width: 3.6rem; font: 400 0.75rem/1 var(--font-mono); color: var(--ink-muted); }
 .insprow .seg .btn { padding: 0 10px; }
@@ -504,12 +520,8 @@ kbd {
   <button class="btn primary" id="power" type="button">Start sound</button>
   <div class="seg levels" role="group" aria-label="How many controls to show">
     <button class="btn" type="button" data-set-level="1" aria-pressed="true">Simple</button>
-    <button class="btn" type="button" data-set-level="2" aria-pressed="false">More</button>
     <button class="btn" type="button" data-set-level="3" aria-pressed="false">Everything</button>
   </div>
-  <label class="tempo" for="bpm"><span id="bpmVal">96</span> bpm
-    <input id="bpm" type="range" min="60" max="160" step="1" value="96">
-  </label>
   <label class="tempo" for="vol">Volume
     <input id="vol" type="range" min="0" max="1" step="0.05" value="0.8">
   </label>
@@ -519,94 +531,126 @@ kbd {
       <option value="steel">Sounds: steel</option><option value="kalimba">Sounds: kalimba</option><option value="chip">Sounds: chip</option>
       <option value="chimes">Sounds: chimes</option>
     </select>
-    <select class="sel" id="density" aria-label="How many notes a new stroke makes" title="A note lands each time the line has gone a set distance, and wherever it turns sharply. Each loop can change its own later (hold it → Notes)">
-      <option value="sparse" selected>Notes: few</option><option value="medium">Notes: some</option><option value="dense">Notes: many</option>
-    </select>
-    <button class="btn" id="loopBtn" type="button" aria-pressed="true" title="Strokes keep replaying">Loop</button>
+    <button class="btn" id="fsBtn" type="button" aria-pressed="false" hidden>Full screen <kbd>F</kbd></button>
+    <button class="btn" id="keysBtn" type="button" aria-haspopup="dialog">Keyboard shortcuts <kbd>H</kbd></button>
   </span>
-  <label class="tempo" for="air" data-level="2" title="When the scene gets busy, the notes that matter least in the bar (Barlow's indispensability) rest, and weaker positions play softer. Downbeats always play">Air
-    <input id="air" type="range" min="0" max="1" step="0.05" value="0">
-  </label>
-  <span class="group" data-level="2">
-    <select class="sel" id="grid" aria-label="Pitch grid (horizontal lines)"></select>
-    <select class="sel" id="root" aria-label="Root"></select>
-    <select class="sel" id="range" aria-label="Range: how many octaves the sheet covers">
-      <option value="1">1 oct</option><option value="2">2 oct</option>
-      <option value="3" selected>3 oct</option><option value="4">4 oct</option>
-    </select>
-    <select class="sel" id="spread" data-level="3" aria-label="Spacing: where the notes are on the sheet" title="By register: notes further apart low down, closer up high, as the ear hears roughness (a third is muddy in the bass); every octave the same height. Even: every step of the scale one row">
-      <option value="register" selected>Spacing: by register</option><option value="even">Spacing: even</option>
-    </select>
-    <select class="sel" id="div" aria-label="Beat division (vertical lines): snap, and Lock's pulse">
-      <option value="free">Free</option><option value="4">1/4</option><option value="8">1/8</option>
-      <option value="8t">1/8T</option><option value="16" selected>1/16</option><option value="16t">1/16T</option>
-      <option value="32">1/32</option><option value="64">1/64</option>
-    </select>
-  </span>
-  <span class="group" data-level="2">
-    <select class="sel" id="pen" aria-label="Pen: which voice new strokes play">
+  <section class="dsec dsec-flat" aria-labelledby="secSheets">
+    <h3 class="dtitle" id="secSheets">Sheets and toys</h3>
+    <span class="group">
+      <button class="btn" id="toyBtn" type="button" aria-expanded="false" aria-controls="toybox"><span class="long">Toybox</span><span class="short" aria-hidden="true">Toys</span></button>
+      <button class="btn" id="myToyBtn" type="button" aria-expanded="false" aria-controls="mytoys">My toys</button>
+      <button class="btn" id="sceneBtn" type="button" aria-expanded="false" aria-controls="scenes">Scenes</button>
+      <button class="btn" id="clear" type="button">Clear</button>
+      <button class="btn" id="initBtn" type="button" title="A fresh start: the starting sheet and every setting back to how Twirl begins. Your volume, MIDI output, saved scenes and My toys stay. Two taps; for 10 seconds after, it can bring everything back">Start over</button>
+    </span>
+  </section>
+  <details class="dsec" data-level="3" data-sec="drawing" open>
+    <summary><span class="dtitle">Drawing</span> <span class="dsub">what a new stroke does</span></summary>
+    <div class="group">
+      <select class="sel" id="pen" aria-label="Pen: which voice new strokes play">
       <option value="auto">Pen: direction</option><option value="drum">Pen: drums</option>
       <option value="pluck">Pen: pluck</option><option value="bell">Pen: bell</option>
       <option value="blip">Pen: blip</option><option value="shake">Pen: shaker</option>
     </select>
-    <button class="btn" id="lockBtn" type="button" aria-pressed="false" data-level="2" title="Every loop (unless it opts out) is read on the beat grid, like DrawnQurve: a steady pulse, pitch snapped to the lines">Lock</button>
-    <button class="btn" id="meetBtn" type="button" aria-pressed="true" data-level="2" title="When a playhead crosses a line, or two playheads meet, the loops answer: each loop's settings say how (Meets)">Meet</button>
-    <button class="btn" id="diceBtn" type="button" aria-pressed="true" data-level="2" title="New loops get a direction, a rhythm and a way of meeting at random (mostly the usual ones; never breed). Off: forward, as drawn, sound">Surprise</button>
-    <button class="btn" id="evolveBtn" type="button" aria-pressed="true" data-level="2" title="Loops with a Life (hold one → Life) swell, fade and come and go, pass by pass. Off: every life holds where it is">Evolve</button>
-    <button class="btn" id="varyBtn" type="button" aria-pressed="true" data-level="2" title="No two notes quite alike: each one a little louder or softer, earlier or later, brighter or duller, like a sampler's round-robin. Off: every repeat the same">Vary</button>
-    <button class="btn" id="morphBtn" type="button" aria-pressed="true" title="Loops move on their own; hold a loop to choose how">Morph</button>
-    <button class="btn" id="editBtn" type="button" aria-pressed="false" title="Drag the square handles to bend a path; tap a path to add a note, tap a note to remove it, double-tap a note to change its sound; hold a loop to smooth it">Edit notes</button>
-    <button class="btn" id="numBtn" type="button" aria-pressed="false" title="Show each loop's number on the sheet (keys 1–9 pick them; pressing one shows them)">Numbers</button>
-    <button class="btn" id="beatsBtn" type="button" aria-pressed="false" data-level="2" title="Show where the beats fall: ticks across each loop, and lines down the sheet (those always show with Lock, where they're what plays)">Beats</button>
-    <button class="btn" id="smoothBtn" type="button" aria-pressed="true" data-level="2" title="New strokes settle into a smooth curve when you lift (scribbles stay scribbles). Off: kept exactly as drawn">Smooth</button>
-  </span>
-  <select class="sel" id="arc" data-level="2" aria-label="Arc: tension and release over bars" title="Home, away, pull, then home on the last bar, where melodies resolve to the home chord">
-    <option value="off">Arc: off</option><option value="4">Arc: 4 bars</option><option value="8">Arc: 8 bars</option>
-  </select>
-  <label class="tempo" for="swing" data-level="2">Swing
+      <select class="sel" id="density" aria-label="How many notes a new stroke makes" title="A note lands each time the line has gone a set distance, and wherever it turns sharply. Each loop can change its own later (hold it → Notes)">
+      <option value="sparse" selected>Notes: few</option><option value="medium">Notes: some</option><option value="dense">Notes: many</option>
+    </select>
+      <button class="btn" id="smoothBtn" type="button" aria-pressed="true" title="New strokes settle into a smooth curve when you lift (scribbles stay scribbles). Off: kept exactly as drawn">Smooth</button>
+      <button class="btn" id="loopBtn" type="button" aria-pressed="true" title="Strokes keep replaying">Loop</button>
+      <button class="btn" id="diceBtn" type="button" aria-pressed="true" title="New loops get a direction, a rhythm and a way of meeting at random (mostly the usual ones; never breed). Off: forward, as drawn, sound">Surprise</button>
+      <button class="btn" id="revoiceBtn" type="button" aria-pressed="false" title="For new loops: turning a loop changes its voices (each loop can be changed by holding it)">Revoice</button>
+      <button class="btn" id="editBtn" type="button" aria-pressed="false" title="Drag the square handles to bend a path; tap a path to add a note, tap a note to remove it, double-tap a note to change its sound; hold a loop to smooth it">Edit notes</button>
+    </div>
+  </details>
+  <details class="dsec" data-level="3" data-sec="time" open>
+    <summary><span class="dtitle">Time</span> <span class="dsub">tempo, grid, feel</span></summary>
+    <div class="group">
+      <label class="tempo" for="bpm"><span id="bpmVal">96</span> bpm
+    <input id="bpm" type="range" min="60" max="160" step="1" value="96">
+  </label>
+      <select class="sel" id="div" aria-label="Beat division (vertical lines): snap, and Lock's pulse">
+      <option value="free">Division: free</option><option value="4">Division: 1/4</option><option value="8">Division: 1/8</option>
+      <option value="8t">Division: 1/8T</option><option value="16" selected>Division: 1/16</option><option value="16t">Division: 1/16T</option>
+      <option value="32">Division: 1/32</option><option value="64">Division: 1/64</option>
+    </select>
+      <label class="tempo" for="swing">Swing
     <input id="swing" type="range" min="0" max="0.5" step="0.05" value="0">
   </label>
-  <span class="group" data-level="3">
-    <select class="sel" id="tuning" aria-label="Tuning for 12-note grids: equal, just (5-limit), Pythagorean, quarter-comma meantone, Werckmeister III" title="Just = 5-limit · Meantone = ¼-comma">
-      <option value="equal">Equal</option><option value="just">Just</option>
-      <option value="pyth">Pythag.</option><option value="meantone">Meantone</option>
-      <option value="werck">Werck. III</option>
+      <button class="btn" id="lockBtn" type="button" aria-pressed="false" data-level="3" title="Every loop (unless it opts out) is read on the beat grid, like DrawnQurve: a steady pulse, pitch snapped to the lines">Lock</button>
+      <label class="tempo" for="air" title="When the scene gets busy, the notes that matter least in the bar (Barlow's indispensability) rest, and weaker positions play softer. Downbeats always play">Air
+    <input id="air" type="range" min="0" max="1" step="0.05" value="0">
+  </label>
+    </div>
+  </details>
+  <details class="dsec" data-level="3" data-sec="pitch" open>
+    <summary><span class="dtitle">Pitch</span> <span class="dsub">scale, range, tuning</span></summary>
+    <div class="group">
+      <select class="sel" id="grid" aria-label="Pitch grid (horizontal lines)"></select>
+      <select class="sel" id="root" aria-label="Root"></select>
+      <select class="sel" id="range" aria-label="Range: how many octaves the sheet covers">
+      <option value="1">1 oct</option><option value="2">2 oct</option>
+      <option value="3" selected>3 oct</option><option value="4">4 oct</option>
     </select>
-    <button class="btn" id="revoiceBtn" type="button" aria-pressed="false" title="For new loops: turning a loop changes its voices (each loop can be changed by holding it)">Revoice</button>
-    <button class="btn" id="walkBtn" type="button" aria-pressed="false" title="Every few bars, everything (and the Drone) shifts along the scale">Walk</button>
-    <select class="sel" id="walkWay" aria-label="How Walk moves">
+      <select class="sel" id="spread" aria-label="Spacing: where the notes are on the sheet" title="By register: notes further apart low down, closer up high, as the ear hears roughness (a third is muddy in the bass); every octave the same height. Even: every step of the scale one row">
+      <option value="register" selected>Spacing: by register</option><option value="even">Spacing: even</option>
+    </select>
+      <select class="sel" id="tuning" aria-label="Tuning for 12-note grids: equal, just (5-limit), Pythagorean, quarter-comma meantone, Werckmeister III" title="Just = 5-limit · Meantone = ¼-comma">
+      <option value="equal">Tuning: equal</option><option value="just">Tuning: just</option>
+      <option value="pyth">Tuning: Pythag.</option><option value="meantone">Tuning: meantone</option>
+      <option value="werck">Tuning: Werck. III</option>
+    </select>
+    </div>
+  </details>
+  <details class="dsec" data-level="3" data-sec="together" open>
+    <summary><span class="dtitle">Loops together</span> <span class="dsub">meeting, moving, changing</span></summary>
+    <div class="group">
+      <button class="btn" id="meetBtn" type="button" aria-pressed="true" title="When a playhead crosses a line, or two playheads meet, the loops answer: each loop's settings say how (Meets)">Meet</button>
+      <button class="btn" id="morphBtn" type="button" aria-pressed="true" title="Loops move on their own; hold a loop to choose how">Morph</button>
+      <button class="btn" id="evolveBtn" type="button" aria-pressed="true" title="Loops with a Life (hold one → Life) swell, fade and come and go, pass by pass. Off: every life holds where it is">Evolve</button>
+    </div>
+  </details>
+  <details class="dsec" data-level="3" data-sec="harmony" open>
+    <summary><span class="dtitle">Harmony</span> <span class="dsub">moving the key, shaping bars</span></summary>
+    <div class="group">
+      <button class="btn" id="walkBtn" type="button" aria-pressed="false" title="Every few bars, everything (and the Drone) shifts along the scale">Walk</button>
+      <select class="sel" id="walkWay" aria-label="How Walk moves">
       <option value="steps">Walk: a progression</option><option value="sway">Walk: sway</option><option value="fifths">Walk: by fifths</option>
       <option value="climb">Walk: climb</option><option value="wander">Walk: wander</option>
     </select>
-    <select class="sel" id="walkPace" aria-label="How often Walk moves">
+      <select class="sel" id="walkPace" aria-label="How often Walk moves">
       <option value="1">every bar</option><option value="2" selected>every 2 bars</option><option value="4">every 4 bars</option><option value="8">every 8 bars</option>
     </select>
-    <button class="btn" id="droneBtn" type="button" aria-pressed="false" title="A slow pad underneath, following Walk; voicing and level below">Drone</button>
-    <select class="sel" id="out" aria-label="Output" hidden></select>
-  </span>
-  <span class="group" data-level="3">
-    <select class="sel" id="droneVoicing" aria-label="Drone voicing">
+      <select class="sel" id="arc" aria-label="Arc: tension and release over bars" title="Home, away, pull, then home on the last bar, where melodies resolve to the home chord">
+    <option value="off">Arc: off</option><option value="4">Arc: 4 bars</option><option value="8">Arc: 8 bars</option>
+  </select>
+    </div>
+  </details>
+  <details class="dsec" data-level="3" data-sec="room" open>
+    <summary><span class="dtitle">Sound and room</span> <span class="dsub">variation, drone, warmth, output</span></summary>
+    <div class="group">
+      <button class="btn" id="varyBtn" type="button" aria-pressed="true" title="No two notes quite alike: each one a little louder or softer, earlier or later, brighter or duller, like a sampler's round-robin. Off: every repeat the same">Vary</button>
+      <label class="tempo" for="warmth" title="The room: a breath of hiss, the odd crackle, a hint of tape wobble. Meant to be felt more than heard; 0 turns it off">Warmth <input id="warmth" type="range" min="0" max="1" step="0.05" value="0.5"></label>
+      <button class="btn" id="droneBtn" type="button" aria-pressed="false" title="A slow pad underneath, following Walk; voicing and level below">Drone</button>
+      <select class="sel" id="droneVoicing" aria-label="Drone voicing">
       <option value="lowfifth">Drone: low fifth</option><option value="fifth" selected>Drone: fifth</option>
       <option value="triad">Drone: triad</option><option value="open">Drone: open</option>
     </select>
-    <label class="tempo" for="droneVol">Level <input id="droneVol" type="range" min="0" max="1" step="0.05" value="0.5"></label>
-    <select class="sel" id="droneSpace" aria-label="Drone space" title="Still: in the middle. Drifting: a little wide, wandering. Binaural: left and right a few hertz apart, a slow beat on headphones. Rotating: like a Leslie speaker, slowly">
+      <label class="tempo" for="droneVol">Level <input id="droneVol" type="range" min="0" max="1" step="0.05" value="0.5"></label>
+      <select class="sel" id="droneSpace" aria-label="Drone space" title="Still: in the middle. Drifting: a little wide, wandering. Binaural: left and right a few hertz apart, a slow beat on headphones. Rotating: like a Leslie speaker, slowly">
       <option value="still">Space: still</option><option value="drift" selected>Space: drifting</option>
       <option value="binaural">Space: binaural</option><option value="rotate">Space: rotating</option>
     </select>
-    <label class="tempo" for="warmth" title="The room: a breath of hiss, the odd crackle, a hint of tape wobble. Meant to be felt more than heard; 0 turns it off">Warmth <input id="warmth" type="range" min="0" max="1" step="0.05" value="0.5"></label>
-  </span>
-  <span class="spacer"></span>
-  <span class="group">
-    <button class="btn" id="toyBtn" type="button" aria-expanded="false" aria-controls="toybox"><span class="long">Toybox</span><span class="short" aria-hidden="true">Toys</span></button>
-    <button class="btn" id="myToyBtn" type="button" aria-expanded="false" aria-controls="mytoys">My toys</button>
-    <button class="btn" id="sceneBtn" type="button" aria-expanded="false" aria-controls="scenes">Scenes</button>
-    <button class="btn" id="clear" type="button">Clear</button>
-    <button class="btn" id="msgModeBtn" type="button" aria-pressed="false" title="Show every message on the sheet as it happens (I). Off: they stay behind the dot in the footer; either way, screen readers hear them">Show messages <kbd>I</kbd></button>
-    <button class="btn" id="initBtn" type="button" title="A fresh start: the starting sheet and every setting back to how Twirl begins. Your volume, MIDI output, saved scenes and My toys stay. Two taps; for 10 seconds after, it can bring everything back">Start over</button>
-  </span>
-  <button class="btn" id="fsBtn" type="button" aria-pressed="false" hidden>Full screen <kbd>F</kbd></button>
-  <button class="btn" id="keysBtn" type="button" aria-haspopup="dialog">Keyboard shortcuts <kbd>H</kbd></button>
+      <select class="sel" id="out" aria-label="Output" hidden></select>
+    </div>
+  </details>
+  <details class="dsec" data-level="3" data-sec="view" open>
+    <summary><span class="dtitle">View</span> <span class="dsub">what the sheet shows</span></summary>
+    <div class="group">
+      <button class="btn" id="numBtn" type="button" aria-pressed="false" title="Show each loop's number on the sheet (keys 1–9 pick them; pressing one shows them)">Numbers</button>
+      <button class="btn" id="beatsBtn" type="button" aria-pressed="false" title="Show where the beats fall: ticks across each loop, and lines down the sheet (those always show with Lock, where they're what plays)">Beats</button>
+      <button class="btn" id="msgModeBtn" type="button" aria-pressed="false" title="Show every message on the sheet as it happens (I). Off: they stay behind the dot in the footer; either way, screen readers hear them">Show messages <kbd>I</kbd></button>
+    </div>
+  </details>
   <p class="drawerlinks"><a href="https://enkerli.github.io/music-suite/doc.html?p=twirl-guide" target="_blank" rel="noopener">Twirl guide ↗</a> · <a href="https://github.com/Enkerli/music-suite/tree/main/apps/twirl" target="_blank" rel="noopener">Source ↗</a></p>
   <p class="homenote" id="homeNote" hidden>Twirl now lives on GitHub Pages, with the rest of the Music Suite: <a href="https://enkerli.github.io/music-suite/apps/twirl/" target="_blank" rel="noopener">enkerli.github.io/music-suite/apps/twirl</a>. Codes made here open there too.</p>
   <div class="drawerlegend" id="drawerLegend"></div>
@@ -693,7 +737,6 @@ kbd {
   <!-- The same three levels as the drawer's: a loop's settings can show more without a trip to the drawer. -->
   <div class="seg levels insplevels" role="group" aria-label="How many settings to show">
     <button class="btn" type="button" data-set-level="1" aria-pressed="true">Simple</button>
-    <button class="btn" type="button" data-set-level="2" aria-pressed="false">More</button>
     <button class="btn" type="button" data-set-level="3" aria-pressed="false">Everything</button>
   </div>
   <div class="insprow"><span class="lbl">Moves</span>
@@ -709,7 +752,7 @@ kbd {
     <span class="seg" data-insp="density"><button class="btn" type="button" data-v="sparse" title="A note every couple of grid columns, and at sharp turns">few</button><button class="btn" type="button" data-v="medium">some</button><button class="btn" type="button" data-v="dense" title="A note under every grid column, and at gentle turns">many</button></span>
     <button class="btn" type="button" id="inspReroll" title="Space the notes again, a little differently each time">↻ again</button></div>
   <div class="insprow" data-level="2"><span class="lbl">Meets</span>
-    <span class="seg" data-insp="meets"><button class="btn" type="button" data-v="ignore" title="Stays out of it: no notes, no nudges, no trades">no</button><button class="btn" type="button" data-v="sound" title="Plays a note when its playhead crosses another loop's line, or meets another playhead">sound</button><button class="btn" type="button" data-v="bump" title="…and nudges the lines it crosses, or touches, out of the way">bump</button><button class="btn" type="button" data-v="trade" title="…and when its line touches another, or two playheads meet, borrows one thing from the other loop: voice, chords, rhythm or direction">trade</button><button class="btn" type="button" data-v="breed" title="…and when two playheads meet, has a child with the other loop">breed</button><button class="btn" type="button" data-v="infect" title="Infectious: has a child at any contact (a crossing, lines touching, playheads meeting), at most once every 16 bars">infect</button></span></div>
+    <span class="seg" data-insp="meets"><button class="btn" type="button" data-v="ignore" title="Stays out of it: no notes, no nudges, no trades">no</button><button class="btn" type="button" data-v="sound" title="Plays a note when its playhead crosses another loop's line, or meets another playhead">sound</button><button class="btn" type="button" data-v="bump" title="…and nudges the lines it crosses, or touches, out of the way">bump</button><button class="btn" type="button" data-v="trade" title="…and when its line touches another, or two playheads meet, borrows one thing from the other loop: voice, chords, rhythm or direction">trade</button><button class="btn" type="button" data-v="breed" title="…and when two playheads meet, has a child with the other loop">breed</button><button class="btn" type="button" data-v="infect" title="Infectious: has a child at any contact (a crossing, lines touching, playheads meeting), at most once every 16 bars">infect</button><button class="btn" type="button" data-v="merge" title="When its line touches another, or two playheads meet, the two become one loop: its own path, then the other's, notes and all (up to 16 beats), at most once every 4 bars">merge</button></span></div>
   <div class="insprow" data-level="2"><span class="lbl">Life</span>
     <span class="seg" data-insp="life"><button class="btn" type="button" data-v="steady" title="As drawn, for good">steady</button><button class="btn" type="button" data-v="bloom" title="Denser and back: notes beyond the ones you drew come in over 8 passes and leave over 8, again and again">bloom</button><button class="btn" type="button" data-v="swell" title="Louder and back: from soft to full over 8 passes, and back, again and again">swell</button><button class="btn" type="button" data-v="fade" title="A little quieter each pass, gone after 16 (⌘Z brings it back)">fade</button><button class="btn" type="button" data-v="brief" title="Fills in over 8 passes, fades over 8, then it's gone (⌘Z brings it back)">brief</button></span>
     <select class="sel" id="inspSpan" aria-label="How long a life lasts" title="How long: a cycle for bloom and swell, the whole life for fade and brief; in passes of this loop, or in bars">
@@ -796,7 +839,7 @@ kbd {
     <dt><kbd>1</kbd>…<kbd>9</kbd>, <kbd>1</kbd><kbd>0</kbd>…<kbd>1</kbd><kbd>4</kbd></dt><dd>Pick a loop (two digits quickly for 10–14); in its settings, PageDown / PageUp (fn ↓ / fn ↑) for the next or previous loop, and Tab past the last control moves on to the next loop</dd>
     <dt><kbd>I</kbd></dt><dd>Messages: shown as they happen, or quiet behind the dot</dd>
     <dt><kbd>Q</kbd> <kbd>⇧Q</kbd></dt><dd>Diagnostics: frames a second, how late the clock runs, notes a second, errors, where the last tap landed · ⇧Q copies a report</dd>
-    <dt><kbd>\</kbd></dt><dd>Simple → More → Everything</dd>
+    <dt><kbd>\</kbd></dt><dd>Simple ↔ Everything</dd>
     <dt><kbd>R</kbd> <kbd>W</kbd> <kbd>O</kbd></dt><dd>Revoice (new loops) · Walk: off, then each way in turn (⇧W back) · Drone</dd>
     <dt><kbd>Esc</kbd> <kbd>`</kbd></dt><dd>Close whatever is open</dd>
     <dt><kbd>H</kbd> <kbd>?</kbd></dt><dd>This list (<kbd>?</kbd> where it isn't a shifted digit; <kbd>⇧</kbd> digits always pick pens)</dd>
@@ -827,7 +870,7 @@ kbd {
     <span><svg viewBox="0 0 12 12"><path d="M6 1.5 L10.5 10 L1.5 10 Z" fill="var(--blip)"/></svg>← blip</span>
     <span><svg viewBox="0 0 12 12"><rect x="2" y="2" width="8" height="8" fill="var(--drum)"/></svg>↓ drum</span>
     <span><svg viewBox="0 0 12 12"><path d="M6 1 L11 6 L6 11 L1 6 Z" fill="var(--shake)"/></svg>scribble fast to shake</span>
-    <span>a dot sounds when the blue playhead reaches it · ticks mark beats · bigger dot = louder</span>
+    <span>a dot sounds when the blue playhead reaches it · bigger dot = louder · a line takes its notes’ colour</span>
     <span>drag moves · flick off the edge to erase · two fingers turn &amp; resize (bigger = slower) · tap mutes · hold a loop for its settings</span>
   </div>
 </footer>
@@ -1005,7 +1048,7 @@ const snapNear = (b) => { const p = perBeat(); return p ? Math.round(b * p) / p 
  *          its musical speed, so it phases against the others (Reich) and
  *          comes round again; a drifting loop plays unsnapped, or the grid
  *          would keep pulling it back into step
- * All hidden at Simple and More; a new loop is in step, snapped, on the beat. */
+ * All hidden at Simple; a new loop is in step, snapped, on the beat. */
 const SNAP_ORDER = ["sheet", "fine", "none"], CLOCK_ORDER = ["step", "ahead", "behind"], DRIFT = 0.01;
 const clockFactor = (lp) => ({ ahead: 1 / (1 + DRIFT), behind: 1 + DRIFT }[lp.clock] || 1);   // a shorter pass is a faster loop
 const baseTs = (lp) => lp.ts / clockFactor(lp);                // its musical speed, without the drift
@@ -1437,7 +1480,7 @@ const TEMPERS = {
 };
 const TEMPER_ORDER = ["still", "drift", "spin", "jitter"];
 const clampW = (v) => Math.min(0.2, Math.max(-0.2, v));
-/* Surprise (drawer, More; on by default): new loops get a direction, a rhythm
+/* Surprise (drawer, Everything → Drawing; on by default): new loops get a direction, a rhythm
  * and a way of meeting (sound, bump, trade; never breed) drawn at random, mostly the usual ones, the same way
  * their temperament already is. Off: always forward, as drawn, sound. */
 function pickFrom(weights) {
@@ -1629,7 +1672,7 @@ function chordSteps(name) {
 }
 
 /** Sound one note: voice at screen position (normalized), audio time t, beat b. */
-/* Vary (drawer, More; on by default): no two notes come out quite alike, as a
+/* Vary (drawer, Everything → Sound and room; on by default): no two notes come out quite alike, as a
  * sampler's round-robin plays a different take of the same note each time.
  * Each note (each note of a chord too) gets a little loudness, a little
  * timing (a few ms, never early into the past), a few cents of tuning, and a
@@ -2190,9 +2233,9 @@ setInterval(schedule, 25);
 // crosses a given line at most once a beat, a pair meets or touches at most
 // once a beat, a loop trades at most once every 2 bars and breeds at most
 // once every 8, never at the 14-loop cap.
-// The drawer's Meet (More) turns all of it off. A replayed take only sounds:
+// The drawer's Meet (Everything → Loops together) turns all of it off. A replayed take only sounds:
 // what bumps, trades and children changed is already in the take.
-const MEET_ORDER = ["ignore", "sound", "trade", "breed", "bump", "infect"];
+const MEET_ORDER = ["ignore", "sound", "trade", "breed", "bump", "infect", "merge"];   // append only: codes store the index
 const BREEDERS = new Set(["breed", "infect"]);                 // who has children when playheads meet
 const LINE_EVERY = 4, LINE_SEGS = 48, LINE_R = 2.5;            // lines: checked every 4th tick (100 ms), ≤ 48 segments each
 const lineTouching = new Map();  // "a|b" → true while two lines are in contact (a pair seen once has an entry)
@@ -2339,6 +2382,50 @@ function breedWith(A, B, nb) {
   A.lastBred = child.lastBred = nb;
   return `loops ${loops.indexOf(A) + 1} and ${loops.indexOf(B) + 1} had a child: loop ${loops.indexOf(child) + 1}` + (gone ? " · the oldest loop made room (⌘Z brings it back)" : "");
 }
+/* Merge (Alex, 2026-10-25: "New behaviour on collision: merge"). X swallows Y:
+ * the two become one loop, X's path and then Y's, joined by a short silent
+ * bridge, with all their notes, where they are on the sheet right now (both
+ * placed, turned and scaled as they are, then baked into one drawing). X keeps
+ * its settings and its place in time; Y's notes keep their timing at Y's speed.
+ * Y goes where undo puts loops. Breeding adds loops, merging takes them away:
+ * between the two, a sheet can find its own balance. Not if the result would
+ * pass 16 beats, nor on a loop being held or one whose settings are open; at
+ * most once every 4 bars per loop. */
+const MERGE_COOL = 4 * BAR, BRIDGE = 0.25;
+function mergeLoops(X, Y, nb) {
+  if (X === Y || Y.held || X.held || insp === Y || nb - (X.lastMerge ?? -Infinity) < MERGE_COOL) return null;
+  if (!loops.includes(X) || !loops.includes(Y)) return null;
+  const W = sheet.clientWidth, H = sheet.clientHeight, k = Y.ts / X.ts;
+  const xEnd = X.pts[X.pts.length - 1].b, yLen = Y.pts[Y.pts.length - 1].b * k;
+  const L = Math.max(1, Math.ceil(xEnd + BRIDGE + yLen + 1e-6));
+  if (L > MAX_LOOP_BEATS) return null;
+  const bake = (lp, x, y) => { const [px, py] = place(lp, x, y, W, H); return [px / W, py / H]; };
+  const turn = (lp) => (lp.revoice ?? state.revoice ? totalRot(lp) : 0);   // keep each note's voice as heard
+  const pts = X.pts.map((p) => { const [x, y] = bake(X, p.x, p.y); return { x, y, b: p.b }; });
+  const [ex, ey] = [pts[pts.length - 1].x, pts[pts.length - 1].y], [sx, sy] = bake(Y, Y.pts[0].x, Y.pts[0].y);
+  for (let q = 1; q < 6; q++) pts.push({ x: ex + ((sx - ex) * q) / 6, y: ey + ((sy - ey) * q) / 6, b: xEnd + (BRIDGE * q) / 6 });
+  const y0 = xEnd + BRIDGE;
+  for (const p of Y.pts) { const [x, y] = bake(Y, p.x, p.y); pts.push({ x, y, b: y0 + p.b * k }); }
+  const events = [
+    // The turn that was choosing a note's voice goes into its heading (the merged loop starts unturned).
+    ...X.events.map((e) => { const [x, y] = bake(X, e.x, e.y); return { ...e, x, y, heading: e.heading + turn(X), flashAt: -1 }; }),
+    // Y's notes keep their sound: fixed to it if a Pen (Y's or X's) would otherwise change it.
+    ...Y.events.map((e) => {
+      const [x, y] = bake(Y, e.x, e.y), pens = (Y.pen && Y.pen !== "auto") || (X.pen && X.pen !== "auto");
+      return { ...e, x, y, off: y0 + e.off * k, heading: e.heading + turn(Y), fixed: e.fixed || (pens ? voiceOf(Y, e) : null), flashAt: -1 };
+    }),
+  ].filter((e) => e.off < L).sort((a, b) => a.off - b.off);
+  repass(X, () => {
+    X.pts = pts; X.events = events;
+    X.L = L; X.tx = X.ty = X.rot = 0; X.s = 1; X.m = { tx: 0, ty: 0, rot: 0 }; X.mt = { tx: 0, ty: 0, rot: 0 };
+    let cx = 0, cy = 0; for (const p of pts) { cx += p.x; cy += p.y; } X.c = { x: cx / pts.length, y: cy / pts.length };
+    delete X._lbox;
+  });
+  X.lastMerge = nb;
+  if (selected === Y) selected = X;
+  eraseLoop(Y); undone.push(Y); if (undone.length > 20) undone.shift();
+  return `loop ${loops.indexOf(X) + 1} swallowed another (⌘Z brings it back)`;
+}
 /** A's and B's lines just came into contact at `at` (screen px): each answers as its Meets says. */
 function linesTouch(A, B, at, nb, now, W, H) {
   const beat = snapUp(nb), t = Math.max(now, timeAt(beat)), did = [];
@@ -2357,6 +2444,9 @@ function linesTouch(A, B, at, nb, now, W, H) {
     } else if (X.meets === "infect") {
       const kid = breedWith(X, Y, nb);
       if (kid) did.push(kid);
+    } else if (X.meets === "merge") {
+      const m = mergeLoops(X, Y, nb);
+      if (m) { did.push(m); break; }                              // Y is gone: nothing more to answer
     }
     if (influence(X, Y, nb)) did.push("influence");
   }
@@ -2420,7 +2510,10 @@ function meet(A, pa, B, pb, nb, now, W, H) {
     const parent = [A, B].find((X) => BREEDERS.has(X.meets) && nb - (X.lastBred ?? -Infinity) >= BREED_COOL);
     const kid = parent && breedWith(parent, parent === A ? B : A, nb);
     if (kid) did.push(kid);
-    influence(A, B, nb); influence(B, A, nb);
+    const merger = [A, B].find((X) => X.meets === "merge");
+    const merged = merger && loops.includes(A) && loops.includes(B) && mergeLoops(merger, merger === A ? B : A, nb);
+    if (merged) did.push(merged);
+    else { influence(A, B, nb); influence(B, A, nb); }
   }
   meetFlashes.push({ x: (pa.x + pb.x) / 2, y: (pa.y + pb.y) / 2, t });
   if (meetFlashes.length > 40) meetFlashes.shift();
@@ -2454,6 +2547,12 @@ const DRONE_VOICINGS = {
   triad: (n, f) => [0, 2, f],
   open: (n, f) => [-n, 0, f, n + 2],
 };
+/* Level (Alex, 2026-10-25: "should default to lower volume so as to not
+ * overpower the loops… the equivalent volume of a single loop, maybe a bit
+ * lower"). Measured: at the old level (0.1 × the slider) the Drone at its
+ * default was about four times a typical loop's RMS, 12 dB over it. Now the
+ * slider's default (0.5) is a little under one loop, and its top about twice. */
+const DRONE_GAIN = 0.02;
 const DRONE_SPACES = {   // side pan, rotor: rate (Hz), pan swing, loudness swing, Doppler (s), binaural split (Hz)
   still:    { side: 0,    rate: 0.01, pan: 0,    trem: 0,    dop: 0,       split: 0 },
   drift:    { side: 0.35, rate: 0.031, pan: 0.35, trem: 0,   dop: 0,       split: 0 },
@@ -2474,7 +2573,7 @@ function setDrone(on) {
   const g = ctx.createGain(), lfo = ctx.createOscillator(), lg = ctx.createGain();
   lfo.frequency.value = 0.06; lg.gain.value = 350; lfo.connect(lg); lfo.start();
   g.gain.setValueAtTime(0.0001, now);
-  g.gain.exponentialRampToValueAtTime(Math.max(0.0002, 0.1 * state.droneVol), now + 2);
+  g.gain.exponentialRampToValueAtTime(Math.max(0.0002, DRONE_GAIN * state.droneVol), now + 2);
   const pan = (v) => { const p = ctx.createStereoPanner ? ctx.createStereoPanner() : ctx.createGain(); if (p.pan) p.pan.value = v; return p; };
   const sides = [-1, 1].map((side) => {
     const f = ctx.createBiquadFilter(); f.type = "lowpass"; f.frequency.value = 800; f.Q.value = 0.7;
@@ -2505,7 +2604,7 @@ function setDrone(on) {
 }
 function setDroneVol(v) {
   state.droneVol = v;
-  if (drone) drone.g.gain.setTargetAtTime(Math.max(0.0002, 0.1 * v), ctx.currentTime, 0.2);
+  if (drone) drone.g.gain.setTargetAtTime(Math.max(0.0002, DRONE_GAIN * v), ctx.currentTime, 0.2);
 }
 function updateDrone(b, force = false) {
   if (!drone) return;
@@ -2751,7 +2850,7 @@ function dropToy(kind, where, size = 1) {
   finishStroke(s, false);
 }
 
-/* Tadpoles (Alex, 2026-10-25: "small breeding and fading toys each with a single
+/* Tadpoles, and a current (below) (Alex, 2026-10-25: "small breeding and fading toys each with a single
  * note and long pause, eventually creating this sea of tadpole-like figures
  * moving in the space in a morphing ambiance. A bit like Conway's Game of
  * Life"). Five small figures, each a head (its one note) and a wriggling tail
@@ -2777,7 +2876,21 @@ function dropTadpoles(cx, cy, W, H, m) {
     s.start = s.cursor = nextStart() + Math.floor(Math.random() * 4);   // not all at once
     finishStroke(s, false); made.push(s);
   }
-  toast("Tadpoles: they drift, have children when they touch, and fade · leave them a while");
+  // A current: one long, steady, slow line across the tadpoles, so they run into
+  // something (Alex, 2026-10-25: "A long tadpole run ended up being rather short,
+  // as there were few collisions… Adding steady loops which cut across multiple
+  // tadpoles can make that work"). Each touch is a chance of a child.
+  const c = newStroke(nextStart()), tr = new Tracer(stridePx("sparse"), 0, false), beats = 7.8, msPerBeat = 60000 / state.bpm;
+  const x0 = Math.max(W * 0.06, cx - W * 0.38), x1 = Math.min(W * 0.94, cx + W * 0.38), amp = H * 0.13;
+  for (let i = 0; i <= 160; i++) {
+    const u = i / 160, x = x0 + (x1 - x0) * u, y = Math.min(H * 0.9, Math.max(H * 0.1, cy + Math.sin(u * 2 * Math.PI + 0.6) * amp)), b = u * beats;
+    c.pts.push({ x: x / W, y: y / H, b });
+    const hit = tr.push(x, y, b * msPerBeat * 0.8);
+    if (hit) { const ev = makeEvent(hit, x / W, y / H); ev.off = b; ev.vel *= 0.7; c.events.push(ev); }
+  }
+  Object.assign(c, { pen: "auto", rhythm: "drawn", dir: "fwd", trigger: "free", temper: "drift", meets: "sound", life: "steady", gives: "none", density: "sparse", gain: 0.8 });
+  finishStroke(c, false); made.push(c);
+  toast("Tadpoles: they drift, have children when they touch (the long line is a current to run into), and fade · leave them a while");
   return made;
 }
 
@@ -2928,7 +3041,7 @@ function endStroke(id) {
   if (!kept && s.pts.length > 1) fadeOut(s);
   if (kept) {                                                    // a Surprise is announced, so it's never a mystery
     const odd = [{ rev: "plays in reverse", pingpong: "plays ping-pong" }[s.dir], { even: "evenly spaced", euclid: "a Euclidean rhythm" }[s.rhythm],
-      { bump: "bumps the lines it crosses", trade: "trades when it meets", breed: "breeds when it meets", infect: "is infectious: a child at any contact", ignore: "passes others by" }[s.meets],
+      { bump: "bumps the lines it crosses", trade: "trades when it meets", breed: "breeds when it meets", infect: "is infectious: a child at any contact", merge: "swallows the loops it runs into", ignore: "passes others by" }[s.meets],
       { brief: "comes and goes (brief)", bloom: "blooms", swell: "swells", fade: "fades" }[s.life],
       { feed: "feeds the loops it touches", drain: "drains the loops it touches" }[s.gives]].filter(Boolean);
     if (odd.length) toast(`Loop ${loops.indexOf(s) + 1}: ${odd.join(" · ")} · hold it to change`);
@@ -4362,11 +4475,21 @@ document.querySelectorAll("[data-toymode]").forEach((b) => b.addEventListener("c
 }));
 
 /* ── Progressive disclosure ────────────────────────────────────────────────
- * Simple → More → Everything. Twirl opens at Simple: draw, hear it, toys,
- * scenes. Each level only adds; nothing moves. The choice is remembered in
- * this browser (a convenience, not part of any scene). */
+ * Two modes (2026-10-25, Alex: "The minimal mode doesn't need as many controls
+ * and details as it has. The 'More' mode might not be needed. The 'Everything'
+ * mode can be rearranged to be easier to understand and navigate… clearly
+ * labelled sections in that drawer (a bit like a kitchen drawer for utensils)").
+ *   Simple       Play, Volume, Sounds, Full screen, Keyboard shortcuts, Sheets
+ *                and toys. That's all.
+ *   Everything   the same, then labelled sections: Drawing, Time, Pitch, Loops
+ *                together, Harmony, Sound and room, View. Each folds
+ *                (remembered in this browser); nothing from Simple moves.
+ * Internally the levels stay 1 and 3 (data-level="2" now means Everything too),
+ * so old preferences and tests that ask for "More" get Everything. The choice
+ * is remembered in this browser (a convenience, not part of any scene). */
 let level = 1;
 function setLevel(n) {
+  n = n >= 2 ? 3 : 1;
   level = n;
   document.body.classList.remove("lvl-1", "lvl-2", "lvl-3");
   document.body.classList.add(`lvl-${n}`);
@@ -4375,6 +4498,12 @@ function setLevel(n) {
 }
 document.querySelectorAll("[data-set-level]").forEach((b) => b.addEventListener("click", () => setLevel(Number(b.dataset.setLevel))));
 setLevel([1, 2, 3].includes(store.get("twirl:level")) ? store.get("twirl:level") : 1);
+// Each section of the drawer remembers whether it's folded.
+document.querySelectorAll("details.dsec[data-sec]").forEach((d) => {
+  const key = "twirl:sec:" + d.dataset.sec;
+  if (store.get(key) === false) d.open = false;
+  d.addEventListener("toggle", () => store.set(key, d.open));
+});
 
 $("pack").addEventListener("change", (e) => { state.pack = e.target.value; });
 function setVolume(v) {
@@ -5325,7 +5454,7 @@ const KEYS = {
     setDrawer(open);
     if (open) $("drawerClose").focus(); else if ($("strip").contains(document.activeElement)) document.activeElement.blur();
   },
-  "\\": () => { setLevel(level % 3 + 1); toast(["Simple", "More", "Everything"][level - 1]); },
+  "\\": () => { setLevel(level === 1 ? 3 : 1); toast(level === 1 ? "Simple" : "Everything"); },
   v: () => togglePalette(),
   x: () => { if (!selected) { toast("Select a loop first (1–9)"); return; } selected.muted = !selected.muted; renderLoopList(); toast(selected.muted ? "Muted" : "Unmuted"); },
   // Enter opens the selected loop's settings, and closes them again: the
@@ -5503,7 +5632,11 @@ const START_GRIDS = (() => {
 function freshKey() {
   const pick = (a) => a[Math.floor(Math.random() * a.length)];
   const grid = START_GRIDS ? pick(START_GRIDS) : Math.random() < 2 / 3 ? "pentMaj" : "pentMin";
-  return { root: pick(FRESH_ROOTS), grid, bpm: 84 + 4 * Math.floor(Math.random() * 8) };
+  // The Drone's space is drawn too, like the key and tempo (Alex, 2026-10-25:
+  // "For spatialization, if it isn't assigned arbitrarily, it probably should be"),
+  // drifting most often. (Loops are placed in space already: left to right on the sheet is left to right.)
+  const droneSpace = pick(["drift", "drift", "drift", "rotate", "binaural", "still"]);
+  return { root: pick(FRESH_ROOTS), grid, bpm: 84 + 4 * Math.floor(Math.random() * 8), droneSpace };
 }
 function startingSheet() {
   applySettingsKeepBeat(freshKey());                             // keeps the beat where it is if the sound is on

@@ -15,12 +15,12 @@ Each question is tied to a roadmap decision it could change.
    get in the way? → *Rule 1; the starting sheet; the splash.*
 2. **Are contacts legible?** Do people notice crossings, bumps, trades? Can
    they say *why* a note happened, or why a loop moved? → *Contacts; Meets'
-   six answers; whether Surprise should hand out bump and trade.*
+   seven answers; whether Surprise should hand out bump and trade.*
 3. **When does it get repetitive, and what do people do then?** Time until
    the first sign of boredom; what they try next (draw more, move loops,
    open settings, leave). → *The evolving patch: is it the answer, and how
    fast should things evolve?*
-4. **Do the levels work?** Who finds More and Everything, what they use
+4. **Do the two modes work?** Who finds Everything, which sections they open, what they use
    there, what they never touch. → *What stays at Simple; what Surprise and
    Vary default to.*
 5. **Does it work on their own devices and in their own ways?** iPad with
@@ -71,7 +71,7 @@ contrast rather than for numbers:
   quotes, workarounds, every point where they got stuck.
 - **A few numbers**, as context rather than scores: seconds to first sound
   and first loop; count of "why?" moments; minutes until the first sign of
-  repetition; levels visited.
+  repetition; modes and drawer sections visited.
 - **Device and setup**: browser, input (finger, Pencil, keyboard, AT).
 
 ## After

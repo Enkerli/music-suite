@@ -235,8 +235,14 @@ describe.skipIf(!browser)("Twirl · pointer alternatives and preferences", () =>
       const { page, context } = await openTwirl(browser, { viewport, hasTouch: true });
       await page.evaluate(() => { setLevel(3); openInspector(loops[0]); });
       // The Done button must be what a tap on it hits (it once sat under ● Rec).
-      const hit = await page.evaluate(() => { const r = $("inspClose").getBoundingClientRect(); return document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2)?.id; });
-      expect(hit).toBe("inspClose");
+      // Measured once the panel has settled (it slides in; a slow CI runner caught it mid-way).
+      const at = () => { const r = $("inspClose").getBoundingClientRect(); return document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2)?.id; };
+      await page.waitForFunction(at, null, { timeout: 3000 }).catch(() => {});
+      expect(await page.evaluate(at)).toBe("inspClose");
+      // …and all of it on the screen, whatever the fonts: the panel never grows wider than the screen.
+      const edge = await page.evaluate(() => [$("inspClose").getBoundingClientRect().right, $("inspector").getBoundingClientRect().right, innerWidth]);
+      expect(edge[0]).toBeLessThanOrEqual(edge[2]);
+      expect(edge[1]).toBeLessThanOrEqual(edge[2] + 0.5);
       await context.close();
     });
   }
@@ -327,7 +333,7 @@ describe.skipIf(!browser)("Twirl · messages stay quiet, behind a dot; replays s
     const { page, context } = await openTwirl(browser);
     await page.evaluate(() => { toast("one"); toast("two"); $("initBtn").click(); $("initBtn").click(); });
     expect(await page.evaluate(() => $("toast").hidden)).toBe(true);
-    await page.click("#menuBtn"); await page.click("#msgModeBtn");
+    await page.click("#menuBtn"); await page.click('#strip [data-set-level="3"]'); await page.click("#msgModeBtn");   // Everything → View
     expect(await page.evaluate(() => [$("msgModeBtn").getAttribute("aria-pressed"), msgsLoud])).toEqual(["true", true]);
     await page.evaluate(() => { toast("Lock on"); toast("Morph off"); toast("Loop 2 took its rhythm"); });
     expect(await page.evaluate(() => [...$("toast").children].map((d) => d.textContent).slice(-3))).toEqual(["Lock on", "Morph off", "Loop 2 took its rhythm"]);
