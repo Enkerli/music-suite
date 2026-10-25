@@ -96,6 +96,17 @@ such as Surge XT or Bitwig, don't appear as outputs, so Twirl goes through
       pass only their channel, the wiring holds, channel 10 plays a kit.
       Surge XT itself couldn't be installed for the check, so its loading is
       the part to confirm on your machine.)
+- [x] Surge XT loads (VST3, `/usr/lib/vst3`), the GM kit plays (Alex,
+      2026-10-25), but Carla opened the project as *multiple clients* (its
+      default on JACK), so the script's single-client connections had to be
+      made by hand. Fixed: the script now builds multi-client projects and
+      saves the connections in the system graph, Midi Through
+      (`Midi-Bridge:…` on PipeWire, `a2j:…` with a2jmidid) and the sound card
+      included; `--mode patchbay` keeps the old way.
+- [x] Timing under load on Linux (Brave, 14 loops, 37 notes/s, MIDI out):
+      ticks at most 19 ms late (nothing past 50), audio buffer 10.7 ms with
+      56 ms output latency. The scheduler keeps up; any hiccup is the audio
+      device's side.
 - [ ] Each voice on its channel: draw right (pluck), up (bell), left (blip),
       down (drums), scribble (shaker). ⇧Q shows `midi.last` (channel, note,
       velocity) and `midi.sent`.
