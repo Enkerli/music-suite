@@ -173,18 +173,28 @@ about 2,600 words in `docs/site.md`.
       drawer's guide link follows the language.
 - [ ] README, roadmap and plan stay English (they're for contributors).
 
-**Questions before 2c** (a short workshop of its own):
-1. *Tu* or *vous*? (Playful and inclusive suggests *tu*; classrooms may
-   prefer *vous*.)
-2. Québec French, or a French that reads well anywhere? (Words like *courriel*,
-   *clavardage* are a tell.)
-3. Which names stay English, as proper names: *Twirl*, *Drone*, *Walk*,
-   *Lock*? Or all translated (*bourdon*, *marche*, *verrou*)?
-4. *Loop* → *boucle*; *pass* → *tour*? *Sheet* → *feuille*? *Playhead* →
-   *tête de lecture*?
-5. Meets' answers (*sound, bump, trade, breed, infect, merge*): playful
-   verbs (*sonne, bouscule, échange, enfante, contamine, avale*)?
-6. Who else reviews (MTILT colleagues, a francophone musician)?
+**Decided** (Alex, 2026-10-25):
+- **Vous.**
+- **Normative Québec French**: Radio-Canada and Government of Canada usage;
+  **Termium Plus** (and the OQLF's *Grand dictionnaire terminologique*) for
+  terms; **inclusive writing through épicène terms** first, after
+  *Inclusionnaire* (*les personnes qui jouent*, *l'équipe*, *chaque
+  personne*), rather than contracted doublets (*joueur·euse*).
+- **Every name translated** except *Twirl* (so *bourdon*, not *Drone*; a
+  French name for Walk, Lock, Morph, Arc…).
+- **Review by Alex**; perhaps a public test with feedback later (the review
+  page could take others' suggestions then).
+
+Still to settle in the glossary review (2b), with sources cited for each:
+- Key terms: *loop* (*boucle*), *pass* (*tour*, *passage*?), *sheet*
+  (*feuille*), *playhead* (*tête de lecture*), *stroke* (*trait*, *tracé*?),
+  *pack* (*jeu de sons*?), *take* (*prise*), *toy* (*jouet*), *scene*
+  (*scène*), *template* (*modèle*), *drawer* (*tiroir*).
+- Names for the features: Walk, Lock, Morph, Arc, Surprise, Vary, Evolve,
+  Warmth (*chaleur*), Spacing, Smooth, Beats.
+- Meets' answers, kept playful: *sound, bump, trade, breed, infect, merge*.
+- Keyboard names in the key list (⇧, ⌘, Tab, Esc…): as Québec keyboards and
+  Apple's French documentation name them.
 
 ---
 
