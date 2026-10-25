@@ -1460,6 +1460,7 @@ describe.skipIf(!browser)("Twirl · diagnostics for new hardware", () => {
     expect(r.pen.events).toBeGreaterThan(5);
     expect(typeof r.midi === "string" || Array.isArray(r.midi.outputs)).toBe(true);
     expect(r.keys).toContain("skippedNotes");
+    expect(r.keys).toEqual(expect.arrayContaining(["ticksLateMs", "audioDevice"]));
     await context.close();
   });
 });

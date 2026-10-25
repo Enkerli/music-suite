@@ -2174,6 +2174,7 @@ function schedule() {
   if (!ctx || ctx.state !== "running") return;
   const tNow = performance.now(), gap = lastTickAt ? (tNow - lastTickAt) / 1000 : 0.025; lastTickAt = tNow; offsEpoch++;
   if (tickLate.length < 400) tickLate.push(Math.max(0, gap * 1000 - 25));
+  if (typeof diag !== "undefined") { const l = Math.max(0, gap * 1000 - 25); diag.late.push([tNow, l]); if (diag.late.length > 400) diag.late.splice(0, 200); }
   lookahead = Math.min(LOOKAHEAD_MAX, Math.max(LOOKAHEAD, gap * 1.6 + 0.04, lookahead * 0.995));
   const now = ctx.currentTime, nb = beatAt(now), hb = beatAt(now + lookahead);
   const W = sheet.clientWidth, H = sheet.clientHeight;
@@ -3462,7 +3463,7 @@ try { new PerformanceObserver((l) => (diag.longTasks += l.getEntries().length)).
 /* For testing on new hardware (PLAN.md, phase 1: Linux, a graphics tablet, a
  * synth over Web MIDI): what the last pointer on the sheet reported, and what
  * MIDI sees and sends. Read-only; shown in the ⇧Q report. */
-diag.pen = null; diag.midiSent = 0; diag.midiLast = null;
+diag.pen = null; diag.midiSent = 0; diag.midiLast = null; diag.late = [];
 document.addEventListener("pointermove", (e) => {
   if (e.target !== sheet && !(sheet && sheet.contains && sheet.contains(e.target))) return;
   const p = diag.pen || (diag.pen = { type: "", pressure: 0, maxPressure: 0, tilt: [0, 0], buttons: 0, events: 0, coalesced: 0 });
@@ -3480,6 +3481,11 @@ function diagReport() {
     memory: mem, longTasks: diag.longTasks, skippedNotes: diag.skipped || 0, errors: diag.errors.slice(), lastTap: diag.lastTap, audio: ctx ? ctx.state : "none",
     panels: { settings: !$("inspWrap").hidden, shelf: !$("shelf").hidden, drawer: document.body.classList.contains("drawer-open"), messages: !$("msgLog").hidden },
     replaying: !!replay, recording: !!(recorder || flowRec), level,
+    // Hiccups with a steady frame rate are either a late scheduler (ticksLateMs
+    // near or past lookaheadMs: notes miss their slot) or the audio device
+    // running out of buffer (small baseLatency/outputLatency, many notes a second).
+    ticksLateMs: (() => { const t = performance.now(), r = diag.late.filter(([at]) => t - at < 5000).map(([, l]) => l); return { max5s: Math.round(Math.max(0, ...r)), over50: r.filter((l) => l > 50).length }; })(),
+    audioDevice: ctx ? { sampleRate: ctx.sampleRate, baseLatencyMs: ctx.baseLatency != null ? Math.round(ctx.baseLatency * 1000 * 10) / 10 : "n/a", outputLatencyMs: ctx.outputLatency ? Math.round(ctx.outputLatency * 1000 * 10) / 10 : "n/a" } : "none",
     pen: diag.pen,
     midi: typeof midiAccess === "undefined" || !midiAccess ? (navigator.requestMIDIAccess ? "not allowed (yet)" : "no Web MIDI here")
       : { out: state.out, outputs: [...midiAccess.outputs.values()].map((o) => o.name), sent: diag.midiSent, last: diag.midiLast },
