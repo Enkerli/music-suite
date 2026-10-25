@@ -51,7 +51,11 @@ loop can feed or drain the loops it touches, changing their strength
 pass; at the cap, breeding replaces the oldest loop. **Timing freedom**
 (section 2b, Everything): per-loop Snap (division / 1/64 / none), Feel
 (±40 ms) and Clock (in step, or drifting 1 % ahead or behind:
-`clockFactor`, `snapLoop`, `feelOf`). A fresh sheet has its own key and tempo
+`clockFactor`, `snapLoop`, `feelOf`), shared on request to a family or all
+loops (`shareTiming`). **Walk** has ways and a pace (`walkShift`, `WALK_WAYS`).
+A life's length is per loop (`spanOf`). Messages are quiet or shown, stacked
+(`setMsgsLoud`, `showToast`). A replay draws each loop as it was drawn
+(`drawnUpTo`). A fresh sheet has its own key and tempo
 (`freshKey`). **Start over** resets to
 `STATE_DEFAULTS`, the Simple level and `startingSheet()`. Takes save as WAV
 (`encodeWav`). The

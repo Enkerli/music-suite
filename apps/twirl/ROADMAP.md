@@ -35,7 +35,51 @@ they can't:
    something the suite already has, it matches the suite's vectors (or
    imports the package, once Twirl has a build step).
 
-## Where we are (reassessed 2026-10-24, evening)
+## Priorities (reviewed 2026-10-24, night): value, effort, dependencies
+
+**A session, as Alex plays it** ("Typically, I'd start by creating a kick
+loop, then some melodic lines, probably with bells. After that,
+intersecting lines. And starting to change some parameters in the loops."):
+
+1. **A kick loop.** Down is drums, low is kick; Pen → drums (⇧2) and Lock
+   make it steady. Friction: getting *only* a kick takes care (height and
+   direction both matter), and the Beat toy brings a whole pattern.
+2. **Melodic lines, with bells.** Up is bell. Friction: every sound is short;
+   a line can't sing (sustained sounds and legato).
+3. **Intersecting lines.** Contacts: crossings, lines touching, meetings.
+   Friction: a busy sheet costs time per tick (the stall while recording),
+   and why a note happened isn't always legible.
+4. **Changing parameters in the loops.** One loop's settings at a time.
+   Friction: the same change on several loops means doing it several times
+   (Alex, on timing: "setting these parameters in each loop is tedious").
+
+So the order follows that session, then the rule that never moves: **the
+immediate experience stays as simple as possible; everything else is
+disclosed.**
+
+| # | Track | Value | Effort | Depends on | Serves |
+|---|---|---|---|---|---|
+| 1 | **Optimization pass**: profile a busy sheet on the iPad, cache per-loop work, a steadier scheduler clock, a performance budget test | 4 | 3 | – | 3; and a stall spoils any playtest |
+| 2 | **Playtests**, round 1 (PLAYTESTING.md), Alex's session as one of the task scripts | 5 | 2 | 1 | everything after |
+| 3 | **Several loops at once**: "Same for: its family · all loops" on every setting (it exists for timing), then a lasso to pick any set | 4 | 2 → 3 | – | 4; MIDI in (groups) |
+| 4 | **Sustained sounds and legato**: a held voice per pack, glides, a voice budget, no restriking mush | 4 | 3 | 1 (CPU) | 2 |
+| 5 | **Small helpers for the session**: a kick toy (four on the floor, low), the Pen a tap away at Simple? (only if playtests say so) | 3 | 1 | 2 for the second | 1 |
+| 6 | **Mutation v2**: musical, scale-aware, seeded | 4 | 3 | – | breeding and evolution |
+| 7 | **Harmony** (workshop): chord types, voicings, a progression loops adapt to | 4 | 4 | 2; Walk's ways (done) | 2 |
+| 8 | **MIDI in** for control: notes pick loops, CCs set them, by family or all | 4 | 3 | 3 | 4, performance |
+| 9 | **Terrain and traces** (workshop) | 4 | 4 | 1, 2 | repetition |
+| 10 | **Design pass and Workspace** | 4 | 3 | design first | the Suite |
+| 11 | **Plugin and standalone** (Linux first) | 4 | 4 | the sendMidi seam (done) | a parallel track |
+| 12 | **Timing, next**: its own grid, polytempo, grooves, tempo curves | 3 | 3 | 3 | – |
+| 13 | Later: pitch geometries, performance animation, generative accompaniment | 4 | 4–5 | each a project | – |
+
+Shipped tonight, from the same review: a life's length (8 · 16 · 32 · 64
+passes); messages quiet or shown (all of them, stacked), from the controls
+or the key I; replays that draw each loop as it was drawn; Walk's ways (a
+progression, sway, fifths, climb, wander) and pace, so the Drone moves;
+timing shared on request with a family or the sheet.
+
+## Where we were (reassessed 2026-10-24, evening)
 
 **What a day of play changed.** Mutation shipped as a prototype; collisions
 grew into three kinds of contact (crossings, lines touching, playheads

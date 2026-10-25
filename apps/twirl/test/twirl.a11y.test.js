@@ -323,6 +323,20 @@ describe.skipIf(!browser)("Twirl · messages stay quiet, behind a dot; replays s
     await context.close();
   });
 
+  it("two modes, one switch: quiet shows nothing (Start over too); shown shows every message, stacked; the controls and the key I switch it", async () => {
+    const { page, context } = await openTwirl(browser);
+    await page.evaluate(() => { toast("one"); toast("two"); $("initBtn").click(); $("initBtn").click(); });
+    expect(await page.evaluate(() => $("toast").hidden)).toBe(true);
+    await page.click("#menuBtn"); await page.click("#msgModeBtn");
+    expect(await page.evaluate(() => [$("msgModeBtn").getAttribute("aria-pressed"), msgsLoud])).toEqual(["true", true]);
+    await page.evaluate(() => { toast("Lock on"); toast("Morph off"); toast("Loop 2 took its rhythm"); });
+    expect(await page.evaluate(() => [...$("toast").children].map((d) => d.textContent).slice(-3))).toEqual(["Lock on", "Morph off", "Loop 2 took its rhythm"]);
+    await page.click("#drawerClose"); await page.mouse.click(5, 400);
+    await page.keyboard.press("i");
+    expect(await page.evaluate(() => [msgsLoud, $("toast").hidden])).toEqual([false, true]);
+    await context.close();
+  });
+
   it("with 'Show them as they happen' on, a message is on top of whatever is open: the drawer, a loop's settings, a shelf, the log", async () => {
     const { page, context } = await openTwirl(browser);
     await page.evaluate(() => { toast("one"); });
