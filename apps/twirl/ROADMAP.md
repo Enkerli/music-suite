@@ -535,6 +535,36 @@ always the suite's own conventions (match `packages/upi/vectors` and
 and every readout labels its convention (leftmost = LSB), because the
 reversed reading is a different real thing (2741 vs 2773).
 
+## Timing freedom (Alex, 2026-10-24; shipped v1 the same evening)
+
+"With all the talk of 'own clock', it's obvious that they're all in sync
+with a masterclock… which is proper, as a default behaviour. We might want
+more freedom. The quantizing can get in the way. Of course, we could
+quantize to a very small subdivision (1/64). Or bring some microtiming. As
+usual, hidden from 'naïve' view."
+
+Shipped, at Everything only: per loop **Snap** (division · 1/64 · none),
+**Feel** (−40…+40 ms, a constant lean), **Clock** (in step · drifts ahead ·
+drifts behind: ±1 %, phasing, unsnapped); 1/64 as a sheet division.
+Appended to the packed row; old codes are in step, snapped, on the beat.
+Tests: *Twirl · timing freedom*.
+
+Next, to think through:
+- **A loop's own tempo**, not only ±1 %: polytempo (3 against 4 at the
+  clock level, not just the 4⁄3 speed ratio), or a free tempo set by drawing
+  speed, with a way back into step ("land on the next bar").
+- **Its own grid**: a drifting loop snapped to *its own* division (relative
+  to its start) rather than none, so it stays rhythmic while it phases.
+- **Groove templates**: a per-loop micro-timing pattern (MPC-style swing per
+  step, or a feel taken from a recording), not one constant lean.
+- **Tempo curves**: accelerando / ritardando over a few bars (with Arc).
+- **Rubato from the hand**: timing from drawing speed, kept as drawn.
+
+**Spinner** (same evening): a Toybox toy from a loop Alex found on a sheet
+("an ostinato which spins around"): a quick flick upward, a beat long, a
+drum then rising bells, evenly spaced, spinning, so the arpeggio folds and
+opens and flips as it turns.
+
 ## An optimization pass (Alex, 2026-10-24)
 
 A pause while recording turned out to be a stall, not a stop ("the

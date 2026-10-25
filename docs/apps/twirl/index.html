@@ -519,7 +519,7 @@ kbd {
     <select class="sel" id="div" aria-label="Beat division (vertical lines): snap, and Lock's pulse">
       <option value="free">Free</option><option value="4">1/4</option><option value="8">1/8</option>
       <option value="8t">1/8T</option><option value="16" selected>1/16</option><option value="16t">1/16T</option>
-      <option value="32">1/32</option>
+      <option value="32">1/32</option><option value="64">1/64</option>
     </select>
   </span>
   <span class="group" data-level="2">
@@ -598,6 +598,7 @@ kbd {
     <button class="toy" type="button" data-toy="wave"><svg viewBox="0 0 34 34" aria-hidden="true"><path d="M3 17c4-9 7-9 9 0s5 9 9 0 6-9 10 0"/></svg>Wave</button>
     <button class="toy" type="button" data-toy="zigzag"><svg viewBox="0 0 34 34" aria-hidden="true"><path d="M3 22l5-10 5 10 5-10 5 10 5-10 3 6"/></svg>Zigzag</button>
     <button class="toy" type="button" data-toy="call"><svg viewBox="0 0 34 34" aria-hidden="true"><path d="M4 26c3-9 8-14 14-15"/><circle cx="23" cy="10" r="1.6" fill="currentColor"/><circle cx="27" cy="10" r="1.6" fill="currentColor"/><circle cx="31" cy="10" r="1.6" fill="currentColor"/></svg>Call</button>
+    <button class="toy" type="button" data-toy="spinner"><svg viewBox="0 0 34 34" aria-hidden="true"><path d="M17 5v24M17 29l-3-3M24 9a10 10 0 0 1 0 16M10 25a10 10 0 0 1 0-16"/></svg>Spinner</button>
     <button class="toy" type="button" data-toy="chimes"><svg viewBox="0 0 34 34" aria-hidden="true"><path d="M6 6h22M10 6v14M15 6v20M20 6v11M25 6v17M17 12l-3 9"/></svg>Chimes</button>
     <button class="toy" type="button" data-toy="drop"><svg viewBox="0 0 34 34" aria-hidden="true"><path d="M17 4v26M11 24l6 6 6-6"/></svg>Drop</button>
     <button class="toy" type="button" data-toy="beat"><svg viewBox="0 0 34 34" aria-hidden="true"><rect x="4" y="22" width="5" height="5"/><rect x="11" y="7" width="5" height="5"/><rect x="18" y="15" width="5" height="5"/><rect x="25" y="7" width="5" height="5"/></svg>Beat</button>
@@ -702,6 +703,13 @@ kbd {
     <span class="seg" data-insp="chord"><button class="btn" type="button" data-v="single">single</button><button class="btn" type="button" data-v="fifth">fifths</button><button class="btn" type="button" data-v="triad">triads</button><button class="btn" type="button" data-v="seventh">sevenths</button><button class="btn" type="button" data-v="sus">sus</button></span></div>
   <div class="insprow"><span class="lbl">Volume</span>
     <input id="inspGain" type="range" min="0" max="1.5" step="0.05" value="1" aria-label="This loop's volume"></div>
+  <div class="insprow" data-level="3"><span class="lbl">Snap</span>
+    <span class="seg" data-insp="snap"><button class="btn" type="button" data-v="sheet" title="To the sheet's division, like every loop">division</button><button class="btn" type="button" data-v="fine" title="To 1/64: almost as drawn, still in time">fine</button><button class="btn" type="button" data-v="none" title="Exactly when you drew it: no snapping">none</button></span></div>
+  <div class="insprow" data-level="3"><span class="lbl">Feel</span>
+    <input id="inspFeel" type="range" min="-40" max="40" step="5" value="0">
+    <small class="inspval" id="inspFeelVal">on the beat</small></div>
+  <div class="insprow" data-level="3"><span class="lbl">Clock</span>
+    <span class="seg" data-insp="clock"><button class="btn" type="button" data-v="step" title="On the sheet's clock, like every loop">in step</button><button class="btn" type="button" data-v="ahead" title="1% fast: it slowly drifts ahead of the others, and comes round again">drifts ahead</button><button class="btn" type="button" data-v="behind" title="1% slow: it slowly drifts behind the others, and comes round again">drifts behind</button></span></div>
   <div class="insprow" data-level="2"><span class="lbl">Timing</span>
     <span class="seg" data-insp="trigger"><button class="btn" type="button" data-v="sheet" title="Free or on the grid, following Lock">follow Lock</button><button class="btn" type="button" data-v="free" title="Always as drawn (snapped to the division)">as drawn</button><button class="btn" type="button" data-v="lock" title="Always read on the grid">on the grid</button></span></div>
   <div class="insprow"><button class="btn" type="button" id="inspMute" aria-pressed="false">Mute</button><button class="btn" type="button" id="inspEdit" data-level="2">Edit notes</button><button class="btn" type="button" id="inspDup" data-level="2">Duplicate</button><button class="btn" type="button" id="inspMutate" data-level="2" title="Create a related variation that inherits this loop’s musical identity">Mutate</button><button class="btn" type="button" id="inspKeep">Keep as a toy</button><button class="btn" type="button" id="inspErase">Erase</button></div>
@@ -848,7 +856,7 @@ const ROOTS = ["C", "C♯", "D", "E♭", "E", "F", "F♯", "G", "A♭", "A", "B�
 // the division; a column's width is also the free Tracer's stride.
 const DIVS = {
   free: { perBeat: 0 }, "4": { perBeat: 1 }, "8": { perBeat: 2 }, "8t": { perBeat: 3 },
-  "16": { perBeat: 4 }, "16t": { perBeat: 6 }, "32": { perBeat: 8 },
+  "16": { perBeat: 4 }, "16t": { perBeat: 6 }, "32": { perBeat: 8 }, "64": { perBeat: 16 },
 };
 
 const BAR = 4;                // beats per bar
@@ -898,6 +906,29 @@ const mod = (a, n) => ((a % n) + n) % n;
 /** Next grid step, forgiving if we're only just late. Free = no snapping. */
 const snapUp = (b) => { const p = perBeat(); return p ? Math.ceil(b * p - 0.15) / p : b; };
 const snapNear = (b) => { const p = perBeat(); return p ? Math.round(b * p) / p : b; };
+
+/* ── 2b. Timing freedom (a loop's settings, Everything) ─────────────────────
+ * Every loop runs on the sheet's one clock and snaps to the sheet's division:
+ * the right default (Alex, 2026-10-24: "proper, as a default behaviour. We
+ * might want more freedom. The quantizing can get in the way."). Per loop:
+ *   Snap   sheet (the division, as always) · fine (1/64) · none (exactly when
+ *          you drew it)
+ *   Feel   ahead of the beat or behind it, in ms (−40 … +40); a constant lean,
+ *          where Vary is a random wobble
+ *   Clock  in step · drifts ahead · drifts behind: 1 % faster or slower than
+ *          its musical speed, so it phases against the others (Reich) and
+ *          comes round again; a drifting loop plays unsnapped, or the grid
+ *          would keep pulling it back into step
+ * All hidden at Simple and More; a new loop is in step, snapped, on the beat. */
+const SNAP_ORDER = ["sheet", "fine", "none"], CLOCK_ORDER = ["step", "ahead", "behind"], DRIFT = 0.01;
+const clockFactor = (lp) => ({ ahead: 1 / (1 + DRIFT), behind: 1 + DRIFT }[lp.clock] || 1);   // a shorter pass is a faster loop
+const baseTs = (lp) => lp.ts / clockFactor(lp);                // its musical speed, without the drift
+const snapOf = (lp) => (lp.clock && lp.clock !== "step" ? "none" : lp.snap || "sheet");
+function snapLoop(lp, b) {
+  const m = snapOf(lp);
+  return m === "none" ? b : m === "fine" ? Math.round(b * 16) / 16 : snapNear(b);
+}
+const feelOf = (lp) => Math.max(-40, Math.min(40, lp.feel || 0)) / 1000;
 const walkStep = (b) => Math.floor(b / (2 * BAR)) % 4;
 
 /* ── 3. Sound ────────────────────────────────────────────────────────────── */
@@ -1286,7 +1317,8 @@ function tsForSize(s) {
 }
 /** Change a loop's speed without a jump: keep its phase, re-anchor its start. */
 function retime(lp, ts) {
-  if (ts === lp.ts) return;
+  ts *= clockFactor(lp);                                         // callers give the musical speed; a drifting clock adds its 1 %
+  if (Math.abs(ts - lp.ts) < 1e-9) return;
   if (ctx) {
     const nb = nowBeat(), frac = mod(nb - lp.start, loopBeats(lp)) / loopBeats(lp);
     lp.ts = ts;
@@ -1476,7 +1508,7 @@ function play(lp, ev, t, b, phase, air = 1) {
 function notePhase(lp, ev) {
   const Lb = loopBeats(lp), k = passOf(lp, nowBeat()), base = lp.start + k * Lb, back = backwards(lp, k);
   const off = offsOf(lp)[lp.events.indexOf(ev)] ?? ev.off;
-  const rel = (snapNear(base + (back ? Math.max(0, lp.L - off - 1e-6) : off) * lp.ts) - base) / lp.ts;
+  const rel = (snapLoop(lp, base + (back ? Math.max(0, lp.L - off - 1e-6) : off) * lp.ts) - base) / lp.ts;
   return back ? lp.L - rel : rel;
 }
 
@@ -1887,14 +1919,14 @@ function schedule() {
           // Backwards, the playhead reaches a note drawn at `off` at L − off.
           const at = back ? Math.max(0, lp.L - off - 1e-6) : off;
           if (i < nn && !lifePlays(lp, i)) continue;               // Life: this note rests at this point of its life
-          const snapped = snapNear(base + at * lp.ts), b = swung(snapped);
+          const snapped = snapLoop(lp, base + at * lp.ts), b = snapOf(lp) === "sheet" ? swung(snapped) : snapped;
           if (b < a || b >= z) continue;
           const key = `${b}|${voiceOf(lp, ev)}`;
           if (struck.has(key)) continue;                         // two notes snapped together: one strike
           struck.add(key);
           const air = airKeep(b);                                // Air: let it breathe
           if (!air) continue;
-          const t = Math.max(now, timeAt(b)), rel = (snapped - base) / lp.ts;
+          const t = Math.max(now, timeAt(b) + feelOf(lp)), rel = (snapped - base) / lp.ts;
           play(lp, ev, t, b, back ? lp.L - rel : rel, air); ev.flashAt = t;
         }
       } else {
@@ -1907,7 +1939,7 @@ function schedule() {
           const late = j % 2 && perBeat() ? state.swing * sb : 0;      // swing the odd steps
           const sg = strengthOf(lp), fill = Math.min(lifeState(lp).thin, sg < 1 ? Math.max(LIFE_FLOOR, 1 - (1 - sg) * 1.25) : 1);
           if (fill < 1 && weightAt(beat) < 1 - fill) { lp.lastBand = null; continue; }   // Life, or drained: the strongest steps first
-          lockStep(lp, px, py, smp.heading + 0, beat, Math.max(now, timeAt(beat + late)), true);
+          lockStep(lp, px, py, smp.heading + 0, beat, Math.max(now, timeAt(beat + late) + feelOf(lp)), true);
         }
       }
     }
@@ -2275,7 +2307,7 @@ function nextStart() { return ctx ? Math.ceil(nowBeat()) : 0; }
 
 function dropToy(kind, where, size = 1) {
   const W = sheet.clientWidth, H = sheet.clientHeight, m = Math.min(W, H);
-  const kinds = Object.keys(TOYS).concat(["shaker", "beat", "chimes"]);
+  const kinds = Object.keys(TOYS).concat(["shaker", "beat", "chimes", "spinner"]);
   if (kind === "dice") kind = kinds[Math.floor(Math.random() * kinds.length)];
   const cx = where ? where[0] : W * (0.2 + Math.random() * 0.6);
   const cy = where ? where[1] : H * (0.25 + Math.random() * 0.5);
@@ -2309,6 +2341,19 @@ function dropToy(kind, where, size = 1) {
     });
     s.pts.push({ x: (cx + 4 * w) / W, y: s.pts[s.pts.length - 1].y, b: 3.99 });
     s.temper = "still"; s.trigger = "free"; s.dir = "fwd"; s.rhythm = "drawn";
+  } else if (kind === "spinner") {
+    // A Spinner (found by Alex on a sheet, 2026-10-24: "an ostinato which spins
+    // around"): one quick flick upward, a beat long: a drum where the finger
+    // lands, then bells rising, evenly spaced. It spins, and height is pitch,
+    // so the arpeggio folds toward one note as it turns sideways, opens up
+    // again, and turns upside down every half-turn.
+    const len = H * (0.4 + Math.random() * 0.25), n = 3 + Math.floor(Math.random() * 3), x0 = cx, y0 = cy + len / 2;
+    for (let i = 0; i <= 5; i++) { const u = i / 5; s.pts.push({ x: (x0 + Math.sin(u * 3) * 4) / W, y: (y0 - len * u) / H, b: u * 0.18 }); }
+    for (let i = 0; i < n; i++) {
+      const u = i / Math.max(1, n - 1), y = y0 - len * (0.02 + 0.96 * u);
+      s.events.push({ off: 0, x: x0 / W, y: y / H, heading: i ? Math.PI / 2 : -Math.PI / 2, fixed: null, vel: 0.55 + Math.random() * 0.12, ms: 0, flashAt: -1 });
+    }
+    s.L = 1; s.temper = "spin"; s.spinDir = Math.random() < 0.5 ? 1 : -1; s.rhythm = "even"; s.dir = "fwd"; s.trigger = "free";
   } else if (kind === "chimes") {
     // Wind chimes, as you'd draw them: a bar, and tubes of different lengths
     // hanging from it. The path runs along the bar and down and up each tube;
@@ -2709,7 +2754,7 @@ function pointerEnd(e, cancelled = false) {
     if (gr.mode === "pinch" && pinch) {
       const other = grabs.get(pinch.a === e.pointerId ? pinch.b : pinch.a);
       if (other) other.mode = "spent";        // the remaining finger lets go of the loop
-      toast(`×${fmtRatio(pinch.loop.ts)} · ${fmtBeats(loopBeats(pinch.loop))} beats`);
+      toast(`×${fmtRatio(baseTs(pinch.loop))} · ${fmtBeats(loopBeats(pinch.loop))} beats`);
       pinch = null;
     }
     if (![...grabs.values()].some((o) => o.loop === gr.loop)) gr.loop.held = false;
@@ -3019,7 +3064,7 @@ function frame() {
   }
   // While resizing, show the loop's clock ratio and length right next to it.
   if (pinch) {
-    const bx = screenBox(pinch.loop, W, H), label = `×${fmtRatio(pinch.loop.ts)} · ${fmtBeats(loopBeats(pinch.loop))} beats`;
+    const bx = screenBox(pinch.loop, W, H), label = `×${fmtRatio(baseTs(pinch.loop))} · ${fmtBeats(loopBeats(pinch.loop))} beats`;
     g2.save(); g2.font = "600 13px " + getComputedStyle(document.body).fontFamily;
     const tw = g2.measureText(label).width + 20, x = Math.min(W - tw - 8, Math.max(8, bx.cx - tw / 2)), y = Math.max(70, bx.y0 - 40);
     g2.fillStyle = colors.ink; g2.beginPath(); g2.roundRect ? g2.roundRect(x, y, tw, 26, 13) : g2.rect(x, y, tw, 26); g2.fill();
@@ -3093,6 +3138,7 @@ function loopData(lp) {
     wait: lp.wait || 0, ph: r4(mod(lp.start, loopBeats(lp))),
     lineage: lp.lineage || null, generation: lp.generation || 0,
     meets: lp.meets || "sound", density: lp.density || null, pack: lp.pack || null, life: lp.life || "steady", age: lp.age || 0, gives: lp.gives || "none", strength: lp.strength ?? 1,
+    snap: lp.snap || "sheet", feel: lp.feel || 0, clock: lp.clock || "step",
   };
 }
 /** Plain data → a loop starting at beat `start` (not yet on the sheet). */
@@ -3109,6 +3155,7 @@ function buildLoop(d, start, fallbackRevoice = false) {
     meets: d.meets || "sound", density: d.density || null, pack: PACKS[d.pack] ? d.pack : null,
     life: LIFE_ORDER.includes(d.life) ? d.life : "steady", age: d.age || 0,
     gives: INFLUENCE_ORDER.includes(d.gives) ? d.gives : "none", strength: Math.min(STRENGTH_MAX, Math.max(STRENGTH_MIN, d.strength ?? 1)),
+    snap: SNAP_ORDER.includes(d.snap) ? d.snap : "sheet", feel: Math.max(-40, Math.min(40, d.feel || 0)), clock: CLOCK_ORDER.includes(d.clock) ? d.clock : "step",
   });
   // Keep its place in the cycle (offsets survive saving): start mid-pass, sounding from `start` on.
   if (d.ph != null) { lp.start = start - mod(start - d.ph, loopBeats(lp)); lp.lastPass = Math.floor((start - lp.start) / loopBeats(lp)); }
@@ -3250,12 +3297,13 @@ function packScene(sc) {
       d.generation || 0, d.lineage || 0,                  // appended last: older codes simply lack them
       Math.max(0, MEET_ORDER.indexOf(d.meets || "sound")), d.density ? DENSITY_ORDER.indexOf(d.density) : -1, d.pack ? PACK_ORDER.indexOf(d.pack) : -1,
       Math.max(0, LIFE_ORDER.indexOf(d.life || "steady")), d.age || 0,
-      Math.max(0, INFLUENCE_ORDER.indexOf(d.gives || "none")), Math.round((d.strength ?? 1) * 100)];
+      Math.max(0, INFLUENCE_ORDER.indexOf(d.gives || "none")), Math.round((d.strength ?? 1) * 100),
+      Math.max(0, SNAP_ORDER.indexOf(d.snap || "sheet")), d.feel || 0, Math.max(0, CLOCK_ORDER.indexOf(d.clock || "step"))];
   }) };
 }
 function unpackScene(pk) {
   if (!pk || pk.v !== 1 || !Array.isArray(pk.l)) throw new Error("not a Twirl scene");
-  return { settings: pk.st || {}, loops: pk.l.map(([lock, pen, L, ts, muted, temper, spinDir, cx, cy, tx, ty, rot, s, flat, ev, revoice, zone, gain, rhythm, chord, dir, every, wait, ph, generation, lineage, meets, density, pack, life, age, gives, strength]) => {
+  return { settings: pk.st || {}, loops: pk.l.map(([lock, pen, L, ts, muted, temper, spinDir, cx, cy, tx, ty, rot, s, flat, ev, revoice, zone, gain, rhythm, chord, dir, every, wait, ph, generation, lineage, meets, density, pack, life, age, gives, strength, snap, feel, clock]) => {
     const pts = []; let x = 0, y = 0, b = 0;
     for (let i = 0; i < flat.length; i += 3) { x += flat[i]; y += flat[i + 1]; b += flat[i + 2]; pts.push([x / QXY, y / QXY, b / QB]); }
     const events = [];
@@ -3267,7 +3315,8 @@ function unpackScene(pk) {
       wait: wait || 0, ph: ph === undefined || ph < 0 ? undefined : ph / QB,
       generation: generation || 0, lineage: lineage || null,
       meets: MEET_ORDER[meets] || "sound", density: DENSITY_ORDER[density] || null, pack: PACK_ORDER[pack] || null, life: LIFE_ORDER[life] || "steady", age: age || 0,
-      gives: INFLUENCE_ORDER[gives] || "none", strength: strength == null ? 1 : strength / 100 };
+      gives: INFLUENCE_ORDER[gives] || "none", strength: strength == null ? 1 : strength / 100,
+      snap: SNAP_ORDER[snap] || "sheet", feel: feel || 0, clock: CLOCK_ORDER[clock] || "step" };
   }) };
 }
 
@@ -3454,7 +3503,7 @@ function keepToy(lp) {
   const turn = state.revoice ? totalRot(lp) : 0;   // keep the voices you were hearing
   addToy({
     trigger: lp.trigger, pen: lp.pen, L: lp.L, ts: lp.ts, muted: false, temper: lp.temper, spinDir: lp.spinDir, revoice: !!lp.revoice, zone: lp.zone || "any", gain: lp.gain ?? 1, rhythm: lp.rhythm || "drawn", chord: lp.chord || "single", dir: lp.dir || "fwd", every: lp.every || 1, wait: lp.wait || 0,
-    generation: lp.generation || 0, lineage: lp.lineage || null, meets: lp.meets || "sound", density: lp.density || null, pack: lp.pack || null, life: lp.life || "steady", gives: lp.gives || "none",
+    generation: lp.generation || 0, lineage: lp.lineage || null, meets: lp.meets || "sound", density: lp.density || null, pack: lp.pack || null, life: lp.life || "steady", gives: lp.gives || "none", snap: lp.snap || "sheet", feel: lp.feel || 0, clock: lp.clock || "step",
     c: [0, 0], tx: 0, ty: 0, rot: 0, s: 1,
     pts: lp.pts.map((p, i) => [...rel(P[i]), r4(p.b)]),
     events: lp.events.map((e) => [e.off, ...rel(place(lp, e.x, e.y, W, H)), r4(e.heading + turn), e.fixed, r4(e.vel)]),
@@ -3481,7 +3530,8 @@ function dropSavedToy(t, where) {
   const cx = where ? where[0] : W * (0.25 + Math.random() * 0.5);
   const cy = where ? where[1] : H * (0.3 + Math.random() * 0.4);
   const s = newStroke(nextStart());
-  Object.assign(s, { trigger: normTrigger(t.trigger), pen: t.pen, temper: t.temper, spinDir: t.spinDir, revoice: t.revoice ?? s.revoice, zone: t.zone || "any", gain: t.gain ?? 1, rhythm: t.rhythm || "drawn", chord: t.chord || "single", dir: t.dir || "fwd", every: t.every || 1, generation: t.generation || 0, lineage: t.lineage || null, meets: t.meets || "sound", density: t.density || null, pack: PACKS[t.pack] ? t.pack : null, life: LIFE_ORDER.includes(t.life) ? t.life : "steady", age: 0, gives: INFLUENCE_ORDER.includes(t.gives) ? t.gives : "none", strength: 1 });
+  Object.assign(s, { trigger: normTrigger(t.trigger), pen: t.pen, temper: t.temper, spinDir: t.spinDir, revoice: t.revoice ?? s.revoice, zone: t.zone || "any", gain: t.gain ?? 1, rhythm: t.rhythm || "drawn", chord: t.chord || "single", dir: t.dir || "fwd", every: t.every || 1, generation: t.generation || 0, lineage: t.lineage || null, meets: t.meets || "sound", density: t.density || null, pack: PACKS[t.pack] ? t.pack : null, life: LIFE_ORDER.includes(t.life) ? t.life : "steady", age: 0, gives: INFLUENCE_ORDER.includes(t.gives) ? t.gives : "none", strength: 1,
+    snap: SNAP_ORDER.includes(t.snap) ? t.snap : "sheet", feel: t.feel || 0, clock: CLOCK_ORDER.includes(t.clock) ? t.clock : "step" });
   s.pts = t.pts.map(([x, y, b]) => ({ x: (cx + x * m) / W, y: (cy + y * m) / H, b }));
   s.events = t.events.map(([off, x, y, heading, fixed, vel]) => ({ off, x: (cx + x * m) / W, y: (cy + y * m) / H, heading, fixed, vel, ms: 0, flashAt: -1 }));
   if (finishStroke(s, false)) s.ts = t.ts;
@@ -4193,8 +4243,8 @@ function closeInspector() {
 function syncInspector() {
   const lp = insp;
   if (!lp) return;
-  $("inspTitle").textContent = `Loop ${loops.indexOf(lp) + 1}${lp.generation ? " · generation " + lp.generation : ""} · ${fmtBeats(loopBeats(lp))} beats · ×${fmtRatio(lp.ts)} · ${locked(lp) ? "on the grid" : "as drawn"}`;
-  const val = { gives: lp.gives || "none", life: lp.life || "steady", density: lp.density || "", meets: lp.meets || "sound", temper: lp.temper, zone: lp.zone || "any", ts: lp.ts, trigger: lp.trigger, rhythm: lp.rhythm || "drawn", chord: lp.chord || "single", dir: lp.dir || "fwd", every: String(lp.every || 1), wait: String(lp.wait || 0) };
+  $("inspTitle").textContent = `Loop ${loops.indexOf(lp) + 1}${lp.generation ? " · generation " + lp.generation : ""} · ${fmtBeats(loopBeats(lp))} beats · ×${fmtRatio(baseTs(lp))}${lp.clock && lp.clock !== "step" ? (lp.clock === "ahead" ? " (drifting ahead)" : " (drifting behind)") : ""} · ${locked(lp) ? "on the grid" : "as drawn"}`;
+  const val = { gives: lp.gives || "none", life: lp.life || "steady", density: lp.density || "", meets: lp.meets || "sound", temper: lp.temper, zone: lp.zone || "any", ts: baseTs(lp), trigger: lp.trigger, snap: lp.snap || "sheet", clock: lp.clock || "step", rhythm: lp.rhythm || "drawn", chord: lp.chord || "single", dir: lp.dir || "fwd", every: String(lp.every || 1), wait: String(lp.wait || 0) };
   $("inspGain").value = String(lp.gain ?? 1);
   document.querySelectorAll("[data-insp]").forEach((seg) => seg.querySelectorAll("[data-v]").forEach((b) => {
     const v = seg.dataset.insp === "ts" ? Math.abs(Number(b.dataset.v) - val.ts) < 0.01 : b.dataset.v === val[seg.dataset.insp];
@@ -4203,6 +4253,10 @@ function syncInspector() {
   $("inspPen").value = lp.pen || "auto";
   $("inspPack").value = lp.pack || "";
   syncLifeNote(lp);
+  $("inspFeel").value = String(lp.feel || 0);
+  $("inspFeelVal").textContent = !lp.feel ? "on the beat" : lp.feel < 0 ? `${-lp.feel} ms ahead` : `${lp.feel} ms behind`;
+  $("inspFeel").setAttribute("aria-valuetext", $("inspFeelVal").textContent);   // heard as words, not a number
+  document.querySelectorAll('[data-insp="snap"] .btn').forEach((b) => (b.disabled = !!(lp.clock && lp.clock !== "step")));   // a drifting loop is unsnapped
   const sg = strengthOf(lp);
   $("inspStrength").textContent = sg === 1 ? "" : `${sg > 1 ? "fed" : "drained"}: ${Math.round(sg * 100)}% strength, settling back`;
   $("inspRevoice").setAttribute("aria-pressed", String(!!lp.revoice));
@@ -4262,6 +4316,11 @@ document.querySelectorAll("[data-insp]").forEach((seg) => seg.addEventListener("
   if (k === "chord") lp.chord = v;
   if (k === "dir") lp.dir = v;
   if (k === "meets") lp.meets = v;
+  if (k === "snap") lp.snap = v;
+  if (k === "clock") {
+    const base = baseTs(lp); lp.clock = v; retime(lp, base);
+    toast({ step: "Clock: in step with the sheet", ahead: "Clock: drifting ahead · 1% fast, it phases against the others", behind: "Clock: drifting behind · 1% slow, it phases against the others" }[v]);
+  }
   if (k === "gives") { lp.gives = v; toast({ none: "Influence: none", feed: "Influence: feeds · the loops it touches grow stronger", drain: "Influence: drains · the loops it touches grow weaker" }[v]); }
   if (k === "life") {
     lp.life = v; lp.age = 0;
@@ -4279,6 +4338,7 @@ $("inspReroll").addEventListener("click", () => {
   if (insp && retrace(insp, insp.density || state.density)) { toast(`Notes spaced again · ${insp.events.length}`); syncInspector(); }
 });
 $("inspGain").addEventListener("input", (e) => { if (insp) insp.gain = Number(e.target.value); });
+$("inspFeel").addEventListener("input", (e) => { if (insp) { insp.feel = Number(e.target.value); syncInspector(); } });
 $("inspPack").addEventListener("change", (e) => { if (insp) { insp.pack = e.target.value || null; toast(insp.pack ? `Loop ${loops.indexOf(insp) + 1} plays ${insp.pack} sounds, whatever the sheet's` : "Back to the sheet's sounds"); } });
 $("inspPen").addEventListener("change", (e) => { if (insp) { insp.pen = e.target.value; syncInspector(); } });
 $("inspRevoice").addEventListener("click", () => { if (insp) { insp.revoice = !insp.revoice; syncInspector(); } });
