@@ -66,7 +66,7 @@ more features. Evolving-patch v1 is small enough to build alongside.
 | # | Track | Effort | Value | Why now |
 |---|---|---|---|---|
 | 0 | **Playtests** (5–8 people, targeted) | 2/5 | 5/5 | Validate first contact and legibility before the surface grows further |
-| 1 | **Evolving patch v1**: life cycles, influence | 3/5 | 5/5 | The repetition problem; builds on contacts, Vary and Morph. *Life and Evolve shipped; influence next.* |
+| 1 | **Evolving patch v1**: life cycles, influence | 3/5 | 5/5 | The repetition problem; builds on contacts, Vary and Morph. *Life, Evolve and influence shipped.* |
 | 2 | **Sound variety**: toys with their own sounds, per-pack nuance, accents from the beat, pressure as thickness | 2/5 | 4/5 | Cheap variety with no new concepts; chimes showed the way |
 | 3 | **Mutation v2** (musical, seeded) | 3/5 | 4/5 | Breeding and evolution sound only as good as the mutations |
 | 4 | **Terrain** (workshop first) | 4/5 | 4/5 | Movement as development; wants the evolving patch's legibility rules first |
@@ -134,8 +134,20 @@ otherwise steady), never on a quiet sheet, so a first stroke always stays.
 3. **Evolve** switch in the drawer (More), on by default only if playtests
    agree; a loop's settings show its life stage.
 
-**Next:** influence (*feed* and *drain* at contact); Surprise handing out
-lives, once playtests say lives are welcome; a sheet-wide "season" that
+**Influence, shipped 2026-10-24** (item 2): a loop setting of its own (not
+more Meets answers, so a loop can bump *and* feed): *none · feeds ·
+drains*, at any of the three contacts, once a beat per pair. It changes the
+touched loop's **strength** (0.4–1.6): louder (gain × s^0.7) and denser
+(above 1, a share of the bloom notes) or quieter and sparser (below 1, its
+least indispensable notes rest); feeding keeps a fade or brief life young
+(age −1), draining ages it (+1). Strength settles back 15 % a pass. Seen:
+thicker or paler lines, a double or dashed ring. Surprise gives it on busy
+sheets (feed .12, drain .06). Saved in codes; children start at 1. Tests:
+*Twirl · Influence*. And, decided with Alex the same evening: **at the cap,
+breeding replaces the oldest loop** (never a parent or a held one), into
+undo.
+
+**Next:** a sheet-wide "season"; a sheet-wide "season" that
 shades every loop. Later: shapeshifting (shape over time, from Morph and Mutation), terrain,
 seasons (a slow sheet-wide cycle that shades every loop's density and
 loudness), and Surprise handing out lives.
@@ -289,9 +301,11 @@ a while." Both:
 - the wait between children doubles: **16 bars**.
 
 **At the 14-loop cap** (Alex, 2026-10-24: breeding "can still happen when
-we reach the limit, and it replaces previous loops"). By design, breeding
-and contacts never remove a loop: `breedWith` and `mutateLoop({quiet})`
-stop at 14. What does take the oldest loop at the cap is drawing a stroke,
+we reach the limit, and it replaces previous loops"). *Decided the same
+evening: yes, breeding at the cap replaces the oldest loop (never a parent,
+never a held one), into undo.* Before that, by design, breeding and
+contacts never removed a loop: `breedWith` and `mutateLoop({quiet})`
+stopped at 14. What does take the oldest loop at the cap is drawing a stroke,
 dropping a toy, pressing Mutate, and a take's replay adding loops, which may
 be what showed up. Worth deciding on purpose: should breeding at the cap
 replace the oldest loop (or the oldest of its own family, or a faded one),
