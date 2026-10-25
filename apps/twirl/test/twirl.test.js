@@ -1349,6 +1349,7 @@ describe.skipIf(!browser)("Twirl · merging, the drone's level, two modes", () =
     expect(r.secs).toEqual(["Drawing", "Time", "Pitch", "Loops together", "Harmony", "Sound and room", "View"]);
     expect(r.two).toBe(3);                                           // an old "More" opens Everything
     await page.click('#strip details[data-sec="pitch"] > summary');
+    await page.waitForFunction(() => store.get("twirl:sec:pitch") === false, null, { timeout: 2000 });   // "toggle" fires a moment after the click
     expect(await page.evaluate(() => [document.querySelector('details[data-sec="pitch"]').open, store.get("twirl:sec:pitch")])).toEqual([false, false]);
     await context.close();
   });
