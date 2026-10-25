@@ -55,7 +55,10 @@ pass; at the cap, breeding replaces the oldest loop. **Timing freedom**
 loops (`shareTiming`). **Walk** has ways and a pace (`walkShift`, `WALK_WAYS`).
 A life's length is per loop (`spanOf`). Messages are quiet or shown, stacked
 (`setMsgsLoud`, `showToast`). A replay draws each loop as it was drawn
-(`drawnUpTo`). A fresh sheet has its own key and tempo
+(`drawnUpTo`). **Performance:** the scheduler's lookahead adapts to late
+ticks (`lookahead`, up to 0.4 s); the paper and grid are a layer of their own
+(`#gridLayer`), redrawn only when they change; sharpness adapts to slow
+frames (`quality`); Q shows a readout. A fresh sheet has its own key and tempo
 (`freshKey`). **Start over** resets to
 `STATE_DEFAULTS`, the Simple level and `startingSheet()`. Takes save as WAV
 (`encodeWav`). The
@@ -134,6 +137,10 @@ What they hold in place:
   again, strongest first, never changing the drawn ones; a swell gets louder
   and back; brief starts from its strongest notes (the downbeat always);
   Surprise gives lives only on a busy sheet, brief most often;
+- **Performance.** A busy sheet (14 dense loops, contacts, lives,
+  influence) stays inside a frame budget; late ticks widen the lookahead
+  (capped at 0.4 s) and it settles back; sharpness drops on slow frames and
+  returns when calm; the grid layer redraws only when it changes.
 - **Timing and Spinner.** Snap rounds to the division, 1/64 or not at all;
   a laid-back loop sounds its ms after its twin; a drifting clock changes the
   pass by 1 % and unsnaps it, and in step restores the exact speed; all three

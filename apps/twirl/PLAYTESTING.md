@@ -83,6 +83,22 @@ contrast rather than for numbers:
   [A11Y.md](A11Y.md).
 - Keep raw recordings out of the repo; keep only anonymized notes and quotes.
 
+## Things to watch for, from Alex's own play (2026-10-24)
+
+Not fixed yet, on purpose: worth seeing whether others notice them, and how
+much they matter, before deciding.
+
+- **Replays and messages.** A replay doesn't show the messages the take's
+  moments produced (a loop trading, a child born). With messages shown, does
+  a replay feel like it's missing its captions?
+- **Replays and rhythm.** A replay may not sound quite like the original:
+  "there's a reinterpretation going on, perhaps based on swing or quantize".
+  Likely causes to check: a take stores what was *done* (strokes, settings)
+  and replays it through today's division, swing, Vary and Surprise rather
+  than the notes as they sounded; contacts and Life aren't recorded as
+  events. Compare a take's replay against its sound file.
+- **Walk.** Do people find the ways (W cycles them), and which do they keep?
+
 ## Logistics to settle
 
 - Which build: Pages (`main`) for everyone, so a session never meets an
