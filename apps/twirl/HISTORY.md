@@ -144,5 +144,13 @@ fade; **mortal breeders** (fade or brief) pass breeding on, so a population
 keeps itself going and in check. "Really enjoy this integration of generative
 with performing." Recorded in [INTENT.md](../../docs/INTENT.md) B1.
 
-**Merge, a quieter Drone, two modes** (this round): see the roadmap's
-"Shipped lately".
+**Merge** (a loop swallows the loops it runs into, path and notes as they
+are; up to 16 beats, once every 4 bars), **a quieter Drone** (measured at four
+times a loop's loudness; brought to one loop, then half), its space drawn per
+fresh sheet, **the drawer in two modes** with seven labelled sections, the
+design brief, and the roadmap consolidated (this file split from it). A loop's
+settings once grew wider than a phone (Meets' seventh answer): rows wrap now.
+
+**Undo what happened**: each event the sheet makes on its own carries its own
+Undo in the log. **The current chord** on the sheet under Walk. Tadpoles
+without the current; the current in `?template=tadpoles`, the first template.

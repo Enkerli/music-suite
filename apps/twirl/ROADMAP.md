@@ -44,14 +44,23 @@ are marked.
 
 ## Shipped lately (2026-10-25)
 
+- **Undo what happened**: every event the sheet makes on its own (a child, a
+  merge, a trade, a life's end, a loop thrown away) carries its own Undo in
+  the "What just happened" log, not only the latest.
+- **The current chord** shows at the top of the sheet while Walk or Arc runs.
+- **The Drone, softer still**: about half a loop's loudness at its default.
+- **Tadpoles are ephemeral again** ("they don't need that steady loop. It's
+  for a template to include that. The ephemeral tadpoles breeding a bit before
+  disappearing is semi-poetic"); the current moved to the first **template**,
+  `?template=tadpoles` (#3 has begun).
+
 - **Merge** (Meets): a loop swallows the loops it runs into: its path, then
   the other's, notes and all, as they are on the sheet (up to 16 beats; once
   every 4 bars); the other goes to undo. Breeding adds loops, merging takes
   them away, so a sheet can find a balance.
-- **Tadpoles bring a current**: one long, steady line across them to run
-  into ("A long tadpole run ended up being rather short, as there were few
-  collisions… Adding steady loops which cut across multiple tadpoles can
-  make that work").
+- **A current** for tadpoles to run into ("A long tadpole run ended up being
+  rather short, as there were few collisions… Adding steady loops which cut
+  across multiple tadpoles can make that work"): now in the template.
 - **A quieter Drone** ("the equivalent volume of a single loop, maybe a bit
   lower"): measured at four times a loop's loudness before; now a little
   under one loop at its default.
@@ -75,7 +84,7 @@ first.
 |---|---|---|---|---|---|
 | 1 | **Playtests, round 1** ([PLAYTESTING.md](PLAYTESTING.md)) | 5 | 2 | – | Two days of features unseen by anyone but Alex; first contact, legibility, repetition, the two modes |
 | 2 | **Design pass**: the drawer, a loop's settings, symbols, palettes ([brief](DESIGN_BRIEF.md)) | 5 | 3 | this run of the drawer | The settings panel is the least designed surface; symbols cut text before translation |
-| 3 | **Templates by URL** (`?template=…`) | 4 | 1 | – | Cheap; keeps Simple simple; workshop, lesson and playtest conditions in one link |
+| 3 | **Templates by URL** (`?template=…`; the first, `tadpoles`, shipped) | 4 | 1 | – | Cheap; keeps Simple simple; workshop, lesson and playtest conditions in one link |
 | 4 | **Ready for translation**, and a Suite glossary | 4 | 3 | 2 (symbols first) | A lot of text; French next; one name per idea across the suite |
 | 5 | **Tools and palettes**: brushes, lasso and selection, groups | 4 | 3 | 2 | Steering a busy sheet; many loops at once |
 | 6 | **Sound**: sustained voices and legato, master FX, a channel per loop | 4 | 3 | – | Lines that sing; a mix that breathes; the multichannel path |
@@ -117,8 +126,9 @@ guide's screenshots get refreshed after.
 ### 3. Templates by URL
 
 "Preserving the simple immediate experience could go through the existence of
-more elaborate templates, loaded through the URL." `?start=macro` is the
-first. Generalize: `?template=<name>`, each a stored scene with its settings
+more elaborate templates, loaded through the URL." `?start=macro` came first;
+`?template=tadpoles` (two schools and a current, Drone on, at Everything; your
+sheet kept aside) is the first of the general kind. Next: each a stored scene with its settings
 and the mode to open at: a tadpole sea, an ambient room (Drone, Warmth, Walk),
 a drum-and-bells starter (Alex's usual session: a kick, bells, crossing
 lines), a Lock grid, a microtonal sheet, a playtest condition. The plain URL

@@ -164,6 +164,7 @@ body {
 /* Progressive disclosure: controls marked data-level only show from that level up. */
 .lvl-1 [data-level="2"], .lvl-1 [data-level="3"], .lvl-2 [data-level="3"] { display: none !important; }
 .levels { width: 100%; }
+.msglog li .undo { min-height: 32px; padding: 0 10px; margin-left: 8px; font-size: 0.8125rem; }
 /* The drawer's sections, at Everything: a labelled compartment each, folding. */
 .dsec { border-top: 1px solid var(--rule); padding-top: 10px; }
 .dsec > summary { cursor: pointer; list-style: none; display: flex; align-items: baseline; gap: 8px; min-height: 32px; }
@@ -1631,6 +1632,22 @@ function harmonyAt(b) {
   }
   return { shift: state.walk ? walkShift(walkStep(b)) : 0, resolve: false, phase: -1 };
 }
+/** The chord Walk (or Arc) is on at beat b: the home chord's three tones moved by
+ *  the shift (the tones fits lands on, the Drone's notes), named when they're
+ *  12-note pitches ("Am/C": A minor over C), by scale step otherwise. */
+const CHORD_SHAPES = [["", [0, 4, 7]], ["m", [0, 3, 7]], ["dim", [0, 3, 6]], ["aug", [0, 4, 8]], ["sus4", [0, 5, 7]], ["sus2", [0, 2, 7]], ["5", [0, 7]], ["(no 5)", [0, 4]], ["m(no 5)", [0, 3]]];
+function chordLabel(b) {
+  const h = harmonyAt(b), n = stepCount(), tones = [0, 2, 4].filter((k) => k < n).map((k) => h.shift + k);
+  const midis = tones.map((d) => midiForDegree(d)), step = `step ${mod(h.shift, n) + 1} of ${n}`;
+  if (midis.some((m) => Math.abs(m - Math.round(m)) > 0.2)) return `chord on ${step}`;
+  const pcs = [...new Set(midis.map((m) => mod(Math.round(m), 12)))], bass = mod(Math.round(midis[0]), 12);
+  for (const r of [bass, ...pcs.filter((p) => p !== bass)]) {
+    const iv = pcs.map((p) => mod(p - r, 12)).sort((a, b) => a - b).join(",");
+    const hit = CHORD_SHAPES.find(([, sh]) => sh.join(",") === iv);
+    if (hit) return `chord: ${ROOTS[r]}${hit[0]}${r !== bass ? "/" + ROOTS[bass] : ""} · ${step}`;
+  }
+  return `chord: ${pcs.map((p) => ROOTS[p]).join("–")} · ${step}`;
+}
 function resolveStep(d) {
   const n = stepCount(), r = mod(d, n), home = [0, 2, 4, n].filter((c) => c <= n);
   const c = home.reduce((best, x) => (Math.abs(x - r) < Math.abs(best - r) ? x : best), 0);
@@ -2112,7 +2129,7 @@ function buryDead() {
     const n = loops.indexOf(lp) + 1;
     if (insp === lp) closeInspector();
     lp.died = true; eraseLoop(lp); undone.push(lp); if (undone.length > 20) undone.shift();
-    toast(`Loop ${n} has faded away · ⌘Z brings it back`);
+    toast(`Loop ${n} has faded away · ⌘Z brings it back`, false, () => bringBack(lp));
   }
 }
 
@@ -2378,8 +2395,9 @@ function breedWith(A, B, nb) {
     eraseLoop(gone); undone.push(gone); if (undone.length > 20) undone.shift();
   }
   const child = mutateLoop(A, { quiet: true, mate: B });
-  if (!child) return null;
+  if (!child) { if (gone) bringBack(gone); return null; }
   A.lastBred = child.lastBred = nb;
+  noteUndo(() => { putAway(child); if (gone) bringBack(gone); });
   return `loops ${loops.indexOf(A) + 1} and ${loops.indexOf(B) + 1} had a child: loop ${loops.indexOf(child) + 1}` + (gone ? " · the oldest loop made room (⌘Z brings it back)" : "");
 }
 /* Merge (Alex, 2026-10-25: "New behaviour on collision: merge"). X swallows Y:
@@ -2415,6 +2433,8 @@ function mergeLoops(X, Y, nb) {
       return { ...e, x, y, off: y0 + e.off * k, heading: e.heading + turn(Y), fixed: e.fixed || (pens ? voiceOf(Y, e) : null), flashAt: -1 };
     }),
   ].filter((e) => e.off < L).sort((a, b) => a.off - b.off);
+  const was = structuredClone({ pts: X.pts, events: X.events, L: X.L, tx: X.tx, ty: X.ty, rot: X.rot, s: X.s, m: X.m, mt: X.mt, c: X.c });
+  noteUndo(() => { if (loops.includes(X)) repass(X, () => { Object.assign(X, structuredClone(was)); delete X._lbox; }); bringBack(Y); });
   repass(X, () => {
     X.pts = pts; X.events = events;
     X.L = L; X.tx = X.ty = X.rot = 0; X.s = 1; X.m = { tx: 0, ty: 0, rot: 0 }; X.mt = { tx: 0, ty: 0, rot: 0 };
@@ -2455,7 +2475,8 @@ function linesTouch(A, B, at, nb, now, W, H) {
   lineLog.push({ b: nb, a: A.uid, b2: B.uid, did });
   if (lineLog.length > 50) lineLog.shift();
   const said = did.filter((d) => d !== "bump" && d !== "influence");
-  if (said.length) { toast(said.join(" · ")); renderLoopList(); if (insp) syncInspector(); }
+  const u = takeUndo();
+  if (said.length) { toast(said.join(" · "), false, u); renderLoopList(); if (insp) syncInspector(); }
 }
 /** Shortest distance between segment a0–a1 (points {x, y}) and segment b0–b1 ([x, y]); 0 if they cross. */
 function segDist(a0, a1, b0, b1) {
@@ -2481,7 +2502,7 @@ function touch(X, p, Y, q, nb, now, W, H) {
     did = "bump";
   } else if (X.meets === "infect" && !replay) {
     const kid = breedWith(X, Y, nb);
-    if (kid) { did = "infect"; toast(kid); renderLoopList(); if (insp) syncInspector(); }
+    if (kid) { did = "infect"; toast(kid, false, takeUndo()); renderLoopList(); if (insp) syncInspector(); }
   }
   const inf = influence(X, Y, nb);
   meetFlashes.push({ x: q[0], y: q[1], t, small: true, inf });
@@ -2493,7 +2514,7 @@ function borrow(X, Y) {
   for (let k = 0; k < TRADES.length; k++) {
     X.tradeNext = ((X.tradeNext ?? -1) + 1) % TRADES.length;
     const key = TRADES[X.tradeNext];
-    if ((X[key] ?? null) !== (Y[key] ?? null)) { X[key] = Y[key]; return TRADE_NAMES[key]; }
+    if ((X[key] ?? null) !== (Y[key] ?? null)) { const old = X[key]; X[key] = Y[key]; noteUndo(() => { X[key] = old; }); return TRADE_NAMES[key]; }
   }
   return null;
 }
@@ -2519,7 +2540,8 @@ function meet(A, pa, B, pb, nb, now, W, H) {
   if (meetFlashes.length > 40) meetFlashes.shift();
   meetLog.push({ b: nb, a: A.uid, b2: B.uid, did });
   if (meetLog.length > 50) meetLog.shift();
-  if (did.length) { toast(did.join(" · ")); renderLoopList(); if (insp) syncInspector(); }
+  const u = takeUndo();
+  if (did.length) { toast(did.join(" · "), false, u); renderLoopList(); if (insp) syncInspector(); }
 }
 
 /* ── 8. Drone (optional bed under everything; follows Walk) ──────────────── */
@@ -2552,7 +2574,7 @@ const DRONE_VOICINGS = {
  * lower"). Measured: at the old level (0.1 × the slider) the Drone at its
  * default was about four times a typical loop's RMS, 12 dB over it. Now the
  * slider's default (0.5) is a little under one loop, and its top about twice. */
-const DRONE_GAIN = 0.02;
+const DRONE_GAIN = 0.01;   // and softer again (Alex, the same day: "Drone could be even softer"): about half a loop
 const DRONE_SPACES = {   // side pan, rotor: rate (Hz), pan swing, loudness swing, Doppler (s), binaural split (Hz)
   still:    { side: 0,    rate: 0.01, pan: 0,    trem: 0,    dop: 0,       split: 0 },
   drift:    { side: 0.35, rate: 0.031, pan: 0.35, trem: 0,   dop: 0,       split: 0 },
@@ -2850,7 +2872,7 @@ function dropToy(kind, where, size = 1) {
   finishStroke(s, false);
 }
 
-/* Tadpoles, and a current (below) (Alex, 2026-10-25: "small breeding and fading toys each with a single
+/* Tadpoles (Alex, 2026-10-25: "small breeding and fading toys each with a single
  * note and long pause, eventually creating this sea of tadpole-like figures
  * moving in the space in a morphing ambiance. A bit like Conway's Game of
  * Life"). Five small figures, each a head (its one note) and a wriggling tail
@@ -2876,10 +2898,14 @@ function dropTadpoles(cx, cy, W, H, m) {
     s.start = s.cursor = nextStart() + Math.floor(Math.random() * 4);   // not all at once
     finishStroke(s, false); made.push(s);
   }
-  // A current: one long, steady, slow line across the tadpoles, so they run into
-  // something (Alex, 2026-10-25: "A long tadpole run ended up being rather short,
-  // as there were few collisions… Adding steady loops which cut across multiple
-  // tadpoles can make that work"). Each touch is a chance of a child.
+  toast("Tadpoles: they drift, have children when they touch, and fade · leave them a while");
+  return made;
+}
+/* A current: one long, steady, slow line across a stretch of the sheet, for
+ * tadpoles to run into. Not part of the toy (Alex: "they don't need that steady
+ * loop. It's for a template to include that. The ephemeral tadpoles breeding a
+ * bit before disappearing is semi-poetic"); the tadpole-sea template brings one. */
+function dropCurrent(cx, cy, W, H) {
   const c = newStroke(nextStart()), tr = new Tracer(stridePx("sparse"), 0, false), beats = 7.8, msPerBeat = 60000 / state.bpm;
   const x0 = Math.max(W * 0.06, cx - W * 0.38), x1 = Math.min(W * 0.94, cx + W * 0.38), amp = H * 0.13;
   for (let i = 0; i <= 160; i++) {
@@ -2889,9 +2915,8 @@ function dropTadpoles(cx, cy, W, H, m) {
     if (hit) { const ev = makeEvent(hit, x / W, y / H); ev.off = b; ev.vel *= 0.7; c.events.push(ev); }
   }
   Object.assign(c, { pen: "auto", rhythm: "drawn", dir: "fwd", trigger: "free", temper: "drift", meets: "sound", life: "steady", gives: "none", density: "sparse", gain: 0.8 });
-  finishStroke(c, false); made.push(c);
-  toast("Tadpoles: they drift, have children when they touch (the long line is a current to run into), and fade · leave them a while");
-  return made;
+  finishStroke(c, false);
+  return c;
 }
 
 /* ── 10. Touch: draw, shake, drag, turn, resize, edit ────────────────────── */
@@ -3275,7 +3300,7 @@ function pointerEnd(e, cancelled = false) {
     }
     if (gr.mode === "drag" && !cancelled) {                       // flicked off the edge: thrown away
       const W = sheet.clientWidth, H = sheet.clientHeight, bx = screenBox(gr.loop, W, H);
-      if (bx.cx < -10 || bx.cx > W + 10 || bx.cy < -10 || bx.cy > H + 10) { eraseLoop(gr.loop); toast("Thrown away"); }
+      if (bx.cx < -10 || bx.cx > W + 10 || bx.cy < -10 || bx.cy > H + 10) { const lp = gr.loop; putAway(lp); toast("Thrown away", false, () => bringBack(lp)); }
     }
     if (gr.mode === "pinch" && pinch) {
       const other = grabs.get(pinch.a === e.pointerId ? pinch.b : pinch.a);
@@ -3699,6 +3724,12 @@ function frame() {
     g2.fillStyle = colors.ink; g2.beginPath(); g2.roundRect ? g2.roundRect(x, y, tw, 26, 13) : g2.rect(x, y, tw, 26); g2.fill();
     g2.fillStyle = colors.paper; g2.textBaseline = "middle"; g2.fillText(label, x + 10, y + 13);
     g2.restore();
+  }
+  // Walk (and Arc): the chord we're on now (Alex, 2026-10-25: "Walk: could display the current chord").
+  if (state.walk || state.arc !== "off") {
+    const y0 = (document.body.classList.contains("is-drawer") ? 74 : 112) + (state.arc !== "off" ? 18 : 0);
+    g2.save(); g2.font = colors.monoFont; g2.textBaseline = "top"; g2.fillStyle = colors.ink; g2.globalAlpha = 0.75;
+    g2.fillText(chordLabel(b), 16, y0); g2.restore();
   }
   // Arc: where we are in the tension-and-release cycle.
   if (state.arc !== "off") {
@@ -4242,8 +4273,39 @@ function showToast(msg) {
   while (box.children.length > 4) box.firstChild.remove();
   setTimeout(() => { line.remove(); if (!box.children.length) box.hidden = true; }, 2400);
 }
-function toast(msg, always = false) {
-  msgLog.unshift({ msg, at: Date.now() }); if (msgLog.length > 30) msgLog.pop();
+/* Undoing what happened (Alex, 2026-10-25: '"What happened" history: could undo
+ * past events'). Whatever changes the sheet on its own (a child born, a loop
+ * swallowed, a trade, a life ending) notes how to take it back (noteUndo), and
+ * the message that tells of it carries that (takeUndo): the log shows an Undo
+ * beside it, for as long as it's in the log, not only for the latest. Undoing
+ * is best-effort when the sheet has moved on (a child already gone stays gone);
+ * it never removes anything a person made. */
+let undoBuf = [];
+const noteUndo = (fn) => { undoBuf.push(fn); };
+function takeUndo() {
+  const fns = undoBuf; undoBuf = [];
+  return fns.length ? () => { for (const f of fns.slice().reverse()) f(); } : null;
+}
+/** A loop that left (into undo) comes back, from anywhere in the undo list. */
+function bringBack(lp) {
+  const i = undone.indexOf(lp); if (i >= 0) undone.splice(i, 1);
+  if (!lp || loops.includes(lp)) return false;
+  fading = fading.filter((f) => f !== lp);
+  if (lp.died) { lp.died = false; lp.life = "steady"; lp.age = 0; }   // back from the end of its life: it stays
+  const start = nextStart();
+  Object.assign(lp, { start, cursor: start, lastPass: 0, held: false, lastBand: null, lastVoice: null });
+  loops.push(lp); while (loops.length > MAX_LOOPS) fadeOut(loops.shift());   // a full sheet: the oldest makes room, as when drawing
+  renderLoopList();
+  return true;
+}
+/** Take a loop off the sheet, into undo (where bringBack finds it). */
+function putAway(lp) {
+  if (!loops.includes(lp)) return;
+  if (insp === lp) closeInspector();
+  eraseLoop(lp); undone.push(lp); if (undone.length > 20) undone.shift();
+}
+function toast(msg, always = false, undo = null) {
+  msgLog.unshift({ msg, at: Date.now(), undo }); if (msgLog.length > 30) msgLog.pop();
   $("srStatus").textContent = msg;
   if (msgsLoud || always) showToast(msg);
   else if ($("msgLog").hidden) msgUnseen++;
@@ -4262,7 +4324,17 @@ function syncMsgBtn(pulse) {
 const ago = (t) => { const s = Math.round((Date.now() - t) / 1000); return s < 5 ? "just now" : s < 60 ? `${s} s ago` : `${Math.round(s / 60)} min ago`; };
 function renderMsgLog() {
   const ol = $("msgList"); ol.textContent = "";
-  for (const m of msgLog.slice(0, 12)) { const li = document.createElement("li"); li.textContent = m.msg; const sm = document.createElement("small"); sm.textContent = ago(m.at); li.append(sm); ol.append(li); }
+  for (const m of msgLog.slice(0, 12)) {
+    const li = document.createElement("li"), tx = document.createElement("span"); tx.textContent = m.msg; li.append(tx);
+    const sm = document.createElement("small"); sm.textContent = m.undone ? `${ago(m.at)} · undone` : ago(m.at); li.append(sm);
+    if (m.undo && !m.undone) {
+      const b = document.createElement("button"); b.type = "button"; b.className = "btn undo"; b.textContent = "Undo";
+      b.setAttribute("aria-label", `Undo: ${m.msg}`);
+      b.addEventListener("click", () => { m.undone = true; try { m.undo(); } catch (_) { /* best-effort */ } renderLoopList(); if (insp) syncInspector(); toast(`Undone: ${m.msg.split(" · ")[0]}`); $("msgLogTitle").focus(); });
+      li.append(b);
+    }
+    ol.append(li);
+  }
   $("msgLoudBtn").setAttribute("aria-pressed", String(msgsLoud));
 }
 let msgReturn = null;
@@ -5270,17 +5342,12 @@ function undoLoop() {
   if (!lp) { toast("Nothing to undo"); return; }
   if (insp === lp) closeInspector();
   eraseLoop(lp); undone.push(lp); if (undone.length > 20) undone.shift();
-  toast("Removed the newest loop · ⇧⌘Z brings it back");
+  toast("Removed the newest loop · ⇧⌘Z brings it back", false, () => bringBack(lp));
 }
 function redoLoop() {
-  const lp = undone.pop();
+  const lp = undone.at(-1);
   if (!lp) { toast("Nothing to bring back"); return; }
-  fading = fading.filter((f) => f !== lp);
-  if (lp.died) { lp.died = false; lp.life = "steady"; lp.age = 0; }   // back from the end of its life: it stays
-  const start = nextStart();
-  Object.assign(lp, { start, cursor: start, lastPass: 0, held: false, lastBand: null, lastVoice: null });
-  loops.push(lp); while (loops.length > MAX_LOOPS) fadeOut(loops.shift());   // a full sheet: the oldest makes room, as when drawing
-  renderLoopList(); toast("Brought back");
+  bringBack(lp); toast("Brought back");
 }
 /** Step a <select> to its next (or previous) option and let it react. */
 function cycleSelect(id, back) {
@@ -5478,7 +5545,7 @@ document.addEventListener("keydown", (e) => {
   if (key === "Backspace" || key === "Delete") {
     e.preventDefault();
     if (e.shiftKey) { setDrawer(true); $("clear").click(); }
-    else if (selected) { const lp = selected; eraseLoop(lp); undone.push(lp); toast("Erased the selected loop · ⇧⌘Z brings it back"); }
+    else if (selected) { const lp = selected; eraseLoop(lp); undone.push(lp); toast("Erased the selected loop · ⇧⌘Z brings it back", false, () => bringBack(lp)); }
     else undoLoop();
     return;
   }
@@ -5638,6 +5705,36 @@ function freshKey() {
   const droneSpace = pick(["drift", "drift", "drift", "rotate", "binaural", "still"]);
   return { root: pick(FRESH_ROOTS), grid, bpm: 84 + 4 * Math.floor(Math.random() * 8), droneSpace };
 }
+/* Templates by URL (ROADMAP #3; Alex: "Preserving the simple immediate experience
+ * could go through the existence of more elaborate templates, loaded through the
+ * URL"). ?template=<name> opens a ready-made sheet instead of the usual one;
+ * your own last sheet is kept aside (Scenes → "Back to my sheet"), as when a
+ * shared link opens. The first:
+ *   tadpoles   a tadpole sea with a current to run into: a long, steady line
+ *              across them (contacts are what keep a sea alive), Drone on,
+ *              drifting, at Everything */
+const TEMPLATES = {
+  tadpoles: { settings: { drone: true, droneSpace: "drift" }, level: 3, make(W, H) {
+    const m = Math.min(W, H);
+    dropTadpoles(W * 0.35, H * 0.45, W, H, m); dropTadpoles(W * 0.65, H * 0.55, W, H, m);
+    dropCurrent(W * 0.5, H * 0.5, W, H);
+  } },
+};
+const TEMPLATE = (() => { try { const t = new URLSearchParams(location.search).get("template"); return TEMPLATES[t] ? t : null; } catch (_) { return null; } })();
+function templateSheet(name) {
+  const t = TEMPLATES[name]; if (!t) return false;
+  if (loops.length) store.set(BEFORE_KEY, serialize());
+  else { const last = store.get(LAST_KEY); if (last && last.loops && last.loops.length) store.set(BEFORE_KEY, last); }
+  loops.splice(0).forEach(fadeOut);
+  applySettingsKeepBeat({ ...freshKey(), ...t.settings });
+  const W = sheet.clientWidth, H = sheet.clientHeight, dice = state.dice;
+  state.dice = false;
+  try { t.make(W, H); } finally { state.dice = dice; }
+  if (t.level) setLevel(t.level);
+  store.set(OPENED_KEY, "template:" + name);
+  renderLoopList();
+  return true;
+}
 function startingSheet() {
   applySettingsKeepBeat(freshKey());                             // keeps the beat where it is if the sound is on
   const W = sheet.clientWidth, H = sheet.clientHeight, dice = state.dice;
@@ -5660,7 +5757,9 @@ function startingSheet() {
   };
   // A shared sheet wins over your last one. A shared toy lands on top of it.
   const tok = shareToken(), seen = tok && store.get(OPENED_KEY) === tokenId(tok);
-  if (tok && tok[0] === "s" && !seen && await openFromLink()) { /* loaded */ }
+  if (TEMPLATE && store.get(OPENED_KEY) !== "template:" + TEMPLATE && templateSheet(TEMPLATE)) { /* a template, once; reloading keeps what you've done since */ }
+  else if (TEMPLATE) defaults();
+  else if (tok && tok[0] === "s" && !seen && await openFromLink()) { /* loaded */ }
   else if (tok && tok[0] === "s" && seen) defaults();   // reloading: keep what you've done since
   else { defaults(); if (tok) await openFromLink(); }
   syncTuningPicker();

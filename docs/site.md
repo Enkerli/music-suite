@@ -1611,7 +1611,9 @@ plain.
   rest. **Arc** shapes 4 or 8 bars as home, away, pull and home again.
 - **Walk** (Everything) moves the harmony every few bars: *a progression*,
   *sway*, *by fifths*, *climb* or *wander*, every 1, 2, 4 or 8 bars (**W**
-  cycles through them). The **Drone** follows it. Each loop has a part:
+  cycles through them), and shows the chord it's on at the top of the sheet
+  ("chord: Am/C", or the scale step on a microtonal grid). The **Drone**
+  follows it, softly (about half a loop's loudness). Each loop has a part:
   **fits** (new loops: it stays where it is and lands each note on the
   nearest tone of the new chord, so lines move by small steps, voice
   leading), **moves** (every note shifts by the same number of scale steps:
@@ -1648,9 +1650,10 @@ beat) or **rotate** like a Leslie speaker.
   longer the tube, the lower the note) and ring in gusts, off the beat, in
   their own sound. A **Spinner** is a beat-long arpeggio that folds, opens
   and flips as it spins. **Tadpoles** are five small figures with one note
-  each and a long rest, and a long steady line across them (a current to run
-  into): they drift, have children when they touch, and fade, so a sea of
-  them grows, thins and changes on its own. Play over it.
+  each and a long rest: they drift, have a child or two when they touch, and
+  fade away. For a sea that lasts, open Twirl with `?template=tadpoles`:
+  two schools and a long steady current across them to run into (your own
+  sheet is kept aside, under Scenes).
 - **My toys**: keep any loop as a toy, to drop again anywhere.
 - **Scenes**: six slots for whole sheets; your last sheet comes back by
   itself.
@@ -1671,6 +1674,9 @@ footer lights up; tap it for **What just happened**. **Show messages** (in
 the controls, or **I**) shows every message on the sheet as it happens.
 Quiet makes a clean screen recording, shown explains one. A problem that
 needs you always shows; screen readers hear every message either way.
+Whatever the sheet did on its own (a child born, a loop swallowed, a trade, a
+life ending, a loop thrown away) has an **Undo** beside it in the log, for as
+long as it's listed, not only the latest.
 
 ## Keyboard
 
