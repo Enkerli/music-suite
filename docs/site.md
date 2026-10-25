@@ -1563,8 +1563,9 @@ ping-pong), how often it **plays** and **waits**, when it **starts**,
 and its **timing** (follow Lock, always as drawn, or always on the grid).
 
 **Edit notes** (More and up) changes a loop by hand: tap anywhere on its
-path to add a note, tap a note to remove it, drag a square to bend the
-path, hold to smooth it.
+path to add a note, tap a note to remove it, double-tap a note to change
+its sound (pluck, bell, blip, drum, shaker, or back to by direction), drag a
+square to bend the path, hold to smooth it.
 
 **Mutate** (More and up) gives the loop a child: a close variation with
 the same voice, rhythm and timing, a slightly different shape, and a few
@@ -1639,7 +1640,7 @@ fades; a bloom's extra notes show small while they play, and resting notes
 are faint. The loop's settings say where it is ("blooming · pass 5 of
 16"). Shakers, beats and chimes have fixed notes, so they don't bloom.
 With **Surprise** on, once the sheet has four loops or more, a new loop is
-sometimes given a life, most often brief, so a busy sheet keeps changing;
+sometimes given a life (brief, or a fade of 16 or 32 passes, most often), so a busy sheet keeps changing;
 a message says so, and a first stroke on a quiet sheet always stays. A loop whose life ends goes
 where undo puts loops: **⌘Z** brings it back, steady. A loop only ages while
 it plays (not muted, not held), and **Evolve** in the controls (More) holds
