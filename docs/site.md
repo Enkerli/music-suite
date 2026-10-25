@@ -1613,7 +1613,7 @@ plain.
   *sway*, *by fifths*, *climb* or *wander*, every 1, 2, 4 or 8 bars (**W**
   cycles through them), and shows the chord it's on at the top of the sheet
   ("chord: Am/C", or the scale step on a microtonal grid). The **Drone**
-  follows it, softly (about half a loop's loudness). Each loop has a part:
+  follows it; it starts soft (a little under one loop) and its Level goes up from there. Each loop has a part:
   **fits** (new loops: it stays where it is and lands each note on the
   nearest tone of the new chord, so lines move by small steps, voice
   leading), **moves** (every note shifts by the same number of scale steps:
@@ -1649,7 +1649,7 @@ beat) or **rotate** like a Leslie speaker.
   a shaker, wind chimes, a spinner, dice). **Chimes** look like chimes (the
   longer the tube, the lower the note) and ring in gusts, off the beat, in
   their own sound. A **Spinner** is a beat-long arpeggio that folds, opens
-  and flips as it spins. **Tadpoles** are five small figures with one note
+  and flips as it spins. **Tadpoles** are three small figures, close together, with one note
   each and a long rest: they drift, have a child or two when they touch, and
   fade away. For a sea that lasts, open Twirl with `?template=tadpoles`:
   two schools and a long steady current across them to run into (your own

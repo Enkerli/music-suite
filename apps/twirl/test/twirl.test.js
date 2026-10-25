@@ -1253,7 +1253,7 @@ describe.skipIf(!browser)("Twirl · spacing by register, warmth, tadpoles", () =
     const r = await page.evaluate(() => {
       loops.splice(0); state.dice = false;
       const all = dropTadpoles(400, 300, sheet.clientWidth, sheet.clientHeight, 600);
-      const made = all.slice(0, 5);                                    // just the five: the current is the template's, not the toy's
+      const made = all.slice(0, 3);                                    // a small school of three; the current is the template's, not the toy's
       const c = dropCurrent(400, 300, sheet.clientWidth, sheet.clientHeight), currentKind = `${c.meets}/${c.life}/${c.events.length > 2}`;
       const kinds = [...new Set(made.map((l) => `${l.meets}/${l.life}/${l.temper}`))];
       const kid = mutateLoop(made[0]);
@@ -1265,10 +1265,10 @@ describe.skipIf(!browser)("Twirl · spacing by register, warmth, tadpoles", () =
         kid: kid && [kid.meets, kid.life], kid2: kid2 && kid2.meets, all: all.length, currentKind,
       };
     });
-    expect(r.n).toBe(5);
-    expect(r.all).toBe(5);
+    expect(r.n).toBe(3);
+    expect(r.all).toBe(3);
     expect(r.currentKind).toBe("sound/steady/true");          // a steady line across them, with a few notes
-    expect(r.notes).toEqual([1, 1, 1, 1, 1]);
+    expect(r.notes).toEqual([1, 1, 1]);
     expect(r.waits.every((w) => w >= 4)).toBe(true);
     expect(r.kinds).toEqual(["infect/fade/drift"]);
     expect(r.kid).toEqual(["infect", "fade"]);
@@ -1324,9 +1324,10 @@ describe.skipIf(!browser)("Twirl · merging, the drone's level, two modes", () =
     const { page, context } = await openTwirl(browser);
     const r = await page.evaluate(() => {
       const spaces = new Set(); for (let i = 0; i < 60; i++) spaces.add(freshKey().droneSpace);
-      return { gain: DRONE_GAIN * STATE_DEFAULTS.droneVol, spaces: [...spaces].every((s) => s in DRONE_SPACES), many: spaces.size > 1 };
+      return { gain: droneLevel(STATE_DEFAULTS.droneVol), top: droneLevel(1), spaces: [...spaces].every((s) => s in DRONE_SPACES), many: spaces.size > 1 };
     });
-    expect(r.gain).toBeLessThanOrEqual(0.012);                       // was 0.05: four times a loop's loudness
+    expect(r.gain).toBeLessThanOrEqual(0.012);                       // starts a little under one loop (was 0.05: four times a loop)
+    expect(r.top).toBeGreaterThanOrEqual(0.1);                       // but the range is the old one ("wasn't really asking for a lower range")
     expect(r.spaces).toBe(true);
     expect(r.many).toBe(true);
     await context.close();
@@ -1425,8 +1426,27 @@ describe.skipIf(!browser)("Twirl · undoing what happened, the chord, templates"
     await page.evaluate(() => { loops.splice(0, 3); autosave(); });
     await page.reload(); await page.waitForTimeout(500);
     const again = await page.evaluate(() => loops.length);
-    expect(r).toEqual({ n: 11, steady: 1, drone: true, level: 3, before: true });
-    expect(again).toBe(8);                                           // a reload keeps what you've done since
+    expect(r).toEqual({ n: 7, steady: 1, drone: true, level: 3, before: true });
+    expect(again).toBe(4);                                           // a reload keeps what you've done since
     await ctx0.close();
+  });
+});
+
+describe.skipIf(!browser)("Twirl · steps below the sheet", () => {
+  it("a step under the bottom row has a pitch (the scale's top step, an octave down), so fits never makes a NaN note", async () => {
+    const { page, context, errors } = await openTwirl(browser);
+    const r = await page.evaluate(() => {
+      Object.assign(state, { grid: "pentMaj", root: 0, range: 3 });
+      const m0 = midiForDegree(0), mm1 = midiForDegree(-1), mm5 = midiForDegree(-5);
+      ensureAudio(); let thrown = null;
+      try { state.walk = true; sound("pluck", 0.5, 0.999, 0.6, ctx.currentTime + 0.05, 0, -1); } catch (e) { thrown = e.message; }
+      return { m0, mm1, mm5, thrown, skipped: diag.skipped || 0 };
+    });
+    expect(r.mm1).toBe(r.m0 - 3);                                    // C3 → A2 in C major pentatonic
+    expect(r.mm5).toBe(r.m0 - 12);
+    expect(r.thrown).toBe(null);
+    expect(r.skipped).toBe(0);
+    expect(errors).toEqual([]);
+    await context.close();
   });
 });
