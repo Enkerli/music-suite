@@ -548,7 +548,7 @@ kbd {
     <button class="btn" id="evolveBtn" type="button" aria-pressed="true" data-level="2" title="Loops with a Life (hold one → Life) swell, fade and come and go, pass by pass. Off: every life holds where it is">Evolve</button>
     <button class="btn" id="varyBtn" type="button" aria-pressed="true" data-level="2" title="No two notes quite alike: each one a little louder or softer, earlier or later, brighter or duller, like a sampler's round-robin. Off: every repeat the same">Vary</button>
     <button class="btn" id="morphBtn" type="button" aria-pressed="true" title="Loops move on their own; hold a loop to choose how">Morph</button>
-    <button class="btn" id="editBtn" type="button" aria-pressed="false" title="Drag the square handles to bend a path; tap a path to add a note, tap a note to remove it; hold a loop to smooth it">Edit notes</button>
+    <button class="btn" id="editBtn" type="button" aria-pressed="false" title="Drag the square handles to bend a path; tap a path to add a note, tap a note to remove it, double-tap a note to change its sound; hold a loop to smooth it">Edit notes</button>
     <button class="btn" id="numBtn" type="button" aria-pressed="false" title="Show each loop's number on the sheet (keys 1–9 pick them; pressing one shows them)">Numbers</button>
   </span>
   <select class="sel" id="arc" data-level="2" aria-label="Arc: tension and release over bars" title="Home, away, pull, then home on the last bar, where melodies resolve to the home chord">
@@ -1314,7 +1314,7 @@ function sendMidi(voice, midi, vel, t, yN) {
  */
 let uidSeq = 0;
 function newStroke(start) {
-  return {
+  const s = {
     trigger: "sheet", pen: state.pen,      // timing: "sheet" follows Lock; "free" or "lock" decide for themselves
     gain: 1,                                // this loop's volume
     rhythm: pickRhythm(), chord: "single",  // see offsOf() and chordSteps(); rhythm and direction may be a Surprise
@@ -1323,6 +1323,7 @@ function newStroke(start) {
     uid: ++uidSeq,                          // stable identity (playflows refer to loops by it)
     meets: pickMeets(),                     // what it does when its playhead crosses a line or meets a playhead (MEET_ORDER)
     life: pickLife(), age: 0,
+    span: 0,                                // a life's length in passes (set just below, from the life it got)
     gives: pickInfluence(), strength: 1,    // Influence (section 6b): what it does to the loops it touches; how strong it is now               // Life (section 6b), sometimes a Surprise once the sheet is busy; and passes lived
     density: state.density,                 // how its notes were spaced (retrace() re-spaces them)
     pts: [], events: [], start, L: 1, ts: 1, cursor: start, lastPass: 0, muted: false,
@@ -1335,6 +1336,8 @@ function newStroke(start) {
     zone: "any",              // where Morph lets it wander (see ZONES)
     lastBand: null, lastVoice: null,
   };
+  s.span = pickSpan(s.life);                                    // fade: 16 or 32 passes; otherwise the usual 16
+  return s;
 }
 const totalRot = (lp) => lp.rot + lp.m.rot;
 /** Does pass k of this loop run backwards? (reverse: always; ping-pong: every other pass) */
@@ -1405,7 +1408,9 @@ const pickRhythm = () => (state.dice ? pickFrom([["drawn", 0.7], ["even", 0.15],
 // Never breed or infect: those are chosen by hand, so the sheet doesn't fill up by surprise.
 // A life, once the sheet is busy (four loops or more): brief now and then, so a full sheet
 // keeps changing; a first stroke on a quiet sheet always stays (rule 1).
-const pickLife = () => (state.dice && loops.length >= 4 ? pickFrom([["steady", 0.72], ["brief", 0.2], ["bloom", 0.04], ["swell", 0.04]]) : "steady");
+// Fade, too (Alex: "we could default some loops to fade after 16 or 32 cycles"), with its length.
+const pickLife = () => (state.dice && loops.length >= 4 ? pickFrom([["steady", 0.62], ["brief", 0.16], ["fade", 0.14], ["bloom", 0.04], ["swell", 0.04]]) : "steady");
+const pickSpan = (life) => (life === "fade" ? (Math.random() < 0.5 ? 16 : 32) : LIFE_SPAN);
 // Influence, once the sheet is busy, now and then: feeding more often than draining.
 const pickInfluence = () => (state.dice && loops.length >= 4 ? pickFrom([["none", 0.82], ["feed", 0.12], ["drain", 0.06]]) : "none");
 const pickMeets = () => (state.dice ? pickFrom([["sound", 0.55], ["bump", 0.25], ["trade", 0.2]]) : "sound");
@@ -1834,7 +1839,7 @@ function lifeState(lp) {
 }
 /** The notes a bloom can add: the path traced again at "many", minus any near a drawn note. Cached per shape. */
 function bloomNotes(lp) {
-  if (lp.events.some((e) => e.fixed)) return [];                 // shakers, beats, chimes: their notes are the point
+  if (fixedLoop(lp)) return [];                                  // shakers, beats, chimes: their notes are the point
   const key = `${lp.pts.length}|${lp.events.length}|${lp.L}|${state.div}`;
   if (lp._bloom && lp._bloom.key === key) return lp._bloom.notes;
   const W = sheet.clientWidth, H = sheet.clientHeight, msPerBeat = 60000 / state.bpm;
@@ -2521,8 +2526,12 @@ const stridePx = (d = state.density) => Math.max(28, (DENSITY[d].stride * sheet.
  *  places them, with the stride and turn varied by ±`scatter` (a re-roll).
  *  Loudness is kept from the nearest note you drew. Shakers and beats have
  *  fixed notes, and are left alone. */
+/** A loop whose notes are all fixed (a shaker, a beat, chimes): not re-spaced, no bloom. A drawn
+ *  loop with a few notes given their own sound (Edit, double-tap) is still a drawn loop. */
+const NOTE_SOUNDS = [null, "pluck", "bell", "blip", "drum", "shake"];   // a note's own sound (null: by its direction)
+const fixedLoop = (lp) => lp.events.length > 0 && lp.events.every((e) => e.fixed);
 function retrace(lp, d = lp.density || state.density, scatter = 0.18) {
-  if (lp.events.some((e) => e.fixed)) { toast("This loop's notes are fixed (a shaker, a beat or chimes): nothing to re-space"); return false; }
+  if (fixedLoop(lp)) { toast("This loop's notes are fixed (a shaker, a beat or chimes): nothing to re-space"); return false; }
   const W = sheet.clientWidth, H = sheet.clientHeight, msPerBeat = 60000 / state.bpm;
   const vary = () => 1 + (Math.random() * 2 - 1) * scatter;
   const tr = new Tracer(stridePx(d) * vary(), 0, false, turnTrigger(d) * vary());
@@ -2832,9 +2841,24 @@ function pointerEnd(e, cancelled = false) {
   const gr = grabs.get(e.pointerId);
   if (gr) {
     clearTimeout(gr.timer); grabs.delete(e.pointerId);
-    if (gr.mode === "bend" && !gr.moved && !cancelled && gr.ev && gr.loop.events.length > 1) {
-      gr.loop.events.splice(gr.loop.events.indexOf(gr.ev), 1);    // tap a note: remove it
-      toast("Note removed");
+    if (gr.mode === "bend" && !gr.moved && !cancelled && gr.ev) {
+      // A note: double-tap changes its sound (by direction → pluck → bell → blip →
+      // drum → shaker → by direction); a single tap removes it, once it's clear it
+      // wasn't the first of two (as a loop's tap and double-tap work). The way to
+      // change one note's sound was missed (Alex, 2026-10-24).
+      const ev = gr.ev, lp = gr.loop, now = performance.now();
+      if (ev.tapTimer && now - ev.lastTap < DOUBLE_MS) {
+        clearTimeout(ev.tapTimer); ev.tapTimer = null;
+        const i = NOTE_SOUNDS.indexOf(ev.fixed || null), next = NOTE_SOUNDS[(i + 1) % NOTE_SOUNDS.length];
+        ev.fixed = next; ev.flashAt = nowAudio();
+        toast(`Note: ${next ? { pluck: "pluck", bell: "bell", blip: "blip", drum: "drum", shake: "shaker" }[next] : "by direction"}`);
+      } else {
+        ev.lastTap = now;
+        ev.tapTimer = setTimeout(() => {
+          ev.tapTimer = null;
+          if (lp.events.length > 1 && lp.events.includes(ev)) { lp.events.splice(lp.events.indexOf(ev), 1); toast("Note removed · double-tap a note to change its sound instead"); }
+        }, DOUBLE_MS);
+      }
     } else if (gr.mode === "bend" && !gr.moved && !cancelled && !gr.ev) {
       // A tap on a bend handle that didn't drag is a tap on the path: add a note
       // there. (Handles sit every few points, so on a dense path most taps landed
@@ -3893,7 +3917,7 @@ $("walkWay").addEventListener("change", (e) => { state.walkWay = e.target.value;
   toast({ steps: "Walk: a little progression, round and round", sway: "Walk: home and the fourth, back and forth", fifths: "Walk: up a fifth each time, through every degree", climb: "Walk: up the scale a step at a time", wander: "Walk: a step or a fifth, up or down, wherever it goes" }[state.walkWay] + (state.walk ? "" : " (turn Walk on to hear it)")); });
 $("walkPace").addEventListener("change", (e) => { state.walkPace = Number(e.target.value); updateDrone(nowBeat(), true); });
 toggle("droneBtn", "drone", (on) => { ensureAudio(); setDrone(on); });
-toggle("editBtn", "edit", (on) => toast(on ? "Edit: drag a square to bend · tap a path to add a note · tap a note to remove it · hold to smooth" : "Edit off"));
+toggle("editBtn", "edit", (on) => toast(on ? "Edit: drag a square to bend · tap a path to add a note · tap a note to remove it · double-tap it to change its sound · hold to smooth" : "Edit off"));
 
 /* ── Phone layout: the drawer ─────────────────────────────────────────────
  * The same control nodes move between homes (listeners and ids travel with

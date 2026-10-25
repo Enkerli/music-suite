@@ -572,7 +572,8 @@ describe.skipIf(!browser)("Twirl · Life: loops that change over the passes", ()
     });
     expect(r.quiet).toEqual(["steady"]);
     expect(r.busy.brief).toBeGreaterThan(r.busy.bloom + r.busy.swell);
-    expect(r.busy.steady).toBeGreaterThan(600);
+    expect(r.busy.steady).toBeGreaterThan(520);                          // 62 %: most loops stay
+    expect(r.busy.fade).toBeGreaterThan(80);                             // some fade (16 or 32 passes)
     await context.close();
   });
 
@@ -931,6 +932,31 @@ describe.skipIf(!browser)("Twirl · performance: a busy sheet keeps up", () => {
   });
 });
 
+describe.skipIf(!browser)("Twirl · Edit: a note's own sound", () => {
+  it("double-tap a note to change its sound (round the voices, back to by direction); a single tap still removes it", async () => {
+    const { page, context } = await openTwirl(browser);
+    await page.evaluate(() => {
+      state.morph = false; ensureAudio(); hint.hidden = true;
+      loops.splice(0).forEach(fadeOut); dropToy("ring", [sheet.clientWidth / 2, sheet.clientHeight / 2]); loops[0].temper = "still";
+      $("editBtn").click();
+    });
+    const at = () => page.evaluate(() => { const lp = loops[0], ev = lp.events[1]; return [...notePos(lp, ev, undefined, sheet.clientWidth, sheet.clientHeight), lp.events.length]; });
+    const [x, y, n] = await at();
+    const sounds = [];
+    for (let k = 0; k < 6; k++) {
+      await page.mouse.click(x, y); await page.waitForTimeout(60); await page.mouse.click(x, y); await page.waitForTimeout(350);
+      sounds.push(await page.evaluate(() => [loops[0].events[1].fixed, voiceOf(loops[0], loops[0].events[1])]));
+    }
+    expect(sounds.map((v) => v[0])).toEqual(["pluck", "bell", "blip", "drum", "shake", null]);
+    expect(sounds[1][1]).toBe("bell");
+    expect(await page.evaluate(() => [loops[0].events.length, retrace(loops[0], "dense", 0)])).toEqual([n, true]);   // still a drawn loop
+    const [x2, y2] = await at(), m = await page.evaluate(() => loops[0].events.length);
+    await page.mouse.click(x2, y2); await page.waitForTimeout(450);
+    expect(await page.evaluate(() => loops[0].events.length)).toBe(m - 1);
+    await context.close();
+  });
+});
+
 describe.skipIf(!browser)("Twirl · notes: few by default, re-spaced per loop", () => {
   it("new strokes default to few notes", async () => {
     const { page, context } = await openTwirl(browser);
@@ -971,7 +997,7 @@ describe.skipIf(!browser)("Twirl · Edit notes", () => {
     for (const j of [7, 23, 39, 41]) {                         // 39 = 3 × handleStep(13): on a handle
       const [x, y, n] = await page.evaluate((j) => { const lp = loops[0], q = lp.pts[j]; return [...place(lp, q.x, q.y, sheet.clientWidth, sheet.clientHeight), lp.events.length]; }, j);
       const onNote = await page.evaluate(([x, y]) => !!hitEvent(x, y), [x, y]);
-      await page.mouse.click(x, y); await page.waitForTimeout(80);
+      await page.mouse.click(x, y); await page.waitForTimeout(450);          // a tap on a note waits to see it isn't a double-tap
       expect(await page.evaluate(() => loops[0].events.length), `point ${j}`).toBe(onNote ? n - 1 : n + 1);
     }
     await context.close();

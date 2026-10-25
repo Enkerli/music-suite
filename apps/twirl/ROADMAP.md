@@ -79,6 +79,61 @@ or the key I; replays that draw each loop as it was drawn; Walk's ways (a
 progression, sway, fifths, climb, wander) and pace, so the Drone moves;
 timing shared on request with a family or the sheet.
 
+### Ideas from Alex, late on 2026-10-24, and where they go
+
+Each one filed under the track it belongs to, so the priorities above stay
+the order of work. Shipped at once (small, or a regression): **double-tap a
+note in Edit to change its sound** (it had gone missing; a single tap still
+removes it), and **Surprise sometimes gives a fade of 16 or 32 passes** (busy
+sheets only, like the other lives).
+
+**Life and the evolving patch** (after playtests):
+- **More granular lifetimes**: in cycles *or* beats (3 cycles, 17 beats),
+  not only 8/16/32/64 passes; odd lengths so lives don't line up.
+- **Loops that come back from a fade**: a tide (fade out, rest, fade back
+  in), or a seed left behind that grows again later.
+- **Loops that speed up or slow down**: shrinking or growing over many
+  passes (a tempo curve per loop, through its size, so it's seen).
+
+**Motion** (with the hands-on tools):
+- **Momentum**: spin a loop by hand and it keeps spinning at that speed, or
+  slows down over time until it's steady; the same for a flick that throws a
+  loop across the sheet without leaving it.
+- **A path to travel**: draw where a loop should wander (a motion path),
+  instead of Morph's random drift.
+
+**Several loops at once** (#3): **encapsulation and grouping**: a group
+moves, mutes, turns and takes settings as one, can be nested, and can be
+saved as a toy; MIDI in addresses groups (#8).
+
+**Time** (#12): **polyrhythm** as a per-loop division (this loop in
+triplets while the sheet is in sixteenths), next to Snap; **a clearer link
+between distance and timing**: a time ruler along a loop, beat ticks that
+read as beats, the bar = the sheet's width made visible.
+
+**Pitch** (with harmony, #7): **DrawnQurve-style quantize**: separate axes
+(time and pitch quantized independently), grid subdivision, a pitch
+quantize that allows wider or narrower intervals (a strength, an interval
+scale), as in DrawnQurve.
+
+**Edit** (small, with #5): **where can a note go?** In Edit, show it: the
+path brightens under a finger or pointer, and a faint + marks where a tap
+would add a note.
+
+**Toys** (#5): **arpeggio objects**: the Spinner is the first; more that
+play a chord's tones in patterns (up, down, up-down, as played), each a
+recognizable shape.
+
+**Sound** (#4): **master FX**: a shared reverb and the delay's controls
+(time, feedback, tone), with a send per loop; later a filter or a tape
+wobble on the whole sheet.
+
+**Learning from shared data** (to think through carefully, with
+playtests): what people keep, share and come back to (toys, lives, Walk
+ways) could tune Surprise and the starting sheet. Only with consent, only
+aggregated, and only from what people choose to share; never from a sheet
+by default. A research question as much as a feature.
+
 ## Where we were (reassessed 2026-10-24, evening)
 
 **What a day of play changed.** Mutation shipped as a prototype; collisions
