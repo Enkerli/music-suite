@@ -1542,7 +1542,15 @@ The ones worth knowing:
 - **Walk** (Everything) moves everything, the Drone too, along the scale
   every few bars: *a progression* (round and round), *sway* (home and the
   fourth), *by fifths* (through every degree), *climb* (a step at a time),
-  or *wander* (a step or a fifth, up or down); every 1, 2, 4 or 8 bars.
+  or *wander* (a step or a fifth, up or down); every 1, 2, 4 or 8 bars;
+  **W** cycles through them. What it does: every note moves by the same
+  number of *scale steps*, so a melody keeps its shape and moves within the
+  scale (its intervals follow the scale: a major third may become minor),
+  and a chord loop's chords follow too, their quality set by the scale (as
+  I becomes vi). Each loop can take its own part (its settings, Everything
+  → Walk): **moves** (as above), **stays** (holds while the rest moves: a
+  pedal, a riff), or **fits** (keeps its own pitches, but each note goes to
+  the nearest tone of the chord Walk has moved to: a line that adapts).
 - **Tunings** (Everything): equal, just, Pythagorean, meantone and
   Werckmeister III for 12-note scales; microtonal scales (5-, 7-, 19-,
   24-EDO, slendro, pelog, maqam Rast, harmonics, Bohlen–Pierce) bring their
@@ -1632,8 +1640,17 @@ Hold it → **Life**:
 - **brief**: comes and goes. It starts from its strongest notes, fills in
   to all of yours over eight passes, fades over eight, and it's gone.
 
-Next to Life, **8 · 16 · 32 · 64 passes** sets how long: a cycle for bloom
-and swell, the whole life for fade and brief (16 to begin with).
+Next to Life, its length: **8, 16, 32 or 64 passes** of the loop, or **1 to
+32 bars**: a cycle for bloom and swell, the whole life for fade and brief
+(16 passes to begin with). In bars, loops of different sizes fade over the
+same time.
+
+**Copy** (in a loop's settings, More) gives this loop's life, influence,
+way of meeting, sound, part in Walk or timing to **its family**, **all
+loops**, or **loops you choose**: tap *to loops I choose…*, tap their chips
+at the bottom, then **Apply**. Copying a life starts them all together,
+this loop too; then each one's length can be changed on its own (several
+loops fading at once, at different rates).
 
 You can see it: the line gets thicker as a loop fills and paler as it
 fades; a bloom's extra notes show small while they play, and resting notes
@@ -1719,6 +1736,10 @@ exact, identical repeats.
   moment, out of the picture for a screen recording (tap it to get them
   back); its sound stays until you close the page, unless you save it:
   **Save sound** gives you a WAV file, which opens everywhere.
+- **Download everything**, in Scenes: a JSON file of your sheet, scene
+  slots, My toys and takes (what you did, not their sound), readable and
+  yours to keep; **Open a file** brings one back (scenes fill empty slots,
+  the sheet comes in as a scene, toys and takes join yours).
 - **Codes**: a sheet, a toy, a take, or everything you have, as a line of
   text (`twirl:s1.…`). Send it any way you like; paste it into Scenes →
   Paste a code, on any device. Nothing is uploaded anywhere: the music is
@@ -1743,9 +1764,14 @@ leaving marks. **H** lists every key inside Twirl.
 | F | Full screen |
 | I | Messages: shown as they happen, or quiet |
 | W · ⇧W | Walk: off, then each way in turn (⇧W: back) |
-| Q | Performance readout (frames a second, how late the clock runs) |
+| Q · ⇧Q | Diagnostics (frames a second, how late the clock runs, notes a second, errors, where the last tap landed) · ⇧Q copies a report |
 | ⌘Z · ⇧⌘Z | Remove the newest loop · bring it back |
 | Esc (or `` ` ``, or ⌘ .) | Close whatever is open |
+
+**Tab** moves through the controls of whatever panel is open (a loop's
+settings, the controls, a shelf) and wraps around at the ends, so it never
+falls out into the address bar; in a dropdown too, `` ` `` or ⌘ . closes
+the panel.
 
 **On an iPad with a keyboard:** tap the page once after it loads, so it
 hears the keys (Safari keeps the keyboard in the address bar until then).
