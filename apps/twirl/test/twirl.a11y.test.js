@@ -239,6 +239,10 @@ describe.skipIf(!browser)("Twirl · pointer alternatives and preferences", () =>
       const at = () => { const r = $("inspClose").getBoundingClientRect(); return document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2)?.id; };
       await page.waitForFunction(at, null, { timeout: 3000 }).catch(() => {});
       expect(await page.evaluate(at)).toBe("inspClose");
+      // …and all of it on the screen, whatever the fonts: the panel never grows wider than the screen.
+      const edge = await page.evaluate(() => [$("inspClose").getBoundingClientRect().right, $("inspector").getBoundingClientRect().right, innerWidth]);
+      expect(edge[0]).toBeLessThanOrEqual(edge[2]);
+      expect(edge[1]).toBeLessThanOrEqual(edge[2] + 0.5);
       await context.close();
     });
   }

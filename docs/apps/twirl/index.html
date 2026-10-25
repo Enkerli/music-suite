@@ -178,7 +178,10 @@ body {
 .is-drawer .strip .dsec .tempo, .dsec #grid, .dsec #spread, .dsec #walkWay, .dsec #div, .dsec #droneSpace { grid-column: 1 / -1; }
 @media (prefers-reduced-motion: reduce) { .dsec > summary::before { transition: none; } }
 .levels .btn { flex: 1; }
-.inspector { max-width: 560px; }
+.inspector { max-width: min(560px, 100%); box-sizing: border-box; }
+/* A row of choices wraps rather than widening the panel past a phone's screen
+   (Meets' seventh answer, merge, once pushed Done off the edge at 390 px). */
+.insprow .seg { flex-wrap: wrap; max-width: 100%; }
 .insprow { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
 .insprow .lbl { min-width: 3.6rem; font: 400 0.75rem/1 var(--font-mono); color: var(--ink-muted); }
 .insprow .seg .btn { padding: 0 10px; }
