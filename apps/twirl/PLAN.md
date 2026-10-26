@@ -340,6 +340,93 @@ Sources: [DPF](https://github.com/DISTRHO/DPF) (README; in its repo, distrho/Dis
 (README: VST3, AUv2, AUv3, AAX, standalone),
 [choc](https://github.com/Tracktion/choc) (choc/gui/choc_WebView.h in its repo).
 
+### 1d-C. Route C: Twirl's sound made in the plugin (with synth mode and parameters)
+
+*Design, 2026-10-26, for Alex to read before any code. Alex: "Then we can
+work on Route C. Doesn't need to be urgent to be worthwhile."*
+
+**Why.** Today the page makes the sound (Web Audio) and the plugin receives
+it as a stream: exact, but it arrives ~100–120 ms late (a jitter buffer),
+costs a browser's audio rendering, and only exists while a page runs. Made
+in the plugin, the sound is sample-accurate, in step with the MIDI and the
+host with no allowance for a lag, and can be played by MIDI coming in
+(synth mode), so one Twirl can play another, or a sequencer can play Twirl.
+
+**What stays where.**
+- **The page stays the brain**: drawing, loops, the scheduler, Life, Meets,
+  Walk, Lock, Vary… It already sends every note, timed, for MIDI; it will
+  send the same notes with what the sound needs: voice, pack, exact pitch
+  (fractional: microtonal tunings keep their pitches, which MIDI rounds),
+  velocity, pan, height (drum kind, shaker size), Vary's nuance, the delay
+  send. Same channel, same wall-clock timing, written at sample offsets.
+- **The plugin makes the sound**: the voices, the Drone, the delay, the
+  room (Warmth), the compressor, the master volume. The page sends the
+  continuous things as state changes (Drone on, its notes as Walk moves,
+  level, voicing, space; Warmth; volume; tempo for the delay).
+
+**The engine (C++, in twirl-dpf).** What Twirl's recipes use, and no more:
+oscillators (sine, triangle, saw, square; band-limited), Web Audio's biquad
+filters (the same formulas, so the same curves), its envelope ramps
+(setValueAtTime, exponentialRamp, setTarget), noise, frequency modulation,
+its equal-power panner, the feedback delay with its darkening lowpass, a
+compressor close to Web Audio's, and the room (pink-noise and crackle loops,
+wow and flutter). The 34 recipes (7 packs; Paper's 5 voices are the base)
+become a table where they are partials and envelopes, code where they're
+more (the bell's FM, the chip arpeggio, the shaker's grains). A voice pool,
+voices freed when silent.
+
+**Fidelity.** A render test: each voice, at a few pitches and velocities,
+rendered by the page (OfflineAudioContext in headless Chromium) and by the
+engine (offline), compared on envelope and spectrum, with a tolerance
+(randomness aside: noise, Vary). Then Alex's ears: A/B in the plugin (the
+Out picker keeps "sound (from the page)" until the engine matches).
+
+**Synth mode.** MIDI coming in plays the engine: channel 1 pluck, 2 bell,
+3 blip, 10 drums and shaker (notes as Twirl sends them: 36 kick, 38 snare,
+42 hat, 70 shaker; others by height), the pack from a parameter, centre
+pan. Works with the window closed and needs no page at all. One Twirl's MIDI
+out into another's MIDI in: the second plays the first's notes in its own
+pack. (Note-offs: Twirl's voices are one-shots; they ring out.)
+
+**Parameters (automatable; Bitwig shows them).** First set: Volume, Tempo
+(when not following), Follow host transport, Swing, Warmth, Air, Drone (on,
+level, voicing, space), Lock, Walk (on, way, pace), Pack, Scale, Root, Vary,
+Evolve, Morph; then more. Choices as lists (Bitwig shows names), switches
+as on/off.
+- Host → page: the plugin passes each change to the page, which applies it
+  as if its own control moved.
+- Page → host: when you move a control in Twirl, the plugin tells the host
+  through DPF's UI (setParameterValue, with begin/end of the gesture), the
+  way that works in CLAP, VST3 and LV2. (DPF's other route, from the plugin
+  itself, is an empty stub in its CLAP code.) The page can only be touched
+  while the window is open, which is when that route exists.
+- With the project: the parameters are saved by the host; the page's saved
+  state keeps the rest (the sheet). On loading, the parameters win.
+
+**Order** (each step usable on its own; nothing removed until replaced):
+1. Engine and Paper's five voices, the delay, volume; Out gets "sound (in
+   the plugin)"; the render test.
+2. The other six packs.
+3. The Drone, the room, the compressor. Then "sound (in the plugin)"
+   becomes the default; the page's stream stays as an option or goes
+   (Alex's call).
+4. Synth mode.
+5. Parameters, the first set, then more.
+
+**Size.** The sound is ~300 lines of recipes plus the Drone (~80) and the
+room (~60) in the page; the engine perhaps 1,500–2,500 lines of C++. Steps 1
+and 3 are the largest.
+
+**Questions for Alex.**
+- [ ] Fidelity: is "sounds like Twirl to you, A/B" the bar, with the render
+      test only catching regressions? Or should the test hold a measured
+      match too?
+- [ ] Keep the page's stream ("exactly the browser's sound") as an option
+      once the engine matches, or remove it?
+- [ ] Synth mode: anything beyond channels → voices (a pack per channel?
+      MIDI CCs for Warmth, Drone…)?
+- [ ] Parameters: anything to add to the first set, or leave out?
+
 ### 1e. Twirl's voices as Surge XT patches
 
 Alex: "As Surge XT is Free Software, it should be possible to build
