@@ -1386,7 +1386,7 @@ const voiceFn = (voice, pack) => (PACKS[pack || state.pack] || VOICES)[voice] ||
 // In the plugin (IN_HOST) the output is the host: "host:both" (Twirl's own
 // sound and MIDI, the default), "host:sound" or "host:midi"; and, route C (in
 // progress), "host:engine" or "host:engine+midi": the plugin makes the sound
-// itself from the notes (toEngine, below). Notes cross in batches, one
+// itself from the notes, the Drone and Warmth (toEngine, below). Notes cross in batches, one
 // per scheduler tick, with the wall-clock time each should sound at
 // (setState "notes": "t,status,note,velocity;…", t in ms since the epoch); the
 // plugin writes each at its sample offset. "panic" ends what's sounding.
@@ -1434,7 +1434,9 @@ async function initMidi() {
 // Route C: the note as the page would have played it, for the plugin's engine
 // to play (setState "voices": "t,voice,pack,midi,vel,pan,y,nuance;…", t on the
 // wall clock like the MIDI's, midi exact: microtonal pitches stay). Batched
-// per scheduler tick. The volume and tempo (the delay's time) go as "engine".
+// per scheduler tick. The volume, tempo (the delay's time) and Warmth go as
+// "engine"; the Drone as "drone" (on, level, its space as numbers, then its
+// notes in Hz, already through scale, root and Walk), whenever it changes.
 const ENGINE_VOICE = { pluck: 0, bell: 1, blip: 2, drum: 3, shake: 4 };
 let engineBatch = [];
 function toEngine(voice, pack, midi, vel, pan, yN, t) {
@@ -1444,7 +1446,18 @@ function toEngine(voice, pack, midi, vel, pan, yN, t) {
   engineBatch.push(`${at.toFixed(1)},${ENGINE_VOICE[voice]},${p},${midi.toFixed(3)},${vel.toFixed(3)},${pan.toFixed(3)},${yN.toFixed(3)},${nuance.toFixed(3)}`);
   diag.engineSent = (diag.engineSent || 0) + 1;
 }
-function sendEngine() { if (IN_HOST) window.setState("engine", `${state.volume},${state.bpm}`); }
+function sendEngine() {
+  if (!IN_HOST) return;
+  window.setState("engine", `${state.volume},${state.bpm},${state.warmth ?? 0.5}`);
+  sendDrone();
+}
+function sendDrone() {
+  if (!IN_HOST) return;
+  const on = engineOn() && !!drone, sp = DRONE_SPACES[state.droneSpace] || DRONE_SPACES.drift;
+  const shift = on ? harmonyAt(nowBeat()).shift : 0;
+  const hz = on ? drone.voices.map((v) => mtof(midiForDegree(shift + v.deg + stepCount()) - 24).toFixed(3)) : [];
+  window.setState("drone", [on ? 1 : 0, state.droneVol ?? 0.3, sp.side, sp.rate, sp.pan, sp.trem, sp.dop, sp.split, ...hz].join(","));
+}
 let hostBatch = [];
 function toHost(at, status, note, vel) {
   if (!hostBatch.length) queueMicrotask(() => { window.setState("notes", hostBatch.join(";")); hostBatch = []; });
@@ -2808,7 +2821,7 @@ function setDrone(on) {
     d.g.gain.setTargetAtTime(0.0001, ctx.currentTime, 0.3);
     d.oscs.forEach((o) => o.stop(ctx.currentTime + 2));
   }
-  if (!on) return;
+  if (!on) { sendDrone(); return; }
   const n = stepCount(), fifth = Math.max(1, Math.round((n * 4) / 7)), now = ctx.currentTime;
   const degs = (DRONE_VOICINGS[state.droneVoicing] || DRONE_VOICINGS.fifth)(n, fifth);
   const sp = DRONE_SPACES[state.droneSpace] || DRONE_SPACES.drift;
@@ -2847,6 +2860,7 @@ function setDrone(on) {
 function setDroneVol(v) {
   state.droneVol = v;
   if (drone) drone.g.gain.setTargetAtTime(droneLevel(v), ctx.currentTime, 0.2);
+  sendDrone();
 }
 function updateDrone(b, force = false) {
   if (!drone) return;
@@ -2854,6 +2868,7 @@ function updateDrone(b, force = false) {
   const key = `${state.grid}/${state.tuning}/${state.root}/${state.range}/${shift}`;
   if (key === drone.key && !force) return;
   drone.key = key;
+  sendDrone();                                      // the plugin's engine plays it too (route C)
   for (const v of drone.voices) {
     const f = mtof(midiForDegree(shift + v.deg + stepCount()) - 24);   // an octave under the sheet's middle
     v.pair.forEach((o, j) => o.frequency.setTargetAtTime(f + (j ? 1 : -1) * drone.split / 2, ctx.currentTime, 0.4));   // binaural: left and right apart
@@ -2922,6 +2937,7 @@ function buildRoom(dest) {
 }
 function setWarmth(v, now = false) {
   state.warmth = Math.max(0, Math.min(1, Number(v) || 0));
+  sendEngine();
   if (!room || !ctx) return;
   const t = ctx.currentTime, w = state.warmth;
   const to = (param, x) => { if (now) { param.cancelScheduledValues(t); param.value = x; } else param.setTargetAtTime(x, t, 0.1); };
