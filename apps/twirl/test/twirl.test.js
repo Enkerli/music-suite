@@ -1465,6 +1465,160 @@ describe.skipIf(!browser)("Twirl · diagnostics for new hardware", () => {
   });
 });
 
+describe.skipIf(!browser)("Twirl · inside the plugin (twirl-dpf)", () => {
+  // DPF's web view injects these before the page runs (DPF distrho/src/DistrhoUI.cpp).
+  const dpf = () => {
+    window.__host = [];
+    window.setState = (key, value) => window.__host.push({ key, value, at: performance.timeOrigin + performance.now() });
+    window.sendNote = () => {};
+  };
+
+  it("as MIDI, sends its notes to the host in timed batches, and makes no sound itself", async () => {
+    const { page, context, errors } = await openTwirl(browser, { initScript: dpf });
+    await page.evaluate(() => { $("out").value = "host:midi"; $("out").dispatchEvent(new Event("change")); });   // the picker sits in Everything
+    await page.evaluate(() => {
+      window.__voiced = 0;
+      const orig = voiceFn;
+      window.voiceFn = (...a) => { const f = orig(...a); return (...b) => { window.__voiced++; return f(...b); }; };
+    });
+    await page.mouse.click(600, 600);
+    await page.waitForTimeout(2000);
+    const r = await page.evaluate(() => ({
+      inHost: IN_HOST, out: state.out, picker: [...$("out").options].map((o) => o.value), voiced: window.__voiced,
+      batches: window.__host.filter((m) => m.key === "notes"), sent: diag.midiSent, report: diagReport().midi,
+    }));
+    expect(r.inHost).toBe(true);
+    expect(r.out).toBe("host:midi");
+    expect(r.picker).toEqual(["host:sound", "host:midi", "host:both"]);
+    expect(r.voiced).toBe(0);                                  // the host's instruments make the sound
+    expect(r.report).toMatchObject({ out: "host:midi", host: true, followHost: false, holding: false });
+    expect(r.batches.length).toBeGreaterThan(1);
+    expect(r.batches.length).toBeLessThan(r.sent * 2);         // batched: not one message per event
+    const events = r.batches.flatMap((b) => b.value.split(";").map((e) => {
+      const [t, status, note, vel] = e.split(",").map(Number);
+      return { t, status, note, vel, sentAt: b.at };
+    }));
+    expect(events.length).toBe(r.sent * 2);                    // an on and an off for each note
+    for (const e of events) {
+      expect(e.t).toBeGreaterThan(e.sentAt - 5);               // sent ahead of (or at) its time, never after
+      expect([0x80, 0x90]).toContain(e.status & 0xf0);
+      expect([0, 1, 2, 9]).toContain(e.status & 0x0f);         // pluck, bell, blip, drums
+      expect(e.note).toBeGreaterThanOrEqual(0); expect(e.note).toBeLessThan(128);
+      expect(e.vel).toBeGreaterThanOrEqual(0); expect(e.vel).toBeLessThan(128);
+    }
+    // Each off follows its on by Twirl's length for the voice (drums 80 ms, pluck and blip 220, bell 600).
+    const ons = events.filter((e) => (e.status & 0xf0) === 0x90);
+    const offs = events.filter((e) => (e.status & 0xf0) === 0x80);
+    expect(ons.length).toBe(offs.length);
+    for (const on of ons) {
+      const len = (on.status & 0x0f) === 9 ? 80 : (on.status & 0x0f) === 1 ? 600 : 220;
+      expect(offs.some((off) => off.status === (0x80 | (on.status & 0x0f)) && off.note === on.note && Math.abs(off.t - on.t - len) < 0.2)).toBe(true);
+    }
+    expect(errors).toEqual([]);
+    await context.close();
+  });
+
+  it("starts at once, untouched (its window may never open), and sends its own sound and MIDI", async () => {
+    const { page, context, errors } = await openTwirl(browser, { initScript: dpf });
+    expect(await page.inputValue("#out")).toBe("host:both");
+    expect(await page.evaluate(() => window.__host.some((m) => m.key === "ready"))).toBe(true);
+    await page.waitForTimeout(1500);                           // no click: the plugin starts it
+    const r = await page.evaluate(() => {
+      const audio = window.__host.filter((m) => m.key === "audio");
+      const sizes = audio.map((m) => atob(m.value.split(",")[2]).length);
+      // The chunks' 16-bit samples: is there sound in them (the example loops play)?
+      const peak = Math.max(...audio.map((m) => {
+        const b = atob(m.value.split(",")[2]); let p = 0;
+        for (let i = 0; i < b.length; i += 2) { const v = (b.charCodeAt(i) | (b.charCodeAt(i + 1) << 8)) << 16 >> 16; p = Math.max(p, Math.abs(v)); }
+        return p;
+      }));
+      // Each chunk carries when its first frame was rendered: just before it was sent.
+      const stampAges = audio.map((m) => m.at - Number(m.value.split(",")[1]));
+      return { n: audio.length, rate: audio.length ? Number(audio[0].value.split(",")[0]) : 0, sizes: [...new Set(sizes)], peak,
+               stampAges: [Math.min(...stampAges), Math.max(...stampAges)],
+               first: audio.length ? audio[0].at : 0, last: audio.length ? audio.at(-1).at : 0, notes: window.__host.filter((m) => m.key === "notes").length };
+    });
+    expect(r.rate).toBe(await page.evaluate(() => ctx.sampleRate));
+    expect(r.sizes).toEqual([2048]);                           // 512 stereo frames, 16-bit
+    // Real time: as many frames sent as the time they span (give or take a chunk or two).
+    expect(Math.abs(r.n * 512 / r.rate - (r.last - r.first) / 1000)).toBeLessThan(0.1);
+    expect(r.peak).toBeGreaterThan(100);
+    expect(r.stampAges[0]).toBeGreaterThanOrEqual(0);
+    expect(r.stampAges[1]).toBeLessThan(200);
+    expect(r.notes).toBeGreaterThan(0);
+    expect(errors).toEqual([]);
+    await context.close();
+  });
+
+  it("gives the plugin its state to save, and takes it back", async () => {
+    const a = await openTwirl(browser, { initScript: dpf });
+    await a.page.evaluate(() => { setTempo(123); $("out").value = "host:sound"; $("out").dispatchEvent(new Event("change")); setHostSync(true); autosave(); });
+    const saved = await a.page.evaluate(() => window.__host.filter((m) => m.key === "page").at(-1).value);
+    expect(saved).toMatch(/^[A-Za-z0-9+/=]+$/);                 // base64: safe to hand back inside a JS string
+    await a.context.close();
+    const b = await openTwirl(browser, { initScript: dpf });
+    expect(await b.page.evaluate(() => [state.bpm !== 123, state.out, hostSync])).toEqual([true, "host:both", false]);   // a fresh sheet
+    await b.page.evaluate((s) => twirlRestore(s), saved);
+    expect(await b.page.evaluate(() => [state.bpm, state.out, hostSync, $("syncBtn").getAttribute("aria-pressed")])).toEqual([123, "host:sound", true, "true"]);
+    expect(b.errors).toEqual([]);
+    await b.context.close();
+  });
+
+  it("follows the host when asked: its tempo, its transport, its beat", async () => {
+    const { page, context, errors } = await openTwirl(browser, { initScript: dpf });
+    await page.waitForTimeout(500);
+    // The plugin's report, as now: the host at `beat` on the plugin's clock.
+    const host = (tempo, playing, beat) => page.evaluate(([tempo, playing, beat]) =>
+      twirlHost({ tempo, playing, beat, at: performance.timeOrigin + performance.now(), lag: 0 }), [tempo, playing, beat]);
+    const offBeats = () => page.evaluate(() => {
+      const h = hostInfo, wall = performance.timeOrigin + performance.now() + (soundOn() ? h.lag : 0);
+      let e = h.beat + (wall - h.at) * h.tempo / 60000 - beatAt(ctx.currentTime); return e - 48 * Math.round(e / 48);
+    });
+    const own = await page.evaluate(() => state.bpm);
+    await host(120, true, 10);
+    expect(await page.evaluate(() => [state.bpm, hostHold])).toEqual([own, false]);  // off: its own clock
+    await page.evaluate(() => setHostSync(true));
+    await host(120, false, 10);
+    const held = await page.evaluate(() => diag.midiSent);
+    await page.waitForTimeout(600);
+    expect(await page.evaluate(() => [hostHold, diag.midiSent])).toEqual([true, held]);   // stopped: the loops wait
+    // Playing: 20 reports a second, as the plugin sends them, the host's beat moving on.
+    await page.evaluate(() => new Promise((done) => {
+      const from = performance.timeOrigin + performance.now(); let n = 0;
+      const id = setInterval(() => {
+        const at = performance.timeOrigin + performance.now();
+        twirlHost({ tempo: 132, playing: true, beat: 17.25 + (at - from) * 132 / 60000, at, lag: 0 });
+        if (++n === 20) { clearInterval(id); done(); }
+      }, 50);
+    }));
+    expect(await page.evaluate(() => [state.bpm, hostHold, $("bpm").disabled, $("hostChip").textContent])).toEqual([132, false, true, "Host: 132 BPM"]);
+    // On the host's beat. Within 0.04 beats (18 ms) here: headless Chromium has no
+    // sound device and its audio clock moves in coarse steps. In the plugin's web
+    // view, against Carla's transport, it measured 0.3 to 2 ms.
+    expect(Math.abs(await offBeats())).toBeLessThan(0.04);
+    await page.waitForTimeout(700);
+    expect(await page.evaluate(() => diag.midiSent)).toBeGreaterThan(held);           // and playing
+    expect(errors).toEqual([]);
+    await context.close();
+  });
+
+  it("Start over tells the host to end what's sounding", async () => {
+    const { page, context } = await openTwirl(browser, { initScript: dpf });
+    await page.mouse.click(600, 600);
+    await page.evaluate(() => { $("initBtn").click(); $("initBtn").click(); });
+    expect(await page.evaluate(() => window.__host.some((m) => m.key === "panic"))).toBe(true);
+    await context.close();
+  });
+
+  it("in a browser, nothing changes: no host, the sound plays", async () => {
+    const { page, context } = await openTwirl(browser);
+    await page.mouse.click(600, 600);
+    await page.waitForTimeout(300);
+    expect(await page.evaluate(() => [IN_HOST, state.out, soundOn(), !!diag.audioSent])).toEqual([false, "sound", true, false]);
+    await context.close();
+  });
+});
+
 describe.skipIf(!browser)("Twirl · the clock", () => {
   it("ticks from a Worker (not throttled in the background), and ?clock=main keeps the page's timer", async () => {
     const { page, context } = await openTwirl(browser);
