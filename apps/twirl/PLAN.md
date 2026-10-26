@@ -405,7 +405,14 @@ as on/off.
 
 **Order** (each step usable on its own; nothing removed until replaced):
 1. Engine and Paper's five voices, the delay, volume; Out gets "sound (in
-   the plugin)"; the render test.
+   the plugin)"; the render test. **Done (2026-10-26):** twirl-dpf
+   `TwirlEngine.hpp` (oscillators band-limited, Web Audio's biquads and
+   ramps, panner, delay, a compressor; a pool of 160 voices) and `make
+   test` (each voice at 8 pitches × 4 loudnesses: sounds, under 0 dBFS,
+   dies away; WAVs to listen to). In the plugin, Out: "sound made in the
+   plugin (new)", alone or + MIDI; every pack plays Paper for now, and
+   there's no Drone or Warmth yet. Checked in the standalone: continuous,
+   no gaps or clicks, about as loud as the page's sound.
 2. The other six packs.
 3. The Drone, the room, the compressor. Then "sound (in the plugin)"
    becomes the default; the page's stream stays as an option or goes
