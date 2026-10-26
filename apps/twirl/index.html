@@ -1028,9 +1028,11 @@ function walkShift(k) {                                         // k: which chan
 let ctx = null;             // AudioContext, created on first touch (iOS rule)
 // Inside Twirl's plugin (Enkerli/twirl-dpf: DPF's web view, no Web MIDI), DPF
 // injects setState() and sendNote() into the page before it runs. There the
-// host's instruments make the sound: Twirl keeps its clock and sends notes
-// (sendMidi, section 3), and makes none itself.
+// output is the host: Twirl's own sound, captured and sent to the plugin's
+// audio output (toHostAudio, section 3), its notes as MIDI (sendMidi), or both.
 const IN_HOST = typeof window.setState === "function" && typeof window.sendNote === "function";
+/** Whether Twirl's own voices play (in a browser, or into the plugin's output). */
+const soundOn = () => state.out === "sound" || state.out.startsWith("both") || state.out === "host:sound" || state.out === "host:both";
 let t0 = 0;                 // audio time at which beat 0 happened
 const bps = () => state.bpm / 60;
 const nowAudio = () => (ctx ? ctx.currentTime : performance.now() / 1000);
@@ -1080,7 +1082,8 @@ function ensureAudio() {
     const comp = compressor = ctx.createDynamicsCompressor();
     comp.threshold.value = -14; comp.ratio.value = 4;
     master = ctx.createGain(); master.gain.value = state.volume;
-    if (!IN_HOST) comp.connect(ctx.destination);                  // in the plugin, silent (the Drone too)
+    if (IN_HOST) toHostAudio(comp);                               // in the plugin, to its output instead
+    else comp.connect(ctx.destination);
     master.connect(buildRoom(comp));                              // through the tape's wobble (section 8b)
 
     // A loopy dotted-eighth delay, darkened each time round.
@@ -1125,6 +1128,37 @@ function env(g, t, peak, decay, attack = 0.004) {
   g.gain.exponentialRampToValueAtTime(peak, t + attack);
   g.gain.exponentialRampToValueAtTime(0.0001, t + attack + decay);
 }
+// In the plugin, the sound goes to the host instead of the speakers: an
+// AudioWorklet at the end of the graph takes it, 512 frames at a time, as
+// 16-bit stereo, and the page sends each chunk on (setState "audio":
+// "rate,base64"); the plugin buffers it against uneven arrival and plays it.
+// The worklet's own output is silence (it's connected only so it runs).
+const CAPTURE_WORKLET = `registerProcessor("twirl-capture", class extends AudioWorkletProcessor {
+  constructor() { super(); this.buf = new Int16Array(1024); this.n = 0; }
+  process(inputs) {
+    const ch = inputs[0], l = ch[0], r = ch[1] || l, b = this.buf;
+    for (let i = 0; i < 128; i++) {
+      const x = l ? Math.max(-1, Math.min(1, l[i])) : 0, y = r ? Math.max(-1, Math.min(1, r[i])) : 0;
+      b[this.n++] = x * 32767; b[this.n++] = y * 32767;
+      if (this.n === b.length) { this.port.postMessage(b.buffer, [b.buffer]); this.buf = new Int16Array(1024); this.n = 0; }
+    }
+    return true;
+  }
+});`;
+function toHostAudio(from) {
+  // A data: URL: a blob: one from a file:// page (as the plugin's is) has no origin, and Chromium refuses it as a worklet module.
+  ctx.audioWorklet.addModule(`data:text/javascript;base64,${btoa(CAPTURE_WORKLET)}`).then(() => {
+    const cap = new AudioWorkletNode(ctx, "twirl-capture", { numberOfInputs: 1, numberOfOutputs: 1, outputChannelCount: [2], channelCount: 2, channelCountMode: "explicit" });
+    cap.port.onmessage = (e) => {
+      if (!soundOn()) return;                                     // MIDI only: nothing to send
+      const bytes = new Uint8Array(e.data);
+      window.setState("audio", `${ctx.sampleRate},${btoa(String.fromCharCode.apply(null, bytes))}`);
+      diag.audioSent = (diag.audioSent || 0) + 1;
+    };
+    from.connect(cap).connect(ctx.destination);
+  }, (err) => { diag.errors.push(`audio to the host: ${err && err.message}`); });
+}
+
 function noise(t, dur) {
   const n = ctx.createBufferSource();
   n.buffer = noiseBuf; n.start(t, Math.random() * 0.8); n.stop(t + dur);
@@ -1337,7 +1371,8 @@ const voiceFn = (voice, pack) => (PACKS[pack || state.pack] || VOICES)[voice] ||
 // pluck 1, bell 2, blip 3, drums + shaker 10 (GM notes). Microtonal pitches
 // are rounded to the nearest semitone; there's no MPE yet.
 //
-// In the plugin (IN_HOST) the output is the host. Notes cross in batches, one
+// In the plugin (IN_HOST) the output is the host: "host:sound" (Twirl's own,
+// the default), "host:midi" or "host:both". Notes cross in batches, one
 // per scheduler tick, with the wall-clock time each should sound at
 // (setState "notes": "t,status,note,velocity;…", t in ms since the epoch); the
 // plugin writes each at its sample offset. "panic" ends what's sounding.
@@ -1349,8 +1384,9 @@ const GM_DRUM = { kick: 36, snare: 38, hat: 42 };
 async function initMidi() {
   if (IN_HOST) {
     const sel = $("out");
-    sel.textContent = ""; sel.append(new Option("Out: the host (MIDI)", "host"));
-    state.out = sel.value = "host"; sel.hidden = false;
+    sel.textContent = "";
+    sel.append(new Option("Out: sound", "host:sound"), new Option("Out: MIDI", "host:midi"), new Option("Out: sound + MIDI", "host:both"));
+    state.out = sel.value = "host:sound"; sel.hidden = false;
     addEventListener("pagehide", () => window.setState("panic", "1"));
     return;
   }
@@ -1378,7 +1414,7 @@ function toHost(at, status, note, vel) {
 }
 function sendMidi(voice, midi, vel, t, yN) {
   const port = IN_HOST || !midiAccess || state.out === "sound" ? null : midiAccess.outputs.get(state.out.split(":").slice(1).join(":"));
-  if (!(IN_HOST ? state.out === "host" : port)) return;
+  if (!(IN_HOST ? state.out === "host:midi" || state.out === "host:both" : port)) return;
   const ch = MIDI_CH[voice];
   const note = voice === "shake" ? 70 : voice === "drum" ? GM_DRUM[drumKind(yN)]
              : Math.max(0, Math.min(127, Math.round(midi + (voice === "pluck" ? 0 : 12))));
@@ -1748,7 +1784,7 @@ function sound(voice, xN, yN, vel, t, b, deg, chord = "single", pack = null, wal
     const midi = midiForDegree(walkFor(walkRole, root + step, b));
     if (!Number.isFinite(midi)) { diag.skipped = (diag.skipped || 0) + 1; continue; }   // never again an exception per note (Q shows the count)
     const [v, at, m] = varied(each, t, midi);
-    if (state.out === "sound" || state.out.startsWith("both")) {
+    if (soundOn()) {
       if (voice === "shake") voiceFn("shake", pack)(at, v, pan, 1 - yN);
       else voiceFn(voice, pack)(at, m, v, pan, yN);
     }
@@ -3535,7 +3571,7 @@ function diagReport() {
     clock: clockKind,
     audioDevice: ctx ? { sampleRate: ctx.sampleRate, baseLatencyMs: ctx.baseLatency != null ? Math.round(ctx.baseLatency * 1000 * 10) / 10 : "n/a", outputLatencyMs: ctx.outputLatency ? Math.round(ctx.outputLatency * 1000 * 10) / 10 : "n/a" } : "none",
     pen: diag.pen,
-    midi: IN_HOST ? { out: state.out, host: true, sent: diag.midiSent, last: diag.midiLast }
+    midi: IN_HOST ? { out: state.out, host: true, sent: diag.midiSent, last: diag.midiLast, audioChunks: diag.audioSent || 0 }
       : typeof midiAccess === "undefined" || !midiAccess ? (navigator.requestMIDIAccess ? "not allowed (yet)" : "no Web MIDI here")
       : { out: state.out, outputs: [...midiAccess.outputs.values()].map((o) => o.name), sent: diag.midiSent, last: diag.midiLast },
     ua: navigator.userAgent,

@@ -1473,8 +1473,9 @@ describe.skipIf(!browser)("Twirl · inside the plugin (twirl-dpf)", () => {
     window.sendNote = () => {};
   };
 
-  it("sends its notes to the host in timed batches, and makes no sound itself", async () => {
+  it("as MIDI, sends its notes to the host in timed batches, and makes no sound itself", async () => {
     const { page, context, errors } = await openTwirl(browser, { initScript: dpf });
+    await page.evaluate(() => { $("out").value = "host:midi"; $("out").dispatchEvent(new Event("change")); });   // the picker sits in Everything
     await page.evaluate(() => {
       window.__voiced = 0;
       const orig = voiceFn;
@@ -1487,10 +1488,10 @@ describe.skipIf(!browser)("Twirl · inside the plugin (twirl-dpf)", () => {
       batches: window.__host.filter((m) => m.key === "notes"), sent: diag.midiSent, report: diagReport().midi,
     }));
     expect(r.inHost).toBe(true);
-    expect(r.out).toBe("host");
-    expect(r.picker).toEqual(["host"]);
+    expect(r.out).toBe("host:midi");
+    expect(r.picker).toEqual(["host:sound", "host:midi", "host:both"]);
     expect(r.voiced).toBe(0);                                  // the host's instruments make the sound
-    expect(r.report).toMatchObject({ out: "host", host: true });
+    expect(r.report).toMatchObject({ out: "host:midi", host: true });
     expect(r.batches.length).toBeGreaterThan(1);
     expect(r.batches.length).toBeLessThan(r.sent * 2);         // batched: not one message per event
     const events = r.batches.flatMap((b) => b.value.split(";").map((e) => {
@@ -1517,6 +1518,33 @@ describe.skipIf(!browser)("Twirl · inside the plugin (twirl-dpf)", () => {
     await context.close();
   });
 
+  it("by default sends its own sound to the plugin, continuously, and no MIDI", async () => {
+    const { page, context, errors } = await openTwirl(browser, { initScript: dpf });
+    expect(await page.inputValue("#out")).toBe("host:sound");
+    await page.mouse.click(600, 600);
+    await page.waitForTimeout(1500);
+    const r = await page.evaluate(() => {
+      const audio = window.__host.filter((m) => m.key === "audio");
+      const sizes = audio.map((m) => atob(m.value.split(",")[1]).length);
+      // The chunks' 16-bit samples: is there sound in them (the example loops play)?
+      const peak = Math.max(...audio.map((m) => {
+        const b = atob(m.value.split(",")[1]); let p = 0;
+        for (let i = 0; i < b.length; i += 2) { const v = (b.charCodeAt(i) | (b.charCodeAt(i + 1) << 8)) << 16 >> 16; p = Math.max(p, Math.abs(v)); }
+        return p;
+      }));
+      return { n: audio.length, rate: audio.length ? Number(audio[0].value.split(",")[0]) : 0, sizes: [...new Set(sizes)], peak,
+               first: audio.length ? audio[0].at : 0, last: audio.length ? audio.at(-1).at : 0, notes: window.__host.filter((m) => m.key === "notes").length };
+    });
+    expect(r.rate).toBe(await page.evaluate(() => ctx.sampleRate));
+    expect(r.sizes).toEqual([2048]);                           // 512 stereo frames, 16-bit
+    // Real time: as many frames sent as the time they span (give or take a chunk or two).
+    expect(Math.abs(r.n * 512 / r.rate - (r.last - r.first) / 1000)).toBeLessThan(0.1);
+    expect(r.peak).toBeGreaterThan(100);
+    expect(r.notes).toBe(0);
+    expect(errors).toEqual([]);
+    await context.close();
+  });
+
   it("Start over tells the host to end what's sounding", async () => {
     const { page, context } = await openTwirl(browser, { initScript: dpf });
     await page.mouse.click(600, 600);
@@ -1528,7 +1556,8 @@ describe.skipIf(!browser)("Twirl · inside the plugin (twirl-dpf)", () => {
   it("in a browser, nothing changes: no host, the sound plays", async () => {
     const { page, context } = await openTwirl(browser);
     await page.mouse.click(600, 600);
-    expect(await page.evaluate(() => [IN_HOST, state.out])).toEqual([false, "sound"]);
+    await page.waitForTimeout(300);
+    expect(await page.evaluate(() => [IN_HOST, state.out, soundOn(), !!diag.audioSent])).toEqual([false, "sound", true, false]);
     await context.close();
   });
 });

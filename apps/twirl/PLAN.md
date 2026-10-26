@@ -266,6 +266,31 @@ cp -r bin/d_webmeters.lv2 ~/.lv2/ ; mkdir -p ~/.clap && cp -r bin/d_webmeters.cl
       effect: put it before an instrument).
 - [ ] Twirl's clock lives in the page: closing the plugin's window stops
       it. Fine for now; a headless clock in the plugin is a W6 question.
+- [x] Bitwig, first try (Alex, 2026-10-25: "quite fun"), and what came of it:
+      - closing the window crashed DPF's web-view process (SIGSEGV): fixed
+        (DPF patch 0002), checked in the standalone and the LV2;
+      - "stops playing as soon as another UI is focused": Bitwig *hides* the
+        window, and DPF's CLAP stopped the timer that collects the page's
+        messages. Fixed (patch 0004), to confirm in Bitwig;
+      - "doesn't respond to keyboard controls, even when focused": a click
+        left X's keyboard focus on the host's window. Fixed (patch 0003: a
+        press in the page gives the web view the focus), checked in the
+        standalone, to confirm in Bitwig;
+      - drums needed a remapper (Bitwig's drum machine isn't General MIDI),
+        and the voices an Instrument Layer with channel filters: "Could be
+        nice to integrate everything in a single plugin." Twirl's own sound
+        out of the plugin (next item) is that; a drum map is still to do.
+- [x] **Twirl's own sound out of the plugin** (Alex: "no reason the plugin
+      should be MIDI-only"; route B now, C after). The page's Web Audio,
+      exactly as in a browser, captured by an AudioWorklet and sent in
+      512-frame chunks (`setState("audio", …)`); the plugin buffers 100 ms
+      and corrects drift. Out picker in the plugin: sound (default), MIDI,
+      sound + MIDI. Measured in the standalone: no gaps or clicks; stalls of
+      300 ms recover without clicks. The sound lags the MIDI by ~100 ms.
+- [ ] **C**: the voices in C++ inside the plugin, played by the timed notes,
+      sample-accurate and in step with the MIDI; a pack at a time, paper first.
+- [ ] Sync to the host: tempo, transport (start and stop), beat phase.
+- [ ] A drum map: General MIDI, or Bitwig's drum machine (pads from C1).
 - [ ] Save and restore the sheet with the host's project.
 
 **Questions for W6** (some now answered): is stage B (an installable app)
