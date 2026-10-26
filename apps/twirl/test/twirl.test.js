@@ -1576,7 +1576,17 @@ describe.skipIf(!browser)("Twirl · inside the plugin (twirl-dpf)", () => {
     r = await sent();
     expect(r.voices.length).toBeGreaterThan(3);
     expect(r.notes).toBeGreaterThan(0);
-    expect(r.engine.at(-1)).toBe(`0.5,${await page.evaluate(() => state.bpm)}`);
+    expect(r.engine.at(-1)).toBe(`0.5,${await page.evaluate(() => `${state.bpm},${state.warmth}`)}`);
+    // The Drone and Warmth go to the engine too: its notes in Hz, as Walk moves them.
+    const drone = () => page.evaluate(() => window.__host.filter((m) => m.key === "drone").map((m) => m.value.split(",").map(Number)).at(-1));
+    await page.evaluate(() => { window.__host.length = 0; state.drone = true; setDrone(true); setWarmth(0.7); });
+    const d = await drone();
+    expect(d[0]).toBe(1);                                        // on
+    expect(d.slice(8).length).toBeGreaterThanOrEqual(2);         // two notes or more
+    for (const hz of d.slice(8)) { expect(hz).toBeGreaterThan(20); expect(hz).toBeLessThan(1000); }
+    expect((await sent()).engine.at(-1).split(",").map(Number)[2]).toBe(0.7);
+    await page.evaluate(() => { $("out").value = "host:midi"; $("out").dispatchEvent(new Event("change")); });
+    expect((await drone())[0]).toBe(0);                          // leaving: the engine's Drone stops
     expect(errors).toEqual([]);
     await context.close();
   });

@@ -416,7 +416,16 @@ as on/off.
 2. The other six packs.
 3. The Drone, the room, the compressor. Then "sound (in the plugin)"
    becomes the default; the page's stream stays as an option or goes
-   (Alex's call).
+   (Alex's call). **The Drone and Warmth done first** (2026-10-26; Alex,
+   on step 1 in Bitwig: "Sounds good… Drone and warmth will be useful"):
+   the page sends the Drone's notes as Walk moves them, its level and
+   space, and Warmth; the engine plays the Drone (saw pairs, breathing
+   lowpass, the space's rotor, tape wobble) and the room (hiss, crackle,
+   wow and flutter). Rendered offline and checked in the standalone (no
+   gaps or clicks). Following the host with this sound: on Carla's beat
+   within about 1 ms on average. The compressor came with step 1. Still
+   to do here: making it the default and taking the page's stream out of
+   the plugin, once step 2 gives every pack its own sounds.
 4. Synth mode.
 5. Parameters, the first set, then more.
 
