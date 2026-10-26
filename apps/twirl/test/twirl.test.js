@@ -1489,7 +1489,7 @@ describe.skipIf(!browser)("Twirl · inside the plugin (twirl-dpf)", () => {
     }));
     expect(r.inHost).toBe(true);
     expect(r.out).toBe("host:midi");
-    expect(r.picker).toEqual(["host:sound", "host:midi", "host:both", "host:engine", "host:engine+midi"]);
+    expect(r.picker).toEqual(["host:engine+midi", "host:engine", "host:midi"]);
     expect(r.voiced).toBe(0);                                  // the host's instruments make the sound
     expect(r.report).toMatchObject({ out: "host:midi", host: true, followHost: false, holding: false });
     expect(r.batches.length).toBeGreaterThan(1);
@@ -1518,33 +1518,17 @@ describe.skipIf(!browser)("Twirl · inside the plugin (twirl-dpf)", () => {
     await context.close();
   });
 
-  it("starts at once, untouched (its window may never open), and sends its own sound and MIDI", async () => {
+  it("starts at once, untouched (its window may never open): notes for the plugin's sound and MIDI, no audio of its own", async () => {
     const { page, context, errors } = await openTwirl(browser, { initScript: dpf });
-    expect(await page.inputValue("#out")).toBe("host:both");
+    expect(await page.inputValue("#out")).toBe("host:engine+midi");
     expect(await page.evaluate(() => window.__host.some((m) => m.key === "ready"))).toBe(true);
     await page.waitForTimeout(1500);                           // no click: the plugin starts it
-    const r = await page.evaluate(() => {
-      const audio = window.__host.filter((m) => m.key === "audio");
-      const sizes = audio.map((m) => atob(m.value.split(",")[2]).length);
-      // The chunks' 16-bit samples: is there sound in them (the example loops play)?
-      const peak = Math.max(...audio.map((m) => {
-        const b = atob(m.value.split(",")[2]); let p = 0;
-        for (let i = 0; i < b.length; i += 2) { const v = (b.charCodeAt(i) | (b.charCodeAt(i + 1) << 8)) << 16 >> 16; p = Math.max(p, Math.abs(v)); }
-        return p;
-      }));
-      // Each chunk carries when its first frame was rendered: just before it was sent.
-      const stampAges = audio.map((m) => m.at - Number(m.value.split(",")[1]));
-      return { n: audio.length, rate: audio.length ? Number(audio[0].value.split(",")[0]) : 0, sizes: [...new Set(sizes)], peak,
-               stampAges: [Math.min(...stampAges), Math.max(...stampAges)],
-               first: audio.length ? audio[0].at : 0, last: audio.length ? audio.at(-1).at : 0, notes: window.__host.filter((m) => m.key === "notes").length };
-    });
-    expect(r.rate).toBe(await page.evaluate(() => ctx.sampleRate));
-    expect(r.sizes).toEqual([2048]);                           // 512 stereo frames, 16-bit
-    // Real time: as many frames sent as the time they span (give or take a chunk or two).
-    expect(Math.abs(r.n * 512 / r.rate - (r.last - r.first) / 1000)).toBeLessThan(0.1);
-    expect(r.peak).toBeGreaterThan(100);
-    expect(r.stampAges[0]).toBeGreaterThanOrEqual(0);
-    expect(r.stampAges[1]).toBeLessThan(200);
+    const r = await page.evaluate(() => ({
+      voices: window.__host.filter((m) => m.key === "voices").length, notes: window.__host.filter((m) => m.key === "notes").length,
+      audio: window.__host.filter((m) => m.key === "audio").length, connected: !!ctx && ctx.state === "running",
+    }));
+    expect(r).toEqual({ voices: r.voices, notes: r.notes, audio: 0, connected: true });   // its clock runs; no audio is sent
+    expect(r.voices).toBeGreaterThan(0);
     expect(r.notes).toBeGreaterThan(0);
     expect(errors).toEqual([]);
     await context.close();
@@ -1593,14 +1577,18 @@ describe.skipIf(!browser)("Twirl · inside the plugin (twirl-dpf)", () => {
 
   it("gives the plugin its state to save, and takes it back", async () => {
     const a = await openTwirl(browser, { initScript: dpf });
-    await a.page.evaluate(() => { setTempo(123); $("out").value = "host:sound"; $("out").dispatchEvent(new Event("change")); setHostSync(true); autosave(); });
+    await a.page.evaluate(() => { setTempo(123); $("out").value = "host:engine"; $("out").dispatchEvent(new Event("change")); setHostSync(true); autosave(); });
     const saved = await a.page.evaluate(() => window.__host.filter((m) => m.key === "page").at(-1).value);
     expect(saved).toMatch(/^[A-Za-z0-9+/=]+$/);                 // base64: safe to hand back inside a JS string
     await a.context.close();
     const b = await openTwirl(browser, { initScript: dpf });
-    expect(await b.page.evaluate(() => [state.bpm !== 123, state.out, hostSync])).toEqual([true, "host:both", false]);   // a fresh sheet
+    expect(await b.page.evaluate(() => [state.bpm !== 123, state.out, hostSync])).toEqual([true, "host:engine+midi", false]);   // a fresh sheet
     await b.page.evaluate((s) => twirlRestore(s), saved);
-    expect(await b.page.evaluate(() => [state.bpm, state.out, hostSync, $("syncBtn").getAttribute("aria-pressed")])).toEqual([123, "host:sound", true, "true"]);
+    expect(await b.page.evaluate(() => [state.bpm, state.out, hostSync, $("syncBtn").getAttribute("aria-pressed")])).toEqual([123, "host:engine", true, "true"]);
+    // Saved before 2026-10-26, when the page streamed its own sound: onto the new choices.
+    const old = await b.page.evaluate(() => toB64({ v: 1, out: "host:both" }));
+    await b.page.evaluate((s) => twirlRestore(s), old);
+    expect(await b.page.evaluate(() => state.out)).toBe("host:engine+midi");
     expect(b.errors).toEqual([]);
     await b.context.close();
   });
@@ -1659,7 +1647,7 @@ describe.skipIf(!browser)("Twirl · inside the plugin (twirl-dpf)", () => {
     const { page, context } = await openTwirl(browser);
     await page.mouse.click(600, 600);
     await page.waitForTimeout(300);
-    expect(await page.evaluate(() => [IN_HOST, state.out, soundOn(), !!diag.audioSent])).toEqual([false, "sound", true, false]);
+    expect(await page.evaluate(() => [IN_HOST, state.out, soundOn(), engineOn()])).toEqual([false, "sound", true, false]);
     await context.close();
   });
 });
