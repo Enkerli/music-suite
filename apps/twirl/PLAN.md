@@ -217,9 +217,10 @@ cp -r bin/d_webmeters.lv2 ~/.lv2/ ; mkdir -p ~/.clap && cp -r bin/d_webmeters.cl
 **Stage C, checklist:**
 - [x] Build DPF's `WebMeters` example (here, in a container), run the
       standalone: the web view appears and runs a page; Twirl runs in it.
-- [ ] The same on Alex's machine, then the LV2 in Carla and the CLAP in
-      Bitwig: does the web view appear inside a host, take keyboard focus,
-      stay smooth?
+- [x] The same on Alex's machine, then the LV2 in Carla and the CLAP in
+      Bitwig (2026-10-25, with the patch below): both load properly, no
+      delay on a cold start. Still to watch with Twirl itself: keyboard
+      focus inside a host window, smoothness.
       First try (2026-10-25): the LV2 didn't appear in Carla, and Bitwig
       showed "ERR_FILE_NOT_FOUND" in the CLAP's window. Two things in DPF,
       found and patched here:
@@ -233,7 +234,7 @@ cp -r bin/d_webmeters.lv2 ~/.lv2/ ; mkdir -p ~/.clap && cp -r bin/d_webmeters.cl
       With the patch, the LV2 opens in Carla here and its web view runs the
       page (the first attempt timed out: the web view gets 5 seconds to
       start, which a cold container can miss). The CLAP fix is untested in
-      Bitwig until Alex tries it. On Alex's machine DPF uses Qt WebEngine
+      Bitwig until Alex tries it (it worked: see above). On Alex's machine DPF uses Qt WebEngine
       (Chromium; it tries Qt 5, then 6, then WebKitGTK); here, WebKitGTK.
       Both DPF fixes are worth reporting upstream.
 - [ ] A first plugin: `index.html` in the web view, `sendNote` from Twirl,
