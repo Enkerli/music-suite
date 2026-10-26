@@ -1518,21 +1518,24 @@ describe.skipIf(!browser)("Twirl · inside the plugin (twirl-dpf)", () => {
     await context.close();
   });
 
-  it("by default sends its own sound to the plugin, continuously, and no MIDI", async () => {
+  it("starts at once, untouched (its window may never open), and sends its own sound and MIDI", async () => {
     const { page, context, errors } = await openTwirl(browser, { initScript: dpf });
-    expect(await page.inputValue("#out")).toBe("host:sound");
-    await page.mouse.click(600, 600);
-    await page.waitForTimeout(1500);
+    expect(await page.inputValue("#out")).toBe("host:both");
+    expect(await page.evaluate(() => window.__host.some((m) => m.key === "ready"))).toBe(true);
+    await page.waitForTimeout(1500);                           // no click: the plugin starts it
     const r = await page.evaluate(() => {
       const audio = window.__host.filter((m) => m.key === "audio");
-      const sizes = audio.map((m) => atob(m.value.split(",")[1]).length);
+      const sizes = audio.map((m) => atob(m.value.split(",")[2]).length);
       // The chunks' 16-bit samples: is there sound in them (the example loops play)?
       const peak = Math.max(...audio.map((m) => {
-        const b = atob(m.value.split(",")[1]); let p = 0;
+        const b = atob(m.value.split(",")[2]); let p = 0;
         for (let i = 0; i < b.length; i += 2) { const v = (b.charCodeAt(i) | (b.charCodeAt(i + 1) << 8)) << 16 >> 16; p = Math.max(p, Math.abs(v)); }
         return p;
       }));
+      // Each chunk carries when its first frame was rendered: just before it was sent.
+      const stampAges = audio.map((m) => m.at - Number(m.value.split(",")[1]));
       return { n: audio.length, rate: audio.length ? Number(audio[0].value.split(",")[0]) : 0, sizes: [...new Set(sizes)], peak,
+               stampAges: [Math.min(...stampAges), Math.max(...stampAges)],
                first: audio.length ? audio[0].at : 0, last: audio.length ? audio.at(-1).at : 0, notes: window.__host.filter((m) => m.key === "notes").length };
     });
     expect(r.rate).toBe(await page.evaluate(() => ctx.sampleRate));
@@ -1540,7 +1543,61 @@ describe.skipIf(!browser)("Twirl · inside the plugin (twirl-dpf)", () => {
     // Real time: as many frames sent as the time they span (give or take a chunk or two).
     expect(Math.abs(r.n * 512 / r.rate - (r.last - r.first) / 1000)).toBeLessThan(0.1);
     expect(r.peak).toBeGreaterThan(100);
-    expect(r.notes).toBe(0);
+    expect(r.stampAges[0]).toBeGreaterThanOrEqual(0);
+    expect(r.stampAges[1]).toBeLessThan(200);
+    expect(r.notes).toBeGreaterThan(0);
+    expect(errors).toEqual([]);
+    await context.close();
+  });
+
+  it("gives the plugin its state to save, and takes it back", async () => {
+    const a = await openTwirl(browser, { initScript: dpf });
+    await a.page.evaluate(() => { setTempo(123); $("out").value = "host:sound"; $("out").dispatchEvent(new Event("change")); setHostSync(true); autosave(); });
+    const saved = await a.page.evaluate(() => window.__host.filter((m) => m.key === "page").at(-1).value);
+    expect(saved).toMatch(/^[A-Za-z0-9+/=]+$/);                 // base64: safe to hand back inside a JS string
+    await a.context.close();
+    const b = await openTwirl(browser, { initScript: dpf });
+    expect(await b.page.evaluate(() => [state.bpm !== 123, state.out, hostSync])).toEqual([true, "host:both", false]);   // a fresh sheet
+    await b.page.evaluate((s) => twirlRestore(s), saved);
+    expect(await b.page.evaluate(() => [state.bpm, state.out, hostSync, $("syncBtn").getAttribute("aria-pressed")])).toEqual([123, "host:sound", true, "true"]);
+    expect(b.errors).toEqual([]);
+    await b.context.close();
+  });
+
+  it("follows the host when asked: its tempo, its transport, its beat", async () => {
+    const { page, context, errors } = await openTwirl(browser, { initScript: dpf });
+    await page.waitForTimeout(500);
+    // The plugin's report, as now: the host at `beat` on the plugin's clock.
+    const host = (tempo, playing, beat) => page.evaluate(([tempo, playing, beat]) =>
+      twirlHost({ tempo, playing, beat, at: performance.timeOrigin + performance.now(), lag: 0 }), [tempo, playing, beat]);
+    const offBeats = () => page.evaluate(() => {
+      const h = hostInfo, wall = performance.timeOrigin + performance.now() + (soundOn() ? h.lag : 0);
+      let e = h.beat + (wall - h.at) * h.tempo / 60000 - beatAt(ctx.currentTime); return e - 48 * Math.round(e / 48);
+    });
+    const own = await page.evaluate(() => state.bpm);
+    await host(120, true, 10);
+    expect(await page.evaluate(() => [state.bpm, hostHold])).toEqual([own, false]);  // off: its own clock
+    await page.evaluate(() => setHostSync(true));
+    await host(120, false, 10);
+    const held = await page.evaluate(() => diag.midiSent);
+    await page.waitForTimeout(600);
+    expect(await page.evaluate(() => [hostHold, diag.midiSent])).toEqual([true, held]);   // stopped: the loops wait
+    // Playing: 20 reports a second, as the plugin sends them, the host's beat moving on.
+    await page.evaluate(() => new Promise((done) => {
+      const from = performance.timeOrigin + performance.now(); let n = 0;
+      const id = setInterval(() => {
+        const at = performance.timeOrigin + performance.now();
+        twirlHost({ tempo: 132, playing: true, beat: 17.25 + (at - from) * 132 / 60000, at, lag: 0 });
+        if (++n === 20) { clearInterval(id); done(); }
+      }, 50);
+    }));
+    expect(await page.evaluate(() => [state.bpm, hostHold, $("bpm").disabled, $("hostChip").textContent])).toEqual([132, false, true, "Host: 132 BPM"]);
+    // On the host's beat. Within 0.04 beats (18 ms) here: headless Chromium has no
+    // sound device and its audio clock moves in coarse steps. In the plugin's web
+    // view, against Carla's transport, it measured 0.3 to 2 ms.
+    expect(Math.abs(await offBeats())).toBeLessThan(0.04);
+    await page.waitForTimeout(700);
+    expect(await page.evaluate(() => diag.midiSent)).toBeGreaterThan(held);           // and playing
     expect(errors).toEqual([]);
     await context.close();
   });

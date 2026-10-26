@@ -232,6 +232,7 @@ kbd {
 /* Fork me on GitHub: a quiet line in the footer, never over the sheet's controls. */
 .forkme { pointer-events: auto; font: 400 0.6875rem/1 var(--font-mono); text-decoration: none; opacity: 0.75; white-space: nowrap; padding: 6px 0; }
 .forkme:hover, .forkme:focus-visible { opacity: 1; text-decoration: underline; }
+.hostchip { font-size: 0.8rem; color: var(--ink-muted); align-self: center; white-space: nowrap; }
 .recbtn { display: inline-flex; align-items: center; gap: 6px; font-variant-numeric: tabular-nums; }
 .recbtn .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--drum); }
 .recbtn[aria-pressed="true"] { background: var(--drum); border-color: var(--drum); color: var(--paper); }
@@ -642,6 +643,8 @@ kbd {
       <option value="binaural">Space: binaural</option><option value="rotate">Space: rotating</option>
     </select>
       <select class="sel" id="out" aria-label="Output" hidden></select>
+      <button class="btn" id="syncBtn" type="button" aria-pressed="false" hidden title="Inside a plugin: take the host's tempo, play while its transport plays and stop when it stops, on its beats. Off, Twirl keeps its own clock">Follow host transport</button>
+      <span class="hostchip" id="hostChip" hidden></span>
     </div>
   </details>
   <details class="dsec" data-level="3" data-sec="view" open>
@@ -1131,16 +1134,17 @@ function env(g, t, peak, decay, attack = 0.004) {
 // In the plugin, the sound goes to the host instead of the speakers: an
 // AudioWorklet at the end of the graph takes it, 512 frames at a time, as
 // 16-bit stereo, and the page sends each chunk on (setState "audio":
-// "rate,base64"); the plugin buffers it against uneven arrival and plays it.
+// "rate,wall,base64"); the plugin buffers it against uneven arrival and plays it.
 // The worklet's own output is silence (it's connected only so it runs).
 const CAPTURE_WORKLET = `registerProcessor("twirl-capture", class extends AudioWorkletProcessor {
-  constructor() { super(); this.buf = new Int16Array(1024); this.n = 0; }
+  constructor() { super(); this.buf = new Int16Array(1024); this.n = 0; this.f0 = 0; }
   process(inputs) {
-    const ch = inputs[0], l = ch[0], r = ch[1] || l, b = this.buf;
+    const ch = inputs[0], l = ch[0], r = ch[1] || l;
     for (let i = 0; i < 128; i++) {
-      const x = l ? Math.max(-1, Math.min(1, l[i])) : 0, y = r ? Math.max(-1, Math.min(1, r[i])) : 0;
+      if (this.n === 0) this.f0 = currentFrame + i;
+      const b = this.buf, x = l ? Math.max(-1, Math.min(1, l[i])) : 0, y = r ? Math.max(-1, Math.min(1, r[i])) : 0;
       b[this.n++] = x * 32767; b[this.n++] = y * 32767;
-      if (this.n === b.length) { this.port.postMessage(b.buffer, [b.buffer]); this.buf = new Int16Array(1024); this.n = 0; }
+      if (this.n === b.length) { this.port.postMessage({ b: b.buffer, f: this.f0 }, [b.buffer]); this.buf = new Int16Array(1024); this.n = 0; }
     }
     return true;
   }
@@ -1151,8 +1155,10 @@ function toHostAudio(from) {
     const cap = new AudioWorkletNode(ctx, "twirl-capture", { numberOfInputs: 1, numberOfOutputs: 1, outputChannelCount: [2], channelCount: 2, channelCountMode: "explicit" });
     cap.port.onmessage = (e) => {
       if (!soundOn()) return;                                     // MIDI only: nothing to send
-      const bytes = new Uint8Array(e.data);
-      window.setState("audio", `${ctx.sampleRate},${btoa(String.fromCharCode.apply(null, bytes))}`);
+      // When the chunk's first frame was rendered, on the clock the notes use
+      // (the plugin measures from it how late the sound reaches the host).
+      const bytes = new Uint8Array(e.data.b), wall = performance.timeOrigin + performance.now() - (ctx.currentTime - e.data.f / ctx.sampleRate) * 1000;
+      window.setState("audio", `${ctx.sampleRate},${wall.toFixed(1)},${btoa(String.fromCharCode.apply(null, bytes))}`);
       diag.audioSent = (diag.audioSent || 0) + 1;
     };
     from.connect(cap).connect(ctx.destination);
@@ -1371,8 +1377,8 @@ const voiceFn = (voice, pack) => (PACKS[pack || state.pack] || VOICES)[voice] ||
 // pluck 1, bell 2, blip 3, drums + shaker 10 (GM notes). Microtonal pitches
 // are rounded to the nearest semitone; there's no MPE yet.
 //
-// In the plugin (IN_HOST) the output is the host: "host:sound" (Twirl's own,
-// the default), "host:midi" or "host:both". Notes cross in batches, one
+// In the plugin (IN_HOST) the output is the host: "host:both" (Twirl's own
+// sound and MIDI, the default), "host:sound" or "host:midi". Notes cross in batches, one
 // per scheduler tick, with the wall-clock time each should sound at
 // (setState "notes": "t,status,note,velocity;…", t in ms since the epoch); the
 // plugin writes each at its sample offset. "panic" ends what's sounding.
@@ -1386,8 +1392,16 @@ async function initMidi() {
     const sel = $("out");
     sel.textContent = "";
     sel.append(new Option("Out: sound", "host:sound"), new Option("Out: MIDI", "host:midi"), new Option("Out: sound + MIDI", "host:both"));
-    state.out = sel.value = "host:sound"; sel.hidden = false;
+    state.out = sel.value = "host:both"; sel.hidden = false;
+    $("syncBtn").hidden = false;
+    $("syncBtn").addEventListener("click", () => {
+      setHostSync(!hostSync); savePage();
+      toast(hostSync ? "Following the host's transport" : "Twirl's own clock");
+    });
     addEventListener("pagehide", () => window.setState("panic", "1"));
+    // Nobody may ever touch it (the plugin's window can stay closed): the sound starts now.
+    ensureAudio(); hint.hidden = true;
+    window.setState("ready", "1");                              // the plugin answers with what it saved (twirlRestore)
     return;
   }
   if (!navigator.requestMIDIAccess) return;
@@ -1418,7 +1432,8 @@ function sendMidi(voice, midi, vel, t, yN) {
   const ch = MIDI_CH[voice];
   const note = voice === "shake" ? 70 : voice === "drum" ? GM_DRUM[drumKind(yN)]
              : Math.max(0, Math.min(127, Math.round(midi + (voice === "pluck" ? 0 : 12))));
-  const at = performance.now() + Math.max(0, (t - ctx.currentTime) * 1000);
+  // Sound + MIDI in the plugin: the MIDI as late as Twirl's own sound reaches the host.
+  const at = performance.now() + Math.max(0, (t - ctx.currentTime) * 1000) + (state.out === "host:both" && hostInfo ? hostInfo.lag : 0);
   const len = voice === "drum" || voice === "shake" ? 80 : voice === "bell" ? 600 : 220;
   const v = Math.max(1, Math.min(127, Math.round(vel * 127)));
   try {
@@ -1427,6 +1442,67 @@ function sendMidi(voice, midi, vel, t, yN) {
     diag.midiSent++; diag.midiLast = { ch: ch + 1, note, vel: v, voice, inMs: Math.round(at - performance.now()) };
   } catch (_) { /* port went away */ }
 }
+
+/* ── 3d. Inside the plugin: saved with the project, following the host ──── */
+// The plugin keeps this page running whether its window is open or not, and
+// saves what the page gives it ("page": base64 JSON: the sheet, Out, Follow
+// host transport) with the host's project; loading, it hands it back
+// (twirlRestore). The host's time comes 20 times a second (twirlHost): its
+// tempo (0 if it gives none), whether it's rolling, its beat at a wall-clock
+// time, and how late Twirl's own sound reaches the host (the plugin's buffer).
+//
+// Following it: Twirl takes the tempo, holds its loops while the transport is
+// stopped (strokes still sound as you draw), and keeps its beat on the host's
+// beat, modulo 48 (whole bars in 2/4, 3/4, 4/4, 6/8). With its own sound
+// going to the host, it plays that much early, so it lands on the beat.
+let hostSync = false, hostInfo = null, hostHold = false;
+const HOST_MOD = 48;
+const toB64 = (o) => btoa(String.fromCharCode(...new TextEncoder().encode(JSON.stringify(o))));
+const fromB64 = (s) => JSON.parse(new TextDecoder().decode(Uint8Array.from(atob(s), (c) => c.charCodeAt(0))));
+function savePage() {
+  if (IN_HOST) window.setState("page", toB64({ v: 1, scene: serialize(), out: state.out, sync: hostSync }));
+}
+window.twirlRestore = (saved) => {
+  let p; try { p = fromB64(saved); } catch (_) { return; }
+  if (p.scene) recall(p.scene);
+  if (["host:sound", "host:midi", "host:both"].includes(p.out)) state.out = $("out").value = p.out;
+  setHostSync(!!p.sync);
+};
+function setHostSync(on) {
+  hostSync = on;
+  $("syncBtn").setAttribute("aria-pressed", String(on));
+  $("bpm").disabled = on;
+  if (!on) setHostHold(false);
+  showHost();
+}
+function setHostHold(on) {
+  if (on === hostHold) return;
+  hostHold = on;
+  if (ctx && state.drone) setDrone(!on);                          // the Drone rests with the loops
+}
+function showHost() {
+  const chip = $("hostChip"), h = hostInfo;
+  chip.hidden = !IN_HOST || !hostSync;
+  chip.textContent = !h ? "Host: …" : !(h.tempo > 0) ? "Host: no tempo" : `Host: ${Math.round(h.tempo * 10) / 10} BPM${h.playing ? "" : " · stopped"}`;
+}
+window.twirlHost = (h) => {
+  const was = hostInfo; hostInfo = h;
+  if (!was || was.tempo !== h.tempo || was.playing !== h.playing) showHost();
+  if (!hostSync || !ctx || ctx.state !== "running" || !(h.tempo > 0)) { setHostHold(false); return; }
+  setHostHold(!h.playing);
+  if (!h.playing) return;
+  if (Math.abs(h.tempo - state.bpm) > 1e-3) setTempo(h.tempo);
+  // Where the host's beat is, now, as heard: Twirl's sound at this moment
+  // reaches the host `lag` ms later.
+  const now = ctx.currentTime, wall = performance.timeOrigin + performance.now() + (soundOn() ? h.lag : 0);
+  let e = h.beat + (wall - h.at) * h.tempo / 60000 - beatAt(now);
+  e -= HOST_MOD * Math.round(e / HOST_MOD);
+  if (Math.abs(e) > 0.5) {                                        // started, or moved: jump there
+    t0 -= e / bps();
+    const nb = beatAt(now);
+    for (const lp of loops) lp.cursor = nb;
+  } else if (Math.abs(e) > 0.002) t0 -= 0.25 * e / bps();         // a little off: ease toward it
+};
 
 /* ── 4. Loops: shape, transform, time-scale, temperament ─────────────────── */
 
@@ -2238,6 +2314,7 @@ function schedule() {
   }
   lookahead = Math.min(LOOKAHEAD_MAX, Math.max(LOOKAHEAD, gap * 1.6 + 0.04, lookahead * 0.995));
   const now = ctx.currentTime, nb = beatAt(now), hb = beatAt(now + lookahead);
+  if (hostHold) { for (const lp of loops) lp.cursor = Math.max(lp.cursor, hb); return; }   // the host is stopped (3d)
   const W = sheet.clientWidth, H = sheet.clientHeight;
   tickReplay();
   for (const lp of loops) {
@@ -3976,7 +4053,7 @@ function recall(scene) {
   return true;
 }
 
-function autosave() { store.set(LAST_KEY, serialize()); }
+function autosave() { store.set(LAST_KEY, serialize()); savePage(); }
 setInterval(autosave, 4000);
 document.addEventListener("visibilitychange", () => { if (document.hidden) autosave(); });
 
@@ -4522,13 +4599,15 @@ $("power").addEventListener("click", async () => {
   setTimeout(syncPower, 80);
 });
 
-$("bpm").addEventListener("input", (e) => {
+function setTempo(bpm) {
   const b = nowBeat();
-  state.bpm = Number(e.target.value);
-  $("bpmVal").textContent = state.bpm;
+  state.bpm = bpm;
+  $("bpmVal").textContent = Math.round(bpm * 10) / 10;
+  $("bpm").value = String(Math.round(bpm));
   t0 = nowAudio() - b / bps();                // keep the current beat where it is
   if (delayLine) delayLine.delayTime.setTargetAtTime(0.75 / bps(), ctx.currentTime, 0.05);
-});
+}
+$("bpm").addEventListener("input", (e) => { if (!hostSync) setTempo(Number(e.target.value)); });
 
 (function fillPickers() {
   const sel = $("grid");
@@ -4548,7 +4627,7 @@ $("range").addEventListener("change", (e) => { state.range = Number(e.target.val
 $("spread").addEventListener("change", (e) => { state.spread = e.target.value; toast(state.spread === "register" ? "Spacing by register: notes further apart low down, closer up high" : "Even spacing: every step of the scale one row"); });
 $("div").addEventListener("change", (e) => { state.div = e.target.value; loops.forEach((lp) => retime(lp, tsForSize(lp.s))); });
 $("pen").addEventListener("change", (e) => { state.pen = e.target.value; });
-$("out").addEventListener("change", (e) => { state.out = e.target.value; });
+$("out").addEventListener("change", (e) => { state.out = e.target.value; savePage(); });
 
 function toggle(id, key, after) {
   $(id).addEventListener("click", () => {
@@ -5478,6 +5557,7 @@ function cycleSelect(id, back) {
   toast(sel.options[sel.selectedIndex].textContent);
 }
 function nudgeTempo(d) {
+  if (hostSync) { toast("The tempo is the host's (Follow host transport)"); return; }
   const r = $("bpm"); r.value = String(Math.min(160, Math.max(60, Number(r.value) + d)));
   r.dispatchEvent(new Event("input")); toast(`${r.value} bpm`);
 }

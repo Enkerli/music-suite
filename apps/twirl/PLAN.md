@@ -264,8 +264,14 @@ cp -r bin/d_webmeters.lv2 ~/.lv2/ ; mkdir -p ~/.clap && cp -r bin/d_webmeters.cl
       WebMeters too, so neither was checked here.) Things to watch: the
       window's size, keyboard focus, MIDI routing (in Bitwig it's a note
       effect: put it before an instrument).
-- [ ] Twirl's clock lives in the page: closing the plugin's window stops
-      it. Fine for now; a headless clock in the plugin is a W6 question.
+- [x] **Plays with its window closed** (Alex, in Bitwig: "it only plays when
+      the UI is open and reinitializes when the UI is closed!"). The plugin
+      now owns the page (twirl-dpf `TwirlPage.hpp`): it starts DPF's web view
+      in a hidden window when activated; the UI is an empty window the page
+      moves into and back out of. Checked in Carla's engine: playing before
+      the window opens, while it's open, after it closes; the same page on
+      reopening. (On the way: with GL, an off-screen Qt web view hangs in
+      its buffer swap; it now draws without GL, at 60 fps.)
 - [x] Bitwig, first try (Alex, 2026-10-25: "quite fun"), and what came of it:
       - closing the window crashed DPF's web-view process (SIGSEGV): fixed
         (DPF patch 0002), checked in the standalone and the LV2;
@@ -289,9 +295,19 @@ cp -r bin/d_webmeters.lv2 ~/.lv2/ ; mkdir -p ~/.clap && cp -r bin/d_webmeters.cl
       300 ms recover without clicks. The sound lags the MIDI by ~100 ms.
 - [ ] **C**: the voices in C++ inside the plugin, played by the timed notes,
       sample-accurate and in step with the MIDI; a pack at a time, paper first.
-- [ ] Sync to the host: tempo, transport (start and stop), beat phase.
+- [x] **Follow host transport**, a toggle as in the suite's other plugins
+      (Serpe's), saved with the project: the host's tempo, its transport (the
+      loops and the Drone hold while it's stopped; strokes still sound), its
+      beat. Allows for the audio lag; in sound + MIDI, the MIDI waits as
+      long. Measured against Carla's transport: within 0.3–2 ms of the
+      host's beat, at 120 and 140 BPM and after a jump. In Bitwig: Alex.
+- [x] Out defaults to **sound + MIDI** in the plugin (Alex: "it defaults to
+      sound only… I need to go to Everything").
 - [ ] A drum map: General MIDI, or Bitwig's drum machine (pads from C1).
-- [ ] Save and restore the sheet with the host's project.
+- [x] Save and restore the sheet with the host's project (2026-10-25): the
+      page's state ("page": the sheet, Out, Follow host transport) is the
+      plugin's one state. Checked in Carla: saved, loaded into a fresh
+      instance, back.
 
 **Questions for W6** (some now answered): is stage B (an installable app)
 worth doing first, as the cheap standalone? Which host matters most:
