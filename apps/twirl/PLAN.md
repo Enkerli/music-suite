@@ -413,7 +413,11 @@ as on/off.
    plugin (new)", alone or + MIDI; every pack plays Paper for now, and
    there's no Drone or Warmth yet. Checked in the standalone: continuous,
    no gaps or clicks, about as loud as the page's sound.
-2. The other six packs.
+2. The other six packs. **Done (2026-10-26):** Mallets, Felt, Steel,
+   Kalimba, Chip, Chimes in the engine (a voice a pack lacks is Paper's);
+   struck tones as sines from rotating phasors; a pool of 384 voices.
+   `make test` covers every pack's every voice, and a busy Chimes sheet
+   (50 notes/s, ~120 voices) takes about 11 % of one core.
 3. The Drone, the room, the compressor. Then "sound (in the plugin)"
    becomes the default; the page's stream stays as an option or goes
    (Alex's call). **The Drone and Warmth done first** (2026-10-26; Alex,
@@ -423,9 +427,14 @@ as on/off.
    lowpass, the space's rotor, tape wobble) and the room (hiss, crackle,
    wow and flutter). Rendered offline and checked in the standalone (no
    gaps or clicks). Following the host with this sound: on Carla's beat
-   within about 1 ms on average. The compressor came with step 1. Still
-   to do here: making it the default and taking the page's stream out of
-   the plugin, once step 2 gives every pack its own sounds.
+   within about 1 ms on average. The compressor came with step 1. **And
+   then (2026-10-26) the engine became the plugin's sound**: Out in the
+   plugin is sound + MIDI (the default), sound, or MIDI; the page's
+   stream, its capture worklet and every allowance for its lag are gone
+   from both sides; saved projects' old choices map onto the new ones.
+   In the plugin the page makes no sound (its Drone keeps only the notes
+   it sends). Checked in the standalone: the default plays and sends
+   MIDI, no gaps or clicks.
 4. Synth mode.
 5. Parameters, the first set, then more.
 
