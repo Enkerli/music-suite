@@ -1,0 +1,41 @@
+// Renders Twirl's own voices offline, dry, as the page plays them (its recipes
+// in index.html, section 3), for comparing against other renderings of them
+// (the Surge XT patches, apps/twirl/surge/). Usage:
+//   node apps/twirl/test/render-voices.mjs <out dir> '<json list of {pack, voice, note, vel, yN, midi}>'
+// `note` is the MIDI note Twirl sends for it (bell and blip an octave above
+// the page's pitch; drums General MIDI's), `vel` 0..1, `yN` the height (the
+// drum's kind, the shaker's size), `midi` the page's pitch where it isn't
+// the note's (drums: 60, as the plugin plays drum notes coming in). Writes <pack>-<voice>-<note>-<vel>.f32:
+// mono float32 at 48 kHz, 2 s, through Twirl's volume (0.8) but not its delay.
+import { chromium } from "playwright";
+import { writeFileSync } from "node:fs";
+import { PAGE } from "./harness.js";
+
+const [outDir, list] = process.argv.slice(2);
+const browser = await chromium.launch();
+const page = await browser.newPage();
+await page.route(/fonts\.(googleapis|gstatic)\.com/, (r) => r.abort());
+await page.goto(PAGE);
+await page.waitForFunction(() => typeof loops !== "undefined");
+for (const j of JSON.parse(list)) {
+  const samples = await page.evaluate(async ({ pack, voice, note, vel, yN, midi: m }) => {
+    // The page is live: once it has an audio context, its scheduler would play
+    // the starting sheet's loops (and the Drone) into this one too. Silence it.
+    loops.splice(0); state.drone = false; state.walk = false;
+    const off = new OfflineAudioContext(1, 48000 * 2, 48000);
+    ctx = off; nuance = 0;
+    master = off.createGain(); master.gain.value = 0.8; master.connect(off.destination);
+    delaySend = off.createGain();                        // the delay: left out
+    noiseBuf = off.createBuffer(1, 48000, 48000);
+    const d = noiseBuf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+    const v = PACKS[pack][voice] || VOICES[voice], midi = m ?? note - (voice === "bell" || voice === "blip" ? 12 : 0);
+    if (voice === "shake") v.call(PACKS[pack], 0.01, vel, 0, 1 - yN); else v.call(PACKS[pack], 0.01, midi, vel, 0, yN ?? 0.5);
+    const buf = await off.startRendering();
+    // the panner's centre is -3 dB on each side; one side, as a mono voice
+    return Array.from(buf.getChannelData(0));
+  }, j);
+  const name = `${j.pack}-${j.voice}-${j.note}-${j.vel}`;
+  writeFileSync(`${outDir}/${name}.f32`, Buffer.from(new Float32Array(samples).buffer));
+  console.log(name);
+}
+await browser.close();

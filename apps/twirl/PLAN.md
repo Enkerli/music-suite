@@ -489,17 +489,30 @@ e.g. `<a_osc1_type type="0" value="6" />`. The factory templates (*Init
 Sine*, *Init FM2*, *Init Square*, *Init Karplus-Strong*…, CC0) are starting
 points.
 
-- [ ] A generator (Claude): start from a template, set the parameters that
+- [x] A generator (Claude): start from a template, set the parameters that
       make each Twirl voice (oscillator type and pitch, FM ratio and depth,
       amp envelope, filter), write the `.fxp` with the right sizes. The
       mapping, voice by voice, from `index.html` section 3 (the pluck's
       partials and decays, the bell's ratio near 3.5, the blip's square and
       length, the kick's pitch drop, the snare's noise band, the hat).
+      **Done (2026-10-26):** `apps/twirl/surge/`: `make_patches.py`
+      (standard library) writes Paper's seven: Pluck, Bell, Blip, and Kick,
+      Snare, Hat, Shaker (one per drum, for a drum machine's pads: one
+      Surge can't choose a sound by note). Their numbers are fitted
+      (`fit.py`, `fitted.json`): Twirl's voices rendered offline in the page
+      (`test/render-voices.mjs`), the patches in Surge XT (pedalboard), and
+      matched on loudness, peak and brightness over time at several notes
+      and velocities. Peaks within about 1 dB at every velocity; the pluck
+      and kick about 2 and 3.5 semitones off in brightness, the shaker's
+      loudness over time a few dB (Twirl's is two random grains). A test
+      checks the files and that they're exactly what the generator writes.
 - [ ] Alex loads each in Surge XT and A/Bs against Twirl's own sound (sound
       + MIDI on); corrections go back into the mapping, not by hand into the
       patch.
-- [ ] Kept in this repo (`apps/twirl/surge/`), CC0 like Twirl.
-- [ ] The Carla script loads them when present (a patch per instance).
+- [x] Kept in this repo (`apps/twirl/surge/`), CC0 like Twirl.
+- [x] The Carla script loads them when present (a patch per instance):
+      Pluck, Bell and Blip into its three Surge XTs (VST3); the drums stay
+      on the General MIDI soundfont there.
 - [ ] Later, the same for Twirl's other packs (mallets, felt, steel…).
 
 ---

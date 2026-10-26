@@ -30,16 +30,22 @@ provides (run the script through `pw-jack` if Carla can't find JACK).
     pw-jack python3 twirl-carla.py --out my.carxp
     python3 twirl-carla.py --surge "/path/to/Surge XT.vst3"
     python3 twirl-carla.py --drums surge         # a fourth Surge XT for drums
+    python3 twirl-carla.py --patches none        # Surge XT's own default sound
 
-Then: open the project in Carla, choose a patch in each Surge XT (open its
-editor: double-click), and save. In Twirl choose
+Twirl's own sounds go into the pluck, bell and blip Surge XTs when its
+patches are found (../surge/patches: Twirl Paper Pluck, Bell, Blip; the VST3
+only). The drum patches are one per drum, for a drum machine's pads, so
+channel 10 stays on the soundfont here.
+
+Then: open the project in Carla (change a Surge XT's patch in its editor:
+double-click), and save. In Twirl choose
 Everything → Sound and room → Out: MIDI · Midi Through Port-0.
 If Midi Through or the speakers weren't found, the script says so; connect
 them in Carla's patchbay (or qpwgraph) and save.
 
 Public Domain (CC0-1.0), like the rest of the suite.
 """
-import argparse, glob, os, sys, time
+import argparse, base64, glob, os, re, struct, sys, time
 
 RES = "/usr/share/carla/resources"
 LIB = "/usr/lib/carla/libcarla_standalone2.so"
@@ -58,6 +64,33 @@ VOICES = [(1, "pluck"), (2, "bell"), (3, "blip"), (10, "drums")]
 SURGE_VST3 = ["/usr/lib/vst3/Surge XT.vst3", "/usr/local/lib/vst3/Surge XT.vst3",
               os.path.expanduser("~/.vst3/Surge XT.vst3")]
 SURGE_LV2_URIS = ["https://surge-synthesizer.github.io/lv2/surge-xt"]
+PATCHES = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "surge", "patches"))
+
+# Surge XT's VST3 state, as Carla gets and sets it, is JUCE's: "VC2!", the
+# XML's size, then XML whose IComponent is Surge's own state (a .fxp after
+# its 60-byte header) in JUCE's base64 ("size." then 6 bits a character,
+# least significant first).
+J64 = ".ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+"
+def j64(b):
+    n, out = len(b) * 8, []
+    for i in range(0, n, 6):
+        v = 0
+        for k in range(6):
+            if i + k < n and b[(i + k) >> 3] & (1 << ((i + k) & 7)):
+                v |= 1 << k
+        out.append(J64[v])
+    return "%d.%s" % (len(b), "".join(out))
+
+def with_patch(state, fxp):
+    """Surge XT's VST3 state with this patch in it, or None if it isn't that kind of state."""
+    if not state.startswith(b"VC2!") or fxp[:4] != b"CcnK":
+        return None
+    x = state[8:].split(b"\0", 1)[0].decode("utf-8")
+    x, n = re.subn(r"<IComponent>[^<]*</IComponent>", "<IComponent>" + j64(fxp[60:]) + "</IComponent>", x)
+    if n != 1:
+        return None
+    x = x.encode("utf-8")
+    return b"VC2!" + struct.pack("<I", len(x) + 1) + x + b"\0"
 GM_SF2 = ["/usr/share/sounds/sf2/FluidR3_GM.sf2", "/usr/share/sounds/sf2/default-GM.sf2",
           "/usr/share/soundfonts/FluidR3_GM.sf2", "/usr/share/soundfonts/default.sf2"]
 
@@ -116,6 +149,8 @@ def main():
     ap.add_argument("--mode", default="multi", choices=["multi", "patchbay"],
                     help='Carla\'s process mode: "multi" (each plugin its own JACK client, Carla\'s default on JACK; '
                          'connections in the system graph, including Midi Through and your speakers) or "patchbay" (one client)')
+    ap.add_argument("--patches", default=PATCHES, help='Twirl\'s Surge XT patches, loaded into the pluck, bell and blip Surge XTs if found '
+                    '(default: %(default)s); "none" for Surge XT\'s own default')
     ap.add_argument("--stand-in", action="store_true", help=argparse.SUPPRESS)   # tests: channel filters instead of synths
     a = ap.parse_args()
 
@@ -172,6 +207,23 @@ def main():
         print("No General MIDI soundfont (sudo apt install fluid-soundfont-gm): using a fourth Surge XT for drums.")
         return add_surge("Drums (Surge XT)")
 
+    loaded = []
+    def load_patch(pid, voice):
+        path = os.path.join(a.patches, "Twirl Paper %s.fxp" % voice.capitalize())
+        if a.stand_in or a.patches == "none" or not os.path.exists(path):
+            return
+        for _ in range(20):
+            h.engine_idle(); time.sleep(0.02)
+        try:
+            state = with_patch(base64.b64decode(h.get_chunk_data(pid) or ""), open(path, "rb").read())
+        except (ValueError, OSError):
+            state = None
+        if state is None:
+            print("Couldn't give %s's Surge XT its patch (the VST3 takes it; the LV2 doesn't here): pick one in its editor." % voice)
+            return
+        h.set_chunk_data(pid, base64.b64encode(state).decode("ascii"))
+        loaded.append(os.path.basename(path)[:-4])
+
     chain = []                                   # (channel, filter plugin id, instrument plugin id)
     for ch, voice in VOICES:
         f = add(PLUGIN_INTERNAL, "", "Ch %d · %s" % (ch, voice), "midichanfilter")
@@ -180,6 +232,8 @@ def main():
         for p in range(h.get_parameter_count(f)):    # parameters 0..15 are channels 1..16: on or off
             h.set_parameter_value(f, p, 1.0 if p == ch - 1 else 0.0)
         inst = add_drums() if voice == "drums" else add_surge("%s (Surge XT)" % voice.capitalize())
+        if voice != "drums":
+            load_patch(inst, voice)
         chain.append((ch, f, inst))
 
     made = 0
@@ -254,7 +308,11 @@ def main():
     if multi:
         write_connections(a.out, conns)
     print("Saved %s: %d instruments, %d connections." % (a.out, len(chain), made))
-    print("Open it in Carla, pick a patch in each Surge XT, and save.")
+    if loaded:
+        print("Twirl's sounds: %s." % ", ".join(loaded))
+        print("Open it in Carla (change any Surge XT's patch in its editor), and save.")
+    else:
+        print("Open it in Carla, pick a patch in each Surge XT, and save.")
     print("in Twirl: Everything → Sound and room → Out: MIDI · Midi Through Port-0.")
 
 
