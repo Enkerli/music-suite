@@ -417,15 +417,15 @@ as on/off.
 room (~60) in the page; the engine perhaps 1,500–2,500 lines of C++. Steps 1
 and 3 are the largest.
 
-**Questions for Alex.**
-- [ ] Fidelity: is "sounds like Twirl to you, A/B" the bar, with the render
-      test only catching regressions? Or should the test hold a measured
-      match too?
-- [ ] Keep the page's stream ("exactly the browser's sound") as an option
-      once the engine matches, or remove it?
-- [ ] Synth mode: anything beyond channels → voices (a pack per channel?
-      MIDI CCs for Warmth, Drone…)?
-- [ ] Parameters: anything to add to the first set, or leave out?
+**Answered** (Alex, 2026-10-26):
+- [x] Fidelity: "Doesn't even need to sound that close to the current one,
+      as long as it sounds ok." The render test guards against breakage
+      (silence, clipping, runaway), not likeness.
+- [x] The page's stream: "The option should leave the plugin (kept in the
+      web versions)." It goes at step 3.
+- [x] Synth mode: "We will add features to synth mode later on, based on
+      exploration and experimentation."
+- [x] Parameters: "That set is fine for now."
 
 ### 1e. Twirl's voices as Surge XT patches
 
