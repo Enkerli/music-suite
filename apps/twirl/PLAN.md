@@ -300,7 +300,11 @@ cp -r bin/d_webmeters.lv2 ~/.lv2/ ; mkdir -p ~/.clap && cp -r bin/d_webmeters.cl
       loops and the Drone hold while it's stopped; strokes still sound), its
       beat. Allows for the audio lag; in sound + MIDI, the MIDI waits as
       long. Measured against Carla's transport: within 0.3–2 ms of the
-      host's beat, at 120 and 140 BPM and after a jump. In Bitwig: Alex.
+      host's beat, at 120 and 140 BPM and after a jump. **In Bitwig** (Alex,
+      2026-10-26): "it does work across saves and it does catch up with the
+      host"; ⇧Q from inside it: 60 fps, 13 loops, 42 notes/s, ticks at most
+      24 ms late, no errors. ⇧Q now also reports Follow host transport, the
+      host's tempo and transport, and the audio's delay.
 - [x] Out defaults to **sound + MIDI** in the plugin (Alex: "it defaults to
       sound only… I need to go to Everything").
 - [ ] A drum map: General MIDI, or Bitwig's drum machine (pads from C1).

@@ -3648,7 +3648,11 @@ function diagReport() {
     clock: clockKind,
     audioDevice: ctx ? { sampleRate: ctx.sampleRate, baseLatencyMs: ctx.baseLatency != null ? Math.round(ctx.baseLatency * 1000 * 10) / 10 : "n/a", outputLatencyMs: ctx.outputLatency ? Math.round(ctx.outputLatency * 1000 * 10) / 10 : "n/a" } : "none",
     pen: diag.pen,
-    midi: IN_HOST ? { out: state.out, host: true, sent: diag.midiSent, last: diag.midiLast, audioChunks: diag.audioSent || 0 }
+    midi: IN_HOST ? { out: state.out, host: true, sent: diag.midiSent, last: diag.midiLast, audioChunks: diag.audioSent || 0,
+                      // Follow host transport, and what the plugin last said: the host's tempo and transport, the audio's delay
+                      followHost: hostSync, holding: hostHold,
+                      hostTransport: hostInfo ? { tempo: hostInfo.tempo, playing: hostInfo.playing, audioLagMs: Math.round(hostInfo.lag),
+                                                  reportAgeMs: Math.round(performance.timeOrigin + performance.now() - hostInfo.at) } : "none yet" }
       : typeof midiAccess === "undefined" || !midiAccess ? (navigator.requestMIDIAccess ? "not allowed (yet)" : "no Web MIDI here")
       : { out: state.out, outputs: [...midiAccess.outputs.values()].map((o) => o.name), sent: diag.midiSent, last: diag.midiLast },
     ua: navigator.userAgent,

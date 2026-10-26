@@ -1491,7 +1491,7 @@ describe.skipIf(!browser)("Twirl · inside the plugin (twirl-dpf)", () => {
     expect(r.out).toBe("host:midi");
     expect(r.picker).toEqual(["host:sound", "host:midi", "host:both"]);
     expect(r.voiced).toBe(0);                                  // the host's instruments make the sound
-    expect(r.report).toMatchObject({ out: "host:midi", host: true });
+    expect(r.report).toMatchObject({ out: "host:midi", host: true, followHost: false, holding: false });
     expect(r.batches.length).toBeGreaterThan(1);
     expect(r.batches.length).toBeLessThan(r.sent * 2);         // batched: not one message per event
     const events = r.batches.flatMap((b) => b.value.split(";").map((e) => {
