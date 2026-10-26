@@ -1465,6 +1465,74 @@ describe.skipIf(!browser)("Twirl · diagnostics for new hardware", () => {
   });
 });
 
+describe.skipIf(!browser)("Twirl · inside the plugin (twirl-dpf)", () => {
+  // DPF's web view injects these before the page runs (DPF distrho/src/DistrhoUI.cpp).
+  const dpf = () => {
+    window.__host = [];
+    window.setState = (key, value) => window.__host.push({ key, value, at: performance.timeOrigin + performance.now() });
+    window.sendNote = () => {};
+  };
+
+  it("sends its notes to the host in timed batches, and makes no sound itself", async () => {
+    const { page, context, errors } = await openTwirl(browser, { initScript: dpf });
+    await page.evaluate(() => {
+      window.__voiced = 0;
+      const orig = voiceFn;
+      window.voiceFn = (...a) => { const f = orig(...a); return (...b) => { window.__voiced++; return f(...b); }; };
+    });
+    await page.mouse.click(600, 600);
+    await page.waitForTimeout(2000);
+    const r = await page.evaluate(() => ({
+      inHost: IN_HOST, out: state.out, picker: [...$("out").options].map((o) => o.value), voiced: window.__voiced,
+      batches: window.__host.filter((m) => m.key === "notes"), sent: diag.midiSent, report: diagReport().midi,
+    }));
+    expect(r.inHost).toBe(true);
+    expect(r.out).toBe("host");
+    expect(r.picker).toEqual(["host"]);
+    expect(r.voiced).toBe(0);                                  // the host's instruments make the sound
+    expect(r.report).toMatchObject({ out: "host", host: true });
+    expect(r.batches.length).toBeGreaterThan(1);
+    expect(r.batches.length).toBeLessThan(r.sent * 2);         // batched: not one message per event
+    const events = r.batches.flatMap((b) => b.value.split(";").map((e) => {
+      const [t, status, note, vel] = e.split(",").map(Number);
+      return { t, status, note, vel, sentAt: b.at };
+    }));
+    expect(events.length).toBe(r.sent * 2);                    // an on and an off for each note
+    for (const e of events) {
+      expect(e.t).toBeGreaterThan(e.sentAt - 5);               // sent ahead of (or at) its time, never after
+      expect([0x80, 0x90]).toContain(e.status & 0xf0);
+      expect([0, 1, 2, 9]).toContain(e.status & 0x0f);         // pluck, bell, blip, drums
+      expect(e.note).toBeGreaterThanOrEqual(0); expect(e.note).toBeLessThan(128);
+      expect(e.vel).toBeGreaterThanOrEqual(0); expect(e.vel).toBeLessThan(128);
+    }
+    // Each off follows its on by Twirl's length for the voice (drums 80 ms, pluck and blip 220, bell 600).
+    const ons = events.filter((e) => (e.status & 0xf0) === 0x90);
+    const offs = events.filter((e) => (e.status & 0xf0) === 0x80);
+    expect(ons.length).toBe(offs.length);
+    for (const on of ons) {
+      const len = (on.status & 0x0f) === 9 ? 80 : (on.status & 0x0f) === 1 ? 600 : 220;
+      expect(offs.some((off) => off.status === (0x80 | (on.status & 0x0f)) && off.note === on.note && Math.abs(off.t - on.t - len) < 0.2)).toBe(true);
+    }
+    expect(errors).toEqual([]);
+    await context.close();
+  });
+
+  it("Start over tells the host to end what's sounding", async () => {
+    const { page, context } = await openTwirl(browser, { initScript: dpf });
+    await page.mouse.click(600, 600);
+    await page.evaluate(() => { $("initBtn").click(); $("initBtn").click(); });
+    expect(await page.evaluate(() => window.__host.some((m) => m.key === "panic"))).toBe(true);
+    await context.close();
+  });
+
+  it("in a browser, nothing changes: no host, the sound plays", async () => {
+    const { page, context } = await openTwirl(browser);
+    await page.mouse.click(600, 600);
+    expect(await page.evaluate(() => [IN_HOST, state.out])).toEqual([false, "sound"]);
+    await context.close();
+  });
+});
+
 describe.skipIf(!browser)("Twirl · the clock", () => {
   it("ticks from a Worker (not throttled in the background), and ?clock=main keeps the page's timer", async () => {
     const { page, context } = await openTwirl(browser);

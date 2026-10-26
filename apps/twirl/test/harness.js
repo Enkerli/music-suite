@@ -37,8 +37,9 @@ export async function launch() {
  * level leaks between tests). Fonts are blocked: the tests don't need them
  * and CI shouldn't depend on Google being reachable.
  */
-export async function openTwirl(browser, { colorScheme = "light", viewport = { width: 1280, height: 800 }, reducedMotion = "no-preference", hasTouch = false } = {}) {
+export async function openTwirl(browser, { colorScheme = "light", viewport = { width: 1280, height: 800 }, reducedMotion = "no-preference", hasTouch = false, initScript } = {}) {
   const context = await browser.newContext({ colorScheme, viewport, reducedMotion, hasTouch });
+  if (initScript) await context.addInitScript(initScript);   // runs before the page's own script (as DPF's injected functions do)
   const page = await context.newPage();
   const errors = [];
   page.on("pageerror", (e) => errors.push(e.message));

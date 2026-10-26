@@ -1026,6 +1026,11 @@ function walkShift(k) {                                         // k: which chan
 /* ── 2. Clock ────────────────────────────────────────────────────────────── */
 
 let ctx = null;             // AudioContext, created on first touch (iOS rule)
+// Inside Twirl's plugin (Enkerli/twirl-dpf: DPF's web view, no Web MIDI), DPF
+// injects setState() and sendNote() into the page before it runs. There the
+// host's instruments make the sound: Twirl keeps its clock and sends notes
+// (sendMidi, section 3), and makes none itself.
+const IN_HOST = typeof window.setState === "function" && typeof window.sendNote === "function";
 let t0 = 0;                 // audio time at which beat 0 happened
 const bps = () => state.bpm / 60;
 const nowAudio = () => (ctx ? ctx.currentTime : performance.now() / 1000);
@@ -1075,7 +1080,7 @@ function ensureAudio() {
     const comp = compressor = ctx.createDynamicsCompressor();
     comp.threshold.value = -14; comp.ratio.value = 4;
     master = ctx.createGain(); master.gain.value = state.volume;
-    comp.connect(ctx.destination);
+    if (!IN_HOST) comp.connect(ctx.destination);                  // in the plugin, silent (the Drone too)
     master.connect(buildRoom(comp));                              // through the tape's wobble (section 8b)
 
     // A loopy dotted-eighth delay, darkened each time round.
@@ -1331,12 +1336,24 @@ const voiceFn = (voice, pack) => (PACKS[pack || state.pack] || VOICES)[voice] ||
 // not inside most embedded frames), the Output picker appears. Channels:
 // pluck 1, bell 2, blip 3, drums + shaker 10 (GM notes). Microtonal pitches
 // are rounded to the nearest semitone; there's no MPE yet.
+//
+// In the plugin (IN_HOST) the output is the host. Notes cross in batches, one
+// per scheduler tick, with the wall-clock time each should sound at
+// (setState "notes": "t,status,note,velocity;…", t in ms since the epoch); the
+// plugin writes each at its sample offset. "panic" ends what's sounding.
 
 let midiAccess = null;
 const MIDI_CH = { pluck: 0, bell: 1, blip: 2, drum: 9, shake: 9 };
 const GM_DRUM = { kick: 36, snare: 38, hat: 42 };
 
 async function initMidi() {
+  if (IN_HOST) {
+    const sel = $("out");
+    sel.textContent = ""; sel.append(new Option("Out: the host (MIDI)", "host"));
+    state.out = sel.value = "host"; sel.hidden = false;
+    addEventListener("pagehide", () => window.setState("panic", "1"));
+    return;
+  }
   if (!navigator.requestMIDIAccess) return;
   try { midiAccess = await navigator.requestMIDIAccess(); } catch (_) { return; }
   const fill = () => {
@@ -1354,19 +1371,24 @@ async function initMidi() {
   midiAccess.onstatechange = fill;
   fill();
 }
+let hostBatch = [];
+function toHost(at, status, note, vel) {
+  if (!hostBatch.length) queueMicrotask(() => { window.setState("notes", hostBatch.join(";")); hostBatch = []; });
+  hostBatch.push(`${(performance.timeOrigin + at).toFixed(1)},${status},${note},${vel}`);
+}
 function sendMidi(voice, midi, vel, t, yN) {
-  if (!midiAccess || state.out === "sound") return;
-  const port = midiAccess.outputs.get(state.out.split(":").slice(1).join(":"));
-  if (!port) return;
+  const port = IN_HOST || !midiAccess || state.out === "sound" ? null : midiAccess.outputs.get(state.out.split(":").slice(1).join(":"));
+  if (!(IN_HOST ? state.out === "host" : port)) return;
   const ch = MIDI_CH[voice];
   const note = voice === "shake" ? 70 : voice === "drum" ? GM_DRUM[drumKind(yN)]
              : Math.max(0, Math.min(127, Math.round(midi + (voice === "pluck" ? 0 : 12))));
   const at = performance.now() + Math.max(0, (t - ctx.currentTime) * 1000);
   const len = voice === "drum" || voice === "shake" ? 80 : voice === "bell" ? 600 : 220;
+  const v = Math.max(1, Math.min(127, Math.round(vel * 127)));
   try {
-    port.send([0x90 | ch, note, Math.max(1, Math.round(vel * 127))], at);
-    port.send([0x80 | ch, note, 0], at + len);
-    diag.midiSent++; diag.midiLast = { ch: ch + 1, note, vel: Math.max(1, Math.round(vel * 127)), voice, inMs: Math.round(at - performance.now()) };
+    if (IN_HOST) { toHost(at, 0x90 | ch, note, v); toHost(at + len, 0x80 | ch, note, 0); }
+    else { port.send([0x90 | ch, note, v], at); port.send([0x80 | ch, note, 0], at + len); }
+    diag.midiSent++; diag.midiLast = { ch: ch + 1, note, vel: v, voice, inMs: Math.round(at - performance.now()) };
   } catch (_) { /* port went away */ }
 }
 
@@ -3513,7 +3535,8 @@ function diagReport() {
     clock: clockKind,
     audioDevice: ctx ? { sampleRate: ctx.sampleRate, baseLatencyMs: ctx.baseLatency != null ? Math.round(ctx.baseLatency * 1000 * 10) / 10 : "n/a", outputLatencyMs: ctx.outputLatency ? Math.round(ctx.outputLatency * 1000 * 10) / 10 : "n/a" } : "none",
     pen: diag.pen,
-    midi: typeof midiAccess === "undefined" || !midiAccess ? (navigator.requestMIDIAccess ? "not allowed (yet)" : "no Web MIDI here")
+    midi: IN_HOST ? { out: state.out, host: true, sent: diag.midiSent, last: diag.midiLast }
+      : typeof midiAccess === "undefined" || !midiAccess ? (navigator.requestMIDIAccess ? "not allowed (yet)" : "no Web MIDI here")
       : { out: state.out, outputs: [...midiAccess.outputs.values()].map((o) => o.name), sent: diag.midiSent, last: diag.midiLast },
     ua: navigator.userAgent,
   };
@@ -5343,6 +5366,7 @@ $("initBtn").addEventListener("click", () => {
   const scene = serialize(), view = { level, numbers: showNumbers, edit: state.edit };
   closeInspector(); closeShelf(); select(null);
   [...loops].forEach(eraseLoop);
+  if (IN_HOST) window.setState("panic", "1");
   if (state.edit) $("editBtn").click();
   const { volume, out, edit, ...defaults } = STATE_DEFAULTS;
   applySettings(defaults);

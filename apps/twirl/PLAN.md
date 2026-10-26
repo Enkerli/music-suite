@@ -237,13 +237,35 @@ cp -r bin/d_webmeters.lv2 ~/.lv2/ ; mkdir -p ~/.clap && cp -r bin/d_webmeters.cl
       Bitwig until Alex tries it (it worked: see above). On Alex's machine DPF uses Qt WebEngine
       (Chromium; it tries Qt 5, then 6, then WebKitGTK); here, WebKitGTK.
       Both DPF fixes are worth reporting upstream.
-- [ ] A first plugin: `index.html` in the web view, `sendNote` from Twirl,
-      MIDI out to a Surge XT in Carla. First light.
-- [ ] The timed path (batches, queue, sample offsets); measure against
-      Twirl's own sound.
-- [ ] The JACK standalone: Twirl as its own program in the graph,
-      connected to the Carla/Surge rig instead of Midi Through.
-- [ ] LV2 in Carla and Ardour, CLAP in Bitwig and Reaper; VST3 where useful.
+- [x] A first plugin (2026-10-25): **[Enkerli/twirl-dpf](https://github.com/Enkerli/twirl-dpf)**,
+      LV2, CLAP, VST3 and a JACK standalone, a MIDI generator (no audio);
+      `make` copies this `index.html` in (from a checkout beside it, else
+      from `main`) and applies the CLAP fix as a patch to DPF `develop`.
+      In Twirl, `IN_HOST` (DPF's injected `setState` and `sendNote` are
+      there) sends notes to the host instead of Web MIDI, and the page makes
+      no sound (the Drone included); the browser is unchanged (tests).
+- [x] The timed path: each scheduler tick's notes go as one
+      `setState("notes", "t,status,note,velocity;…")`, `t` the wall-clock
+      time to sound (ms since the epoch); the plugin queues them lock-free
+      and writes each at its sample offset. Note-offs at Twirl's lengths;
+      "panic" on Start over and when the page goes. **Measured** (Claude,
+      Alex's machine: PipeWire, 48 kHz, 1024 frames), driving the page over
+      Qt WebEngine's DevTools port and recording with `jack_midi_dump`: the
+      standalone and the LV2 (in `jalv.gtk3`) put every event within
+      **0.1 ms** of Twirl's own timing, sent 56–140 ms ahead. (By ear
+      against Twirl's sound: Alex.)
+- [ ] By ear, Alex: `pw-jack ~/Coding/twirl-dpf/bin/twirl`, connect
+      *Twirl:midi-out* to the Carla rig (`~/twirl-surge.carxp`) instead of
+      Midi Through: four voices on their channels?
+- [ ] Hosts, Alex: the LV2 in Carla (and Ardour), the CLAP in Bitwig (and
+      Reaper), the VST3 in Bitwig or Reaper. (Built and installed in
+      `~/.lv2`, `~/.clap`, `~/.vst3`. Carla 2.5.8's `carla-single` can't
+      take a CLAP, and its VST3 UI fails with an X error for DPF's own
+      WebMeters too, so neither was checked here.) Things to watch: the
+      window's size, keyboard focus, MIDI routing (in Bitwig it's a note
+      effect: put it before an instrument).
+- [ ] Twirl's clock lives in the page: closing the plugin's window stops
+      it. Fine for now; a headless clock in the plugin is a W6 question.
 - [ ] Save and restore the sheet with the host's project.
 
 **Questions for W6** (some now answered): is stage B (an installable app)
