@@ -1641,6 +1641,44 @@ describe.skipIf(!browser)("Twirl · inside the plugin (twirl-dpf)", () => {
     await context.close();
   });
 
+  it("takes the host's parameters as if its controls moved, and reports its own changes", async () => {
+    const { page, context, errors } = await openTwirl(browser, { initScript: dpf });
+    const params = () => page.evaluate(() => window.__host.filter((m) => m.key === "params").map((m) => m.value));
+    // Before the plugin's first values, nothing goes to the host.
+    await page.evaluate(() => { setVolume(0.5); });
+    await page.waitForTimeout(150);
+    expect(await params()).toEqual([]);
+    // The plugin's values (all of them, as it sends them once the page is ready).
+    await page.evaluate(() => twirlParams({ 0: 0.37, 1: 120, 2: 0, 3: 0.25, 4: 0, 5: 0.4, 6: 1, 7: 0.6, 8: 2, 9: 3,
+      10: 1, 11: 1, 12: 2, 13: 3, 14: 4, 15: 5, 16: 7, 17: 0, 18: 0, 19: 0 }));
+    expect(await page.evaluate(() => ({
+      volume: state.volume, bpm: state.bpm, swing: state.swing, warmth: state.warmth, air: state.air,
+      drone: state.drone, droneVol: state.droneVol, voicing: state.droneVoicing, space: state.droneSpace,
+      lock: state.lock, walk: state.walk, way: state.walkWay, pace: state.walkPace, pack: state.pack, grid: state.grid, root: state.root,
+      vary: state.vary, evolve: state.evolve, morph: state.morph,
+      shown: [$("bpm").value, $("droneBtn").getAttribute("aria-pressed"), $("grid").value, $("pack").value],
+    }))).toEqual({
+      volume: 0.37, bpm: 120, swing: 0.25, warmth: 0, air: 0.4, drone: true, droneVol: 0.6, voicing: "triad", space: "rotate",
+      lock: true, walk: true, way: "fifths", pace: 8, pack: "kalimba", grid: "dorian", root: 7,
+      vary: false, evolve: false, morph: false, shown: ["120", "true", "dorian", "kalimba"],
+    });
+    const engine = await page.evaluate(() => window.__host.filter((m) => m.key === "engine").at(-1).value);
+    expect(engine).toBe("0.37,120,0,4,1");                    // the plugin's sound follows: volume, tempo, Warmth, pack
+    await page.waitForTimeout(150);
+    expect(await params()).toEqual([]);                       // no echo of what the host set
+    // Changed here, by a control, a key or anything else: reported, once.
+    await page.evaluate(() => { $("pack").value = "chimes"; $("pack").dispatchEvent(new Event("change")); $("lockBtn").click(); setTempo(101); });
+    await page.waitForTimeout(150);
+    expect(await params()).toEqual(["1,101;10,0;14,6"]);
+    // Following the host: its tempo isn't Twirl's to report, nor the host's to set.
+    await page.evaluate(() => { setHostSync(true); setTempo(133); twirlParams({ 1: 90 }); });
+    await page.waitForTimeout(150);
+    expect(await page.evaluate(() => state.bpm)).toBe(133);
+    expect((await params()).slice(1)).toEqual(["2,1"]);
+    expect(errors).toEqual([]);
+    await context.close();
+  });
+
   it("Start over tells the host to end what's sounding", async () => {
     const { page, context } = await openTwirl(browser, { initScript: dpf });
     await page.mouse.click(600, 600);

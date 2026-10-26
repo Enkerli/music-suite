@@ -444,7 +444,16 @@ as on/off.
    voices); still passed through. Checked with two standalones: one
    Twirl's MIDI played in another's sound (Kalimba), silent once
    disconnected. More to come from playing with it (Alex).
-5. Parameters, the first set, then more.
+5. Parameters, the first set, then more. **First set done (2026-10-26):**
+   Volume, Tempo, Follow host transport, Swing, Warmth, Air, Drone (on,
+   level, voicing, space), Lock, Walk (on, way, pace), Sounds, Scale,
+   Root, Vary, Evolve, Morph (twirl-dpf `TwirlParams.hpp`; the page's
+   `HOST_PARAMS`, same order, append only). Host → page: within 10 ms,
+   applied as if the control moved, window open or not. Page → host:
+   whatever changed it, checked 20 times a second, told to the host by the
+   window with a gesture (so only while it's open; changes made while it's
+   closed go when it opens). On loading, the parameters win over the saved
+   sheet. Checked in Carla (LV2, VST3): both ways, and saved and loaded.
 
 **Size.** The sound is ~300 lines of recipes plus the Drone (~80) and the
 room (~60) in the page; the engine perhaps 1,500–2,500 lines of C++. Steps 1
