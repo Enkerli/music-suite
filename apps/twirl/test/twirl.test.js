@@ -1579,9 +1579,10 @@ describe.skipIf(!browser)("Twirl · inside the plugin (twirl-dpf)", () => {
     expect(await page.evaluate(() => [state.bpm, hostHold])).toEqual([own, false]);  // off: its own clock
     await page.evaluate(() => setHostSync(true));
     await host(120, false, 10);
-    const held = await page.evaluate(() => diag.midiSent);
+    const [held, heldBeat] = await page.evaluate(() => [diag.midiSent, nowBeat()]);
     await page.waitForTimeout(600);
-    expect(await page.evaluate(() => [hostHold, diag.midiSent])).toEqual([true, held]);   // stopped: the loops wait
+    // Stopped: the loops wait, and the clock (so the playheads) stands still.
+    expect(await page.evaluate(() => [hostHold, diag.midiSent, nowBeat()])).toEqual([true, held, heldBeat]);
     // Playing: 20 reports a second, as the plugin sends them, the host's beat moving on.
     await page.evaluate(() => new Promise((done) => {
       const from = performance.timeOrigin + performance.now(); let n = 0;
@@ -1598,6 +1599,9 @@ describe.skipIf(!browser)("Twirl · inside the plugin (twirl-dpf)", () => {
     expect(Math.abs(await offBeats())).toBeLessThan(0.04);
     await page.waitForTimeout(700);
     expect(await page.evaluate(() => diag.midiSent)).toBeGreaterThan(held);           // and playing
+    // The host stops calling the plugin (no reports for a while): as good as stopped.
+    await page.waitForTimeout(400);
+    expect(await page.evaluate(() => hostHold)).toBe(true);
     expect(errors).toEqual([]);
     await context.close();
   });

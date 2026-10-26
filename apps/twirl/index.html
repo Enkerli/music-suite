@@ -1039,7 +1039,11 @@ const soundOn = () => state.out === "sound" || state.out.startsWith("both") || s
 let t0 = 0;                 // audio time at which beat 0 happened
 const bps = () => state.bpm / 60;
 const nowAudio = () => (ctx ? ctx.currentTime : performance.now() / 1000);
-const beatAt = (t) => (t - t0) * bps();
+// While the host is stopped (Follow host transport, section 3d) Twirl's clock
+// stands still with it, so the playheads stop where the host did; except
+// while you draw, since a stroke is timed by this clock (heldAt moves along).
+let heldAt = null;          // { b, t }: the beat it stands at, from audio time t
+const beatAt = (t) => (heldAt ? heldAt.b + (strokes.size ? Math.max(0, t - heldAt.t) * bps() : 0) : (t - t0) * bps());
 const timeAt = (b) => t0 + b / bps();
 const nowBeat = () => beatAt(nowAudio());
 const mod = (a, n) => ((a % n) + n) % n;
@@ -1455,7 +1459,14 @@ function sendMidi(voice, midi, vel, t, yN) {
 // stopped (strokes still sound as you draw), and keeps its beat on the host's
 // beat, modulo 48 (whole bars in 2/4, 3/4, 4/4, 6/8). With its own sound
 // going to the host, it plays that much early, so it lands on the beat.
-let hostSync = false, hostInfo = null, hostHold = false;
+//
+// Each report's measure of "how far off" is noisy (±10 ms: the audio clock
+// moves in whole callbacks), and correcting it report by report moved every
+// note by a few ms, 20 times a second: loose, unquantized-sounding
+// playheads (Alex, in Bitwig, 2026-10-26). The real drift between the two
+// clocks is tiny, so the error is averaged over about a second and corrected
+// only past 2 ms, by half: Twirl's timing then holds still.
+let hostSync = false, hostInfo = null, hostHold = false, hostErr = 0;
 const HOST_MOD = 48;
 const toB64 = (o) => btoa(String.fromCharCode(...new TextEncoder().encode(JSON.stringify(o))));
 const fromB64 = (s) => JSON.parse(new TextDecoder().decode(Uint8Array.from(atob(s), (c) => c.charCodeAt(0))));
@@ -1476,10 +1487,16 @@ function setHostSync(on) {
   showHost();
 }
 function setHostHold(on) {
-  if (on === hostHold) return;
+  if (on === hostHold || !ctx) return;
+  const now = ctx.currentTime, b = beatAt(now);
+  if (on) { heldAt = { b, t: now }; hostErr = 0; }                 // the clock stops here
+  else { heldAt = null; t0 = now - b / bps(); }                    // and goes on from here (then lines up with the host)
   hostHold = on;
-  if (ctx && state.drone) setDrone(!on);                          // the Drone rests with the loops
+  if (state.drone) setDrone(!on);                                  // the Drone rests with the loops
 }
+// The host gives no transport (some don't when stopped), or nothing has come
+// for a while (it stopped calling the plugin): as good as stopped.
+const hostSilent = (h) => !h || !(h.tempo > 0) || performance.timeOrigin + performance.now() - h.at > 300;
 function showHost() {
   const chip = $("hostChip"), h = hostInfo;
   chip.hidden = !IN_HOST || !hostSync;
@@ -1488,9 +1505,9 @@ function showHost() {
 window.twirlHost = (h) => {
   const was = hostInfo; hostInfo = h;
   if (!was || was.tempo !== h.tempo || was.playing !== h.playing) showHost();
-  if (!hostSync || !ctx || ctx.state !== "running" || !(h.tempo > 0)) { setHostHold(false); return; }
-  setHostHold(!h.playing);
-  if (!h.playing) return;
+  if (!hostSync || !ctx || ctx.state !== "running") { setHostHold(false); return; }
+  setHostHold(!h.playing || hostSilent(h));
+  if (hostHold) return;
   if (Math.abs(h.tempo - state.bpm) > 1e-3) setTempo(h.tempo);
   // Where the host's beat is, now, as heard: Twirl's sound at this moment
   // reaches the host `lag` ms later.
@@ -1501,7 +1518,13 @@ window.twirlHost = (h) => {
     t0 -= e / bps();
     const nb = beatAt(now);
     for (const lp of loops) lp.cursor = nb;
-  } else if (Math.abs(e) > 0.002) t0 -= 0.25 * e / bps();         // a little off: ease toward it
+    hostErr = 0;
+    diag.hostJumps = (diag.hostJumps || 0) + 1;
+  } else {
+    hostErr += (e - hostErr) * 0.05;                               // about a second of reports
+    if (Math.abs(hostErr) / bps() > 0.002) { const c = hostErr / 2; t0 -= c / bps(); hostErr -= c; }
+  }
+  diag.hostOff = (diag.hostOff || []).concat(Math.round(e / bps() * 10000) / 10).slice(-40);   // ms, for ⇧Q
 };
 
 /* ── 4. Loops: shape, transform, time-scale, temperament ─────────────────── */
@@ -2314,7 +2337,12 @@ function schedule() {
   }
   lookahead = Math.min(LOOKAHEAD_MAX, Math.max(LOOKAHEAD, gap * 1.6 + 0.04, lookahead * 0.995));
   const now = ctx.currentTime, nb = beatAt(now), hb = beatAt(now + lookahead);
-  if (hostHold) { for (const lp of loops) lp.cursor = Math.max(lp.cursor, hb); return; }   // the host is stopped (3d)
+  if (hostSync && !hostHold && hostSilent(hostInfo)) setHostHold(true);                       // reports stopped coming (3d)
+  if (hostHold) {                                                  // the host is stopped (3d): nothing plays
+    if (strokes.size) heldAt = { b: nb, t: now };                  // a stroke keeps the clock going while it's drawn
+    for (const lp of loops) lp.cursor = Math.max(lp.cursor, hb);
+    return;
+  }
   const W = sheet.clientWidth, H = sheet.clientHeight;
   tickReplay();
   for (const lp of loops) {
@@ -3650,7 +3678,9 @@ function diagReport() {
     pen: diag.pen,
     midi: IN_HOST ? { out: state.out, host: true, sent: diag.midiSent, last: diag.midiLast, audioChunks: diag.audioSent || 0,
                       // Follow host transport, and what the plugin last said: the host's tempo and transport, the audio's delay
-                      followHost: hostSync, holding: hostHold,
+                      followHost: hostSync, holding: hostHold, hostJumps: diag.hostJumps || 0,
+                      // how far Twirl's beat was from the host's at each of the last 40 reports, in ms (before easing)
+                      hostOffMs: (o => o.length ? { max: Math.max(...o.map(Math.abs)), last: o.slice(-8) } : "none")(diag.hostOff || []),
                       hostTransport: hostInfo ? { tempo: hostInfo.tempo, playing: hostInfo.playing, audioLagMs: Math.round(hostInfo.lag),
                                                   reportAgeMs: Math.round(performance.timeOrigin + performance.now() - hostInfo.at) } : "none yet" }
       : typeof midiAccess === "undefined" || !midiAccess ? (navigator.requestMIDIAccess ? "not allowed (yet)" : "no Web MIDI here")
