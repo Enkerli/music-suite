@@ -103,6 +103,11 @@ such as Surge XT or Bitwig, don't appear as outputs, so Twirl goes through
       saves the connections in the system graph, Midi Through
       (`Midi-Bridge:…` on PipeWire, `a2j:…` with a2jmidid) and the sound card
       included; `--mode patchbay` keeps the old way.
+- [x] The multi-client version failed on Alex's machine (2 of 16
+      connections: Carla's connect-by-id on a busy PipeWire graph). Now the
+      script reads the port names from JACK and writes the connections, by
+      name, into the project; Carla restores them when it opens it (checked:
+      reloaded in Carla, every connection live).
 - [x] Timing under load on Linux (Brave, 14 loops, 37 notes/s, MIDI out):
       ticks at most 19 ms late (nothing past 50), audio buffer 10.7 ms with
       56 ms output latency. The scheduler keeps up; any hiccup is the audio
@@ -140,12 +145,92 @@ Tilt and the barrel buttons aren't used. The line itself doesn't thicken yet
 **Claude, after the reports**: a pressure curve if it's needed; fixes for
 buttons or hover; then "Pressure you can see" can move up if it's wanted.
 
-### 1d. Then, if 1b went well
+### 1d. A Linux plugin and standalone, without JUCE
 
-Questions for W6 (the plugin): is the browser plus a synth enough on Linux
-for now, or is an LV2/standalone worth building next? See
-[ROADMAP § 13](ROADMAP.md#13-the-plugin-and-standalone-path) and `BUILD.md`
-(Linux: LV2 · VST3 · CLAP · Standalone).
+Alex, after 1b worked: "Which all makes me want 1d: Linux plugin and
+standalone. Now, is there any JUCE-free path for this?" Yes. What was found
+(sources read 2026-10-25, see below):
+
+- **DPF**, the DISTRHO Plugin Framework (ISC license, by falkTX, who also
+  makes Carla), builds **LV2, CLAP, VST3 and VST2** from one source, plus a
+  **JACK standalone**. It now has a **web view of its own**
+  (`DISTRHO_UI_USE_WEB_VIEW`; example `examples/WebMeters`; on Linux a child
+  process hosting the browser engine, over X11). The page gets
+  `sendNote(channel, note, velocity)`, `setParameterValue`, `setState`
+  injected, so Twirl's `sendMidi` has somewhere to go.
+- **clap-wrapper** (MIT) turns one CLAP into VST3, AUv2, **AUv3 (macOS and
+  iOS)**, AAX and a simple standalone. The AUv3 part is new since the suite's
+  [JUCE assessment](../../docs/JUCE_INDEPENDENCE.md) (July), which had iPadOS
+  as the part JUCE couldn't be dropped from.
+- **choc** (ISC) has a single-header WebView (WKWebView, WebView2,
+  WebKitGTK), the suite's July pick for a CLAP shell.
+
+**The route, in stages, each usable on its own:**
+
+| Stage | What | JUCE | Who/where |
+|---|---|---|---|
+| A | Browser + Midi Through + Carla/Surge XT (working now) | none | Alex's Linux machine |
+| B | **An installable app**: Twirl as a PWA (a manifest and a service worker): Brave or Chromium's "Install", its own window, works offline, Web MIDI as now | none | Claude, in this repo; ~a day |
+| C | **A DPF plugin**, MIDI out: LV2 (Carla, Ardour), CLAP (Bitwig, Reaper), VST3; and the JACK standalone, wired in the graph like any synth. The UI is Twirl's `index.html` in DPF's web view | none (ISC) | Claude: a new repo (e.g. `Enkerli/twirl-dpf`); Alex: tests in Bitwig and Carla |
+| D | macOS and iPad: either DPF (CLAP, VST3, AUv2) or a CLAP through clap-wrapper (AUv3 too), the suite-wide choice in `docs/JUCE_INDEPENDENCE.md` | none | later, with the Mac back |
+
+**Stage C, how it works:**
+- Twirl keeps its own clock (it already does) and, in the plugin, stops
+  making sound itself (the host's instruments do); `sendMidi` detects the
+  plugin and sends notes over the bridge instead of Web MIDI (WebKitGTK has
+  no Web MIDI).
+- Notes cross **in batches with their time ahead** ("in 74 ms": ⇧Q's
+  `midi.last.inMs` already measures it), through `setState`; the plugin puts
+  them in a lock-free queue and `process()` writes each at its sample offset
+  (`writeMidiEvent`). That is the suite's `LiveNoteScheduler` pattern from the
+  Workspace plugin. `sendNote` alone would work too, but lands whenever the UI
+  thread gets there: fine for a first light, not for timing.
+- Note-offs with the same lengths as today; channels as today (1, 2, 3, 10),
+  later per loop.
+- State: the sheet saved with the host's project (`setState` of a share
+  code), so a song reopens with its Twirl.
+
+**Stage C, checklist:**
+- [ ] Build DPF's `WebMeters` example on Alex's machine, open it in Carla and
+      Bitwig: does the web view appear, take keyboard focus, play smoothly?
+      (This answers the biggest unknown before writing anything.)
+- [ ] A first plugin: `index.html` in the web view, `sendNote` from Twirl,
+      MIDI out to a Surge XT in Carla. First light.
+- [ ] The timed path (batches, queue, sample offsets); measure against
+      Twirl's own sound.
+- [ ] The JACK standalone: Twirl as its own program in the graph,
+      connected to the Carla/Surge rig instead of Midi Through.
+- [ ] LV2 in Carla and Ardour, CLAP in Bitwig and Reaper; VST3 where useful.
+- [ ] Save and restore the sheet with the host's project.
+
+**Questions for W6** (some now answered): is stage B (an installable app)
+worth doing first, as the cheap standalone? Which host matters most:
+Bitwig (CLAP) or Carla/Ardour (LV2)? Should the plugin also make sound
+(Twirl's own Web Audio as an instrument), or stay a MIDI generator?
+
+Sources: [DPF](https://github.com/DISTRHO/DPF) (README; in its repo, distrho/DistrhoInfo.hpp for
+`DISTRHO_UI_WEB_VIEW` and distrho/src/DistrhoUI.cpp for the injected
+`sendNote`), [clap-wrapper](https://github.com/free-audio/clap-wrapper)
+(README: VST3, AUv2, AUv3, AAX, standalone),
+[choc](https://github.com/Tracktion/choc) (choc/gui/choc_WebView.h in its repo).
+
+### 1e. Twirl's voices as Surge XT patches
+
+Alex: "As Surge XT is Free Software, it should be possible to build
+Twirl-like patches, at least for non-drum voices (and, even then, drums are
+likely to work)." Twirl's voices are small recipes (in `index.html`, section
+3): the pluck a few decaying partials, the bell FM-like with an inharmonic
+ratio near 3.5, the blip a short bright square, the drums a pitched sine
+kick, a noise snare and a hat.
+
+- [ ] Alex builds one patch per voice in Surge XT by ear, against Twirl's own
+      sound (sound + MIDI on, A/B), and saves them as *Twirl / Pluck*, *Bell*,
+      *Blip*, *Drums*.
+- [ ] Claude reads the saved patches (`.fxp`: a header, then XML) and writes
+      down what makes each one (oscillators, envelope, filter), so they can
+      be tuned and kept in this repo (`apps/twirl/surge/`), CC0 like Twirl.
+- [ ] The Carla script loads them when present (a patch per instance).
+- [ ] Later, the same for Twirl's other packs (mallets, felt, steel…).
 
 ---
 

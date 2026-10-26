@@ -5,6 +5,16 @@ Facts below were measured on the actual repos that day; framework claims
 about third-party projects reflect knowledge as of early 2026 and carry a
 verification checklist (§6).*
 
+> **Update, 2026-10-25** (read from the projects' own sources while planning
+> Twirl's Linux plugin, `apps/twirl/PLAN.md` §1d): **clap-wrapper** now
+> projects a CLAP into **AUv3 on macOS and iOS** (and AAX), as well as VST3,
+> AUv2 and a standalone, which answers Option 2's main gap; and **DPF** now
+> has a **first-class web view** (`DISTRHO_UI_USE_WEB_VIEW`, with
+> `sendNote`, `setParameterValue` and `setState` injected into the page),
+> which answers Option 3's main objection. Both still deserve the §6 spike
+> before the suite commits; Twirl's DPF plugin is proposed as that spike on
+> Linux.
+
 ## 1. Where JUCE actually sits today (measured)
 
 Native C++/Objective-C in each repo, **excluding** JUCE itself, generated
