@@ -2174,7 +2174,10 @@ function schedule() {
   if (!ctx || ctx.state !== "running") return;
   const tNow = performance.now(), gap = lastTickAt ? (tNow - lastTickAt) / 1000 : 0.025; lastTickAt = tNow; offsEpoch++;
   if (tickLate.length < 400) tickLate.push(Math.max(0, gap * 1000 - 25));
-  if (typeof diag !== "undefined") { const l = Math.max(0, gap * 1000 - 25); diag.late.push([tNow, l]); if (diag.late.length > 400) diag.late.splice(0, 200); }
+  if (typeof diag !== "undefined") {
+    const l = Math.max(0, gap * 1000 - 25); diag.late.push([tNow, l]); if (diag.late.length > 400) diag.late.splice(0, 200);
+    if (document.hidden) diag.lateHidden = Math.max(diag.lateHidden || 0, l);              // the worst tick while the window was in the background
+  }
   lookahead = Math.min(LOOKAHEAD_MAX, Math.max(LOOKAHEAD, gap * 1.6 + 0.04, lookahead * 0.995));
   const now = ctx.currentTime, nb = beatAt(now), hb = beatAt(now + lookahead);
   const W = sheet.clientWidth, H = sheet.clientHeight;
@@ -2229,7 +2232,29 @@ function schedule() {
   checkMeetings(nb, now, W, H);
   updateDrone(nb);
 }
-setInterval(schedule, 25);
+/* The clock (PLAN.md, phase 4a). A Worker posts a tick every 25 ms and the page
+ * schedules on each message. A timer on the page itself is throttled by the
+ * browser as soon as the window is in the background (Alex, 2026-10-25, on
+ * Linux: "switching from Brave to Carla causes hiccups", with no xruns in
+ * Carla: the notes were late leaving the page). A Worker's timer isn't held
+ * back that way, and its messages wake the page. ?clock=main keeps the old
+ * timer, to compare; if the Worker can't start or goes quiet, the old timer
+ * takes over by itself. */
+let clockKind = "main", lastWorkerTick = 0;
+(function startClock() {
+  let want = "worker";
+  try { want = new URLSearchParams(location.search).get("clock") || "worker"; } catch (_) { /* no query */ }
+  const fallback = () => { if (clockKind !== "main") { clockKind = "main"; setInterval(schedule, 25); } };
+  if (want === "main" || !window.Worker || !window.Blob || !window.URL) { setInterval(schedule, 25); return; }
+  try {
+    const src = "setInterval(function(){postMessage(0)},25);";
+    const w = new Worker(URL.createObjectURL(new Blob([src], { type: "text/javascript" })));
+    w.onmessage = () => { lastWorkerTick = performance.now(); schedule(); };
+    w.onerror = fallback;
+    clockKind = "worker";
+    setTimeout(() => { if (!lastWorkerTick) fallback(); }, 1000);   // a Worker that never ticks: back to the page's timer
+  } catch (_) { setInterval(schedule, 25); }
+})();
 
 /* ── 7b. Contacts: crossing a line, lines touching, meeting a playhead ──── */
 // Three kinds of contact, each loop answering in its own way (its settings → Meets):
@@ -3484,7 +3509,8 @@ function diagReport() {
     // Hiccups with a steady frame rate are either a late scheduler (ticksLateMs
     // near or past lookaheadMs: notes miss their slot) or the audio device
     // running out of buffer (small baseLatency/outputLatency, many notes a second).
-    ticksLateMs: (() => { const t = performance.now(), r = diag.late.filter(([at]) => t - at < 5000).map(([, l]) => l); return { max5s: Math.round(Math.max(0, ...r)), over50: r.filter((l) => l > 50).length }; })(),
+    ticksLateMs: (() => { const t = performance.now(), r = diag.late.filter(([at]) => t - at < 5000).map(([, l]) => l); return { max5s: Math.round(Math.max(0, ...r)), over50: r.filter((l) => l > 50).length, maxInBackground: Math.round(diag.lateHidden || 0) }; })(),
+    clock: clockKind,
     audioDevice: ctx ? { sampleRate: ctx.sampleRate, baseLatencyMs: ctx.baseLatency != null ? Math.round(ctx.baseLatency * 1000 * 10) / 10 : "n/a", outputLatencyMs: ctx.outputLatency ? Math.round(ctx.outputLatency * 1000 * 10) / 10 : "n/a" } : "none",
     pen: diag.pen,
     midi: typeof midiAccess === "undefined" || !midiAccess ? (navigator.requestMIDIAccess ? "not allowed (yet)" : "no Web MIDI here")

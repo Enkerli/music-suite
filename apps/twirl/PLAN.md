@@ -190,10 +190,36 @@ standalone. Now, is there any JUCE-free path for this?" Yes. What was found
 - State: the sheet saved with the host's project (`setState` of a share
   code), so a song reopens with its Twirl.
 
+**Checked here, 2026-10-25** (Alex: "That framework hasn't been updated in a
+year and the WebUI in two years"): that's DPF's *release* branch (`main`,
+last merged 2025-10-23). Work happens on **`develop`**: 94 commits this year,
+the last one today; the web view last changed in August 2026 (GTK3
+background, Qt WebEngine drag, devtools). Built from `develop` in a Linux
+container: DPF with `USE_WEB_VIEW=true`, then `examples/WebMeters` gives a
+JACK standalone, LV2, CLAP, VST2 and VST3. The standalone opened its web view
+(WebKitGTK) and ran the page; with Twirl's `index.html` in its place,
+**Twirl rendered and ran inside DPF's web view** (in the example's small
+window). First light for stage C's UI.
+
+To build it on Alex's machine:
+
+```sh
+sudo apt install build-essential pkg-config libgl1-mesa-dev libx11-dev libxext-dev \
+  libxrandr-dev libxcursor-dev libdbus-1-dev libjack-jackd2-dev libgtk-3-dev libwebkit2gtk-4.1-dev
+git clone --branch develop --recursive https://github.com/DISTRHO/DPF
+cd DPF
+make -C dgl USE_WEB_VIEW=true          # without it, the example fails to link
+make -C examples/WebMeters
+pw-jack ./bin/d_webmeters              # the standalone (pw-jack with PipeWire)
+cp -r bin/d_webmeters.lv2 ~/.lv2/ ; mkdir -p ~/.clap && cp -r bin/d_webmeters.clap ~/.clap/
+```
+
 **Stage C, checklist:**
-- [ ] Build DPF's `WebMeters` example on Alex's machine, open it in Carla and
-      Bitwig: does the web view appear, take keyboard focus, play smoothly?
-      (This answers the biggest unknown before writing anything.)
+- [x] Build DPF's `WebMeters` example (here, in a container), run the
+      standalone: the web view appears and runs a page; Twirl runs in it.
+- [ ] The same on Alex's machine, then the LV2 in Carla and the CLAP in
+      Bitwig: does the web view appear inside a host, take keyboard focus,
+      stay smooth?
 - [ ] A first plugin: `index.html` in the web view, `sendNote` from Twirl,
       MIDI out to a Surge XT in Carla. First light.
 - [ ] The timed path (batches, queue, sample offsets); measure against
@@ -223,12 +249,27 @@ likely to work)." Twirl's voices are small recipes (in `index.html`, section
 ratio near 3.5, the blip a short bright square, the drums a pitched sine
 kick, a noise snare and a hat.
 
-- [ ] Alex builds one patch per voice in Surge XT by ear, against Twirl's own
-      sound (sound + MIDI on, A/B), and saves them as *Twirl / Pluck*, *Bell*,
-      *Blip*, *Drums*.
-- [ ] Claude reads the saved patches (`.fxp`: a header, then XML) and writes
-      down what makes each one (oscillators, envelope, filter), so they can
-      be tuned and kept in this repo (`apps/twirl/surge/`), CC0 like Twirl.
+Alex: "I'm convinced there's a way to generate these patches. Each Twirl
+sound is just a few lines of code and I'm sure Surge makes the same
+parameters available in its patch format." Confirmed from Surge's source
+(`src/common/SurgePatch.cpp`) and its factory patches: a `.fxp` is a 60-byte
+FXP header (`CcnK`, `FPCh`, id `cjs3`, the chunk's size), then Surge's own
+header (`sub3`, the XML's length, six wavetable sizes, zero without
+wavetables), then plain XML: one element per parameter (558 in *Init FM2*),
+e.g. `<a_osc1_type type="0" value="6" />`. The factory templates (*Init
+Sine*, *Init FM2*, *Init Square*, *Init Karplus-Strong*…, CC0) are starting
+points.
+
+- [ ] A generator (Claude): start from a template, set the parameters that
+      make each Twirl voice (oscillator type and pitch, FM ratio and depth,
+      amp envelope, filter), write the `.fxp` with the right sizes. The
+      mapping, voice by voice, from `index.html` section 3 (the pluck's
+      partials and decays, the bell's ratio near 3.5, the blip's square and
+      length, the kick's pitch drop, the snare's noise band, the hat).
+- [ ] Alex loads each in Surge XT and A/Bs against Twirl's own sound (sound
+      + MIDI on); corrections go back into the mapping, not by hand into the
+      patch.
+- [ ] Kept in this repo (`apps/twirl/surge/`), CC0 like Twirl.
 - [ ] The Carla script loads them when present (a patch per instance).
 - [ ] Later, the same for Twirl's other packs (mallets, felt, steel…).
 
@@ -350,9 +391,14 @@ aside; reloading keeps what you've done since. One test each.
 Today the scheduler ticks on the main thread (`setInterval`, 25 ms) and
 looks ahead 120–400 ms; a long frame delays the tick.
 
-- [ ] A Worker that posts a tick every 25 ms (Workers' timers aren't held up
-      by painting); the scheduler runs on each message. Behind `?clock=worker`
-      first, to compare.
+- [x] A Worker that posts a tick every 25 ms; the scheduler runs on each
+      message. Shipped as the default on 2026-10-25, earlier than planned:
+      on Linux, "switching from Brave to Carla causes hiccups" with no xruns
+      in Carla, i.e. the page's own timer was throttled in the background.
+      `?clock=main` keeps the old timer to compare; it takes over by itself
+      if the Worker can't start. ⇧Q reports `clock` and
+      `ticksLateMs.maxInBackground`.
+- [ ] Alex: the Brave → Carla switch again, then ⇧Q back in Brave.
 - [ ] Measure both on a busy sheet (CPU slowed in Chromium, and on Linux):
       ticks late, notes dropped, lookahead.
 - [ ] If the Worker is better, make it the default; keep the old one as the
