@@ -1415,7 +1415,9 @@ function toEngine(voice, pack, midi, vel, pan, yN, t) {
 }
 function sendEngine() {
   if (!IN_HOST) return;
-  window.setState("engine", `${state.volume},${state.bpm},${state.warmth ?? 0.5}`);
+  // and the sheet's pack and whether Out includes sound: MIDI coming into the
+  // plugin plays its voices in that pack, if so (synth mode, route C step 4)
+  window.setState("engine", `${state.volume},${state.bpm},${state.warmth ?? 0.5},${Math.max(0, PACK_ORDER.indexOf(state.pack))},${engineOn() ? 1 : 0}`);
   sendDrone();
 }
 function sendDrone() {
@@ -4079,6 +4081,7 @@ function applySettings(st) {
     $(id).setAttribute("aria-pressed", String(state[key]));
   syncTuningPicker();
   if (ctx) { setDrone(state.drone); updateDrone(nowBeat(), true); if (delayLine) delayLine.delayTime.setTargetAtTime(0.75 / bps(), ctx.currentTime, 0.05); }
+  sendEngine();                                       // in the plugin: the pack, as it now is (synth mode)
 }
 
 function recall(scene) {
@@ -4818,7 +4821,7 @@ document.querySelectorAll("details.dsec[data-sec]").forEach((d) => {
   d.addEventListener("toggle", () => store.set(key, d.open));
 });
 
-$("pack").addEventListener("change", (e) => { state.pack = e.target.value; });
+$("pack").addEventListener("change", (e) => { state.pack = e.target.value; sendEngine(); });
 function setVolume(v) {
   state.volume = Math.min(1, Math.max(0, v)); $("vol").value = String(state.volume);
   if (master) master.gain.setTargetAtTime(state.volume, ctx.currentTime, 0.03);

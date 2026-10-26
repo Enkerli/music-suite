@@ -1560,7 +1560,10 @@ describe.skipIf(!browser)("Twirl · inside the plugin (twirl-dpf)", () => {
     r = await sent();
     expect(r.voices.length).toBeGreaterThan(3);
     expect(r.notes).toBeGreaterThan(0);
-    expect(r.engine.at(-1)).toBe(`0.5,${await page.evaluate(() => `${state.bpm},${state.warmth}`)}`);
+    // volume, tempo, Warmth, the sheet's pack (its index), and whether Out includes sound (synth mode)
+    expect(r.engine.at(-1)).toBe(`0.5,${await page.evaluate(() => `${state.bpm},${state.warmth},${PACK_ORDER.indexOf(state.pack)}`)},1`);
+    await page.evaluate(() => { $("pack").value = "chimes"; $("pack").dispatchEvent(new Event("change")); });
+    expect((await sent()).engine.at(-1).split(",")[3]).toBe("6");
     // The Drone and Warmth go to the engine too: its notes in Hz, as Walk moves them.
     const drone = () => page.evaluate(() => window.__host.filter((m) => m.key === "drone").map((m) => m.value.split(",").map(Number)).at(-1));
     await page.evaluate(() => { window.__host.length = 0; state.drone = true; setDrone(true); setWarmth(0.7); });
@@ -1569,6 +1572,9 @@ describe.skipIf(!browser)("Twirl · inside the plugin (twirl-dpf)", () => {
     expect(d.slice(8).length).toBeGreaterThanOrEqual(2);         // two notes or more
     for (const hz of d.slice(8)) { expect(hz).toBeGreaterThan(20); expect(hz).toBeLessThan(1000); }
     expect((await sent()).engine.at(-1).split(",").map(Number)[2]).toBe(0.7);
+    // Out without sound: MIDI coming into the plugin isn't played either.
+    await page.evaluate(() => { window.__host.length = 0; $("out").value = "host:midi"; $("out").dispatchEvent(new Event("change")); });
+    expect((await sent()).engine.at(-1).split(",")[4]).toBe("0");
     await page.evaluate(() => { $("out").value = "host:midi"; $("out").dispatchEvent(new Event("change")); });
     expect((await drone())[0]).toBe(0);                          // leaving: the engine's Drone stops
     expect(errors).toEqual([]);

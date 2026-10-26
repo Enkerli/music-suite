@@ -435,7 +435,15 @@ as on/off.
    In the plugin the page makes no sound (its Drone keeps only the notes
    it sends). Checked in the standalone: the default plays and sends
    MIDI, no gaps or clicks.
-4. Synth mode.
+4. Synth mode. **Done (2026-10-26):** MIDI coming into the plugin plays
+   its voices when Out includes sound: channel 1 pluck, 2 bell, 3 blip
+   (an octave down, undoing Twirl's octave up), 10 drums and shaker by
+   note (Twirl's 36/38/42/70 and GM's neighbours), any other channel
+   pluck (so a keyboard on any channel plays something); the sheet's
+   pack; sample-accurate; window open or not; note-offs ignored (one-shot
+   voices); still passed through. Checked with two standalones: one
+   Twirl's MIDI played in another's sound (Kalimba), silent once
+   disconnected. More to come from playing with it (Alex).
 5. Parameters, the first set, then more.
 
 **Size.** The sound is ~300 lines of recipes plus the Drone (~80) and the
