@@ -62,6 +62,52 @@ GM_SF2 = ["/usr/share/sounds/sf2/FluidR3_GM.sf2", "/usr/share/sounds/sf2/default
           "/usr/share/soundfonts/FluidR3_GM.sf2", "/usr/share/soundfonts/default.sf2"]
 
 
+def jack_ports():
+    """Every port in the JACK (or PipeWire-JACK) graph: name -> (is_input, "audio"|"midi")."""
+    import ctypes
+    j = ctypes.CDLL("libjack.so.0")
+    j.jack_client_open.restype = ctypes.c_void_p
+    j.jack_client_open.argtypes = [ctypes.c_char_p, ctypes.c_int, ctypes.c_void_p]
+    j.jack_get_ports.restype = ctypes.POINTER(ctypes.c_char_p)
+    j.jack_get_ports.argtypes = [ctypes.c_void_p, ctypes.c_char_p, ctypes.c_char_p, ctypes.c_ulong]
+    j.jack_port_by_name.restype = ctypes.c_void_p
+    j.jack_port_by_name.argtypes = [ctypes.c_void_p, ctypes.c_char_p]
+    j.jack_port_flags.argtypes = [ctypes.c_void_p]
+    j.jack_port_type.restype = ctypes.c_char_p
+    j.jack_port_type.argtypes = [ctypes.c_void_p]
+    j.jack_free.argtypes = [ctypes.c_void_p]
+    j.jack_client_close.argtypes = [ctypes.c_void_p]
+    c = j.jack_client_open(b"twirl-scan", 1, None)          # 1: don't start a server
+    if not c:
+        return {}
+    out, arr = {}, j.jack_get_ports(c, None, None, 0)
+    k = 0
+    while arr and arr[k]:
+        name = arr[k]; p = j.jack_port_by_name(c, name)
+        typ = (j.jack_port_type(p) or b"").decode()
+        out[name.decode("utf-8", "replace")] = (bool(j.jack_port_flags(p) & 1), "midi" if "midi" in typ else "audio")
+        k += 1
+    if arr:
+        j.jack_free(ctypes.cast(arr, ctypes.c_void_p))
+    j.jack_client_close(c)
+    return out
+
+
+def write_connections(path, conns):
+    """Put connections, by port name, into the project's <ExternalPatchbay> (as Carla saves them)."""
+    from xml.sax.saxutils import escape
+    s = open(path, encoding="utf-8").read()
+    block = " <ExternalPatchbay>\n" + "".join(
+        "  <Connection>\n   <Source>%s</Source>\n   <Target>%s</Target>\n  </Connection>\n" % (escape(a), escape(b))
+        for a, b in conns) + " </ExternalPatchbay>\n"
+    import re
+    if "<ExternalPatchbay>" in s:
+        s = re.sub(r" ?<ExternalPatchbay>.*?</ExternalPatchbay>\n?", block, s, flags=re.S)
+    else:
+        s = s.replace("</CARLA-PROJECT>", block + "</CARLA-PROJECT>")
+    open(path, "w", encoding="utf-8").write(s)
+
+
 def main():
     ap = argparse.ArgumentParser(description="Build a Carla project for Twirl's MIDI voices.")
     ap.add_argument("--out", default=os.path.expanduser("~/twirl-surge.carxp"))
@@ -136,69 +182,77 @@ def main():
         inst = add_drums() if voice == "drums" else add_surge("%s (Surge XT)" % voice.capitalize())
         chain.append((ch, f, inst))
 
-    # Let the patchbay report its clients and ports. In "multi" mode that's the
-    # whole JACK (or PipeWire) graph: every plugin is a client of its own, and so
-    # are Midi Through and the sound card; the connections are saved in the
-    # project and restored when Carla opens it (Alex's first run, 2026-10-25,
-    # showed Carla on JACK opens projects this way, so "patchbay" connections
-    # had to be made again by hand).
-    h.patchbay_refresh(multi)
-    for _ in range(50):
-        h.engine_idle(); time.sleep(0.02)
-
-    def group_of_plugin(pid):
-        name = h.get_plugin_info(pid)["name"]
-        return next((g for g, n in clients.items() if n == name), None)
-
-    def port(group, want_input, kind):
-        for g, pid, hints, name in ports:
-            if g == group and bool(hints & PATCHBAY_PORT_IS_INPUT) == want_input and hints & kind:
-                yield pid, name
-
-    plugin_names = {h.get_plugin_info(i)["name"] for i in range(h.get_current_plugin_count())}
+    made = 0
     if multi:
-        # Midi Through's capture port: "Midi-Bridge:Midi Through: Port-0 (capture)" on
-        # PipeWire, "a2j:Midi Through [14] (capture): Midi Through Port-0" with a2jmidid.
-        midi_src = next(((g, pid) for g, pid, hints, name in ports
-                         if not hints & PATCHBAY_PORT_IS_INPUT and hints & PATCHBAY_PORT_TYPE_MIDI
-                         and ("midi through" in name.lower() or "midi through" in clients.get(g, "").lower())), None)
-        # The speakers: "system" with JACK, the card's name with PipeWire ("CX20632 Analog:playback_FL").
-        cands = [g for g, n in clients.items() if n not in plugin_names and list(port(g, True, PATCHBAY_PORT_TYPE_AUDIO))
-                 and any("playback" in nm.lower() for _, nm in port(g, True, PATCHBAY_PORT_TYPE_AUDIO))]
-        audio_out = next((g for g in cands if clients[g] == "system"), cands[0] if cands else None)
-        midi_in = None
+        # Connections by NAME, written into the project, which Carla restores when
+        # it opens it. (Asking Carla to connect by id failed on a busy PipeWire
+        # graph on Alex's machine, 2026-10-25: "thisPort.group > 0", 2 of 16 made.
+        # Projects saved by hand, connected by name, open wired every time.)
+        for _ in range(30):
+            h.engine_idle(); time.sleep(0.02)
+        jp = jack_ports()
+        names = [h.get_plugin_info(i)["name"] for i in range(h.get_current_plugin_count())]
+        def mine(client, want_input, kind):
+            return [n for n, (inp, k) in jp.items() if n.split(":", 1)[0] == client and inp == want_input and k == kind]
+        src = next((n for n, (inp, k) in jp.items() if not inp and k == "midi" and "midi through" in n.lower()), None)
+        plugin_clients = set(names)
+        cards = sorted({n.split(":", 1)[0] for n, (inp, k) in jp.items() if inp and k == "audio" and "playback" in n.lower()
+                        and n.split(":", 1)[0] not in plugin_clients})
+        card = "system" if "system" in cards else (cards[0] if cards else None)
+        play = sorted(mine(card, True, "audio"))[:2] if card else []
+        conns = []
+        for ch, f, inst in chain:
+            fn, inn = h.get_plugin_info(f)["name"], h.get_plugin_info(inst)["name"]
+            fin, fout = mine(fn, True, "midi"), mine(fn, False, "midi")
+            iin, iout = mine(inn, True, "midi"), sorted(mine(inn, False, "audio"))
+            if src and fin: conns.append((src, fin[0]))
+            if fout and iin: conns.append((fout[0], iin[0]))
+            if play and iout:
+                if len(iout) >= 2: conns += [(iout[0], play[0]), (iout[1], play[-1])]
+                else: conns += [(iout[0], p) for p in play]
+        made = len(conns)
+        if src is None:
+            print("Midi Through wasn't found: connect it to the four 'Ch …' filters' inputs in Carla's patchbay (or qpwgraph), then save.")
+        if not play:
+            print("No sound card playback ports were found: connect the instruments' outputs to your speakers in Carla, then save.")
     else:
-        midi_src = None
+        # One Carla client, its own internal patchbay (connections by id inside Carla).
+        h.patchbay_refresh(False)
+        for _ in range(50):
+            h.engine_idle(); time.sleep(0.02)
+
+        def group_of_plugin(pid):
+            name = h.get_plugin_info(pid)["name"]
+            return next((g for g, n in clients.items() if n == name), None)
+
+        def port(group, want_input, kind):
+            for g, pid, hints, name in ports:
+                if g == group and bool(hints & PATCHBAY_PORT_IS_INPUT) == want_input and hints & kind:
+                    yield pid, name
+
         midi_in = next((g for g, n in clients.items() if n.lower() in ("midi input", "midi in")), None)
         audio_out = next((g for g, n in clients.items() if n.lower() in ("audio output", "audio out")), None)
-    made = 0
-    for ch, f, inst in chain:
-        gf, gi = group_of_plugin(f), group_of_plugin(inst)
-        if gf is not None:
-            if midi_src is not None:
-                for pi, _ in list(port(gf, True, PATCHBAY_PORT_TYPE_MIDI))[:1]:
-                    made += bool(h.patchbay_connect(multi, midi_src[0], midi_src[1], gf, pi))
-            elif midi_in is not None:
+        for ch, f, inst in chain:
+            gf, gi = group_of_plugin(f), group_of_plugin(inst)
+            if midi_in is not None and gf is not None:
                 for (po, _), (pi, _) in zip(port(midi_in, False, PATCHBAY_PORT_TYPE_MIDI), port(gf, True, PATCHBAY_PORT_TYPE_MIDI)):
-                    made += bool(h.patchbay_connect(multi, midi_in, po, gf, pi))
-        if gf is not None and gi is not None:
-            for (po, _), (pi, _) in zip(port(gf, False, PATCHBAY_PORT_TYPE_MIDI), port(gi, True, PATCHBAY_PORT_TYPE_MIDI)):
-                made += bool(h.patchbay_connect(multi, gf, po, gi, pi))
-        if gi is not None and audio_out is not None:
-            outs, ins = list(port(gi, False, PATCHBAY_PORT_TYPE_AUDIO)), list(port(audio_out, True, PATCHBAY_PORT_TYPE_AUDIO))
-            for k, (po, _) in enumerate(outs[:2]):    # the first stereo pair, L→L, R→R (mono to both)
-                for pi, _ in (ins[k:k + 1] if len(outs) > 1 else ins[:2]):
-                    made += bool(h.patchbay_connect(multi, gi, po, audio_out, pi))
-    for _ in range(20):
-        h.engine_idle(); time.sleep(0.02)
-    if multi and midi_src is None:
-        print("Midi Through wasn't found: connect it to the four 'Ch …' filters' inputs in Carla's patchbay (or qpwgraph).")
-    if multi and audio_out is None:
-        print("No sound card playback ports were found: connect the instruments' outputs to your speakers in Carla's patchbay.")
+                    made += bool(h.patchbay_connect(False, midi_in, po, gf, pi))
+            if gf is not None and gi is not None:
+                for (po, _), (pi, _) in zip(port(gf, False, PATCHBAY_PORT_TYPE_MIDI), port(gi, True, PATCHBAY_PORT_TYPE_MIDI)):
+                    made += bool(h.patchbay_connect(False, gf, po, gi, pi))
+            if gi is not None and audio_out is not None:
+                outs, ins = list(port(gi, False, PATCHBAY_PORT_TYPE_AUDIO)), list(port(audio_out, True, PATCHBAY_PORT_TYPE_AUDIO))
+                for k, (po, _) in enumerate(outs[:2]):
+                    for pi, _ in (ins[k:k + 1] if len(outs) > 1 else ins[:2]):
+                        made += bool(h.patchbay_connect(False, gi, po, audio_out, pi))
+        for _ in range(20):
+            h.engine_idle(); time.sleep(0.02)
 
     if not h.save_project(a.out):
         sys.exit("Couldn't save %s: %s" % (a.out, h.get_last_error()))
     h.engine_close()
+    if multi:
+        write_connections(a.out, conns)
     print("Saved %s: %d instruments, %d connections." % (a.out, len(chain), made))
     print("Open it in Carla, pick a patch in each Surge XT, and save.")
     print("in Twirl: Everything → Sound and room → Out: MIDI · Midi Through Port-0.")
