@@ -252,7 +252,7 @@ kick, a noise snare and a hat.
 Alex: "I'm convinced there's a way to generate these patches. Each Twirl
 sound is just a few lines of code and I'm sure Surge makes the same
 parameters available in its patch format." Confirmed from Surge's source
-(`src/common/SurgePatch.cpp`) and its factory patches: a `.fxp` is a 60-byte
+(src/common/SurgePatch.cpp in its repo) and its factory patches: a `.fxp` is a 60-byte
 FXP header (`CcnK`, `FPCh`, id `cjs3`, the chunk's size), then Surge's own
 header (`sub3`, the XML's length, six wavetable sizes, zero without
 wavetables), then plain XML: one element per parameter (558 in *Init FM2*),
