@@ -1460,7 +1460,20 @@ describe.skipIf(!browser)("Twirl · diagnostics for new hardware", () => {
     expect(r.pen.events).toBeGreaterThan(5);
     expect(typeof r.midi === "string" || Array.isArray(r.midi.outputs)).toBe(true);
     expect(r.keys).toContain("skippedNotes");
-    expect(r.keys).toEqual(expect.arrayContaining(["ticksLateMs", "audioDevice"]));
+    expect(r.keys).toEqual(expect.arrayContaining(["ticksLateMs", "audioDevice", "clock"]));
+    await context.close();
+  });
+});
+
+describe.skipIf(!browser)("Twirl · the clock", () => {
+  it("ticks from a Worker (not throttled in the background), and ?clock=main keeps the page's timer", async () => {
+    const { page, context } = await openTwirl(browser);
+    await page.mouse.click(600, 600);
+    await page.waitForTimeout(600);
+    const w = await page.evaluate(() => ({ kind: clockKind, ticked: performance.now() - lastWorkerTick < 200 }));
+    expect(w).toEqual({ kind: "worker", ticked: true });
+    await page.goto(PAGE + "?clock=main"); await page.mouse.click(600, 600); await page.waitForTimeout(400);
+    expect(await page.evaluate(() => [clockKind, lastWorkerTick])).toEqual(["main", 0]);
     await context.close();
   });
 });
