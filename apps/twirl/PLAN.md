@@ -299,12 +299,28 @@ cp -r bin/d_webmeters.lv2 ~/.lv2/ ; mkdir -p ~/.clap && cp -r bin/d_webmeters.cl
       (Serpe's), saved with the project: the host's tempo, its transport (the
       loops and the Drone hold while it's stopped; strokes still sound), its
       beat. Allows for the audio lag; in sound + MIDI, the MIDI waits as
-      long. Measured against Carla's transport: within 0.3–2 ms of the
-      host's beat, at 120 and 140 BPM and after a jump. **In Bitwig** (Alex,
+      long. (The first measure, "within 0.3–2 ms", read single, noisy
+      samples; see the fix below for what holds.) **In Bitwig** (Alex,
       2026-10-26): "it does work across saves and it does catch up with the
       host"; ⇧Q from inside it: 60 fps, 13 loops, 42 notes/s, ticks at most
       24 ms late, no errors. ⇧Q now also reports Follow host transport, the
       host's tempo and transport, and the audio's delay.
+- [x] Two things from Bitwig (Alex, 2026-10-26), fixed:
+      - "while the host is paused, the scene's playheads keep moving… from
+        the host's pace to their internal tempo": stopping held the loops
+        but not Twirl's clock; and a host giving no transport (or no longer
+        calling the plugin) let Twirl run free. Now Twirl's clock stands
+        still while the host is stopped (except while you draw, since a
+        stroke is timed by it), and no transport, or none for 300 ms,
+        counts as stopped. Checked in Carla: the beat stays put for 3 s.
+      - "it sounds like playheads have their own clocks and aren't
+        quantized anymore": following corrected each report's noisy
+        error (±10 ms), moving every note by 2.6 ms on average, 20 times
+        a second (up to 8 ms; 15 ms over 6 s). Now averaged over a second
+        and corrected only past 2 ms: 0.03–0.08 ms on average, 1.6 ms at
+        most, and on the host's beat within 2 ms on average (measured
+        against Carla's transport, 120 BPM).
+      ⇧Q now shows the jumps and the recent offsets.
 - [x] Out defaults to **sound + MIDI** in the plugin (Alex: "it defaults to
       sound only… I need to go to Everything").
 - [ ] A drum map: General MIDI, or Bitwig's drum machine (pads from C1).
