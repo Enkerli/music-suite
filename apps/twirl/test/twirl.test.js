@@ -1489,7 +1489,7 @@ describe.skipIf(!browser)("Twirl · inside the plugin (twirl-dpf)", () => {
     }));
     expect(r.inHost).toBe(true);
     expect(r.out).toBe("host:midi");
-    expect(r.picker).toEqual(["host:sound", "host:midi", "host:both"]);
+    expect(r.picker).toEqual(["host:sound", "host:midi", "host:both", "host:engine", "host:engine+midi"]);
     expect(r.voiced).toBe(0);                                  // the host's instruments make the sound
     expect(r.report).toMatchObject({ out: "host:midi", host: true, followHost: false, holding: false });
     expect(r.batches.length).toBeGreaterThan(1);
@@ -1546,6 +1546,37 @@ describe.skipIf(!browser)("Twirl · inside the plugin (twirl-dpf)", () => {
     expect(r.stampAges[0]).toBeGreaterThanOrEqual(0);
     expect(r.stampAges[1]).toBeLessThan(200);
     expect(r.notes).toBeGreaterThan(0);
+    expect(errors).toEqual([]);
+    await context.close();
+  });
+
+  it("with the sound made in the plugin (route C), sends notes for its engine, and its own sound none", async () => {
+    const { page, context, errors } = await openTwirl(browser, { initScript: dpf });
+    const pick = (v) => page.evaluate((v) => { $("out").value = v; $("out").dispatchEvent(new Event("change")); window.__host.length = 0; }, v);
+    const sent = () => page.evaluate(() => ({
+      voices: window.__host.filter((m) => m.key === "voices").flatMap((m) => m.value.split(";").map((e) => e.split(",").map(Number))),
+      notes: window.__host.filter((m) => m.key === "notes").length, audio: window.__host.filter((m) => m.key === "audio").length,
+      engine: window.__host.filter((m) => m.key === "engine").map((m) => m.value),
+    }));
+    await pick("host:engine");
+    await page.waitForTimeout(1500);
+    let r = await sent();
+    expect(r.voices.length).toBeGreaterThan(3);
+    for (const [t, voice, pack, midi, vel, pan, y] of r.voices) {
+      expect(Number.isFinite(t) && t > 1e12).toBe(true);
+      expect([0, 1, 2, 3, 4]).toContain(voice);
+      expect(pack).toBeGreaterThanOrEqual(0);
+      expect(Number.isFinite(midi)).toBe(true);
+      expect(vel).toBeGreaterThan(0); expect(Math.abs(pan)).toBeLessThanOrEqual(1); expect(y).toBeGreaterThanOrEqual(0);
+    }
+    expect([r.notes, r.audio]).toEqual([0, 0]);                 // no MIDI, nothing streamed
+    await pick("host:engine+midi");
+    await page.evaluate(() => setVolume(0.5));
+    await page.waitForTimeout(1500);
+    r = await sent();
+    expect(r.voices.length).toBeGreaterThan(3);
+    expect(r.notes).toBeGreaterThan(0);
+    expect(r.engine.at(-1)).toBe(`0.5,${await page.evaluate(() => state.bpm)}`);
     expect(errors).toEqual([]);
     await context.close();
   });
