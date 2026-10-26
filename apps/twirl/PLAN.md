@@ -220,6 +220,22 @@ cp -r bin/d_webmeters.lv2 ~/.lv2/ ; mkdir -p ~/.clap && cp -r bin/d_webmeters.cl
 - [ ] The same on Alex's machine, then the LV2 in Carla and the CLAP in
       Bitwig: does the web view appear inside a host, take keyboard focus,
       stay smooth?
+      First try (2026-10-25): the LV2 didn't appear in Carla, and Bitwig
+      showed "ERR_FILE_NOT_FOUND" in the CLAP's window. Two things in DPF,
+      found and patched here:
+      1. `make gen` writes the LV2's `.ttl` files (without them hosts don't
+         see the plugin), and the example's `all:` rule never copies
+         `index.html` into the LV2 bundle (every other format gets it).
+      2. On Linux, DPF installs a CLAP as a folder `X.clap/` holding the file
+         `X.clap` and `resources/`; Bitwig passes the *file's* path, so DPF
+         looked for `X.clap/X.clap/resources/`. Patched to use the file's
+         folder when given a file.
+      With the patch, the LV2 opens in Carla here and its web view runs the
+      page (the first attempt timed out: the web view gets 5 seconds to
+      start, which a cold container can miss). The CLAP fix is untested in
+      Bitwig until Alex tries it. On Alex's machine DPF uses Qt WebEngine
+      (Chromium; it tries Qt 5, then 6, then WebKitGTK); here, WebKitGTK.
+      Both DPF fixes are worth reporting upstream.
 - [ ] A first plugin: `index.html` in the web view, `sendNote` from Twirl,
       MIDI out to a Surge XT in Carla. First light.
 - [ ] The timed path (batches, queue, sample offsets); measure against
