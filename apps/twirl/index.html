@@ -1528,6 +1528,75 @@ window.twirlHost = (h) => {
   diag.hostOff = (diag.hostOff || []).concat(Math.round(e / bps() * 10000) / 10).slice(-40);   // ms, for ⇧Q
 };
 
+// The host's parameters (route C step 5): automatable, shown by the host,
+// saved with its project. In the plugin's order (twirl-dpf TwirlParams.hpp):
+// append only, hosts keep them by number. A choice goes as its place in
+// `list`, a switch as 0 or 1. From the host (twirlParams, {index: value}),
+// each is applied as if its control had moved; the plugin sends them all once
+// the page has loaded and after any restore, so the parameters win over the
+// saved sheet. To the host: what changed here, however it changed (a control,
+// a key, a scene, Start over), checked 20 times a second ("params",
+// "index,value;…"); the plugin tells the host through its window, while open.
+// The tempo isn't reported while Follow host transport is on (it's the host's).
+const HOST_PARAMS = [
+  { id: "vol", key: "volume", set: (v) => setVolume(v) },
+  { id: "bpm", key: "bpm", set: (v) => { if (!hostSync) setTempo(Math.round(v)); } },
+  { id: "syncBtn", get: () => hostSync },
+  { id: "swing", key: "swing" },
+  { id: "warmth", key: "warmth", set: (v) => setWarmth(v) },
+  { id: "air", key: "air" },
+  { id: "droneBtn", key: "drone" },
+  { id: "droneVol", key: "droneVol", set: (v) => setDroneVol(v) },
+  { id: "droneVoicing", key: "droneVoicing", list: ["lowfifth", "fifth", "triad", "open"] },
+  { id: "droneSpace", key: "droneSpace", list: ["still", "drift", "binaural", "rotate"] },
+  { id: "lockBtn", key: "lock" },
+  { id: "walkBtn", key: "walk" },
+  { id: "walkWay", key: "walkWay", list: WALK_WAYS },
+  { id: "walkPace", key: "walkPace", list: [1, 2, 4, 8] },
+  { id: "pack", key: "pack", list: PACK_ORDER },
+  { id: "grid", key: "grid", list: GRIDS.map((g) => g.id) },
+  { id: "root", key: "root", list: ROOTS.map((_, i) => i) },
+  { id: "varyBtn", key: "vary" },
+  { id: "evolveBtn", key: "evolve" },
+  { id: "morphBtn", key: "morph" },
+];
+const isSwitch = (p) => p.id.endsWith("Btn");
+function paramNow(p) {
+  const v = p.get ? p.get() : state[p.key];
+  return p.list ? Math.max(0, p.list.findIndex((x) => String(x) === String(v))) : isSwitch(p) ? (v ? 1 : 0) : Number(v);
+}
+function applyParam(p, v) {
+  const el = $(p.id);
+  if (p.list) {
+    const val = p.list[Math.round(v)];
+    if (val === undefined || String(val) === String(state[p.key])) return;
+    el.value = String(val); el.dispatchEvent(new Event("change"));
+  } else if (isSwitch(p)) {
+    if ((v >= 0.5) !== !!(p.get ? p.get() : state[p.key])) el.click();
+  } else if (p.id !== "bpm" || !hostSync) {
+    el.value = String(v);
+    if (p.set) p.set(v); else state[p.key] = v;
+  }
+}
+const paramsSent = [];
+let paramsLive = false;                                          // until the plugin's first values: nothing to report
+window.twirlParams = (o) => {
+  for (const [i, v] of Object.entries(o)) if (HOST_PARAMS[i]) applyParam(HOST_PARAMS[i], Number(v));
+  HOST_PARAMS.forEach((p, i) => { if (!paramsLive || i in o) paramsSent[i] = paramNow(p); });
+  paramsLive = true;
+};
+function reportParams() {
+  if (!paramsLive) return;
+  const out = [];
+  HOST_PARAMS.forEach((p, i) => {
+    if (p.id === "bpm" && hostSync) return;
+    const v = paramNow(p);
+    if (Math.abs(v - paramsSent[i]) > 1e-6) { paramsSent[i] = v; out.push(`${i},${v}`); }
+  });
+  if (out.length) window.setState("params", out.join(";"));
+}
+if (IN_HOST) setInterval(reportParams, 50);
+
 /* ── 4. Loops: shape, transform, time-scale, temperament ─────────────────── */
 
 /**
