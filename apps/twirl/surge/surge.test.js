@@ -20,7 +20,7 @@ describe("Twirl · Surge XT patches", () => {
       Chip: ["Pluck", "Bell", "Blip", "Kick", "Snare", "Hat", "Shaker"],
       Felt: ["Pluck", "Bell", "Blip"], Steel: ["Pluck", "Bell", "Blip"], Kalimba: ["Pluck", "Bell", "Blip"], Chimes: ["Pluck", "Bell", "Blip"],
     };
-    expect(names).toEqual(Object.entries(packs).flatMap(([p, vs]) => vs.map((v) => `Twirl ${p} ${v}.fxp`)).sort());
+    expect(names).toEqual([...Object.entries(packs).flatMap(([p, vs]) => vs.map((v) => `Twirl ${p} ${v}.fxp`)), "Twirl Drone.fxp"].sort());
   });
 
   it.each(names)("%s is a Surge patch: FXP header, Surge's chunk, its XML", (name) => {
@@ -37,8 +37,8 @@ describe("Twirl · Surge XT patches", () => {
     expect(xml.startsWith('<?xml version="1.0"')).toBe(true);
     expect(xml).toContain(`<meta name="${name.replace(".fxp", "")}" category="Twirl"`);
     expect(xml.trimEnd().endsWith("</patch>")).toBe(true);
-    // the envelopes analog: straight lines in dB
-    expect(xml).toMatch(/<a_env1_mode type="0" value="1" \/>/);
+    // the one-shots' envelopes analog: straight lines in dB (the Drone is held: a swell and a fade)
+    if (name !== "Twirl Drone.fxp") expect(xml).toMatch(/<a_env1_mode type="0" value="1" \/>/);
     // pitches in semitones (Surge's "extended range" would make them octaves)
     expect(xml).not.toMatch(/_pitch [^>]*extend_range="1"/);
   });

@@ -1641,6 +1641,38 @@ describe.skipIf(!browser)("Twirl · inside the plugin (twirl-dpf)", () => {
     await context.close();
   });
 
+  it("sends the Drone on channel 4: held notes, changed as its chord moves, ended with it", async () => {
+    const { page, context, errors } = await openTwirl(browser, { initScript: dpf });
+    await page.evaluate(() => { $("out").value = "host:midi"; $("out").dispatchEvent(new Event("change")); });
+    const drone = () => page.evaluate(() => window.__host.filter((m) => m.key === "notes")
+      .flatMap((m) => m.value.split(";").map((e) => e.split(",").map(Number)))
+      .filter(([, st]) => (st & 0x0f) === 3).map(([, st, note, vel]) => [st & 0xf0, note, vel]));
+    const held = (evs) => { const h = new Set(); for (const [st, n] of evs) st === 0x90 ? h.add(n) : h.delete(n); return [...h].sort((a, b) => a - b); };
+    await page.evaluate(() => { state.root = 0; $("droneBtn").click(); });
+    await page.waitForTimeout(100);
+    const on = await drone();
+    expect(on.every(([st]) => st === 0x90)).toBe(true);
+    expect(held(on)).toEqual(await page.evaluate(() => drone.voices.map((v) => Math.round(midiForDegree(harmonyAt(nowBeat()).shift + v.deg + stepCount()) - 24)).sort((a, b) => a - b)));
+    expect(on[0][2]).toBe(Math.round(127 * 0.3));                  // velocity from its level
+    // The root moves up a tone: the old notes go, the new come (none sent twice).
+    await page.evaluate(() => { $("root").value = "2"; $("root").dispatchEvent(new Event("change")); });
+    await page.waitForTimeout(100);
+    const moved = await drone();
+    expect(held(moved)).toEqual(held(on).map((n) => n + 2));
+    expect(moved.length).toBe(on.length * 3);                       // each note: on, off, and its new one on
+    // Off: nothing held.
+    await page.evaluate(() => $("droneBtn").click());
+    await page.waitForTimeout(100);
+    expect(held(await drone())).toEqual([]);
+    // Out without MIDI: the Drone sends nothing.
+    await page.evaluate(() => { $("out").value = "host:engine"; $("out").dispatchEvent(new Event("change")); $("droneBtn").click(); });
+    const before = (await drone()).length;
+    await page.waitForTimeout(100);
+    expect((await drone()).length).toBe(before);
+    expect(errors).toEqual([]);
+    await context.close();
+  });
+
   it("takes the host's parameters as if its controls moved, and reports its own changes", async () => {
     const { page, context, errors } = await openTwirl(browser, { initScript: dpf });
     const params = () => page.evaluate(() => window.__host.filter((m) => m.key === "params").map((m) => m.value));

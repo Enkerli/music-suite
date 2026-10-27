@@ -166,7 +166,7 @@ def fit(pack, patch, start, rounds=6):
 
 def main():
     todo = []
-    for arg in sys.argv[1:] or list(mp.PATCHES):
+    for arg in sys.argv[1:] or [p for p in mp.PATCHES if p]:   # not "": the Drone, made by hand
         pack, _, name = arg.partition("/")
         todo += [(pack, name)] if name else [(pack, n) for n in mp.PATCHES[pack]]
     path = HERE / "fitted.json"

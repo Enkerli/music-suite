@@ -187,8 +187,9 @@ In browsers with Web MIDI (Chrome, Edge and other Chromium browsers,
 including on Linux), an **Out** picker appears at the Everything level:
 send Twirl's notes to a synth, a DAW or hardware, with or without Twirl's
 own sound. Plucks go out on channel 1, bells on 2, blips on 3, drums and
-the shaker on 10 (General MIDI drum notes). Microtonal pitches are rounded
-to the nearest semitone for now. Safari has no Web MIDI; a plugin version
+the shaker on 10 (General MIDI drum notes), and the Drone on 4: its notes
+held while it plays, changing as Walk moves them, louder with its level.
+Microtonal pitches are rounded to the nearest semitone for now. Safari has no Web MIDI; a plugin version
 is on the [roadmap](https://github.com/Enkerli/music-suite/blob/main/apps/twirl/ROADMAP.md).
 
 ## Behind it

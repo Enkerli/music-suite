@@ -1360,7 +1360,7 @@ const voiceFn = (voice, pack) => (PACKS[pack || state.pack] || VOICES)[voice] ||
 // plugin writes each at its sample offset. "panic" ends what's sounding.
 
 let midiAccess = null;
-const MIDI_CH = { pluck: 0, bell: 1, blip: 2, drum: 9, shake: 9 };
+const MIDI_CH = { pluck: 0, bell: 1, blip: 2, drum: 9, shake: 9 };   // and the Drone on 4 (DRONE_CH, below)
 const GM_DRUM = { kick: 36, snare: 38, hat: 42 };
 
 async function initMidi() {
@@ -1432,9 +1432,15 @@ function toHost(at, status, note, vel) {
   if (!hostBatch.length) queueMicrotask(() => { window.setState("notes", hostBatch.join(";")); hostBatch = []; });
   hostBatch.push(`${(performance.timeOrigin + at).toFixed(1)},${status},${note},${vel}`);
 }
+/** Where Out sends MIDI now: "host" (in the plugin), a Web MIDI port, or null (no MIDI). */
+function midiTarget() {
+  if (IN_HOST) return state.out === "host:midi" || state.out === "host:engine+midi" ? "host" : null;
+  if (!midiAccess || state.out === "sound") return null;
+  return midiAccess.outputs.get(state.out.split(":").slice(1).join(":")) || null;
+}
 function sendMidi(voice, midi, vel, t, yN) {
-  const port = IN_HOST || !midiAccess || state.out === "sound" ? null : midiAccess.outputs.get(state.out.split(":").slice(1).join(":"));
-  if (!(IN_HOST ? state.out === "host:midi" || state.out === "host:engine+midi" : port)) return;
+  const port = midiTarget();
+  if (!port) return;
   const ch = MIDI_CH[voice];
   const note = voice === "shake" ? 70 : voice === "drum" ? GM_DRUM[drumKind(yN)]
              : Math.max(0, Math.min(127, Math.round(midi + (voice === "pluck" ? 0 : 12))));
@@ -1447,6 +1453,34 @@ function sendMidi(voice, midi, vel, t, yN) {
     diag.midiSent++; diag.midiLast = { ch: ch + 1, note, vel: v, voice, inMs: Math.round(at - performance.now()) };
   } catch (_) { /* port went away */ }
 }
+// The Drone on MIDI channel 4, for a pad on the other end (Twirl Drone, in
+// apps/twirl/surge): its notes held while it plays, an octave under the
+// sheet's middle as it sounds; when Walk (or the scale, root, voicing…)
+// moves them, offs for the notes that go and ons for the ones that come,
+// shared ones held. Velocity from its level (127 at the top; a new level is
+// heard from the next change: held notes keep theirs). Microtonal grids round
+// to the nearest note. It ends when the Drone does (and when the host's
+// transport stops, with Follow host transport, as its sound rests), when Out
+// stops including MIDI, and when the page goes.
+const DRONE_CH = 3;
+let droneMidiHeld = [], droneMidiTo = null;
+function droneMidiSend(to, status, note, vel) {
+  try {
+    if (to === "host") toHost(performance.now(), status, note, vel);
+    else if (to) to.send([status, note, vel]);
+  } catch (_) { /* port went away */ }
+}
+function droneMidi(shift = 0) {
+  const to = midiTarget();
+  const want = to && drone ? [...new Set(drone.voices.map((v) =>
+    Math.max(0, Math.min(127, Math.round(midiForDegree(shift + v.deg + stepCount()) - 24)))))] : [];
+  const keep = to === droneMidiTo ? droneMidiHeld.filter((n) => want.includes(n)) : [];
+  const vel = Math.max(1, Math.min(127, Math.round(127 * (state.droneVol ?? 0.3))));
+  for (const n of droneMidiHeld) if (!keep.includes(n)) droneMidiSend(droneMidiTo, 0x80 | DRONE_CH, n, 0);
+  for (const n of want) if (!keep.includes(n)) droneMidiSend(to, 0x90 | DRONE_CH, n, vel);
+  droneMidiHeld = want; droneMidiTo = want.length ? to : null;
+}
+addEventListener("pagehide", () => { if (!IN_HOST) { const d = drone; drone = null; droneMidi(); drone = d; } });
 
 /* ── 3d. Inside the plugin: saved with the project, following the host ──── */
 // The plugin keeps this page running whether its window is open or not, and
@@ -2858,7 +2892,7 @@ function setDrone(on) {
     if (d.g) d.g.gain.setTargetAtTime(0.0001, ctx.currentTime, 0.3);
     d.oscs.forEach((o) => o.stop(ctx.currentTime + 2));
   }
-  if (!on) { sendDrone(); return; }
+  if (!on) { sendDrone(); droneMidi(); return; }
   const n = stepCount(), fifth = Math.max(1, Math.round((n * 4) / 7)), now = ctx.currentTime;
   const degs = (DRONE_VOICINGS[state.droneVoicing] || DRONE_VOICINGS.fifth)(n, fifth);
   const sp = DRONE_SPACES[state.droneSpace] || DRONE_SPACES.drift;
@@ -2911,6 +2945,7 @@ function updateDrone(b, force = false) {
   if (key === drone.key && !force) return;
   drone.key = key;
   sendDrone();                                      // the plugin's engine plays it too (route C)
+  droneMidi(shift);                                 // and MIDI, when Out includes it
   for (const v of drone.voices) {
     const f = mtof(midiForDegree(shift + v.deg + stepCount()) - 24);   // an octave under the sheet's middle
     v.pair.forEach((o, j) => o.frequency.setTargetAtTime(f + (j ? 1 : -1) * drone.split / 2, ctx.currentTime, 0.4));   // binaural: left and right apart
@@ -4741,7 +4776,7 @@ $("range").addEventListener("change", (e) => { state.range = Number(e.target.val
 $("spread").addEventListener("change", (e) => { state.spread = e.target.value; toast(state.spread === "register" ? "Spacing by register: notes further apart low down, closer up high" : "Even spacing: every step of the scale one row"); });
 $("div").addEventListener("change", (e) => { state.div = e.target.value; loops.forEach((lp) => retime(lp, tsForSize(lp.s))); });
 $("pen").addEventListener("change", (e) => { state.pen = e.target.value; });
-$("out").addEventListener("change", (e) => { state.out = e.target.value; sendEngine(); savePage(); });
+$("out").addEventListener("change", (e) => { state.out = e.target.value; sendEngine(); savePage(); if (drone) updateDrone(nowBeat(), true); else droneMidi(); });
 
 function toggle(id, key, after) {
   $(id).addEventListener("click", () => {
@@ -5596,7 +5631,7 @@ $("initBtn").addEventListener("click", () => {
   const scene = serialize(), view = { level, numbers: showNumbers, edit: state.edit };
   closeInspector(); closeShelf(); select(null);
   [...loops].forEach(eraseLoop);
-  if (IN_HOST) window.setState("panic", "1");
+  if (IN_HOST) { window.setState("panic", "1"); droneMidiHeld = []; droneMidiTo = null; }   // the plugin ended them all
   if (state.edit) $("editBtn").click();
   const { volume, out, edit, ...defaults } = STATE_DEFAULTS;
   applySettings(defaults);

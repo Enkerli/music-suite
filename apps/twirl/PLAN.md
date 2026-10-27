@@ -54,7 +54,8 @@ Pages URL. Twirl needs nothing installed; the synth does.
 
 What Twirl sends today (`sendMidi` in `index.html`): **pluck → channel 1,
 bell → 2, blip → 3, drums and shaker → 10** (General MIDI: kick 36, snare 38,
-hat 42, shaker 70). Pitched notes: the note as heard (bell and blip an octave
+hat 42, shaker 70); and (2026-10-26, `droneMidi`) **the Drone → 4**, held
+notes that change as Walk moves them. Pitched notes: the note as heard (bell and blip an octave
 up); fixed lengths (drum 80 ms, pluck and blip 220, bell 600); velocity from
 loudness. No CCs, no pitch bend yet.
 
