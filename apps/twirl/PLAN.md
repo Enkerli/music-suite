@@ -605,6 +605,25 @@ differs from the plan below:
   where, with a field for corrections and a tick; corrections go back into
   fr.json.
 
+**The review, reordered** (Alex, 2026-10-27, after ticking 258 of 773: one
+long list of strings mixes repeats, fragments cut by the code, and terms
+without context). Now: **terms first**, then broad questions, then strings
+by screen with options. It runs on standard formats and open tools, and
+it's built to reuse in other apps (`tools/i18n/`, with a README):
+- [x] The terms as TBX-Basic: `apps/twirl/i18n/terms.tbx`, 99 concepts
+      with a definition, the draft French, alternatives, and the forms to
+      find each by. `tools/i18n/concord.mjs` checks them against the strings:
+      914 uses, 40 whose French strays (*tracer* for *dessiner*, *direction*
+      for *sens*, *temps* for *pulsations*…).
+- [x] A terms page (an artifact), most-used first, with a choice of
+      French, a note, a settled tick, links to Termium Plus, the Vitrine
+      linguistique and Wiktionnaire, every string using each term, and the
+      questions that span terms (verbs or nouns for the switches: Alex made
+      Vary *Varier*; words used twice: *puce*, *temps*, *niveau*, *espace*).
+- [ ] Settled terms go back into terms.tbx, then the strings that use them.
+- [ ] The strings as XLIFF, each a whole message with an id, a note and a
+      screenshot, so the code's fragments stop. The 258 approved go in a TMX.
+
 ### 2a. The table (Claude, mechanical)
 
 - [x] A script (to write: tools/twirl-strings.mjs) that lists every user-facing
