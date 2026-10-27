@@ -21,6 +21,15 @@ Each is *Twirl <pack> <voice>*. A pack only has the voices it changes;
 where it has none, Twirl plays Paper's (or, for Steel's and Kalimba's
 drums, Mallets').
 
+**Twirl Drone**, for every pack: Twirl sends the Drone on channel 4 as held
+notes, changing as Walk moves them, with its level as velocity. The patch
+is Twirl's pad: two saws a note, 12 cents apart, one left and one right,
+through a lowpass that breathes slowly, drifting across, a hint of tape
+wobble, a 2-second swell and fade. It's made by hand from Twirl's recipe,
+not fitted; its level was measured against Twirl's own Drone (within
+0.2 dB at the default level and at the top). The Drone's *space*
+(binaural, rotating) and Warmth's wobble stay Twirl's own.
+
 ## Using them
 
 Copy `patches/*.fxp` into Surge XT's user patches, in a folder of their own:

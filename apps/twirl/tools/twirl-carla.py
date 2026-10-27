@@ -16,8 +16,9 @@ as a .carxp project you open in Carla:
 
     Midi Through ─┬─ Ch 1  → Surge XT (pluck) ─┐
                   ├─ Ch 2  → Surge XT (bell)  ─┤
-                  ├─ Ch 3  → Surge XT (blip)  ─┼─ speakers
-                  └─ Ch 10 → GM drums (SF2)   ─┘   (or a fourth Surge XT)
+                  ├─ Ch 3  → Surge XT (blip)  ─┤
+                  ├─ Ch 4  → Surge XT (drone) ─┼─ speakers
+                  └─ Ch 10 → GM drums (SF2)   ─┘   (or another Surge XT)
 
 It runs on YOUR machine, so it finds your own Surge XT (VST3 or LV2) and,
 for the drums, a General MIDI soundfont if one is installed
@@ -29,13 +30,13 @@ provides (run the script through `pw-jack` if Carla can't find JACK).
     python3 twirl-carla.py                       # writes ~/twirl-surge.carxp
     pw-jack python3 twirl-carla.py --out my.carxp
     python3 twirl-carla.py --surge "/path/to/Surge XT.vst3"
-    python3 twirl-carla.py --drums surge         # a fourth Surge XT for drums
+    python3 twirl-carla.py --drums surge         # another Surge XT for drums
     python3 twirl-carla.py --patches none        # Surge XT's own default sound
     python3 twirl-carla.py --pack Kalimba        # Twirl's Kalimba sounds (Paper's by default)
 
-Twirl's own sounds go into the pluck, bell and blip Surge XTs when its
+Twirl's own sounds go into the pluck, bell, blip and drone Surge XTs when its
 patches are found (../surge/patches: Twirl Paper Pluck, Bell, Blip, or
-another pack's; the VST3 only). The drum patches are one per drum, for a drum machine's pads, so
+another pack's, and Twirl Drone; the VST3 only). The drum patches are one per drum, for a drum machine's pads, so
 channel 10 stays on the soundfont here.
 
 Then: open the project in Carla (change a Surge XT's patch in its editor:
@@ -61,7 +62,7 @@ try:
 except ImportError:
     sys.exit("Carla's Python files aren't in %s: install Carla (sudo apt install carla)." % RES)
 
-VOICES = [(1, "pluck"), (2, "bell"), (3, "blip"), (10, "drums")]
+VOICES = [(1, "pluck"), (2, "bell"), (3, "blip"), (4, "drone"), (10, "drums")]
 SURGE_VST3 = ["/usr/lib/vst3/Surge XT.vst3", "/usr/local/lib/vst3/Surge XT.vst3",
               os.path.expanduser("~/.vst3/Surge XT.vst3")]
 SURGE_LV2_URIS = ["https://surge-synthesizer.github.io/lv2/surge-xt"]
@@ -206,12 +207,13 @@ def main():
             if pid is not None:
                 return pid
             print("Couldn't load %s (%s)." % (sf2, h.get_last_error()))
-        print("No General MIDI soundfont (sudo apt install fluid-soundfont-gm): using a fourth Surge XT for drums.")
+        print("No General MIDI soundfont (sudo apt install fluid-soundfont-gm): using another Surge XT for drums.")
         return add_surge("Drums (Surge XT)")
 
     loaded = []
     def load_patch(pid, voice):
-        path = os.path.join(a.patches, "Twirl %s %s.fxp" % (a.pack.capitalize(), voice.capitalize()))
+        name = "Twirl Drone" if voice == "drone" else "Twirl %s %s" % (a.pack.capitalize(), voice.capitalize())   # the Drone: every pack's
+        path = os.path.join(a.patches, name + ".fxp")
         if a.stand_in or a.patches == "none" or not os.path.exists(path):
             return
         for _ in range(20):
@@ -268,7 +270,7 @@ def main():
                 else: conns += [(iout[0], p) for p in play]
         made = len(conns)
         if src is None:
-            print("Midi Through wasn't found: connect it to the four 'Ch …' filters' inputs in Carla's patchbay (or qpwgraph), then save.")
+            print("Midi Through wasn't found: connect it to the five 'Ch …' filters' inputs in Carla's patchbay (or qpwgraph), then save.")
         if not play:
             print("No sound card playback ports were found: connect the instruments' outputs to your speakers in Carla, then save.")
     else:
