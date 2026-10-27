@@ -19,8 +19,11 @@ describe("Twirl · Surge XT patches", () => {
       Mallets: ["Pluck", "Bell", "Blip", "Kick", "Snare", "Hat"],        // its drums are also Steel's and Kalimba's
       Chip: ["Pluck", "Bell", "Blip", "Kick", "Snare", "Hat", "Shaker"],
       Felt: ["Pluck", "Bell", "Blip"], Steel: ["Pluck", "Bell", "Blip"], Kalimba: ["Pluck", "Bell", "Blip"], Chimes: ["Pluck", "Bell", "Blip"],
+      "Music box": ["Pluck", "Bell", "Blip"], Foley: ["Pluck", "Bell", "Blip", "Kick", "Snare", "Hat"],
     };
-    expect(names).toEqual([...Object.entries(packs).flatMap(([p, vs]) => vs.map((v) => `Twirl ${p} ${v}.fxp`)), "Twirl Drone.fxp"].sort());
+    const shakers = ["Maraca", "Cabasa", "Tambourine", "Rainstick"];   // a loop's own, in any pack; the egg is Paper's Shaker
+    expect(names).toEqual([...Object.entries(packs).flatMap(([p, vs]) => vs.map((v) => `Twirl ${p} ${v}.fxp`)),
+      ...shakers.map((k) => `Twirl ${k}.fxp`), "Twirl Drone.fxp"].sort());
   });
 
   it.each(names)("%s is a Surge patch: FXP header, Surge's chunk, its XML", (name) => {

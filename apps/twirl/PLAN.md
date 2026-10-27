@@ -562,6 +562,26 @@ points.
       instead of fitting it, so level no longer fights shape: Felt went
       from 5 to 2.4, Paper's kick from 3.5 to 1.9; all 32 refitted (scores
       1.1 to 3.7, in fitted.json). `twirl-carla.py --pack` loads any pack's.
+- [x] Music box, Foley and the shakers (Alex, 2026-10-27: "Surge XT
+      patches from these"). **Done (2026-10-27):** 13 more: Music box's
+      three (the tine's partials, its scenes an octave up, as its 6.27 is
+      past an oscillator's reach), Foley's six (the duck a square bending
+      up; the spoon's board an untuned snare; the pot lid struck partials
+      at 520 Hz whatever the note), and the four new shakers, *Twirl
+      Maraca*, *Cabasa*, *Tambourine*, *Rainstick* (any pack's: a loop's
+      own). Scores: Music box 1.2 to 1.3; Foley 1.2 to 3.8, its snare 5.2
+      (brightness 5 semitones off); maraca and cabasa 5.4 to 5.6, the
+      tambourine 2.8: their grains fall at random in Twirl, so 10 ms frames
+      meet a grain against a gap. The rain stick's grains outlast Twirl's
+      80 ms note and Surge ends an LFO's envelope at the note-off, so it's a
+      falling saw LFO, a grain every 45 ms, fading after the note; fitted on
+      50 ms frames (9.5), it follows Twirl within a few dB for 0.4 s, then
+      tails off over 0.2 s where Twirl's stops.
+      On the way, Alex: "make some of these shakers more audible": the
+      cabasa, tambourine and rain stick were 2 to 4 dB quieter than the egg
+      at their loudest; each kind now has a level (1.5, 1.8, 1.6), in the
+      page and the plugin, and a test keeps every kind within a dB of the
+      egg or louder.
 
 ---
 

@@ -201,19 +201,27 @@ def layered(x):
     return setp(x, "scenemode", 2)
 
 
-def struck(ratios, semis=0.0, attack=0.003, click=False):
+def struck(ratios, semis=0.0, attack=0.003, click=False, hz=None):
     """A struck tone from partials (Twirl's partials()): a sine each, at `ratios` times the note
-    (`semis` above it). The first in each scene has the scene's amp envelope (its decay "d{i}");
-    the others an LFO envelope each, under it (level "l{i}", decay "d{i}"). Three a scene,
-    so up to six. Each partial's level and decay are fitted; the first's level is the patch's."""
+    (`semis` above it), or times `hz` whatever the note. The first in each scene has the scene's
+    amp envelope (its decay "d{i}"); the others an LFO envelope each, under it (level "l{i}",
+    decay "d{i}"). Three a scene, so up to six. Each partial's level and decay are fitted; the
+    first's level is the patch's. Partials past an oscillator's reach (three octaves and 7
+    semitones) take the scenes up an octave (Music box's tines)."""
     def make(v):
         n = len(ratios)
         x = layered(SINE) if n > 3 else SINE
         scenes = "ab"[:(n + 2) // 3]
+        base = 12 * L2(hz / C4) if hz else semis
+        up = 1 if base + 12 * L2(max(ratios)) > 43 else 0
+        for sc in scenes:
+            x = setp(x, f"{sc}_octave", up)
         for i, r in enumerate(ratios):
             sc, osc = scenes[i // 3], i % 3 + 1
             x = setp(x, f"{sc}_osc{osc}_type", 1)
-            x = tune(x, sc, osc, semis + 12 * L2(r))
+            if hz:
+                x = setp(x, f"{sc}_osc{osc}_keytrack", 0)
+            x = tune(x, sc, osc, base - 12 * up + 12 * L2(r))
             x = setp(x, f"{sc}_mute_o{osc}", 0)
             if osc == 1:
                 x = setp(x, f"{sc}_level_o1", v.get(f"l{i}", 1.0))
@@ -243,8 +251,8 @@ def struck_spec(partials, click=False):
     return spec
 
 
-def partials_patch(partials, semis=0.0, attack=0.003, click=False, what=""):
-    return (struck([r for r, _, _ in partials], semis, attack, click), what, struck_spec(partials, click))
+def partials_patch(partials, semis=0.0, attack=0.003, click=False, what="", hz=None):
+    return (struck([r for r, _, _ in partials], semis, attack, click, hz), what, struck_spec(partials, click))
 
 
 def vibes(v):
@@ -342,6 +350,95 @@ def felt(v):
     return common(env2(x, v["d2"]), v, 0.012)
 
 
+def squeak(v):
+    """A square bending up through its note, from 0.8 to 1.15 times it (Foley's blip, a rubber duck):
+    the filter envelope's fall ("d2") lets the pitch up by "bend" semitones."""
+    x = setp(SAW, "a_osc1_param0", -1.0)
+    x = setp(x, "a_osc1_pitch", 12 * L2(1.15), mods=[(FILTEG, -v["bend"])])
+    return common(env2(x, v["d2"]), v, 0.01)
+
+
+def board(hz):
+    """Noise through a bandpass, and a shorter triangle at one pitch whatever the note
+    (Foley's snare, a wooden spoon on a board): Paper's snare, untuned."""
+    def make(v):
+        x = setp(SINE, "a_mute_noise", 0)
+        x = setp(x, "a_level_noise", v["noise"])
+        x = setp(x, "a_osc1_type", 8)
+        for k, val in enumerate((0.0, 0.0, 1.0)):
+            x = setp(x, f"a_osc1_param{k}", val)
+        x = setp(x, "a_osc1_keytrack", 0)
+        x = tune(x, "a", 1, 12 * L2(hz / C4))
+        x = setp(x, "a_level_o1", 0.0, mods=[(FILTEG, v["tone"])])
+        x = setp(x, "a_filter1_type", 6)
+        x = setp(x, "a_filter1_cutoff", v["cut"])
+        x = setp(x, "a_filter1_resonance", v["res"])
+        x = setp(x, "a_filter1_keytrack", 0.0)
+        return common(env2(x, v["d2"]), v, 0.001)
+    return make
+
+
+# Twirl's SHAKERS (index.html, section 3), the egg's aside (Paper's Shaker): their grains
+# (when, loudness), bandpass at the middle of the sheet (base + span / 2), highpass, decay
+# at velocity 0.8, and the General MIDI note Twirl sends for each.
+SHAKER_KINDS = {
+    "Maraca": ([(0, 1), (0.018, 0.55), (0.031, 0.25)], 6200, 2500, 0.07, 70),
+    "Cabasa": ([(0, 0.6), (0.014, 1), (0.028, 0.8), (0.044, 0.45)], 8000, 4000, 0.059, 69),
+    "Tambourine": ([(0, 1), (0.007, 0.7), (0.019, 0.45)], 8250, 3000, 0.2, 54),
+    "Rainstick": ([(i * 0.045, 1 - i * 0.075) for i in range(10)], 4200, 1500, 0.074, 82),
+}
+
+
+def beads(kind):
+    """A shaker's grains: noise through a bandpass and a highpass, its level the sum of an LFO
+    envelope a grain, each waiting its turn; the amp envelope just holds. The grains' decay
+    ("d1") and the bandpass ("cut", "res") are fitted. Only for grains within Twirl's 80 ms
+    note: Surge ends an LFO's envelope at the note-off, even one still waiting (see rain())."""
+    grains, _, hp, _, _ = SHAKER_KINDS[kind]
+    def make(v):
+        x = rattle(SINE, v, hp)
+        x = setp(x, "a_level_noise", 0.0, mods=[(LFO + k, amp) for k, (_, amp) in enumerate(grains)])
+        for k, (dt, _) in enumerate(grains):
+            x = lfo_env(x, "a", k, 0.001, v["d1"], delay=dt or None)    # Twirl's 7 ms: Surge's levels are cubed, slower to rise
+        return setp(common(x, v, 0.001, decays=[1.0]), "a_env1_sustain", 1.0)
+    return make
+
+
+def rain(v):
+    """The rain stick: its grains come for 0.45 s, past Twirl's note, so they're one LFO's
+    falling saw, a grain every 45 ms, bent ("deform": below 0, each falls sooner, a sharper
+    grain), whose envelope holds while the note does, then fades ("fade", log2 s)."""
+    x = rattle(SINE, v, SHAKER_KINDS["Rainstick"][2])
+    x = setp(x, "a_level_noise", 0.0, mods=[(LFO, 1.0)])
+    x = setp(x, "a_lfo0_shape", 3)
+    x = setp(x, "a_lfo0_unipolar", 1)
+    x = setp(x, "a_lfo0_rate", L2(1 / 0.045))
+    x = setp(x, "a_lfo0_deform", v["deform"])
+    x = setp(x, "a_lfo0_attack", L2(0.007))
+    x = setp(x, "a_lfo0_release", v["fade"])
+    return setp(common(x, v, 0.001, decays=[1.0]), "a_env1_sustain", 1.0)
+
+
+def rattle(x, v, hp):
+    """Noise only, through a bandpass ("cut", "res") and a highpass at `hp`."""
+    x = noise_only(x)
+    x = setp(x, "a_filter1_type", 6)
+    x = setp(x, "a_filter1_cutoff", v["cut"])
+    x = setp(x, "a_filter1_resonance", v["res"])
+    x = setp(x, "a_filter1_keytrack", 0.0)
+    x = setp(x, "a_filter2_type", 4)
+    x = setp(x, "a_filter2_cutoff", 12 * L2(hp / 440))
+    return setp(x, "a_filter2_keytrack", 0.0)
+
+
+def beads_spec(kind):
+    _, bp, _, decay, _ = SHAKER_KINDS[kind]
+    spec = {"cut": [12 * L2(bp / 440), 3, 0, 70], "res": [0.3, 0.15, 0, 0.95], "vol": [-6, 3, -30, 24]}
+    if kind == "Rainstick":
+        return dict(spec, fade=[L2(0.8), 0.5, -4, 1.5], deform=[-0.8, 0.2, -1, 0])
+    return dict(spec, d1=[round(L2(decay) - 0.94, 3), 0.5, -9, 0])
+
+
 def drone_pad(v):
     """Twirl's Drone (index.html, section 8), for its notes on channel 4, held: each note two saws
     12 cents apart, one in each scene, one left and one right; through a lowpass near 800 Hz
@@ -367,6 +464,7 @@ def drone_pad(v):
 
 
 DRUM = "channel 10, note {}), for a drum machine's pad"
+TINE = [(1, 0.2, 1.6), (2, 0.025, 0.5), (6.27, 0.05, 0.12)]      # Twirl's tine(), less its faint 17.55 (past Surge's reach)
 PLUCK, BELL, BLIP = "Twirl's pluck (channel 1)", "Twirl's bell (channel 2)", "Twirl's blip (channel 3)"
 FELT = {"l1": [1.0, 0.15, 0, 1], "cut": [12 * L2(400 / 440), 4, -30, 40], "env": [20, 4, 0, 60], "venv": [10, 4, -30, 40],
         "d2": [-0.8, 0.5, -6, 2], "d1": [-0.6, 0.5, -6, 3], "vol": [-6, 3, -30, 24]}
@@ -440,6 +538,29 @@ PATCHES = {
                                0, 0.002, what="Chimes' bell, a wind chime (channel 2)"),
         "Blip": partials_patch([(1, 0.07, 1.2), (2.756, 0.025, 0.5)], 12, 0.001, what="Chimes' blip, a tiny chime (channel 3)"),
     },
+    "Music box": {
+        "Pluck": partials_patch(TINE, 12, 0.001, click=True, what="Music box's pluck, a comb's tine, an octave up (channel 1)"),
+        "Bell": partials_patch(TINE, 12, 0.001, click=True, what="Music box's bell, the same tine, softer (channel 2)"),
+        "Blip": partials_patch([(1, 0.1, 0.35), (6.27, 0.03, 0.03)], 12, 0.001, what="Music box's blip (channel 3)"),
+    },
+    "Foley": {
+        "Pluck": partials_patch([(1, 0.16, 1.1), (2.76, 0.07, 0.45), (5.4, 0.035, 0.18), (8.93, 0.015, 0.07)], 0, 0.001, click=True,
+                                what="Foley's pluck, a struck metal tube (channel 1)"),
+        "Bell": partials_patch([(1, 0.09, 0.9), (2.32, 0.04, 0.35), (4.25, 0.02, 0.12)], 12, 0.001, click=True,
+                               what="Foley's bell, a glass tapped with a spoon (channel 2)"),
+        "Blip": (squeak, "Foley's blip, a rubber duck (channel 3)",
+                 {"bend": [12 * L2(1.15 / 0.8), 1, 0, 14], "d2": [-4.8, 0.5, -9, 0], "d1": [-3.8, 0.5, -8, 1], "vol": [-6, 3, -30, 24]}),
+        "Kick": (sine_drop(12 * L2(55 / C4), keytrack=0), "Foley's kick, a rubber mallet on a pot (" + DRUM.format(36),
+                 {"drop": [12 * L2(120 / 55), 2, 0, 30], "d2": [-5.3, 0.5, -10, -1], "d1": [-3.6, 0.5, -8, 0], "vol": [-6, 3, -30, 24]}),
+        "Snare": (board(420), "Foley's snare, a wooden spoon on a board (" + DRUM.format(38),
+                  {"noise": [0.7, 0.2, 0, 1], "tone": [0.5, 0.2, 0, 1], "cut": [12 * L2(1100 / 440), 3, -20, 50], "res": [0.3, 0.15, 0, 0.9],
+                   "d2": [-5.5, 0.5, -9, 0], "d1": [-5.0, 0.5, -9, 0], "vol": [-6, 3, -30, 24]}),
+        "Hat": partials_patch([(1, 0.08, 0.6), (1.59, 0.07, 0.5), (2.14, 0.06, 0.4), (2.65, 0.05, 0.3), (3.16, 0.04, 0.25)], 0, 0.001,
+                              click=True, hz=520, what="Foley's hat, a pot lid (" + DRUM.format(42)),
+    },
+    # the shakers a loop can have (its settings), in every pack but Chip; the egg is Paper's Shaker
+    "Shakers": {k: (rain if k == "Rainstick" else beads(k), f"Twirl's {k.lower()} (" + DRUM.format(note), beads_spec(k))
+                for k, (_, _, _, _, note) in SHAKER_KINDS.items()},
 }
 
 
@@ -456,7 +577,7 @@ def build(pack, name, values=None):
 
 
 def title(pack, name):
-    return " ".join(w for w in ("Twirl", pack, name) if w)
+    return " ".join(w for w in ("Twirl", pack, name) if w and w != "Shakers")
 
 
 def main():
