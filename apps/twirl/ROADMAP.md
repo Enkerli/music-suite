@@ -118,7 +118,7 @@ time, notes taken by Claude, decisions written back here):
 6. **Out of the page**: the plugin shell, multi-out, CCs and MIDI learn, a
    voice pool, generative accompaniment, performance animation, pitch
    geometries.
-7. **Sounds and toys**: a music box, a Foley kit, more shakers, audio in.
+7. **Sounds and toys**: audio in (the music box, Foley and shakers are in, 2026-10-27; their next steps come from listening).
 
 ### Later
 
@@ -230,12 +230,15 @@ loops on touch or selection." The Pen palette is the model.
 - **Vary, next**: per-pack nuance; nuance fed by pressure and terrain.
   (Accents from the beat shipped 2026-10-27: Barlow over a loop's own cycle
   or the bar, or a UPI pattern over its notes; louder, brighter, longer.)
-- **A music box** (Alex, 2026-10-27): a toy that reads simple melodies on
-  tines, and sends them as MIDI. Mechanical on purpose: no accents, no
-  expression, every note as the comb plays it.
-- **A Foley kit**, part of the drums: kitchen implements, struck tubes, a
-  rubber duck, a rubber mallet.
-- **More shakers**: a wider choice of shakers, and their patterns.
+- **A music box, a Foley kit, more shakers** (Alex, 2026-10-27), first
+  versions shipped the same day, in the page and the plugin alike: a Music
+  box pack (a comb's tines) and toy (a public-domain tune, mechanical: no
+  accents, no Vary, every note alike; MIDI as usual); a Foley pack (drums
+  by height: pot lid, wooden spoon, rubber mallet; pitched: a struck tube,
+  a glass, a rubber duck); five shakers per loop (egg, maraca, cabasa,
+  tambourine, rain stick), and the Shaker toy picking a kind and a figure.
+  Next, from listening: more tunes (or your own, typed or drawn on the
+  comb), more kitchen, shaker figures by hand.
 - **Much later: audio in.** Sound coming in triggers sounds, perhaps with
   pitch tracking.
 - **Spatial**: binaural and rotation live in the Drone; worth trying on loops

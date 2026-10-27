@@ -2260,3 +2260,82 @@ describe.skipIf(!browser)("Twirl · named scenes: presets beyond the six slots",
     await context.close();
   });
 });
+
+describe.skipIf(!browser)("Twirl · new sounds: a music box, a Foley kit, more shakers", () => {
+  it("the Music box toy plays a tune on its tines, mechanically: one loudness, no Vary, no accents, still", async () => {
+    const { page, context, errors } = await openTwirl(browser);
+    const r = await page.evaluate(() => {
+      loops.splice(0).forEach(fadeOut);
+      dropToy("musicbox", [600, 400]);
+      const lp = loops.at(-1);
+      // Its notes as the sheet plays them: heights → scale steps.
+      const W = sheet.clientWidth, H = sheet.clientHeight;
+      const steps = lp.events.map((e) => bandAt(notePos(lp, e, e.off, W, H)[1] / H));
+      ensureAudio(); state.vary = true; state.accent = 1;
+      const seen = [], orig = varied;
+      window.varied = (v, t, m) => { const out = orig(v, t, m); seen.push([Math.round(out[0] * 1000), nuance, ringOf()]); return out; };
+      lp.events.slice(0, 3).forEach((ev, i) => play(lp, ev, ctx.currentTime + 0.1, i, ev.off, 1, i ? 0 : 1));
+      window.varied = orig;
+      return { octave: stepCount(), pack: lp.pack, mechanical: lp.mechanical, accent: lp.accent, temper: lp.temper, life: lp.life, vels: [...new Set(lp.events.map((e) => e.vel))], seen, steps, n: lp.events.length,
+        saved: (() => { const d = loopData(lp); const back = unpackScene(packScene({ settings: {}, loops: [d] })).loops[0]; return [d.mechanical, back.mechanical, back.pack]; })() };
+    });
+    expect(r).toMatchObject({ pack: "musicbox", mechanical: true, accent: "none", temper: "still", life: "steady", vels: [0.7], saved: [true, true, "musicbox"] });
+    expect(r.n).toBeGreaterThanOrEqual(11);
+    // as loud as each other, no colour, no ring: the accent weight passed (1, then 0) is ignored
+    expect(new Set(r.seen.map((x) => x.join())).size).toBe(1);
+    expect(r.seen[0].slice(1)).toEqual([0, 1]);
+    // a tune: it moves (more than two steps), and stays within an octave and a half of the default sheet
+    expect(new Set(r.steps).size).toBeGreaterThan(2);
+    expect(Math.max(...r.steps) - Math.min(...r.steps)).toBeLessThan(r.octave * 1.5 + 1);
+    expect(errors).toEqual([]);
+    await context.close();
+  });
+
+  it("Foley and Music box are packs like the others: in the pickers, codes, the host's list; Foley's drums by height", async () => {
+    const { page, context, errors } = await openTwirl(browser);
+    const r = await page.evaluate(() => {
+      const opts = (id) => [...$(id).options].map((o) => o.value);
+      const kinds = [0.85, 0.45, 0.1].map((y) => drumKind(y));
+      return { order: PACK_ORDER.slice(-2), pack: opts("pack").slice(-2), insp: opts("inspPack").slice(-2), host: HOST_PARAMS.find((p) => p.id === "pack").list.slice(-2),
+        kinds, voices: Object.keys(FOLEY), box: Object.keys(MUSICBOX) };
+    });
+    expect(r).toEqual({ order: ["musicbox", "foley"], pack: ["musicbox", "foley"], insp: ["musicbox", "foley"], host: ["musicbox", "foley"],
+      kinds: ["kick", "snare", "hat"], voices: ["pluck", "bell", "blip", "drum"], box: ["pluck", "bell", "blip"] });
+    // Every Foley voice and drum, and the music box's, plays without a fault.
+    const ok = await page.evaluate(async () => {
+      ensureAudio(); await new Promise((res) => setTimeout(res, 50));
+      const t = ctx.currentTime + 0.05;
+      FOLEY.pluck(t, 60, 0.8, 0); FOLEY.bell(t, 60, 0.8, 0); FOLEY.blip(t, 60, 0.8, 0);
+      for (const y of [0.85, 0.45, 0.1]) FOLEY.drum(t, 60, 0.8, 0, y);
+      MUSICBOX.pluck(t, 60, 0.8, 0); MUSICBOX.bell(t, 60, 0.8, 0); MUSICBOX.blip(t, 60, 0.8, 0);
+      return true;
+    });
+    expect(ok).toBe(true);
+    expect(errors).toEqual([]);
+    await context.close();
+  });
+
+  it("shakers: a loop's own kind (settings, codes, MIDI note, the engine's 10th field); the Shaker toy picks one and a figure", async () => {
+    const { page, context, errors } = await openTwirl(browser);
+    const r = await page.evaluate(() => {
+      const lp = loops[0];
+      setLevel(3); openInspector(lp);
+      document.querySelector('[data-insp="shaker"] [data-v="tambourine"]').click();
+      const picked = [lp.shaker, document.querySelector('[data-insp="shaker"] [data-v="tambourine"]').getAttribute("aria-pressed")];
+      const back = unpackScene(packScene({ settings: {}, loops: [loopData(lp)] })).loops[0].shaker;
+      // the MIDI note each kind sends
+      const notes = SHAKER_KINDS.map((k) => SHAKERS[k].note);
+      // Shaker toys: a kind each, and figures that fill their beats
+      const toys = [];
+      for (let i = 0; i < 30; i++) { dropToy("shaker", [300 + i * 5, 300]); const s = loops.at(-1); toys.push([s.shaker, s.events.length, s.events.at(-1).off]); loops.pop(); }
+      return { picked, back, notes, kinds: [...new Set(toys.map((t) => t[0]))].length, rain: toys.filter((t) => t[0] === "rainstick").every((t) => t[1] === 1) };
+    });
+    expect(r.picked).toEqual(["tambourine", "true"]);
+    expect(r.back).toBe("tambourine");
+    expect(r.notes).toEqual([70, 70, 69, 54, 82]);
+    expect(r.kinds).toBeGreaterThan(2);
+    expect(r.rain).toBe(true);
+    expect(errors).toEqual([]);
+    await context.close();
+  });
+});

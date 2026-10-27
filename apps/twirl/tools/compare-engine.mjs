@@ -4,7 +4,8 @@
 // twirl-dpf's engine (its tests/render_notes.cpp, built here), both dry, and
 // compares each: loudness (RMS, dB), brightness (the spectral centroid over
 // the first 85 ms) and length (how long it stays within 30 dB of its peak). Every pack,
-// every voice: pluck, bell and blip at middle C, the three drums, the shaker.
+// every voice: pluck, bell and blip at middle C, the three drums, the shaker;
+// and the shaker's other kinds.
 // Keeps the web version and the plugin alike as voices change (ROADMAP 13b).
 //
 //   node apps/twirl/tools/compare-engine.mjs [--dpf ../twirl-dpf] [--json]
@@ -23,19 +24,21 @@ const opt = (k, d) => { const i = process.argv.indexOf(`--${k}`); return i > 0 ?
 const dpf = opt("dpf", process.env.TWIRL_DPF || join(here, "../../../../twirl-dpf"));
 if (!existsSync(join(dpf, "tests/render_notes.cpp"))) { console.error(`No twirl-dpf at ${dpf} (--dpf <path>, or TWIRL_DPF)`); process.exit(2); }
 
-const PACKS = ["paper", "mallets", "felt", "steel", "kalimba", "chip", "chimes"], VOICES = ["pluck", "bell", "blip", "drum", "shake"];
+const PACKS = ["paper", "mallets", "felt", "steel", "kalimba", "chip", "chimes", "musicbox", "foley"], VOICES = ["pluck", "bell", "blip", "drum", "shake"];
+const SHAKERS = ["egg", "maraca", "cabasa", "tambourine", "rainstick"];
 const NOTES = [
   { voice: "pluck", note: 60, midi: 60, yN: 0.5 }, { voice: "bell", note: 72, midi: 60, yN: 0.5 }, { voice: "blip", note: 72, midi: 60, yN: 0.5 },
   { voice: "drum", note: 36, midi: 60, yN: 0.8, kind: "kick" }, { voice: "drum", note: 38, midi: 60, yN: 0.45, kind: "snare" },
   { voice: "drum", note: 42, midi: 60, yN: 0.1, kind: "hat" }, { voice: "shake", note: 70, midi: 60, yN: 0.5 },
 ];
 const VEL = 0.8, SR = 48000;
-const list = PACKS.flatMap((pack) => NOTES.map((n) => ({ pack, vel: VEL, ...n })));
+const list = [...PACKS.flatMap((pack) => NOTES.map((n) => ({ pack, vel: VEL, ...n }))),
+  ...SHAKERS.slice(1).map((shaker) => ({ pack: "paper", vel: VEL, voice: "shake", note: 70, midi: 60, yN: 0.5, shaker, kind: shaker }))];
 
 const out = mkdtempSync(join(tmpdir(), "twirl-compare-"));
-execFileSync("node", [join(here, "../test/render-voices.mjs"), out, JSON.stringify(list.map(({ kind, ...j }) => j))], { stdio: "ignore" });
+execFileSync("node", [join(here, "../test/render-voices.mjs"), out, JSON.stringify(list.map(({ kind, ...j }) => j))], { stdio: "ignore" });   // "kind": a label here
 execFileSync("make", ["-C", dpf, "build/render_notes"], { stdio: "ignore" });
-const lines = list.map((j, i) => `e${i} ${PACKS.indexOf(j.pack)} ${VOICES.indexOf(j.voice)} ${j.midi} ${j.vel} ${j.yN} 2`).join("\n") + "\n";
+const lines = list.map((j, i) => `e${i} ${PACKS.indexOf(j.pack)} ${VOICES.indexOf(j.voice)} ${j.midi} ${j.vel} ${j.yN} 2 ${Math.max(0, SHAKERS.indexOf(j.shaker || "egg"))}`).join("\n") + "\n";
 execFileSync(join(dpf, "build/render_notes"), [out], { input: lines });
 
 const read = (f) => { const b = readFileSync(f); return new Float32Array(b.buffer, b.byteOffset, b.length / 4); };
@@ -73,9 +76,9 @@ function fft(re, im) {                                           // in place, ra
 }
 
 const rows = list.map((j, i) => {
-  const page = measure(read(join(out, `${j.pack}-${j.voice}-${j.note}-${j.vel}.f32`))), engine = measure(read(join(out, `e${i}.f32`)));
+  const page = measure(read(join(out, `${j.pack}-${j.voice}-${j.note}-${j.vel}${j.shaker ? "-" + j.shaker : ""}.f32`))), engine = measure(read(join(out, `e${i}.f32`)));
   const dB = engine.rms - page.rms, bright = engine.centroid / page.centroid - 1, len = engine.length - page.length;
-  const noisy = ["snare", "hat"].includes(j.kind) || j.voice === "shake";   // random noise: a dB or two from one render to the next
+  const noisy = ["snare", "hat"].includes(j.kind) || j.voice === "shake";   // (and Foley's spoon and lid, partly noise)   // random noise: a dB or two from one render to the next
   const off = [Math.abs(dB) > (noisy ? 3 : 2) && "level", Math.abs(bright) > 0.2 && "brightness", Math.abs(len) > Math.max(0.05, 0.25 * page.length) && "length"].filter(Boolean);
   return { what: `${j.pack} ${j.kind || j.voice}`, dB: +dB.toFixed(1), bright: Math.round(bright * 100), pageLen: +page.length.toFixed(2), engineLen: +engine.length.toFixed(2), off };
 });
