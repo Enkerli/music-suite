@@ -306,6 +306,10 @@ cp -r bin/d_webmeters.lv2 ~/.lv2/ ; mkdir -p ~/.clap && cp -r bin/d_webmeters.cl
       host"; ⇧Q from inside it: 60 fps, 13 loops, 42 notes/s, ticks at most
       24 ms late, no errors. ⇧Q now also reports Follow host transport, the
       host's tempo and transport, and the audio's delay.
+- [x] **Following the host as a plugin does** (2026-10-27): on by default (the
+      parameter's default; projects saved with it off keep it off), and the
+      host's Play starts Twirl even when it was paused. Pausing Twirl while
+      the host plays keeps it quiet until the host's next Play.
 - [x] Two things from Bitwig (Alex, 2026-10-26), fixed:
       - "while the host is paused, the scene's playheads keep moving… from
         the host's pace to their internal tempo": stopping held the loops
