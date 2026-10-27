@@ -2175,3 +2175,88 @@ describe.skipIf(!browser)("Twirl · the web version, as the plugin: MIDI in, a c
     await context.close();
   });
 });
+
+describe.skipIf(!browser)("Twirl · named scenes: presets beyond the six slots", () => {
+  const clearNamed = (page) => page.evaluate(() => { for (const x of namedScenes()) store.remove(x.key); });
+
+  it("saves under a name, sorted, a taken name replaced; recalls; renames; deletes in two taps", async () => {
+    const { page, context, errors } = await openTwirl(browser);
+    await clearNamed(page);
+    const r = await page.evaluate(() => {
+      const save = (name) => { $("namedName").value = name; $("namedSave").click(); };
+      const names = () => namedScenes().map((x) => x.name);
+      save("zébu"); save("Aube"); save("10 loops"); save("2 loops");
+      const sorted = names();
+      const loopsNow = loops.length;
+      loops.splice(1).forEach(fadeOut);                             // a smaller sheet, saved over "aube"
+      save("aube");
+      const replaced = [names().length, namedScenes().find((x) => x.name === "aube").sc.loops.length];
+      const files = namedScenes().map((x) => x.key).sort();
+      renderNamed();
+      const rows = [...document.querySelectorAll("#namedList .namedrow")];
+      rows.find((li) => li.textContent.includes("zébu")).querySelector(".toy").click();   // recall
+      const recalled = loops.length;
+      return { sorted, loopsNow, replaced, files, recalled, empty: (() => { $("namedName").value = "  "; $("namedSave").click(); return names().length; })() };
+    });
+    expect(r.sorted).toEqual(["2 loops", "10 loops", "Aube", "zébu"]);     // numbers in order, accents and case aside
+    expect(r.replaced).toEqual([4, 1]);
+    expect(r.files).toEqual(["twirl:preset:10 loops", "twirl:preset:2 loops", "twirl:preset:Aube", "twirl:preset:zebu"]);   // file names the plugin allows
+    expect(r.recalled).toBe(r.loopsNow);
+    expect(r.empty).toBe(4);
+    const r2 = await page.evaluate(async () => {
+      const row = (n) => [...document.querySelectorAll("#namedList .namedrow")].find((li) => li.querySelector(".toy, input")?.textContent.includes(n) || li.querySelector("input")?.value === n);
+      // Rename
+      [...row("aube").querySelectorAll(".btn")].find((b) => b.textContent === "Rename").click();   // saved over as "aube": the new spelling
+      const input = document.querySelector("#namedList input");
+      input.value = "Aurore"; input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+      const afterRename = namedScenes().map((x) => x.name);
+      // Delete: the first tap asks, the second deletes; Undo brings it back
+      const del = () => [...row("Aurore").querySelectorAll(".btn")].find((b) => /Delete/.test(b.textContent));
+      del().click();
+      const asked = [del().textContent, namedScenes().length];
+      del().click();
+      const gone = namedScenes().map((x) => x.name);
+      return { afterRename, asked, gone };
+    });
+    expect(r2.afterRename).toEqual(["2 loops", "10 loops", "Aurore", "zébu"]);
+    expect(r2.asked).toEqual(["Delete?", 4]);
+    expect(r2.gone).toEqual(["2 loops", "10 loops", "zébu"]);
+    expect(errors).toEqual([]);
+    await context.close();
+  });
+
+  it("a Find field past eight; Download everything carries them, Open a file brings them back as named scenes", async () => {
+    const { page, context, errors } = await openTwirl(browser);
+    await clearNamed(page);
+    const r = await page.evaluate(() => {
+      for (let i = 1; i <= 9; i++) saveNamed(`Scene ${i} of mine`);
+      renderNamed();
+      const find = !$("namedFind").hidden;
+      $("namedFind").value = "7"; $("namedFind").dispatchEvent(new Event("input"));
+      const found = [...document.querySelectorAll("#namedList .namedrow")].map((li) => li.textContent.includes("7"));
+      const c = JSON.parse(JSON.stringify(collection()));
+      for (const x of namedScenes()) store.remove(x.key);
+      openCollection(c);
+      return { find, found, back: namedScenes().length, named: c.named.length };
+    });
+    expect(r).toEqual({ find: true, found: [true], back: 9, named: 9 });
+    expect(errors).toEqual([]);
+    await context.close();
+  });
+
+  it("in the plugin: each is a file, presets/<name>.json, and deleting sends it empty", async () => {
+    const dpf = () => { window.__host = []; window.setState = (key, value) => window.__host.push({ key, value }); window.sendNote = () => {}; window.__twirlFiles = {}; };
+    const { page, context, errors } = await openTwirl(browser, { initScript: dpf });
+    const r = await page.evaluate(() => {
+      saveNamed("Île d'Orléans");
+      const files = () => window.__host.filter((m) => m.key === "file").map((m) => m.value.split("\n"));
+      const [path, body] = files().at(-1);
+      const key = namedScenes()[0].key;
+      store.remove(key);
+      return { path, name: JSON.parse(body).name, deleted: files().at(-1), left: namedScenes().length };
+    });
+    expect(r).toEqual({ path: "presets/Ile d_Orleans.json", name: "Île d'Orléans", deleted: ["presets/Ile d_Orleans.json", ""], left: 0 });
+    expect(errors).toEqual([]);
+    await context.close();
+  });
+});

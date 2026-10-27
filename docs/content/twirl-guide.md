@@ -222,6 +222,11 @@ beat) or **rotate** like a Leslie speaker.
   itself. In the plugin, they're files every Twirl plugin shares
   (`~/.local/share/twirl/scenes`); a scene file's text pastes into Scenes →
   Paste a code, in the plugin or a browser.
+- **Named scenes** (under the slots): as many as you like. Name the sheet
+  and Save; tap one to recall it; Rename, Replace (with this sheet) or
+  Delete (two taps). Saving under a name that's taken replaces that scene.
+  A Find field appears past eight. In the plugin (and a folder), each is a
+  file in `presets/`.
 - **Takes**: **● Rec**, play, **● Rec** again. A take keeps what you did and
   replays it on the sheet, each loop appearing as it was drawn (the timer
   shrinks to a dot, out of the picture for a screen recording). **Save

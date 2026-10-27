@@ -267,6 +267,12 @@ quelques hertz d’écart, pour qu’on entende un battement lent au casque) ou
   partagent tous les plugiciels Twirl (`~/.local/share/twirl/scenes`); le
   texte d’un fichier de scène se colle dans Scènes → Coller un code, dans le
   plugiciel ou un navigateur.
+- **Scènes nommées** (sous les cases) : autant que vous voulez. Nommez la
+  feuille et Enregistrez; touchez-en une pour la rappeler; Renommer,
+  Remplacer (par cette feuille) ou Supprimer (deux touches). Enregistrer
+  sous un nom déjà pris remplace cette scène. Un champ Chercher apparaît
+  au-delà de huit. Dans le plugiciel (et un dossier), chacune est un
+  fichier dans `presets/`.
 - **Prises** : **● Enr.**, jouez, **● Enr.** de nouveau. Une prise garde ce
   que vous avez fait et le rejoue sur la feuille, chaque boucle apparaissant
   comme elle a été tracée (le minuteur se réduit à un point, hors de l’image
