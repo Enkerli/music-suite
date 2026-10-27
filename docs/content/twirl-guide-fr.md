@@ -190,6 +190,17 @@ toujours simple.
 - L’**Aération** donne de l’espace à une feuille chargée : les notes qui
   comptent le moins dans la mesure se taisent. L’**Arc** façonne 4 ou 8
   mesures : maison, ailleurs, attirance, et retour à la maison.
+- Les **Accents** (Tout → Temps) laissent la place d’une note dans sa boucle
+  la façonner : les places fortes un peu plus fortes, plus brillantes et
+  plus longues, les faibles plus douces. Discrets sur une nouvelle feuille;
+  à 0, chaque note joue comme tracée. Chaque boucle choisit où tombent ses
+  accents, dans ses réglages : sur **son cycle** (les poids de Barlow sur
+  sa propre longueur, par défaut : une boucle de 3 temps appuie sur son
+  propre premier temps, contre la mesure), sur **la mesure**, selon **un
+  motif** sur ses notes (*une note sur deux*, *3 sur 8*…, ou n’importe
+  quelle expression UPI, comme dans Serpe : `{10010}`, `E(5,16)`), ou
+  **aucun**. Un motif qui ne correspond pas aux notes de la boucle avance
+  d’une note à chaque tour.
 - La **Marche** (Tout) déplace l’harmonie toutes les quelques mesures :
   *une progression*, *balancement*, *par quintes*, *montée* ou *errance*,
   toutes les 1, 2, 4 ou 8 mesures (**W** les parcourt), et montre en haut de

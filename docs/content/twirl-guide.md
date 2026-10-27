@@ -159,6 +159,15 @@ plain.
   reduced motion).
 - **Air** gives a busy sheet room: the notes that matter least to the bar
   rest. **Arc** shapes 4 or 8 bars as home, away, pull and home again.
+- **Accents** (Everything → Time) let a note's place in its loop shape it:
+  the strong places a little louder, brighter and longer, the weak ones
+  softer. Gentle on a new sheet; 0 plays every note as drawn. Each loop
+  chooses where its accents fall, in its settings: on **its cycle**
+  (Barlow's weights over its own length, the default, so a 3-beat loop
+  leans on its own downbeat against the bar), on **the bar**, as **a
+  pattern** over its notes (*every other note*, *3 in 8*…, or any UPI, as in
+  Serpe: `{10010}`, `E(5,16)`), or **none**. A pattern that doesn't fit the
+  loop's notes moves along a note each pass.
 - **Walk** (Everything) moves the harmony every few bars: *a progression*,
   *sway*, *by fifths*, *climb* or *wander*, every 1, 2, 4 or 8 bars (**W**
   cycles through them), and shows the chord it's on at the top of the sheet

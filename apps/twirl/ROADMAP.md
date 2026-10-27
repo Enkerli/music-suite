@@ -118,6 +118,7 @@ time, notes taken by Claude, decisions written back here):
 6. **Out of the page**: the plugin shell, multi-out, CCs and MIDI learn, a
    voice pool, generative accompaniment, performance animation, pitch
    geometries.
+7. **Sounds and toys**: a music box, a Foley kit, more shakers, audio in.
 
 ### Later
 
@@ -226,8 +227,17 @@ loops on touch or selection." The Pen palette is the model.
   thumb-piano run; **arpeggio objects** after the Spinner (up, down,
   up-down, as played); **chimes that behave like chimes** (a swaying
   clapper, tubes that touch and ring each other).
-- **Vary, next**: per-pack nuance; accents from the beat (Barlow weights
-  shading loudness); nuance fed by pressure and terrain.
+- **Vary, next**: per-pack nuance; nuance fed by pressure and terrain.
+  (Accents from the beat shipped 2026-10-27: Barlow over a loop's own cycle
+  or the bar, or a UPI pattern over its notes; louder, brighter, longer.)
+- **A music box** (Alex, 2026-10-27): a toy that reads simple melodies on
+  tines, and sends them as MIDI. Mechanical on purpose: no accents, no
+  expression, every note as the comb plays it.
+- **A Foley kit**, part of the drums: kitchen implements, struck tubes, a
+  rubber duck, a rubber mallet.
+- **More shakers**: a wider choice of shakers, and their patterns.
+- **Much later: audio in.** Sound coming in triggers sounds, perhaps with
+  pitch tracking.
 - **Spatial**: binaural and rotation live in the Drone; worth trying on loops
   too (a slow rotation per loop, distance as level and darkness).
 
@@ -332,6 +342,25 @@ session, host tempo to Twirl's clock. Plugin codes are forever (BUILD.md).
 Linux first: Web MIDI in Chromium already plays a synth from the Pages URL,
 which checks the channel map and timing before any C++.
 
+### 13b. The web version, in step with the plugin
+
+Alex, 2026-10-27: "We should make sure Web versions catch up and then keep up
+with the plugin." Where the browser lags today, to workshop:
+- **MIDI coming in** (synth mode, Incoming MIDI only): only the plugin plays
+  incoming notes in Twirl's sounds, the Drone's held notes on channel 4
+  included. In Chromium, Web MIDI input could do the same, with ⇧Q's counts.
+- **Following a clock**: the plugin follows the host's transport; the
+  browser could follow MIDI clock, Start and Stop coming in.
+- **Scenes, My toys and settings as files**: the plugin shares them as files
+  between instances; the browser keeps them in its own storage. Saving and
+  opening the same files would carry them between the two.
+- **Parameters**: the host automates 30 of them; in the browser, CCs and MIDI
+  learn (section 11) are the same idea.
+- **The sound**: the plugin's engine plays what the page would have played.
+  A render comparison (test/render-voices.mjs already renders the page's
+  voices) would keep them alike as voices change.
+From here, each new feature lands in both or says why not.
+
 ### 14. Timing, next
 
 A loop's own tempo (polytempo, a free tempo from drawing speed, with "land on
@@ -373,6 +402,12 @@ suite's conventions, labelled.
   people choose to share. A research question as much as a feature.
 
 ## What Twirl is becoming
+
+Alex, 2026-10-27: "The key idea remains a balance between the naive
+experience and some geekery. Some things do affect the naive experience in a
+'surprise & delight' way. Others are mainly hidden. The door to Alice's
+Wonderland opens up." Accents are an example: on by default and gentle for
+whoever just draws, Barlow and UPI one level down for whoever looks.
 
 "It's becoming relatively close to the 'Ambient Music' apps out there, from
 Brian Eno and Jean-Michel Jarre to casual devs. It wasn't my original
