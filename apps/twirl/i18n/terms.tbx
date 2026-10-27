@@ -1,0 +1,2262 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE martif SYSTEM "TBXBasiccoreStructV02.dtd">
+<martif type="TBX-Basic" xml:lang="en">
+  <martifHeader>
+    <fileDesc><sourceDesc><p>Twirl's terms, English and French (normative Québec French). Draft for review, 2026-10-27.</p></sourceDesc></fileDesc>
+    <encodingDesc><p type="XCSURI">TBXBasicXCSV02.xcs</p></encodingDesc>
+  </martifHeader>
+  <text>
+    <body>
+      <termEntry id="sheet">
+        <descrip type="subjectField">Twirl · on the sheet</descrip>
+        <note>match:en:sheets?</note>
+        <note>match:fr:feuilles?</note>
+        <langSet xml:lang="en">
+          <descrip type="definition">the surface you draw on (the whole canvas)</descrip>
+          <tig>
+            <term>sheet</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+          </tig>
+        </langSet>
+        <langSet xml:lang="fr">
+          <tig>
+            <term>feuille</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+            <note>draft · usual</note>
+          </tig>
+          <tig>
+            <term>toile</term>
+            <termNote type="administrativeStatus">admittedTerm-admn-sts</termNote>
+          </tig>
+          <tig>
+            <term>page</term>
+            <termNote type="administrativeStatus">admittedTerm-admn-sts</termNote>
+          </tig>
+        </langSet>
+      </termEntry>
+      <termEntry id="stroke">
+        <descrip type="subjectField">Twirl · on the sheet</descrip>
+        <note>tracé is used for a loop's path</note>
+        <note>match:en:strokes?</note>
+        <note>match:fr:traits?|tracés?</note>
+        <langSet xml:lang="en">
+          <descrip type="definition">one gesture as drawn, before or as it becomes a loop</descrip>
+          <tig>
+            <term>stroke</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+          </tig>
+        </langSet>
+        <langSet xml:lang="fr">
+          <tig>
+            <term>trait</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+            <note>draft · usual</note>
+          </tig>
+          <tig>
+            <term>tracé</term>
+            <termNote type="administrativeStatus">admittedTerm-admn-sts</termNote>
+          </tig>
+          <tig>
+            <term>geste</term>
+            <termNote type="administrativeStatus">admittedTerm-admn-sts</termNote>
+          </tig>
+        </langSet>
+      </termEntry>
+      <termEntry id="path">
+        <descrip type="subjectField">Twirl · on the sheet</descrip>
+        <note>match:en:paths?</note>
+        <note>match:fr:tracés?|chemins?</note>
+        <langSet xml:lang="en">
+          <descrip type="definition">the shape a loop follows on the sheet</descrip>
+          <tig>
+            <term>path</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+          </tig>
+        </langSet>
+        <langSet xml:lang="fr">
+          <tig>
+            <term>tracé</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+            <note>draft · usual</note>
+          </tig>
+          <tig>
+            <term>chemin</term>
+            <termNote type="administrativeStatus">admittedTerm-admn-sts</termNote>
+          </tig>
+          <tig>
+            <term>parcours</term>
+            <termNote type="administrativeStatus">admittedTerm-admn-sts</termNote>
+          </tig>
+        </langSet>
+      </termEntry>
+      <termEntry id="loop">
+        <descrip type="subjectField">Twirl · on the sheet</descrip>
+        <note>match:en:loops?</note>
+        <note>match:fr:boucles?</note>
+        <langSet xml:lang="en">
+          <descrip type="definition">a stroke that keeps replaying</descrip>
+          <tig>
+            <term>loop</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+          </tig>
+        </langSet>
+        <langSet xml:lang="fr">
+          <tig>
+            <term>boucle</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+            <note>draft · usual</note>
+          </tig>
+        </langSet>
+      </termEntry>
+      <termEntry id="pass">
+        <descrip type="subjectField">Twirl · on the sheet</descrip>
+        <note>match:en:pass(es)?</note>
+        <note>match:fr:tours?|passages?</note>
+        <langSet xml:lang="en">
+          <descrip type="definition">one time round a loop (Life and Meets count in passes)</descrip>
+          <tig>
+            <term>pass</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+          </tig>
+        </langSet>
+        <langSet xml:lang="fr">
+          <tig>
+            <term>tour</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+            <note>draft · coined</note>
+          </tig>
+          <tig>
+            <term>passage</term>
+            <termNote type="administrativeStatus">admittedTerm-admn-sts</termNote>
+          </tig>
+          <tig>
+            <term>cycle</term>
+            <termNote type="administrativeStatus">admittedTerm-admn-sts</termNote>
+          </tig>
+          <tig>
+            <term>révolution</term>
+            <termNote type="administrativeStatus">admittedTerm-admn-sts</termNote>
+          </tig>
+        </langSet>
+      </termEntry>
+      <termEntry id="playhead">
+        <descrip type="subjectField">Twirl · on the sheet</descrip>
+        <note>match:en:playheads?</note>
+        <note>match:fr:têtes? de lecture</note>
+        <langSet xml:lang="en">
+          <descrip type="definition">the dot that travels a loop, playing its notes</descrip>
+          <tig>
+            <term>playhead</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+          </tig>
+        </langSet>
+        <langSet xml:lang="fr">
+          <tig>
+            <term>tête de lecture</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+            <note>draft · usual</note>
+          </tig>
+          <tig>
+            <term>curseur de lecture</term>
+            <termNote type="administrativeStatus">admittedTerm-admn-sts</termNote>
+          </tig>
+          <tig>
+            <term>point de lecture</term>
+            <termNote type="administrativeStatus">admittedTerm-admn-sts</termNote>
+          </tig>
+        </langSet>
+      </termEntry>
+      <termEntry id="note">
+        <descrip type="subjectField">Twirl · on the sheet</descrip>
+        <note>match:en:notes?</note>
+        <note>match:fr:notes?</note>
+        <langSet xml:lang="en">
+          <descrip type="definition">one sound a loop plays where its path crosses a line</descrip>
+          <tig>
+            <term>note</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+          </tig>
+        </langSet>
+        <langSet xml:lang="fr">
+          <tig>
+            <term>note</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+            <note>draft · usual</note>
+          </tig>
+        </langSet>
+      </termEntry>
+      <termEntry id="line">
+        <descrip type="subjectField">Twirl · on the sheet</descrip>
+        <note>match:en:lines?</note>
+        <note>match:fr:lignes?</note>
+        <langSet xml:lang="en">
+          <descrip type="definition">a horizontal line of the grid: one pitch</descrip>
+          <tig>
+            <term>line</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+          </tig>
+        </langSet>
+        <langSet xml:lang="fr">
+          <tig>
+            <term>ligne</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+            <note>draft · usual</note>
+          </tig>
+          <tig>
+            <term>portée (no)</term>
+            <termNote type="administrativeStatus">admittedTerm-admn-sts</termNote>
+          </tig>
+          <tig>
+            <term>corde</term>
+            <termNote type="administrativeStatus">admittedTerm-admn-sts</termNote>
+          </tig>
+        </langSet>
+      </termEntry>
+      <termEntry id="pen">
+        <descrip type="subjectField">Twirl · on the sheet</descrip>
+        <note>match:en:pens?</note>
+        <note>match:fr:crayons?|stylos?</note>
+        <langSet xml:lang="en">
+          <descrip type="definition">what a new stroke plays: its voice and options</descrip>
+          <tig>
+            <term>pen</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+          </tig>
+        </langSet>
+        <langSet xml:lang="fr">
+          <tig>
+            <term>crayon</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+            <note>draft · coined</note>
+          </tig>
+          <tig>
+            <term>stylo</term>
+            <termNote type="administrativeStatus">admittedTerm-admn-sts</termNote>
+          </tig>
+          <tig>
+            <term>plume</term>
+            <termNote type="administrativeStatus">admittedTerm-admn-sts</termNote>
+          </tig>
+          <tig>
+            <term>pinceau</term>
+            <termNote type="administrativeStatus">admittedTerm-admn-sts</termNote>
+          </tig>
+        </langSet>
+      </termEntry>
+      <termEntry id="palette">
+        <descrip type="subjectField">Twirl · on the sheet</descrip>
+        <note>match:en:palettes?</note>
+        <note>match:fr:palettes?</note>
+        <langSet xml:lang="en">
+          <descrip type="definition">the row of pens to pick from</descrip>
+          <tig>
+            <term>palette</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+          </tig>
+        </langSet>
+        <langSet xml:lang="fr">
+          <tig>
+            <term>palette</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+            <note>draft · usual</note>
+          </tig>
+        </langSet>
+      </termEntry>
+      <termEntry id="chip">
+        <descrip type="subjectField">Twirl · on the sheet</descrip>
+        <note>puce is also the Chip pack: a clash</note>
+        <note>match:en:chips?</note>
+        <note>match:fr:puces?|pastilles?</note>
+        <langSet xml:lang="en">
+          <descrip type="definition">a loop's small button in the list of loops (opens its settings)</descrip>
+          <tig>
+            <term>chip</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+          </tig>
+        </langSet>
+        <langSet xml:lang="fr">
+          <tig>
+            <term>puce</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+            <note>draft · coined</note>
+          </tig>
+          <tig>
+            <term>pastille</term>
+            <termNote type="administrativeStatus">admittedTerm-admn-sts</termNote>
+          </tig>
+          <tig>
+            <term>étiquette</term>
+            <termNote type="administrativeStatus">admittedTerm-admn-sts</termNote>
+          </tig>
+        </langSet>
+      </termEntry>
+      <termEntry id="child">
+        <descrip type="subjectField">Twirl · on the sheet</descrip>
+        <note>match:en:child(ren)?</note>
+        <note>match:fr:enfants?|rejetons?</note>
+        <langSet xml:lang="en">
+          <descrip type="definition">a loop born when two loops meet (Breed)</descrip>
+          <tig>
+            <term>child</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+          </tig>
+        </langSet>
+        <langSet xml:lang="fr">
+          <tig>
+            <term>enfant</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+            <note>draft · coined</note>
+          </tig>
+          <tig>
+            <term>rejeton</term>
+            <termNote type="administrativeStatus">admittedTerm-admn-sts</termNote>
+          </tig>
+          <tig>
+            <term>descendant</term>
+            <termNote type="administrativeStatus">admittedTerm-admn-sts</termNote>
+          </tig>
+        </langSet>
+      </termEntry>
+      <termEntry id="group">
+        <descrip type="subjectField">Twirl · on the sheet</descrip>
+        <note>match:en:groups?</note>
+        <note>match:fr:groupes?</note>
+        <langSet xml:lang="en">
+          <descrip type="definition">group A–D: one level and mute for several loops</descrip>
+          <tig>
+            <term>group</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+          </tig>
+        </langSet>
+        <langSet xml:lang="fr">
+          <tig>
+            <term>groupe</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+            <note>draft · usual</note>
+          </tig>
+        </langSet>
+      </termEntry>
+      <termEntry id="generation">
+        <descrip type="subjectField">Twirl · on the sheet</descrip>
+        <note>match:en:generations?</note>
+        <note>match:fr:générations?</note>
+        <langSet xml:lang="en">
+          <descrip type="definition">how many Breeds back a loop goes</descrip>
+          <tig>
+            <term>generation</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+          </tig>
+        </langSet>
+        <langSet xml:lang="fr">
+          <tig>
+            <term>génération</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+            <note>draft · usual</note>
+          </tig>
+        </langSet>
+      </termEntry>
+      <termEntry id="scene">
+        <descrip type="subjectField">Twirl · kept and shared</descrip>
+        <note>match:en:scenes?</note>
+        <note>match:fr:scènes?</note>
+        <langSet xml:lang="en">
+          <descrip type="definition">a saved sheet (six slots, and files in the plugin)</descrip>
+          <tig>
+            <term>scene</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+          </tig>
+        </langSet>
+        <langSet xml:lang="fr">
+          <tig>
+            <term>scène</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+            <note>draft · usual</note>
+          </tig>
+        </langSet>
+      </termEntry>
+      <termEntry id="toy">
+        <descrip type="subjectField">Twirl · kept and shared</descrip>
+        <note>match:en:toys?</note>
+        <note>match:fr:jouets?</note>
+        <langSet xml:lang="en">
+          <descrip type="definition">a ready-made or kept loop shape you can drop on the sheet</descrip>
+          <tig>
+            <term>toy</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+          </tig>
+        </langSet>
+        <langSet xml:lang="fr">
+          <tig>
+            <term>jouet</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+            <note>draft · usual</note>
+          </tig>
+        </langSet>
+      </termEntry>
+      <termEntry id="toybox">
+        <descrip type="subjectField">Twirl · kept and shared</descrip>
+        <note>match:en:toybox</note>
+        <note>match:fr:coffre à jouets</note>
+        <langSet xml:lang="en">
+          <descrip type="definition">the ready-made toys</descrip>
+          <tig>
+            <term>Toybox</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+          </tig>
+        </langSet>
+        <langSet xml:lang="fr">
+          <tig>
+            <term>Coffre à jouets</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+            <note>draft · usual</note>
+          </tig>
+          <tig>
+            <term>Boîte à jouets</term>
+            <termNote type="administrativeStatus">admittedTerm-admn-sts</termNote>
+          </tig>
+          <tig>
+            <term>Malle à jouets</term>
+            <termNote type="administrativeStatus">admittedTerm-admn-sts</termNote>
+          </tig>
+        </langSet>
+      </termEntry>
+      <termEntry id="mytoys">
+        <descrip type="subjectField">Twirl · kept and shared</descrip>
+        <note>match:en:my toys</note>
+        <note>match:fr:mes jouets</note>
+        <langSet xml:lang="en">
+          <descrip type="definition">the toys you kept</descrip>
+          <tig>
+            <term>My toys</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+          </tig>
+        </langSet>
+        <langSet xml:lang="fr">
+          <tig>
+            <term>Mes jouets</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+            <note>draft · usual</note>
+          </tig>
+        </langSet>
+      </termEntry>
+      <termEntry id="take">
+        <descrip type="subjectField">Twirl · kept and shared</descrip>
+        <note>verb 'take' also appears: only the noun is this term</note>
+        <note>match:en:takes?</note>
+        <note>match:fr:prises?</note>
+        <langSet xml:lang="en">
+          <descrip type="definition">a recording of what you did on the sheet, to replay</descrip>
+          <tig>
+            <term>take</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+          </tig>
+        </langSet>
+        <langSet xml:lang="fr">
+          <tig>
+            <term>prise</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+            <note>draft · usual</note>
+          </tig>
+        </langSet>
+      </termEntry>
+      <termEntry id="template">
+        <descrip type="subjectField">Twirl · kept and shared</descrip>
+        <note>match:en:templates?</note>
+        <note>match:fr:modèles?|gabarits?</note>
+        <langSet xml:lang="en">
+          <descrip type="definition">a starting sheet carried in a link</descrip>
+          <tig>
+            <term>template</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+          </tig>
+        </langSet>
+        <langSet xml:lang="fr">
+          <tig>
+            <term>modèle</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+            <note>draft · usual</note>
+          </tig>
+          <tig>
+            <term>gabarit</term>
+            <termNote type="administrativeStatus">admittedTerm-admn-sts</termNote>
+          </tig>
+        </langSet>
+      </termEntry>
+      <termEntry id="code">
+        <descrip type="subjectField">Twirl · kept and shared</descrip>
+        <note>match:en:codes?</note>
+        <note>match:fr:codes?</note>
+        <langSet xml:lang="en">
+          <descrip type="definition">a short text that carries a whole sheet (to share)</descrip>
+          <tig>
+            <term>code</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+          </tig>
+        </langSet>
+        <langSet xml:lang="fr">
+          <tig>
+            <term>code</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+            <note>draft · usual</note>
+          </tig>
+        </langSet>
+      </termEntry>
+      <termEntry id="link">
+        <descrip type="subjectField">Twirl · kept and shared</descrip>
+        <note>match:en:links?</note>
+        <note>match:fr:liens?</note>
+        <langSet xml:lang="en">
+          <descrip type="definition">a web address carrying a sheet</descrip>
+          <tig>
+            <term>link</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+          </tig>
+        </langSet>
+        <langSet xml:lang="fr">
+          <tig>
+            <term>lien</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+            <note>draft · usual</note>
+          </tig>
+        </langSet>
+      </termEntry>
+      <termEntry id="share">
+        <descrip type="subjectField">Twirl · kept and shared</descrip>
+        <note>match:en:share[ds]?|sharing</note>
+        <note>match:fr:partag\w*</note>
+        <langSet xml:lang="en">
+          <descrip type="definition">to give a sheet to someone (link or code)</descrip>
+          <tig>
+            <term>share</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+          </tig>
+        </langSet>
+        <langSet xml:lang="fr">
+          <tig>
+            <term>partager</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+            <note>draft · usual</note>
+          </tig>
+        </langSet>
+      </termEntry>
+      <termEntry id="settings">
+        <descrip type="subjectField">Twirl · kept and shared</descrip>
+        <note>paramètre is also the host's 'parameter'</note>
+        <note>match:en:settings?</note>
+        <note>match:fr:réglages?|paramètres?</note>
+        <langSet xml:lang="en">
+          <descrip type="definition">a loop's settings panel; Twirl's settings</descrip>
+          <tig>
+            <term>settings</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+          </tig>
+        </langSet>
+        <langSet xml:lang="fr">
+          <tig>
+            <term>réglages</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+            <note>draft · usual</note>
+          </tig>
+          <tig>
+            <term>paramètres</term>
+            <termNote type="administrativeStatus">admittedTerm-admn-sts</termNote>
+          </tig>
+          <tig>
+            <term>options</term>
+            <termNote type="administrativeStatus">admittedTerm-admn-sts</termNote>
+          </tig>
+        </langSet>
+      </termEntry>
+      <termEntry id="drawer">
+        <descrip type="subjectField">Twirl · kept and shared</descrip>
+        <note>match:en:drawers?</note>
+        <note>match:fr:tiroirs?|panneaux?</note>
+        <langSet xml:lang="en">
+          <descrip type="definition">the panel of controls that slides out</descrip>
+          <tig>
+            <term>drawer</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+          </tig>
+        </langSet>
+        <langSet xml:lang="fr">
+          <tig>
+            <term>tiroir</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+            <note>draft · usual</note>
+          </tig>
+          <tig>
+            <term>panneau</term>
+            <termNote type="administrativeStatus">admittedTerm-admn-sts</termNote>
+          </tig>
+        </langSet>
+      </termEntry>
+      <termEntry id="beat">
+        <descrip type="subjectField">Twirl · music</descrip>
+        <note>Beats (the view) is Pulsations: Temps is the Time section</note>
+        <note>match:en:beats?</note>
+        <note>match:fr:temps|pulsations?</note>
+        <langSet xml:lang="en">
+          <descrip type="definition">the pulse; a loop's length counts in beats</descrip>
+          <tig>
+            <term>beat</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+          </tig>
+        </langSet>
+        <langSet xml:lang="fr">
+          <tig>
+            <term>temps</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+            <note>draft · usual</note>
+          </tig>
+          <tig>
+            <term>pulsation</term>
+            <termNote type="administrativeStatus">admittedTerm-admn-sts</termNote>
+          </tig>
+          <tig>
+            <term>battement</term>
+            <termNote type="administrativeStatus">admittedTerm-admn-sts</termNote>
+          </tig>
+        </langSet>
+      </termEntry>
+      <termEntry id="bar">
+        <descrip type="subjectField">Twirl · music</descrip>
+        <note>match:en:bars?</note>
+        <note>match:fr:mesures?</note>
+        <langSet xml:lang="en">
+          <descrip type="definition">a measure (4 beats)</descrip>
+          <tig>
+            <term>bar</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+          </tig>
+        </langSet>
+        <langSet xml:lang="fr">
+          <tig>
+            <term>mesure</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+            <note>draft · usual</note>
+          </tig>
+        </langSet>
+      </termEntry>
+      <termEntry id="tempo">
+        <descrip type="subjectField">Twirl · music</descrip>
+        <note>match:en:tempo</note>
+        <note>match:fr:tempo</note>
+        <langSet xml:lang="en">
+          <descrip type="definition">beats per minute</descrip>
+          <tig>
+            <term>tempo</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+          </tig>
+        </langSet>
+        <langSet xml:lang="fr">
+          <tig>
+            <term>tempo</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+            <note>draft · usual</note>
+          </tig>
+        </langSet>
+      </termEntry>
+      <termEntry id="division">
+        <descrip type="subjectField">Twirl · music</descrip>
+        <note>match:en:divisions?</note>
+        <note>match:fr:subdivisions?|divisions?</note>
+        <langSet xml:lang="en">
+          <descrip type="definition">how finely a beat is cut for snapping (the grid's division)</descrip>
+          <tig>
+            <term>division</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+          </tig>
+        </langSet>
+        <langSet xml:lang="fr">
+          <tig>
+            <term>subdivision</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+            <note>draft · usual</note>
+          </tig>
+          <tig>
+            <term>division</term>
+            <termNote type="administrativeStatus">admittedTerm-admn-sts</termNote>
+          </tig>
+        </langSet>
+      </termEntry>
+      <termEntry id="step">
+        <descrip type="subjectField">Twirl · music</descrip>
+        <note>'step' also means a grid step in time: check each</note>
+        <note>match:en:steps?</note>
+        <note>match:fr:degrés?|pas</note>
+        <langSet xml:lang="en">
+          <descrip type="definition">one degree of the scale (one line)</descrip>
+          <tig>
+            <term>step</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+          </tig>
+        </langSet>
+        <langSet xml:lang="fr">
+          <tig>
+            <term>degré</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+            <note>draft · usual</note>
+          </tig>
+          <tig>
+            <term>pas</term>
+            <termNote type="administrativeStatus">admittedTerm-admn-sts</termNote>
+          </tig>
+          <tig>
+            <term>cran</term>
+            <termNote type="administrativeStatus">admittedTerm-admn-sts</termNote>
+          </tig>
+        </langSet>
+      </termEntry>
+      <termEntry id="grid">
+        <descrip type="subjectField">Twirl · music</descrip>
+        <note>the picker reads Scale in some places, Grid in others</note>
+        <note>match:en:grids?</note>
+        <note>match:fr:grilles?</note>
+        <langSet xml:lang="en">
+          <descrip type="definition">the set of lines: a scale or a tuning system</descrip>
+          <tig>
+            <term>grid</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+          </tig>
+        </langSet>
+        <langSet xml:lang="fr">
+          <tig>
+            <term>grille</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+            <note>draft · coined</note>
+          </tig>
+        </langSet>
+      </termEntry>
+      <termEntry id="scale">
+        <descrip type="subjectField">Twirl · music</descrip>
+        <note>match:en:scales?</note>
+        <note>match:fr:gammes?</note>
+        <langSet xml:lang="en">
+          <descrip type="definition">the notes the lines stand for</descrip>
+          <tig>
+            <term>scale</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+          </tig>
+        </langSet>
+        <langSet xml:lang="fr">
+          <tig>
+            <term>gamme</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+            <note>draft · usual</note>
+          </tig>
+          <tig>
+            <term>échelle</term>
+            <termNote type="administrativeStatus">admittedTerm-admn-sts</termNote>
+          </tig>
+        </langSet>
+      </termEntry>
+      <termEntry id="root">
+        <descrip type="subjectField">Twirl · music</descrip>
+        <note>match:en:roots?</note>
+        <note>match:fr:toniques?</note>
+        <langSet xml:lang="en">
+          <descrip type="definition">the scale's first note</descrip>
+          <tig>
+            <term>root</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+          </tig>
+        </langSet>
+        <langSet xml:lang="fr">
+          <tig>
+            <term>tonique</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+            <note>draft · usual</note>
+          </tig>
+          <tig>
+            <term>fondamentale</term>
+            <termNote type="administrativeStatus">admittedTerm-admn-sts</termNote>
+          </tig>
+        </langSet>
+      </termEntry>
+      <termEntry id="range">
+        <descrip type="subjectField">Twirl · music</descrip>
+        <note>match:en:ranges?</note>
+        <note>match:fr:étendues?|tessitures?</note>
+        <langSet xml:lang="en">
+          <descrip type="definition">how many octaves the sheet spans</descrip>
+          <tig>
+            <term>range</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+          </tig>
+        </langSet>
+        <langSet xml:lang="fr">
+          <tig>
+            <term>étendue</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+            <note>draft · usual</note>
+          </tig>
+          <tig>
+            <term>tessiture</term>
+            <termNote type="administrativeStatus">admittedTerm-admn-sts</termNote>
+          </tig>
+          <tig>
+            <term>ambitus</term>
+            <termNote type="administrativeStatus">admittedTerm-admn-sts</termNote>
+          </tig>
+        </langSet>
+      </termEntry>
+      <termEntry id="octave">
+        <descrip type="subjectField">Twirl · music</descrip>
+        <note>match:en:octaves?|oct</note>
+        <note>match:fr:octaves?|oct</note>
+        <langSet xml:lang="en">
+          <tig>
+            <term>octave</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+          </tig>
+        </langSet>
+        <langSet xml:lang="fr">
+          <tig>
+            <term>octave</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+            <note>draft · usual</note>
+          </tig>
+        </langSet>
+      </termEntry>
+      <termEntry id="chord">
+        <descrip type="subjectField">Twirl · music</descrip>
+        <note>match:en:chords?</note>
+        <note>match:fr:accords?</note>
+        <langSet xml:lang="en">
+          <descrip type="definition">notes heard together (Walk's progressions, the Drone)</descrip>
+          <tig>
+            <term>chord</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+          </tig>
+        </langSet>
+        <langSet xml:lang="fr">
+          <tig>
+            <term>accord</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+            <note>draft · usual</note>
+          </tig>
+        </langSet>
+      </termEntry>
+      <termEntry id="fifth">
+        <descrip type="subjectField">Twirl · music</descrip>
+        <note>match:en:fifths?</note>
+        <note>match:fr:quintes?</note>
+        <langSet xml:lang="en">
+          <descrip type="definition">the interval (Drone voicing, Walk by fifths)</descrip>
+          <tig>
+            <term>fifth</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+          </tig>
+        </langSet>
+        <langSet xml:lang="fr">
+          <tig>
+            <term>quinte</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+            <note>draft · usual</note>
+          </tig>
+        </langSet>
+      </termEntry>
+      <termEntry id="rhythm">
+        <descrip type="subjectField">Twirl · music</descrip>
+        <note>match:en:rhythms?</note>
+        <note>match:fr:rythmes?</note>
+        <langSet xml:lang="en">
+          <tig>
+            <term>rhythm</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+          </tig>
+        </langSet>
+        <langSet xml:lang="fr">
+          <tig>
+            <term>rythme</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+            <note>draft · usual</note>
+          </tig>
+        </langSet>
+      </termEntry>
+      <termEntry id="pitch">
+        <descrip type="subjectField">Twirl · music</descrip>
+        <note>match:en:pitch(es)?</note>
+        <note>match:fr:hauteurs?</note>
+        <langSet xml:lang="en">
+          <descrip type="definition">how high a note is</descrip>
+          <tig>
+            <term>pitch</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+          </tig>
+        </langSet>
+        <langSet xml:lang="fr">
+          <tig>
+            <term>hauteur</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+            <note>draft · usual</note>
+          </tig>
+        </langSet>
+      </termEntry>
+      <termEntry id="register">
+        <descrip type="subjectField">Twirl · music</descrip>
+        <note>match:en:registers?</note>
+        <note>match:fr:registres?</note>
+        <langSet xml:lang="en">
+          <descrip type="definition">high, middle or low part of the range</descrip>
+          <tig>
+            <term>register</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+          </tig>
+        </langSet>
+        <langSet xml:lang="fr">
+          <tig>
+            <term>registre</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+            <note>draft · usual</note>
+          </tig>
+        </langSet>
+      </termEntry>
+      <termEntry id="tuning">
+        <descrip type="subjectField">Twirl · music</descrip>
+        <note>match:en:tunings?</note>
+        <note>match:fr:tempéraments?|accordages?|accords?</note>
+        <langSet xml:lang="en">
+          <descrip type="definition">how 12-note grids are tuned: equal, just, Pythagorean, meantone</descrip>
+          <tig>
+            <term>tuning</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+          </tig>
+        </langSet>
+        <langSet xml:lang="fr">
+          <tig>
+            <term>tempérament</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+            <note>draft · usual</note>
+          </tig>
+          <tig>
+            <term>accordage</term>
+            <termNote type="administrativeStatus">admittedTerm-admn-sts</termNote>
+          </tig>
+          <tig>
+            <term>accord</term>
+            <termNote type="administrativeStatus">admittedTerm-admn-sts</termNote>
+          </tig>
+        </langSet>
+      </termEntry>
+      <termEntry id="voicing">
+        <descrip type="subjectField">Twirl · music</descrip>
+        <note>match:en:voicings?</note>
+        <note>match:fr:dispositions?</note>
+        <langSet xml:lang="en">
+          <descrip type="definition">which notes the Drone holds (low fifth, fifth, triad, open)</descrip>
+          <tig>
+            <term>voicing</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+          </tig>
+        </langSet>
+        <langSet xml:lang="fr">
+          <tig>
+            <term>disposition</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+            <note>draft · usual</note>
+          </tig>
+          <tig>
+            <term>voicing</term>
+            <termNote type="administrativeStatus">admittedTerm-admn-sts</termNote>
+          </tig>
+          <tig>
+            <term>position (d'accord)</term>
+            <termNote type="administrativeStatus">admittedTerm-admn-sts</termNote>
+          </tig>
+        </langSet>
+      </termEntry>
+      <termEntry id="swing">
+        <descrip type="subjectField">Twirl · music</descrip>
+        <note>match:en:swing</note>
+        <note>match:fr:swing</note>
+        <langSet xml:lang="en">
+          <descrip type="definition">off-beats pushed late</descrip>
+          <tig>
+            <term>swing</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+          </tig>
+        </langSet>
+        <langSet xml:lang="fr">
+          <tig>
+            <term>swing</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+            <note>draft · usual</note>
+          </tig>
+        </langSet>
+      </termEntry>
+      <termEntry id="transport">
+        <descrip type="subjectField">Twirl · music</descrip>
+        <note>match:en:transport</note>
+        <note>match:fr:transport|lecture</note>
+        <langSet xml:lang="en">
+          <descrip type="definition">the host's play / stop and position</descrip>
+          <tig>
+            <term>transport</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+          </tig>
+        </langSet>
+        <langSet xml:lang="fr">
+          <tig>
+            <term>transport</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+            <note>draft · usual</note>
+          </tig>
+        </langSet>
+      </termEntry>
+      <termEntry id="volume">
+        <descrip type="subjectField">Twirl · music</descrip>
+        <note>match:en:volume</note>
+        <note>match:fr:volume</note>
+        <langSet xml:lang="en">
+          <tig>
+            <term>volume</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+          </tig>
+        </langSet>
+        <langSet xml:lang="fr">
+          <tig>
+            <term>volume</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+            <note>draft · usual</note>
+          </tig>
+        </langSet>
+      </termEntry>
+      <termEntry id="level">
+        <descrip type="subjectField">Twirl · music</descrip>
+        <note>also the menus' level of detail (Simple / Everything): a clash</note>
+        <note>match:en:levels?</note>
+        <note>match:fr:niveaux?</note>
+        <langSet xml:lang="en">
+          <descrip type="definition">a loop's, a group's, the Drone's loudness</descrip>
+          <tig>
+            <term>level</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+          </tig>
+        </langSet>
+        <langSet xml:lang="fr">
+          <tig>
+            <term>niveau</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+            <note>draft · usual</note>
+          </tig>
+        </langSet>
+      </termEntry>
+      <termEntry id="mute">
+        <descrip type="subjectField">Twirl · music</descrip>
+        <note>match:en:mute[ds]?|muting</note>
+        <note>match:fr:sourdine|muet(te)?s?|silencieu\w*</note>
+        <langSet xml:lang="en">
+          <descrip type="definition">silence a loop or group</descrip>
+          <tig>
+            <term>mute</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+          </tig>
+        </langSet>
+        <langSet xml:lang="fr">
+          <tig>
+            <term>sourdine</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+            <note>draft · usual</note>
+          </tig>
+          <tig>
+            <term>muet</term>
+            <termNote type="administrativeStatus">admittedTerm-admn-sts</termNote>
+          </tig>
+          <tig>
+            <term>silence</term>
+            <termNote type="administrativeStatus">admittedTerm-admn-sts</termNote>
+          </tig>
+          <tig>
+            <term>couper</term>
+            <termNote type="administrativeStatus">admittedTerm-admn-sts</termNote>
+          </tig>
+        </langSet>
+      </termEntry>
+      <termEntry id="voice">
+        <descrip type="subjectField">Twirl · sounds</descrip>
+        <note>match:en:voices?</note>
+        <note>match:fr:voix</note>
+        <langSet xml:lang="en">
+          <descrip type="definition">one of the five sounds a pen plays</descrip>
+          <tig>
+            <term>voice</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+          </tig>
+        </langSet>
+        <langSet xml:lang="fr">
+          <tig>
+            <term>voix</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+            <note>draft · usual</note>
+          </tig>
+          <tig>
+            <term>timbre</term>
+            <termNote type="administrativeStatus">admittedTerm-admn-sts</termNote>
+          </tig>
+          <tig>
+            <term>son</term>
+            <termNote type="administrativeStatus">admittedTerm-admn-sts</termNote>
+          </tig>
+        </langSet>
+      </termEntry>
+      <termEntry id="sounds">
+        <descrip type="subjectField">Twirl · sounds</descrip>
+        <note>match:en:sounds|packs?</note>
+        <note>match:fr:sons|jeux? de sons</note>
+        <langSet xml:lang="en">
+          <descrip type="definition">a set of the five voices: Paper, Mallets, Felt…</descrip>
+          <tig>
+            <term>Sounds (pack)</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+          </tig>
+        </langSet>
+        <langSet xml:lang="fr">
+          <tig>
+            <term>Sons</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+            <note>draft · coined</note>
+          </tig>
+          <tig>
+            <term>Jeu de sons</term>
+            <termNote type="administrativeStatus">admittedTerm-admn-sts</termNote>
+          </tig>
+          <tig>
+            <term>Timbres</term>
+            <termNote type="administrativeStatus">admittedTerm-admn-sts</termNote>
+          </tig>
+          <tig>
+            <term>Banque</term>
+            <termNote type="administrativeStatus">admittedTerm-admn-sts</termNote>
+          </tig>
+        </langSet>
+      </termEntry>
+      <termEntry id="pluck">
+        <descrip type="subjectField">Twirl · sounds</descrip>
+        <note>match:en:plucks?</note>
+        <note>match:fr:pincés?</note>
+        <langSet xml:lang="en">
+          <descrip type="definition">voice: a plucked note</descrip>
+          <tig>
+            <term>pluck</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+          </tig>
+        </langSet>
+        <langSet xml:lang="fr">
+          <tig>
+            <term>pincé</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+            <note>draft · coined</note>
+          </tig>
+          <tig>
+            <term>pizz</term>
+            <termNote type="administrativeStatus">admittedTerm-admn-sts</termNote>
+          </tig>
+          <tig>
+            <term>cordes pincées</term>
+            <termNote type="administrativeStatus">admittedTerm-admn-sts</termNote>
+          </tig>
+        </langSet>
+      </termEntry>
+      <termEntry id="bell">
+        <descrip type="subjectField">Twirl · sounds</descrip>
+        <note>match:en:bells?</note>
+        <note>match:fr:cloches?</note>
+        <langSet xml:lang="en">
+          <descrip type="definition">voice</descrip>
+          <tig>
+            <term>bell</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+          </tig>
+        </langSet>
+        <langSet xml:lang="fr">
+          <tig>
+            <term>cloche</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+            <note>draft · usual</note>
+          </tig>
+        </langSet>
+      </termEntry>
+      <termEntry id="blip">
+        <descrip type="subjectField">Twirl · sounds</descrip>
+        <note>match:en:blips?</note>
+        <note>match:fr:bips?</note>
+        <langSet xml:lang="en">
+          <descrip type="definition">voice: a short high tone</descrip>
+          <tig>
+            <term>blip</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+          </tig>
+        </langSet>
+        <langSet xml:lang="fr">
+          <tig>
+            <term>bip</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+            <note>draft · coined</note>
+          </tig>
+          <tig>
+            <term>blip</term>
+            <termNote type="administrativeStatus">admittedTerm-admn-sts</termNote>
+          </tig>
+          <tig>
+            <term>tic</term>
+            <termNote type="administrativeStatus">admittedTerm-admn-sts</termNote>
+          </tig>
+        </langSet>
+      </termEntry>
+      <termEntry id="drums">
+        <descrip type="subjectField">Twirl · sounds</descrip>
+        <note>match:en:drums?</note>
+        <note>match:fr:percussions?|batterie</note>
+        <langSet xml:lang="en">
+          <descrip type="definition">voice: kick, snare, hat by height</descrip>
+          <tig>
+            <term>drums</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+          </tig>
+        </langSet>
+        <langSet xml:lang="fr">
+          <tig>
+            <term>percussions</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+            <note>draft · usual</note>
+          </tig>
+          <tig>
+            <term>batterie</term>
+            <termNote type="administrativeStatus">admittedTerm-admn-sts</termNote>
+          </tig>
+        </langSet>
+      </termEntry>
+      <termEntry id="shaker">
+        <descrip type="subjectField">Twirl · sounds</descrip>
+        <note>match:en:shakers?</note>
+        <note>match:fr:hochets?|maracas</note>
+        <langSet xml:lang="en">
+          <descrip type="definition">voice</descrip>
+          <tig>
+            <term>shaker</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+          </tig>
+        </langSet>
+        <langSet xml:lang="fr">
+          <tig>
+            <term>hochet</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+            <note>draft · coined</note>
+          </tig>
+          <tig>
+            <term>maracas</term>
+            <termNote type="administrativeStatus">admittedTerm-admn-sts</termNote>
+          </tig>
+          <tig>
+            <term>shaker</term>
+            <termNote type="administrativeStatus">admittedTerm-admn-sts</termNote>
+          </tig>
+        </langSet>
+      </termEntry>
+      <termEntry id="drone">
+        <descrip type="subjectField">Twirl · sounds</descrip>
+        <note>match:en:drones?</note>
+        <note>match:fr:bourdons?</note>
+        <langSet xml:lang="en">
+          <descrip type="definition">the slow pad underneath</descrip>
+          <tig>
+            <term>Drone</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+          </tig>
+        </langSet>
+        <langSet xml:lang="fr">
+          <tig>
+            <term>Bourdon</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+            <note>draft · usual</note>
+          </tig>
+        </langSet>
+      </termEntry>
+      <termEntry id="space">
+        <descrip type="subjectField">Twirl · sounds</descrip>
+        <note>also the Space key (Espace): a clash</note>
+        <note>match:en:space</note>
+        <note>match:fr:espace</note>
+        <langSet xml:lang="en">
+          <descrip type="definition">how the Drone moves: still, drifting, binaural, rotating</descrip>
+          <tig>
+            <term>space (Drone)</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+          </tig>
+        </langSet>
+        <langSet xml:lang="fr">
+          <tig>
+            <term>espace</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+            <note>draft · coined</note>
+          </tig>
+          <tig>
+            <term>spatialisation</term>
+            <termNote type="administrativeStatus">admittedTerm-admn-sts</termNote>
+          </tig>
+          <tig>
+            <term>mouvement</term>
+            <termNote type="administrativeStatus">admittedTerm-admn-sts</termNote>
+          </tig>
+        </langSet>
+      </termEntry>
+      <termEntry id="warmth">
+        <descrip type="subjectField">Twirl · sounds</descrip>
+        <note>match:en:(?c)Warmth</note>
+        <note>match:fr:chaleur</note>
+        <langSet xml:lang="en">
+          <descrip type="definition">the room: hiss, crackle, wobble</descrip>
+          <tig>
+            <term>Warmth</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+          </tig>
+        </langSet>
+        <langSet xml:lang="fr">
+          <tig>
+            <term>Chaleur</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+            <note>draft · usual</note>
+          </tig>
+        </langSet>
+      </termEntry>
+      <termEntry id="vary">
+        <descrip type="subjectField">Twirl · named features</descrip>
+        <note>you chose Varier (a verb): see the broad question on verbs and nouns</note>
+        <note>match:en:(?c)Vary</note>
+        <note>match:fr:vari\w*</note>
+        <langSet xml:lang="en">
+          <descrip type="definition">no two notes quite alike</descrip>
+          <tig>
+            <term>Vary</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+          </tig>
+        </langSet>
+        <langSet xml:lang="fr">
+          <tig>
+            <term>Varier</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+            <note>draft · usual</note>
+          </tig>
+        </langSet>
+      </termEntry>
+      <termEntry id="evolve">
+        <descrip type="subjectField">Twirl · named features</descrip>
+        <note>match:en:(?c)Evolves?</note>
+        <note>match:fr:évolu\w*</note>
+        <langSet xml:lang="en">
+          <descrip type="definition">Lives move on, pass by pass</descrip>
+          <tig>
+            <term>Evolve</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+          </tig>
+        </langSet>
+        <langSet xml:lang="fr">
+          <tig>
+            <term>Évolution</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+            <note>draft · usual</note>
+          </tig>
+          <tig>
+            <term>Évoluer</term>
+            <termNote type="administrativeStatus">admittedTerm-admn-sts</termNote>
+          </tig>
+        </langSet>
+      </termEntry>
+      <termEntry id="morph">
+        <descrip type="subjectField">Twirl · named features</descrip>
+        <note>match:en:(?c)Morph(s|ing)?</note>
+        <note>match:fr:métamorph\w*</note>
+        <langSet xml:lang="en">
+          <descrip type="definition">loops moving on their own</descrip>
+          <tig>
+            <term>Morph</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+          </tig>
+        </langSet>
+        <langSet xml:lang="fr">
+          <tig>
+            <term>Métamorphose</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+            <note>draft · coined</note>
+          </tig>
+          <tig>
+            <term>Métamorphoser</term>
+            <termNote type="administrativeStatus">admittedTerm-admn-sts</termNote>
+          </tig>
+          <tig>
+            <term>Muer</term>
+            <termNote type="administrativeStatus">admittedTerm-admn-sts</termNote>
+          </tig>
+          <tig>
+            <term>Transformer</term>
+            <termNote type="administrativeStatus">admittedTerm-admn-sts</termNote>
+          </tig>
+        </langSet>
+      </termEntry>
+      <termEntry id="lock">
+        <descrip type="subjectField">Twirl · named features</descrip>
+        <note>match:en:(?c)Lock(ed)?</note>
+        <note>match:fr:verrou\w*</note>
+        <langSet xml:lang="en">
+          <descrip type="definition">loops read on the beat grid</descrip>
+          <tig>
+            <term>Lock</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+          </tig>
+        </langSet>
+        <langSet xml:lang="fr">
+          <tig>
+            <term>Verrou</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+            <note>draft · coined</note>
+          </tig>
+          <tig>
+            <term>Verrouiller</term>
+            <termNote type="administrativeStatus">admittedTerm-admn-sts</termNote>
+          </tig>
+          <tig>
+            <term>Caler</term>
+            <termNote type="administrativeStatus">admittedTerm-admn-sts</termNote>
+          </tig>
+          <tig>
+            <term>Ancrer</term>
+            <termNote type="administrativeStatus">admittedTerm-admn-sts</termNote>
+          </tig>
+        </langSet>
+      </termEntry>
+      <termEntry id="air">
+        <descrip type="subjectField">Twirl · named features</descrip>
+        <note>match:en:(?c)Air</note>
+        <note>match:fr:aér\w*</note>
+        <langSet xml:lang="en">
+          <descrip type="definition">notes rest as a scene gets busy</descrip>
+          <tig>
+            <term>Air</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+          </tig>
+        </langSet>
+        <langSet xml:lang="fr">
+          <tig>
+            <term>Aération</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+            <note>draft · coined</note>
+          </tig>
+          <tig>
+            <term>Aérer</term>
+            <termNote type="administrativeStatus">admittedTerm-admn-sts</termNote>
+          </tig>
+          <tig>
+            <term>Respiration</term>
+            <termNote type="administrativeStatus">admittedTerm-admn-sts</termNote>
+          </tig>
+          <tig>
+            <term>Souffle</term>
+            <termNote type="administrativeStatus">admittedTerm-admn-sts</termNote>
+          </tig>
+        </langSet>
+      </termEntry>
+      <termEntry id="walk">
+        <descrip type="subjectField">Twirl · named features</descrip>
+        <note>match:en:(?c)Walk(s|ing)?</note>
+        <note>match:fr:marche</note>
+        <langSet xml:lang="en">
+          <descrip type="definition">everything shifting along the scale</descrip>
+          <tig>
+            <term>Walk</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+          </tig>
+        </langSet>
+        <langSet xml:lang="fr">
+          <tig>
+            <term>Marche</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+            <note>draft · coined</note>
+          </tig>
+          <tig>
+            <term>Marche harmonique</term>
+            <termNote type="administrativeStatus">admittedTerm-admn-sts</termNote>
+          </tig>
+          <tig>
+            <term>Promenade</term>
+            <termNote type="administrativeStatus">admittedTerm-admn-sts</termNote>
+          </tig>
+          <tig>
+            <term>Déambuler</term>
+            <termNote type="administrativeStatus">admittedTerm-admn-sts</termNote>
+          </tig>
+        </langSet>
+      </termEntry>
+      <termEntry id="arc">
+        <descrip type="subjectField">Twirl · named features</descrip>
+        <note>match:en:(?c)Arc</note>
+        <note>match:fr:arcs?</note>
+        <langSet xml:lang="en">
+          <descrip type="definition">tension and release over 4 or 8 bars</descrip>
+          <tig>
+            <term>Arc</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+          </tig>
+        </langSet>
+        <langSet xml:lang="fr">
+          <tig>
+            <term>Arc</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+            <note>draft · usual</note>
+          </tig>
+        </langSet>
+      </termEntry>
+      <termEntry id="surprise">
+        <descrip type="subjectField">Twirl · named features</descrip>
+        <note>match:en:(?c)Surprise</note>
+        <note>match:fr:surprises?</note>
+        <langSet xml:lang="en">
+          <descrip type="definition">new loops get random ways</descrip>
+          <tig>
+            <term>Surprise</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+          </tig>
+        </langSet>
+        <langSet xml:lang="fr">
+          <tig>
+            <term>Surprise</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+            <note>draft · usual</note>
+          </tig>
+        </langSet>
+      </termEntry>
+      <termEntry id="smooth">
+        <descrip type="subjectField">Twirl · named features</descrip>
+        <note>match:en:(?c)Smooth(ed)?</note>
+        <note>match:fr:liss\w*</note>
+        <langSet xml:lang="en">
+          <descrip type="definition">strokes settle into curves</descrip>
+          <tig>
+            <term>Smooth</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+          </tig>
+        </langSet>
+        <langSet xml:lang="fr">
+          <tig>
+            <term>Lissage</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+            <note>draft · usual</note>
+          </tig>
+          <tig>
+            <term>Lisser</term>
+            <termNote type="administrativeStatus">admittedTerm-admn-sts</termNote>
+          </tig>
+        </langSet>
+      </termEntry>
+      <termEntry id="revoice">
+        <descrip type="subjectField">Twirl · named features</descrip>
+        <note>match:en:revoic\w*</note>
+        <note>match:fr:voix tournantes</note>
+        <langSet xml:lang="en">
+          <descrip type="definition">turning changes voices</descrip>
+          <tig>
+            <term>Revoice</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+          </tig>
+        </langSet>
+        <langSet xml:lang="fr">
+          <tig>
+            <term>Voix tournantes</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+            <note>draft · coined</note>
+          </tig>
+          <tig>
+            <term>Changer de voix</term>
+            <termNote type="administrativeStatus">admittedTerm-admn-sts</termNote>
+          </tig>
+          <tig>
+            <term>Revoix</term>
+            <termNote type="administrativeStatus">admittedTerm-admn-sts</termNote>
+          </tig>
+        </langSet>
+      </termEntry>
+      <termEntry id="beatsview">
+        <descrip type="subjectField">Twirl · named features</descrip>
+        <note>match:en:(?c)Beats</note>
+        <note>match:fr:pulsations?</note>
+        <langSet xml:lang="en">
+          <descrip type="definition">ticks and lines where beats fall</descrip>
+          <tig>
+            <term>Beats (view)</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+          </tig>
+        </langSet>
+        <langSet xml:lang="fr">
+          <tig>
+            <term>Pulsations</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+            <note>draft · coined</note>
+          </tig>
+        </langSet>
+      </termEntry>
+      <termEntry id="listen">
+        <descrip type="subjectField">Twirl · named features</descrip>
+        <note>match:en:incoming midi( only)?</note>
+        <note>match:fr:midi entrant</note>
+        <langSet xml:lang="en">
+          <descrip type="definition">the sheet silent: Twirl as an instrument</descrip>
+          <tig>
+            <term>Incoming MIDI only</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+          </tig>
+        </langSet>
+        <langSet xml:lang="fr">
+          <tig>
+            <term>MIDI entrant seulement</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+            <note>draft · usual</note>
+          </tig>
+          <tig>
+            <term>MIDI reçu seulement</term>
+            <termNote type="administrativeStatus">admittedTerm-admn-sts</termNote>
+          </tig>
+        </langSet>
+      </termEntry>
+      <termEntry id="follow">
+        <descrip type="subjectField">Twirl · named features</descrip>
+        <note>match:en:follow(ing)? (the )?host</note>
+        <note>match:fr:suivre|suit</note>
+        <langSet xml:lang="en">
+          <descrip type="definition">Twirl's clock follows the host's</descrip>
+          <tig>
+            <term>Follow host transport</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+          </tig>
+        </langSet>
+        <langSet xml:lang="fr">
+          <tig>
+            <term>Suivre le transport de l'hôte</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+            <note>draft · usual</note>
+          </tig>
+        </langSet>
+      </termEntry>
+      <termEntry id="meets">
+        <descrip type="subjectField">Twirl · a loop's ways</descrip>
+        <note>match:en:(?c)Meets?|Meeting</note>
+        <note>match:fr:rencontr\w*</note>
+        <langSet xml:lang="en">
+          <descrip type="definition">what loops do when they touch: no, sound, bump, trade, breed, infect, merge</descrip>
+          <tig>
+            <term>Meets</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+          </tig>
+        </langSet>
+        <langSet xml:lang="fr">
+          <tig>
+            <term>Rencontres</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+            <note>draft · coined</note>
+          </tig>
+        </langSet>
+      </termEntry>
+      <termEntry id="life">
+        <descrip type="subjectField">Twirl · a loop's ways</descrip>
+        <note>match:en:(?c)Life|Lives</note>
+        <note>match:fr:vies?</note>
+        <langSet xml:lang="en">
+          <descrip type="definition">how a loop changes pass by pass: steady, bloom, swell, fade, brief</descrip>
+          <tig>
+            <term>Life</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+          </tig>
+        </langSet>
+        <langSet xml:lang="fr">
+          <tig>
+            <term>Vie</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+            <note>draft · coined</note>
+          </tig>
+        </langSet>
+      </termEntry>
+      <termEntry id="influence">
+        <descrip type="subjectField">Twirl · a loop's ways</descrip>
+        <note>match:en:(?c)Influence</note>
+        <note>match:fr:influences?</note>
+        <langSet xml:lang="en">
+          <descrip type="definition">what a loop does to those it touches: none, feeds, drains</descrip>
+          <tig>
+            <term>Influence</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+          </tig>
+        </langSet>
+        <langSet xml:lang="fr">
+          <tig>
+            <term>Influence</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+            <note>draft · usual</note>
+          </tig>
+        </langSet>
+      </termEntry>
+      <termEntry id="snap">
+        <descrip type="subjectField">Twirl · a loop's ways</descrip>
+        <note>match:en:(?c)Snap(ped)?</note>
+        <note>match:fr:aimant\w*|aimanté\w*|cal\w*</note>
+        <langSet xml:lang="en">
+          <descrip type="definition">where notes land in time: sheet, fine, none</descrip>
+          <tig>
+            <term>Snap</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+          </tig>
+        </langSet>
+        <langSet xml:lang="fr">
+          <tig>
+            <term>Aimant</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+            <note>draft · coined</note>
+          </tig>
+          <tig>
+            <term>Calage</term>
+            <termNote type="administrativeStatus">admittedTerm-admn-sts</termNote>
+          </tig>
+          <tig>
+            <term>Magnétisme</term>
+            <termNote type="administrativeStatus">admittedTerm-admn-sts</termNote>
+          </tig>
+          <tig>
+            <term>Accroche</term>
+            <termNote type="administrativeStatus">admittedTerm-admn-sts</termNote>
+          </tig>
+        </langSet>
+      </termEntry>
+      <termEntry id="feel">
+        <descrip type="subjectField">Twirl · a loop's ways</descrip>
+        <note>match:en:(?c)Feel</note>
+        <note>match:fr:ressenti|jeu</note>
+        <langSet xml:lang="en">
+          <descrip type="definition">ahead of the beat or behind it, in ms</descrip>
+          <tig>
+            <term>Feel</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+          </tig>
+        </langSet>
+        <langSet xml:lang="fr">
+          <tig>
+            <term>Ressenti</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+            <note>draft · coined</note>
+          </tig>
+          <tig>
+            <term>Placement</term>
+            <termNote type="administrativeStatus">admittedTerm-admn-sts</termNote>
+          </tig>
+          <tig>
+            <term>Jeu</term>
+            <termNote type="administrativeStatus">admittedTerm-admn-sts</termNote>
+          </tig>
+          <tig>
+            <term>Groove</term>
+            <termNote type="administrativeStatus">admittedTerm-admn-sts</termNote>
+          </tig>
+        </langSet>
+      </termEntry>
+      <termEntry id="clock">
+        <descrip type="subjectField">Twirl · a loop's ways</descrip>
+        <note>match:en:(?c)Clock</note>
+        <note>match:fr:horloges?</note>
+        <langSet xml:lang="en">
+          <descrip type="definition">in step, drifts ahead, drifts behind</descrip>
+          <tig>
+            <term>Clock</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+          </tig>
+        </langSet>
+        <langSet xml:lang="fr">
+          <tig>
+            <term>Horloge</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+            <note>draft · usual</note>
+          </tig>
+        </langSet>
+      </termEntry>
+      <termEntry id="direction">
+        <descrip type="subjectField">Twirl · a loop's ways</descrip>
+        <note>match:en:directions?</note>
+        <note>match:fr:sens</note>
+        <langSet xml:lang="en">
+          <descrip type="definition">which way a loop's playhead travels</descrip>
+          <tig>
+            <term>direction</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+          </tig>
+        </langSet>
+        <langSet xml:lang="fr">
+          <tig>
+            <term>sens</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+            <note>draft · usual</note>
+          </tig>
+        </langSet>
+      </termEntry>
+      <termEntry id="spacing">
+        <descrip type="subjectField">Twirl · a loop's ways</descrip>
+        <note>match:en:(?c)Spacing</note>
+        <note>match:fr:espacement</note>
+        <langSet xml:lang="en">
+          <descrip type="definition">where notes sit on the sheet: by register, even</descrip>
+          <tig>
+            <term>Spacing</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+          </tig>
+        </langSet>
+        <langSet xml:lang="fr">
+          <tig>
+            <term>Espacement</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+            <note>draft · usual</note>
+          </tig>
+        </langSet>
+      </termEntry>
+      <termEntry id="tap">
+        <descrip type="subjectField">Twirl · doing things</descrip>
+        <note>match:en:tap(s|ped|ping)?</note>
+        <note>match:fr:touch\w*|tap\w*|cliqu\w*</note>
+        <langSet xml:lang="en">
+          <descrip type="definition">touch briefly (or click)</descrip>
+          <tig>
+            <term>tap</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+          </tig>
+        </langSet>
+        <langSet xml:lang="fr">
+          <tig>
+            <term>toucher</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+            <note>draft · usual</note>
+          </tig>
+          <tig>
+            <term>taper</term>
+            <termNote type="administrativeStatus">admittedTerm-admn-sts</termNote>
+          </tig>
+          <tig>
+            <term>toucher brièvement</term>
+            <termNote type="administrativeStatus">admittedTerm-admn-sts</termNote>
+          </tig>
+        </langSet>
+      </termEntry>
+      <termEntry id="hold">
+        <descrip type="subjectField">Twirl · doing things</descrip>
+        <note>match:en:hold(s|ing)?</note>
+        <note>match:fr:maint\w*|appui\w*|gard\w*</note>
+        <langSet xml:lang="en">
+          <descrip type="definition">keep pressing</descrip>
+          <tig>
+            <term>hold</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+          </tig>
+        </langSet>
+        <langSet xml:lang="fr">
+          <tig>
+            <term>maintenir</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+            <note>draft · usual</note>
+          </tig>
+          <tig>
+            <term>garder appuyé</term>
+            <termNote type="administrativeStatus">admittedTerm-admn-sts</termNote>
+          </tig>
+          <tig>
+            <term>appui long</term>
+            <termNote type="administrativeStatus">admittedTerm-admn-sts</termNote>
+          </tig>
+        </langSet>
+      </termEntry>
+      <termEntry id="drag">
+        <descrip type="subjectField">Twirl · doing things</descrip>
+        <note>match:en:drag(s|ged|ging)?</note>
+        <note>match:fr:gliss\w*|fais\w* glisser</note>
+        <langSet xml:lang="en">
+          <tig>
+            <term>drag</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+          </tig>
+        </langSet>
+        <langSet xml:lang="fr">
+          <tig>
+            <term>glisser</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+            <note>draft · usual</note>
+          </tig>
+        </langSet>
+      </termEntry>
+      <termEntry id="draw">
+        <descrip type="subjectField">Twirl · doing things</descrip>
+        <note>match:en:draw(s|n|ing)?|drew</note>
+        <note>match:fr:dessin\w*|trac\w*</note>
+        <langSet xml:lang="en">
+          <descrip type="definition">make a stroke</descrip>
+          <tig>
+            <term>draw</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+          </tig>
+        </langSet>
+        <langSet xml:lang="fr">
+          <tig>
+            <term>dessiner</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+            <note>draft · usual</note>
+          </tig>
+          <tig>
+            <term>tracer</term>
+            <termNote type="administrativeStatus">admittedTerm-admn-sts</termNote>
+          </tig>
+        </langSet>
+      </termEntry>
+      <termEntry id="undo">
+        <descrip type="subjectField">Twirl · doing things</descrip>
+        <note>match:en:undo</note>
+        <note>match:fr:annul\w*</note>
+        <langSet xml:lang="en">
+          <tig>
+            <term>undo</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+          </tig>
+        </langSet>
+        <langSet xml:lang="fr">
+          <tig>
+            <term>annuler</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+            <note>draft · usual</note>
+          </tig>
+        </langSet>
+      </termEntry>
+      <termEntry id="startover">
+        <descrip type="subjectField">Twirl · doing things</descrip>
+        <note>match:en:start over</note>
+        <note>match:fr:recommenc\w*</note>
+        <langSet xml:lang="en">
+          <descrip type="definition">empty the sheet and begin again</descrip>
+          <tig>
+            <term>Start over</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+          </tig>
+        </langSet>
+        <langSet xml:lang="fr">
+          <tig>
+            <term>Recommencer</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+            <note>draft · usual</note>
+          </tig>
+        </langSet>
+      </termEntry>
+      <termEntry id="clear">
+        <descrip type="subjectField">Twirl · doing things</descrip>
+        <note>match:en:clear(s|ed)?</note>
+        <note>match:fr:effac\w*|vid\w*</note>
+        <langSet xml:lang="en">
+          <descrip type="definition">remove loops</descrip>
+          <tig>
+            <term>clear</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+          </tig>
+        </langSet>
+        <langSet xml:lang="fr">
+          <tig>
+            <term>effacer</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+            <note>draft · usual</note>
+          </tig>
+        </langSet>
+      </termEntry>
+      <termEntry id="record">
+        <descrip type="subjectField">Twirl · doing things</descrip>
+        <note>match:en:record(s|ed|ing)?</note>
+        <note>match:fr:enregistr\w*</note>
+        <langSet xml:lang="en">
+          <descrip type="definition">make a take</descrip>
+          <tig>
+            <term>record</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+          </tig>
+        </langSet>
+        <langSet xml:lang="fr">
+          <tig>
+            <term>enregistrer</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+            <note>draft · usual</note>
+          </tig>
+        </langSet>
+      </termEntry>
+      <termEntry id="simple">
+        <descrip type="subjectField">Twirl · menus and screens</descrip>
+        <note>match:en:(?c)Everything</note>
+        <note>match:fr:tout</note>
+        <langSet xml:lang="en">
+          <descrip type="definition">how much the menus show (levels of detail)</descrip>
+          <tig>
+            <term>Simple / Everything</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+          </tig>
+        </langSet>
+        <langSet xml:lang="fr">
+          <tig>
+            <term>Simple / Tout</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+            <note>draft · coined</note>
+          </tig>
+          <tig>
+            <term>Essentiel / Complet</term>
+            <termNote type="administrativeStatus">admittedTerm-admn-sts</termNote>
+          </tig>
+          <tig>
+            <term>De base / Tout</term>
+            <termNote type="administrativeStatus">admittedTerm-admn-sts</termNote>
+          </tig>
+        </langSet>
+      </termEntry>
+      <termEntry id="view">
+        <descrip type="subjectField">Twirl · menus and screens</descrip>
+        <note>match:en:(?c)View</note>
+        <note>match:fr:affichage</note>
+        <langSet xml:lang="en">
+          <descrip type="definition">the menu section for what's shown</descrip>
+          <tig>
+            <term>View</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+          </tig>
+        </langSet>
+        <langSet xml:lang="fr">
+          <tig>
+            <term>Affichage</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+            <note>draft · usual</note>
+          </tig>
+        </langSet>
+      </termEntry>
+      <termEntry id="time">
+        <descrip type="subjectField">Twirl · menus and screens</descrip>
+        <note>match:en:(?c)Time</note>
+        <note>match:fr:temps</note>
+        <langSet xml:lang="en">
+          <descrip type="definition">the menu section for tempo and timing</descrip>
+          <tig>
+            <term>Time</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+          </tig>
+        </langSet>
+        <langSet xml:lang="fr">
+          <tig>
+            <term>Temps</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+            <note>draft · usual</note>
+          </tig>
+        </langSet>
+      </termEntry>
+      <termEntry id="messages">
+        <descrip type="subjectField">Twirl · menus and screens</descrip>
+        <note>match:en:messages?</note>
+        <note>match:fr:messages?</note>
+        <langSet xml:lang="en">
+          <descrip type="definition">Twirl's log of what it told you</descrip>
+          <tig>
+            <term>messages</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+          </tig>
+        </langSet>
+        <langSet xml:lang="fr">
+          <tig>
+            <term>messages</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+            <note>draft · usual</note>
+          </tig>
+        </langSet>
+      </termEntry>
+      <termEntry id="diagnostics">
+        <descrip type="subjectField">Twirl · menus and screens</descrip>
+        <note>match:en:diagnostics?</note>
+        <note>match:fr:diagnostics?</note>
+        <langSet xml:lang="en">
+          <descrip type="definition">the ⇧Q report</descrip>
+          <tig>
+            <term>diagnostics</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+          </tig>
+        </langSet>
+        <langSet xml:lang="fr">
+          <tig>
+            <term>diagnostic</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+            <note>draft · usual</note>
+          </tig>
+        </langSet>
+      </termEntry>
+      <termEntry id="toast">
+        <descrip type="subjectField">Twirl · menus and screens</descrip>
+        <note>match:en:(?c)hints?</note>
+        <note>match:fr:astuces?|conseils?|indices?</note>
+        <langSet xml:lang="en">
+          <descrip type="definition">the short tips shown on the sheet</descrip>
+          <tig>
+            <term>hint</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+          </tig>
+        </langSet>
+        <langSet xml:lang="fr">
+          <tig>
+            <term>astuce</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+            <note>draft · usual</note>
+          </tig>
+        </langSet>
+      </termEntry>
+      <termEntry id="plugin">
+        <descrip type="subjectField">Twirl · plugin and tech</descrip>
+        <note>plugiciel is the OQLF's (to check: GDT)</note>
+        <note>match:en:plug-?ins?</note>
+        <note>match:fr:plugiciels?|module d'extension|plug-?ins?</note>
+        <langSet xml:lang="en">
+          <descrip type="definition">Twirl inside a music app</descrip>
+          <tig>
+            <term>plugin</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+          </tig>
+        </langSet>
+        <langSet xml:lang="fr">
+          <tig>
+            <term>plugiciel</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+            <note>draft · usual</note>
+          </tig>
+          <tig>
+            <term>module d'extension</term>
+            <termNote type="administrativeStatus">admittedTerm-admn-sts</termNote>
+          </tig>
+          <tig>
+            <term>plugin</term>
+            <termNote type="administrativeStatus">admittedTerm-admn-sts</termNote>
+          </tig>
+        </langSet>
+      </termEntry>
+      <termEntry id="host">
+        <descrip type="subjectField">Twirl · plugin and tech</descrip>
+        <note>match:en:hosts?</note>
+        <note>match:fr:hôtes?|logiciel hôte</note>
+        <langSet xml:lang="en">
+          <descrip type="definition">the music app Twirl runs in</descrip>
+          <tig>
+            <term>host</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+          </tig>
+        </langSet>
+        <langSet xml:lang="fr">
+          <tig>
+            <term>hôte</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+            <note>draft · usual</note>
+          </tig>
+          <tig>
+            <term>application hôte</term>
+            <termNote type="administrativeStatus">admittedTerm-admn-sts</termNote>
+          </tig>
+          <tig>
+            <term>logiciel hôte</term>
+            <termNote type="administrativeStatus">admittedTerm-admn-sts</termNote>
+          </tig>
+        </langSet>
+      </termEntry>
+      <termEntry id="browser">
+        <descrip type="subjectField">Twirl · plugin and tech</descrip>
+        <note>fureteur was the OQLF's; navigateur is now usual in Québec</note>
+        <note>match:en:browsers?</note>
+        <note>match:fr:navigateurs?|fureteurs?</note>
+        <langSet xml:lang="en">
+          <tig>
+            <term>browser</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+          </tig>
+        </langSet>
+        <langSet xml:lang="fr">
+          <tig>
+            <term>navigateur</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+            <note>draft · usual</note>
+          </tig>
+          <tig>
+            <term>fureteur</term>
+            <termNote type="administrativeStatus">admittedTerm-admn-sts</termNote>
+          </tig>
+        </langSet>
+      </termEntry>
+      <termEntry id="out">
+        <descrip type="subjectField">Twirl · plugin and tech</descrip>
+        <note>match:en:(?c)Out</note>
+        <note>match:fr:sortie</note>
+        <langSet xml:lang="en">
+          <descrip type="definition">where Twirl's notes go: sound, MIDI, both</descrip>
+          <tig>
+            <term>Out</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+          </tig>
+        </langSet>
+        <langSet xml:lang="fr">
+          <tig>
+            <term>Sortie</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+            <note>draft · usual</note>
+          </tig>
+        </langSet>
+      </termEntry>
+      <termEntry id="keyboard">
+        <descrip type="subjectField">Twirl · plugin and tech</descrip>
+        <note>match:en:keyboards?</note>
+        <note>match:fr:claviers?</note>
+        <langSet xml:lang="en">
+          <descrip type="definition">the computer's (shortcuts) or a musical one</descrip>
+          <tig>
+            <term>keyboard</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+          </tig>
+        </langSet>
+        <langSet xml:lang="fr">
+          <tig>
+            <term>clavier</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+            <note>draft · usual</note>
+          </tig>
+        </langSet>
+      </termEntry>
+      <termEntry id="screen">
+        <descrip type="subjectField">Twirl · plugin and tech</descrip>
+        <note>match:en:screens?</note>
+        <note>match:fr:écrans?</note>
+        <langSet xml:lang="en">
+          <tig>
+            <term>screen</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+          </tig>
+        </langSet>
+        <langSet xml:lang="fr">
+          <tig>
+            <term>écran</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+            <note>draft · usual</note>
+          </tig>
+        </langSet>
+      </termEntry>
+      <termEntry id="file">
+        <descrip type="subjectField">Twirl · plugin and tech</descrip>
+        <note>match:en:files?</note>
+        <note>match:fr:fichiers?</note>
+        <langSet xml:lang="en">
+          <descrip type="definition">scenes, toys and settings as files (the plugin)</descrip>
+          <tig>
+            <term>file</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+          </tig>
+        </langSet>
+        <langSet xml:lang="fr">
+          <tig>
+            <term>fichier</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+            <note>draft · usual</note>
+          </tig>
+        </langSet>
+      </termEntry>
+    </body>
+  </text>
+</martif>
