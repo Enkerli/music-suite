@@ -444,7 +444,15 @@ as on/off.
    pack; sample-accurate; window open or not; note-offs ignored (one-shot
    voices); still passed through. Checked with two standalones: one
    Twirl's MIDI played in another's sound (Kalimba), silent once
-   disconnected. More to come from playing with it (Alex).
+   disconnected. More to come from playing with it (Alex). **Then
+   (2026-10-26), Incoming MIDI only**: Alex, in Bitwig, sent channel 10
+   into a second Twirl and it "played its own scene instead of playing the
+   drum notes": the receiving Twirl's sheet kept playing over what came
+   in. The switch (and host parameter) silences the sheet (every loop as
+   if muted, no meetings; passes go on) so Twirl is an instrument, and a
+   drum kit in one instance on channel 10 (instead of a Surge XT a pad).
+   ⇧Q shows the note-ons that came in, by channel, to check what the host
+   sends. Checked in Carla.
 5. Parameters, the first set, then more. **First set done (2026-10-26):**
    Volume, Tempo, Follow host transport, Swing, Warmth, Air, Drone (on,
    level, voicing, space), Lock, Walk (on, way, pace), Sounds, Scale,
