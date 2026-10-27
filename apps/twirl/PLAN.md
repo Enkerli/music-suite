@@ -453,6 +453,15 @@ as on/off.
    drum kit in one instance on channel 10 (instead of a Surge XT a pad).
    ⇧Q shows the note-ons that came in, by channel, to check what the host
    sends. Checked in Carla.
+6. **Scenes as files (2026-10-26).** Alex: "we come to expect that we can
+   save things as a 'preset' within the plugin… yet another way to share a
+   scene." The web view's storage in the plugin didn't last (Qt 6's default
+   profile is off the record) and wasn't shared, so scene slots, My toys
+   and the look were lost each session. Now they're files every instance
+   shares (twirl-dpf `TwirlFiles.hpp`, `~/.local/share/twirl`), picked up
+   by other instances within a second; a scene file's JSON pastes into
+   Paste a code. The six slots stay as they are; named presets (any
+   number, chosen by name) could come next.
 5. Parameters, the first set, then more. **First set done (2026-10-26):**
    Volume, Tempo, Follow host transport, Swing, Warmth, Air, Drone (on,
    level, voicing, space), Lock, Walk (on, way, pace), Sounds, Scale,

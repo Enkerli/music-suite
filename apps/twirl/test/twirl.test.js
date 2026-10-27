@@ -1699,6 +1699,38 @@ describe.skipIf(!browser)("Twirl · inside the plugin (twirl-dpf)", () => {
     await context.close();
   });
 
+  it("keeps scenes, My toys and its look in the plugin's shared files, not the web view's storage", async () => {
+    // A scene, as one instance saved it (scenes/Scene 1.json), and a setting.
+    const a = await openTwirl(browser, { initScript: dpf });
+    const scene = await a.page.evaluate(() => JSON.stringify(serialize()));
+    await a.context.close();
+    const b64 = (t) => Buffer.from(t).toString("base64");
+    const files = { "scenes/Scene 1.json": b64(scene), "settings/level.json": b64("3") };
+    const init = `(${dpf})(); window.__twirlFiles = ${JSON.stringify(files)}; window.__twirlFilesDir = "/home/someone/.local/share/twirl";`;
+    const { page, context, errors } = await openTwirl(browser, { initScript: init });
+    const saves = () => page.evaluate(() => window.__host.filter((m) => m.key === "file").map((m) => m.value.split("\n")[0]));
+    expect(await page.evaluate(() => [store.get("twirl:scene:1").loops.length > 0, store.get("twirl:scene:2"), level])).toEqual([true, null, 3]);
+    await page.evaluate(() => openShelf("scenes"));
+    expect(await page.evaluate(() => [...$("slots").children].map((b) => b.classList.contains("empty")))).toEqual([false, true, true, true, true, true]);
+    expect(await page.textContent("#slotsNote")).toContain("/home/someone/.local/share/twirl/scenes");
+    // Saved here: a file for the plugin to write, and nothing in the web view's storage.
+    await page.evaluate(() => saveTo(2));
+    expect(await saves()).toContain("scenes/Scene 2.json");
+    expect(await page.evaluate(() => localStorage.getItem("twirl:scene:2"))).toBe(null);
+    // Another instance saved slot 3: it shows.
+    await page.evaluate((s) => twirlFiles({ "scenes/Scene 3.json": btoa(s) }), scene);
+    expect(await page.evaluate(() => [...$("slots").children].map((b) => b.classList.contains("empty")))).toEqual([false, false, false, true, true, true]);
+    // The look is shared too; the sheet itself stays with the instance (its project).
+    await page.evaluate(() => { setLevel(1); autosave(); });
+    expect(await saves()).toContain("settings/level.json");
+    expect((await saves()).some((f) => /last/.test(f))).toBe(false);
+    // A scene file's text pastes like a code.
+    await page.evaluate(() => [...loops].forEach(eraseLoop));
+    expect(await page.evaluate((s) => openPasted(s).then((ok) => [ok, loops.length > 0]), scene)).toEqual([true, true]);
+    expect(errors).toEqual([]);
+    await context.close();
+  });
+
   it("takes the host's parameters as if its controls moved, and reports its own changes", async () => {
     const { page, context, errors } = await openTwirl(browser, { initScript: dpf });
     const params = () => page.evaluate(() => window.__host.filter((m) => m.key === "params").map((m) => m.value));

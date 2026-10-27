@@ -716,7 +716,7 @@ kbd {
     <button class="toy" type="button" id="openFileBtn"><svg viewBox="0 0 34 34" aria-hidden="true"><path d="M7 26V8h8l3 3h9v15z"/></svg>Open a file</button>
     <input type="file" id="openFile" accept=".json,application/json" hidden>
     <div id="slots" style="display:contents"></div>
-    <p class="traynote">Empty slot: tap to save. Full slot: tap to recall; hold it (or Shift + tap, Shift + Enter) to overwrite. Stored in this browser only.</p>
+    <p class="traynote" id="slotsNote">Empty slot: tap to save. Full slot: tap to recall; hold it (or Shift + tap, Shift + Enter) to overwrite. Stored in this browser only.</p>
     <div class="share" id="openLink" hidden>
       <input id="pasteLink" type="text" autocomplete="off" spellcheck="false" placeholder="Paste a Twirl code or link here" aria-label="Paste a Twirl code or link to open it">
       <small id="pasteInfo">Paste the whole thing, even if it came through broken across lines. A sheet replaces yours (yours is kept: Back to my sheet); toys join My toys; “everything” fills your empty scene slots and adds its toys.</small>
@@ -4132,15 +4132,53 @@ function frame() {
 }
 
 /* ── 12. Scenes: save, recall, and the last sheet comes back by itself ───── */
-// Stored in this browser's localStorage only (every access guarded: private
-// windows and embedded previews can refuse it).
+// Stored in this browser's localStorage (every access guarded: private
+// windows and embedded previews can refuse it). Inside the plugin, in files
+// every instance shares instead (twirl-dpf TwirlFiles.hpp,
+// ~/.local/share/twirl): the web view's storage there doesn't last, and
+// isn't shared. Scenes are scenes/Scene 1.json…, My toys "My toys.json",
+// how Twirl looks settings/… .json: plain JSON, a scene file pastes into
+// Paste a code. The plugin hands them all over before this page runs
+// (__twirlFiles: path → base64), saves what's set ("file"), and passes on
+// other instances' saves (twirlFiles). What belongs to one sheet (the
+// sheet itself, kept while a shared one is open) stays with the instance:
+// its project saves it.
 
 const SLOTS = 6, LAST_KEY = "twirl:last", slotKey = (i) => `twirl:scene:${i}`;
 const r4 = (v) => Math.round(v * 10000) / 10000;
+const utf8 = (b64) => new TextDecoder().decode(Uint8Array.from(atob(b64), (c) => c.charCodeAt(0)));
+const hostFiles = IN_HOST && window.__twirlFiles
+  ? Object.fromEntries(Object.entries(window.__twirlFiles).map(([p, b]) => { try { return [p, utf8(b)]; } catch (_) { return [p, ""]; } }))
+  : null;
+/** The file a key lives in, inside the plugin (null: this browser's storage). */
+function fileOf(k) {
+  if (!hostFiles || !k.startsWith("twirl:") || ["twirl:last", "twirl:beforeShare", "twirl:openedLink"].includes(k)) return null;
+  if (k.startsWith("twirl:scene:")) return `scenes/Scene ${k.slice(12)}.json`;
+  if (k === "twirl:toys") return "My toys.json";
+  return `settings/${k.slice(6).replace(/[^A-Za-z0-9_-]/g, "_")}.json`;
+}
 const store = {
-  get(k) { try { const s = localStorage.getItem(k); return s ? JSON.parse(s) : null; } catch (_) { return null; } },
-  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch (_) { return false; } },
+  get(k) {
+    const f = fileOf(k);
+    if (f) { try { return hostFiles[f] ? JSON.parse(hostFiles[f]) : null; } catch (_) { return null; } }
+    try { const s = localStorage.getItem(k); return s ? JSON.parse(s) : null; } catch (_) { return null; }
+  },
+  set(k, v) {
+    const f = fileOf(k);
+    if (f) { const s = JSON.stringify(v); if (hostFiles[f] !== s) { hostFiles[f] = s; window.setState("file", `${f}\n${s}`); } return true; }
+    try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch (_) { return false; }
+  },
 };
+/** Another instance saved (or a file changed): {path: base64, or null if it went}. */
+window.twirlFiles = (changed) => {
+  if (!hostFiles) return;
+  for (const [p, b] of Object.entries(changed)) { if (b === null) delete hostFiles[p]; else { try { hostFiles[p] = utf8(b); } catch (_) {} } }
+  if (!$("scenes").hidden) renderSlots();
+  if (!$("mytoys").hidden) renderMyToys();
+};
+if (hostFiles) document.getElementById("slotsNote").textContent = "Empty slot: tap to save. Full slot: tap to recall; hold it (or Shift + tap, Shift + Enter) to overwrite. "
+  + `Saved as files every Twirl plugin shares (${window.__twirlFilesDir ? window.__twirlFilesDir + "/scenes" : "~/.local/share/twirl/scenes"}): `
+  + "a scene file's text pastes into Paste a code, here or in a browser.";
 
 function serialize() {
   const { bpm, volume, grid, tuning, root, range, spread, div, pen, lock, loop, morph, revoice, walk, drone, pack, density, swing, droneVol, droneVoicing, droneSpace, warmth, air, arc, meet, dice, vary, evolve, walkWay, walkPace } = state;
@@ -4438,6 +4476,16 @@ function tokensIn(text) {
   return out;
 }
 async function openPasted(text) {
+  // A scene file's text (the plugin's scenes/Scene 1.json…): plain JSON.
+  let json = null;
+  try { json = JSON.parse(text.trim()); } catch (_) {}
+  if (json && Array.isArray(json.loops) && json.settings) {
+    if (loops.length) store.set(BEFORE_KEY, serialize());
+    if (!recall(json)) return false;
+    $("backBtn").hidden = !store.get(BEFORE_KEY);
+    toast("Opened the scene (your own sheet is kept: Back to my sheet)");
+    return true;
+  }
   for (const t of tokensIn(text)) {
     try { await unpackToken(t); } catch (_) { continue; }
     await openFromLink(t);
