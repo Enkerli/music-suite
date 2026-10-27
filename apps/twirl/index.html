@@ -644,6 +644,7 @@ kbd {
     </select>
       <select class="sel" id="out" aria-label="Output" hidden></select>
       <button class="btn" id="syncBtn" type="button" aria-pressed="false" hidden title="Inside a plugin: take the host's tempo, play while its transport plays and stop when it stops, on its beats. Off, Twirl keeps its own clock">Follow host transport</button>
+      <button class="btn" id="listenBtn" type="button" aria-pressed="false" hidden title="Inside a plugin: the sheet stays silent, and Twirl plays the MIDI coming in, in this sheet's sounds (its pack, Warmth, the Drone): an instrument, or a drum kit on channel 10. Off: both">Incoming MIDI only</button>
       <span class="hostchip" id="hostChip" hidden></span>
     </div>
   </details>
@@ -1374,6 +1375,11 @@ async function initMidi() {
       setHostSync(!hostSync); savePage();
       toast(hostSync ? "Following the host's transport" : "Twirl's own clock");
     });
+    $("listenBtn").hidden = false;
+    $("listenBtn").addEventListener("click", () => {
+      setMidiInOnly(!midiInOnly); savePage();
+      toast(midiInOnly ? "Incoming MIDI only: the sheet is silent, the MIDI coming in plays in its sounds" : "The sheet plays, and the MIDI coming in");
+    });
     addEventListener("pagehide", () => window.setState("panic", "1"));
     // Nobody may ever touch it (the plugin's window can stay closed): the sound starts now.
     ensureAudio(); hint.hidden = true;
@@ -1502,11 +1508,22 @@ addEventListener("pagehide", () => { if (!IN_HOST) { const d = drone; drone = nu
 // clocks is tiny, so the error is averaged over about a second and corrected
 // only past 2 ms, by half: Twirl's timing then holds still.
 let hostSync = false, hostInfo = null, hostHold = false, hostErr = 0;
+// Incoming MIDI only (synth mode, route C step 4): the plugin plays the MIDI
+// coming in, in this sheet's sounds; with this on, the sheet itself stays
+// silent (every loop as if muted, and no meetings: their passes go on, so
+// it comes back in step), and Twirl is an instrument: one Twirl's MIDI into
+// another, a drum kit on channel 10. Strokes being drawn still sound, and
+// the Drone plays. Saved with the project; a host parameter.
+let midiInOnly = false;
+function setMidiInOnly(on) {
+  midiInOnly = on;
+  $("listenBtn").setAttribute("aria-pressed", String(on));
+}
 const HOST_MOD = 48;
 const toB64 = (o) => btoa(String.fromCharCode(...new TextEncoder().encode(JSON.stringify(o))));
 const fromB64 = (s) => JSON.parse(new TextDecoder().decode(Uint8Array.from(atob(s), (c) => c.charCodeAt(0))));
 function savePage() {
-  if (IN_HOST) window.setState("page", toB64({ v: 1, scene: serialize(), out: state.out, sync: hostSync }));
+  if (IN_HOST) window.setState("page", toB64({ v: 1, scene: serialize(), out: state.out, sync: hostSync, listen: midiInOnly }));
 }
 window.twirlRestore = (saved) => {
   let p; try { p = fromB64(saved); } catch (_) { return; }
@@ -1514,6 +1531,7 @@ window.twirlRestore = (saved) => {
   const out = { "host:sound": "host:engine", "host:both": "host:engine+midi" }[p.out] || p.out;   // saved before 2026-10-26
   if (["host:midi", "host:engine", "host:engine+midi"].includes(out)) { state.out = $("out").value = out; sendEngine(); }
   setHostSync(!!p.sync);
+  setMidiInOnly(!!p.listen);
 };
 function setHostSync(on) {
   hostSync = on;
@@ -1593,6 +1611,7 @@ const HOST_PARAMS = [
   { id: "varyBtn", key: "vary" },
   { id: "evolveBtn", key: "evolve" },
   { id: "morphBtn", key: "morph" },
+  { id: "listenBtn", get: () => midiInOnly },
 ];
 const isSwitch = (p) => p.id.endsWith("Btn");
 function paramNow(p) {
@@ -2457,7 +2476,7 @@ function schedule() {
     const k0 = Math.max(0, Math.floor((a - lp.start) / Lb) - 1), k1 = Math.floor((z - lp.start) / Lb);
     for (let k = k0; k <= k1; k++) {
       if (k > lp.lastPass) { lp.lastPass = k; if (state.morph && !lp.held) morphStep(lp); ageLoop(lp); settle(lp); }
-      if (lp.muted || k % (lp.every || 1)) continue;                 // muted, or a resting pass
+      if (lp.muted || midiInOnly || k % (lp.every || 1)) continue;   // muted (or the sheet is: incoming MIDI only, 3d), or a resting pass
       const base = lp.start + k * Lb, back = backwards(lp, k);
       if (!locked(lp)) {
         // Free: each note at the moment you drew it, snapped NOW to the
@@ -2496,7 +2515,7 @@ function schedule() {
     lp.cursor = z;
   }
   buryDead();
-  checkMeetings(nb, now, W, H);
+  if (!midiInOnly) checkMeetings(nb, now, W, H);
   updateDrone(nb);
 }
 /* The clock (PLAN.md, phase 4a). A Worker posts a tick every 25 ms and the page
@@ -3792,6 +3811,9 @@ function diagReport() {
     midi: IN_HOST ? { out: state.out, host: true, sent: diag.midiSent, last: diag.midiLast, engineNotes: diag.engineSent || 0,
                       // Follow host transport, and what the plugin last said: the host's tempo and transport
                       followHost: hostSync, holding: hostHold, hostJumps: diag.hostJumps || 0,
+                      // MIDI coming into the plugin: note-ons per channel (1–16), and whether the sheet is silent for it
+                      midiIn: hostInfo && hostInfo.midiIn ? Object.fromEntries(hostInfo.midiIn.map((n, c) => [`ch${c + 1}`, n]).filter(([, n]) => n)) : "none yet",
+                      midiInOnly,
                       // how far Twirl's beat was from the host's at each of the last 40 reports, in ms (before easing)
                       hostOffMs: (o => o.length ? { max: Math.max(...o.map(Math.abs)), last: o.slice(-8) } : "none")(diag.hostOff || []),
                       hostTransport: hostInfo ? { tempo: hostInfo.tempo, playing: hostInfo.playing,

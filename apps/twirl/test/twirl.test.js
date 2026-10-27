@@ -1673,6 +1673,32 @@ describe.skipIf(!browser)("Twirl · inside the plugin (twirl-dpf)", () => {
     await context.close();
   });
 
+  it("with Incoming MIDI only, its sheet is silent (an instrument), saved, and a host parameter; ⇧Q shows what came in", async () => {
+    const { page, context, errors } = await openTwirl(browser, { initScript: dpf });
+    const voices = () => page.evaluate(() => window.__host.filter((m) => m.key === "voices").length);
+    await page.waitForTimeout(800);
+    const a = await voices();
+    await page.waitForTimeout(800);
+    expect(await voices()).toBeGreaterThan(a);                      // the starting sheet plays
+    await page.evaluate(() => $("listenBtn").click());
+    await page.waitForTimeout(300);
+    const b = await voices();
+    await page.waitForTimeout(1000);
+    expect(await voices()).toBe(b);                                  // silent: nothing for the engine
+    expect(await page.evaluate(() => [$("listenBtn").hidden, $("listenBtn").getAttribute("aria-pressed")])).toEqual([false, "true"]);
+    // Saved with the page's state, and a host parameter (the last: append only).
+    const saved = await page.evaluate(() => { autosave(); return window.__host.filter((m) => m.key === "page").at(-1).value; });
+    expect(await page.evaluate((s) => fromB64(s).listen, saved)).toBe(true);
+    expect(await page.evaluate(() => HOST_PARAMS.at(-1).id)).toBe("listenBtn");
+    await page.evaluate(() => twirlParams({ [HOST_PARAMS.length - 1]: 0 }));
+    expect(await page.evaluate(() => midiInOnly)).toBe(false);
+    // What the plugin says came in, by channel.
+    await page.evaluate(() => twirlHost({ tempo: 120, playing: true, beat: 0, at: performance.timeOrigin + performance.now(), midiIn: [1, 0, 0, 0, 0, 0, 0, 0, 0, 8, 0, 0, 0, 0, 0, 0] }));
+    expect(await page.evaluate(() => diagReport().midi.midiIn)).toEqual({ ch1: 1, ch10: 8 });
+    expect(errors).toEqual([]);
+    await context.close();
+  });
+
   it("takes the host's parameters as if its controls moved, and reports its own changes", async () => {
     const { page, context, errors } = await openTwirl(browser, { initScript: dpf });
     const params = () => page.evaluate(() => window.__host.filter((m) => m.key === "params").map((m) => m.value));
