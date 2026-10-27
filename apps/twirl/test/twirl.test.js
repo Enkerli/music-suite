@@ -1686,11 +1686,11 @@ describe.skipIf(!browser)("Twirl · inside the plugin (twirl-dpf)", () => {
     await page.waitForTimeout(1000);
     expect(await voices()).toBe(b);                                  // silent: nothing for the engine
     expect(await page.evaluate(() => [$("listenBtn").hidden, $("listenBtn").getAttribute("aria-pressed")])).toEqual([false, "true"]);
-    // Saved with the page's state, and a host parameter (the last: append only).
+    // Saved with the page's state, and a host parameter.
     const saved = await page.evaluate(() => { autosave(); return window.__host.filter((m) => m.key === "page").at(-1).value; });
     expect(await page.evaluate((s) => fromB64(s).listen, saved)).toBe(true);
-    expect(await page.evaluate(() => HOST_PARAMS.at(-1).id)).toBe("listenBtn");
-    await page.evaluate(() => twirlParams({ [HOST_PARAMS.length - 1]: 0 }));
+    expect(await page.evaluate(() => HOST_PARAMS.findIndex((p) => p.id === "listenBtn"))).toBe(20);   // the 21st: append only
+    await page.evaluate(() => twirlParams({ 20: 0 }));
     expect(await page.evaluate(() => midiInOnly)).toBe(false);
     // What the plugin says came in, by channel.
     await page.evaluate(() => twirlHost({ tempo: 120, playing: true, beat: 0, at: performance.timeOrigin + performance.now(), midiIn: [1, 0, 0, 0, 0, 0, 0, 0, 0, 8, 0, 0, 0, 0, 0, 0] }));
@@ -1727,6 +1727,38 @@ describe.skipIf(!browser)("Twirl · inside the plugin (twirl-dpf)", () => {
     // A scene file's text pastes like a code.
     await page.evaluate(() => [...loops].forEach(eraseLoop));
     expect(await page.evaluate((s) => openPasted(s).then((ok) => [ok, loops.length > 0]), scene)).toEqual([true, true]);
+    expect(errors).toEqual([]);
+    await context.close();
+  });
+
+  it("groups A to D: a level and a mute for their loops, kept by children, saved, and host parameters", async () => {
+    const { page, context, errors } = await openTwirl(browser, { initScript: dpf });
+    const r = await page.evaluate(() => {
+      const lp = loops[0], other = loops[1];
+      lp.group = "A";
+      const g0 = gainOf(lp);
+      setGroupLevel(0, 0.5);
+      const half = gainOf(lp) / g0, untouched = gainOf(other) === gainOf(other);
+      setGroupMute(0, true);
+      const out = { half: Math.round(half * 100) / 100, quiet: quiet(lp), otherQuiet: quiet(other), pressed: $("grpMuteA").getAttribute("aria-pressed"), chip: (renderLoopList(), document.querySelector("#loops .chip")?.textContent) };
+      const child = mutateLoop(lp, { quiet: true });
+      out.child = child && child.group;
+      const saved = serialize();
+      out.saved = [saved.loops[0].group, saved.settings.groups[0]];
+      out.params = HOST_PARAMS.length;
+      twirlParams({ [HOST_PARAMS.length - 1]: 1, [HOST_PARAMS.length - 8]: 0.25 });   // D muted; A's level
+      out.fromHost = [state.groups[3].mute, state.groups[0].level];
+      // A scene from before groups: neutral groups, loops in none.
+      const old = JSON.parse(JSON.stringify(saved)); delete old.settings.groups; old.loops.forEach((l) => delete l.group);
+      recall(old);
+      out.old = [state.groups.every((g) => g.level === 1 && !g.mute), loops.every((l) => !l.group)];
+      recall(saved);
+      out.back = [loops[0].group, state.groups[0]];
+      return out;
+    });
+    expect(r).toMatchObject({ half: 0.5, quiet: true, otherQuiet: false, pressed: "true", child: "A",
+      saved: ["A", { level: 0.5, mute: true }], params: 29, fromHost: [true, 0.25], old: [true, true], back: ["A", { level: 0.5, mute: true }] });
+    expect(r.chip).toContain("A ·");
     expect(errors).toEqual([]);
     await context.close();
   });
