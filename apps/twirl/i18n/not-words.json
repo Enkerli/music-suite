@@ -60,5 +60,7 @@
  "ArrowLeft",
  "ArrowRight",
  "ArrowUp",
- "ArrowDown"
+ "ArrowDown",
+ "{ch},{cc}",
+ "{name}/{n2}"
 ]

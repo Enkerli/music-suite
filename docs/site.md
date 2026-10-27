@@ -1737,6 +1737,26 @@ synth, a DAW or hardware, with or without its own sound (plucks on channel
 while it plays, changing as Walk moves them). Safari has no Web MIDI; a plugin
 is on the [roadmap](https://github.com/Enkerli/music-suite/blob/main/apps/twirl/ROADMAP.md).
 
+## MIDI in
+
+With MIDI inputs, an **In** picker joins Out (none to begin with, every
+input, or one). Once an input is chosen, Twirl in a browser does what its
+plugin does:
+- **Notes** play in the sheet's sounds when Out includes sound: channel 1
+  plucks, 2 bells, 3 blips, 10 drums and shaker, any other a pluck, and
+  channel 4 a Drone of the notes held there. One Twirl's MIDI into another
+  plays in the second's sounds.
+- **Incoming MIDI only** keeps the sheet silent: Twirl as an instrument.
+- **Follow MIDI clock** takes the tempo, Start, Stop and Song Position
+  coming in, as the plugin follows its host.
+- **MIDI learn**: touch a control, then move a knob or fader; Delete forgets
+  it. The controls are the ones a host can automate in the plugin.
+
+Scenes, My toys and settings can live in a **folder** too (Scenes → Use a
+folder, in Chrome and Edge): the plugin's files. Pick `~/.local/share/twirl`
+and a browser and the plugin share them. **Open a file** takes any of them,
+several at once.
+
 ## Behind it
 
 Twirl is Public Domain (CC0), one HTML file you can read, copy and change:
@@ -2087,6 +2107,30 @@ sur le 3, les percussions et le hochet sur le 10, et le Bourdon sur le 4 :
 ses notes tenues pendant qu’il joue, qui changent quand la Marche les
 déplace). Safari n’a pas Web MIDI; un plugiciel est à la
 [feuille de route](https://github.com/Enkerli/music-suite/blob/main/apps/twirl/ROADMAP.md).
+
+## Entrée MIDI
+
+Avec des entrées MIDI, un choix **Entrée** s’ajoute à Sortie (aucune au
+départ, toutes, ou une seule). Une entrée choisie, Twirl dans un navigateur
+fait ce que fait son plugiciel :
+- Les **notes** jouent avec les sons de la feuille quand la Sortie comprend
+  le son : le pincé sur le canal 1, la cloche sur le 2, le bip sur le 3, les
+  percussions et le hochet sur le 10, tout autre canal un pincé, et le canal
+  4 un Bourdon des notes qui y sont tenues. Le MIDI d’un Twirl dans un autre
+  joue avec les sons du second.
+- **MIDI entrant seulement** garde la feuille silencieuse : Twirl comme
+  instrument.
+- **Suivre l’horloge MIDI** prend le tempo, Start, Stop et la position
+  reçus, comme le plugiciel suit son hôte.
+- **Apprentissage MIDI** : touchez une commande, puis bougez un bouton ou
+  un curseur; Supprimer l’oublie. Ce sont les commandes qu’un hôte peut
+  automatiser dans le plugiciel.
+
+Les scènes, Mes jouets et les réglages peuvent aussi se trouver dans un
+**dossier** (Scènes → Utiliser un dossier, dans Chrome et Edge) : les
+fichiers du plugiciel. Choisissez `~/.local/share/twirl` et un navigateur
+et le plugiciel les partagent. **Ouvrir un fichier** prend n’importe
+lequel d’entre eux, plusieurs à la fois.
 
 ## En coulisse
 
