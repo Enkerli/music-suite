@@ -2338,4 +2338,34 @@ describe.skipIf(!browser)("Twirl · new sounds: a music box, a Foley kit, more s
     expect(errors).toEqual([]);
     await context.close();
   });
+
+  it("shakers: each is heard about as well as the egg (Alex: some were too quiet)", async () => {
+    const { page, context, errors } = await openTwirl(browser);
+    const db = await page.evaluate(async () => {
+      loops.splice(0); state.drone = false;
+      // the loudest 50 ms of each, offline, dry: twice, as the grains and noise are random
+      const loudest = async (kind) => {
+        const off = new OfflineAudioContext(1, 24000, 48000);
+        ctx = off; shakerNow = kind;
+        master = off.createGain(); master.connect(off.destination); delaySend = off.createGain();
+        noiseBuf = off.createBuffer(1, 48000, 48000);
+        const d = noiseBuf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+        VOICES.shake(0.01, 1, 0, 0.5);
+        const s = (await off.startRendering()).getChannelData(0);
+        let best = 0;
+        for (let i = 0; i + 2400 < s.length; i += 480) { let e = 0; for (let j = i; j < i + 2400; j++) e += s[j] * s[j]; best = Math.max(best, e / 2400); }
+        return 10 * Math.log10(best);
+      };
+      const out = {};
+      for (const k of SHAKER_KINDS) out[k] = ((await loudest(k)) + (await loudest(k))) / 2;
+      return out;
+    });
+    expect(Object.keys(db)).toEqual(["egg", "maraca", "cabasa", "tambourine", "rainstick"]);
+    for (const k in db) {
+      expect(db[k] - db.egg, k).toBeGreaterThan(-1);
+      expect(db[k] - db.egg, k).toBeLessThan(4);
+    }
+    expect(errors).toEqual([]);
+    await context.close();
+  });
 });

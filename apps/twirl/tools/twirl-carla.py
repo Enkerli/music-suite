@@ -153,7 +153,7 @@ def main():
                          'connections in the system graph, including Midi Through and your speakers) or "patchbay" (one client)')
     ap.add_argument("--patches", default=PATCHES, help='Twirl\'s Surge XT patches, loaded into the pluck, bell and blip Surge XTs if found '
                     '(default: %(default)s); "none" for Surge XT\'s own default')
-    ap.add_argument("--pack", default="Paper", help="whose sounds: Paper (default), Mallets, Chip, Felt, Steel, Kalimba or Chimes")
+    ap.add_argument("--pack", default="Paper", help="whose sounds: Paper (default), Mallets, Chip, Felt, Steel, Kalimba, Chimes, \"Music box\" or Foley")
     ap.add_argument("--stand-in", action="store_true", help=argparse.SUPPRESS)   # tests: channel filters instead of synths
     a = ap.parse_args()
 

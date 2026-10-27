@@ -1275,7 +1275,7 @@ const VOICES = {
       bp.frequency.value = (k.base + k.span * bright) * (0.92 + Math.random() * 0.16);
       hp.type = "highpass"; hp.frequency.value = k.hp;
       const at = Math.max(ctx.currentTime, t + jitter + dt + Math.random() * spread);   // jitter must never land in the past
-      env(g, at, 0.5 * vel * amp, decay, 0.007);
+      env(g, at, 0.5 * vel * amp * k.level, decay, 0.007);
       noise(at, len).connect(bp).connect(hp).connect(g); out(g, pan, 0.25);
     }
   },
@@ -1284,16 +1284,17 @@ const VOICES = {
 /* Shakers (Alex, 2026-10-27: "expanded shaker selection and patterns"). A
  * loop's own (its settings; the Shaker toy picks one): each a few grains of
  * noise through a bandpass (brighter higher up the sheet) and a highpass, as
- * the egg always was. Grains: [when (s), loudness, a random spread (s)]. The
+ * the egg always was; `level` lifts the thinner ones to sound as loud as the
+ * egg (Alex: "make some of these shakers more audible"). Grains: [when (s), loudness, a random spread (s)]. The
  * plugin's engine has the same table (TwirlEngine.hpp, kShakers): keep them
  * alike (tools/compare-engine.mjs). Their MIDI notes: General MIDI's nearest. */
 const SHAKER_KINDS = ["egg", "maraca", "cabasa", "tambourine", "rainstick"];   // append only: codes store the index
 const SHAKERS = {
-  egg:        { grains: [[0, 1, 0], [0.011, 0.35, 0.006]], base: 3200, span: 5200, q: 1.4, hp: 1800, decay: 0.045, decayVel: 0.07, note: 70 },
-  maraca:     { grains: [[0, 1, 0], [0.018, 0.55, 0.004], [0.031, 0.25, 0.004]], base: 4200, span: 4000, q: 1, hp: 2500, decay: 0.03, decayVel: 0.05, note: 70 },
-  cabasa:     { grains: [[0, 0.6, 0], [0.014, 1, 0.003], [0.028, 0.8, 0.003], [0.044, 0.45, 0.004]], base: 6500, span: 3000, q: 2.5, hp: 4000, decay: 0.035, decayVel: 0.03, note: 69 },
-  tambourine: { grains: [[0, 1, 0], [0.007, 0.7, 0.002], [0.019, 0.45, 0.003]], base: 7000, span: 2500, q: 9, hp: 3000, decay: 0.12, decayVel: 0.1, note: 54 },
-  rainstick:  { grains: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map((i) => [i * 0.045, 1 - i * 0.075, 0.02]), base: 2400, span: 3600, q: 3, hp: 1500, decay: 0.05, decayVel: 0.03, note: 82 },
+  egg:        { grains: [[0, 1, 0], [0.011, 0.35, 0.006]], base: 3200, span: 5200, q: 1.4, hp: 1800, decay: 0.045, decayVel: 0.07, level: 1, note: 70 },
+  maraca:     { grains: [[0, 1, 0], [0.018, 0.55, 0.004], [0.031, 0.25, 0.004]], base: 4200, span: 4000, q: 1, hp: 2500, decay: 0.03, decayVel: 0.05, level: 1, note: 70 },
+  cabasa:     { grains: [[0, 0.6, 0], [0.014, 1, 0.003], [0.028, 0.8, 0.003], [0.044, 0.45, 0.004]], base: 6500, span: 3000, q: 2.5, hp: 4000, decay: 0.035, decayVel: 0.03, level: 1.5, note: 69 },
+  tambourine: { grains: [[0, 1, 0], [0.007, 0.7, 0.002], [0.019, 0.45, 0.003]], base: 7000, span: 2500, q: 9, hp: 3000, decay: 0.12, decayVel: 0.1, level: 1.8, note: 54 },
+  rainstick:  { grains: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map((i) => [i * 0.045, 1 - i * 0.075, 0.02]), base: 2400, span: 3600, q: 3, hp: 1500, decay: 0.05, decayVel: 0.03, level: 1.6, note: 82 },
 };
 let shakerNow = "egg";               // the loop's being played (sound(), below)
 
