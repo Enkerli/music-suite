@@ -60,18 +60,18 @@ Or, if you'd rather make the sound with your hands, open **Twirl**:
 <https://enkerli.github.io/music-suite/apps/twirl/>
 
 Draw anything on the sheet. You hear it as you draw it, and when you
-let go it keeps going round as a **loop**, on its own clock. Higher on
+let go it keeps going round as a **loop**. Higher on
 the sheet is higher in pitch; the direction you move picks the sound
 (right plucks, up rings a bell, down drums); a fast scribble is a shaker.
 It works with a finger or a pencil on an iPad, too.
 
-![Twirl: a spiral, a dropped line, a shaker and a three-petalled rose on a lined sheet, each with its playhead and coloured note shapes](assets/guide/twirl.png)
+![Twirl: wind chimes, a dropped line, a shaker and a three-petalled rose on a lined sheet, each with its playhead and coloured note shapes](assets/guide/twirl.png)
 
 Things to try: drag a loop somewhere else and hear it change; hold one to
 see its settings (speed, rhythm, chords, how it moves); open the
-**Toybox** for ready-made shapes (spirals, roses, a drum beat); at the
+**Toybox** for ready-made shapes (wind chimes, roses, a drum beat); at the
 **More** level, **Mutate** gives a loop a child, a close variation that
-answers it. With a keyboard, `?` lists every key.
+answers it, and **Life** lets a loop bloom, swell, fade, or come and go. With a keyboard, **H** lists every key. The [Twirl guide](doc.html?p=twirl-guide) has the rest.
 
 ---
 

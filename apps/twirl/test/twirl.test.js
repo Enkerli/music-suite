@@ -9,6 +9,7 @@
  */
 import { describe, it, expect, beforeAll, afterAll, vi } from "vitest";
 import { readFileSync } from "node:fs";
+import { frenchLeft } from "./french-left.mjs";
 import { launch, openTwirl, drawStroke, listen, heard, loopPoint, PAGE } from "./harness.js";
 
 const browser = await launch();
@@ -1827,6 +1828,54 @@ describe.skipIf(!browser)("Twirl · the clock", () => {
     expect(w).toEqual({ kind: "worker", ticked: true });
     await page.goto(PAGE + "?clock=main"); await page.mouse.click(600, 600); await page.waitForTimeout(400);
     expect(await page.evaluate(() => [clockKind, lastWorkerTick])).toEqual(["main", 0]);
+    await context.close();
+  });
+});
+
+describe.skipIf(!browser)("Twirl · in French (PLAN.md, phase 2)", () => {
+  it("has French for every string it shows (or knows it isn't words), and the page carries i18n/fr.json", async () => {
+    const { execFileSync } = await import("node:child_process");
+    const { readFileSync } = await import("node:fs");
+    const here = new URL("..", import.meta.url);
+    const keys = execFileSync("node", [new URL("tools/twirl-strings.mjs", here).pathname, "--keys"], { encoding: "utf8" }).split("\n").filter(Boolean);
+    const fr = JSON.parse(readFileSync(new URL("i18n/fr.json", here), "utf8"));
+    const notWords = new Set(JSON.parse(readFileSync(new URL("i18n/not-words.json", here), "utf8")));
+    expect(keys.filter((k) => !(k in fr) && !notWords.has(k))).toEqual([]);      // new English needs its French
+    const page = readFileSync(new URL("index.html", here), "utf8");
+    const inlined = JSON.parse(/<script type="application\/json" id="twirl-fr">([\s\S]*?)<\/script>/.exec(page)[1].replace(/<\\\//g, "</"));
+    expect(inlined).toEqual(fr);                                                   // node apps/twirl/tools/twirl-strings.mjs --inline
+  });
+
+  it("leaves nothing in English, through the page's states", async () => {
+    const { page, context, errors } = await openTwirl(browser, { query: "?lang=fr" });
+    expect(await frenchLeft(page)).toEqual([]);
+    expect(errors).toEqual([]);
+    await context.close();
+  });
+
+  it("is English unless chosen, and switching back gives the English back as it was", async () => {
+    const { page, context, errors } = await openTwirl(browser);
+    const text = () => page.evaluate(() => document.body.innerText + "|" + [...document.querySelectorAll("[title], [aria-label]")].map((e) => e.title + e.getAttribute("aria-label")).join("|"));
+    const en = await text();
+    expect(await page.evaluate(() => [lang, document.documentElement.lang, $("drawerClose").textContent.trim()])).toEqual(["en", "en", "Close"]);
+    const choose = (l) => page.evaluate((l) => { $("langSel").value = l; $("langSel").dispatchEvent(new Event("change")); }, l);   // Everything → View
+    await choose("fr");
+    expect(await page.evaluate(() => [lang, document.documentElement.lang, $("drawerClose").textContent.trim(), $("root").options[2].textContent])).toEqual(["fr", "fr", "Fermer", "Ré"]);
+    await choose("en");
+    expect(await text()).toBe(en);
+    expect(errors).toEqual([]);
+    await context.close();
+  });
+
+  it("fits at phone width (French runs longer): no sideways scroll, drawer and settings open", async () => {
+    const { page, context } = await openTwirl(browser, { query: "?lang=fr", viewport: { width: 390, height: 844 }, hasTouch: true });
+    for (const act of [() => {}, () => { setLevel(3); setDrawer(true); }, () => { setDrawer(false); openInspector(loops[0]); }]) {
+      await page.evaluate(act);
+      await page.waitForTimeout(100);
+      expect(await page.evaluate(() => document.scrollingElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(0);
+      const wide = await page.evaluate(() => [...document.querySelectorAll("#strip, #inspector")].filter((e) => e.offsetParent && e.scrollWidth > e.clientWidth + 1).map((e) => e.id || e.className));
+      expect(wide).toEqual([]);
+    }
     await context.close();
   });
 });

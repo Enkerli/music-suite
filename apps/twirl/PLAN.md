@@ -569,9 +569,41 @@ messages, many with numbers or names in them; ≈ 80 tooltips; ≈ 50 accessible
 labels; ≈ 85 menu options; buttons and the key list), and the **guide**,
 about 2,600 words in `docs/site.md`.
 
+**Done, as a draft for review (2026-10-26)**, in one package (Alex: "And
+prepare the full French package"). How it ended up working, where it
+differs from the plan below:
+- **English is the key.** `apps/twirl/i18n/fr.json` maps the English, as the
+  page shows it, to French (773 entries; `{0}` values, and `{0|un|des}` for
+  French plurals by `Intl.PluralRules`). The page's code keeps its English;
+  `tools/twirl-strings.mjs` lists it (810 strings; 62 that aren't words in
+  `i18n/not-words.json`), and `--inline` copies fr.json into the page (one
+  file stays the rule; a test checks they match).
+- **Translated where words land, not where they're made**: a pass over the
+  page at the start, then a MutationObserver for whatever appears later
+  (messages, labels, chips, the screen reader's line); messages with values
+  match their pattern, ones made of parts (" · ") go part by part, blocks
+  with markup inside (`data-i18n="html"`) go whole. English never goes
+  through it; switching back restores it as it was. Canvas text goes
+  through `tr()`; note names in French are Do Ré Mi (as MIDIcurator's fr-CA).
+- **Chosen, not guessed, until reviewed**: `?lang=fr`, or Everything → View
+  → Language ("Langue : français (ébauche)"), remembered. The browser's
+  language takes over once Alex has reviewed it.
+- **Tests**: French for every string (or a not-word), the page carrying
+  fr.json, nothing left in English through the page's states (the drawer at
+  Everything, every shelf, a loop's settings in each Life, keys, toggles),
+  English untouched and restored, no sideways scroll at 390 px, axe in
+  every state in French.
+- **Glossary**: a Twirl section in docs/GLOSSARY.md, each term's French and
+  whether it's usual or coined (not yet checked in Termium or the GDT).
+- **Guide**: `twirl-guide-fr` (site.md, `lang=fr`; doc.html sets the page's
+  language), linked both ways; Twirl's guide links follow its language.
+- **Review page**: an artifact listing every string, English, French and
+  where, with a field for corrections and a tick; corrections go back into
+  fr.json.
+
 ### 2a. The table (Claude, mechanical)
 
-- [ ] A script (to write: tools/twirl-strings.mjs) that lists every user-facing
+- [x] A script (to write: tools/twirl-strings.mjs) that lists every user-facing
       string in `index.html` (text, `title`, `aria-label`, `placeholder`,
       options, `toast()` messages) with its place in the file.
 - [ ] Strings move into one table (to create: apps/twirl/i18n/en.js, an object keyed by
