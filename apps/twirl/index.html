@@ -183,6 +183,8 @@ body {
 /* A row of choices wraps rather than widening the panel past a phone's screen
    (Meets' seventh answer, merge, once pushed Done off the edge at 390 px). */
 .insprow .seg { flex-wrap: wrap; max-width: 100%; }
+.groups .grp { display: inline-flex; align-items: center; gap: 4px; }
+.groups .grp input { width: 72px; }
 .insprow { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
 .insprow .lbl { min-width: 3.6rem; font: 400 0.75rem/1 var(--font-mono); color: var(--ink-muted); }
 .insprow .seg .btn { padding: 0 10px; }
@@ -610,6 +612,12 @@ kbd {
       <button class="btn" id="morphBtn" type="button" aria-pressed="true" title="Loops move on their own; hold a loop to choose how">Morph</button>
       <button class="btn" id="evolveBtn" type="button" aria-pressed="true" title="Loops with a Life (hold one → Life) swell, fade and come and go, pass by pass. Off: every life holds where it is">Evolve</button>
     </div>
+    <div class="group groups" role="group" aria-label="Groups: their loops' level and mute" title="A loop joins a group in its settings (hold it → Group)">
+      <span class="grp"><button class="btn" id="grpMuteA" type="button" aria-pressed="false">A</button><input id="grpLevelA" type="range" min="0" max="1.5" step="0.05" value="1" aria-label="Group A's level"></span>
+      <span class="grp"><button class="btn" id="grpMuteB" type="button" aria-pressed="false">B</button><input id="grpLevelB" type="range" min="0" max="1.5" step="0.05" value="1" aria-label="Group B's level"></span>
+      <span class="grp"><button class="btn" id="grpMuteC" type="button" aria-pressed="false">C</button><input id="grpLevelC" type="range" min="0" max="1.5" step="0.05" value="1" aria-label="Group C's level"></span>
+      <span class="grp"><button class="btn" id="grpMuteD" type="button" aria-pressed="false">D</button><input id="grpLevelD" type="range" min="0" max="1.5" step="0.05" value="1" aria-label="Group D's level"></span>
+    </div>
   </details>
   <details class="dsec" data-level="3" data-sec="harmony" open>
     <summary><span class="dtitle">Harmony</span> <span class="dsub">moving the key, shaping bars</span></summary>
@@ -803,6 +811,8 @@ kbd {
     <span class="seg" data-insp="chord"><button class="btn" type="button" data-v="single">single</button><button class="btn" type="button" data-v="fifth">fifths</button><button class="btn" type="button" data-v="triad">triads</button><button class="btn" type="button" data-v="seventh">sevenths</button><button class="btn" type="button" data-v="sus">sus</button></span></div>
   <div class="insprow"><span class="lbl">Volume</span>
     <input id="inspGain" type="range" min="0" max="1.5" step="0.05" value="1" aria-label="This loop's volume"></div>
+  <div class="insprow" data-level="3"><span class="lbl">Group</span>
+    <span class="seg" data-insp="group" title="Groups A to D: a level and a mute for several loops at once (Loops together), and host parameters in the plugin. Its children keep it"><button class="btn" type="button" data-v="">none</button><button class="btn" type="button" data-v="A">A</button><button class="btn" type="button" data-v="B">B</button><button class="btn" type="button" data-v="C">C</button><button class="btn" type="button" data-v="D">D</button></span></div>
   <div class="insprow" data-level="3"><span class="lbl">Walk</span>
     <span class="seg" data-insp="walk"><button class="btn" type="button" data-v="moves" title="Moves with Walk: every note shifts along the scale">moves</button><button class="btn" type="button" data-v="stays" title="Stays where it is while the rest moves: a pedal, a riff">stays</button><button class="btn" type="button" data-v="fits" title="Keeps its pitches, but each note goes to the nearest tone of the chord Walk has moved to">fits</button></span></div>
   <div class="insprow" data-level="3"><span class="lbl">Snap</span>
@@ -986,8 +996,14 @@ const state = {
   dice: true,                              // Surprise: new loops' direction, rhythm and Meets drawn at random
   lock: false, loop: true, morph: !matchMedia("(prefers-reduced-motion: reduce)").matches, revoice: false, walk: false, drone: false, edit: false,
   out: "sound",               // "sound" | "midi:<id>" | "both:<id>"
+  // Groups A to D (Alex, 2026-10-26: "a way to target individual loops"):
+  // a loop may belong to one (its settings → Group; children of Breed and
+  // Merge keep it); each group has a level (times its loops' own volume)
+  // and a mute. Saved with the sheet; host parameters in the plugin.
+  groups: [0, 1, 2, 3].map(() => ({ level: 1, mute: false })),
 };
 
+const GROUPS = ["A", "B", "C", "D"];                // state.groups, in order
 /** What Start over goes back to (before any saved sheet or shared code changes `state`). */
 const STATE_DEFAULTS = JSON.parse(JSON.stringify(state));
 const gridNow = () => GRID[state.grid];
@@ -1612,8 +1628,12 @@ const HOST_PARAMS = [
   { id: "evolveBtn", key: "evolve" },
   { id: "morphBtn", key: "morph" },
   { id: "listenBtn", get: () => midiInOnly },
+  ...GROUPS.flatMap((g, i) => [
+    { id: `grpLevel${g}`, get: () => state.groups[i].level, set: (v) => setGroupLevel(i, v) },
+    { id: `grpMute${g}`, get: () => state.groups[i].mute },
+  ]),
 ];
-const isSwitch = (p) => p.id.endsWith("Btn");
+const isSwitch = (p) => p.id.endsWith("Btn") || p.id.startsWith("grpMute");
 function paramNow(p) {
   const v = p.get ? p.get() : state[p.key];
   return p.list ? Math.max(0, p.list.findIndex((x) => String(x) === String(v))) : isSwitch(p) ? (v ? 1 : 0) : Number(v);
@@ -2382,7 +2402,10 @@ function settle(lp) {
   if (Math.abs(lp.strength - 1) < 0.02) lp.strength = 1;
 }
 /** A loop's loudness: its own volume, where it is in its life, and how strong it is. */
-const gainOf = (lp) => (lp.gain ?? 1) * lifeState(lp).vital * Math.pow(strengthOf(lp), 0.7);
+const groupOf = (lp) => (lp.group ? state.groups[GROUPS.indexOf(lp.group)] : null);
+/** Silent: muted itself, or its group is. */
+const quiet = (lp) => lp.muted || !!(groupOf(lp) && groupOf(lp).mute);
+const gainOf = (lp) => (lp.gain ?? 1) * (groupOf(lp) ? groupOf(lp).level : 1) * lifeState(lp).vital * Math.pow(strengthOf(lp), 0.7);
 /** Does note i play at this point in the loop's life? The most indispensable notes first. */
 function lifePlays(lp, i) {
   const s = strengthOf(lp), fill = Math.min(lifeState(lp).thin, s < 1 ? Math.max(LIFE_FLOOR, 1 - (1 - s) * 1.25) : 1);   // Life, and a drained loop
@@ -2401,7 +2424,7 @@ function lifeRanks(lp) {
 }
 /** A pass went by: one step older (if it's alive and Evolve is on). */
 function ageLoop(lp) {
-  if (!state.evolve || lp.muted || lp.held || !lp.life || lp.life === "steady") return;
+  if (!state.evolve || quiet(lp) || lp.held || !lp.life || lp.life === "steady") return;
   lp.age = (lp.age || 0) + 1; lp.ageB = (lp.ageB || 0) + loopBeats(lp);   // passes, and beats (for lives in bars)
   if (lifeState(lp).done) dying.push(lp);
   if (insp === lp) syncLifeNote(lp);
@@ -2476,7 +2499,7 @@ function schedule() {
     const k0 = Math.max(0, Math.floor((a - lp.start) / Lb) - 1), k1 = Math.floor((z - lp.start) / Lb);
     for (let k = k0; k <= k1; k++) {
       if (k > lp.lastPass) { lp.lastPass = k; if (state.morph && !lp.held) morphStep(lp); ageLoop(lp); settle(lp); }
-      if (lp.muted || midiInOnly || k % (lp.every || 1)) continue;   // muted (or the sheet is: incoming MIDI only, 3d), or a resting pass
+      if (quiet(lp) || midiInOnly || k % (lp.every || 1)) continue;   // muted (or the sheet is: incoming MIDI only, 3d), or a resting pass
       const base = lp.start + k * Lb, back = backwards(lp, k);
       if (!locked(lp)) {
         // Free: each note at the moment you drew it, snapped NOW to the
@@ -2587,7 +2610,7 @@ let meetPrev = new Map();        // loop → where its playhead was on the previ
 let meetFlashes = [];            // rings to draw: { x, y, t }
 const meetLog = [];              // the last few meetings: { b, a, b2, did } (for the tests, and for curiosity)
 function playheadAt(lp, b) {
-  if (b < lp.start || lp.muted) return null;
+  if (b < lp.start || quiet(lp)) return null;
   const k = passOf(lp, b);
   if (k % (lp.every || 1)) return null;                        // a resting pass: not there to meet
   const rel = mod(b - lp.start, loopBeats(lp)) / lp.ts, phase = backwards(lp, k) ? lp.L - rel : rel;
@@ -4035,11 +4058,11 @@ function frame() {
     const drawnTo = drawnUpTo(lp, b);
     if (drawnTo < 0) continue;                                       // not begun yet
     // Selected: a soft ink halo under the colours (the accent blue is too close to the pluck's).
-    if (sel && !lp.muted) strokePath(lp, W, H, 0.22 * lifeA, 8 * lifeW, false, colors.ink, drawnTo);
-    const pathCol = lp.muted ? colors.ink : voiceColours(lp, drawnTo === Infinity ? lp.pts : lp.pts.filter((p) => p.b <= drawnTo)) || colors.ink;
-    strokePath(lp, W, H, (lp.muted ? 0.25 : lp.held || sel ? 0.95 : 0.8) * lifeA, (lp.held || sel ? 3.5 : 2.5) * lifeW, lp.muted, pathCol, drawnTo);
-    if (drawnTo === Infinity && showBeats) drawBeatTicks(lp, W, H, lp.muted ? 0.25 : 0.7);   // the ticks across a line: with Beats
-    if (locked(lp)) drawLockMarks(lp, W, H, lp.muted ? 0.25 : 0.65);
+    if (sel && !quiet(lp)) strokePath(lp, W, H, 0.22 * lifeA, 8 * lifeW, false, colors.ink, drawnTo);
+    const pathCol = quiet(lp) ? colors.ink : voiceColours(lp, drawnTo === Infinity ? lp.pts : lp.pts.filter((p) => p.b <= drawnTo)) || colors.ink;
+    strokePath(lp, W, H, (quiet(lp) ? 0.25 : lp.held || sel ? 0.95 : 0.8) * lifeA, (lp.held || sel ? 3.5 : 2.5) * lifeW, quiet(lp), pathCol, drawnTo);
+    if (drawnTo === Infinity && showBeats) drawBeatTicks(lp, W, H, quiet(lp) ? 0.25 : 0.7);   // the ticks across a line: with Beats
+    if (locked(lp)) drawLockMarks(lp, W, H, quiet(lp) ? 0.25 : 0.65);
     if (insp && insp === lp && ZONES[lp.zone]) {                     // the open loop's zone, shaded
       const z = ZONES[lp.zone]; g2.save(); g2.globalAlpha = 0.08; g2.fillStyle = colors.accent;
       g2.fillRect(0, z[0] * H - 40, W, (z[1] - z[0]) * H + 80); g2.restore();
@@ -4055,15 +4078,15 @@ function frame() {
       const loud = Math.min(1.3, ev.vel * gainOf(lp));
       const r = (2.5 + 4 * loud) + (lit && !reduceMotion ? 5 - since * 25 : 0);
       const [x, y] = notePos(lp, ev, undefined, W, H);
-      glyph(voiceOf(lp, ev), x, y, r, (lp.muted ? 0.3 : isLocked || resting ? 0.15 : lit ? 1 : 0.75) * lifeA, state.edit && !isLocked);
+      glyph(voiceOf(lp, ev), x, y, r, (quiet(lp) ? 0.3 : isLocked || resting ? 0.15 : lit ? 1 : 0.75) * lifeA, state.edit && !isLocked);
     }
     for (const ev of bloomNow(lp)) {                                // a bloom's extra notes, while they play: small
       const since = at - ev.flashAt, lit = ctx && !isLocked && ev.flashAt >= 0 && since >= 0 && since < 0.18;
       const [x, y] = notePos(lp, ev, undefined, W, H);
-      glyph(voiceOf(lp, ev), x, y, 2 + 2.5 * ev.vel + (lit && !reduceMotion ? 3 - since * 15 : 0), (lp.muted ? 0.2 : lit ? 0.9 : 0.45) * lifeA, false);
+      glyph(voiceOf(lp, ev), x, y, 2 + 2.5 * ev.vel + (lit && !reduceMotion ? 3 - since * 15 : 0), (quiet(lp) ? 0.2 : lit ? 0.9 : 0.45) * lifeA, false);
     }
     if (state.edit) drawHandles(lp, W, H);
-    if (ctx && !lp.muted) {
+    if (ctx && !quiet(lp)) {
       const p = headPoint(lp, b);
       if (p) {                                                     // the playhead: a dot with a halo
         const [x, y] = place(lp, p.x, p.y, W, H);
@@ -4078,7 +4101,7 @@ function frame() {
     const [nx, ny] = place(lp, lp.pts[0].x, lp.pts[0].y, W, H), num = String(loops.indexOf(lp) + 1);
     g2.save(); g2.font = colors.monoFont; g2.textAlign = "center"; g2.textBaseline = "middle";
     if (sel) { g2.fillStyle = colors.accent; g2.beginPath(); g2.arc(nx - 12, ny - 12, 9, 0, 7); g2.fill(); g2.fillStyle = colors.paper; }
-    else { g2.globalAlpha = lp.muted ? 0.35 : 0.7; g2.fillStyle = colors["ink-muted"]; }
+    else { g2.globalAlpha = quiet(lp) ? 0.35 : 0.7; g2.fillStyle = colors["ink-muted"]; }
     g2.fillText(num, nx - 12, ny - 12); g2.restore();
     }
   }
@@ -4181,10 +4204,10 @@ if (hostFiles) document.getElementById("slotsNote").textContent = "Empty slot: t
   + "a scene file's text pastes into Paste a code, here or in a browser.";
 
 function serialize() {
-  const { bpm, volume, grid, tuning, root, range, spread, div, pen, lock, loop, morph, revoice, walk, drone, pack, density, swing, droneVol, droneVoicing, droneSpace, warmth, air, arc, meet, dice, vary, evolve, walkWay, walkPace } = state;
+  const { bpm, volume, grid, tuning, root, range, spread, div, pen, lock, loop, morph, revoice, walk, drone, pack, density, swing, droneVol, droneVoicing, droneSpace, warmth, air, arc, meet, dice, vary, evolve, walkWay, walkPace, groups } = state;
   return {
     v: 3, at: Date.now(),
-    settings: { bpm, volume, grid, tuning, root, range, spread, div, pen, lock, loop, morph, revoice, walk, drone, pack, density, swing, droneVol, droneVoicing, droneSpace, warmth, air, arc, meet, dice, vary, evolve, walkWay, walkPace },
+    settings: { bpm, volume, grid, tuning, root, range, spread, div, pen, lock, loop, morph, revoice, walk, drone, pack, density, swing, droneVol, droneVoicing, droneSpace, warmth, air, arc, meet, dice, vary, evolve, walkWay, walkPace, groups: structuredClone(groups) },
     loops: loops.map(loopData),
   };
 }
@@ -4203,6 +4226,7 @@ function loopData(lp) {
     lineage: lp.lineage || null, generation: lp.generation || 0,
     meets: lp.meets || "sound", density: lp.density || null, pack: lp.pack || null, life: lp.life || "steady", age: lp.age || 0, gives: lp.gives || "none", strength: lp.strength ?? 1,
     snap: lp.snap || "sheet", feel: lp.feel || 0, clock: lp.clock || "step", span: spanOf(lp), ageB: lp.ageB || 0, walk: lp.walk || "moves",
+    group: lp.group || null,
   };
 }
 /** Plain data → a loop starting at beat `start` (not yet on the sheet). */
@@ -4211,7 +4235,7 @@ function buildLoop(d, start, fallbackRevoice = false) {
   lp.pts = d.pts.map(([x, y, b]) => ({ x, y, b }));
   lp.events = d.events.map(([off, x, y, heading, fixed, vel]) => ({ off, x, y, heading, fixed, vel, ms: 0, flashAt: -1 }));
   Object.assign(lp, {
-    trigger: normTrigger(d.trigger), pen: d.pen || "auto", gain: d.gain ?? 1,
+    trigger: normTrigger(d.trigger), pen: d.pen || "auto", gain: d.gain ?? 1, group: GROUPS.includes(d.group) ? d.group : null,
     c: { x: d.c[0], y: d.c[1] }, L: d.L, ts: d.ts, muted: d.muted, tx: d.tx, ty: d.ty, rot: d.rot, s: d.s, temper: d.temper, spinDir: d.spinDir,
     revoice: d.revoice ?? fallbackRevoice, zone: d.zone || "any",
     rhythm: d.rhythm || "drawn", chord: d.chord || "single", dir: d.dir || "fwd", every: d.every || 1, wait: d.wait || 0,
@@ -4229,6 +4253,7 @@ function buildLoop(d, start, fallbackRevoice = false) {
 
 function applySettings(st) {
   Object.assign(state, st);
+  state.groups = GROUPS.map((_, i) => ({ level: Number(state.groups?.[i]?.level ?? 1), mute: !!state.groups?.[i]?.mute }));
   if (!GRID[state.grid]) state.grid = "pentMaj";
   $("bpm").value = state.bpm; $("bpmVal").textContent = state.bpm;
   if (typeof setVolume === "function") setVolume(state.volume ?? 0.8);
@@ -4245,6 +4270,7 @@ function applySettings(st) {
     $(id).setAttribute("aria-pressed", String(state[key]));
   syncTuningPicker();
   if (ctx) { setDrone(state.drone); updateDrone(nowBeat(), true); if (delayLine) delayLine.delayTime.setTargetAtTime(0.75 / bps(), ctx.currentTime, 0.05); }
+  if (typeof syncGroups === "function") syncGroups();
   sendEngine();                                       // in the plugin: the pack, as it now is (synth mode)
 }
 
@@ -4253,7 +4279,7 @@ function recall(scene) {
   endReplay();
   loops.splice(0).forEach(fadeOut);
   const beatNow = nowBeat();
-  applySettings({ tuning: "equal", spread: "even", pen: "auto", lock: false, pack: state.pack, density: state.density, swing: 0, droneVol: 0.3, droneVoicing: "fifth", air: 0, arc: "off", ...(scene.settings || {}) });
+  applySettings({ tuning: "equal", spread: "even", pen: "auto", lock: false, pack: state.pack, density: state.density, swing: 0, droneVol: 0.3, droneVoicing: "fifth", air: 0, arc: "off", groups: STATE_DEFAULTS.groups, ...(scene.settings || {}) });
   if (ctx) t0 = nowAudio() - beatNow / bps();   // tempo may have changed: keep the beat continuous
   const start = nextStart();
   for (const d of scene.loops) loops.push(buildLoop(d, start, !!(scene.settings && scene.settings.revoice)));
@@ -4869,6 +4895,20 @@ $("walkWay").addEventListener("change", (e) => { state.walkWay = e.target.value;
   toast({ steps: "Walk: a little progression, round and round", sway: "Walk: home and the fourth, back and forth", fifths: "Walk: up a fifth each time, through every degree", climb: "Walk: up the scale a step at a time", wander: "Walk: a step or a fifth, up or down, wherever it goes" }[state.walkWay] + (state.walk ? "" : " (turn Walk on to hear it)")); });
 $("walkPace").addEventListener("change", (e) => { state.walkPace = Number(e.target.value); updateDrone(nowBeat(), true); });
 toggle("droneBtn", "drone", (on) => { ensureAudio(); setDrone(on); });
+/* Groups (A to D): their level and mute; a button pressed = muted. */
+function setGroupMute(i, on) {
+  state.groups[i].mute = !!on;
+  $(`grpMute${GROUPS[i]}`).setAttribute("aria-pressed", String(!!on));
+  $(`grpMute${GROUPS[i]}`).title = `Group ${GROUPS[i]} ${on ? "muted" : "playing"}: press to ${on ? "hear it" : "mute it"}`;
+  if (typeof renderLoopList === "function") renderLoopList();
+}
+function setGroupLevel(i, v) { state.groups[i].level = Math.min(1.5, Math.max(0, Number(v) || 0)); $(`grpLevel${GROUPS[i]}`).value = String(state.groups[i].level); }
+function syncGroups() { GROUPS.forEach((_, i) => { setGroupMute(i, state.groups[i].mute); setGroupLevel(i, state.groups[i].level); }); }
+GROUPS.forEach((g, i) => {
+  $(`grpMute${g}`).addEventListener("click", () => { setGroupMute(i, !state.groups[i].mute); toast(`Group ${g} ${state.groups[i].mute ? "muted" : "back"}`); });
+  $(`grpLevel${g}`).addEventListener("input", (e) => setGroupLevel(i, e.target.value));
+});
+syncGroups();
 toggle("editBtn", "edit", (on) => toast(on ? "Edit: drag a square to bend · tap a path to add a note · tap a note to remove it · double-tap it to change its sound · hold to smooth" : "Edit off"));
 
 /* ── Phone layout: the drawer ─────────────────────────────────────────────
@@ -5486,7 +5526,7 @@ function syncInspector() {
   if (!lp) return;
   $("inspTitle").textContent = `Loop ${loops.indexOf(lp) + 1}${lp.generation ? " · generation " + lp.generation : ""} · ${fmtBeats(loopBeats(lp))} beats · ×${fmtRatio(baseTs(lp))}${lp.clock && lp.clock !== "step" ? (lp.clock === "ahead" ? " (drifting ahead)" : " (drifting behind)") : ""} · ${locked(lp) ? "on the grid" : "as drawn"}`;
   $("inspSpan").value = String(spanOf(lp));
-  const val = { walk: lp.walk || "moves", gives: lp.gives || "none", life: lp.life || "steady", density: lp.density || "", meets: lp.meets || "sound", temper: lp.temper, zone: lp.zone || "any", ts: baseTs(lp), trigger: lp.trigger, snap: lp.snap || "sheet", clock: lp.clock || "step", rhythm: lp.rhythm || "drawn", chord: lp.chord || "single", dir: lp.dir || "fwd", every: String(lp.every || 1), wait: String(lp.wait || 0) };
+  const val = { walk: lp.walk || "moves", gives: lp.gives || "none", life: lp.life || "steady", density: lp.density || "", meets: lp.meets || "sound", temper: lp.temper, zone: lp.zone || "any", ts: baseTs(lp), trigger: lp.trigger, snap: lp.snap || "sheet", clock: lp.clock || "step", rhythm: lp.rhythm || "drawn", chord: lp.chord || "single", dir: lp.dir || "fwd", every: String(lp.every || 1), wait: String(lp.wait || 0), group: lp.group || "" };
   $("inspGain").value = String(lp.gain ?? 1);
   document.querySelectorAll("[data-insp]").forEach((seg) => seg.querySelectorAll("[data-v]").forEach((b) => {
     const v = seg.dataset.insp === "ts" ? Math.abs(Number(b.dataset.v) - val.ts) < 0.01 : b.dataset.v === val[seg.dataset.insp];
@@ -5554,6 +5594,7 @@ document.querySelectorAll("[data-insp]").forEach((seg) => seg.addEventListener("
   const lp = insp, k = seg.dataset.insp, v = b.dataset.v;
   if (k === "temper") { lp.temper = v; if (v === "still") lp.mt = { ...lp.m }; }
   if (k === "zone") lp.zone = v;
+  if (k === "group") { lp.group = v || null; toast(v ? `Group ${v}: its level and mute in Loops together` : "In no group"); }
   if (k === "trigger") { lp.trigger = v; lp.lastBand = null; }
   if (k === "rhythm") lp.rhythm = v;
   if (k === "chord") lp.chord = v;
@@ -6061,14 +6102,14 @@ function renderLoopList() {
     const b = document.createElement("button");
     b.type = "button"; b.className = "chip";
     b.setAttribute("aria-pressed", String(lp === selected));
-    if (lp.muted) b.classList.add("muted");
+    if (quiet(lp)) b.classList.add("muted");
     // The accessible name is the visible text plus hidden words around it (never
     // a separate aria-label), so speech users can say what they see (WCAG 2.5.3).
     const vh = (s) => { const x = document.createElement("span"); x.className = "vh"; x.textContent = s; return x; };
     const n = document.createElement("strong"); n.textContent = String(i + 1);
     const t = document.createElement("span");
-    t.textContent = `${lp.generation ? "g" + lp.generation + " · " : ""}${fmtBeats(loopBeats(lp))}b${locked(lp) ? " · grid" : ""}${lp.chord && lp.chord !== "single" ? " · " + lp.chord : ""}`;
-    b.append(vh("Loop "), n, " ", t, vh(lp.muted ? " (muted)" : ""));
+    t.textContent = `${lp.group ? lp.group + " · " : ""}${lp.generation ? "g" + lp.generation + " · " : ""}${fmtBeats(loopBeats(lp))}b${locked(lp) ? " · grid" : ""}${lp.chord && lp.chord !== "single" ? " · " + lp.chord : ""}`;
+    b.append(vh("Loop "), n, " ", t, vh(lp.muted ? " (muted)" : quiet(lp) ? ` (group ${lp.group} muted)` : ""));
     b.title = `Loop ${i + 1}: ${fmtBeats(loopBeats(lp))} beats${lp.generation ? `, generation ${lp.generation}` : ""}${lp.muted ? ", muted" : ""}. Opens its settings`;
     if (choosing) {                                               // choosing loops to copy to: chips are toggles
       b.setAttribute("aria-pressed", String(choosing.set.has(lp))); b.classList.add("choosing");

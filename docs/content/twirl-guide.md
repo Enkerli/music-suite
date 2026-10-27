@@ -134,6 +134,11 @@ turns meetings off altogether.
   beat, a shaker, dice for a surprise). Tap one to drop it.
 - **My toys**: "Keep a loop", then tap a loop on the sheet, and it becomes
   a toy you can drop again anywhere.
+- **Groups** (Everything): hold a loop → **Group** puts it in A, B, C or D;
+  Loops together has each group's level and mute (A to D: pressed is
+  muted), to bring some loops forward and others back. Breed's children
+  and Merge keep their parent's group. In the plugin they're host
+  parameters, for automation.
 - **Scenes**: six slots for whole sheets. Tap an empty slot to save, a
   full one to recall; hold it (or Shift-tap, Shift-Enter) to overwrite. Your
   last sheet also comes back by itself. In a browser they're kept in that

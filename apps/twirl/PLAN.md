@@ -462,6 +462,16 @@ as on/off.
    by other instances within a second; a scene file's JSON pastes into
    Paste a code. The six slots stay as they are; named presets (any
    number, chosen by name) could come next.
+7. **Groups (2026-10-26).** Alex wanted "a way to target individual
+   loops": for mixing ("I do want to emphasize some loops over others"),
+   automation, and later controllers and MIDI channels. Loop numbers come
+   and go, so the target is a group: four (A to D; Alex), beside families,
+   kept by Breed's children and Merge (Alex: inherit). A loop joins one in
+   its settings; each group has a level (times its loops' own volume) and
+   a mute, in Loops together, saved with the sheet, and host parameters 22
+   to 29 in the plugin. Next on the same targets, if wanted: a MIDI channel
+   per group, an audio output per group (stems), notes picking groups
+   (ROADMAP 11).
 5. Parameters, the first set, then more. **First set done (2026-10-26):**
    Volume, Tempo, Follow host transport, Swing, Warmth, Air, Drone (on,
    level, voicing, space), Lock, Walk (on, way, pace), Sounds, Scale,
@@ -812,7 +822,8 @@ Ideas: the plugin shell (5) · generative accompaniment (5) · CCs set loops
 1. After phase 1b: is the browser plus a synth enough on Linux, or is the
    plugin next? Which host first (Reaper, Bitwig, Ardour, Carla)?
 2. MIDI out: a channel per voice (today), per loop, or per group? Note
-   lengths: fixed, or held until the next note?
+   lengths: fixed, or held until the next note? (2026-10-26: groups A to D
+   are the targets; a channel per group is the likely next step.)
 3. CCs set loops depends on *notes pick loops* (Later): move that up, or
    control the selected loop only?
 4. Generative accompaniment: GloriArp under Twirl (it accompanies the sheet),
