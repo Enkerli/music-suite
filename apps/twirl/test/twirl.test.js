@@ -1515,13 +1515,14 @@ describe.skipIf(!browser)("Twirl · inside the plugin (twirl-dpf)", () => {
       expect(e.note).toBeGreaterThanOrEqual(0); expect(e.note).toBeLessThan(128);
       expect(e.vel).toBeGreaterThanOrEqual(0); expect(e.vel).toBeLessThan(128);
     }
-    // Each off follows its on by Twirl's length for the voice (drums 80 ms, pluck and blip 220, bell 600).
+    // Each off follows its on by Twirl's length for the voice (drums 80 ms, pluck and blip 220, bell 600),
+    // up to 1.5× that on an accented note (Accents ring longer).
     const ons = events.filter((e) => (e.status & 0xf0) === 0x90);
     const offs = events.filter((e) => (e.status & 0xf0) === 0x80);
     expect(ons.length).toBe(offs.length);
     for (const on of ons) {
       const len = (on.status & 0x0f) === 9 ? 80 : (on.status & 0x0f) === 1 ? 600 : 220;
-      expect(offs.some((off) => off.status === (0x80 | (on.status & 0x0f)) && off.note === on.note && Math.abs(off.t - on.t - len) < 0.2)).toBe(true);
+      expect(offs.some((off) => off.status === (0x80 | (on.status & 0x0f)) && off.note === on.note && off.t - on.t > len - 0.2 && off.t - on.t < len * 1.5 + 0.2)).toBe(true);
     }
     expect(errors).toEqual([]);
     await context.close();
@@ -1756,6 +1757,28 @@ describe.skipIf(!browser)("Twirl · inside the plugin (twirl-dpf)", () => {
     await context.close();
   });
 
+  it("accents: the Accents depth is a host parameter (the 30th), and the engine hears each note's ring", async () => {
+    const { page, context, errors } = await openPlugin();
+    const r = await page.evaluate(() => {
+      setMidiInOnly(true);                                         // the sheet silent: only these notes
+      state.vary = false; state.accent = 0.6; window.__host.length = 0;
+      const t = ctx.currentTime + 0.05;
+      sound("pluck", 0.5, 0.5, 0.8, t, 0, undefined, "single", null, "moves", 1);   // the strongest place
+      sound("pluck", 0.5, 0.5, 0.8, t, 0, undefined, "single", null, "moves", 0);   // the weakest
+      sound("pluck", 0.5, 0.5, 0.8, t, 0);                                            // no accent (a live stroke)
+      return { index: HOST_PARAMS.findIndex((p) => p.id === "accent") };
+    });
+    await page.waitForTimeout(50);
+    const v = await page.evaluate(() => window.__host.filter((m) => m.key === "voices").flatMap((m) => m.value.split(";")).map((e) => e.split(",").map(Number)));
+    expect(r.index).toBe(29);
+    // t, voice, pack, midi, vel, pan, y, nuance, ring
+    expect(v.map((e) => [e[4], e[7], e[8]])).toEqual([[0.8, 0.48, 1.3], [0.32, -0.48, 1], [0.8, 0, 1]]);
+    await page.evaluate(() => twirlParams({ 29: 0.25 }));
+    expect(await page.evaluate(() => [state.accent, $("accent").value])).toEqual([0.25, "0.25"]);
+    expect(errors).toEqual([]);
+    await context.close();
+  });
+
   it("groups A to D: a level and a mute for their loops, kept by children, saved, and host parameters", async () => {
     const { page, context, errors } = await openPlugin();
     const r = await page.evaluate(() => {
@@ -1771,7 +1794,7 @@ describe.skipIf(!browser)("Twirl · inside the plugin (twirl-dpf)", () => {
       const saved = serialize();
       out.saved = [saved.loops[0].group, saved.settings.groups[0]];
       out.params = HOST_PARAMS.length;
-      twirlParams({ [HOST_PARAMS.length - 1]: 1, [HOST_PARAMS.length - 8]: 0.25 });   // D muted; A's level
+      twirlParams({ 28: 1, 21: 0.25 });                           // D muted; A's level
       out.fromHost = [state.groups[3].mute, state.groups[0].level];
       // A scene from before groups: neutral groups, loops in none.
       const old = JSON.parse(JSON.stringify(saved)); delete old.settings.groups; old.loops.forEach((l) => delete l.group);
@@ -1779,10 +1802,11 @@ describe.skipIf(!browser)("Twirl · inside the plugin (twirl-dpf)", () => {
       out.old = [state.groups.every((g) => g.level === 1 && !g.mute), loops.every((l) => !l.group)];
       recall(saved);
       out.back = [loops[0].group, state.groups[0]];
+      out.code = unpackScene(packScene(serialize())).loops[0].group;   // in share codes too
       return out;
     });
     expect(r).toMatchObject({ half: 0.5, quiet: true, otherQuiet: false, pressed: "true", child: "A",
-      saved: ["A", { level: 0.5, mute: true }], params: 29, fromHost: [true, 0.25], old: [true, true], back: ["A", { level: 0.5, mute: true }] });
+      saved: ["A", { level: 0.5, mute: true }], params: 30, fromHost: [true, 0.25], old: [true, true], back: ["A", { level: 0.5, mute: true }], code: "A" });
     expect(r.chip).toContain("A ·");
     expect(errors).toEqual([]);
     await context.close();
@@ -1900,6 +1924,93 @@ describe.skipIf(!browser)("Twirl · in French (PLAN.md, phase 2)", () => {
       const wide = await page.evaluate(() => [...document.querySelectorAll("#strip, #inspector")].filter((e) => e.offsetParent && e.scrollWidth > e.clientWidth + 1).map((e) => e.id || e.className));
       expect(wide).toEqual([]);
     }
+    await context.close();
+  });
+});
+
+describe("Twirl · the inlined UPI parser", () => {
+  it("is @enkerli/upi's parseUPI as the package builds it now (run tools/twirl-upi.mjs after changing the package)", async () => {
+    const { bundle, inlined } = await import("../tools/twirl-upi.mjs");
+    expect(inlined()).toBe(bundle());
+  });
+});
+
+describe.skipIf(!browser)("Twirl · accents: a note's place in its loop's cycle shapes it", () => {
+  it("weighs each note by its loop's own cycle, the sheet's bar, a UPI pattern over its notes, or not at all", async () => {
+    const { page, context, errors } = await openTwirl(browser);
+    const r = await page.evaluate(() => {
+      const lp = loops[0];
+      $("div").value = "4"; $("div").dispatchEvent(new Event("change"));    // quarter-beat steps
+      const w = (src, b, base, Lb, n = 0, upi) => { lp.accent = src; lp.accentUpi = upi; return accentWeight(lp, b, base, Lb, n); };
+      return {
+        // A 3-beat loop on its own cycle: its own downbeat, wherever the bar is.
+        cycle: [w("cycle", 7, 7, 3), w("cycle", 8, 7, 3) < 1, w("cycle", 5, 7, 3) < 1, w("cycle", 4, 7, 3)],
+        // On the bar: beat 4 is a downbeat (bar of 4), beat 7 isn't.
+        bar: [w("bar", 4, 7, 3), w("bar", 7, 7, 3) < 1],
+        // E(3,8) over the notes: 1 0 0 1 0 0 1 0, then again; with 5 notes a pass, the second pass starts on note 5.
+        pattern: [0, 1, 2, 3, 4, 5, 6, 7, 8].map((n) => w("pattern", 0, 0, 4, n, "E(3,8)")),
+        layer: [0, 1, 2, 3].map((n) => w("pattern", 0, 0, 4, n, "{0110}")),
+        none: w("none", 4, 4, 4),
+        bad: w("pattern", 0, 0, 4, 0, "not ( upi"),
+      };
+    });
+    expect(r).toEqual({ cycle: [1, true, true, 1], bar: [1, true], pattern: [1, 0, 0, 1, 0, 0, 1, 0, 1], layer: [0, 1, 1, 0], none: null, bad: null });
+    expect(errors).toEqual([]);
+    await context.close();
+  });
+
+  it("louder, brighter and longer on the strong places: loudness, nuance, and MIDI length", async () => {
+    const { page, context, errors } = await openTwirl(browser);
+    const r = await page.evaluate(() => {
+      ensureAudio(); state.vary = false; state.accent = 0.5;
+      const seen = [], orig = varied, r3 = (x) => Math.round(x * 1000) / 1000;
+      window.varied = (v, t, m) => { const out = orig(v, t, m); seen.push([r3(out[0]), r3(nuance), r3(ringOf())]); return out; };
+      for (const wgt of [1, 0.5, 0]) sound("pluck", 0.5, 0.5, 0.8, ctx.currentTime + 0.1, 0, undefined, "single", null, "moves", wgt);
+      state.accent = 0; sound("pluck", 0.5, 0.5, 0.8, ctx.currentTime + 0.1, 0, undefined, "single", null, "moves", 0);
+      window.varied = orig;
+      return seen;
+    });
+    // depth 0.5: the strongest as drawn, brighter (+0.4), 1.25× the ring; the weakest at half, darker; depth 0: as drawn
+    expect(r).toEqual([[0.8, 0.4, 1.25], [0.6, 0, 1], [0.4, -0.4, 1], [0.8, 0, 1]]);
+    expect(errors).toEqual([]);
+    await context.close();
+  });
+
+  it("a loop's settings choose where its accents fall; patterns from a list or typed in UPI; saved, in codes, and old scenes stay flat", async () => {
+    const { page, context, errors } = await openTwirl(browser);
+    const r = await page.evaluate(async () => {
+      const out = { fresh: [state.accent, $("accent").value, loops[0].accent || "cycle"] };
+      setLevel(3); openInspector(loops[0]);
+      const seg = (v) => document.querySelector(`[data-insp="accent"] [data-v="${v}"]`);
+      out.rowBefore = $("inspAccRow").hidden;
+      seg("pattern").click();
+      out.picked = [loops[0].accent, $("inspAccRow").hidden, $("inspAccPat").value, $("inspAccMsg").textContent];
+      $("inspAccPat").value = "{10}"; $("inspAccPat").dispatchEvent(new Event("change"));
+      out.preset = [loops[0].accentUpi, $("inspAccMsg").textContent];
+      $("inspAccUpi").value = "{1000}E(4,16)"; $("inspAccUpi").dispatchEvent(new Event("input"));
+      out.typed = [loops[0].accentUpi, $("inspAccPat").value, $("inspAccMsg").textContent];
+      $("inspAccUpi").value = "zz("; $("inspAccUpi").dispatchEvent(new Event("input"));
+      out.bad = $("inspAccMsg").textContent;
+      $("inspAccUpi").value = "E(3,8)"; $("inspAccUpi").dispatchEvent(new Event("input"));
+      const saved = serialize();
+      out.saved = [saved.settings.accent, saved.loops[0].accent, saved.loops[0].accentUpi];
+      const back = await decodeScene(await encodeScene(saved));
+      out.code = [back.settings.accent, back.loops[0].accent, back.loops[0].accentUpi];
+      const old = JSON.parse(JSON.stringify(saved)); delete old.settings.accent; old.loops.forEach((l) => { delete l.accent; delete l.accentUpi; });
+      recall(old);
+      out.old = [state.accent, loops[0].accent];
+      return out;
+    });
+    expect(r).toEqual({
+      fresh: [0.3, "0.3", "cycle"], rowBefore: true,
+      picked: ["pattern", false, "E(3,8)", "●··●··●·"],
+      preset: ["{10}", "●·"],
+      typed: ["{1000}E(4,16)", "", "●···"],
+      bad: "Not a pattern Twirl can read (UPI: {10010}, E(3,8)…)",
+      saved: [0.3, "pattern", "E(3,8)"], code: [0.3, "pattern", "E(3,8)"],
+      old: [0, "cycle"],
+    });
+    expect(errors).toEqual([]);
     await context.close();
   });
 });

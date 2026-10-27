@@ -56,7 +56,7 @@ function isWords(s) {
 // The page: everything before the first <script> that isn't the head's.
 const bodyStart = src.indexOf("<body");
 const scriptAt = src.indexOf("<script>", bodyStart) >= 0 ? src.indexOf("<script>", bodyStart) : src.length;
-let html = src.slice(0, scriptAt).replace(/<script type="application\/json"[\s\S]*?<\/script>/g, (m) => " ".repeat(m.length));   // the translations themselves
+let html = src.slice(0, scriptAt).replace(/<script\b[^>]*>[\s\S]*?<\/script>/g, (m) => " ".repeat(m.length));   // the translations, the inlined UPI parser
 for (const m of html.matchAll(/<(\w+)[^>]*data-i18n="html"[^>]*>([\s\S]*?)<\/\1>/g)) {
   const key = m[2].replace(/\s+/g, " ").trim();
   if (!out.has(key)) out.set(key, { key, kind: "html", line: lineOf(m.index) });

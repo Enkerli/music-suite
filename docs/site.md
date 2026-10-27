@@ -1611,6 +1611,15 @@ plain.
   reduced motion).
 - **Air** gives a busy sheet room: the notes that matter least to the bar
   rest. **Arc** shapes 4 or 8 bars as home, away, pull and home again.
+- **Accents** (Everything → Time) let a note's place in its loop shape it:
+  the strong places a little louder, brighter and longer, the weak ones
+  softer. Gentle on a new sheet; 0 plays every note as drawn. Each loop
+  chooses where its accents fall, in its settings: on **its cycle**
+  (Barlow's weights over its own length, the default, so a 3-beat loop
+  leans on its own downbeat against the bar), on **the bar**, as **a
+  pattern** over its notes (*every other note*, *3 in 8*…, or any UPI, as in
+  Serpe: `{10010}`, `E(5,16)`), or **none**. A pattern that doesn't fit the
+  loop's notes moves along a note each pass.
 - **Walk** (Everything) moves the harmony every few bars: *a progression*,
   *sway*, *by fifths*, *climb* or *wander*, every 1, 2, 4 or 8 bars (**W**
   cycles through them), and shows the chord it's on at the top of the sheet
@@ -1931,6 +1940,17 @@ toujours simple.
 - L’**Aération** donne de l’espace à une feuille chargée : les notes qui
   comptent le moins dans la mesure se taisent. L’**Arc** façonne 4 ou 8
   mesures : maison, ailleurs, attirance, et retour à la maison.
+- Les **Accents** (Tout → Temps) laissent la place d’une note dans sa boucle
+  la façonner : les places fortes un peu plus fortes, plus brillantes et
+  plus longues, les faibles plus douces. Discrets sur une nouvelle feuille;
+  à 0, chaque note joue comme tracée. Chaque boucle choisit où tombent ses
+  accents, dans ses réglages : sur **son cycle** (les poids de Barlow sur
+  sa propre longueur, par défaut : une boucle de 3 temps appuie sur son
+  propre premier temps, contre la mesure), sur **la mesure**, selon **un
+  motif** sur ses notes (*une note sur deux*, *3 sur 8*…, ou n’importe
+  quelle expression UPI, comme dans Serpe : `{10010}`, `E(5,16)`), ou
+  **aucun**. Un motif qui ne correspond pas aux notes de la boucle avance
+  d’une note à chaque tour.
 - La **Marche** (Tout) déplace l’harmonie toutes les quelques mesures :
   *une progression*, *balancement*, *par quintes*, *montée* ou *errance*,
   toutes les 1, 2, 4 ou 8 mesures (**W** les parcourt), et montre en haut de
