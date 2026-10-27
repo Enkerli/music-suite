@@ -465,7 +465,10 @@ as on/off.
    shares (twirl-dpf `TwirlFiles.hpp`, `~/.local/share/twirl`), picked up
    by other instances within a second; a scene file's JSON pastes into
    Paste a code. The six slots stay as they are; named presets (any
-   number, chosen by name) could come next.
+   number, chosen by name) could come next. **Done 2026-10-27**: named
+   scenes under the slots, each a file in `presets/` (the plugin deletes a
+   file sent empty), in a linked folder too, carried by Download
+   everything.
 7. **Groups (2026-10-26).** Alex wanted "a way to target individual
    loops": for mixing ("I do want to emphasize some loops over others"),
    automation, and later controllers and MIDI channels. Loop numbers come

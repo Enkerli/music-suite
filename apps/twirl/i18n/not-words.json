@@ -62,5 +62,9 @@
  "ArrowUp",
  "ArrowDown",
  "{ch},{cc}",
- "{name}/{n2}"
+ "{name}/{n2}",
+ "presets/{0}.json",
+ "NFD",
+ "{base} {n}",
+ "Scene"
 ]
