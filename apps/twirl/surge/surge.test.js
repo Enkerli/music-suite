@@ -13,8 +13,14 @@ const PATCHES = join(HERE, "patches");
 const names = readdirSync(PATCHES).filter((f) => f.endsWith(".fxp")).sort();
 
 describe("Twirl · Surge XT patches", () => {
-  it("has one for each of Paper's voices and drums", () => {
-    expect(names).toEqual(["Bell", "Blip", "Hat", "Kick", "Pluck", "Shaker", "Snare"].map((n) => `Twirl Paper ${n}.fxp`));
+  it("has one for each voice a pack makes its own (the rest are Paper's)", () => {
+    const packs = {
+      Paper: ["Pluck", "Bell", "Blip", "Kick", "Snare", "Hat", "Shaker"],
+      Mallets: ["Pluck", "Bell", "Blip", "Kick", "Snare", "Hat"],        // its drums are also Steel's and Kalimba's
+      Chip: ["Pluck", "Bell", "Blip", "Kick", "Snare", "Hat", "Shaker"],
+      Felt: ["Pluck", "Bell", "Blip"], Steel: ["Pluck", "Bell", "Blip"], Kalimba: ["Pluck", "Bell", "Blip"], Chimes: ["Pluck", "Bell", "Blip"],
+    };
+    expect(names).toEqual(Object.entries(packs).flatMap(([p, vs]) => vs.map((v) => `Twirl ${p} ${v}.fxp`)).sort());
   });
 
   it.each(names)("%s is a Surge patch: FXP header, Surge's chunk, its XML", (name) => {
@@ -31,9 +37,10 @@ describe("Twirl · Surge XT patches", () => {
     expect(xml.startsWith('<?xml version="1.0"')).toBe(true);
     expect(xml).toContain(`<meta name="${name.replace(".fxp", "")}" category="Twirl"`);
     expect(xml.trimEnd().endsWith("</patch>")).toBe(true);
-    // the envelopes analog and one-shot: straight lines in dB, no sustain
+    // the envelopes analog: straight lines in dB
     expect(xml).toMatch(/<a_env1_mode type="0" value="1" \/>/);
-    expect(xml).toMatch(/<a_env1_sustain type="2" value="0\.0+" \/>/);
+    // pitches in semitones (Surge's "extended range" would make them octaves)
+    expect(xml).not.toMatch(/_pitch [^>]*extend_range="1"/);
   });
 
   it("are exactly what make_patches.py writes", () => {

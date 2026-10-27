@@ -3,17 +3,23 @@
 Patches for [Surge XT](https://surge-synthesizer.github.io/) (free, open
 source) that sound like Twirl's own voices, for playing Twirl's MIDI output
 (the web page's Web MIDI, or the plugin's MIDI out) through Surge XT in a
-host. Paper's sounds, for now (PLAN.md, 1e):
+host. All seven of Twirl's sound packs (PLAN.md, 1e). Twirl sends pluck on
+channel 1, bell on 2, blip on 3, and the drums on 10: kick 36, snare 38,
+hat 42, shaker 70.
 
-| Patch | Twirl's voice | Twirl sends it on |
-|---|---|---|
-| Twirl Paper Pluck | pluck: a saw through a closing lowpass | channel 1 |
-| Twirl Paper Bell | bell: two-operator FM, ratio 3.5 | channel 2 |
-| Twirl Paper Blip | blip: a square chirping down a fifth | channel 3 |
-| Twirl Paper Kick | kick: a sine falling 19 semitones | channel 10, note 36 |
-| Twirl Paper Snare | snare: bandpassed noise and a tone | channel 10, note 38 |
-| Twirl Paper Hat | hat: highpassed noise | channel 10, note 42 |
-| Twirl Paper Shaker | shaker: noise, bandpassed and highpassed | channel 10, note 70 |
+| Pack | Pluck | Bell | Blip | Drums |
+|---|---|---|---|---|
+| Paper | a saw through a closing lowpass | two-operator FM, ratio 3.5 | a square chirping down a fifth | Kick (a falling sine), Snare (bandpassed noise and a tone), Hat, Shaker (noise) |
+| Mallets | marimba: two partials | vibraphone: a sine with tremolo | xylophone: a triangle | Kick (a log drum), Snare (a woodblock), Hat (claves); no shaker (Paper's) |
+| Chip | a square | an up-arpeggio of squares | a square dropping an octave | Kick (a falling square), Snare, Hat, Shaker (noise) |
+| Felt | a felted upright | the same, an octave up | two soft partials | Paper's |
+| Steel | a steelpan: partials 1, 2, 3 | the same, longer | two partials | Mallets' |
+| Kalimba | a tine, a high ping, a click | the same | two partials | Mallets' |
+| Chimes | a damped bar | a wind chime: five inharmonic partials | a tiny chime | Paper's |
+
+Each is *Twirl <pack> <voice>*. A pack only has the voices it changes;
+where it has none, Twirl plays Paper's (or, for Steel's and Kalimba's
+drums, Mallets').
 
 ## Using them
 
@@ -26,10 +32,11 @@ cp apps/twirl/surge/patches/*.fxp ~/Documents/"Surge XT"/Patches/Twirl/
 
 They then show in Surge XT's patch browser under *Twirl* (or open one with
 its menu → *Load patch…*). In a host: one Surge XT per channel, each
-listening to its channel only, with Pluck, Bell or Blip. For the drums, a
-drum machine (Bitwig's Drum Machine: pads from C1 = 36) with a Surge XT on
-pads 36, 38, 42 and 70, with Kick, Snare, Hat and Shaker. Each plays the
-note it gets, so the Kick on another pad is another pitch.
+listening to its channel only, with a pack's Pluck, Bell or Blip. For the
+drums, a drum machine (Bitwig's Drum Machine: pads from C1 = 36) with a
+Surge XT on pads 36, 38, 42 and 70, with Kick, Snare, Hat and Shaker. Paper's
+and Mallets' kicks, and the tone in Paper's snare, follow the note (another
+pad, another pitch); the rest sound the same on any note.
 
 Like Twirl, they're one-shots: each note rings out on its own (Twirl's
 note-offs come after its own lengths, and the patches let the sound go on
@@ -69,7 +76,11 @@ straight line in dB, as Twirl's exponential ramps do; filter type 1 is a
 12 dB lowpass, 4 a highpass, 6 a bandpass; modulation source 1 is velocity,
 16 the filter envelope; the amp's velocity sensitivity is in dB below full
 for soft notes (velocity 127 is always full; positive makes soft notes
-louder), and -13 follows Twirl's loudness, proportional to velocity. A `.fxp` is a 60-byte FXP header (`CcnK`,
+louder), and -13 follows Twirl's loudness, proportional to velocity; an
+oscillator's pitch, and a modulation of it, are in semitones, but in octaves
+with Surge's "extended range" on (so it's left off here); with keytracking
+off, an oscillator plays C4; voice LFOs with the envelope shape (6) give
+each oscillator its own envelope; scene mode 2 plays both scenes. A `.fxp` is a 60-byte FXP header (`CcnK`,
 `FPCh`, id `cjs3`, the chunk's size), then Surge's chunk: `sub3`, the XML's
 length, six wavetable sizes (zero here), then the XML.
 

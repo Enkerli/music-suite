@@ -31,10 +31,11 @@ provides (run the script through `pw-jack` if Carla can't find JACK).
     python3 twirl-carla.py --surge "/path/to/Surge XT.vst3"
     python3 twirl-carla.py --drums surge         # a fourth Surge XT for drums
     python3 twirl-carla.py --patches none        # Surge XT's own default sound
+    python3 twirl-carla.py --pack Kalimba        # Twirl's Kalimba sounds (Paper's by default)
 
 Twirl's own sounds go into the pluck, bell and blip Surge XTs when its
-patches are found (../surge/patches: Twirl Paper Pluck, Bell, Blip; the VST3
-only). The drum patches are one per drum, for a drum machine's pads, so
+patches are found (../surge/patches: Twirl Paper Pluck, Bell, Blip, or
+another pack's; the VST3 only). The drum patches are one per drum, for a drum machine's pads, so
 channel 10 stays on the soundfont here.
 
 Then: open the project in Carla (change a Surge XT's patch in its editor:
@@ -151,6 +152,7 @@ def main():
                          'connections in the system graph, including Midi Through and your speakers) or "patchbay" (one client)')
     ap.add_argument("--patches", default=PATCHES, help='Twirl\'s Surge XT patches, loaded into the pluck, bell and blip Surge XTs if found '
                     '(default: %(default)s); "none" for Surge XT\'s own default')
+    ap.add_argument("--pack", default="Paper", help="whose sounds: Paper (default), Mallets, Chip, Felt, Steel, Kalimba or Chimes")
     ap.add_argument("--stand-in", action="store_true", help=argparse.SUPPRESS)   # tests: channel filters instead of synths
     a = ap.parse_args()
 
@@ -209,7 +211,7 @@ def main():
 
     loaded = []
     def load_patch(pid, voice):
-        path = os.path.join(a.patches, "Twirl Paper %s.fxp" % voice.capitalize())
+        path = os.path.join(a.patches, "Twirl %s %s.fxp" % (a.pack.capitalize(), voice.capitalize()))
         if a.stand_in or a.patches == "none" or not os.path.exists(path):
             return
         for _ in range(20):

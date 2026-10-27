@@ -513,7 +513,20 @@ points.
 - [x] The Carla script loads them when present (a patch per instance):
       Pluck, Bell and Blip into its three Surge XTs (VST3); the drums stay
       on the General MIDI soundfont there.
-- [ ] Later, the same for Twirl's other packs (mallets, felt, steel…).
+- [x] Later, the same for Twirl's other packs (mallets, felt, steel…).
+      **Done (2026-10-26):** the 25 voices the six other packs make their
+      own (a pack's other voices are Paper's; Steel's and Kalimba's drums
+      Mallets'): struck tones as one sine per partial, the longest on the
+      amp envelope, the others on voice LFOs shaped as envelopes (both
+      scenes for the wind chime's five partials); the vibraphone's
+      tremolo; Chip's arpeggio as delayed envelopes; fixed-pitch drums with
+      keytracking off. Fitted like Paper's. On the way: Surge's "extended
+      range" makes an oscillator's pitch count in octaves, which had put
+      Paper's kick and the tone in its snare far off; both refitted. The
+      fit now sets the volume from the renders at each step (a pure gain)
+      instead of fitting it, so level no longer fights shape: Felt went
+      from 5 to 2.4, Paper's kick from 3.5 to 1.9; all 32 refitted (scores
+      1.1 to 3.7, in fitted.json). `twirl-carla.py --pack` loads any pack's.
 
 ---
 
