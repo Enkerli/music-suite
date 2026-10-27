@@ -285,6 +285,26 @@ synth, a DAW or hardware, with or without its own sound (plucks on channel
 while it plays, changing as Walk moves them). Safari has no Web MIDI; a plugin
 is on the [roadmap](https://github.com/Enkerli/music-suite/blob/main/apps/twirl/ROADMAP.md).
 
+## MIDI in
+
+With MIDI inputs, an **In** picker joins Out (none to begin with, every
+input, or one). Once an input is chosen, Twirl in a browser does what its
+plugin does:
+- **Notes** play in the sheet's sounds when Out includes sound: channel 1
+  plucks, 2 bells, 3 blips, 10 drums and shaker, any other a pluck, and
+  channel 4 a Drone of the notes held there. One Twirl's MIDI into another
+  plays in the second's sounds.
+- **Incoming MIDI only** keeps the sheet silent: Twirl as an instrument.
+- **Follow MIDI clock** takes the tempo, Start, Stop and Song Position
+  coming in, as the plugin follows its host.
+- **MIDI learn**: touch a control, then move a knob or fader; Delete forgets
+  it. The controls are the ones a host can automate in the plugin.
+
+Scenes, My toys and settings can live in a **folder** too (Scenes → Use a
+folder, in Chrome and Edge): the plugin's files. Pick `~/.local/share/twirl`
+and a browser and the plugin share them. **Open a file** takes any of them,
+several at once.
+
 ## Behind it
 
 Twirl is Public Domain (CC0), one HTML file you can read, copy and change:

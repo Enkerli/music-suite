@@ -345,20 +345,21 @@ which checks the channel map and timing before any C++.
 ### 13b. The web version, in step with the plugin
 
 Alex, 2026-10-27: "We should make sure Web versions catch up and then keep up
-with the plugin." Where the browser lags today, to workshop:
-- **MIDI coming in** (synth mode, Incoming MIDI only): only the plugin plays
-  incoming notes in Twirl's sounds, the Drone's held notes on channel 4
-  included. In Chromium, Web MIDI input could do the same, with ⇧Q's counts.
-- **Following a clock**: the plugin follows the host's transport; the
-  browser could follow MIDI clock, Start and Stop coming in.
-- **Scenes, My toys and settings as files**: the plugin shares them as files
-  between instances; the browser keeps them in its own storage. Saving and
-  opening the same files would carry them between the two.
-- **Parameters**: the host automates 30 of them; in the browser, CCs and MIDI
-  learn (section 11) are the same idea.
-- **The sound**: the plugin's engine plays what the page would have played.
-  A render comparison (test/render-voices.mjs already renders the page's
-  voices) would keep them alike as voices change.
+with the plugin." Caught up the same day:
+- **MIDI coming in** (Chromium): an In picker; notes played in the sheet's
+  sounds, channel 4 as a Drone; Incoming MIDI only; ⇧Q's counts.
+- **Following a clock**: Follow MIDI clock (tempo, Start, Stop, Continue,
+  Song Position), through the same follower as the plugin's host.
+- **Parameters**: MIDI learn for the 30 controls a host automates.
+- **Files**: Open a file takes the plugin's files, several at once; Use a
+  folder (Chromium) keeps scenes, My toys and settings in the plugin's
+  folder layout, so a browser and the plugin share them.
+- **The sound**: `tools/compare-engine.mjs` renders every pack's voices
+  through the page and through twirl-dpf's engine and compares level,
+  brightness and length (all 49 alike, 2026-10-27). Run it when a voice
+  changes.
+Still the plugin's alone: host transport and automation themselves, a
+project's own saved state, and the window staying closed while it plays.
 From here, each new feature lands in both or says why not.
 
 ### 14. Timing, next

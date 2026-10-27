@@ -27,7 +27,7 @@ for (const j of JSON.parse(list)) {
     // the starting sheet's loops (and the Drone) into this one too. Silence it.
     loops.splice(0); state.drone = false; state.walk = false;
     const off = new OfflineAudioContext(1, 48000 * seconds, 48000);
-    ctx = off; nuance = 0;
+    ctx = off; nuance = 0; lift = 0;                    // as drawn: no Vary, no accent
     master = off.createGain(); master.gain.value = 0.8; master.connect(off.destination);
     delaySend = off.createGain();                        // the delay: left out
     noiseBuf = off.createBuffer(1, 48000, 48000);

@@ -2014,3 +2014,164 @@ describe.skipIf(!browser)("Twirl · accents: a note's place in its loop's cycle 
     await context.close();
   });
 });
+
+describe.skipIf(!browser)("Twirl · the web version, as the plugin: MIDI in, a clock, MIDI learn, files", () => {
+  // A browser with one MIDI input and no outputs (Web MIDI, as Chromium has it).
+  const webMidi = () => {
+    const input = { id: "in1", name: "Keys", onmidimessage: null };
+    window.__in = (bytes, ts = performance.now()) => input.onmidimessage && input.onmidimessage({ data: new Uint8Array(bytes), timeStamp: ts });
+    navigator.requestMIDIAccess = async () => ({ inputs: new Map([["in1", input]]), outputs: new Map(), onstatechange: null });
+  };
+  const choose = (page, v) => page.evaluate((v) => { $("midiInSel").value = v; $("midiInSel").dispatchEvent(new Event("change")); }, v);
+
+  it("an In picker; its buttons only once an input is chosen; notes play in the sheet's sounds, channel 4 as a Drone", async () => {
+    const { page, context, errors } = await openTwirl(browser, { initScript: webMidi });
+    await page.waitForFunction(() => !$("midiInSel").hidden);
+    const shown = () => page.evaluate(() => ["syncBtn", "listenBtn", "learnBtn"].map((id) => !$(id).hidden));
+    expect(await page.evaluate(() => [...$("midiInSel").options].map((o) => o.textContent))).toEqual(["In: none", "In: every input", "In: Keys"]);
+    expect(await shown()).toEqual([false, false, false]);
+    await choose(page, "in1");
+    expect(await shown()).toEqual([true, true, true]);
+    expect(await page.evaluate(() => [$("syncBtn").textContent, store.get("twirl:midiIn").in])).toEqual(["Follow MIDI clock", "in1"]);
+    const r = await page.evaluate(async () => {
+      ensureAudio(); await new Promise((ok) => setTimeout(ok, 100));
+      const played = [], orig = voiceFn;
+      const before = diag.notes.length;
+      __in([0x90, 60, 100]); __in([0x91, 72, 90]); __in([0x99, 36, 120]); __in([0x80, 60, 0]);
+      const notes = diag.notes.length - before;
+      __in([0x93, 48, 64]); __in([0x93, 55, 64]);
+      const held = inDrone && inDrone.voices.length;
+      __in([0x83, 48, 0]);
+      const one = inDrone && inDrone.voices.length;
+      __in([0xb3, 123, 0]);
+      return { notes, held, one, gone: inDrone, counts: inCounts.slice(0, 10) };
+    });
+    expect(r).toEqual({ notes: 3, held: 2, one: 1, gone: null, counts: [1, 1, 0, 2, 0, 0, 0, 0, 0, 1] });
+    // Incoming MIDI only: the sheet silent, as in the plugin; kept.
+    await page.evaluate(() => $("listenBtn").click());
+    expect(await page.evaluate(() => [midiInOnly, store.get("twirl:midiIn").listen])).toEqual([true, true]);
+    // None again: the buttons go, and so does what they did.
+    await choose(page, "none");
+    expect(await shown()).toEqual([false, false, false]);
+    expect(await page.evaluate(() => midiInOnly)).toBe(false);
+    expect(errors).toEqual([]);
+    await context.close();
+  });
+
+  it("follows the MIDI clock coming in: its tempo, Start and Stop", async () => {
+    const { page, context, errors } = await openTwirl(browser, { initScript: webMidi });
+    await page.waitForFunction(() => !$("midiInSel").hidden);
+    await choose(page, "in1");
+    const r = await page.evaluate(async () => {
+      ensureAudio(); await new Promise((ok) => setTimeout(ok, 100));
+      $("syncBtn").click();
+      // 120 BPM: a tick every 20.83 ms, sent as they come.
+      const tick = 60000 / 120 / 24;
+      __in([0xfa]);
+      for (let i = 0; i < 48; i++) { __in([0xf8]); await new Promise((ok) => setTimeout(ok, tick)); }
+      const playing = [Math.round(state.bpm), hostHold, $("hostChip").hidden, $("hostChip").textContent, $("bpm").disabled];
+      __in([0xfc]); __in([0xf8]);
+      return { playing, stopped: hostHold, saved: store.get("twirl:midiIn").clock };
+    });
+    expect(r.playing[0]).toBeGreaterThan(110); expect(r.playing[0]).toBeLessThan(130);   // headless timers are coarse
+    expect(r.playing.slice(1, 3)).toEqual([false, false]);
+    expect(r.playing[3]).toMatch(/^MIDI clock: \d+(\.\d)? BPM$/);
+    expect(r.playing[4]).toBe(true);
+    expect([r.stopped, r.saved]).toEqual([true, true]);
+    expect(errors).toEqual([]);
+    await context.close();
+  });
+
+  it("MIDI learn: touch a control (it doesn't change), move a knob; the knob sets it; Delete forgets", async () => {
+    const { page, context, errors } = await openTwirl(browser, { initScript: webMidi });
+    await page.waitForFunction(() => !$("midiInSel").hidden);
+    await choose(page, "in1");
+    const r = await page.evaluate(() => {
+      setLevel(3); setDrawer(true);
+      $("learnBtn").click();
+      const vary = state.vary;
+      $("varyBtn").click();                                       // chosen, not toggled
+      const untouched = state.vary === vary;
+      __in([0xb0, 20, 127]);                                      // CC 20 → Vary
+      $("swing").dispatchEvent(new PointerEvent("pointerdown", { bubbles: true })); $("swing").click();
+      __in([0xb1, 74, 0]);                                        // CC 74 on channel 2 → Swing
+      $("learnBtn").click();                                      // done
+      __in([0xb1, 74, 64]); const swing = state.swing;
+      __in([0xb0, 20, 0]); const off = state.vary;
+      __in([0xb0, 20, 100]); const on = state.vary;
+      return { untouched, map: store.get("twirl:midiMap"), swing, off, on };
+    });
+    const swingIdx = await page.evaluate(() => HOST_PARAMS.findIndex((p) => p.id === "swing")), varyIdx = await page.evaluate(() => HOST_PARAMS.findIndex((p) => p.id === "varyBtn"));
+    expect(r).toEqual({ untouched: true, map: { "0,20": varyIdx, "1,74": swingIdx }, swing: 0.25, off: false, on: true });
+    const forgot = await page.evaluate(() => {
+      $("learnBtn").click(); $("swing").click();
+      document.dispatchEvent(new KeyboardEvent("keydown", { key: "Delete", bubbles: true }));
+      $("learnBtn").click();
+      return store.get("twirl:midiMap");
+    });
+    expect(forgot).toEqual({ "0,20": varyIdx });
+    expect(errors).toEqual([]);
+    await context.close();
+  });
+
+  it("opens the plugin's own files, several at once: scene files, My toys.json, and collections", async () => {
+    const { page, context, errors } = await openTwirl(browser);
+    const [scene, toys] = await page.evaluate(() => { for (let i = 1; i <= SLOTS; i++) store.set(slotKey(i), null); return [serialize(), [loopData(loops[0])]]; });
+    await page.evaluate(() => { const t = $("scenes"); t.hidden = false; });
+    await page.setInputFiles("#openFile", [
+      { name: "Scene 1.json", mimeType: "application/json", buffer: Buffer.from(JSON.stringify(scene)) },
+      { name: "My toys.json", mimeType: "application/json", buffer: Buffer.from(JSON.stringify(toys)) },
+      { name: "notes.json", mimeType: "application/json", buffer: Buffer.from('{"hello":1}') },
+    ]);
+    await page.waitForTimeout(200);
+    const r = await page.evaluate(() => ({ slot: !!store.get(slotKey(1)), slot2: !!store.get(slotKey(2)), toys: loadToys().length, said: [...document.querySelectorAll(".toast")].map((t) => t.textContent).join(" | ") }));
+    expect(r.slot).toBe(true); expect(r.slot2).toBe(false);
+    expect(r.toys).toBeGreaterThanOrEqual(1);
+    expect(errors).toEqual([]);
+    await context.close();
+  });
+
+  it("uses a folder (Chromium): reads the plugin's files, gives it what this browser kept, saves to both", async () => {
+    // A folder in memory, shaped as the File System Access API's handles.
+    const fakeFolder = () => {
+      const dir = (name, kids = new Map()) => ({
+        kind: "directory", name, kids,
+        async *entries() { yield* kids.entries(); },
+        async getDirectoryHandle(n, o) { if (!kids.has(n) && o && o.create) kids.set(n, dir(n)); return kids.get(n); },
+        async getFileHandle(n, o) { if (!kids.has(n) && o && o.create) kids.set(n, file(n, "")); return kids.get(n); },
+        async queryPermission() { return "granted"; },
+      });
+      const file = (name, text) => {
+        const f = { kind: "file", name, text,
+          async getFile() { return { text: async () => f.text }; },
+          async createWritable() { let buf = ""; return { write: async (t) => { buf += t; }, close: async () => { f.text = buf; } }; } };
+        return f;
+      };
+      const root = dir("twirl");
+      const scenes = dir("scenes"); root.kids.set("scenes", scenes);
+      window.__folder = root; window.__file = file;
+      window.showDirectoryPicker = async () => root;
+    };
+    const { page, context, errors } = await openTwirl(browser, { initScript: fakeFolder });
+    const r = await page.evaluate(async () => {
+      for (let i = 1; i <= SLOTS; i++) store.set(slotKey(i), null);
+      const mine = serialize(); store.set(slotKey(2), mine);          // kept in this browser before
+      const theirs = { ...serialize(), at: 1 };
+      __folder.kids.get("scenes").kids.set("Scene 1.json", __file("Scene 1.json", JSON.stringify(theirs)));   // the plugin's
+      const shown = !$("folderBtn").hidden;
+      $("folderBtn").click();
+      await new Promise((ok) => setTimeout(ok, 300));
+      const read = store.get(slotKey(1)) && store.get(slotKey(1)).at;
+      const gave = __folder.kids.get("scenes").kids.has("Scene 2.json");
+      store.set(slotKey(3), mine);
+      await new Promise((ok) => setTimeout(ok, 100));
+      const wrote = __folder.kids.get("scenes").kids.get("Scene 3.json")?.text.length > 10, kept = !!localStorage.getItem(slotKey(3));
+      const label = $("folderBtn").textContent.trim();
+      $("folderBtn").click();                                        // and back to this browser alone
+      return { shown, read, gave, wrote, kept, label, after: $("folderBtn").textContent.trim(), alone: !!store.get(slotKey(3)) };
+    });
+    expect(r).toEqual({ shown: true, read: 1, gave: true, wrote: true, kept: true, label: "Stop using the folder", after: "Use a folder", alone: true });
+    expect(errors).toEqual([]);
+    await context.close();
+  });
+});
