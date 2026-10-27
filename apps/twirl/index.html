@@ -1391,6 +1391,7 @@ async function initMidi() {
     sel.append(new Option("Out: sound + MIDI", "host:engine+midi"), new Option("Out: sound", "host:engine"), new Option("Out: MIDI", "host:midi"));
     state.out = sel.value = "host:engine+midi"; sel.hidden = false;
     $("syncBtn").hidden = false;
+    setHostSync(true);                                           // until the project's own (twirlRestore, its parameter)
     $("syncBtn").addEventListener("click", () => {
       setHostSync(!hostSync); savePage();
       toast(hostSync ? "Following the host's transport" : "Twirl's own clock");
@@ -1516,10 +1517,14 @@ addEventListener("pagehide", () => { if (!IN_HOST) { const d = drone; drone = nu
 // tempo (0 if it gives none), whether it's rolling, its beat at a wall-clock
 // time.
 //
-// Following it: Twirl takes the tempo, holds its loops while the transport is
-// stopped (strokes still sound as you draw), and keeps its beat on the host's
-// beat, modulo 48 (whole bars in 2/4, 3/4, 4/4, 6/8). The plugin plays both
-// the sound and the MIDI at their exact times: nothing to allow for.
+// Following it (on by default, as a plugin's clock is; a project saved with
+// it off keeps it off, through its host parameter): Twirl takes the tempo,
+// holds its loops while the transport is stopped (strokes still sound as you
+// draw), and keeps its beat on the host's beat, modulo 48 (whole bars in 2/4,
+// 3/4, 4/4, 6/8). The host's Play starts Twirl even if it was paused, as it
+// would any instrument on its tracks; pausing Twirl while the host plays keeps
+// it quiet until the host's next Play. The plugin plays both the sound and the
+// MIDI at their exact times: nothing to allow for.
 //
 // Each report's measure of "how far off" is noisy (±10 ms: the audio clock
 // moves in whole callbacks), and correcting it report by report moved every
@@ -1579,10 +1584,14 @@ function showHost() {
 window.twirlHost = (h) => {
   const was = hostInfo; hostInfo = h;
   if (!was || was.tempo !== h.tempo || was.playing !== h.playing) showHost();
+  if (hostSync && ctx && h.playing && !was?.playing && ctx.state !== "running") {   // the host's Play: Twirl plays too
+    ensureAudio(); setTimeout(syncPower, 80);
+    diag.hostStarts = (diag.hostStarts || 0) + 1;
+  }
   if (!hostSync || !ctx || ctx.state !== "running") { setHostHold(false); return; }
+  if (h.tempo > 0 && Math.abs(h.tempo - state.bpm) > 1e-3) setTempo(h.tempo);   // stopped too: the host's tempo shows
   setHostHold(!h.playing || hostSilent(h));
   if (hostHold) return;
-  if (Math.abs(h.tempo - state.bpm) > 1e-3) setTempo(h.tempo);
   // Where the host's beat is, now.
   const now = ctx.currentTime, wall = performance.timeOrigin + performance.now();
   let e = h.beat + (wall - h.at) * h.tempo / 60000 - beatAt(now);

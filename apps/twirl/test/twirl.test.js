@@ -1473,9 +1473,17 @@ describe.skipIf(!browser)("Twirl · inside the plugin (twirl-dpf)", () => {
     window.setState = (key, value) => window.__host.push({ key, value, at: performance.timeOrigin + performance.now() });
     window.sendNote = () => {};
   };
+  // No host reports its transport here: following it, the loops would wait for
+  // one (as with a host that stops calling the plugin). Tests that aren't about
+  // the host's clock run on Twirl's own.
+  const openPlugin = async () => {
+    const r = await openTwirl(browser, { initScript: dpf });
+    await r.page.evaluate(() => setHostSync(false));
+    return r;
+  };
 
   it("as MIDI, sends its notes to the host in timed batches, and makes no sound itself", async () => {
-    const { page, context, errors } = await openTwirl(browser, { initScript: dpf });
+    const { page, context, errors } = await openPlugin();
     await page.evaluate(() => { $("out").value = "host:midi"; $("out").dispatchEvent(new Event("change")); });   // the picker sits in Everything
     await page.evaluate(() => {
       window.__voiced = 0;
@@ -1520,7 +1528,7 @@ describe.skipIf(!browser)("Twirl · inside the plugin (twirl-dpf)", () => {
   });
 
   it("starts at once, untouched (its window may never open): notes for the plugin's sound and MIDI, no audio of its own", async () => {
-    const { page, context, errors } = await openTwirl(browser, { initScript: dpf });
+    const { page, context, errors } = await openPlugin();
     expect(await page.inputValue("#out")).toBe("host:engine+midi");
     expect(await page.evaluate(() => window.__host.some((m) => m.key === "ready"))).toBe(true);
     await page.waitForTimeout(1500);                           // no click: the plugin starts it
@@ -1536,7 +1544,7 @@ describe.skipIf(!browser)("Twirl · inside the plugin (twirl-dpf)", () => {
   });
 
   it("with the sound made in the plugin (route C), sends notes for its engine, and its own sound none", async () => {
-    const { page, context, errors } = await openTwirl(browser, { initScript: dpf });
+    const { page, context, errors } = await openPlugin();
     const pick = (v) => page.evaluate((v) => { $("out").value = v; $("out").dispatchEvent(new Event("change")); window.__host.length = 0; }, v);
     const sent = () => page.evaluate(() => ({
       voices: window.__host.filter((m) => m.key === "voices").flatMap((m) => m.value.split(";").map((e) => e.split(",").map(Number))),
@@ -1584,14 +1592,14 @@ describe.skipIf(!browser)("Twirl · inside the plugin (twirl-dpf)", () => {
 
   it("gives the plugin its state to save, and takes it back", async () => {
     const a = await openTwirl(browser, { initScript: dpf });
-    await a.page.evaluate(() => { setTempo(123); $("out").value = "host:engine"; $("out").dispatchEvent(new Event("change")); setHostSync(true); autosave(); });
+    await a.page.evaluate(() => { setTempo(123); $("out").value = "host:engine"; $("out").dispatchEvent(new Event("change")); setHostSync(false); autosave(); });
     const saved = await a.page.evaluate(() => window.__host.filter((m) => m.key === "page").at(-1).value);
     expect(saved).toMatch(/^[A-Za-z0-9+/=]+$/);                 // base64: safe to hand back inside a JS string
     await a.context.close();
     const b = await openTwirl(browser, { initScript: dpf });
-    expect(await b.page.evaluate(() => [state.bpm !== 123, state.out, hostSync])).toEqual([true, "host:engine+midi", false]);   // a fresh sheet
+    expect(await b.page.evaluate(() => [state.bpm !== 123, state.out, hostSync])).toEqual([true, "host:engine+midi", true]);   // a fresh sheet, following the host
     await b.page.evaluate((s) => twirlRestore(s), saved);
-    expect(await b.page.evaluate(() => [state.bpm, state.out, hostSync, $("syncBtn").getAttribute("aria-pressed")])).toEqual([123, "host:engine", true, "true"]);
+    expect(await b.page.evaluate(() => [state.bpm, state.out, hostSync, $("syncBtn").getAttribute("aria-pressed")])).toEqual([123, "host:engine", false, "false"]);
     // Saved before 2026-10-26, when the page streamed its own sound: onto the new choices.
     const old = await b.page.evaluate(() => toB64({ v: 1, out: "host:both" }));
     await b.page.evaluate((s) => twirlRestore(s), old);
@@ -1610,7 +1618,8 @@ describe.skipIf(!browser)("Twirl · inside the plugin (twirl-dpf)", () => {
       const h = hostInfo, wall = performance.timeOrigin + performance.now() + (soundOn() ? h.lag : 0);
       let e = h.beat + (wall - h.at) * h.tempo / 60000 - beatAt(ctx.currentTime); return e - 48 * Math.round(e / 48);
     });
-    const own = await page.evaluate(() => state.bpm);
+    expect(await page.evaluate(() => [hostSync, $("bpm").disabled])).toEqual([true, true]);   // on from the start, as a plugin's clock is
+    const own = await page.evaluate(() => { setHostSync(false); return state.bpm; });
     await host(120, true, 10);
     expect(await page.evaluate(() => [state.bpm, hostHold])).toEqual([own, false]);  // off: its own clock
     await page.evaluate(() => setHostSync(true));
@@ -1638,12 +1647,27 @@ describe.skipIf(!browser)("Twirl · inside the plugin (twirl-dpf)", () => {
     // The host stops calling the plugin (no reports for a while): as good as stopped.
     await page.waitForTimeout(400);
     expect(await page.evaluate(() => hostHold)).toBe(true);
+    // Paused in Twirl: the host playing on doesn't wake it; the host's next Play does.
+    await page.evaluate(() => pauseAudio());
+    await host(132, true, 30);
+    await page.waitForTimeout(150);
+    expect(await page.evaluate(() => ctx.state)).toBe("suspended");
+    await host(132, false, 30);
+    await host(132, true, 30);
+    await page.waitForFunction(() => ctx.state === "running");
+    expect(await page.evaluate(() => [userPaused, diag.hostStarts])).toEqual([false, 1]);
+    // Not following: the host's Play leaves a paused Twirl paused.
+    await page.evaluate(() => { setHostSync(false); return pauseAudio(); });
+    await host(132, false, 30);
+    await host(132, true, 30);
+    await page.waitForTimeout(150);
+    expect(await page.evaluate(() => ctx.state)).toBe("suspended");
     expect(errors).toEqual([]);
     await context.close();
   });
 
   it("sends the Drone on channel 4: held notes, changed as its chord moves, ended with it", async () => {
-    const { page, context, errors } = await openTwirl(browser, { initScript: dpf });
+    const { page, context, errors } = await openPlugin();
     await page.evaluate(() => { $("out").value = "host:midi"; $("out").dispatchEvent(new Event("change")); });
     const drone = () => page.evaluate(() => window.__host.filter((m) => m.key === "notes")
       .flatMap((m) => m.value.split(";").map((e) => e.split(",").map(Number)))
@@ -1675,7 +1699,7 @@ describe.skipIf(!browser)("Twirl · inside the plugin (twirl-dpf)", () => {
   });
 
   it("with Incoming MIDI only, its sheet is silent (an instrument), saved, and a host parameter; ⇧Q shows what came in", async () => {
-    const { page, context, errors } = await openTwirl(browser, { initScript: dpf });
+    const { page, context, errors } = await openPlugin();
     const voices = () => page.evaluate(() => window.__host.filter((m) => m.key === "voices").length);
     await page.waitForTimeout(800);
     const a = await voices();
@@ -1702,7 +1726,7 @@ describe.skipIf(!browser)("Twirl · inside the plugin (twirl-dpf)", () => {
 
   it("keeps scenes, My toys and its look in the plugin's shared files, not the web view's storage", async () => {
     // A scene, as one instance saved it (scenes/Scene 1.json), and a setting.
-    const a = await openTwirl(browser, { initScript: dpf });
+    const a = await openPlugin();
     const scene = await a.page.evaluate(() => JSON.stringify(serialize()));
     await a.context.close();
     const b64 = (t) => Buffer.from(t).toString("base64");
@@ -1733,7 +1757,7 @@ describe.skipIf(!browser)("Twirl · inside the plugin (twirl-dpf)", () => {
   });
 
   it("groups A to D: a level and a mute for their loops, kept by children, saved, and host parameters", async () => {
-    const { page, context, errors } = await openTwirl(browser, { initScript: dpf });
+    const { page, context, errors } = await openPlugin();
     const r = await page.evaluate(() => {
       const lp = loops[0], other = loops[1];
       lp.group = "A";
@@ -1765,7 +1789,7 @@ describe.skipIf(!browser)("Twirl · inside the plugin (twirl-dpf)", () => {
   });
 
   it("takes the host's parameters as if its controls moved, and reports its own changes", async () => {
-    const { page, context, errors } = await openTwirl(browser, { initScript: dpf });
+    const { page, context, errors } = await openPlugin();
     const params = () => page.evaluate(() => window.__host.filter((m) => m.key === "params").map((m) => m.value));
     // Before the plugin's first values, nothing goes to the host.
     await page.evaluate(() => { setVolume(0.5); });
@@ -1803,7 +1827,7 @@ describe.skipIf(!browser)("Twirl · inside the plugin (twirl-dpf)", () => {
   });
 
   it("Start over tells the host to end what's sounding", async () => {
-    const { page, context } = await openTwirl(browser, { initScript: dpf });
+    const { page, context } = await openPlugin();
     await page.mouse.click(600, 600);
     await page.evaluate(() => { $("initBtn").click(); $("initBtn").click(); });
     expect(await page.evaluate(() => window.__host.some((m) => m.key === "panic"))).toBe(true);
