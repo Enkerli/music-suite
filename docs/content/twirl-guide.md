@@ -136,7 +136,10 @@ turns meetings off altogether.
   a toy you can drop again anywhere.
 - **Scenes**: six slots for whole sheets. Tap an empty slot to save, a
   full one to recall; hold it (or Shift-tap, Shift-Enter) to overwrite. Your
-  last sheet also comes back by itself.
+  last sheet also comes back by itself. In a browser they're kept in that
+  browser; in the plugin, as files every Twirl plugin shares
+  (`~/.local/share/twirl/scenes`), and a scene file's text pastes into
+  Scenes → Paste a code, in the plugin or a browser.
 - **Takes**: press **● Rec**, play, press it again. A take keeps what you
   *did* (strokes, moves, settings) and replays it on the sheet, even after
   a reload; its sound stays until you close the page, unless you save it.
