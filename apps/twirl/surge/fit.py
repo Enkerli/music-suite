@@ -2,7 +2,7 @@
 """Fit the Surge XT patches' numbers to Twirl's own voices (fitted.json).
 
     python3 -m venv /tmp/fitenv && /tmp/fitenv/bin/pip install pedalboard mido numpy
-    /tmp/fitenv/bin/python apps/twirl/surge/fit.py [Pluck Bell …]    # all, if none named
+    /tmp/fitenv/bin/python apps/twirl/surge/fit.py [Paper Chip/Bell …]    # a pack, or one patch; all, if none named
 
 Needs Surge XT's VST3 (/usr/lib/vst3, or SURGE_VST3=…), Node and Playwright's
 Chromium (as Twirl's tests do). It renders Twirl's voices offline in the page
@@ -12,7 +12,8 @@ Surge XT (pedalboard; the patch goes in as Surge's VST3 state, which is the
 (make_patches.PATCHES) one at a time, halving the steps each round, to
 match the two: loudness (dB in 10 ms frames, for 1.6 s, wherever either is
 heard), the peak, and brightness (the spectral centroid, in semitones from
-the note) over time, at each voice's
+the note) over time (the volume, a pure gain, is set from the renders at each
+step rather than fitted, so it never fights the rest), at each voice's
 notes and three velocities, each note as long as Twirl sends it. What it
 can't match (Surge's envelopes aren't Web Audio's ramps) shows in the report.
 """
@@ -30,7 +31,7 @@ import make_patches as mp  # noqa: E402
 SR, DUR, HOP, WIN = 48000, 1.6, 480, 2048
 VELS = [0.4, 0.8, 1]
 NOTES = [48, 60, 72, 84]
-# patch: (Twirl's voice, its notes as Twirl sends them, the note's length as Twirl sends it, the page's pitch and height for drums)
+# patch (in any pack): (Twirl's voice, its notes as Twirl sends them, the note's length as Twirl sends it, the page's pitch and height for drums)
 CASES = {
     "Pluck": ("pluck", NOTES, 0.22, {}), "Bell": ("bell", NOTES, 0.6, {}), "Blip": ("blip", NOTES, 0.22, {}),
     "Kick": ("drum", [36], 0.08, {"midi": 60, "yN": 0.8}), "Snare": ("drum", [38], 0.08, {"midi": 60, "yN": 0.45}),
@@ -78,11 +79,11 @@ def render(xml, note, vel, length):
 # ── Twirl, offline ─────────────────────────────────────────────────────────
 
 
-def twirl(patch, tmp):
+def twirl(pack, patch, tmp):
     voice, notes, _, extra = CASES[patch]
-    jobs = [dict(pack="paper", voice=voice, note=n, vel=v, **extra) for n in notes for v in VELS]
+    jobs = [dict(pack=pack.lower(), voice=voice, note=n, vel=v, **extra) for n in notes for v in VELS]
     subprocess.run(["node", str(HERE.parent / "test" / "render-voices.mjs"), tmp, json.dumps(jobs)], check=True, capture_output=True)
-    return {(n, v): np.fromfile(f"{tmp}/paper-{voice}-{n}-{v}.f32", dtype=np.float32) for n in notes for v in VELS}
+    return {(n, v): np.fromfile(f"{tmp}/{pack.lower()}-{voice}-{n}-{v}.f32", dtype=np.float32) for n in notes for v in VELS}
 
 # ── Matching ───────────────────────────────────────────────────────────────
 
@@ -101,58 +102,82 @@ def features(m, note):
     return np.array(db), np.array(cen)
 
 
-def cost(patch, values, targets, report=False):
-    xml = mp.PATCHES[patch][0](values)
-    total, rows = 0, []
-    for (n, v), (tdb, tcen) in targets.items():
-        sdb, scen = features(render(xml, n, max(1, round(v * 127)), CASES[patch][2]), n)
-        heard = np.maximum(tdb, sdb) > -70                         # where either sounds (silence would dilute short drums)
-        loud = np.mean(np.abs(tdb - sdb)[heard])
-        peak = abs(tdb.max() - sdb.max())
-        live = (tdb > tdb.max() - 40) & (sdb > sdb.max() - 40)
-        bright = np.mean(np.abs(tcen[live] - scen[live])) if live.any() else 24
-        total += loud + 0.5 * peak + 0.5 * bright
-        rows.append(f"  note {n} vel {v}: loudness off {loud:.1f} dB, brightness off {bright:.1f} st, peak {tdb.max():.0f} dB (Twirl) / {sdb.max():.0f} dB (Surge)")
-    total /= len(targets)
-    return (total, rows) if report else total
+def score(tdb, tcen, sdb, scen):
+    heard = np.maximum(tdb, sdb) > -70                             # where either sounds (silence would dilute short drums)
+    loud = np.mean(np.abs(tdb - sdb)[heard])
+    peak = abs(tdb.max() - sdb.max())
+    live = (tdb > tdb.max() - 40) & (sdb > sdb.max() - 40)
+    bright = np.mean(np.abs(tcen[live] - scen[live])) if live.any() else 24
+    return loud + 0.5 * peak + 0.5 * bright, loud, bright
 
 
-def fit(patch, start, rounds=6):
-    spec = mp.PATCHES[patch][2]
+def cost(pack, patch, values, targets, report=False):
+    """How far the patch is from Twirl, at the patch's best volume: the volume is a pure gain,
+    so it's found from the renders (dB shifts) rather than fitted, and it never fights the
+    shape. Returns the cost and the volume (and, to report, each case's distances)."""
+    xml = mp.PATCHES[pack][patch][0](values)
+    rendered = [(t, features(render(xml, n, max(1, round(v * 127)), CASES[patch][2]), n), (n, v)) for (n, v), t in targets.items()]
+
+    def at(shift):
+        out = []
+        for (tdb, tcen), (sdb, scen), nv in rendered:
+            s = np.where(sdb > -80, np.maximum(-80, sdb + shift), -80)
+            out.append((score(tdb, tcen, s, scen), tdb.max(), s.max(), nv))
+        return sum(r[0][0] for r in out) / len(out), out
+
+    shifts = np.arange(-24, 24.01, 1.0)
+    coarse = min(shifts, key=lambda d: at(d)[0])
+    shift = min(np.arange(coarse - 1, coarse + 1.01, 0.125), key=lambda d: at(d)[0])
+    total, out = at(shift)
+    vol = values["vol"] + shift
+    if not report:
+        return total, vol
+    rows = [f"  note {n} vel {v}: loudness off {loud:.1f} dB, brightness off {bright:.1f} st, peak {tp:.0f} dB (Twirl) / {sp:.0f} dB (Surge)"
+            for (_, loud, bright), tp, sp, (n, v) in out]
+    return total, vol, rows
+
+
+def fit(pack, patch, start, rounds=6):
+    spec = mp.PATCHES[pack][patch][2]
     with tempfile.TemporaryDirectory() as tmp:
-        targets = {k: features(m, k[0]) for k, m in twirl(patch, tmp).items()}
+        targets = {k: features(m, k[0]) for k, m in twirl(pack, patch, tmp).items()}
     vals = {k: start.get(k, s[0]) for k, s in spec.items()}
     steps = {k: s[1] for k, s in spec.items()}
-    best = cost(patch, vals, targets)
+    best, vals["vol"] = cost(pack, patch, vals, targets)
     for r in range(rounds):
         for k, (_, _, lo, hi) in spec.items():
+            if k == "vol":                                           # found, not fitted (cost())
+                continue
             for sgn in (1, -1):
                 while True:
                     trial = dict(vals, **{k: min(hi, max(lo, vals[k] + sgn * steps[k]))})
                     if trial[k] == vals[k]:
                         break
-                    c = cost(patch, trial, targets)
+                    c, vol = cost(pack, patch, trial, targets)
                     if c >= best - 1e-3:
                         break
-                    best, vals = c, trial
-        print(f"{patch}, round {r}: {best:.2f}", flush=True)
+                    best, vals = c, dict(trial, vol=vol)
+        print(f"{pack} {patch}, round {r}: {best:.2f}", flush=True)
         steps = {k: s / 2 for k, s in steps.items()}
-    total, rows = cost(patch, vals, targets, report=True)
+    total, vals["vol"], rows = cost(pack, patch, vals, targets, report=True)
     print("\n".join(rows))
-    return {k: round(v, 4) for k, v in vals.items()}, total
+    return {k: round(float(v), 4) for k, v in vals.items()}, total
 
 
 def main():
-    names = sys.argv[1:] or list(mp.PATCHES)
+    todo = []
+    for arg in sys.argv[1:] or list(mp.PATCHES):
+        pack, _, name = arg.partition("/")
+        todo += [(pack, name)] if name else [(pack, n) for n in mp.PATCHES[pack]]
     path = HERE / "fitted.json"
     read = lambda: json.loads(path.read_text()) if path.exists() else {}
-    for name in names:
-        vals, total = fit(name, read().get("Paper", {}).get(name, {}))
+    for pack, name in todo:
+        vals, total = fit(pack, name, read().get(pack, {}).get(name, {}))
         data = read()                                    # again: other fits may have run meanwhile
-        data.setdefault("Paper", {})[name] = vals
-        data.setdefault("score", {})[name] = round(total, 2)
+        data.setdefault(pack, {})[name] = vals
+        data.setdefault("score", {}).setdefault(pack, {})[name] = round(total, 2)
         path.write_text(json.dumps(data, indent=1, sort_keys=True) + "\n")
-        print(f"{name}: {total:.2f}", flush=True)
+        print(f"{pack} {name}: {total:.2f}", flush=True)
 
 
 if __name__ == "__main__":
