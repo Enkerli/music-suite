@@ -168,3 +168,53 @@ Authority: [CONTROL_PLANE.md](CONTROL_PLANE.md); code in
 - **Persona** — a named design target the suite builds for; **seven** in
   [personas.md](personas.md) (reconciled 2026-07-15 — the earlier five plus
   the curious newcomer and the systematic maker).
+
+## Twirl's words, in English and French (PLAN phase 2b)
+
+*Drafted 2026-10-26 for Alex's review: the French Twirl shows today, behind
+`?lang=fr` or Everything → View → Language. Normative Québec French,
+*vous*, épicène writing; every name translated but *Twirl*. "Usual" means
+the ordinary French word or an established music term; "coined" means a
+choice to settle. Nothing here has been checked in Termium or the OQLF's
+GDT yet: that's the review. Change the French in
+`apps/twirl/i18n/fr.json` (or the review page), not in the page.*
+
+| English | What it is in Twirl | French (draft) | Notes |
+|---|---|---|---|
+| sheet | the surface you draw on | feuille | usual |
+| stroke | one gesture as drawn | trait | usual; *tracé* for its path |
+| loop | a stroke that keeps replaying | boucle | usual |
+| pass | one time round a loop | tour | coined; *passage* possible |
+| playhead | the dot that plays along a loop | tête de lecture | usual (audio) |
+| pen | what a new stroke plays | crayon | coined; *stylo* possible |
+| voice: pluck, bell, blip, drums, shaker | the five sounds | pincé, cloche, bip, percussions, hochet | coined for pincé, bip; *hochet* for shaker (*maracas* possible) |
+| sounds (pack): paper, mallets, felt, steel, kalimba, chip, chimes | the seven sets of voices | sons : papier, mailloches, feutre, acier, kalimba, puce, carillons | coined: *puce* for chip(tune), *acier* for the steelpan set |
+| Meets: no, sound, bump, trade, breed, infect, merge | what loops do when they touch | Rencontres : rien, son, bouscule, troc, enfant, contagion, fusion | coined, kept playful |
+| Life: steady, bloom, swell, fade, brief | how a loop changes pass by pass | Vie : stable, floraison, houle, fondu, éphémère | coined |
+| Influence: none, feeds, drains | what a loop does to those it touches | Influence : aucune, nourrit, épuise | usual |
+| Walk: a progression, sway, by fifths, climb, wander | everything shifting along the scale | Marche : une progression, balancement, par quintes, montée, errance | *marche harmonique* is the usual term for a sequence |
+| Arc | tension and release over 4 or 8 bars | Arc | usual |
+| Drone | the slow pad underneath | Bourdon | usual |
+| Warmth | the room: hiss, crackle, wobble | Chaleur | usual; *ambiance* for "room" |
+| Spacing: by register, even | where notes sit on the sheet | Espacement : par registre, régulier | usual |
+| Tuning: equal, just, Pythagorean, meantone | how 12-note grids are tuned | Tempérament : égal, juste, pythagoricien, mésotonique | usual |
+| root, scale (grid), range | the pitch settings | tonique, gamme (grille), étendue | usual; notes as Do Ré Mi (as MIDIcurator's fr-CA) |
+| Lock | loops read on the beat grid | Verrou | coined |
+| Air | notes rest as a scene gets busy | Aération | coined |
+| Morph | loops moving on their own | Métamorphose | coined; long for a button |
+| Surprise | new loops get random ways | Surprise | usual |
+| Vary | no two notes alike | Variation | usual |
+| Evolve | Lives move on | Évolution | usual |
+| Smooth | strokes settle into curves | Lissage | usual |
+| Revoice | turning changes voices | Voix tournantes | coined; to settle |
+| Beats (view) | ticks and lines where beats fall | Pulsations | coined (*Temps* is taken by the Time section) |
+| Snap, Feel, Clock | a loop's timing | Aimant, Ressenti, Horloge | coined: *aimant* for snap |
+| toy, Toybox, My toys | ready-made and kept shapes | jouet, coffre à jouets, Mes jouets | usual |
+| scene | a saved sheet | scène | usual |
+| take | a recording of what you did | prise | usual (recording) |
+| template | a starting sheet in a link | modèle | usual |
+| drawer | the controls panel | tiroir | usual |
+| group A–D | a level and mute for several loops | groupe | usual |
+| plugin, host | Twirl inside a DAW | plugiciel, hôte | *plugiciel* as the OQLF recommends (to check) |
+| Incoming MIDI only | the sheet silent, an instrument | MIDI entrant seulement | usual |
+| keys: Space, Enter, Esc, Tab, Page Up/Down, Shift | the key list | Espace, Entrée, Échap, Tab, PgPréc / PgSuiv, Maj | as Québec keyboards and Apple's French documentation name them (to check) |

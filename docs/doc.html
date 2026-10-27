@@ -47,11 +47,15 @@
     "control-plane":   "Connecting & Automating the Tools",
     "architecture":    "Architecture",
     "history":         "History & Roadmap",
-    "twirl-guide":     "Twirl — Guide"
+    "twirl-guide":     "Twirl — Guide",
+    "twirl-guide-fr":  "Twirl — Guide (français)"
   };
+  // A page in another language than English (its site.md marker says lang=…)
+  var LANGS = { "twirl-guide-fr": "fr" };
   var prose = document.getElementById("prose");
   var p = new URLSearchParams(location.search).get("p") || "the-story";
   if (!PAGES.hasOwnProperty(p)) p = "the-story";
+  document.documentElement.lang = LANGS[p] || "en";
 
   fetch("content/" + p + ".md")
     .then(function (r) { if (!r.ok) throw new Error(r.status); return r.text(); })

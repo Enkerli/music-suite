@@ -53,6 +53,19 @@ describe.skipIf(!browser)("Twirl · axe, every state, both schemes", () => {
   }
 });
 
+describe.skipIf(!browser)("Twirl · axe, every state, in French", () => {
+  for (const [name, act] of Object.entries(STATES)) {
+    it(`${name} (fr)`, async () => {
+      const { page, context, errors } = await openTwirl(browser, { query: "?lang=fr" });
+      await act(page);
+      expect(await page.evaluate(() => document.documentElement.lang)).toBe("fr");
+      expect(await axe(page)).toEqual([]);
+      expect(errors).toEqual([]);
+      await context.close();
+    });
+  }
+});
+
 describe.skipIf(!browser)("Twirl · keyboard and focus", () => {
   it("digits pick a loop, Enter opens its settings with focus inside, Escape closes them", async () => {
     const { page, context } = await openTwirl(browser);
