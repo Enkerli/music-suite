@@ -22,12 +22,12 @@ await page.route(/fonts\.(googleapis|gstatic)\.com/, (r) => r.abort());
 await page.goto(PAGE);
 await page.waitForFunction(() => typeof loops !== "undefined");
 for (const j of JSON.parse(list)) {
-  const { samples, notes } = await page.evaluate(async ({ pack, voice, note, vel, yN, midi: m, seconds = 2 }) => {
+  const { samples, notes } = await page.evaluate(async ({ pack, voice, note, vel, yN, midi: m, seconds = 2, shaker = "egg" }) => {
     // The page is live: once it has an audio context, its scheduler would play
     // the starting sheet's loops (and the Drone) into this one too. Silence it.
     loops.splice(0); state.drone = false; state.walk = false;
     const off = new OfflineAudioContext(1, 48000 * seconds, 48000);
-    ctx = off; nuance = 0; lift = 0;                    // as drawn: no Vary, no accent
+    ctx = off; nuance = 0; lift = 0; shakerNow = shaker; plainNow = false;   // as drawn: no Vary, no accent; the shaker asked for
     master = off.createGain(); master.gain.value = 0.8; master.connect(off.destination);
     delaySend = off.createGain();                        // the delay: left out
     noiseBuf = off.createBuffer(1, 48000, 48000);
@@ -44,7 +44,7 @@ for (const j of JSON.parse(list)) {
     // the panner's centre is -3 dB on each side; one side, as a mono voice
     return { samples: Array.from(buf.getChannelData(0)) };
   }, j);
-  const name = `${j.pack}-${j.voice}-${j.note}-${j.vel}`;
+  const name = `${j.pack}-${j.voice}-${j.note}-${j.vel}${j.shaker && j.shaker !== "egg" ? "-" + j.shaker : ""}`;
   writeFileSync(`${outDir}/${name}.f32`, Buffer.from(new Float32Array(samples).buffer));
   if (notes) writeFileSync(`${outDir}/${name}.json`, JSON.stringify(notes));
   console.log(name);

@@ -190,9 +190,14 @@ plain.
 
 ## Sounds
 
-Seven **packs** (paper, mallets, felt, steel, kalimba, chip, chimes) give the
-five voices different instruments; a loop can bring its own pack, whatever
-the sheet's. **Vary** (Everything → Sound and room, on at first) makes no two notes quite alike, a
+Nine **packs** (paper, mallets, felt, steel, kalimba, chip, chimes, music
+box, Foley) give the five voices different instruments; a loop can bring its
+own pack, whatever the sheet's. **Music box** is a comb's steel tines.
+**Foley** is the kitchen as a kit: drums by height (a pot lid up top, a
+wooden spoon on a board, a rubber mallet low down), and, pitched, a struck
+tube, a glass tapped with a spoon and a rubber duck. A loop's **shaker**
+(its settings, Everything) is an egg (to begin with), a maraca, a cabasa, a
+tambourine or a rain stick. **Vary** (Everything → Sound and room, on at first) makes no two notes quite alike, a
 little louder or softer, earlier or later, brighter or duller, as a sampler
 plays a different take of the same note.
 
@@ -205,7 +210,12 @@ beat) or **rotate** like a Leslie speaker.
 ## Toys, scenes, takes, files and codes
 
 - **Toybox**: ready-made shapes (spiral, ring, rose, Lissajous, a drum beat,
-  a shaker, wind chimes, a spinner, dice). **Chimes** look like chimes (the
+  a shaker, wind chimes, a music box, a spinner, dice). A **Shaker** brings
+  a shaker of its own and a figure (sixteenths, triplets, eighths; a rain
+  stick turns over every two beats). A **Music box** plays a tune on its
+  tines (*Au clair de la lune*, *Frère Jacques*, *Twinkle, twinkle*, *Ode to
+  joy*), every note alike: no Vary, no accents, as a mechanism plays.
+  **Chimes** look like chimes (the
   longer the tube, the lower the note) and ring in gusts, off the beat, in
   their own sound. A **Spinner** is a beat-long arpeggio that folds, opens
   and flips as it spins. **Tadpoles** are three small figures, close together, with one note

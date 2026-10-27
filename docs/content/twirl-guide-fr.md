@@ -227,9 +227,16 @@ toujours simple.
 
 ## Les sons
 
-Sept **jeux de sons** (papier, mailloches, feutre, acier, kalimba, puce,
-carillons) donnent aux cinq voix des instruments différents; une boucle peut
-apporter son propre jeu, quel que soit celui de la feuille. La
+Neuf **jeux de sons** (papier, mailloches, feutre, acier, kalimba, puce,
+carillons, boîte à musique, bruitage) donnent aux cinq voix des instruments
+différents; une boucle peut apporter son propre jeu, quel que soit celui de
+la feuille. La **boîte à musique**, ce sont les lames d’acier d’un peigne.
+Le **bruitage**, c’est la cuisine comme batterie : les percussions selon la
+hauteur (un couvercle de casserole en haut, une cuillère de bois sur une
+planche, un maillet de caoutchouc en bas) et, avec une hauteur, un tube
+frappé, un verre tapoté d’une cuillère et un canard de caoutchouc. Le
+**hochet** d’une boucle (ses réglages, Tout) est un œuf (au départ), une
+maraca, un cabasa, un tambourin ou un bâton de pluie. La
 **Variation** (Tout → Son et ambiance, activée au départ) fait qu’aucune
 note n’est tout à fait pareille : un peu plus forte ou plus douce, plus tôt
 ou plus tard, plus brillante ou plus terne, comme un échantillonneur qui
@@ -245,8 +252,13 @@ quelques hertz d’écart, pour qu’on entende un battement lent au casque) ou
 ## Jouets, scènes, prises, fichiers et codes
 
 - **Coffre à jouets** : des formes toutes faites (spirale, anneau, rosace,
-  Lissajous, un rythme de percussion, un hochet, des carillons, une toupie,
-  des dés). Les **Carillons** ressemblent à des carillons (plus le tube est
+  Lissajous, un rythme de percussion, un hochet, des carillons, une boîte à musique, une toupie,
+  des dés). Un **Hochet** apporte son propre hochet et une
+  figure (doubles croches, triolets, croches; un bâton de pluie se retourne
+  tous les deux temps). Une **Boîte à musique** joue un air sur ses lames
+  (*Au clair de la lune*, *Frère Jacques*, *Ah! vous dirai-je, maman*,
+  *Ode à la joie*), chaque note pareille : ni Variation ni accents, comme
+  joue un mécanisme. Les **Carillons** ressemblent à des carillons (plus le tube est
   long, plus la note est grave) et sonnent par rafales, à contretemps, avec
   leur propre son. Une **Toupie** est un arpège d’un temps qui se replie,
   s’ouvre et se retourne en tournant. Les **Têtards** sont trois petites

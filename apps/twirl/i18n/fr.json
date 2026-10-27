@@ -850,5 +850,21 @@
  "Save this sheet over it": "Enregistrer cette feuille à sa place",
  "Deleted “{name}”": "« {name} » supprimée",
  "None yet: name this sheet and save it.": "Aucune pour l’instant : nommez cette feuille et enregistrez-la.",
- "Opened {0} named scene{1}": "{0} {0|scène nommée ouverte|scènes nommées ouvertes}"
+ "Opened {0} named scene{1}": "{0} {0|scène nommée ouverte|scènes nommées ouvertes}",
+ "Sounds: music box": "Sons : boîte à musique",
+ "Sounds: Foley": "Sons : bruitage",
+ "Music box": "Boîte à musique",
+ "music box": "boîte à musique",
+ "Foley": "bruitage",
+ "egg": "œuf",
+ "maraca": "maraca",
+ "cabasa": "cabasa",
+ "tambourine": "tambourin",
+ "rain stick": "bâton de pluie",
+ "This loop's shaker notes": "Les notes de hochet de cette boucle",
+ "Au clair de la lune": "Au clair de la lune",
+ "Frère Jacques": "Frère Jacques",
+ "Twinkle, twinkle, little star": "Ah! vous dirai-je, maman",
+ "Ode to joy": "Ode à la joie",
+ "Music box: {0}": "Boîte à musique : {0}"
 }
