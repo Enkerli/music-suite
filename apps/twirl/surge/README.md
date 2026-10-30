@@ -3,7 +3,7 @@
 Patches for [Surge XT](https://surge-synthesizer.github.io/) (free, open
 source) that sound like Twirl's own voices, for playing Twirl's MIDI output
 (the web page's Web MIDI, or the plugin's MIDI out) through Surge XT in a
-host. All seven of Twirl's sound packs (PLAN.md, 1e). Twirl sends pluck on
+host. All of Twirl's sound packs (HISTORY.md, 2026-10-25 to 27). Twirl sends pluck on
 channel 1, bell on 2, blip on 3, and the drums on 10: kick 36, snare 38,
 hat 42, shaker 70.
 

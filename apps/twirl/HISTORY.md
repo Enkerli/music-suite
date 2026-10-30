@@ -161,3 +161,84 @@ level² slider from 0.3); a fix for notes one step below the sheet's bottom row
 ("The provided value is non-finite", twenty in one diagnostic): `%` on a
 negative step read past the scale, now `mod`, and a note without a pitch is
 skipped and counted (Q: skippedNotes) rather than throwing.
+
+## 2026-10-25 to 27: Linux, the plugin, French
+
+*Moved here from PLAN.md on 2026-10-30, when the plan was revised; the
+plan's checklists for this work are closed.*
+
+**Linux in the browser.** Brave on Ubuntu (PipeWire): 60 fps, ticks at most
+19–22 ms late with 14 loops and 37–86 notes a second. MIDI out through Midi
+Through; `tools/twirl-carla.py` builds a Carla rig (a Surge XT per voice
+behind channel filters, GM drums on 10), its connections written by port
+name after Carla's connect-by-id failed on a busy PipeWire graph. Hiccups
+when switching windows were the page's own timer, throttled in the
+background: the scheduler now ticks from a Worker (`?clock=main` keeps the
+old timer). ⇧Q gained the pen, MIDI, late ticks, the audio device's latency.
+
+**The plugin, [Enkerli/twirl-dpf](https://github.com/Enkerli/twirl-dpf).**
+Without JUCE: DPF's `develop` branch (active; `main` is releases only) and
+its web view (Qt WebEngine on Alex's machine, WebKitGTK elsewhere). LV2,
+CLAP, VST3 and a JACK standalone; `make` copies this `index.html` in. Four
+patches to DPF (twirl-dpf `patches/`): the CLAP bundle path on Linux
+(Bitwig's ERR_FILE_NOT_FOUND), the web view's child exiting on SIGTERM
+(closing the window crashed it), keyboard focus on click, the CLAP's timer
+kept while the window is hidden ("stops playing as soon as another UI is
+focused").
+- *Timed MIDI*: each scheduler tick's notes as one `setState("notes", …)`
+  with wall-clock times; the plugin queues them lock-free and writes each at
+  its sample offset. Measured on Alex's machine: within 0.1 ms of Twirl's
+  own timing, sent 56–140 ms ahead.
+- *The page belongs to the plugin*: it runs in a hidden window from
+  activation, so Twirl plays with its window closed; the UI is a window the
+  page moves into. Saved with the host's project.
+- *Following the host*: tempo, transport, beat; on by default; the clock
+  stands still while the host is stopped (or gives no transport for 300 ms);
+  corrections averaged over a second and applied only past 2 ms (on Carla's
+  beat within 2 ms on average, 1.6 ms at most).
+- *Route C, Twirl's sound made in the plugin*: a C++ engine
+  (`TwirlEngine.hpp`: band-limited oscillators, Web Audio's biquads and
+  ramps, panner, delay, compressor, the Drone, Warmth, a pool of 384
+  voices) playing every pack; the page's audio stream removed from the
+  plugin (kept on the web). A busy Chimes sheet: ~11 % of one core. Out:
+  sound + MIDI (default), sound, MIDI. `make test` renders every voice;
+  `tools/compare-engine.mjs` compares the engine with the page (all alike).
+- *Synth mode*: MIDI coming in plays the voices (channels 1–3, 10 by note,
+  4 a Drone of the notes held); **Incoming MIDI only** silences the sheet,
+  so a Twirl is an instrument or a drum kit.
+- *Host parameters*: 30, append-only (volume, tempo, follow, swing, Warmth,
+  Air, Drone, Lock, Walk, sounds, scale, root, Vary, Evolve, Morph, groups'
+  levels and mutes, Accents…), both ways, saved, parameters win on load.
+- *Files*: scenes, named scenes, My toys and the look as files every
+  instance shares (`~/.local/share/twirl`).
+- Alex in Bitwig: "quite fun"; "it does work across saves and it does catch
+  up with the host".
+
+**The web, caught up with the plugin** (2026-10-27): MIDI in (synth mode in
+the browser, Incoming MIDI only), Follow MIDI clock, MIDI learn for the 30
+controls, Open a file with the plugin's files, Use a folder (shared with the
+plugin), the Drone as MIDI on channel 4.
+
+**Sounds.** Surge XT patches for every voice of every pack
+(`apps/twirl/surge/`: generated from Surge's CC0 templates by
+`make_patches.py`, numbers fitted against Twirl's own renders by `fit.py`;
+scores 1.1–3.7), and a hand-made Drone patch; `twirl-carla.py --pack`
+loads them. New packs: **Music box** (and a toy playing a public-domain
+tune) and **Foley**; five **shakers** per loop. **Accents**: each note
+weighted by its place (Barlow over the loop or the bar, or a UPI pattern),
+louder, brighter and longer on strong places.
+
+**Many loops at once.** **Groups A to D**, each with a level and a mute
+(host parameters 22–29), kept by children and merges. **Named scenes**, as
+many as wanted, each a file.
+
+**French, as a draft for review.** English is the key (`i18n/fr.json`, 773
+entries, plurals by `Intl.PluralRules`); translated where words land (a
+pass at start, then a MutationObserver), so the code keeps its English;
+opt-in (`?lang=fr`, or View → Language) until reviewed. Tests: every string
+has French, nothing left in English through the page's states, axe in
+French, no sideways scroll at 390 px. The guide in French
+(`twirl-guide-fr`). After Alex ticked 258 of 773 strings, the review went
+**terms first**: `i18n/terms.tbx` (TBX-Basic, 99 concepts), checked against
+the strings by `tools/i18n/concord.mjs` (914 uses, 40 straying), a terms
+page with Termium, Vitrine linguistique and Wiktionnaire links.

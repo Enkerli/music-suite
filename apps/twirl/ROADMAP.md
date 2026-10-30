@@ -43,7 +43,7 @@ are marked.
    (contacts, lives, tools, zones, templates) rather than adding a new kind of
    thing; the decisions below are the brake.
 
-## Shipped lately (2026-10-25)
+## Shipped lately (2026-10-25; the week after, Linux, the plugin and French, is in [HISTORY.md](HISTORY.md))
 
 Undo what happened (each event in the log carries its own Undo); the current
 chord on the sheet under Walk or Arc; Merge; tadpoles ephemeral and three at
@@ -276,7 +276,14 @@ a **family view** (a thin line to the parent, audition, revert, prune, save a
 family as a toy; durable family ids). Milestone: strength, scale-aware pitch,
 seeds, the parent line.
 
-### 9. Zones, terrain, traces (workshop)
+### 9. Layers: places, ground, traces
+
+*Reframed 2026-10-30 (Alex: "widgets within the space: zones in the scene
+which do specific things. That's combined with the notion of terrain, yet
+it's somewhat different. So maybe we should establish the overall concept
+with layers"). The concept is now [LAYERS.md](LAYERS.md); the work is
+[PLAN.md](PLAN.md), phase L. The notes below are where it started.*
+
 
 Three ideas that give the sheet *places*.
 - **Zones: controllers** ("bring back more HLO inspo… you move through an

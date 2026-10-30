@@ -6,7 +6,7 @@ about third-party projects reflect knowledge as of early 2026 and carry a
 verification checklist (§6).*
 
 > **Update, 2026-10-25** (read from the projects' own sources while planning
-> Twirl's Linux plugin, `apps/twirl/PLAN.md` §1d): **clap-wrapper** now
+> Twirl's Linux plugin, `apps/twirl/HISTORY.md`, 2026-10-25 to 27): **clap-wrapper** now
 > projects a CLAP into **AUv3 on macOS and iOS** (and AAX), as well as VST3,
 > AUv2 and a standalone, which answers Option 2's main gap; and **DPF** now
 > has a **first-class web view** (`DISTRHO_UI_USE_WEB_VIEW`, with
