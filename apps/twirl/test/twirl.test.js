@@ -1553,7 +1553,8 @@ describe.skipIf(!browser)("Twirl · inside the plugin (twirl-dpf)", () => {
       engine: window.__host.filter((m) => m.key === "engine").map((m) => m.value),
     }));
     await pick("host:engine");
-    await page.waitForTimeout(1500);
+    // Wait for the notes rather than a fixed time: a slow CI runner sent 3 in 1.5 s (2026-10-30).
+    await page.waitForFunction(() => window.__host.filter((m) => m.key === "voices").reduce((a, m) => a + m.value.split(";").length, 0) > 3, null, { timeout: 8000 }).catch(() => {});
     let r = await sent();
     expect(r.voices.length).toBeGreaterThan(3);
     for (const [t, voice, pack, midi, vel, pan, y] of r.voices) {

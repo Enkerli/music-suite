@@ -2908,7 +2908,7 @@ function schedule() {
   if (!midiInOnly) checkMeetings(nb, now, W, H);
   updateDrone(nb);
 }
-/* The clock (PLAN.md, phase 4a). A Worker posts a tick every 25 ms and the page
+/* The clock (HISTORY.md, 2026-10-25 to 27). A Worker posts a tick every 25 ms and the page
  * schedules on each message. A timer on the page itself is throttled by the
  * browser as soon as the window is in the background (Alex, 2026-10-25, on
  * Linux: "switching from Brave to Carla causes hiccups", with no xruns in
@@ -4221,7 +4221,7 @@ document.addEventListener("pointerdown", (e) => {
   diag.lastTap = name + label;
 }, true);
 try { new PerformanceObserver((l) => (diag.longTasks += l.getEntries().length)).observe({ type: "longtask", buffered: false }); } catch (_) { /* not in Safari */ }
-/* For testing on new hardware (PLAN.md, phase 1: Linux, a graphics tablet, a
+/* For testing on new hardware (HISTORY.md, 2026-10-25 to 27: Linux, a tablet, a
  * synth over Web MIDI): what the last pointer on the sheet reported, and what
  * MIDI sees and sends. Read-only; shown in the ⇧Q report. */
 diag.pen = null; diag.midiSent = 0; diag.midiLast = null; diag.late = [];
