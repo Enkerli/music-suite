@@ -295,6 +295,12 @@ same biquad on each voice, from the 11th field of the "voices" batch
 (twirl-dpf, which older pages and engines simply lack). Dark ground's
 softening down from 45 % to 20 %: the filter does the rest.
 
+**The ground, wider** (2026-10-31; Alex: "could have a larger range. Even
+at the top level, it remains subtle"): the field leans to dark or light
+(tanh(2·)), the darkest tone 0.9 × the note (was 1.5), the ring both ways
+(½ on the darkest ground to 2 × on the lightest, `2^(ground × Ground)`;
+the engine now takes rings from 0.25), 35 % softer on dark (was 20 %).
+
 **The host's knobs** (2026-10-31; Alex: "decrease the number of automatable
 parameters, perhaps by making some of them more flexible or combining
 them"; "Let's get core+8"). The plugin's 31 parameters became 20, once: a

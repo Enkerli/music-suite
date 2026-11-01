@@ -2457,11 +2457,11 @@ describe.skipIf(!browser)("Twirl · layers: the frame and the ground (LAYERS.md,
     perPoint(on).forEach((s, i) => {
       const was = perPoint(off)[i], g = pts[i];
       expect(s[4]).toBeCloseTo(Math.max(-1, Math.min(1, g + 0.3 * was[4])), 5);       // the ground outweighs Vary's colour
-      expect(s[5]).toBeCloseTo(1 + 0.5 * 2 * Math.max(0, g), 5);                        // light: up to twice the ring (the pluck has no accent)
-      expect(s[3]).toBeCloseTo(was[3] * (1 - 0.2 * Math.max(0, -g)), 5);                // dark: a little softer
-      expect(midiPluck(on)[i][2]).toBeCloseTo(midiPluck(off)[i][2] * (1 - 0.2 * Math.max(0, -g)), 5);   // and so is its MIDI
-      // its tone: a lowpass by its own pitch, 1.5× on the darkest ground, 32× (open) on the lightest
-      const f0 = 440 * 2 ** ((s[2] - 69) / 12), x = (1 - g) / 2, want = f0 * 32 * (1.5 / 32) ** x;
+      expect(s[5]).toBeCloseTo(2 ** g, 5);                                              // ring: half on the darkest, twice on the lightest (the pluck has no accent)
+      expect(s[3]).toBeCloseTo(was[3] * (1 - 0.35 * Math.max(0, -g)), 5);               // dark: softer
+      expect(midiPluck(on)[i][2]).toBeCloseTo(midiPluck(off)[i][2] * (1 - 0.35 * Math.max(0, -g)), 5);   // and so is its MIDI
+      // its tone: a lowpass by its own pitch, 0.9× on the darkest ground, 32× (open) on the lightest
+      const f0 = 440 * 2 ** ((s[2] - 69) / 12), x = (1 - g) / 2, want = f0 * 32 * (0.9 / 32) ** x;
       expect(s[6]).toBeCloseTo(want < 16000 ? want : 0, 0);
     });
     const tones = perPoint(on).map((s, i) => [pts[i], s[6] / (440 * 2 ** ((s[2] - 69) / 12))]).sort((a, b) => a[0] - b[0]);
