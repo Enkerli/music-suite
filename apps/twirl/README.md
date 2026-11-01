@@ -53,15 +53,16 @@ rules. Where to find things:
 | Scales, tunings, divisions | 1 | `GRIDS`, `TUNINGS`, `DIVS` |
 | The clock; timing freedom (Snap, Feel, Clock) | 2, 2b | `nowBeat`, `snapLoop`, `feelOf`, `clockFactor` |
 | Voices, packs, Vary, MIDI | 3, 3a, 3b | `sound`, `VOICES`, `PACKS`, `varied`, `sendMidi` |
-| Loops, temperaments, Walk and Arc; spacing by register | 4, 5 | `newStroke`, `TEMPERS`, `harmonyAt`, `walkShift`, `walkFor`, `sheetRows`, `bandAt` |
+| Loops, temperaments, a loop's range ("Lives"), Walk and Arc; spacing by register | 4, 5 | `newStroke`, `TEMPERS`, `RANGES`, `harmonyAt`, `walkShift`, `walkFor`, `sheetRows`, `bandAt` |
 | Where notes land; Lock | 6a, 6b | `Tracer`, `DENSITY`, `retrace`, `lockStep`, `airKeep` |
 | Life and Influence | 6c | `lifeState`, `bloomNotes`, `ageLoop`, `influence`, `settle` |
 | The scheduler | 7 | `schedule`, `lookahead` (adapts to late ticks) |
 | Contacts: crossings, lines touching, meetings | 7b | `checkMeetings`, `touch`, `linesTouch`, `meet`, `breedWith` |
 | Drone and its space; Warmth (hiss, crackle, wobble) | 8, 8b | `setDrone`, `DRONE_SPACES`, `updateDrone`, `buildRoom`, `setWarmth` |
+| The ground (layer 1); "what's here", the hook a note asks before it sounds | 8c | `GROUND_KINDS`, `makeGround`, `groundAt`, `hereAt`, `setGroundKind` |
 | Toybox (chimes, spinner, tadpoles…) | 9 | `TOYS`, `dropToy`, `dropTadpoles`, `startingSheet`, `freshKey` |
 | Touch: draw, drag, pinch, Edit, smoothing | 10 | `endStroke`, `settleStroke`, `smoothLoop`, `pointerEnd`, `addNoteAt`, `NOTE_SOUNDS` |
-| Drawing; colours by voice; the grid layer; sharpness | 11 | `frame`, `voiceColours`, `strokePath`, `drawGridCached`, `adaptQuality`, `diagReport` |
+| Drawing; colours by voice; the grid layer (the ground, the lines); View → Layers; sharpness | 11, 13 | `frame`, `voiceColours`, `strokePath`, `drawGridCached`, `drawGround`, `shown`, `adaptQuality`, `diagReport` |
 | Scenes, codes, toys, files | 12–12c | `serialize`, `packScene`, `encodeScene`, `collection` |
 | Controls, settings, Copy, takes, keys, messages | 13 | `syncInspector`, `copySettings`, `toggleRecording`, `KEYS`, `toast` |
 | First frame | 14 | `boot` |
@@ -118,6 +119,12 @@ What they hold in place, in `test/twirl.test.js` and `test/twirl.a11y.test.js`:
 - **Shared contracts.** Air's Barlow weights match
   `packages/theory/vectors/rhythm.json`; masks are leftmost-LSB
   ([CONVENTIONS.md](../../CONVENTIONS.md)): Ionian 2741, Lydian 2773.
+- **Layers and the ground.** A fresh sheet has no ground and every note
+  sounds exactly as before (a ground at 0 too); the same seed, the same
+  ground; with Ground up, a note's nuance and ring follow the ground under
+  it while its pitch, time, loudness and MIDI don't move; saved and
+  reopened (older sheets: none); View → Layers hides without changing
+  sound; `?template=ground`; a loop's range still stored as `zone`.
 - **Accessibility and keyboard.** axe on every reachable state in both colour
   schemes; Space is Play/Pause outside panels; Tab wraps inside panels and
   steps through loops' settings; Escape keys without an Esc key; focus

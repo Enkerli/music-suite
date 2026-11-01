@@ -97,11 +97,11 @@ describe.skipIf(!browser)("Twirl · mutation and inheritance", () => {
   it("a child inherits the parent's musical identity and leaves the parent untouched", async () => {
     const r = await page.evaluate(() => {
       const parent = loops[0];
-      Object.assign(parent, { chord: "triad", rhythm: "euclid", dir: "pingpong", every: 2, wait: 1, zone: "low", gain: 0.7, pen: "bell" });
+      Object.assign(parent, { chord: "triad", rhythm: "euclid", dir: "pingpong", every: 2, wait: 1, range: "low", gain: 0.7, pen: "bell" });
       const before = JSON.stringify(loopData(parent));
       mutateLoop(parent);
       const child = loops.at(-1);
-      const pick = (l) => ({ pen: l.pen, chord: l.chord, rhythm: l.rhythm, dir: l.dir, every: l.every, wait: l.wait, zone: l.zone, gain: l.gain, ts: l.ts, temper: l.temper, trigger: l.trigger, L: l.L });
+      const pick = (l) => ({ pen: l.pen, chord: l.chord, rhythm: l.rhythm, dir: l.dir, every: l.every, wait: l.wait, range: l.range, gain: l.gain, ts: l.ts, temper: l.temper, trigger: l.trigger, L: l.L });
       return { same: JSON.stringify(loopData(parent)) === before, parent: pick(parent), child: pick(child),
         gen: child.generation, lineage: child.lineage, uid: parent.uid, nEv: [parent.events.length, child.events.length],
         offsOk: child.events.every((e) => e.off >= 0 && e.off < child.L), sorted: child.events.every((e, i, a) => !i || a[i - 1].off <= e.off) };
@@ -1348,7 +1348,7 @@ describe.skipIf(!browser)("Twirl · merging, the drone's level, two modes", () =
     expect(levels).toEqual(["Simple", "Everything"]);
     expect(simple).toBeLessThanOrEqual(12);
     expect(r.every).toBeGreaterThan(simple * 2);
-    expect(r.secs).toEqual(["Drawing", "Time", "Pitch", "Loops together", "Harmony", "Sound and room", "View"]);
+    expect(r.secs).toEqual(["Drawing", "Time", "Pitch", "Loops together", "Harmony", "Sound and room", "Ground", "View"]);
     expect(r.two).toBe(3);                                           // an old "More" opens Everything
     await page.click('#strip details[data-sec="pitch"] > summary');
     await page.waitForFunction(() => store.get("twirl:sec:pitch") === false, null, { timeout: 2000 });   // "toggle" fires a moment after the click
@@ -1807,7 +1807,7 @@ describe.skipIf(!browser)("Twirl · inside the plugin (twirl-dpf)", () => {
       return out;
     });
     expect(r).toMatchObject({ half: 0.5, quiet: true, otherQuiet: false, pressed: "true", child: "A",
-      saved: ["A", { level: 0.5, mute: true }], params: 30, fromHost: [true, 0.25], old: [true, true], back: ["A", { level: 0.5, mute: true }], code: "A" });
+      saved: ["A", { level: 0.5, mute: true }], params: 31, fromHost: [true, 0.25], old: [true, true], back: ["A", { level: 0.5, mute: true }], code: "A" });
     expect(r.chip).toContain("A ·");
     expect(errors).toEqual([]);
     await context.close();
@@ -2066,10 +2066,16 @@ describe.skipIf(!browser)("Twirl · the web version, as the plugin: MIDI in, a c
     const r = await page.evaluate(async () => {
       ensureAudio(); await new Promise((ok) => setTimeout(ok, 100));
       $("syncBtn").click();
-      // 120 BPM: a tick every 20.83 ms, sent as they come.
-      const tick = 60000 / 120 / 24;
-      __in([0xfa]);
-      for (let i = 0; i < 48; i++) { __in([0xf8]); await new Promise((ok) => setTimeout(ok, tick)); }
+      // 120 BPM: a tick every 20.83 ms, each stamped when it's due (as a MIDI
+      // port stamps them) and sent once that moment has come: a busy runner's
+      // late timers delay a tick, never change the tempo it says.
+      const tick = 60000 / 120 / 24, t0 = performance.now();
+      __in([0xfa], t0);
+      for (let i = 0; i < 48; i++) {
+        const due = t0 + i * tick;
+        while (performance.now() < due) await new Promise((ok) => setTimeout(ok, 1));
+        __in([0xf8], due);
+      }
       const playing = [Math.round(state.bpm), hostHold, $("hostChip").hidden, $("hostChip").textContent, $("bpm").disabled];
       __in([0xfc]); __in([0xf8]);
       return { playing, stopped: hostHold, saved: store.get("twirl:midiIn").clock };
@@ -2336,6 +2342,183 @@ describe.skipIf(!browser)("Twirl · new sounds: a music box, a Foley kit, more s
     expect(r.notes).toEqual([70, 70, 69, 54, 82]);
     expect(r.kinds).toBeGreaterThan(2);
     expect(r.rain).toBe(true);
+    expect(errors).toEqual([]);
+    await context.close();
+  });
+});
+
+describe.skipIf(!browser)("Twirl · layers: the frame and the ground (LAYERS.md, PLAN.md phase L)", () => {
+  // Every note a few ways, at points across the sheet: what each voice was given
+  // (time, pitch, loudness), and the nuance and ring it read; MIDI too. Random
+  // numbers replayed the same for each run, so Vary's draws can be compared.
+  const hearAll = (page, setup) => page.evaluate((setup) => {
+    ensureAudio();
+    const origVoices = {}, seen = [], midi = [], origMidi = sendMidi, origRandom = Math.random, T = ctx.currentTime + 0.5;
+    for (const v of ["pluck", "bell", "blip", "drum"]) {
+      const Q = PACKS[state.pack] && PACKS[state.pack][v] ? PACKS[state.pack] : VOICES;
+      origVoices[v] = [Q, Q[v]];
+      Q[v] = (t, m, vel, pan, y) => { seen.push([v, +(t - T).toFixed(6), +m.toFixed(6), +vel.toFixed(6), +nuance.toFixed(6), +ringOf().toFixed(6)]); };
+    }
+    window.sendMidi = (voice, m, vel, t) => midi.push([voice, m, +vel.toFixed(6), +(t - T).toFixed(6)]);
+    let seed = 7; Math.random = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+    try {
+      Object.assign(state, setup);
+      const t = T;
+      for (const [x, y] of [[0.1, 0.1], [0.5, 0.5], [0.9, 0.2], [0.3, 0.8], [0.7, 0.9]])
+        for (const [voice, weight] of [["pluck", null], ["bell", 1], ["blip", 0], ["drum", 0.5]])
+          sound(voice, x, y, 0.7, t, 0, undefined, voice === "bell" ? "triad" : "single", null, "moves", weight);
+    } finally {
+      Math.random = origRandom; window.sendMidi = origMidi;
+      for (const [v, [Q, f]] of Object.entries(origVoices)) Q[v] = f;
+    }
+    return { seen, midi, here: hereAt(0.5, 0.5) };
+  }, setup);
+
+  it("a fresh sheet has no ground, and every note sounds exactly as before; a ground at 0 changes nothing", async () => {
+    const { page, context, errors } = await openTwirl(browser);
+    expect(await page.evaluate(() => [state.ground, state.groundKind, hereAt(0.3, 0.7)])).toEqual([0, "none", null]);
+    for (const vary of [true, false]) {
+      const fresh = await hearAll(page, { vary, accent: 0.5 });
+      const zero = await hearAll(page, { vary, accent: 0.5, groundKind: "dunes", groundSeed: 5, ground: 0 });
+      expect(fresh.seen.length).toBeGreaterThan(20);
+      expect(zero).toEqual(fresh);
+      expect(zero.here).toBe(null);
+      if (!vary) {                                 // as the page made them before the ground: nuance 0.8·lift, ring 1 + 0.5·max(0, lift)
+        const bell = fresh.seen.find((s) => s[0] === "bell"), blip = fresh.seen.find((s) => s[0] === "blip"), pluck = fresh.seen.find((s) => s[0] === "pluck");
+        expect(bell.slice(4)).toEqual([0.4, 1.25]);      // weight 1, accent 0.5: lift 0.5
+        expect(blip.slice(4)).toEqual([-0.4, 1]);        // weight 0: lift −0.5
+        expect(pluck.slice(4)).toEqual([0, 1]);          // no weight: no lift
+      }
+    }
+    expect(errors).toEqual([]);
+    await context.close();
+  });
+
+  it("the same seed gives the same ground; each kind spans dark to light, read smoothly between cells", async () => {
+    const { page, context, errors } = await openTwirl(browser);
+    const r = await page.evaluate(() => {
+      const sum = (f) => Array.from(f).reduce((a, v) => a + v, 0);
+      const kinds = GROUND_KINDS.slice(1).map((k) => { const f = makeGround(k, 42); return [k, f.length, +Math.min(...f).toFixed(4), +Math.max(...f).toFixed(4)]; });
+      const same = Array.from(makeGround("dunes", 42)).join() === Array.from(makeGround("dunes", 42)).join();
+      const other = sum(makeGround("dunes", 42)) !== sum(makeGround("dunes", 43));
+      Object.assign(state, { groundKind: "patches", groundSeed: 9 });
+      const line = Array.from({ length: 101 }, (_, i) => groundAt(i / 100, 0.37));
+      const jump = Math.max(...line.slice(1).map((v, i) => Math.abs(v - line[i])));
+      return { kinds, same, other, none: makeGround("none", 1), inRange: line.every((v) => v >= -1 && v <= 1), jump };
+    });
+    expect(r.kinds).toEqual([["dunes", 640, -1, 1], ["patches", 640, -1, 1], ["gradient", 640, -1, 1]]);
+    expect(r).toMatchObject({ same: true, other: true, none: null, inRange: true });
+    expect(r.jump).toBeLessThan(0.35);                     // no edges: a field, read between its cells
+    expect(errors).toEqual([]);
+    await context.close();
+  });
+
+  it("with Ground up, a note's colour follows the ground under it (dark duller, light brighter, rings longer); pitch, time, loudness and MIDI never change", async () => {
+    const { page, context, errors } = await openTwirl(browser);
+    const base = { vary: false, accent: 0.5, groundKind: "gradient", groundSeed: 3 };
+    const dir = await page.evaluate((b) => { Object.assign(state, b); return [groundAt(0.5, 0.05), groundAt(0.5, 0.95), groundAt(0.05, 0.5), groundAt(0.95, 0.5)]; }, base);
+    const off = await hearAll(page, { ...base, ground: 0 });
+    const on = await hearAll(page, { ...base, ground: 1 });
+    expect(on.midi).toEqual(off.midi);
+    expect(on.seen.map((s) => s.slice(0, 4))).toEqual(off.seen.map((s) => s.slice(0, 4)));
+    expect(on.seen.map((s) => s[4])).not.toEqual(off.seen.map((s) => s[4]));
+    // At each note, nuance moved by the ground there (clamped to −1…1), and ring grew only over light ground.
+    const pts = await page.evaluate(() => [[0.1, 0.1], [0.5, 0.5], [0.9, 0.2], [0.3, 0.8], [0.7, 0.9]].map(([x, y]) => groundAt(x, y)));
+    const perPoint = (r) => pts.map((_, i) => r.seen.filter((s) => s[0] === "pluck")[i]);
+    perPoint(on).forEach((s, i) => {
+      const was = perPoint(off)[i];
+      expect(s[4]).toBeCloseTo(Math.max(-1, Math.min(1, was[4] + pts[i])), 5);
+      expect(s[5]).toBeCloseTo(1 + 0.5 * Math.max(0, 0.5 * Math.max(0, pts[i])), 5);   // the pluck has no accent: ring is the ground's alone
+    });
+    expect(dir.some((v) => v > 0.5) && dir.some((v) => v < -0.5)).toBe(true);   // a gradient: dark one side, light the other
+    // Half the Ground, half the shift.
+    const half = await hearAll(page, { ...base, ground: 0.5 });
+    const p0 = perPoint(off)[1][4], p1 = perPoint(half)[1][4];
+    expect(p1 - p0).toBeCloseTo(0.5 * pts[1], 5);
+    expect(errors).toEqual([]);
+    await context.close();
+  });
+
+  it("the ground is saved with the sheet (scenes, codes, takes, files); older sheets open with none; Ground is the host's last parameter", async () => {
+    const { page, context, errors } = await openTwirl(browser);
+    const r = await page.evaluate(async () => {
+      $("groundKind").value = "patches"; $("groundKind").dispatchEvent(new Event("change"));
+      const picked = [state.groundKind, state.ground, $("ground").value, $("groundNew").disabled];
+      const seed0 = state.groundSeed; $("groundNew").click();
+      const reseeded = state.groundSeed !== seed0 && state.groundKind === "patches";
+      $("ground").value = "0.35"; $("ground").dispatchEvent(new Event("input"));
+      const sc = serialize(), code = await encodeScene(sc), back = await decodeScene(code);
+      const want = [state.groundKind, state.groundSeed, state.ground];
+      Object.assign(state, { ground: 0, groundKind: "none", groundSeed: 1 });
+      recall(back);
+      const restored = [state.groundKind, state.groundSeed, state.ground, $("groundKind").value, $("ground").value];
+      const old = { settings: { ...sc.settings }, loops: sc.loops };
+      delete old.settings.ground; delete old.settings.groundKind; delete old.settings.groundSeed;
+      recall(old);
+      return { picked, reseeded, want, restored, old: [state.groundKind, state.ground, hereAt(0.5, 0.5)],
+        last: HOST_PARAMS.length - 1, param: HOST_PARAMS.at(-1).id, accentAt: HOST_PARAMS.findIndex((p) => p.id === "accent") };
+    });
+    expect(r.picked).toEqual(["patches", 0.6, "0.6", false]);       // a ground you choose is heard
+    expect(r.reseeded).toBe(true);
+    expect(r.restored).toEqual([...r.want, r.want[0], String(r.want[2])]);
+    expect(r.old).toEqual(["none", 0, null]);
+    expect(r).toMatchObject({ last: 30, param: "ground", accentAt: 29 });   // appended: twirl-dpf TwirlParams.hpp, in the same order
+    expect(errors).toEqual([]);
+    await context.close();
+  });
+
+  it("View → Layers: readouts, lines and the ground shown or hidden, for this browser; hiding changes nothing heard; the ground draws on the grid layer", async () => {
+    const { page, context, errors } = await openTwirl(browser);
+    const r = await page.evaluate(() => {
+      const W = sheet.clientWidth, H = sheet.clientHeight, cv = $("gridLayer"), c = cv.getContext("2d");
+      const pixels = () => { drawGridCached(W, H); return c.getImageData(0, 0, cv.width, cv.height).data; };
+      const differ = (a, b) => { let n = 0; for (let i = 0; i < a.length; i += 4) if (a[i] !== b[i]) n++; return n; };
+      Object.assign(state, { groundKind: "none", ground: 0 });
+      const bare = pixels(), key0 = gridCache.key;
+      Object.assign(state, { groundKind: "dunes", groundSeed: 11, ground: 0.7 });
+      const withGround = pixels(), key1 = gridCache.key, here = hereAt(0.2, 0.3);
+      $("groundShowBtn").click();
+      const hidden = pixels(), hereHidden = hereAt(0.2, 0.3);
+      $("linesBtn").click(); $("glassBtn").click();
+      const noLines = pixels();
+      const saved = JSON.stringify(serialize().settings);
+      return { drew: differ(bare, withGround) > 1000, key: key0 !== key1, hiddenSame: differ(bare, hidden), noLines: differ(bare, noLines) > 0,
+        here, hereHidden, shown: { ...shown }, stored: [store.get("twirl:show:ground"), store.get("twirl:show:lines"), store.get("twirl:show:glass")],
+        pressed: ["glassBtn", "linesBtn", "groundShowBtn"].map((id) => $(id).getAttribute("aria-pressed")), inSheet: /show/.test(saved) };
+    });
+    expect(r).toMatchObject({ drew: true, key: true, hiddenSame: 0, noLines: true, shown: { glass: false, lines: false, ground: false },
+      stored: [false, false, false], pressed: ["false", "false", "false"], inSheet: false });
+    expect(r.hereHidden).toEqual(r.here);
+    expect(r.here.ground).not.toBe(0);
+    await page.reload();
+    await page.waitForFunction(() => typeof loops !== "undefined" && loops.length > 0);
+    expect(await page.evaluate(() => ({ ...shown }))).toEqual({ glass: false, lines: false, ground: false });
+    expect(errors).toEqual([]);
+    await context.close();
+  });
+
+  it("?template=ground: a ground, heard, and toys that move across it (chimes, a drifting loop, tadpoles), at Everything", async () => {
+    const { page, context, errors } = await openTwirl(browser, { query: "?template=ground" });
+    const r = await page.evaluate(() => ({ kind: state.groundKind, ground: state.ground, morph: state.morph, level,
+      packs: loops.map((l) => l.pack), tempers: loops.map((l) => l.temper), tadpoles: loops.filter((l) => l.meets === "infect").length,
+      section: !!$("groundKind").offsetParent }));
+    expect(r).toMatchObject({ kind: "dunes", ground: 0.8, morph: true, level: 3, tadpoles: 3, section: true });
+    expect(r.packs).toContain("chimes");
+    expect(r.tempers.filter((t) => t === "drift").length).toBeGreaterThanOrEqual(5);   // the chimes, the wave, the tadpoles
+    expect(errors).toEqual([]);
+    await context.close();
+  });
+
+  it("a loop's range (\"Lives: high/middle/low\") is `range` in code and still `zone` in what's stored, so old codes open", async () => {
+    const { page, context, errors } = await openTwirl(browser);
+    const r = await page.evaluate(async () => {
+      const lp = loops[0]; setLevel(3); openInspector(lp);
+      document.querySelector('[data-insp="range"] [data-v="low"]').click();
+      const d = loopData(lp), back = (await decodeScene(await encodeScene({ settings: {}, loops: [d] }))).loops[0];
+      const built = buildLoop({ ...d, zone: "high" }, 0);
+      return { range: lp.range, stored: d.zone, hasRange: "range" in d, back: back.zone, built: built.range, zoneInCode: "zone" in lp };
+    });
+    expect(r).toEqual({ range: "low", stored: "low", hasRange: false, back: "low", built: "high", zoneInCode: false });
     expect(errors).toEqual([]);
     await context.close();
   });

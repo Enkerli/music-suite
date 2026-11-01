@@ -1473,7 +1473,7 @@ listen to what changes.
 That is all Twirl asks. Everything below is there when you want it: the
 controls (☰) open at **Simple** (Play, volume, sounds, sheets and toys);
 **Everything** adds labelled sections below (Drawing, Time, Pitch, Loops
-together, Harmony, Sound and room, View), each one folding, and nothing from
+together, Harmony, Sound and room, Ground, View), each one folding, and nothing from
 Simple moves. **Start over**, in the controls,
 brings back this first visit (two taps; for ten seconds the same button
 brings back what you had).
@@ -1659,6 +1659,20 @@ heard (0 turns it off). The **Drone** can sit still, drift (to begin with),
 go **binaural** (left and right a few hertz apart, so headphones hear a slow
 beat) or **rotate** like a Leslie speaker.
 
+A **ground** (Everything → Ground; none on a fresh sheet) lies under the
+sheet, dark here and light there, and each note reads it where it sounds:
+duller over dark ground, brighter over light, ringing a little longer where
+it's lightest. Never another pitch or another moment: only the colour.
+Choose its kind (**dunes**, broad and gentle; **patches**, islands;
+**gradient**, dark to light across the sheet), **New ground** for another of
+the same kind, and **Ground** for how much it's heard (0: it shows, faintly,
+but does nothing). Loops that move are what make it heard: Morph, drifting
+chimes, tadpoles. `?template=ground` opens a sheet made for listening to
+one. It's saved with the sheet, in scenes, codes, takes and files, and
+sounds the same in the plugin. Everything → View → **Layers** shows or hides
+the **readouts** (the chord, Arc, numbers, beat ticks), the paper's **lines**
+and the **ground**; hiding one never changes what you hear.
+
 ## Toys, scenes, takes, files and codes
 
 - **Toybox**: ready-made shapes (spiral, ring, rose, Lissajous, a drum beat,
@@ -1810,7 +1824,7 @@ Puis glissez une boucle ailleurs et écoutez ce qui change.
 C’est tout ce que Twirl demande. Tout le reste est là quand vous le voulez :
 les commandes (☰) s’ouvrent à **Simple** (Lecture, volume, sons, feuilles et
 jouets); **Tout** ajoute des sections nommées en dessous (Dessin, Temps,
-Hauteur, Boucles ensemble, Harmonie, Son et ambiance, Affichage), chacune
+Hauteur, Boucles ensemble, Harmonie, Son et ambiance, Sol, Affichage), chacune
 repliable, et rien de Simple ne bouge. **Recommencer**, dans les commandes,
 ramène cette première visite (deux touchers; pendant dix secondes, le même
 bouton ramène ce que vous aviez).
@@ -2033,6 +2047,23 @@ ruban, à sentir plus qu’à entendre (0 la coupe). Le **Bourdon** peut rester
 immobile, dériver (au départ), être **binaural** (gauche et droite à
 quelques hertz d’écart, pour qu’on entende un battement lent au casque) ou
 **tourner** comme un haut-parleur Leslie.
+
+Un **sol** (Tout → Sol; aucun sur une feuille neuve) s’étend sous la
+feuille, sombre ici et clair là, et chaque note le lit là où elle sonne :
+plus sourde sur un sol sombre, plus brillante sur un sol clair, et elle
+résonne un peu plus longtemps là où il est le plus clair. Jamais une autre
+hauteur ni un autre moment : seulement la couleur. Choisissez son type
+(**dunes**, larges et douces; **îlots**; **dégradé**, du sombre au clair
+d’un bord à l’autre), **Nouveau sol** pour un autre du même type, et
+**Sol** pour dire combien on l’entend (0 : il s’affiche, à peine, mais ne
+fait rien). Ce sont les boucles qui bougent qui le font entendre : Morph,
+des carillons qui dérivent, des têtards. `?template=ground` ouvre une
+feuille faite pour en écouter un. Il s’enregistre avec la feuille, dans les
+scènes, les codes, les prises et les fichiers, et sonne pareil dans le
+plugiciel. Tout → Affichage → **Calques** affiche ou masque les
+**indications** (l’accord, l’Arc, les numéros, les repères de pulsation),
+les **lignes** du papier et le **sol**; en masquer un ne change jamais ce
+qu’on entend.
 
 ## Jouets, scènes, prises, fichiers et codes
 

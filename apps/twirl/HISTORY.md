@@ -242,3 +242,35 @@ French, no sideways scroll at 390 px. The guide in French
 **terms first**: `i18n/terms.tbx` (TBX-Basic, 99 concepts), checked against
 the strings by `tools/i18n/concord.mjs` (914 uses, 40 straying), a terms
 page with Termium, Vitrine linguistique and Wiktionnaire links.
+
+## 2026-10-31: layers, and the ground
+
+**Layers** ([LAYERS.md](LAYERS.md)): the sheet as a stack (room, ground,
+staff, places, loops, hand, glass); Alex decided it on 2026-10-31, ground
+first. **The frame (L1)**: one "what's here" hook (`hereAt`, section 8c),
+asked by `sound()` where each note is about to sound; it answers null while
+every layer is empty or unheard, so the note is exactly what it was (tested
+note by note, Vary on and off, with Math.random replayed). A loop's
+"Lives: high/middle/low" is `range` in code (`RANGES`, `keepInRange`),
+still `zone` in what's stored, so "zone" is free for places. **View →
+Layers**: readouts (the chord, Arc, numbers, beat ticks), the paper's lines
+and the ground, each shown or hidden for this browser, never with the
+sheet.
+
+**The ground (L2)**: a 32 × 20 field, −1 (dark) to 1 (light), read
+bilinearly; three kinds from a seed (mulberry32): *dunes* (3 × 2 lattice
+noise plus 0.3 of a 7 × 5), *patches* (tanh(3·) of a 6 × 4: islands),
+*gradient* (dark to light, one of four ways, with 0.12 of noise); each
+stretched to span −1…1. A note's nuance moves by ground × Ground (clamped),
+and its lift by 0.5 × the light side only (a light ground rings up to an
+accent's worth longer); pitch, time, loudness and MIDI never change. Both
+already go to the plugin's engine in the "voices" batch; Ground is host
+parameter 30 (appended; twirl-dpf `TwirlParams.hpp` likewise). Saved as
+three numbers in the settings (`ground`, `groundKind`, `groundSeed`):
+scenes, codes, takes and files; older sheets open with none. Drawn on the
+cached grid layer, under the lines: black and white, weighed by the
+paper's lightness, half as strong while Ground is 0. Everything → Ground:
+kind, New ground, Ground (choosing a kind at 0 sets 0.6, so a chosen
+ground is heard). `?template=ground`: dunes at 0.8, chimes, a drifting
+wave, tadpoles, Morph on. French: Sol, Calques, Indications (terms as
+drafts in `terms.tbx`, with Lieux and zone for what comes next).
