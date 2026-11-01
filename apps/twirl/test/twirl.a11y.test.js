@@ -36,6 +36,7 @@ const STATES = {
   "a loop's settings, Everything": async (p) => { await p.evaluate(() => { setLevel(3); openInspector(loops[0]); }); },
   "keyboard list": async (p) => { await p.keyboard.press("?"); },
   "pen palette": async (p) => { await p.evaluate(() => setLevel(2)); await p.keyboard.press("v"); },
+  "a ground, Everything's Ground section": async (p) => { await p.evaluate(() => { applySettings({ groundKind: "dunes", groundSeed: 4, ground: 0.6 }); setLevel(3); setDrawer(true); $("groundKind").focus(); }); },
   "messages, quiet dot and its log": async (p) => { await p.evaluate(() => { toast("Lock on"); toast("Loop 2 took its chords from loop 1"); }); await p.click("#msgBtn"); },
 };
 

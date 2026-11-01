@@ -63,37 +63,41 @@ moving by themselves; controllers both inside and out. Work in this repo
 
 ### L1. The frame (Claude)
 
-- [ ] Rename the per-loop `zone` in code (it means "Lives: high/middle/low")
+- [x] Rename the per-loop `zone` in code (it means "Lives: high/middle/low")
       to `range`, keeping the stored field name for old codes, so "zone" is
       free for places.
-- [ ] One **"what's here" hook**: where a note is about to sound (`sound()`
+- [x] One **"what's here" hook**: where a note is about to sound (`sound()`
       has its position), ask the layers at that point; the ground answers
       first, places later. No change in sound while every layer is empty.
-- [ ] **View → Layers**: show or hide the glass (readouts), the staff's
+- [x] **View → Layers**: show or hide the glass (readouts), the staff's
       lines, and each new layer as it arrives; hiding never changes sound.
-- [ ] Tests: a fresh sheet sounds exactly as before (every note's nuance and
+- [x] Tests: a fresh sheet sounds exactly as before (every note's nuance and
       lift unchanged); old codes open.
 
 ### L2. The ground (Claude, then Alex's ears)
 
-- [ ] A field: a coarse grid (~32 × 20), interpolated; one value, dark to
+- [x] A field: a coarse grid (~32 × 20), interpolated; one value, dark to
       light; made from a **seed** and a **preset** (dunes, patches,
       gradient); saved as a few numbers in scenes, codes (appended), toys and
-      files.
-- [ ] **Read** per note: the ground shifts the note's **nuance** (dark one
+      files. *Done 2026-10-31, in the sheet's settings (scenes, codes, takes,
+      files); not toys: a toy is one loop, and dropping one shouldn't change
+      the sheet's ground.*
+- [x] **Read** per note: the ground shifts the note's **nuance** (dark one
       way, light the other) and, optionally, its accent **lift**; scaled by
       a **Ground** control (0–1; 0 on a fresh sheet; a host parameter in the
       plugin, appended to `HOST_PARAMS`, and in twirl-dpf `TwirlParams.hpp`).
-      Pitch and timing never change.
-- [ ] **Shown** faintly on the cached grid layer, under the lines.
-- [ ] Controls: in Everything, a **Ground** section (or under Sound and
+      Pitch and timing never change. *Lift: fixed for now, light side only
+      (0.5 × ground × Ground: a light ground rings longer); a switch if Alex
+      wants it.*
+- [x] **Shown** faintly on the cached grid layer, under the lines.
+- [x] Controls: in Everything, a **Ground** section (or under Sound and
       room): preset, a new seed, Ground amount, show.
 - [ ] The plugin: nothing to change (nuance and lift already go to its
       engine); check a sheet with ground in the standalone.
-- [ ] Tests: the same seed gives the same field; nuance moves with the
+- [x] Tests: the same seed gives the same field; nuance moves with the
       ground at Ground > 0 and not at 0; saved and reopened; French for the
       new strings; axe; the first minute unchanged.
-- [ ] A template, `?template=ground`: a ground, chimes, a drifting loop, a
+- [x] A template, `?template=ground`: a ground, chimes, a drifting loop, a
       few tadpoles (the toys that move are what make a ground heard).
 - [ ] Alex: listen to toys crossing it; are the mappings audible, too much,
       which voices want more?

@@ -2257,6 +2257,106 @@
           </tig>
         </langSet>
       </termEntry>
+      <termEntry id="ground">
+        <descrip type="subjectField">Twirl · on the sheet</descrip>
+        <note>Alex, 2026-10-31: the layer is Ground (Sol), its control Ground (Sol); to confirm in the French review (LAYERS.md, decision 7)</note>
+        <note>match:en:(?c)Ground|ground</note>
+        <note>match:fr:sols?</note>
+        <langSet xml:lang="en">
+          <descrip type="definition">a field under the sheet, dark to light, that colours each note where it sounds (LAYERS.md, layer 1)</descrip>
+          <tig>
+            <term>Ground</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+          </tig>
+        </langSet>
+        <langSet xml:lang="fr">
+          <tig>
+            <term>Sol</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+            <note>draft · coined</note>
+          </tig>
+        </langSet>
+      </termEntry>
+      <termEntry id="layer">
+        <descrip type="subjectField">Twirl · on the sheet</descrip>
+        <note>Calques, as in drawing software; Couches is the other candidate</note>
+        <note>match:en:[Ll]ayers?</note>
+        <note>match:fr:calques?</note>
+        <langSet xml:lang="en">
+          <descrip type="definition">one kind of thing on the sheet, in a stack: room, ground, staff, places, loops, hand, glass (LAYERS.md)</descrip>
+          <tig>
+            <term>layer</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+          </tig>
+        </langSet>
+        <langSet xml:lang="fr">
+          <tig>
+            <term>calque</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+            <note>draft · coined</note>
+          </tig>
+        </langSet>
+      </termEntry>
+      <termEntry id="readout">
+        <descrip type="subjectField">Twirl · on the sheet</descrip>
+        <note>the glass layer, as the interface names it</note>
+        <note>match:en:[Rr]eadouts?</note>
+        <note>match:fr:indications?</note>
+        <langSet xml:lang="en">
+          <descrip type="definition">what's shown on top of the sheet for information only: the chord, Arc, numbers, beat ticks</descrip>
+          <tig>
+            <term>readout</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+          </tig>
+        </langSet>
+        <langSet xml:lang="fr">
+          <tig>
+            <term>indication</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+            <note>draft · coined</note>
+          </tig>
+        </langSet>
+      </termEntry>
+      <termEntry id="place">
+        <descrip type="subjectField">Twirl · on the sheet</descrip>
+        <note>not in the interface yet (phase L4); Alex, 2026-10-31: the layer is Places (Lieux)</note>
+        <note>match:en:(?c)Places</note>
+        <note>match:fr:[Ll]ieux?</note>
+        <langSet xml:lang="en">
+          <descrip type="definition">the layer of objects with edges fixed on the sheet, each with a behaviour: a drum pad, a strip, a rest</descrip>
+          <tig>
+            <term>Places</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+          </tig>
+        </langSet>
+        <langSet xml:lang="fr">
+          <tig>
+            <term>Lieux</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+            <note>draft · coined</note>
+          </tig>
+        </langSet>
+      </termEntry>
+      <termEntry id="zone">
+        <descrip type="subjectField">Twirl · on the sheet</descrip>
+        <note>not in the interface yet (phase L4); the general word for a place in the interface (decision 7); the code's old zone, a loop's high/middle/low, is now range</note>
+        <note>match:en:zones?</note>
+        <note>match:fr:zones?</note>
+        <langSet xml:lang="en">
+          <descrip type="definition">a place on the sheet, whatever its kind</descrip>
+          <tig>
+            <term>zone</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+          </tig>
+        </langSet>
+        <langSet xml:lang="fr">
+          <tig>
+            <term>zone</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+            <note>draft · usual</note>
+          </tig>
+        </langSet>
+      </termEntry>
     </body>
   </text>
 </martif>
