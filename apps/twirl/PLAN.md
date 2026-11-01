@@ -32,7 +32,7 @@ Worker clock, French as a draft under review. Details in
 
 | | What | Why now |
 |---|---|---|
-| **L** | **Layers, and the first places** ([LAYERS.md](LAYERS.md)) | Alex's pull ("widgets within the space"); it frames terrain, traces, zones and tools before any of them is built |
+| **L** | **Layers: the ground, then places** ([LAYERS.md](LAYERS.md)) | Alex's pull ("widgets within the space"); decided 2026-10-31, ground first |
 | **F** | **The French review**, terms first | Under way at Alex's pace; runs alongside L |
 | **P** | **Plugin loose ends** | Small items left from the plugin's week; confirm, report upstream, a drum map |
 | **T** | **Templates** | Cheap; places make them richer (a template with a drum pad and a nest) |
@@ -46,65 +46,96 @@ before D.*
 
 ---
 
-## Phase L — Layers, and the first places
+## Phase L — Layers: the ground, then places
 
-The concept is in [LAYERS.md](LAYERS.md): a stack of seven layers (room,
-ground, staff, places, loops, hand, glass), the difference between the
-**ground** (a field, passive, read by notes: terrain, traces) and **places**
-(objects with edges and behaviours: zones, widgets), kinds of place, rules
-for every layer, and seven questions.
+The concept is in [LAYERS.md](LAYERS.md): a stack of layers (room, ground, staff,
+places, loops, hand, glass); the **ground** a field read by notes, **places**
+objects with edges and behaviours. **Decided 2026-10-31**: ground first;
+then the strip, drum pad and rest, played by playheads and fingers, never
+moving by themselves; controllers both inside and out. Work in this repo
+(the page) unless marked twirl-dpf.
 
-### L0. Settle the concept (Alex, then Claude)
+### L0. Settle the concept
 
-- [ ] Alex reads LAYERS.md and answers its seven questions (the stack, the
-      first places, who plays them, fixed or drifting, ground or places
-      first, controllers in or out, names).
-- [ ] Claude writes the answers back into LAYERS.md (it becomes the
-      reference) and the roadmap (theme 9 becomes "Layers").
+- [x] Alex answered LAYERS.md's seven questions (2026-10-31).
+- [x] The answers written into LAYERS.md ("Decisions") and the ground's v1
+      design; roadmap theme 9 points there.
 
-### L1. The frame in code (Claude), before any place
+### L1. The frame (Claude)
 
-- [ ] Rename the per-loop `zone` (code for "Lives: high/middle/low") in the
-      code, keeping its stored field for old codes, so "zone" is free.
-- [ ] `places`: a list beside `loops`, each `{ id, kind, shape, x, y, w, h,
-      rot, settings }`; saved in scenes, codes (appended), toys, takes and
-      files; undo.
+- [ ] Rename the per-loop `zone` in code (it means "Lives: high/middle/low")
+      to `range`, keeping the stored field name for old codes, so "zone" is
+      free for places.
+- [ ] One **"what's here" hook**: where a note is about to sound (`sound()`
+      has its position), ask the layers at that point; the ground answers
+      first, places later. No change in sound while every layer is empty.
+- [ ] **View → Layers**: show or hide the glass (readouts), the staff's
+      lines, and each new layer as it arrives; hiding never changes sound.
+- [ ] Tests: a fresh sheet sounds exactly as before (every note's nuance and
+      lift unchanged); old codes open.
+
+### L2. The ground (Claude, then Alex's ears)
+
+- [ ] A field: a coarse grid (~32 × 20), interpolated; one value, dark to
+      light; made from a **seed** and a **preset** (dunes, patches,
+      gradient); saved as a few numbers in scenes, codes (appended), toys and
+      files.
+- [ ] **Read** per note: the ground shifts the note's **nuance** (dark one
+      way, light the other) and, optionally, its accent **lift**; scaled by
+      a **Ground** control (0–1; 0 on a fresh sheet; a host parameter in the
+      plugin, appended to `HOST_PARAMS`, and in twirl-dpf `TwirlParams.hpp`).
+      Pitch and timing never change.
+- [ ] **Shown** faintly on the cached grid layer, under the lines.
+- [ ] Controls: in Everything, a **Ground** section (or under Sound and
+      room): preset, a new seed, Ground amount, show.
+- [ ] The plugin: nothing to change (nuance and lift already go to its
+      engine); check a sheet with ground in the standalone.
+- [ ] Tests: the same seed gives the same field; nuance moves with the
+      ground at Ground > 0 and not at 0; saved and reopened; French for the
+      new strings; axe; the first minute unchanged.
+- [ ] A template, `?template=ground`: a ground, chimes, a drifting loop, a
+      few tadpoles (the toys that move are what make a ground heard).
+- [ ] Alex: listen to toys crossing it; are the mappings audible, too much,
+      which voices want more?
+
+### L3. Traces and painting (after Alex's ears on L2)
+
+- [ ] **Traces**: a loop setting (like Life): its playhead darkens or
+      lightens the ground as it passes, fading slowly; the sheet's history.
+- [ ] **A brush** (the hand layer): paint dark or light by hand.
+- [ ] Later values: texture, hue (each with one or two named mappings).
+
+### L4. The first places (Claude)
+
+- [ ] The frame: `places`, a list beside `loops` (`{ id, kind, shape, x, y,
+      w, h, rot, settings }`); saved (scenes, codes appended, toys, files);
+      undo; drawn on their own cached layer under the loops (translucent, an
+      icon, lit when triggered); a **Places** tray beside the Toybox
+      (Everything); drag, pinch, hold for settings, flick off to remove;
+      keyboard alternatives. **Still**: Morph, bumps, currents never move
+      them.
 - [ ] `checkPlaces()` per tick from the playhead positions contacts already
-      compute (enter, stay, leave); a hook where a note is about to sound
-      ("which places am I in?"); a hook for fingers.
-- [ ] Drawing: places on their own cached layer under the loops (filled,
-      translucent, an icon, lit when triggered).
-- [ ] Handling: drop from a **Places** tray (beside the Toybox, Everything),
-      drag to move, pinch to resize and turn, hold for settings, flick off
-      to remove; keyboard alternatives (Tab reaches places too).
-- [ ] **View → Layers**: show or hide each layer (glass, places, staff
-      lines; ground once it exists).
-- [ ] Tests: saved and reopened, old codes open, the first minute unchanged
-      (no places on a fresh sheet), axe on the tray and a place's settings.
+      compute (enter, stay, leave); fingers through the same events.
+- [ ] **Rest**: notes inside don't sound.
+- [ ] **Drum pad**: entering strikes it, once per entry; the direction picks
+      the kit piece; a finger tap plays it.
+- [ ] **Strip**: a playhead or a finger along it plays notes by position, in
+      the sheet's scale.
+- [ ] Tests for each rule; saved; axe; French; the guide.
+- [ ] Alex in Bitwig: places sound through the engine and MIDI like any note.
 
-### L2. The first places (as decided in L0; proposed below)
+### L5. Controllers (both ways)
 
-Each with its rule, its settings (few), its icon, French, a test, the guide.
+- [ ] A **sensor** place: counts playheads inside, or reads one's position.
+- [ ] Inside: a sensor drives another place's setting, or a Twirl control.
+- [ ] Out: MIDI CC from the page (Web MIDI) and the plugin (the timed
+      batch); output parameters in twirl-dpf (DPF supports them), which
+      hosts can map.
 
-- [ ] **Rest** (the silent zone): notes inside don't sound.
-      *Test*: a loop through it is silent while inside, plays again outside.
-- [ ] **Drum pad**: a playhead or a finger entering strikes it; the direction
-      picks the kit piece; once per entry. *Test*: entering from each side
-      plays its piece; a finger tap plays.
-- [ ] **Strip**: a playhead sliding along it, or a finger, plays notes by
-      position along it, in the sheet's scale. *Test*: positions map to steps.
-- [ ] In the plugin: they sound through the engine and MIDI like any note
-      (nothing new needed); Alex tries them in Bitwig.
+### L6. More places, by kind (LAYERS.md)
 
-### L3. Next layers (after L2, in the order L0 decides)
-
-- [ ] More places: tint, shift, slow/fast, current, nest, sensor
-      (LAYERS.md lists them by kind).
-- [ ] **Ground**: a field from a seed, read by each note (one or two
-      mappings per voice), shown faintly; then **traces** written by loops.
-- [ ] **Controllers**: a sensor's value out as MIDI CC (page and plugin) and
-      as a plugin output parameter.
-- [ ] **Brushes** (the hand layer): paint a rest or a tint; then the lasso.
+- [ ] Tint, shift, slow/fast, current, nest, mirror, echo…: one at a time,
+      each a rule, a test and a line in the guide.
 
 ---
 
@@ -167,7 +198,7 @@ A template is an entry in `TEMPLATES` (`index.html`, beside
       crossing lines, Lock on.
 - [ ] `grid`: Lock on, Beats shown, a beat toy.
 - [ ] `micro`: 7-EDO or slendro, chimes and a ring.
-- [ ] With places (after L2): a drum-pad sheet; tadpoles with a nest instead
+- [ ] With places (after L4): a drum-pad sheet; tadpoles with a nest instead
       of a current.
 - [ ] The templates listed in the guide, with links; "copy a template link"
       from any sheet.
