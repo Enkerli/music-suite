@@ -1,11 +1,10 @@
 # Twirl — layers
 
-*Drafted 2026-10-30 for Alex to react to. Alex: "my sudden desire to work
+*Drafted 2026-10-30; **decided 2026-10-31** (see "Decisions" at the end). Alex: "my sudden desire to work
 more on 'widgets' within the space: zones in the scene which do specific
 things. That's combined with the notion of terrain, yet it's somewhat
 different. So maybe we should establish the overall concept with layers."
-A proposal, not a decision: the questions at the end are what to settle
-first. The work it leads to is in [PLAN.md](PLAN.md), phase L.*
+The work it leads to is in [PLAN.md](PLAN.md), phase L.*
 
 ## Why layers
 
@@ -140,17 +139,37 @@ Grouped by what they do. First candidates marked ★.
 
 ## The ground in detail
 
-- A field over the whole sheet: one or a few values per point (lightness,
-  hue, texture), at a coarse resolution (a grid of cells), so reading it per
-  note is cheap.
-- **Made** by a seed (generated: smooth noise, a few presets), by painting,
-  or by **traces**: loops that leave fading marks as they move, so the
-  ground is the sheet's history. Traces are a Life-like setting on a loop.
-- **Read** by each note where it sounds: one or two named mappings per voice
-  (lightness → the bell's inharmonicity, continuity → the blip's length;
-  others to try). Never pitch or timing: those are the staff's.
-- **Shown** faintly, under the staff's lines; can be hidden; a plain sheet
-  stays the default.
+Built first (Alex: "We could start with ground, as it's more unique and goes
+well with the existing toys"): the toys already move. Drift, spin, Morph,
+bumps, currents, tadpoles and chimes carry loops across the sheet, so a
+ground turns every one of those movements into a change of sound, with
+nothing new to learn.
+
+- **A field** over the whole sheet, held as a coarse grid (about 32 × 20
+  cells, values interpolated between them), so reading it per note is one
+  lookup. Version 1 has **one value per point, from dark to light**;
+  texture and hue can follow.
+- **Made by a seed** first: smooth noise, a few named presets (*dunes*:
+  broad and gentle; *patches*: islands; *gradient*: dark below, light
+  above, or left to right). The seed travels in codes, so a sheet's ground
+  is a few numbers. Then **painted** (a brush, the hand layer), then
+  **traces** (loops leaving fading marks: the sheet's history as its
+  ground; a loop setting, like Life).
+- **Read** by each note where it sounds, through what notes already carry:
+  - **nuance** (−1 to 1, Vary's colour, which every voice reads: the
+    pluck's brightness, the bell's inharmonicity, the blip's length…): the
+    ground shifts it, dark one way, light the other;
+  - **lift** (accents' strength: louder, brighter, longer): optionally, the
+    ground adds to it.
+  Both already travel to the plugin's engine with each note, so the ground
+  sounds the same in a browser and in the plugin, with no change to the
+  plugin. Never pitch or timing: those are the staff's.
+- **How much**: one control, **Ground** (0 to 1, like Warmth), 0 on a fresh
+  sheet; a ground can be there and do nothing, or be heard.
+- **Shown** faintly on the paper, under the staff's lines, in the cached
+  grid layer (it changes rarely); dark patches a little darker, light ones a
+  little lighter, never competing with the loops' colours. Hidden or shown
+  in View → Layers, without changing what it does.
 
 ## Rules that hold for every layer
 
@@ -188,18 +207,21 @@ Grouped by what they do. First candidates marked ★.
   unchanged, axe on the tray and a place's settings, French for every new
   string.
 
-## Questions for Alex
+## Decisions (Alex, 2026-10-31)
 
-1. **The stack**: do these seven layers and their names sit right? Anything
-   missing (sound coming in, audio in, as its own layer?) or merged?
-2. **The first places**: which two or three first? Proposed: the drum pad,
-   the strip, and the rest. Or a nest, to go with the tadpoles?
-3. **Who plays a place**: playheads, fingers, or both from the start?
-4. **Fixed or drifting**: should places ever move by themselves (a slowly
-   wandering pad), or are they the still points of the sheet?
-5. **Ground or places first**: places first (discrete, legible, the HLO pull),
-   with terrain reusing the same "what's here" hook after?
-6. **Controllers**: should a sensor's output leave Twirl (MIDI CC, host
-   parameters) in the first round, or stay inside (driving other places)?
-7. **Names**: "places", "zones" or "widgets" for the layer and its objects,
-   in English and in French (*lieux*, *zones*, *gadgets*?).
+1. **The stack**: "They do sit right, for experimentation." The seven layers
+   stand; audio in can be a place that listens, or a layer later.
+2. **The first places**: the **strip**, the **drum pad**, the **rest**.
+3. **Who plays a place**: playheads **and** fingers, from the start.
+4. **Places are still points of the sheet**: they never move by themselves
+   (only a hand moves them).
+5. **Ground first** ("more unique and goes well with the existing toys"),
+   then places, both through one "what's here" hook.
+6. **Controllers: both**: a sensor drives other places inside Twirl, *and*
+   sends out (MIDI CC from the page and the plugin; output parameters in the
+   plugin, which hosts can map).
+7. **Names**: "Sure", so as proposed: the layer is **Places** (*Lieux*); a
+   place is called by its kind (drum pad, strip, rest…), and **zone**
+   (*zone*) is the general word in the interface; "widget" stays informal.
+   The ground is **Ground** (*Sol*), its v1 control **Ground** (*Sol*).
+   *To confirm in the French terms review.*
