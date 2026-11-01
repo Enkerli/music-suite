@@ -1695,7 +1695,7 @@ and the **ground**; hiding one never changes what you hear.
 - **Groups** (Everything): hold a loop → **Group** puts it in A, B, C or D;
   Loops together has each group's level and mute (pressed is muted), to
   bring some loops forward and others back. Breed's children and Merge keep
-  their parent's group. In the plugin they're host parameters.
+  their parent's group. In the plugin, a host knob can move them.
 - **Scenes**: six slots for whole sheets; your last sheet comes back by
   itself. In the plugin, they're files every Twirl plugin shares
   (`~/.local/share/twirl/scenes`); a scene file's text pastes into Scenes →
@@ -1781,7 +1781,16 @@ plugin does:
 - **Follow MIDI clock** takes the tempo, Start, Stop and Song Position
   coming in, as the plugin follows its host.
 - **MIDI learn**: touch a control, then move a knob or fader; Delete forgets
-  it. The controls are the ones a host can automate in the plugin.
+  it. The controls: the twelve a host automates in the plugin, and those its
+  knobs can reach.
+
+**In the plugin**, the host automates twelve of Twirl's controls: Volume,
+Tempo, Swing, Warmth, Air, Accents, Ground, the Drone (its level; 0 is off),
+Walk (off, or its way), Sounds, Scale and Root. Then come eight **knobs**:
+in Everything → Sound and room, point each at any other control (Lock,
+Vary, the Drone's voicing, a group's level or mute…), and the host moves
+it across its range. They're saved with the project, like Follow host
+transport and Incoming MIDI only (settings, not parameters).
 
 Scenes, My toys and settings can live in a **folder** too (Scenes → Use a
 folder, in Chrome and Edge): the plugin's files. Pick `~/.local/share/twirl`
@@ -2092,7 +2101,7 @@ qu’on entend.
   B, C ou D; Boucles ensemble a le niveau et la sourdine de chaque groupe
   (enfoncé = en sourdine), pour mettre certaines boucles en avant et d’autres
   en retrait. Les enfants et les fusions gardent le groupe de leur parent.
-  Dans le plugiciel, ce sont des paramètres d’hôte.
+  Dans le plugiciel, un bouton de l’hôte peut les bouger.
 - **Scènes** : six cases pour des feuilles entières; votre dernière feuille
   revient d’elle-même. Dans le plugiciel, ce sont des fichiers que
   partagent tous les plugiciels Twirl (`~/.local/share/twirl/scenes`); le
@@ -2190,8 +2199,17 @@ fait ce que fait son plugiciel :
 - **Suivre l’horloge MIDI** prend le tempo, Start, Stop et la position
   reçus, comme le plugiciel suit son hôte.
 - **Apprentissage MIDI** : touchez une commande, puis bougez un bouton ou
-  un curseur; Supprimer l’oublie. Ce sont les commandes qu’un hôte peut
-  automatiser dans le plugiciel.
+  un curseur; Supprimer l’oublie. Les commandes : les douze qu’un hôte
+  automatise dans le plugiciel, et celles que ses boutons peuvent atteindre.
+
+**Dans le plugiciel**, l’hôte automatise douze commandes de Twirl : Volume,
+Tempo, Swing, Chaleur, Aération, Accents, Sol, le Bourdon (son niveau; 0 l’éteint),
+la Marche (éteinte, ou sa façon), Sons, Gamme et Tonique. Viennent ensuite
+huit **boutons** : dans Tout → Son et ambiance, pointez chacun vers une autre
+commande (Verrou, Variation, la disposition du Bourdon, le niveau ou la
+sourdine d’un groupe…), et l’hôte la bouge sur toute son étendue. Ils
+s’enregistrent avec le projet, comme Suivre le transport de l’hôte et MIDI
+entrant seulement (des réglages, pas des paramètres).
 
 Les scènes, Mes jouets et les réglages peuvent aussi se trouver dans un
 **dossier** (Scènes → Utiliser un dossier, dans Chrome et Edge) : les

@@ -294,3 +294,18 @@ Ground; Ground 0, no filter at all. The page's in `out()`; the engine's the
 same biquad on each voice, from the 11th field of the "voices" batch
 (twirl-dpf, which older pages and engines simply lack). Dark ground's
 softening down from 45 % to 20 %: the filter does the rest.
+
+**The host's knobs** (2026-10-31; Alex: "decrease the number of automatable
+parameters, perhaps by making some of them more flexible or combining
+them"; "Let's get core+8"). The plugin's 31 parameters became 20, once: a
+core of twelve (Volume, Tempo, Swing, Warmth, Air, Accents, Ground, the
+Drone as its level with 0 for off, Walk as off or its way, Sounds, Scale,
+Root) and eight knobs, each pointed in the page (Everything → Sound and
+room, in the plugin) at any other control, 0 to 1 across its range: Lock,
+Vary, Evolve, Morph, the Drone's voicing and space, Walk's pace, each
+group's level and mute. Knobs are saved with the page in the project, like
+Follow host transport and Incoming MIDI only, which are settings now. The
+page's old list stays as `CONTROLS` in its order (MIDI learn's maps, kept
+by place in browsers, now by id, and migrated); `HOST_PARAMS` is the core
+and the knobs. Projects saved before keep values by number (VST3, CLAP) or
+symbol (LV2), so their automation needs redoing.
