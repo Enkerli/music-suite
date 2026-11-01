@@ -1670,8 +1670,14 @@ Choose its kind (**dunes**, broad and gentle; **patches**, islands;
 the same kind, and **Ground** for how much it's heard (0: it shows, faintly,
 but does nothing). Loops that move are what make it heard: Morph, drifting
 chimes, tadpoles. `?template=ground` opens a sheet made for listening to
-one. It's saved with the sheet, in scenes, codes, takes and files, and
-sounds the same in the plugin. Everything → View → **Layers** shows or hides
+one. The ground also takes **marks**: **Paint dark**, **Paint light** and
+**Erase** (Everything → Ground) make touches on the sheet paint instead of
+draw (press the same button again to draw), and **Clear marks** wipes them.
+A loop's **Traces** (its settings: darken or lighten) mark the ground where
+its playhead passes, fading over a minute or two: the sheet's recent
+history, heard by every loop that crosses it. It's saved with the sheet, in
+scenes, codes, takes and files (takes keep the paint; the traces come back
+from their loops), and sounds the same in the plugin. Everything → View → **Layers** shows or hides
 the **readouts** (the chord, Arc, numbers, beat ticks), the paper's **lines**
 and the **ground**; hiding one never changes what you hear.
 
@@ -2071,9 +2077,16 @@ d’un bord à l’autre), **Nouveau sol** pour un autre du même type, et
 **Sol** pour dire combien on l’entend (0 : il s’affiche, à peine, mais ne
 fait rien). Ce sont les boucles qui bougent qui le font entendre : Morph,
 des carillons qui dérivent, des têtards. `?template=ground` ouvre une
-feuille faite pour en écouter un. Il s’enregistre avec la feuille, dans les
-scènes, les codes, les prises et les fichiers, et sonne pareil dans le
-plugiciel. Tout → Affichage → **Calques** affiche ou masque les
+feuille faite pour en écouter un. Le sol reçoit aussi des **marques** :
+**Peindre sombre**, **Peindre clair** et **Effacer** (Tout → Sol) font
+peindre au lieu de dessiner quand on touche la feuille (appuyez de nouveau
+sur le même bouton pour dessiner), et **Effacer les marques** les retire.
+Les **Traces** d’une boucle (ses réglages : assombrit ou éclaircit) marquent
+le sol là où passe sa tête de lecture, et s’estompent en une minute ou deux :
+l’histoire récente de la feuille, entendue par toutes les boucles qui la
+traversent. Il s’enregistre avec la feuille, dans les scènes, les codes, les
+prises et les fichiers (les prises gardent la peinture; les traces
+reviennent de leurs boucles), et sonne pareil dans le plugiciel. Tout → Affichage → **Calques** affiche ou masque les
 **indications** (l’accord, l’Arc, les numéros, les repères de pulsation),
 les **lignes** du papier et le **sol**; en masquer un ne change jamais ce
 qu’on entend.
