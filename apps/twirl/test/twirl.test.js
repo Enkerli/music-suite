@@ -1715,11 +1715,11 @@ describe.skipIf(!browser)("Twirl · inside the plugin (twirl-dpf)", () => {
     await page.waitForTimeout(1000);
     expect(await voices()).toBe(b);                                  // silent: nothing for the engine
     expect(await page.evaluate(() => [$("listenBtn").hidden, $("listenBtn").getAttribute("aria-pressed")])).toEqual([false, "true"]);
-    // Saved with the page's state, and a host parameter.
+    // Saved with the page's state (a setting, not a host parameter since 2026-10-31).
     const saved = await page.evaluate(() => { autosave(); return window.__host.filter((m) => m.key === "page").at(-1).value; });
     expect(await page.evaluate((s) => fromB64(s).listen, saved)).toBe(true);
-    expect(await page.evaluate(() => HOST_PARAMS.findIndex((p) => p.id === "listenBtn"))).toBe(20);   // the 21st: append only
-    await page.evaluate(() => twirlParams({ 20: 0 }));
+    expect(await page.evaluate(() => [HOST_PARAMS.some((p) => p.id === "listenBtn"), KNOB_TARGETS.some((c) => c.id === "listenBtn")])).toEqual([false, false]);
+    await page.evaluate(() => twirlRestore(toB64({ v: 1, listen: false })));
     expect(await page.evaluate(() => midiInOnly)).toBe(false);
     // What the plugin says came in, by channel.
     await page.evaluate(() => twirlHost({ tempo: 120, playing: true, beat: 0, at: performance.timeOrigin + performance.now(), midiIn: [1, 0, 0, 0, 0, 0, 0, 0, 0, 8, 0, 0, 0, 0, 0, 0] }));
@@ -1773,10 +1773,10 @@ describe.skipIf(!browser)("Twirl · inside the plugin (twirl-dpf)", () => {
     });
     await page.waitForTimeout(50);
     const v = await page.evaluate(() => window.__host.filter((m) => m.key === "voices").flatMap((m) => m.value.split(";")).map((e) => e.split(",").map(Number)));
-    expect(r.index).toBe(29);
+    expect(r.index).toBe(5);
     // t, voice, pack, midi, vel, pan, y, nuance, ring
     expect(v.map((e) => [e[4], e[7], e[8]])).toEqual([[0.8, 0.48, 1.3], [0.32, -0.48, 1], [0.8, 0, 1]]);
-    await page.evaluate(() => twirlParams({ 29: 0.25 }));
+    await page.evaluate(() => twirlParams({ 5: 0.25 }));
     expect(await page.evaluate(() => [state.accent, $("accent").value])).toEqual([0.25, "0.25"]);
     expect(errors).toEqual([]);
     await context.close();
@@ -1797,7 +1797,8 @@ describe.skipIf(!browser)("Twirl · inside the plugin (twirl-dpf)", () => {
       const saved = serialize();
       out.saved = [saved.loops[0].group, saved.settings.groups[0]];
       out.params = HOST_PARAMS.length;
-      twirlParams({ 28: 1, 21: 0.25 });                           // D muted; A's level
+      setKnob(0, "grpMuteD"); setKnob(1, "grpLevelA");             // through the host's knobs now
+      twirlParams({ 12: 1, 13: 0.25 / 1.5 });                     // D muted; A's level (0…1 across 0…1.5)
       out.fromHost = [state.groups[3].mute, state.groups[0].level];
       // A scene from before groups: neutral groups, loops in none.
       const old = JSON.parse(JSON.stringify(saved)); delete old.settings.groups; old.loops.forEach((l) => delete l.group);
@@ -1809,7 +1810,7 @@ describe.skipIf(!browser)("Twirl · inside the plugin (twirl-dpf)", () => {
       return out;
     });
     expect(r).toMatchObject({ half: 0.5, quiet: true, otherQuiet: false, pressed: "true", child: "A",
-      saved: ["A", { level: 0.5, mute: true }], params: 31, fromHost: [true, 0.25], old: [true, true], back: ["A", { level: 0.5, mute: true }], code: "A" });
+      saved: ["A", { level: 0.5, mute: true }], params: 20, fromHost: [true, 0.25], old: [true, true], back: ["A", { level: 0.5, mute: true }], code: "A" });
     expect(r.chip).toContain("A ·");
     expect(errors).toEqual([]);
     await context.close();
@@ -1822,33 +1823,59 @@ describe.skipIf(!browser)("Twirl · inside the plugin (twirl-dpf)", () => {
     await page.evaluate(() => { setVolume(0.5); });
     await page.waitForTimeout(150);
     expect(await params()).toEqual([]);
-    // The plugin's values (all of them, as it sends them once the page is ready).
-    await page.evaluate(() => twirlParams({ 0: 0.37, 1: 120, 2: 0, 3: 0.25, 4: 0, 5: 0.4, 6: 1, 7: 0.6, 8: 2, 9: 3,
-      10: 1, 11: 1, 12: 2, 13: 3, 14: 4, 15: 5, 16: 7, 17: 0, 18: 0, 19: 0 }));
+    // The core (twirl-dpf TwirlParams.hpp, same order), then eight knobs: all of them, as the plugin sends them once the page is ready.
+    expect(await page.evaluate(() => HOST_PARAMS.map((p) => p.id))).toEqual(["vol", "bpm", "swing", "warmth", "air", "accent", "ground", "droneVol", "walkWay", "pack", "grid", "root",
+      "knob1", "knob2", "knob3", "knob4", "knob5", "knob6", "knob7", "knob8"]);
+    await page.evaluate(() => twirlParams({ 0: 0.37, 1: 120, 2: 0.25, 3: 0, 4: 0.4, 5: 0.5, 6: 0.3, 7: 0.6, 8: 3, 9: 4, 10: 5, 11: 7,
+      12: 0, 13: 0, 14: 0, 15: 0, 16: 0, 17: 0, 18: 0, 19: 0 }));
     expect(await page.evaluate(() => ({
-      volume: state.volume, bpm: state.bpm, swing: state.swing, warmth: state.warmth, air: state.air,
-      drone: state.drone, droneVol: state.droneVol, voicing: state.droneVoicing, space: state.droneSpace,
-      lock: state.lock, walk: state.walk, way: state.walkWay, pace: state.walkPace, pack: state.pack, grid: state.grid, root: state.root,
-      vary: state.vary, evolve: state.evolve, morph: state.morph,
-      shown: [$("bpm").value, $("droneBtn").getAttribute("aria-pressed"), $("grid").value, $("pack").value],
+      volume: state.volume, bpm: state.bpm, swing: state.swing, warmth: state.warmth, air: state.air, accent: state.accent, ground: state.ground,
+      drone: state.drone, droneVol: state.droneVol, walk: state.walk, way: state.walkWay, pack: state.pack, grid: state.grid, root: state.root,
+      shown: [$("bpm").value, $("droneBtn").getAttribute("aria-pressed"), $("droneVol").value, $("walkBtn").getAttribute("aria-pressed"), $("grid").value, $("pack").value],
     }))).toEqual({
-      volume: 0.37, bpm: 120, swing: 0.25, warmth: 0, air: 0.4, drone: true, droneVol: 0.6, voicing: "triad", space: "rotate",
-      lock: true, walk: true, way: "fifths", pace: 8, pack: "kalimba", grid: "dorian", root: 7,
-      vary: false, evolve: false, morph: false, shown: ["120", "true", "dorian", "kalimba"],
+      volume: 0.37, bpm: 120, swing: 0.25, warmth: 0, air: 0.4, accent: 0.5, ground: 0.3, drone: true, droneVol: 0.6, walk: true, way: "fifths",
+      pack: "kalimba", grid: "dorian", root: 7, shown: ["120", "true", "0.6", "true", "dorian", "kalimba"],
     });
     const engine = await page.evaluate(() => window.__host.filter((m) => m.key === "engine").at(-1).value);
     expect(engine).toBe("0.37,120,0,4,1");                    // the plugin's sound follows: volume, tempo, Warmth, pack
     await page.waitForTimeout(150);
     expect(await params()).toEqual([]);                       // no echo of what the host set
-    // Changed here, by a control, a key or anything else: reported, once.
-    await page.evaluate(() => { $("pack").value = "chimes"; $("pack").dispatchEvent(new Event("change")); $("lockBtn").click(); setTempo(101); });
+    // The Drone's 0 and Walk's "off" turn them off.
+    await page.evaluate(() => twirlParams({ 7: 0, 8: 0 }));
+    expect(await page.evaluate(() => [state.drone, state.droneVol, state.walk, state.walkWay])).toEqual([false, 0.6, false, "fifths"]);
+    // Changed here, by a control, a key or anything else: reported, once (Lock isn't the host's now, unless a knob is on it).
+    await page.evaluate(() => { $("pack").value = "chimes"; $("pack").dispatchEvent(new Event("change")); $("lockBtn").click(); setTempo(101); $("droneBtn").click(); });
     await page.waitForTimeout(150);
-    expect(await params()).toEqual(["1,101;10,0;14,6"]);
+    expect(await params()).toEqual(["1,101;7,0.6;9,6"]);
+    // A knob, pointed at a control: reports it (0…1 across its range), moves it, is saved with the page and comes back.
+    const k = await page.evaluate(async () => {
+      $("droneSpace").value = "drift"; $("droneSpace").dispatchEvent(new Event("change"));
+      await new Promise((ok) => setTimeout(ok, 120));
+      window.__host.length = 0;
+      setKnob(0, "lockBtn"); setKnob(1, "droneSpace"); setKnob(2, "vol"); setKnob(3, "listenBtn");     // the core's and settings aren't for knobs
+      await new Promise((ok) => setTimeout(ok, 120));
+      const reported = window.__host.filter((m) => m.key === "params").map((m) => m.value);
+      twirlParams({ 12: 0, 13: 1, 19: 1 });                                                       // knob 8: on nothing, nothing happens
+      const moved = [state.lock, state.droneSpace];
+      const menus = [...document.querySelectorAll("#knobRow select")].map((x) => [x.id, x.value, x.options.length]);
+      const options = [...$("knob1").options].map((o) => o.value);
+      autosave();
+      const saved = fromB64(window.__host.filter((m) => m.key === "page").at(-1).value).knobs;
+      twirlRestore(toB64({ v: 1, knobs: ["evolveBtn"] }));
+      return { reported, moved, menus, options, saved, knobs: [...knobs], shown: $("knob1").value };
+    });
+    expect(k.reported).toEqual([`12,1;13,${1 / 3}`]);          // Lock was on; Drifting, the 2nd of 4 spaces
+    expect(k.moved).toEqual([false, "rotate"]);
+    expect(k.menus.map((m) => m.slice(0, 2))).toEqual([["knob1", "lockBtn"], ["knob2", "droneSpace"], ["knob3", ""], ["knob4", ""], ["knob5", ""], ["knob6", ""], ["knob7", ""], ["knob8", ""]]);
+    expect(k.options).toEqual(["", "droneVoicing", "droneSpace", "lockBtn", "walkPace", "varyBtn", "evolveBtn", "morphBtn",
+      "grpLevelA", "grpMuteA", "grpLevelB", "grpMuteB", "grpLevelC", "grpMuteC", "grpLevelD", "grpMuteD"]);
+    expect(k.saved).toEqual(["lockBtn", "droneSpace", null, null, null, null, null, null]);
+    expect([k.knobs, k.shown]).toEqual([["evolveBtn", null, null, null, null, null, null, null], "evolveBtn"]);
     // Following the host: its tempo isn't Twirl's to report, nor the host's to set.
-    await page.evaluate(() => { setHostSync(true); setTempo(133); twirlParams({ 1: 90 }); });
+    await page.evaluate(() => { window.__host.length = 0; setHostSync(true); setTempo(133); twirlParams({ 1: 90 }); });
     await page.waitForTimeout(150);
     expect(await page.evaluate(() => state.bpm)).toBe(133);
-    expect((await params()).slice(1)).toEqual(["2,1"]);
+    expect((await params()).every((v) => !/(^|;)1,/.test(v))).toBe(true);
     expect(errors).toEqual([]);
     await context.close();
   });
@@ -2110,15 +2137,14 @@ describe.skipIf(!browser)("Twirl · the web version, as the plugin: MIDI in, a c
       __in([0xb0, 20, 100]); const on = state.vary;
       return { untouched, map: store.get("twirl:midiMap"), swing, off, on };
     });
-    const swingIdx = await page.evaluate(() => HOST_PARAMS.findIndex((p) => p.id === "swing")), varyIdx = await page.evaluate(() => HOST_PARAMS.findIndex((p) => p.id === "varyBtn"));
-    expect(r).toEqual({ untouched: true, map: { "0,20": varyIdx, "1,74": swingIdx }, swing: 0.25, off: false, on: true });
+    expect(r).toEqual({ untouched: true, map: { "0,20": "varyBtn", "1,74": "swing" }, swing: 0.25, off: false, on: true });
     const forgot = await page.evaluate(() => {
       $("learnBtn").click(); $("swing").click();
       document.dispatchEvent(new KeyboardEvent("keydown", { key: "Delete", bubbles: true }));
       $("learnBtn").click();
       return store.get("twirl:midiMap");
     });
-    expect(forgot).toEqual({ "0,20": varyIdx });
+    expect(forgot).toEqual({ "0,20": "varyBtn" });
     expect(errors).toEqual([]);
     await context.close();
   });
@@ -2463,7 +2489,7 @@ describe.skipIf(!browser)("Twirl · layers: the frame and the ground (LAYERS.md,
     await context.close();
   });
 
-  it("the ground is saved with the sheet (scenes, codes, takes, files); older sheets open with none; Ground is the host's last parameter", async () => {
+  it("the ground is saved with the sheet (scenes, codes, takes, files); older sheets open with none; Ground is a host parameter", async () => {
     const { page, context, errors } = await openTwirl(browser);
     const r = await page.evaluate(async () => {
       $("groundKind").value = "patches"; $("groundKind").dispatchEvent(new Event("change"));
@@ -2480,13 +2506,13 @@ describe.skipIf(!browser)("Twirl · layers: the frame and the ground (LAYERS.md,
       delete old.settings.ground; delete old.settings.groundKind; delete old.settings.groundSeed;
       recall(old);
       return { picked, reseeded, want, restored, old: [state.groundKind, state.ground, hereAt(0.5, 0.5)],
-        last: HOST_PARAMS.length - 1, param: HOST_PARAMS.at(-1).id, accentAt: HOST_PARAMS.findIndex((p) => p.id === "accent") };
+        groundAt: HOST_PARAMS.findIndex((p) => p.id === "ground"), accentAt: HOST_PARAMS.findIndex((p) => p.id === "accent") };
     });
     expect(r.picked).toEqual(["patches", 0.6, "0.6", false]);       // a ground you choose is heard
     expect(r.reseeded).toBe(true);
     expect(r.restored).toEqual([...r.want, r.want[0], String(r.want[2])]);
     expect(r.old).toEqual(["none", 0, null]);
-    expect(r).toMatchObject({ last: 30, param: "ground", accentAt: 29 });   // appended: twirl-dpf TwirlParams.hpp, in the same order
+    expect(r).toMatchObject({ groundAt: 6, accentAt: 5 });   // the host's core: twirl-dpf TwirlParams.hpp, in the same order
     expect(errors).toEqual([]);
     await context.close();
   });

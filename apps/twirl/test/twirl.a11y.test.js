@@ -499,3 +499,19 @@ describe.skipIf(!browser)("Twirl · moving between loops' settings from the keyb
     await context.close();
   });
 });
+
+describe.skipIf(!browser)("Twirl · axe, in the plugin (the host's knobs)", () => {
+  const dpf = () => { window.__host = []; window.setState = (key, value) => window.__host.push({ key, value }); window.sendNote = () => {}; };
+  for (const [scheme, query] of [["light", ""], ["dark", ""], ["light", "?lang=fr"]]) {
+    it(`Everything → Sound and room, with knobs pointed (${scheme}${query ? ", fr" : ""})`, async () => {
+      const { page, context, errors } = await openTwirl(browser, { colorScheme: scheme, initScript: dpf, query });
+      await page.evaluate(() => { setLevel(3); setDrawer(true); setKnob(0, "lockBtn"); setKnob(1, "grpMuteB"); $("knob1").focus(); });
+      expect(await page.evaluate(() => document.querySelectorAll("#knobRow select").length)).toBe(8);
+      expect(await axe(page)).toEqual([]);
+      if (query) expect(await page.evaluate(() => [$("knob2").selectedOptions[0].textContent, $("knobRow").querySelector("label").firstChild.textContent.trim()]))
+        .toEqual(["Sourdine du groupe B", "Bouton 1"]);
+      expect(errors).toEqual([]);
+      await context.close();
+    });
+  }
+});

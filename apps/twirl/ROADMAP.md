@@ -360,7 +360,8 @@ with the plugin." Caught up the same day:
   sounds, channel 4 as a Drone; Incoming MIDI only; ⇧Q's counts.
 - **Following a clock**: Follow MIDI clock (tempo, Start, Stop, Continue,
   Song Position), through the same follower as the plugin's host.
-- **Parameters**: MIDI learn for the 30 controls a host automates.
+- **Parameters**: MIDI learn for Twirl's main controls (31; the host's
+  core and what its knobs reach).
 - **Files**: Open a file takes the plugin's files, several at once; Use a
   folder (Chromium) keeps scenes, My toys and settings in the plugin's
   folder layout, so a browser and the plugin share them.

@@ -891,5 +891,8 @@
  "Lines hidden": "Lignes masquées",
  "Ground shown": "Sol affiché",
  "Ground hidden": "Sol masqué",
- "No ground": "Aucun sol"
+ "No ground": "Aucun sol",
+ "The host's knobs: each moves the control chosen here": "Les boutons de l’hôte : chacun bouge la commande choisie ici",
+ "Mute group {0}": "Sourdine du groupe {0}",
+ "Knob {0}": "Bouton {0}"
 }

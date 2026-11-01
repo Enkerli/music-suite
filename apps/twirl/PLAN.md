@@ -22,7 +22,8 @@ conversation, plus what you heard.
 Working: Twirl on the web (any browser; Web MIDI in and out in Chromium) and
 as a plugin on Linux without JUCE (LV2, CLAP, VST3, JACK standalone; tested
 in Bitwig and Carla): its own sound made in the plugin, timed MIDI out,
-synth mode and Incoming MIDI only, following the host, 30 host parameters,
+synth mode and Incoming MIDI only, following the host, 20 host parameters
+(a core of twelve and eight knobs, since 2026-10-31),
 files shared between instances. Nine sound packs (with Music box and Foley),
 Surge XT patches for all of them, accents, groups A to D, named scenes, a
 Worker clock, French as a draft under review. Details in
