@@ -274,3 +274,13 @@ kind, New ground, Ground (choosing a kind at 0 sets 0.6, so a chosen
 ground is heard). `?template=ground`: dunes at 0.8, chimes, a drifting
 wave, tadpoles, Morph on. French: Sol, Calques, Indications (terms as
 drafts in `terms.tbx`, with Lieux and zone for what comes next).
+
+**The ground, heard and seen** (same evening; Alex: "no visual for ground
+and I don't notice any difference in sound"; the plugin hadn't been
+installed). Nuance is read by the paper voices only (and the chimes,
+barely), and Vary's random colour drowned the ground's; the ring was +25 %
+at most. Now, through what every pack, the engine and MIDI hear: a light
+ground rings up to twice as long (the engine's limit), a dark one is up to
+45 % softer (velocity, MIDI too), and the ground outweighs Vary's colour
+(kept at 30 % at Ground 1). Drawn about three times as strong, weighed per
+scheme.
