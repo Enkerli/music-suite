@@ -1207,6 +1207,10 @@ const mtof = (m) => 440 * Math.pow(2, (m - 69) / 12);
 
 /** Route a voice's output through a panner into the master (+ some delay). */
 function out(node, pan, send = 0.6) {
+  if (toneHz > 0) {                                              // the note's tone (the ground, 8c): a lowpass, as the engine's
+    const f = ctx.createBiquadFilter(); f.type = "lowpass"; f.frequency.value = toneHz;
+    node.connect(f); node = f;
+  }
   const p = ctx.createStereoPanner ? ctx.createStereoPanner() : ctx.createGain();
   if (p.pan) p.pan.value = pan;
   node.connect(p); p.connect(master);
@@ -1645,7 +1649,7 @@ function inNote(ch, note, vel, t) {
     if (note === 54 || note === 69 || note === 70 || note === 82) voice = "shake";
     else { voice = "drum"; y = note <= 36 ? 0.8 : note === 42 || note === 44 || note === 46 || note >= 49 ? 0.1 : 0.45; }
   }
-  nuance = 0; lift = 0; plainNow = false;
+  nuance = 0; lift = 0; toneHz = 0; plainNow = false;
   shakerNow = { 54: "tambourine", 69: "cabasa", 82: "rainstick" }[note] || "egg";
   diag.notes.push(performance.now());
   if (voice === "shake") voiceFn("shake")(t, vel / 127, 0, 1 - y);
@@ -1739,7 +1743,7 @@ function ccIn(ch, cc, val) {
 }
 
 // Route C: the note as the page would have played it, for the plugin's engine
-// to play (setState "voices": "t,voice,pack,midi,vel,pan,y,nuance,ring,shaker;…", t on the
+// to play (setState "voices": "t,voice,pack,midi,vel,pan,y,nuance,ring,shaker,tone;…", t on the
 // wall clock like the MIDI's, midi exact: microtonal pitches stay). Batched
 // per scheduler tick. The volume, tempo (the delay's time) and Warmth go as
 // "engine"; the Drone as "drone" (on, level, its space as numbers, then its
@@ -1750,7 +1754,7 @@ function toEngine(voice, pack, midi, vel, pan, yN, t) {
   if (!engineBatch.length) queueMicrotask(() => { window.setState("voices", engineBatch.join(";")); engineBatch = []; });
   const at = performance.timeOrigin + performance.now() + Math.max(0, (t - ctx.currentTime) * 1000);
   const p = Math.max(0, PACK_ORDER.indexOf(pack || state.pack));
-  engineBatch.push(`${at.toFixed(1)},${ENGINE_VOICE[voice]},${p},${midi.toFixed(3)},${vel.toFixed(3)},${pan.toFixed(3)},${yN.toFixed(3)},${nuance.toFixed(3)},${ringOf().toFixed(3)},${Math.max(0, SHAKER_KINDS.indexOf(shakerNow))}`);
+  engineBatch.push(`${at.toFixed(1)},${ENGINE_VOICE[voice]},${p},${midi.toFixed(3)},${vel.toFixed(3)},${pan.toFixed(3)},${yN.toFixed(3)},${nuance.toFixed(3)},${ringOf().toFixed(3)},${Math.max(0, SHAKER_KINDS.indexOf(shakerNow))},${Math.round(toneHz)}`);
   diag.engineSent = (diag.engineSent || 0) + 1;
 }
 function sendEngine() {
@@ -2336,6 +2340,7 @@ function chordSteps(name) {
  * terrain could feed the same nuance (ROADMAP, Terrain). */
 const VARY = { vel: 0.16, ms: 7, cents: 6 };
 let nuance = 0;
+let toneHz = 0;                  // this note's tone: a lowpass on its way out (Hz), 0 = none (the ground, section 8c)
 let lift = 0;                    // this note's accent, −depth … +depth (section 6b): brighter, and longer above 0
 let plainNow = false;            // a mechanical loop's note (the Music box): no Vary
 function varied(vel, t, midi) {
@@ -2359,6 +2364,7 @@ function sound(voice, xN, yN, vel, t, b, deg, chord = "single", pack = null, wal
   // every other note an octave higher (a triad: root, fifth, tenth).
   if (state.spread === "register" && stack.length >= 3 && midiForDegree(root) < 55) stack = stack.map((st, i) => (i % 2 ? st + stepCount() : st));
   const each = vel / Math.sqrt(stack.length), here = hereAt(xN, yN), accentLift = lift;
+  const gHere = here ? groundAt(xN, yN) : 0;
   for (const step of stack) {
     const midi = midiForDegree(walkFor(walkRole, root + step, b));
     if (!Number.isFinite(midi)) { diag.skipped = (diag.skipped || 0) + 1; continue; }   // never again an exception per note (Q shows the count)
@@ -2367,6 +2373,7 @@ function sound(voice, xN, yN, vel, t, b, deg, chord = "single", pack = null, wal
       nuance = Math.max(-1, Math.min(1, here.ground + (1 - GROUND_OVER_VARY * state.ground) * nuance));
       lift = accentLift + GROUND_LIFT * Math.max(0, here.ground);
       v *= 1 - GROUND_SOFT * Math.max(0, -here.ground);
+      toneHz = toneFor(m, gHere, state.ground);
     }
     if (soundOn()) {
       if (voice === "shake") voiceFn("shake", pack)(at, v, pan, 1 - yN);
@@ -2374,6 +2381,7 @@ function sound(voice, xN, yN, vel, t, b, deg, chord = "single", pack = null, wal
     } else if (engineOn()) toEngine(voice, pack, m, v, pan, yN, at);
     sendMidi(voice, midi, v, at, yN);
   }
+  toneHz = 0;                                                    // only this note's: anything else that sounds goes out open
 }
 /** Sound a stored (free-mode) event of loop `lp`, wherever the loop is now. */
 function play(lp, ev, t, b, phase, air = 1, weight = null) {
@@ -3481,11 +3489,23 @@ function setWarmth(v, now = false) {
  * read by the paper voices only, so the ground also works through what every
  * pack, the engine and MIDI hear: a light ground rings longer (up to twice,
  * the engine's limit), a dark one plays softer; and where there's a ground,
- * it outweighs Vary's random colour rather than drowning in it. */
+ * it outweighs Vary's random colour rather than drowning in it. Still nearly
+ * inaudible ("pretty much inaudible"), so each note now has a **tone**: a
+ * lowpass on its way out (out(), section 3), set by the note's own pitch so
+ * that dark is dull rather than gone: 1.5 times its frequency on the darkest
+ * ground (its fundamental, hardly an overtone), 32 times on the lightest
+ * (open), geometric between, scaled by Ground (0: no filter at all). The plugin's engine gets it as the 11th field
+ * of the "voices" batch and filters its voice the same way. */
 const GROUND_W = 32, GROUND_H = 20;
 const GROUND_KINDS = ["none", "dunes", "patches", "gradient"];
 const GROUND_LIFT = 2;                                         // at Ground 1, the lightest ground: a ring twice as long (ringOf: 1 + lift / 2)
-const GROUND_SOFT = 0.45;                                      // at Ground 1, the darkest ground: 45 % softer
+const GROUND_SOFT = 0.2;                                       // at Ground 1, the darkest ground: 20 % softer (the tone does the rest)
+const TONE_OPEN = 32, TONE_SHUT = 1.5, TONE_MAX = 16000;       // a note's tone, times its frequency: lightest ground, darkest; above TONE_MAX Hz, open
+/** A note's tone (a lowpass cutoff, Hz) at pitch `midi` on ground g (−1…1) at Ground a (0…1); 0: open, no filter. */
+function toneFor(midi, g, a) {
+  const hz = Math.max(100, mtof(midi)) * TONE_OPEN * Math.pow(TONE_SHUT / TONE_OPEN, (a * (1 - g)) / 2);
+  return hz < TONE_MAX ? hz : 0;
+}
 const GROUND_OVER_VARY = 0.7;                                  // at Ground 1, Vary's random colour kept at 30 %
 let groundField = null, groundFor = "";
 /** A small seeded random generator (mulberry32): the same seed, the same ground. */

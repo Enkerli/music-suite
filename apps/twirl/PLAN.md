@@ -88,8 +88,9 @@ moving by themselves; controllers both inside and out. Work in this repo
       plugin, appended to `HOST_PARAMS`, and in twirl-dpf `TwirlParams.hpp`).
       Pitch and timing never change. *After Alex's first listen (nothing
       heard; most packs don't read nuance): light rings up to 2×, dark up to
-      45 % softer (MIDI too), the ground over Vary's colour. A tone filter
-      for every pack would need the engine (a twirl-dpf change).*
+      45 % softer (MIDI too), the ground over Vary's colour. Still inaudible,
+      so a tone: a lowpass by each note's pitch, in the page and the engine
+      (the 11th field of "voices"); softer now 20 %.*
 - [x] **Shown** faintly on the cached grid layer, under the lines.
 - [x] Controls: in Everything, a **Ground** section (or under Sound and
       room): preset, a new seed, Ground amount, show.
