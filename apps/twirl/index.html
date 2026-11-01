@@ -1221,7 +1221,9 @@ function out(node, pan, send = 0.6) {
   node.connect(p); p.connect(master);
   const s = ctx.createGain(); s.gain.value = send; p.connect(s).connect(delaySend);
 }
-const ringOf = () => 1 + 0.5 * Math.max(0, lift);               // an accented note rings a little longer (6b)
+let groundRing = 1;                                              // the ground under this note: shorter on dark, longer on light (8c)
+const ringOf = () => Math.min(2, (1 + 0.5 * Math.max(0, lift)) * groundRing);   // an accented note rings a little longer (6b); 2 at most, as the engine
+
 function env(g, t, peak, decay, attack = 0.004) {
   decay *= ringOf();
   // An exponential ramp can't reach 0 (Safari: "RangeError: value cannot be 0",
@@ -1656,7 +1658,7 @@ function inNote(ch, note, vel, t) {
     if (note === 54 || note === 69 || note === 70 || note === 82) voice = "shake";
     else { voice = "drum"; y = note <= 36 ? 0.8 : note === 42 || note === 44 || note === 46 || note >= 49 ? 0.1 : 0.45; }
   }
-  nuance = 0; lift = 0; toneHz = 0; plainNow = false;
+  nuance = 0; lift = 0; toneHz = 0; groundRing = 1; plainNow = false;
   shakerNow = { 54: "tambourine", 69: "cabasa", 82: "rainstick" }[note] || "egg";
   diag.notes.push(performance.now());
   if (voice === "shake") voiceFn("shake")(t, vel / 127, 0, 1 - y);
@@ -2445,7 +2447,7 @@ function sound(voice, xN, yN, vel, t, b, deg, chord = "single", pack = null, wal
     let [v, at, m] = varied(each, t, midi);
     if (here) {                                                  // what's here (section 8c): the ground colours the note, never its pitch or time
       nuance = Math.max(-1, Math.min(1, here.ground + (1 - GROUND_OVER_VARY * state.ground) * nuance));
-      lift = accentLift + GROUND_LIFT * Math.max(0, here.ground);
+      groundRing = Math.pow(2, here.ground);                     // ½ on the darkest ground at Ground 1, twice on the lightest
       v *= 1 - GROUND_SOFT * Math.max(0, -here.ground);
       toneHz = toneFor(m, gHere, state.ground);
     }
@@ -2455,7 +2457,7 @@ function sound(voice, xN, yN, vel, t, b, deg, chord = "single", pack = null, wal
     } else if (engineOn()) toEngine(voice, pack, m, v, pan, yN, at);
     sendMidi(voice, midi, v, at, yN);
   }
-  toneHz = 0;                                                    // only this note's: anything else that sounds goes out open
+  toneHz = 0; groundRing = 1;                                    // only this note's: anything else that sounds goes out open
 }
 /** Sound a stored (free-mode) event of loop `lp`, wherever the loop is now. */
 function play(lp, ev, t, b, phase, air = 1, weight = null) {
@@ -3566,15 +3568,18 @@ function setWarmth(v, now = false) {
  * it outweighs Vary's random colour rather than drowning in it. Still nearly
  * inaudible ("pretty much inaudible"), so each note now has a **tone**: a
  * lowpass on its way out (out(), section 3), set by the note's own pitch so
- * that dark is dull rather than gone: 1.5 times its frequency on the darkest
- * ground (its fundamental, hardly an overtone), 32 times on the lightest
- * (open), geometric between, scaled by Ground (0: no filter at all). The plugin's engine gets it as the 11th field
- * of the "voices" batch and filters its voice the same way. */
+ * that dark is dull rather than gone, 32 times its frequency on the lightest
+ * (open), geometric between, scaled by Ground (0: no filter at all). The
+ * plugin's engine gets it as the 11th field of the "voices" batch and filters
+ * its voice the same way. Then wider ("even at the top level, it remains
+ * subtle"): the darkest tone 0.9 times the note (under it: dull and dim), the
+ * ring both ways (half as long on the darkest ground, twice on the lightest:
+ * what the sine-like packs, with few overtones to filter, hear most), 35 %
+ * softer on dark, and the field itself leaning to dark or light. */
 const GROUND_W = 32, GROUND_H = 20;
 const GROUND_KINDS = ["none", "dunes", "patches", "gradient"];
-const GROUND_LIFT = 2;                                         // at Ground 1, the lightest ground: a ring twice as long (ringOf: 1 + lift / 2)
-const GROUND_SOFT = 0.2;                                       // at Ground 1, the darkest ground: 20 % softer (the tone does the rest)
-const TONE_OPEN = 32, TONE_SHUT = 1.5, TONE_MAX = 16000;       // a note's tone, times its frequency: lightest ground, darkest; above TONE_MAX Hz, open
+const GROUND_SOFT = 0.35;                                      // at Ground 1, the darkest ground: 35 % softer
+const TONE_OPEN = 32, TONE_SHUT = 0.9, TONE_MAX = 16000;       // a note's tone, times its frequency: lightest ground, darkest; above TONE_MAX Hz, open
 /** A note's tone (a lowpass cutoff, Hz) at pitch `midi` on ground g (−1…1) at Ground a (0…1); 0: open, no filter. */
 function toneFor(midi, g, a) {
   const hz = Math.max(100, mtof(midi)) * TONE_OPEN * Math.pow(TONE_SHUT / TONE_OPEN, (a * (1 - g)) / 2);
@@ -3612,7 +3617,9 @@ function makeGround(kind, seed) {
   for (let j = 0; j < GROUND_H; j++) for (let i = 0; i < GROUND_W; i++) {
     const v = field(i / (GROUND_W - 1), j / (GROUND_H - 1)); f[j * GROUND_W + i] = v; lo = Math.min(lo, v); hi = Math.max(hi, v);
   }
-  for (let k = 0; k < f.length; k++) f[k] = hi > lo ? (2 * (f[k] - lo)) / (hi - lo) - 1 : 0;   // every ground spans dark to light
+  // Every ground spans dark to light, and leans to either (Alex: "could have a
+  // larger range"): less of it lingers in the grey middle, where little changes.
+  for (let k = 0; k < f.length; k++) f[k] = hi > lo ? Math.tanh(2 * ((2 * (f[k] - lo)) / (hi - lo) - 1)) / Math.tanh(2) : 0;
   return f;
 }
 function groundNow() {
