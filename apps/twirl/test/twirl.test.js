@@ -1567,7 +1567,9 @@ describe.skipIf(!browser)("Twirl · inside the plugin (twirl-dpf)", () => {
     expect([r.notes, r.audio]).toEqual([0, 0]);                 // no MIDI, nothing streamed
     await pick("host:engine+midi");
     await page.evaluate(() => setVolume(0.5));
-    await page.waitForTimeout(1500);
+    // As above: wait for the notes (and their MIDI), not a fixed time (CI sent 3 in 1.5 s, 2026-11-01).
+    await page.waitForFunction(() => window.__host.filter((m) => m.key === "voices").reduce((a, m) => a + m.value.split(";").length, 0) > 3
+      && window.__host.some((m) => m.key === "notes"), null, { timeout: 8000 }).catch(() => {});
     r = await sent();
     expect(r.voices.length).toBeGreaterThan(3);
     expect(r.notes).toBeGreaterThan(0);
