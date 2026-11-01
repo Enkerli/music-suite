@@ -1661,9 +1661,10 @@ beat) or **rotate** like a Leslie speaker.
 
 A **ground** (Everything → Ground; none on a fresh sheet) lies under the
 sheet, dark here and light there, and each note reads it where it sounds:
-softer and duller over dark ground, brighter and ringing longer over light
-(up to twice as long), in every pack and in the MIDI it sends (softer is a
-lower velocity). Never another pitch or another moment.
+muffled over dark ground (its overtones filtered away, a little softer),
+open and ringing longer over light (up to twice as long), in every pack;
+the MIDI it sends is a little softer over dark. Never another pitch or
+another moment.
 Choose its kind (**dunes**, broad and gentle; **patches**, islands;
 **gradient**, dark to light across the sheet), **New ground** for another of
 the same kind, and **Ground** for how much it's heard (0: it shows, faintly,
@@ -2051,10 +2052,10 @@ quelques hertz d’écart, pour qu’on entende un battement lent au casque) ou
 
 Un **sol** (Tout → Sol; aucun sur une feuille neuve) s’étend sous la
 feuille, sombre ici et clair là, et chaque note le lit là où elle sonne :
-plus douce et plus sourde sur un sol sombre, plus brillante et plus longue
-sur un sol clair (jusqu’à deux fois plus), dans tous les ensembles de sons
-et dans le MIDI envoyé (plus douce : une vélocité plus basse). Jamais une
-autre hauteur ni un autre moment. Choisissez son type
+étouffée sur un sol sombre (ses harmoniques filtrées, un peu plus douce),
+ouverte et plus longue sur un sol clair (jusqu’à deux fois plus), dans tous
+les ensembles de sons; le MIDI envoyé est un peu plus doux sur le sombre.
+Jamais une autre hauteur ni un autre moment. Choisissez son type
 (**dunes**, larges et douces; **îlots**; **dégradé**, du sombre au clair
 d’un bord à l’autre), **Nouveau sol** pour un autre du même type, et
 **Sol** pour dire combien on l’entend (0 : il s’affiche, à peine, mais ne

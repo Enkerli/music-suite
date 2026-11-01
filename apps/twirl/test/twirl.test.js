@@ -2359,7 +2359,7 @@ describe.skipIf(!browser)("Twirl · layers: the frame and the ground (LAYERS.md,
     for (const v of ["pluck", "bell", "blip", "drum"]) {
       const Q = PACKS[state.pack] && PACKS[state.pack][v] ? PACKS[state.pack] : VOICES;
       origVoices[v] = [Q, Q[v]];
-      Q[v] = (t, m, vel, pan, y) => { seen.push([v, +(t - T).toFixed(6), +m.toFixed(6), +vel.toFixed(6), +nuance.toFixed(6), +ringOf().toFixed(6)]); };
+      Q[v] = (t, m, vel, pan, y) => { seen.push([v, +(t - T).toFixed(6), +m.toFixed(6), +vel.toFixed(6), +nuance.toFixed(6), +ringOf().toFixed(6), +toneHz.toFixed(1)]); };
     }
     window.sendMidi = (voice, m, vel, t) => midi.push([voice, m, +vel.toFixed(6), +(t - T).toFixed(6)]);
     let seed = 7; Math.random = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
@@ -2386,9 +2386,9 @@ describe.skipIf(!browser)("Twirl · layers: the frame and the ground (LAYERS.md,
       expect(zero.here).toBe(null);
       if (!vary) {                                 // as the page made them before the ground: nuance 0.8·lift, ring 1 + 0.5·max(0, lift)
         const bell = fresh.seen.find((s) => s[0] === "bell"), blip = fresh.seen.find((s) => s[0] === "blip"), pluck = fresh.seen.find((s) => s[0] === "pluck");
-        expect(bell.slice(4)).toEqual([0.4, 1.25]);      // weight 1, accent 0.5: lift 0.5
-        expect(blip.slice(4)).toEqual([-0.4, 1]);        // weight 0: lift −0.5
-        expect(pluck.slice(4)).toEqual([0, 1]);          // no weight: no lift
+        expect(bell.slice(4)).toEqual([0.4, 1.25, 0]);   // weight 1, accent 0.5: lift 0.5; no tone
+        expect(blip.slice(4)).toEqual([-0.4, 1, 0]);     // weight 0: lift −0.5
+        expect(pluck.slice(4)).toEqual([0, 1, 0]);       // no weight: no lift
       }
     }
     expect(errors).toEqual([]);
@@ -2432,12 +2432,27 @@ describe.skipIf(!browser)("Twirl · layers: the frame and the ground (LAYERS.md,
       const was = perPoint(off)[i], g = pts[i];
       expect(s[4]).toBeCloseTo(Math.max(-1, Math.min(1, g + 0.3 * was[4])), 5);       // the ground outweighs Vary's colour
       expect(s[5]).toBeCloseTo(1 + 0.5 * 2 * Math.max(0, g), 5);                        // light: up to twice the ring (the pluck has no accent)
-      expect(s[3]).toBeCloseTo(was[3] * (1 - 0.45 * Math.max(0, -g)), 5);               // dark: softer
-      expect(midiPluck(on)[i][2]).toBeCloseTo(midiPluck(off)[i][2] * (1 - 0.45 * Math.max(0, -g)), 5);   // and so is its MIDI
+      expect(s[3]).toBeCloseTo(was[3] * (1 - 0.2 * Math.max(0, -g)), 5);                // dark: a little softer
+      expect(midiPluck(on)[i][2]).toBeCloseTo(midiPluck(off)[i][2] * (1 - 0.2 * Math.max(0, -g)), 5);   // and so is its MIDI
+      // its tone: a lowpass by its own pitch, 1.5× on the darkest ground, 32× (open) on the lightest
+      const f0 = 440 * 2 ** ((s[2] - 69) / 12), x = (1 - g) / 2, want = f0 * 32 * (1.5 / 32) ** x;
+      expect(s[6]).toBeCloseTo(want < 16000 ? want : 0, 0);
     });
+    const tones = perPoint(on).map((s, i) => [pts[i], s[6] / (440 * 2 ** ((s[2] - 69) / 12))]).sort((a, b) => a[0] - b[0]);
+    expect(tones[0][1]).toBeLessThan(tones.at(-1)[1] || Infinity);   // darker ground, a lower tone
     // Half the Ground, half the shift.
     const half = await hearAll(page, { ...base, ground: 0.5 });
     expect(perPoint(half)[1][4] - 0.65 * perPoint(off)[1][4]).toBeCloseTo(0.5 * pts[1], 5);
+    // The tone goes to the plugin's engine as the 11th field of each note.
+    const batch = await page.evaluate(async (b) => {
+      Object.assign(state, b, { ground: 1 }); let got = "";
+      window.setState = (k, v) => { if (k === "voices") got = v; };
+      toneHz = 0; toEngine("pluck", null, 60, 0.5, 0, 0.9, ctx.currentTime);
+      toneHz = 700; toEngine("pluck", null, 60, 0.5, 0, 0.9, ctx.currentTime); toneHz = 0;
+      await new Promise((ok) => queueMicrotask(ok)); await new Promise((ok) => setTimeout(ok, 0));
+      return got.split(";").map((e) => e.split(","));
+    }, base);
+    expect(batch.map((e) => [e.length, e[10]])).toEqual([[11, "0"], [11, "700"]]);
     // Every pack hears it, not only the paper voices that read nuance: ring and loudness.
     for (const pack of ["felt", "kalimba", "chip"]) {
       const a = await hearAll(page, { ...base, pack, ground: 0 }), b = await hearAll(page, { ...base, pack, ground: 1 });

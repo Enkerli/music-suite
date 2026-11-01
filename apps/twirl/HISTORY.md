@@ -284,3 +284,13 @@ ground rings up to twice as long (the engine's limit), a dark one is up to
 45 % softer (velocity, MIDI too), and the ground outweighs Vary's colour
 (kept at 30 % at Ground 1). Drawn about three times as strong, weighed per
 scheme.
+
+**The ground's tone** (next; Alex: "now visible… though the effect is pretty
+much inaudible"). Each note gets a lowpass on its way out, set by its own
+pitch: 1.5 × its frequency on the darkest ground (its fundamental: dull, not
+gone; a fixed 350 Hz silenced high notes in the sine-like packs, 1 % of
+their energy), 32 × on the lightest (open), geometric between, scaled by
+Ground; Ground 0, no filter at all. The page's in `out()`; the engine's the
+same biquad on each voice, from the 11th field of the "voices" batch
+(twirl-dpf, which older pages and engines simply lack). Dark ground's
+softening down from 45 % to 20 %: the filter does the rest.
