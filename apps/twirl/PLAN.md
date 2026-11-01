@@ -86,9 +86,10 @@ moving by themselves; controllers both inside and out. Work in this repo
       way, light the other) and, optionally, its accent **lift**; scaled by
       a **Ground** control (0–1; 0 on a fresh sheet; a host parameter in the
       plugin, appended to `HOST_PARAMS`, and in twirl-dpf `TwirlParams.hpp`).
-      Pitch and timing never change. *Lift: fixed for now, light side only
-      (0.5 × ground × Ground: a light ground rings longer); a switch if Alex
-      wants it.*
+      Pitch and timing never change. *After Alex's first listen (nothing
+      heard; most packs don't read nuance): light rings up to 2×, dark up to
+      45 % softer (MIDI too), the ground over Vary's colour. A tone filter
+      for every pack would need the engine (a twirl-dpf change).*
 - [x] **Shown** faintly on the cached grid layer, under the lines.
 - [x] Controls: in Everything, a **Ground** section (or under Sound and
       room): preset, a new seed, Ground amount, show.

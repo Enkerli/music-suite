@@ -2362,10 +2362,11 @@ function sound(voice, xN, yN, vel, t, b, deg, chord = "single", pack = null, wal
   for (const step of stack) {
     const midi = midiForDegree(walkFor(walkRole, root + step, b));
     if (!Number.isFinite(midi)) { diag.skipped = (diag.skipped || 0) + 1; continue; }   // never again an exception per note (Q shows the count)
-    const [v, at, m] = varied(each, t, midi);
+    let [v, at, m] = varied(each, t, midi);
     if (here) {                                                  // what's here (section 8c): the ground colours the note, never its pitch or time
-      nuance = Math.max(-1, Math.min(1, nuance + here.ground));
+      nuance = Math.max(-1, Math.min(1, here.ground + (1 - GROUND_OVER_VARY * state.ground) * nuance));
       lift = accentLift + GROUND_LIFT * Math.max(0, here.ground);
+      v *= 1 - GROUND_SOFT * Math.max(0, -here.ground);
     }
     if (soundOn()) {
       if (voice === "shake") voiceFn("shake", pack)(at, v, pan, 1 - yN);
@@ -3475,10 +3476,17 @@ function setWarmth(v, now = false) {
  * duller, light brighter) and a little of its accent `lift` (light rings a
  * little longer). Both already go to the plugin's engine with each note, so
  * the ground sounds the same there. Never pitch or timing: those are the
- * staff's. Shown faintly on the grid layer, under the lines. */
+ * staff's. Shown faintly on the grid layer, under the lines.
+ * Heard (Alex, 2026-10-31: "I don't notice any difference"): nuance alone is
+ * read by the paper voices only, so the ground also works through what every
+ * pack, the engine and MIDI hear: a light ground rings longer (up to twice,
+ * the engine's limit), a dark one plays softer; and where there's a ground,
+ * it outweighs Vary's random colour rather than drowning in it. */
 const GROUND_W = 32, GROUND_H = 20;
 const GROUND_KINDS = ["none", "dunes", "patches", "gradient"];
-const GROUND_LIFT = 0.5;                                       // at Ground 1, the lightest ground: an accent's worth of ring
+const GROUND_LIFT = 2;                                         // at Ground 1, the lightest ground: a ring twice as long (ringOf: 1 + lift / 2)
+const GROUND_SOFT = 0.45;                                      // at Ground 1, the darkest ground: 45 % softer
+const GROUND_OVER_VARY = 0.7;                                  // at Ground 1, Vary's random colour kept at 30 %
 let groundField = null, groundFor = "";
 /** A small seeded random generator (mulberry32): the same seed, the same ground. */
 function seeded(seed) {
@@ -4416,7 +4424,7 @@ function drawGround(W, H) {
   // Black darkens and white lightens whatever the paper; each is weighed by
   // how much it shows on this paper (cream shows black, the dark scheme white).
   const hex = /^#?([\da-f]{2})([\da-f]{2})([\da-f]{2})/i.exec(colors.paper), lum = hex ? (parseInt(hex[1], 16) + parseInt(hex[2], 16) + parseInt(hex[3], 16)) / 765 : 0.9;
-  const a = state.ground > 0 ? 1 : 0.5, aDark = 0.08 + 0.2 * (1 - lum), aLight = 0.06 + 0.3 * lum;
+  const a = state.ground > 0 ? 1 : 0.5, aDark = 0.2 + 0.4 * (1 - lum), aLight = 0.14 + 0.5 * lum;
   for (let k = 0; k < f.length; k++) {
     const v = f[k], o = k * 4, c8 = v > 0 ? 255 : 0;
     img.data[o] = img.data[o + 1] = img.data[o + 2] = c8;

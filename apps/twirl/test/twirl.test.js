@@ -2352,7 +2352,7 @@ describe.skipIf(!browser)("Twirl · layers: the frame and the ground (LAYERS.md,
   // (time, pitch, loudness), and the nuance and ring it read; MIDI too. Random
   // numbers replayed the same for each run, so Vary's draws can be compared.
   const hearAll = (page, setup) => page.evaluate((setup) => {
-    ensureAudio();
+    ensureAudio(); Object.assign(state, setup);
     const origVoices = {}, seen = [], midi = [], origMidi = sendMidi, origRandom = Math.random, T = ctx.currentTime + 0.5;
     for (const v of ["pluck", "bell", "blip", "drum"]) {
       const Q = PACKS[state.pack] && PACKS[state.pack][v] ? PACKS[state.pack] : VOICES;
@@ -2362,7 +2362,6 @@ describe.skipIf(!browser)("Twirl · layers: the frame and the ground (LAYERS.md,
     window.sendMidi = (voice, m, vel, t) => midi.push([voice, m, +vel.toFixed(6), +(t - T).toFixed(6)]);
     let seed = 7; Math.random = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
     try {
-      Object.assign(state, setup);
       const t = T;
       for (const [x, y] of [[0.1, 0.1], [0.5, 0.5], [0.9, 0.2], [0.3, 0.8], [0.7, 0.9]])
         for (const [voice, weight] of [["pluck", null], ["bell", 1], ["blip", 0], ["drum", 0.5]])
@@ -2413,28 +2412,36 @@ describe.skipIf(!browser)("Twirl · layers: the frame and the ground (LAYERS.md,
     await context.close();
   });
 
-  it("with Ground up, a note's colour follows the ground under it (dark duller, light brighter, rings longer); pitch, time, loudness and MIDI never change", async () => {
+  it("with Ground up, a note follows the ground under it: light rings longer and brighter, dark plays softer and duller, in every pack and over MIDI; pitch and time never change", async () => {
     const { page, context, errors } = await openTwirl(browser);
-    const base = { vary: false, accent: 0.5, groundKind: "gradient", groundSeed: 3 };
+    const base = { vary: false, accent: 0.5, groundKind: "gradient", groundSeed: 3, pack: "paper" };
     const dir = await page.evaluate((b) => { Object.assign(state, b); return [groundAt(0.5, 0.05), groundAt(0.5, 0.95), groundAt(0.05, 0.5), groundAt(0.95, 0.5)]; }, base);
+    expect(dir.some((v) => v > 0.5) && dir.some((v) => v < -0.5)).toBe(true);   // a gradient: dark one side, light the other
     const off = await hearAll(page, { ...base, ground: 0 });
     const on = await hearAll(page, { ...base, ground: 1 });
-    expect(on.midi).toEqual(off.midi);
-    expect(on.seen.map((s) => s.slice(0, 4))).toEqual(off.seen.map((s) => s.slice(0, 4)));
-    expect(on.seen.map((s) => s[4])).not.toEqual(off.seen.map((s) => s[4]));
-    // At each note, nuance moved by the ground there (clamped to −1…1), and ring grew only over light ground.
+    // Pitch and time: untouched, in the voices and in MIDI.
+    expect(on.seen.map((s) => [s[0], s[1], s[2]])).toEqual(off.seen.map((s) => [s[0], s[1], s[2]]));
+    expect(on.midi.map((n) => [n[0], n[1], n[3]])).toEqual(off.midi.map((n) => [n[0], n[1], n[3]]));
     const pts = await page.evaluate(() => [[0.1, 0.1], [0.5, 0.5], [0.9, 0.2], [0.3, 0.8], [0.7, 0.9]].map(([x, y]) => groundAt(x, y)));
+    expect(pts.some((g) => g > 0.2) && pts.some((g) => g < -0.2)).toBe(true);
     const perPoint = (r) => pts.map((_, i) => r.seen.filter((s) => s[0] === "pluck")[i]);
+    const midiPluck = (r) => r.midi.filter((n) => n[0] === "pluck");
     perPoint(on).forEach((s, i) => {
-      const was = perPoint(off)[i];
-      expect(s[4]).toBeCloseTo(Math.max(-1, Math.min(1, was[4] + pts[i])), 5);
-      expect(s[5]).toBeCloseTo(1 + 0.5 * Math.max(0, 0.5 * Math.max(0, pts[i])), 5);   // the pluck has no accent: ring is the ground's alone
+      const was = perPoint(off)[i], g = pts[i];
+      expect(s[4]).toBeCloseTo(Math.max(-1, Math.min(1, g + 0.3 * was[4])), 5);       // the ground outweighs Vary's colour
+      expect(s[5]).toBeCloseTo(1 + 0.5 * 2 * Math.max(0, g), 5);                        // light: up to twice the ring (the pluck has no accent)
+      expect(s[3]).toBeCloseTo(was[3] * (1 - 0.45 * Math.max(0, -g)), 5);               // dark: softer
+      expect(midiPluck(on)[i][2]).toBeCloseTo(midiPluck(off)[i][2] * (1 - 0.45 * Math.max(0, -g)), 5);   // and so is its MIDI
     });
-    expect(dir.some((v) => v > 0.5) && dir.some((v) => v < -0.5)).toBe(true);   // a gradient: dark one side, light the other
     // Half the Ground, half the shift.
     const half = await hearAll(page, { ...base, ground: 0.5 });
-    const p0 = perPoint(off)[1][4], p1 = perPoint(half)[1][4];
-    expect(p1 - p0).toBeCloseTo(0.5 * pts[1], 5);
+    expect(perPoint(half)[1][4] - 0.65 * perPoint(off)[1][4]).toBeCloseTo(0.5 * pts[1], 5);
+    // Every pack hears it, not only the paper voices that read nuance: ring and loudness.
+    for (const pack of ["felt", "kalimba", "chip"]) {
+      const a = await hearAll(page, { ...base, pack, ground: 0 }), b = await hearAll(page, { ...base, pack, ground: 1 });
+      const diff = a.seen.filter((s, i) => s[3] !== b.seen[i][3] || s[5] !== b.seen[i][5]).length;
+      expect(diff, pack).toBeGreaterThan(a.seen.length / 3);
+    }
     expect(errors).toEqual([]);
     await context.close();
   });
