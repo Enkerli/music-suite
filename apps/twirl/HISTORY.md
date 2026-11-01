@@ -315,3 +315,17 @@ page's old list stays as `CONTROLS` in its order (MIDI learn's maps, kept
 by place in browsers, now by id, and migrated); `HOST_PARAMS` is the core
 and the knobs. Projects saved before keep values by number (VST3, CLAP) or
 symbol (LV2), so their automation needs redoing.
+
+**Traces and painting (L3)** (2026-10-31; Alex: "we can move to L3"). Two
+layers of marks over the seeded ground, each a 32 × 20 grid like the field,
+summed (and clamped) where a note reads it: **paint**, by hand (Everything
+→ Ground: Paint dark, Paint light, Erase; while one is on, a touch paints
+instead of drawing: a soft brush of 1.8 cells, 0.18 a touch event), which
+stays; and **traces**, left by a loop whose new setting Traces says darken
+or lighten (0.5 a second where its playhead is, 1.4 cells round), fading to
+a third in 90 s, run from the scheduler so the plugin's window can stay
+closed, redrawn four times a second. Clear marks wipes both. Saved in the
+sheet's settings as base64 bytes (`groundPaint`, `groundTrace`, left out
+when empty); takes record the paint, not the traces (their loops make them
+again). A loop's `trace` is appended to its packed row. `?template=ground`'s
+wave lightens as it drifts.

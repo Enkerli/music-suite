@@ -2357,6 +2357,45 @@
           </tig>
         </langSet>
       </termEntry>
+      <termEntry id="trace">
+        <descrip type="subjectField">Twirl · on the sheet</descrip>
+        <note>match:en:[Tt]races?</note>
+        <note>match:fr:traces?</note>
+        <langSet xml:lang="en">
+          <descrip type="definition">what a loop's playhead leaves on the ground as it passes, fading (a loop's Traces setting)</descrip>
+          <tig>
+            <term>trace</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+          </tig>
+        </langSet>
+        <langSet xml:lang="fr">
+          <tig>
+            <term>trace</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+            <note>draft · usual</note>
+          </tig>
+        </langSet>
+      </termEntry>
+      <termEntry id="mark">
+        <descrip type="subjectField">Twirl · on the sheet</descrip>
+        <note>paint and traces together, on the ground</note>
+        <note>match:en:marks?</note>
+        <note>match:fr:marques?</note>
+        <langSet xml:lang="en">
+          <descrip type="definition">what the ground has been given, by the brush (paint) or by loops (traces)</descrip>
+          <tig>
+            <term>mark</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+          </tig>
+        </langSet>
+        <langSet xml:lang="fr">
+          <tig>
+            <term>marque</term>
+            <termNote type="administrativeStatus">preferredTerm-admn-sts</termNote>
+            <note>draft · usual</note>
+          </tig>
+        </langSet>
+      </termEntry>
     </body>
   </text>
 </martif>

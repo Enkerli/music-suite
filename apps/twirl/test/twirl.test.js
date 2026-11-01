@@ -2573,3 +2573,105 @@ describe.skipIf(!browser)("Twirl · layers: the frame and the ground (LAYERS.md,
     await context.close();
   });
 });
+
+describe.skipIf(!browser)("Twirl · the ground's marks: traces and paint (PLAN.md L3)", () => {
+  it("a loop's Traces darken or lighten the ground where its playhead passes, and fade; quiet loops leave none", async () => {
+    const { page, context, errors } = await openTwirl(browser);
+    const r = await page.evaluate(() => {
+      ensureAudio(); clearMarks();
+      Object.assign(state, { groundKind: "none", ground: 0 });
+      const lp = loops[0]; loops.slice(1).forEach((l) => (l.trace = "none"));
+      setLevel(3); openInspector(lp);
+      document.querySelector('[data-insp="trace"] [data-v="dark"]').click();
+      const set = [lp.trace, state.ground];                                    // asking for traces makes the ground heard
+      const W = sheet.clientWidth, H = sheet.clientHeight;
+      const tick = (sec) => { traceAt = performance.now() - sec * 1000; traceTick(); };
+      const where = () => { const p = headPoint(lp, nowBeat()); if (!p) return null; const [x, y] = place(lp, p.x, p.y, W, H); return [x / W, y / H]; };
+      let at = null;
+      for (let i = 0; i < 6; i++) { at = where() || at; tick(0.5); }
+      const under = groundAt(...at), far = groundAt(at[0] > 0.5 ? 0.02 : 0.98, at[1] > 0.5 ? 0.02 : 0.98);
+      const here = hereAt(...at);
+      lp.trace = "none";
+      for (let i = 0; i < 180; i++) tick(0.5);                                  // 90 s: about a third left
+      const faded = groundAt(...at);
+      lp.trace = "light"; lp.muted = true;
+      for (let i = 0; i < 6; i++) tick(0.5);
+      const quietLeft = groundAt(...at);
+      return { set, under, far, here: here && here.ground, faded, quietLeft, saved: loopData(lp).trace,
+        back: unpackScene(packScene({ settings: {}, loops: [loopData(lp)] })).loops[0].trace };
+    });
+    expect(r.set).toEqual(["dark", 0.6]);
+    expect(r.under).toBeLessThan(-0.3);
+    expect(r.far).toBe(0);
+    expect(r.here).toBeCloseTo(r.under * 0.6, 5);
+    expect(r.faded / r.under).toBeGreaterThan(0.25); expect(r.faded / r.under).toBeLessThan(0.5);
+    expect(r.quietLeft).toBeCloseTo(r.faded * Math.exp(-3 / 90), 3);           // a muted loop leaves nothing: 3 s more of fading only
+    expect([r.saved, r.back]).toEqual(["light", "light"]);
+    expect(errors).toEqual([]);
+    await context.close();
+  });
+
+  it("the brush: Paint dark or light makes touches paint the ground instead of drawing; Erase and Clear marks wipe it", async () => {
+    const { page, context, errors } = await openTwirl(browser);
+    await page.evaluate(() => { hint.hidden = true; clearMarks(); Object.assign(state, { groundKind: "none", ground: 0 }); setLevel(3); document.querySelector('[data-brush="dark"]').click(); setDrawer(false); });
+    const n0 = await page.evaluate(() => loops.length);
+    await drawStroke(page, { x: 300, y: 400, w: 200, h: 0, steps: 12, ms: 200 });
+    const r = await page.evaluate(() => {
+      const W = sheet.clientWidth, H = sheet.clientHeight, at = (x, y) => groundAt(x / W, y / H);
+      const out = { loops: loops.length, painted: at(400, 400), elsewhere: at(1000, 150), ground: state.ground, cls: sheet.classList.contains("painting"),
+        pressed: document.querySelector('[data-brush="dark"]').getAttribute("aria-pressed") };
+      document.querySelector('[data-brush="light"]').click();
+      out.switched = [brush, document.querySelector('[data-brush="dark"]').getAttribute("aria-pressed")];
+      return out;
+    });
+    expect(r.loops).toBe(n0);                                                 // nothing drawn
+    expect(r.painted).toBeLessThan(-0.2);
+    expect(r).toMatchObject({ elsewhere: 0, ground: 0.6, cls: true, pressed: "true", switched: ["light", "false"] });
+    await page.evaluate(() => document.querySelector('[data-brush="erase"]').click());
+    await drawStroke(page, { x: 300, y: 400, w: 200, h: 0, steps: 12, ms: 200 });
+    await drawStroke(page, { x: 300, y: 400, w: 200, h: 0, steps: 12, ms: 200 });
+    const erased = await page.evaluate(() => groundAt(400 / sheet.clientWidth, 400 / sheet.clientHeight));
+    expect(Math.abs(erased)).toBeLessThan(Math.abs(r.painted) / 2);
+    const end = await page.evaluate(() => {
+      document.querySelector('[data-brush="erase"]').click();             // off again: touches draw
+      markAt(groundPaint, 0.5, 0.5, 2, -0.5); $("clearMarks").click();
+      return { brush, cls: sheet.classList.contains("painting"), mid: groundAt(0.5, 0.5), marked: groundMarked };
+    });
+    expect(end).toEqual({ brush: null, cls: false, mid: 0, marked: false });
+    const n1 = await page.evaluate(() => loops.length);
+    await drawStroke(page, { x: 300, y: 500, w: 300, h: 120 });
+    expect(await page.evaluate(() => loops.length)).toBe(Math.min(14, n1 + 1));
+    expect(errors).toEqual([]);
+    await context.close();
+  });
+
+  it("marks are saved with the sheet (scenes, codes); takes keep the paint, not the traces; a fresh sheet and older sheets have none", async () => {
+    const { page, context, errors } = await openTwirl(browser);
+    const r = await page.evaluate(async () => {
+      clearMarks(); Object.assign(state, { groundKind: "dunes", groundSeed: 8, ground: 0.5 });
+      markAt(groundPaint, 0.3, 0.4, 2, -0.6); markAt(groundTrace, 0.7, 0.6, 2, 0.5);
+      const want = [groundAt(0.3, 0.4), groundAt(0.7, 0.6)];
+      const sc = serialize(), code = await encodeScene(sc), back = await decodeScene(code);
+      const take = flowSettings();
+      clearMarks();
+      const cleared = [groundAt(0.3, 0.4), groundAt(0.7, 0.6)];
+      recall(back);
+      const restored = [groundAt(0.3, 0.4), groundAt(0.7, 0.6)];
+      const old = { settings: { ...sc.settings }, loops: sc.loops }; delete old.settings.groundPaint; delete old.settings.groundTrace;
+      recall(old);
+      const oldMarks = [groundPaint.some((v) => v), groundTrace.some((v) => v)];
+      markAt(groundPaint, 0.5, 0.5, 2, -0.5); startingSheet();
+      return { want, cleared, restored, take: ["groundPaint" in take, "groundTrace" in take], oldMarks, fresh: groundMarked,
+        plain: Object.keys(serialize().settings).filter((k) => /groundPaint|groundTrace/.test(k)), codeLen: code.length };
+    });
+    r.restored.forEach((v, i) => expect(v).toBeCloseTo(r.want[i], 1));
+    expect(r.cleared[0]).not.toBeCloseTo(r.want[0], 1);
+    expect(r).toMatchObject({ take: [true, false], oldMarks: [false, false], fresh: false, plain: [] });
+    expect(r.codeLen).toBeLessThan(6000);
+    // An older code's loop (its row without the trace) opens with none.
+    const older = await page.evaluate(() => { const pk = packScene({ settings: {}, loops: [{ ...loopData(loops[0]), trace: "dark" }] }); pk.l[0].pop(); return unpackScene(pk).loops[0].trace; });
+    expect(older).toBe("none");
+    expect(errors).toEqual([]);
+    await context.close();
+  });
+});

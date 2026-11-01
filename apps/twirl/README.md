@@ -59,7 +59,7 @@ rules. Where to find things:
 | The scheduler | 7 | `schedule`, `lookahead` (adapts to late ticks) |
 | Contacts: crossings, lines touching, meetings | 7b | `checkMeetings`, `touch`, `linesTouch`, `meet`, `breedWith` |
 | Drone and its space; Warmth (hiss, crackle, wobble) | 8, 8b | `setDrone`, `DRONE_SPACES`, `updateDrone`, `buildRoom`, `setWarmth` |
-| The ground (layer 1); "what's here", the hook a note asks before it sounds | 8c | `GROUND_KINDS`, `makeGround`, `groundAt`, `hereAt`, `setGroundKind` |
+| The ground (layer 1); "what's here", the hook a note asks before it sounds | 8c | `GROUND_KINDS`, `makeGround`, `groundAt`, `hereAt`, `setGroundKind`, marks: `groundPaint`, `groundTrace`, `traceTick`, `setBrush` |
 | Toybox (chimes, spinner, tadpoles…) | 9 | `TOYS`, `dropToy`, `dropTadpoles`, `startingSheet`, `freshKey` |
 | Touch: draw, drag, pinch, Edit, smoothing | 10 | `endStroke`, `settleStroke`, `smoothLoop`, `pointerEnd`, `addNoteAt`, `NOTE_SOUNDS` |
 | Drawing; colours by voice; the grid layer (the ground, the lines); View → Layers; sharpness | 11, 13 | `frame`, `voiceColours`, `strokePath`, `drawGridCached`, `drawGround`, `shown`, `adaptQuality`, `diagReport` |

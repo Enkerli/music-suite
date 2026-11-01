@@ -102,14 +102,21 @@ moving by themselves; controllers both inside and out. Work in this repo
       new strings; axe; the first minute unchanged.
 - [x] A template, `?template=ground`: a ground, chimes, a drifting loop, a
       few tadpoles (the toys that move are what make a ground heard).
-- [ ] Alex: listen to toys crossing it; are the mappings audible, too much,
-      which voices want more?
+- [x] Alex: listen to toys crossing it; are the mappings audible, too much,
+      which voices want more? *Inaudible at first; then a tone per note and
+      a wider range (ring both ways, a darker tone, more contrast); "we can
+      move to L3" (2026-10-31).*
 
 ### L3. Traces and painting (after Alex's ears on L2)
 
-- [ ] **Traces**: a loop setting (like Life): its playhead darkens or
+- [x] **Traces**: a loop setting (like Life): its playhead darkens or
       lightens the ground as it passes, fading slowly; the sheet's history.
-- [ ] **A brush** (the hand layer): paint dark or light by hand.
+      *Fading to a third in 90 s; per scheduler tick, so the plugin's window
+      can stay closed.*
+- [x] **A brush** (the hand layer): paint dark or light by hand. *And
+      erase, and Clear marks; paint stays.*
+- [ ] Alex: paint, and listen to traces build up and fade: the brush's
+      size and strength, the traces' rate and how long they last.
 - [ ] Later values: texture, hue (each with one or two named mappings).
 
 ### L4. The first places (Claude)
