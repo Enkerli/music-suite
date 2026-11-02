@@ -686,7 +686,7 @@ const state = {
   patch:{ Morph:0.0,PW:0.5,Fold:0.0,Inharm:0.0,Sync:1.0,Noise:0.0,NoiseType:0,Detune:0,
           TrGain:0.0,TrDecay:200,TrChoice:0,TrTrigger:1,TrVar:0.3,TrFilt:1,TrDyn:0.75,TrReso:0.3,TrDamp:0.5,TrMorph:12,
           Cutoff:1128,Reso:0.1,Mode:0,Output:0.8,VelVCA:0.0,
-          Glide:0,GlideMode:0,GlideCurve:0,MasterTune:0,UniVox:0,UniDet:14,UniWid:0.7,UniMode:0,
+          Glide:0,GlideMode:0,GlideCurve:0,MasterTune:0,Transpose:0,UniVox:0,UniDet:14,UniWid:0.7,UniMode:0,
           VowelEn:0,VowelMode:0,Vowel:0.5,VowFront:0.5,VowRound:0,VowelAmt:1,VowelBite:0.5,VowelMove:0,
           WaveguideOn:0,WgModel:0,WgEmbouchure:0.5,WgReedStiff:0.5,WgReedAperture:0.5,WgBoreDamping:0.2,
           WgBellBright:0.7,WgConical:0.62,WgBreathNoise:0.05,WgGrowl:0.0,
@@ -1045,7 +1045,7 @@ function render(){ ({patch:renderPatch,matrix:renderMatrix,presets:renderPresets
 // ════════════════════════════════════════════════════════════════════════
 //  Patch tab — sliders with drag + steppers + typed entry
 // ════════════════════════════════════════════════════════════════════════
-const FMT={ Cutoff:v=>Math.round(v)+' Hz', Detune:v=>v.toFixed(0)+' ¢', MasterTune:v=>v.toFixed(0)+' ¢',
+const FMT={ Cutoff:v=>Math.round(v)+' Hz', Detune:v=>v.toFixed(0)+' ¢', MasterTune:v=>v.toFixed(0)+' ¢', Transpose:v=>(v>0?'+':'')+Math.round(v)+' st',
   UniDet:v=>v.toFixed(0)+' ¢', UniWid:v=>Math.round(v*100)+'%',
   Glide:v=>Math.round(v)+' ms',
   // Morph is continuous; only round to a whole frame when Snap is on — otherwise
@@ -1065,7 +1065,7 @@ const FMT={ Cutoff:v=>Math.round(v)+' Hz', Detune:v=>v.toFixed(0)+' ¢', MasterT
   default:v=>v.toFixed(2) };
 const RANGE={ Morph:[0,1,.001], PW:[0.5,0.999,.001], Fold:[0,1,.01], Inharm:[0,1,.01], Sync:[1,8,.01], Noise:[0,1,.01], Detune:[-100,100,1],
               TrGain:[0,2,.01], TrDecay:[10,2000,1], TrVar:[0,1,.01], TrDyn:[0,1,.01], TrReso:[0,1,.01], TrDamp:[0,1,.01], TrMorph:[0,50,1],
-  Cutoff:[20,20000,10], Reso:[0,1,.01], Output:[0,1,.01], VelVCA:[0,1,.01], Glide:[0,2000,5], MasterTune:[-100,100,1],
+  Cutoff:[20,20000,10], Reso:[0,1,.01], Output:[0,1,.01], VelVCA:[0,1,.01], Glide:[0,2000,5], MasterTune:[-100,100,1], Transpose:[-24,24,1],
   UniDet:[0,50,1], UniWid:[0,1,.01],
   Vowel:[0,1,.01], VowFront:[0,1,.01], VowRound:[0,1,.01], VowelAmt:[0,1,.01], VowelBite:[0,1,.01], VowelMove:[0,1,.01],
   WgEmbouchure:[0,1,.01], WgReedStiff:[0,1,.01], WgReedAperture:[0,1,.01], WgBoreDamping:[0,1,.01],
@@ -1076,6 +1076,8 @@ const RANGE={ Morph:[0,1,.001], PW:[0.5,0.999,.001], Fold:[0,1,.01], Inharm:[0,1
 // breath times match the plugin's 0.4 skew on the same parameters.
 const LOGK={ Cutoff:true, TrDecay:true, SbAtk:true, SbDec:true, SbRel:true };
 function toNorm(key,v){ const [a,b]=RANGE[key]; if(LOGK[key]&&a>0&&v>0) return clamp(Math.log(v/a)/Math.log(b/a),0,1); return clamp((v-a)/(b-a),0,1); }
+// Integer-valued sliders: values snap to whole units and the ± steppers move by one.
+const INT_KEYS=new Set(['Transpose']);
 function toVal(key,n){ const [a,b]=RANGE[key]; n=clamp(n,0,1); return (LOGK[key]&&a>0)? a*Math.pow(b/a,n) : a+n*(b-a); }
 
 function pslider(key,label,color="--vn-breath"){
@@ -1135,7 +1137,7 @@ function renderPatch(){
       <div class="pslider" style="grid-column:1/-1">
         <div class="top"><span class="lbl">Reed / Bore Engine</span></div>
         <div class="seg" style="width:100%">${["Off","On"].map((n,i)=>`<button class="${Math.round(state.patch.WaveguideOn)===i?'active':''}" onclick="setChoice('WaveguideOn',${i})" style="flex:1">${n}</button>`).join('')}</div>
-        <div class="num" style="color:var(--vn-muted);font-size:12px;padding-top:5px">Replaces the wavetable oscillator with a reed/bore model (choose the model below). Breath blows the reed directly — dynamics, subtone below the speaking threshold, and rearticulation come from the model itself; no VCA routing needed.</div>
+        <div class="num" style="color:var(--vn-muted);font-size:12px;padding-top:5px">Replaces the wavetable oscillator with a reed/bore model (choose the model below). Wind controllers send written pitch: for a tenor sound, set Transpose to −14 (alto −9, soprano −2). Breath blows the reed directly — dynamics, subtone below the speaking threshold, and rearticulation come from the model itself; no VCA routing needed.</div>
       </div>
       ${Math.round(state.patch.WaveguideOn)===1 ? `
         <div class="pslider" style="grid-column:1/-1">
@@ -1178,7 +1180,7 @@ function renderPatch(){
     </div>
     <div class="group ${collapsed['Performance']?'collapsed':''}" data-grp="Performance">${gh('Performance')}
       ${pslider('Output','Output','--vn-pressure')}${pslider('VelVCA','Vel → VCA','--vn-pressure')}
-      ${pslider('Glide','Glide','--vn-pressure')}${pslider('MasterTune','Master Tune','--vn-pressure')}
+      ${pslider('Glide','Glide','--vn-pressure')}${pslider('MasterTune','Master Tune','--vn-pressure')}${pslider('Transpose','Transpose','--vn-pressure')}
       <div class="row2">
         <div class="pslider"><div class="top"><span class="lbl">Glide Mode</span></div>
           <div class="seg">${["Time","Rate"].map((n,i)=>`<button class="${state.patch.GlideMode===i?'active':''}" onclick="setChoice('GlideMode',${i})">${n}</button>`).join('')}</div></div>
@@ -1219,14 +1221,17 @@ function wirePatchSlider(el){
     const txt=(FMT[key]||FMT.default)(v); val.textContent=txt;
     track.setAttribute('aria-valuenow',v); track.setAttribute('aria-valuetext',txt); };
   patchUpd[key]=fmt;   // param echo updates this slider in place (no rebuild → drag survives)
-  const setV=v=>{ v=clamp(v,a,b); if(key==='Morph'&&morphSnap)v=snapMorph(v); state.patch[key]=v; Bridge.send('setParam',{id:key,value:v}); markDirty(); };
+  const setV=v=>{ v=clamp(v,a,b); if(INT_KEYS.has(key))v=Math.round(v); if(key==='Morph'&&morphSnap)v=snapMorph(v); state.patch[key]=v; Bridge.send('setParam',{id:key,value:v}); markDirty(); };
   const doReset=()=>{ const prev=state.patch[key]; recordUndo('reset '+key, ()=>{ setV(prev); fmt(); });
     Bridge.send('resetParam',{id:key}); markDirty(); };
   attachDrag(track,{get:()=>toNorm(key,state.patch[key]),set:n=>setV(toVal(key,n)),min:0,max:1,step:0.01,fineStep:0.0025,onMove:fmt,
     reset:doReset,   // double-click handled inside attachDrag (touch-safe)
     type:()=>typeEdit(key,val,a,b,fmt),
     getRaw:()=>state.patch[key], setRaw:v=>{ setV(clamp(v,a,b)); fmt(); }});
-  el.querySelectorAll('.stepper').forEach(s=>s.onclick=()=>{ setV(toVal(key,clamp(toNorm(key,state.patch[key])+(+s.dataset.step)*0.02,0,1))); fmt(); });
+  el.querySelectorAll('.stepper').forEach(s=>s.onclick=()=>{
+    if(INT_KEYS.has(key)) setV(Math.round(state.patch[key])+(+s.dataset.step));   // whole units (semitones)
+    else setV(toVal(key,clamp(toNorm(key,state.patch[key])+(+s.dataset.step)*0.02,0,1)));
+    fmt(); });
   val.ondblclick=()=>typeEdit(key,val,a,b,fmt);
   val.onkeydown=e=>{ if(e.key==='Enter')typeEdit(key,val,a,b,fmt); };
   fmt();
