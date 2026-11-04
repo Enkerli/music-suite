@@ -1903,10 +1903,15 @@ function importExport(){
   // state via requestExport/exportData/importState.
   openModal(`<h3>Export / Import patch</h3><p>Portable text of the <b>current patch</b> — every parameter. Copy to share, or paste a patch and Import.</p>
     <textarea id="ioTxt" placeholder="requesting current patch…"></textarea>
-    <div class="actions"><button class="btn" onclick="closeModal()">Close</button><button class="btn" onclick="copyIo()">Copy</button><button class="btn primary" onclick="applyIo()">Import</button></div>`);
+    <div class="actions"><button class="btn" onclick="closeModal()">Close</button>${HAS_JUCE?'<button class="btn" onclick="importPresetFile()" title="Pick a .vanepreset file (Files, AirDrop, Finder); it is added to your presets and loaded">Import file…</button>':''}<button class="btn" onclick="copyIo()">Copy</button><button class="btn primary" onclick="applyIo()">Import</button></div>`);
   Bridge.send('requestExport');
   if(!HAS_JUCE){ const t=$('#ioTxt'); if(t)t.value='(export reflects the live patch when running inside the plugin)'; }
 }
+// Preset file import (plugin only): native picker, parented to the plugin window so it
+// also opens inside an AUv3 on iPadOS. The plugin copies the file into its presets and
+// loads it, then pushes the new state and preset list.
+function importPresetFile(){ closeModal(); Bridge.send('importPresetFile'); }
+Bridge.on('presetImportResult',({ok})=>{ if(!ok) openModal(`<h3>Import preset</h3><p>That file isn't a Vane preset (or couldn't be read).</p><div class="actions"><button class="btn primary" onclick="closeModal()">OK</button></div>`); });
 function copyIo(){ const t=$('#ioTxt'); t.select(); try{document.execCommand('copy');}catch(e){} }
 function applyIo(){ const t=$('#ioTxt').value.trim(); if(t){ Bridge.send('importState',{text:t}); state.dirty=true; closeModal(); } }
 
