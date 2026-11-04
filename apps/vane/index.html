@@ -688,7 +688,7 @@ const state = {
           Cutoff:1128,Reso:0.1,Mode:0,Output:0.8,VelVCA:0.0,
           Glide:0,GlideMode:0,GlideCurve:0,MasterTune:0,Transpose:0,UniVox:0,UniDet:14,UniWid:0.7,UniMode:0,
           VowelEn:0,VowelMode:0,Vowel:0.5,VowFront:0.5,VowRound:0,VowelAmt:1,VowelBite:0.5,VowelMove:0,
-          WaveguideOn:0,WgModel:0,WgSize:0,WgBody:0,WgAttack:0.49,WgRelease:0.49,WgSlur:0.15,WgEmbouchure:0.5,WgReedStiff:0.5,WgReedAperture:0.5,WgBoreDamping:0.2,
+          WaveguideOn:0,WgModel:0,WgSize:0,WgBody:0,WgBodySrc:0,WgSizeMode:0,WgBellMotion:0,WgFlutter:0,WgAspiration:0,WgAttack:0.49,WgRelease:0.49,WgSlur:0.15,WgEmbouchure:0.5,WgReedStiff:0.5,WgReedAperture:0.5,WgBoreDamping:0.2,
           WgBellBright:0.7,WgConical:0.62,WgBreathNoise:0.05,WgGrowl:0.0,
           SbMode:1,SbAtk:35,SbDec:120,SbSus:0.80,SbRel:180 },
   slots: Array.from({length:NUM_SLOTS},()=>({src:0,dst:0,amt:0,curve:0,scale:0,atk:5,rel:80,on:true,anchors:[]})),
@@ -1065,7 +1065,7 @@ const FMT={ Cutoff:v=>Math.round(v)+' Hz', Detune:v=>v.toFixed(0)+' ¢', MasterT
   default:v=>v.toFixed(2) };
 const RANGE={ Morph:[0,1,.001], PW:[0.5,0.999,.001], Fold:[0,1,.01], Inharm:[0,1,.01], Sync:[1,8,.01], Noise:[0,1,.01], Detune:[-100,100,1],
               TrGain:[0,2,.01], TrDecay:[10,2000,1], TrVar:[0,1,.01], TrDyn:[0,1,.01], TrReso:[0,1,.01], TrDamp:[0,1,.01], TrMorph:[0,50,1],
-  Cutoff:[20,20000,10], Reso:[0,1,.01], Output:[0,1,.01], VelVCA:[0,1,.01], Glide:[0,2000,5], MasterTune:[-100,100,1], Transpose:[-24,24,1], WgSize:[-12,12,1], WgAttack:[0,1,.01], WgRelease:[0,1,.01], WgSlur:[0,1,.01],
+  Cutoff:[20,20000,10], Reso:[0,1,.01], Output:[0,1,.01], VelVCA:[0,1,.01], Glide:[0,2000,5], MasterTune:[-100,100,1], Transpose:[-24,24,1], WgSize:[-12,12,1], WgAttack:[0,1,.01], WgFlutter:[0,1,.01], WgAspiration:[0,1,.01], WgRelease:[0,1,.01], WgSlur:[0,1,.01],
   UniDet:[0,50,1], UniWid:[0,1,.01],
   Vowel:[0,1,.01], VowFront:[0,1,.01], VowRound:[0,1,.01], VowelAmt:[0,1,.01], VowelBite:[0,1,.01], VowelMove:[0,1,.01],
   WgEmbouchure:[0,1,.01], WgReedStiff:[0,1,.01], WgReedAperture:[0,1,.01], WgBoreDamping:[0,1,.01],
@@ -1151,6 +1151,22 @@ function renderPatch(){
           <div class="num" style="color:var(--vn-muted);font-size:12px;padding-top:5px">Each family member's body, fitted so that Silverwood's tenor relates to it as SWAM's tenor relates to SWAM's alto, soprano or baritone. Baritone: its own Bell table (body resonances that follow the note and the breath); alto and soprano: a fixed body filter for now. Tenor: as decoded. Pair it with the matching Size.</div>
         </div>
         ${pslider('WgSize','Size','--vn-expr')}
+        <div class="num" style="grid-column:1/-1;color:var(--vn-text);font-size:12px;padding-top:6px"><b>Compare</b> <span style="color:var(--vn-muted)">— switch these while playing to hear what each part of the model does. Defaults are the current model.</span></div>
+        <div class="pslider" style="grid-column:1/-1">
+          <div class="top"><span class="lbl">Body source</span></div>
+          <div class="seg" style="width:100%">${["Bell table","Body filter","None"].map((n,i)=>`<button class="${Math.round(state.patch.WgBodySrc||0)===i?'active':''}" onclick="setChoice('WgBodySrc',${i})" style="flex:1">${n}</button>`).join('')}</div>
+        </div>
+        <div class="pslider" style="grid-column:1/-1">
+          <div class="top"><span class="lbl">Size method</span></div>
+          <div class="seg" style="width:100%">${["Move tables","Varispeed"].map((n,i)=>`<button class="${Math.round(state.patch.WgSizeMode||0)===i?'active':''}" onclick="setChoice('WgSizeMode',${i})" style="flex:1">${n}</button>`).join('')}</div>
+        </div>
+        <div class="pslider" style="grid-column:1/-1">
+          <div class="top"><span class="lbl">Bell motion</span></div>
+          <div class="seg" style="width:100%">${["Smooth","Stepped","Frozen"].map((n,i)=>`<button class="${Math.round(state.patch.WgBellMotion||0)===i?'active':''}" onclick="setChoice('WgBellMotion',${i})" style="flex:1">${n}</button>`).join('')}</div>
+        </div>
+        ${pslider('WgFlutter','Flutter','--vn-breath')}${pslider('WgAspiration','Aspiration','--vn-breath')}
+        <div class="num" style="grid-column:1/-1;color:var(--vn-muted);font-size:12px">Body source: the member's own Bell table (baritone), its fixed body filter, or neither (the tenor's body). Size method: move the tenor's tables (range, tuning, body) or the first experiment, varispeed (the whole instrument sped up or slowed down, noise and timing included). Bell motion: how the body follows breath and pitch: smoothed, stepped as in Reaktor, or frozen. Flutter: Silverwood's own random air variation (off in the decoded model as Vane plays it). Aspiration: a breath-noise layer that follows the breath rather than each reed cycle.</div>
+
         ${pslider('WgAttack','Breath Attack','--vn-breath')}${pslider('WgRelease','Breath Release','--vn-breath')}${pslider('WgSlur','Slur Time','--vn-breath')}
         <div class="num" style="grid-column:1/-1;color:var(--vn-muted);font-size:12px">Breath Attack / Release: how fast Silverwood's air follows your breath, up and down (its own panel's Attack and Release; 0.49 as saved). A lower Release gives crisper tonguing and shorter note ends. Slur Time: how long a slur takes to settle.</div>
         <div class="num" style="grid-column:1/-1;color:var(--vn-muted);font-size:12px">Size in semitones from the tenor: alto +5, soprano +12, baritone −7. The tenor's range, pitch tables and body move together (a baritone at −7 speaks down to Db2), each note tuned like the tenor's; breath, noise and timing stay the same. 0 is the tenor as decoded.</div>` : ''}
