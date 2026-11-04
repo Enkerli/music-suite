@@ -1148,7 +1148,7 @@ function renderPatch(){
         ${Math.round(state.patch.WgModel||0)===1 ? `<div class="pslider" style="grid-column:1/-1">
           <div class="top"><span class="lbl">Body</span></div>
           <div class="seg" style="width:100%">${["Tenor","Alto","Soprano","Baritone"].map((n,i)=>`<button class="${Math.round(state.patch.WgBody||0)===i?'active':''}" onclick="setChoice('WgBody',${i})" style="flex:1">${n}</button>`).join('')}</div>
-          <div class="num" style="color:var(--vn-muted);font-size:12px;padding-top:5px">A fixed body resonance for each family member, fitted so that Silverwood's tenor relates to it as SWAM's tenor relates to SWAM's alto, soprano or baritone. Tenor: none (as decoded). Pair it with the matching Size.</div>
+          <div class="num" style="color:var(--vn-muted);font-size:12px;padding-top:5px">Each family member's body, fitted so that Silverwood's tenor relates to it as SWAM's tenor relates to SWAM's alto, soprano or baritone. Baritone: its own Bell table (body resonances that follow the note and the breath); alto and soprano: a fixed body filter for now. Tenor: as decoded. Pair it with the matching Size.</div>
         </div>
         ${pslider('WgSize','Size','--vn-expr')}
         ${pslider('WgAttack','Breath Attack','--vn-breath')}${pslider('WgRelease','Breath Release','--vn-breath')}${pslider('WgSlur','Slur Time','--vn-breath')}
