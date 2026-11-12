@@ -685,11 +685,12 @@ const state = {
   cc:{Breath:2,Expression:11},
   patch:{ Morph:0.0,PW:0.5,Fold:0.0,Inharm:0.0,Sync:1.0,Noise:0.0,NoiseType:0,Detune:0,
           TrGain:0.0,TrDecay:200,TrChoice:0,TrTrigger:1,TrVar:0.3,TrFilt:1,TrDyn:0.75,TrReso:0.3,TrDamp:0.5,TrMorph:12,
-          Cutoff:1128,Reso:0.1,Mode:0,Output:0.8,VelVCA:0.0,
+          Cutoff:1128,Reso:0.1,Mode:0,Output:0.8,VelVCA:0.0,RoomMix:0,RoomSize:0.35,RoomTone:0.5,
           Glide:0,GlideMode:0,GlideCurve:0,MasterTune:0,UniVox:0,UniDet:14,UniWid:0.7,UniMode:0,
           VowelEn:0,VowelMode:0,Vowel:0.5,VowFront:0.5,VowRound:0,VowelAmt:1,VowelBite:0.5,VowelMove:0,
-          WaveguideOn:0,WgEmbouchure:0.5,WgReedStiff:0.5,WgReedAperture:0.5,WgBoreDamping:0.2,
+          WaveguideOn:0,WgModel:0,WgEmbouchure:0.5,WgReedStiff:0.5,WgReedAperture:0.5,WgBoreDamping:0.2,
           WgBellBright:0.7,WgConical:0.62,WgBreathNoise:0.05,WgGrowl:0.0,
+          WindMouth:0.500,WindMouthDepth:0.300,WindBite:0.400,WindAir:0.707,WindReed:0.473,WindChamber:0.625,WindBaffle:0.586,WindCone:0.500,WindHoles:0.431,WindBell:0.571,WindBody:0.500,WindBodySize:0.468,WindFingers:0.523,WindTongue:0.398,WindChiff:0.267,WindChiffColor:0.000,WindBloom:0.450,WindKeyNoise:0.300,WindWobble:0.167,WindShimmer:0.160,WindDrift:0.200,WindVibrato:0.000,WindVibRate:0.425,WindSlur:0.357,
           SbMode:1,SbAtk:35,SbDec:120,SbSus:0.80,SbRel:180 },
   slots: Array.from({length:NUM_SLOTS},()=>({src:0,dst:0,amt:0,curve:0,scale:0,atk:5,rel:80,on:true,anchors:[]})),
   voices:[],   // live per-note MPE expression: [{note,hz,level,pressure,slide,bend,vel}]
@@ -1060,16 +1061,19 @@ const FMT={ Cutoff:v=>Math.round(v)+' Hz', Detune:v=>v.toFixed(0)+' ¢', MasterT
   WgReedAperture:v=>Math.round(v*100)+'%', WgBoreDamping:v=>Math.round(v*100)+'%',
   WgBellBright:v=>Math.round(v*100)+'%', WgConical:v=>Math.round(v*100)+'%',
   WgBreathNoise:v=>Math.round(v*100)+'%', WgGrowl:v=>Math.round(v*100)+'%',
+  RoomMix:v=>v<0.005?'off':Math.round(v*100)+'%', RoomSize:v=>v<0.33?'booth':v<0.66?'room':'hall', RoomTone:v=>v<0.33?'dark':v<0.66?'natural':'bright',
+  WindMouth:v=>windFmt('WindMouth',v), WindMouthDepth:v=>windFmt('WindMouthDepth',v), WindBite:v=>windFmt('WindBite',v), WindAir:v=>windFmt('WindAir',v), WindReed:v=>windFmt('WindReed',v), WindChamber:v=>windFmt('WindChamber',v), WindBaffle:v=>windFmt('WindBaffle',v), WindCone:v=>windFmt('WindCone',v), WindHoles:v=>windFmt('WindHoles',v), WindBell:v=>windFmt('WindBell',v), WindBody:v=>windFmt('WindBody',v), WindBodySize:v=>windFmt('WindBodySize',v), WindFingers:v=>windFmt('WindFingers',v), WindTongue:v=>windFmt('WindTongue',v), WindChiff:v=>windFmt('WindChiff',v), WindChiffColor:v=>windFmt('WindChiffColor',v), WindBloom:v=>windFmt('WindBloom',v), WindKeyNoise:v=>windFmt('WindKeyNoise',v), WindWobble:v=>windFmt('WindWobble',v), WindShimmer:v=>windFmt('WindShimmer',v), WindDrift:v=>windFmt('WindDrift',v), WindVibrato:v=>windFmt('WindVibrato',v), WindVibRate:v=>windFmt('WindVibRate',v), WindSlur:v=>windFmt('WindSlur',v),
   SbAtk:v=>Math.round(v)+' ms', SbDec:v=>Math.round(v)+' ms',
   SbSus:v=>Math.round(v*100)+'%', SbRel:v=>Math.round(v)+' ms',
   default:v=>v.toFixed(2) };
 const RANGE={ Morph:[0,1,.001], PW:[0.5,0.999,.001], Fold:[0,1,.01], Inharm:[0,1,.01], Sync:[1,8,.01], Noise:[0,1,.01], Detune:[-100,100,1],
               TrGain:[0,2,.01], TrDecay:[10,2000,1], TrVar:[0,1,.01], TrDyn:[0,1,.01], TrReso:[0,1,.01], TrDamp:[0,1,.01], TrMorph:[0,50,1],
-  Cutoff:[20,20000,10], Reso:[0,1,.01], Output:[0,1,.01], VelVCA:[0,1,.01], Glide:[0,2000,5], MasterTune:[-100,100,1],
+  Cutoff:[20,20000,10], Reso:[0,1,.01], Output:[0,1,.01], VelVCA:[0,1,.01], RoomMix:[0,1,.01], RoomSize:[0,1,.01], RoomTone:[0,1,.01], Glide:[0,2000,5], MasterTune:[-100,100,1],
   UniDet:[0,50,1], UniWid:[0,1,.01],
   Vowel:[0,1,.01], VowFront:[0,1,.01], VowRound:[0,1,.01], VowelAmt:[0,1,.01], VowelBite:[0,1,.01], VowelMove:[0,1,.01],
   WgEmbouchure:[0,1,.01], WgReedStiff:[0,1,.01], WgReedAperture:[0,1,.01], WgBoreDamping:[0,1,.01],
   WgBellBright:[0,1,.01], WgConical:[0,1,.01], WgBreathNoise:[0,1,.01], WgGrowl:[0,1,.01],
+  WindMouth:[0,1,.01], WindMouthDepth:[0,1,.01], WindBite:[0,1,.01], WindAir:[0,1,.01], WindReed:[0,1,.01], WindChamber:[0,1,.01], WindBaffle:[0,1,.01], WindCone:[0,1,.01], WindHoles:[0,1,.01], WindBell:[0,1,.01], WindBody:[0,1,.01], WindBodySize:[0,1,.01], WindFingers:[0,1,.01], WindTongue:[0,1,.01], WindChiff:[0,1,.01], WindChiffColor:[0,1,.01], WindBloom:[0,1,.01], WindKeyNoise:[0,1,.01], WindWobble:[0,1,.01], WindShimmer:[0,1,.01], WindDrift:[0,1,.01], WindVibrato:[0,1,.01], WindVibRate:[0,1,.01], WindSlur:[0,1,.01],
   SbAtk:[1,500,1], SbDec:[1,1000,1], SbSus:[0,1,.01], SbRel:[1,2000,5] };
 // Sliders that map exponentially (log) — most of the musical action is low.
 // Log sliders — most of the musical action is at the low end. The synthetic
@@ -1078,6 +1082,35 @@ const LOGK={ Cutoff:true, TrDecay:true, SbAtk:true, SbDec:true, SbRel:true };
 function toNorm(key,v){ const [a,b]=RANGE[key]; if(LOGK[key]&&a>0&&v>0) return clamp(Math.log(v/a)/Math.log(b/a),0,1); return clamp((v-a)/(b-a),0,1); }
 function toVal(key,n){ const [a,b]=RANGE[key]; n=clamp(n,0,1); return (LOGK[key]&&a>0)? a*Math.pow(b/a,n) : a+n*(b-a); }
 
+// WindCore character controls. Generated from Vane WindCore/character.json: labels, the name of each end,
+// what each control does, and its default position. Every control runs 0..1.
+const WIND={"groups": [{"id": "player", "label": "Player", "hint": "What the person does: mouth shape, embouchure, air."}, {"id": "mouthpiece", "label": "Mouthpiece and reed", "hint": "What is in the mouth: reed, chamber, baffle."}, {"id": "horn", "label": "Horn", "hint": "The tube: cone, tone holes, bell."}, {"id": "hands", "label": "Fingers and tongue", "hint": "How notes begin and change."}, {"id": "life", "label": "Life", "hint": "What the player's body does to a held note. All at zero is a perfectly still player."}], "controls": [{"key": "WindMouth", "label": "Mouth shape", "group": "player", "lo": "oo", "hi": "ee", "says": "The vowel the mouth makes, heard as two resonances that stay at the same frequencies whatever the note: oo at one end, ah in the middle, ee at the other. It can be played while holding a note.", "def": 0.5}, {"key": "WindMouthDepth", "label": "Mouth strength", "group": "player", "lo": "open throat", "hi": "strong vowel", "says": "How strongly that vowel colours the sound, up to 10 dB at its upper resonance. At 0 the mouth is neutral. It does not change tuning.", "def": 0.3}, {"key": "WindBite", "label": "Embouchure", "group": "player", "lo": "tight", "hi": "loose", "says": "How open the reed tip is held. Looser is louder and brighter, tighter is smaller and darker.", "def": 0.4}, {"key": "WindAir", "label": "Air", "group": "player", "lo": "clean", "hi": "breathy", "says": "Turbulence in the air stream past the reed. It rides on the flow, so it pulses with each cycle and is heard through the horn, not laid on top. It is stronger low down and cleaner up high, as measured on saxophones.", "def": 0.707}, {"key": "WindReed", "label": "Reed", "group": "mouthpiece", "lo": "soft", "hi": "hard", "says": "How abruptly the reed closes against the mouthpiece. A soft, gradual closing rounds the tone, an abrupt one adds edge.", "def": 0.473}, {"key": "WindChamber", "label": "Chamber", "group": "mouthpiece", "lo": "large", "hi": "small", "says": "The volume inside the mouthpiece, which stands in for the missing tip of the cone. Large is darker and more spread, small is tighter and more focused. Well below this range the low notes jump to their octave.", "def": 0.625}, {"key": "WindBaffle", "label": "Baffle", "group": "mouthpiece", "lo": "low", "hi": "high", "says": "How far up the spectrum the chamber keeps absorbing. A high baffle lets the upper harmonics through: more buzz and cut.", "def": 0.586}, {"key": "WindCone", "label": "Cone", "group": "horn", "lo": "slender", "hi": "stubby", "says": "How much of the cone is cut off at the top. It sets how long the reed stays closed in each cycle, and so which harmonics are hollowed out: near 0.33 the third is weak, toward 0.5 the even ones go, as on a clarinet.", "def": 0.5}, {"key": "WindHoles", "label": "Tone holes", "group": "horn", "lo": "covered", "hi": "open", "says": "The frequency above which sound leaves through the open holes instead of travelling back up the horn. Higher gives more ringing upper harmonics and a little less level.", "def": 0.431}, {"key": "WindBell", "label": "Bell", "group": "horn", "lo": "dark", "hi": "bright", "says": "A plain tilt of the radiated sound. It changes nothing in how the horn plays.", "def": 0.571}, {"key": "WindBody", "label": "Body", "group": "horn", "lo": "plain", "hi": "full", "says": "Peaks and dips that stay at the same frequencies whatever the note: a hump near 450 Hz, a dip near 800 Hz, humps from 1.6 to 3 kHz, less above 5 kHz. Every collected saxophone has such a pattern; without it this model had less than any of them.", "def": 0.5}, {"key": "WindBodySize", "label": "Body size", "group": "horn", "lo": "large", "hi": "small", "says": "Slides the whole body pattern down (a larger body) or up (a smaller one). It already moves with the range: lower for baritone notes, higher for alto and soprano notes.", "def": 0.468}, {"key": "WindFingers", "label": "Fingers", "group": "hands", "lo": "snappy", "hi": "lazy", "says": "How long a key takes to open or close in a slur. During that time the horn has two lengths at once, as with a half-open hole.", "def": 0.523}, {"key": "WindTongue", "label": "Tongue", "group": "hands", "lo": "hard", "hi": "soft", "says": "How fast the tongue leaves the reed at the start of a tongued note.", "def": 0.398}, {"key": "WindChiff", "label": "Chiff", "group": "hands", "lo": "clean", "hi": "breathy", "says": "A rush of air when a note starts after the tongue or a rest. Its colour is set by Chiff colour; at the top of the range the start is blurred but louder than the note.", "def": 0.267}, {"key": "WindChiffColor", "label": "Chiff colour", "group": "hands", "lo": "reed", "hi": "air", "says": "What the onset air sounds like. Reed: darker, rougher noise, mostly through the horn, as a saxophone or clarinet starts. Air: a bright hiss heard directly, as a flute starts.", "def": 0.0}, {"key": "WindBloom", "label": "Bloom", "group": "hands", "lo": "instant", "hi": "slow", "says": "After a tongued start the sound opens from dark to full over this time, as a saxophone's upper harmonics arrive after its fundamental. At instant, all harmonics start together.", "def": 0.45}, {"key": "WindKeyNoise", "label": "Key noise", "group": "hands", "lo": "silent", "hi": "noisy", "says": "A smaller rush of air when the fingers move in a slur, as the air finds the new note.", "def": 0.3}, {"key": "WindWobble", "label": "Wobble", "group": "life", "lo": "steady", "hi": "restless", "says": "Slow random movement of the breath, so a held note's level never sits still. The collected saxophones move about 1.4 dB within a note; this model moved 0.2.", "def": 0.167}, {"key": "WindShimmer", "label": "Shimmer", "group": "life", "lo": "fixed", "hi": "shifting", "says": "Slow random movement of the embouchure, so the balance of harmonics shifts a little on its own, apart from loudness.", "def": 0.16}, {"key": "WindDrift", "label": "Pitch drift", "group": "life", "lo": "locked", "hi": "loose", "says": "Slow random movement of pitch, a few cents either way.", "def": 0.2}, {"key": "WindVibrato", "label": "Vibrato", "group": "life", "lo": "none", "hi": "wide", "says": "Vibrato that grows in after a note has been held a quarter of a second. Turn it off if you play your own.", "def": 0.0}, {"key": "WindVibRate", "label": "Vibrato rate", "group": "life", "lo": "slow", "hi": "fast", "says": "How fast the vibrato turns. Rate is a personal trait: it does not follow pitch or tempo.", "def": 0.425}, {"key": "WindSlur", "label": "Slur", "group": "life", "lo": "seamless", "hi": "articulated", "says": "How much the breath gives for a moment when the fingers move in a slur. The collected saxophones dip about 4 dB at a slurred note change; this model dipped 0.2.", "def": 0.357}]};
+const WIND_BY_KEY=Object.fromEntries(WIND.controls.map(c=>[c.key,c]));
+// A position reads as how far it leans to one end, in that end's own word: "62% ee", "80% tight".
+function windFmt(key,v){ const c=WIND_BY_KEY[key]; if(!c) return v.toFixed(2);
+  const d=Math.round((v-0.5)*200); return d===0 ? 'middle' : Math.abs(d)+'% '+(d<0?c.lo:c.hi); }
+function windSlider(c,color){
+  return `<div class="pslider" data-pk="${c.key}" style="grid-column:1/-1">
+    <div class="top"><span class="lbl">${c.label}</span>
+      <span class="valwrap">
+        <button class="stepper" data-step="-1" aria-label="decrease">−</button>
+        <span class="val num" tabindex="0">…</span>
+        <button class="stepper" data-step="1" aria-label="increase">+</button>
+      </span></div>
+    <div class="track" role="slider" aria-label="${c.label}, from ${c.lo} to ${c.hi}">
+      <div class="fill" style="background:var(${color})"></div>
+      <div class="thumb" style="border-color:var(${color})"></div>
+    </div>
+    <div class="num" style="display:flex;justify-content:space-between;color:var(--vn-text);font-size:12px;padding-top:3px"><span>${c.lo}</span><span>${c.hi}</span></div>
+    <div class="num" style="color:var(--vn-muted);font-size:12px;padding-top:3px">${c.says}</div></div>`;
+}
+function windReset(){ for(const c of WIND.controls){ state.patch[c.key]=c.def; Bridge.send('setParam',{id:c.key,value:c.def}); } markDirty(); renderPatch(); }
+function windPanel(){
+  return WIND.groups.map((g,gi)=>`<div class="num" style="grid-column:1/-1;color:var(--vn-text);font-size:12px;padding-top:10px"><b>${g.label}</b> <span style="color:var(--vn-muted)">${g.hint}</span></div>`
+    + WIND.controls.filter(c=>c.group===g.id).map(c=>windSlider(c, gi%2 ? '--vn-breath' : '--vn-expr')).join('')).join('')
+    + `<div class="pslider" style="grid-column:1/-1"><div class="seg" style="width:100%"><button onclick="windReset()" style="flex:1">Reset character to default</button></div>
+       <div class="num" style="color:var(--vn-muted);font-size:12px;padding-top:5px">Tuning and level are corrected as each control moves, to within about 10 cents. Embouchure, Reed Stiffness and the other MiniSax sliders do nothing in WindCore, so they are hidden here.</div></div>`;
+}
 function pslider(key,label,color="--vn-breath"){
   return `<div class="pslider" data-pk="${key}">
     <div class="top"><span class="lbl">${label}</span>
@@ -1135,13 +1168,19 @@ function renderPatch(){
       <div class="pslider" style="grid-column:1/-1">
         <div class="top"><span class="lbl">Reed / Bore Engine</span></div>
         <div class="seg" style="width:100%">${["Off","On"].map((n,i)=>`<button class="${Math.round(state.patch.WaveguideOn)===i?'active':''}" onclick="setChoice('WaveguideOn',${i})" style="flex:1">${n}</button>`).join('')}</div>
-        <div class="num" style="color:var(--vn-muted);font-size:12px;padding-top:5px">Replaces the wavetable oscillator with a reed/bore model (MiniSax). Breath blows the reed directly — dynamics, subtone below the speaking threshold, and rearticulation come from the model itself; no VCA routing needed.</div>
+        <div class="num" style="color:var(--vn-muted);font-size:12px;padding-top:5px">Replaces the wavetable oscillator with a reed/bore model (choose the model below). Breath blows the reed directly — dynamics, subtone below the speaking threshold, and rearticulation come from the model itself; no VCA routing needed.</div>
       </div>
       ${Math.round(state.patch.WaveguideOn)===1 ? `
+        <div class="pslider" style="grid-column:1/-1">
+          <div class="top"><span class="lbl">Model</span></div>
+          <div class="seg" style="width:100%">${["MiniSax","WindCore"].map((n,i)=>`<button class="${Math.round(state.patch.WgModel||0)===i?'active':''}" onclick="setChoice('WgModel',${i})" style="flex:1">${n}</button>`).join('')}</div>
+          <div class="num" style="color:var(--vn-muted);font-size:12px;padding-top:5px"><b style="color:var(--vn-text)">MiniSax</b> is Vane's first reed/bore model. <b style="color:var(--vn-text)">WindCore</b> is a reed, cone and mouth model with character controls (plugin builds only; this browser version plays MiniSax).</div>
+        </div>
+        ${Math.round(state.patch.WgModel||0)===1 ? windPanel() : `
         ${pslider('WgEmbouchure','Embouchure','--vn-expr')}${pslider('WgReedStiff','Reed Stiffness','--vn-expr')}
         ${pslider('WgReedAperture','Reed Aperture','--vn-expr')}${pslider('WgBoreDamping','Bore Damping','--vn-expr')}
         ${pslider('WgBellBright','Bell Brightness','--vn-expr')}${pslider('WgConical','Conical Amount','--vn-expr')}
-        ${pslider('WgBreathNoise','Breath Noise','--vn-expr')}${pslider('WgGrowl','Growl','--vn-expr')}
+        ${pslider('WgBreathNoise','Breath Noise','--vn-expr')}${pslider('WgGrowl','Growl','--vn-expr')}`}
         <div class="pslider" style="grid-column:1/-1">
           <div class="top"><span class="lbl">Synthetic Breath</span></div>
           <div class="seg" style="width:100%">${["Off","Auto","Always"].map((n,i)=>`<button class="${Math.round(state.patch.SbMode)===i?'active':''}" onclick="setChoice('SbMode',${i})" style="flex:1">${n}</button>`).join('')}</div>
@@ -1170,6 +1209,10 @@ function renderPatch(){
            ${pslider('Vowel','Open (close→open)','--vn-breath')}${pslider('VowFront','Front (back→front)','--vn-breath')}${pslider('VowRound','Round','--vn-breath')}`}
       ${pslider('VowelAmt','Amount','--vn-breath')}${pslider('VowelBite','Bite','--vn-breath')}
       ${pslider('VowelMove','Move','--vn-breath')}
+    </div>
+    <div class="group ${collapsed['Room']?'collapsed':''}" data-grp="Room">${gh('Room')}
+      ${pslider('RoomMix','Mix','--vn-expr')}${pslider('RoomSize','Size','--vn-expr')}${pslider('RoomTone','Tone','--vn-expr')}
+      <div class="num" style="grid-column:1/-1;color:var(--vn-muted);font-size:12px">The space the instrument sounds in, as a close microphone hears it: early reflections and a short tail. Acoustic models such as WindCore sound much more like a real instrument with a little room. Mix 0 is off.</div>
     </div>
     <div class="group ${collapsed['Performance']?'collapsed':''}" data-grp="Performance">${gh('Performance')}
       ${pslider('Output','Output','--vn-pressure')}${pslider('VelVCA','Vel → VCA','--vn-pressure')}
