@@ -650,12 +650,14 @@ input,textarea,[contenteditable]{ -webkit-user-select:text; user-select:text; -w
 // 0-6 = fixed per-note MPE set + breath/expr; 7-14 = configurable global aux
 // sources (controller profiles — encoders, accelerometers, second breath…).
 const AUX = ["Aux 1","Aux 2","Aux 3","Aux 4","Aux 5","Aux 6","Aux 7","Aux 8"];
-const SOURCES = ["Off","Breath","Expression","Pressure","Slide","Pitchbend","Velocity",...AUX,"Keytrack"];
+const SOURCES = ["Off","Breath","Expression","Pressure","Slide","Pitchbend","Velocity",...AUX,"Keytrack","Voice Vowel","Voice Level","Voice Brightness"];
 const SRC_DOT = {Breath:"breath",Expression:"expr",Pressure:"pressure",Slide:"slide",Pitchbend:"bend",Velocity:"vel"};
 const SRC_CC  = {Breath:"CC2",Expression:"CC11",Pressure:"MPE Z",Slide:"CC74",Pitchbend:"PB",Velocity:"vel"};
 const SRC_COLOR={Breath:"--vn-breath",Expression:"--vn-expr",Pressure:"--vn-pressure",Slide:"--vn-slide",Pitchbend:"--vn-bend",Velocity:"--vn-vel"};
 AUX.forEach(a=>{ SRC_COLOR[a]="--vn-muted"; SRC_CC[a]="CC?"; });   // bound via the Controllers profile (next phase)
 SRC_COLOR["Keytrack"]="--vn-pressure"; SRC_CC["Keytrack"]="note";   // per-note pitch source (bipolar)
+// A voice on the plugin's audio input (plugin builds; see Vane docs/voice-input.md): its vowel (oo 0, ah .5, ee 1), its level, and how bright its last consonant was.
+["Voice Vowel","Voice Level","Voice Brightness"].forEach(v=>{ SRC_COLOR[v]="--vn-expr"; SRC_CC[v]="voice"; });
 const BINDABLE = {Breath:true,Expression:true};   // these sources expose a CC# binding
 const DESTS   = ["VCA","Cutoff","Reso","Pitch","Morph","PW","Fold","Noise","Inharm","Sync","Transient","Uni Detune","Vowel",
                   "Wg Embouchure","Wg Reed Stiff","Wg Aperture","Wg Damping","Wg Bell","Wg Conical","Wg Breath Noise","Wg Growl",
@@ -690,7 +692,7 @@ const state = {
           Glide:0,GlideMode:0,GlideCurve:0,MasterTune:0,UniVox:0,UniDet:14,UniWid:0.7,UniMode:0,
           VowelEn:0,VowelMode:0,Vowel:0.5,VowFront:0.5,VowRound:0,VowelAmt:1,VowelBite:0.5,VowelMove:0,
           WaveguideOn:0,WgModel:0,WgEmbouchure:0.5,WgReedStiff:0.5,WgReedAperture:0.5,WgBoreDamping:0.2,
-          WgBellBright:0.7,WgConical:0.62,WgBreathNoise:0.05,WgGrowl:0.0,
+          WgBellBright:0.7,WgConical:0.62,WgBreathNoise:0.05,WgGrowl:0.0,VoiceTongue:0,VoiceChiff:0,
           WindMouth:0.500,WindMouthDepth:0.300,WindBite:0.400,WindResponse:0.571,WindWeight:0.250,WindAir:0.200,WindReed:0.473,WindChamber:0.625,WindBaffle:0.586,WindCone:0.500,WindHoles:0.431,WindBell:0.571,WindBody:0.500,WindBodySize:0.468,WindFingers:0.523,WindTongue:0.398,WindChiff:0.100,WindChiffColor:0.000,WindBloom:0.450,WindScoop:0.389,WindKeyNoise:0.200,WindWobble:0.167,WindShimmer:0.160,WindDrift:0.200,WindVibrato:0.000,WindVibRate:0.425,WindSlur:0.357,
           SbMode:1,SbAtk:35,SbDec:120,SbSus:0.80,SbRel:180 },
   slots: Array.from({length:NUM_SLOTS},()=>({src:0,dst:0,amt:0,curve:0,scale:0,atk:5,rel:80,on:true,anchors:[]})),
@@ -1062,6 +1064,7 @@ const FMT={ Cutoff:v=>Math.round(v)+' Hz', Detune:v=>v.toFixed(0)+' ¢', MasterT
   WgReedAperture:v=>Math.round(v*100)+'%', WgBoreDamping:v=>Math.round(v*100)+'%',
   WgBellBright:v=>Math.round(v*100)+'%', WgConical:v=>Math.round(v*100)+'%',
   WgBreathNoise:v=>Math.round(v*100)+'%', WgGrowl:v=>Math.round(v*100)+'%',
+  VoiceChiff:v=>v<0.025?'as Chiff':v.toFixed(1),
   RoomMix:v=>v<0.005?'off':Math.round(v*100)+'%', RoomSize:v=>v<0.33?'booth':v<0.66?'room':'hall', RoomTone:v=>v<0.33?'dark':v<0.66?'natural':'bright',
   WindMouth:v=>windFmt('WindMouth',v), WindMouthDepth:v=>windFmt('WindMouthDepth',v), WindBite:v=>windFmt('WindBite',v), WindResponse:v=>windFmt('WindResponse',v), WindWeight:v=>windFmt('WindWeight',v), WindAir:v=>windFmt('WindAir',v), WindReed:v=>windFmt('WindReed',v), WindChamber:v=>windFmt('WindChamber',v), WindBaffle:v=>windFmt('WindBaffle',v), WindCone:v=>windFmt('WindCone',v), WindHoles:v=>windFmt('WindHoles',v), WindBell:v=>windFmt('WindBell',v), WindBody:v=>windFmt('WindBody',v), WindBodySize:v=>windFmt('WindBodySize',v), WindFingers:v=>windFmt('WindFingers',v), WindTongue:v=>windFmt('WindTongue',v), WindChiff:v=>windFmt('WindChiff',v), WindChiffColor:v=>windFmt('WindChiffColor',v), WindBloom:v=>windFmt('WindBloom',v), WindScoop:v=>windFmt('WindScoop',v), WindKeyNoise:v=>windFmt('WindKeyNoise',v), WindWobble:v=>windFmt('WindWobble',v), WindShimmer:v=>windFmt('WindShimmer',v), WindDrift:v=>windFmt('WindDrift',v), WindVibrato:v=>windFmt('WindVibrato',v), WindVibRate:v=>windFmt('WindVibRate',v), WindSlur:v=>windFmt('WindSlur',v),
   SbAtk:v=>Math.round(v)+' ms', SbDec:v=>Math.round(v)+' ms',
@@ -1073,7 +1076,7 @@ const RANGE={ Morph:[0,1,.001], PW:[0.5,0.999,.001], Fold:[0,1,.01], Inharm:[0,1
   UniDet:[0,50,1], UniWid:[0,1,.01],
   Vowel:[0,1,.01], VowFront:[0,1,.01], VowRound:[0,1,.01], VowelAmt:[0,1,.01], VowelBite:[0,1,.01], VowelMove:[0,1,.01],
   WgEmbouchure:[0,1,.01], WgReedStiff:[0,1,.01], WgReedAperture:[0,1,.01], WgBoreDamping:[0,1,.01],
-  WgBellBright:[0,1,.01], WgConical:[0,1,.01], WgBreathNoise:[0,1,.01], WgGrowl:[0,1,.01],
+  WgBellBright:[0,1,.01], WgConical:[0,1,.01], WgBreathNoise:[0,1,.01], WgGrowl:[0,1,.01], VoiceChiff:[0,3,.05],
   WindMouth:[0,1,.01], WindMouthDepth:[0,1,.01], WindBite:[0,1,.01], WindResponse:[0,1,.01], WindWeight:[0,1,.01], WindAir:[0,1,.01], WindReed:[0,1,.01], WindChamber:[0,1,.01], WindBaffle:[0,1,.01], WindCone:[0,1,.01], WindHoles:[0,1,.01], WindBell:[0,1,.01], WindBody:[0,1,.01], WindBodySize:[0,1,.01], WindFingers:[0,1,.01], WindTongue:[0,1,.01], WindChiff:[0,1,.01], WindChiffColor:[0,1,.01], WindBloom:[0,1,.01], WindScoop:[0,1,.01], WindKeyNoise:[0,1,.01], WindWobble:[0,1,.01], WindShimmer:[0,1,.01], WindDrift:[0,1,.01], WindVibrato:[0,1,.01], WindVibRate:[0,1,.01], WindSlur:[0,1,.01],
   SbAtk:[1,500,1], SbDec:[1,1000,1], SbSus:[0,1,.01], SbRel:[1,2000,5] };
 // Sliders that map exponentially (log) — most of the musical action is low.
@@ -1109,6 +1112,11 @@ function windReset(){ for(const c of WIND.controls){ state.patch[c.key]=c.def; B
 function windPanel(){
   return WIND.groups.map((g,gi)=>`<div class="num" style="grid-column:1/-1;color:var(--vn-text);font-size:12px;padding-top:10px"><b>${g.label}</b> <span style="color:var(--vn-muted)">${g.hint}</span></div>`
     + WIND.controls.filter(c=>c.group===g.id).map(c=>windSlider(c, gi%2 ? '--vn-breath' : '--vn-expr')).join('')).join('')
+    + `<div class="num" style="grid-column:1/-1;color:var(--vn-text);font-size:12px;padding-top:10px"><b>Voice</b> <span style="color:var(--vn-muted)">A voice on the plugin's audio input (the Standalone app's input, unmuted; headphones please) articulates the notes.</span></div>
+       <div class="pslider" style="grid-column:1/-1"><div class="top"><span class="lbl">Voice tongue</span></div>
+         <div class="seg" style="width:100%">${["Off","On"].map((n,i)=>`<button class="${Math.round(state.patch.VoiceTongue||0)===i?'active':''}" onclick="setChoice('VoiceTongue',${i})" style="flex:1">${n}</button>`).join('')}</div>
+         <div class="num" style="color:var(--vn-muted);font-size:12px;padding-top:5px">On: the reed stops while your mouth is closed and starts again at each consonant ("t", "k", "p"), so with no voice there is no sound. The vowel is a modulation route: Voice Vowel to Wind Mouth, and Voice Level to Wind Mouth Strength, with Mouth shape at oo.</div></div>`
+    + pslider('VoiceChiff','Voice onset noise','--vn-expr')
     + `<div class="pslider" style="grid-column:1/-1"><div class="seg" style="width:100%"><button onclick="windReset()" style="flex:1">Reset character to default</button></div>
        <div class="num" style="color:var(--vn-muted);font-size:12px;padding-top:5px">Tuning and level are corrected as each control moves, to within about 10 cents. Embouchure, Reed Stiffness and the other MiniSax sliders do nothing in WindCore, so they are hidden here.</div></div>`;
 }
