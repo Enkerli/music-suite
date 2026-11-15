@@ -650,7 +650,7 @@ input,textarea,[contenteditable]{ -webkit-user-select:text; user-select:text; -w
 // 0-6 = fixed per-note MPE set + breath/expr; 7-14 = configurable global aux
 // sources (controller profiles — encoders, accelerometers, second breath…).
 const AUX = ["Aux 1","Aux 2","Aux 3","Aux 4","Aux 5","Aux 6","Aux 7","Aux 8"];
-const SOURCES = ["Off","Breath","Expression","Pressure","Slide","Pitchbend","Velocity",...AUX,"Keytrack","Voice Vowel","Voice Level","Voice Brightness"];
+const SOURCES = ["Off","Breath","Expression","Pressure","Slide","Pitchbend","Velocity",...AUX,"Keytrack","Voice Vowel","Voice Level","Voice Brightness","Input 1","Input 2"];
 const SRC_DOT = {Breath:"breath",Expression:"expr",Pressure:"pressure",Slide:"slide",Pitchbend:"bend",Velocity:"vel"};
 const SRC_CC  = {Breath:"CC2",Expression:"CC11",Pressure:"MPE Z",Slide:"CC74",Pitchbend:"PB",Velocity:"vel"};
 const SRC_COLOR={Breath:"--vn-breath",Expression:"--vn-expr",Pressure:"--vn-pressure",Slide:"--vn-slide",Pitchbend:"--vn-bend",Velocity:"--vn-vel"};
@@ -660,6 +660,8 @@ SRC_COLOR["Keytrack"]="--vn-pressure"; SRC_CC["Keytrack"]="note";   // per-note 
 ["Voice Vowel","Voice Level","Voice Brightness"].forEach(v=>{ SRC_CC[v]="voice"; });
 Object.assign(SRC_COLOR,{"Voice Vowel":"--vn-slide","Voice Level":"--vn-expr","Voice Brightness":"--vn-vel"});
 Object.assign(SRC_DOT,{"Voice Vowel":"slide","Voice Level":"expr","Voice Brightness":"vel"});
+// The audio input's two channels as control signals, DC kept (a control voltage on a DC-coupled input). Bipolar.
+["Input 1","Input 2"].forEach(v=>{ SRC_COLOR[v]="--vn-pressure"; SRC_CC[v]="CV"; });
 const BINDABLE = {Breath:true,Expression:true};   // these sources expose a CC# binding
 const DESTS   = ["VCA","Cutoff","Reso","Pitch","Morph","PW","Fold","Noise","Inharm","Sync","Transient","Uni Detune","Vowel",
                   "Wg Embouchure","Wg Reed Stiff","Wg Aperture","Wg Damping","Wg Bell","Wg Conical","Wg Breath Noise","Wg Growl",
@@ -1355,7 +1357,7 @@ function anchorsForSlot(s){
             :               [{x:.5,y:.5}];             // Lin → identity
   return s.anchors;
 }
-const curveIsBipolar = name => name==='Pitchbend' || name==='Keytrack';
+const curveIsBipolar = name => name==='Pitchbend' || name==='Keytrack' || name==='Input 1' || name==='Input 2';
 function curvePts(a){
   const p=(a&&a.length?a:[{x:.5,y:.5}]).map(q=>({x:clamp(q.x,.012,.988),y:clamp(q.y,0,1)})).sort((u,v)=>u.x-v.x);
   return [{x:0,y:0},...p,{x:1,y:1}];
