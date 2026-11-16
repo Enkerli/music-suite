@@ -1124,7 +1124,7 @@ function windReset(){ for(const c of WIND.controls){ state.patch[c.key]=c.def; B
 function windPanel(){
   return WIND.groups.map((g,gi)=>`<div class="num" style="grid-column:1/-1;color:var(--vn-text);font-size:12px;padding-top:10px"><b>${g.label}</b> <span style="color:var(--vn-muted)">${g.hint}</span></div>`
     + WIND.controls.filter(c=>c.group===g.id).map(c=>windSlider(c, gi%2 ? '--vn-breath' : '--vn-expr')).join('')).join('')
-    + `<div class="num" style="grid-column:1/-1;color:var(--vn-text);font-size:12px;padding-top:10px"><b>Voice</b> <span style="color:var(--vn-muted)">A voice on the plugin's audio input (the Standalone app's input, unmuted; headphones please) articulates the notes.</span></div>
+    + `<div class="num" style="grid-column:1/-1;color:var(--vn-text);font-size:12px;padding-top:10px"><b>Voice</b> <span style="color:var(--vn-muted)">A voice on the audio input articulates the notes: the plugin's input, or in this browser version the Mic chip at the top (headphones please).</span></div>
        <div class="pslider" style="grid-column:1/-1"><div class="top"><span class="lbl">Voice tongue</span></div>
          <div class="seg" style="width:100%">${["Off","On"].map((n,i)=>`<button class="${Math.round(state.patch.VoiceTongue||0)===i?'active':''}" onclick="setChoice('VoiceTongue',${i})" style="flex:1">${n}</button>`).join('')}</div>
          <div class="num" style="color:var(--vn-muted);font-size:12px;padding-top:5px">On: the reed stops while your mouth is closed and starts again at each consonant ("t", "k", "p"), so with no voice there is no sound. </div></div>`
@@ -1208,7 +1208,7 @@ function renderPatch(){
         <div class="pslider" style="grid-column:1/-1">
           <div class="top"><span class="lbl">Model</span></div>
           <div class="seg" style="width:100%">${["MiniSax","WindCore"].map((n,i)=>`<button class="${Math.round(state.patch.WgModel||0)===i?'active':''}" onclick="setChoice('WgModel',${i})" style="flex:1">${n}</button>`).join('')}</div>
-          <div class="num" style="color:var(--vn-muted);font-size:12px;padding-top:5px"><b style="color:var(--vn-text)">MiniSax</b> is Vane's first reed/bore model. <b style="color:var(--vn-text)">WindCore</b> (the default) is a reed, cone and mouth model with character controls, here and in the plugin. The voice controls need the plugin's audio input.</div>
+          <div class="num" style="color:var(--vn-muted);font-size:12px;padding-top:5px"><b style="color:var(--vn-text)">MiniSax</b> is Vane's first reed/bore model. <b style="color:var(--vn-text)">WindCore</b> (the default) is a reed, cone and mouth model with character controls, here and in the plugin. The voice controls need an audio input: the plugin's, or the Mic chip at the top of this page.</div>
         </div>
         ${Math.round(state.patch.WgModel||0)===1 ? windPanel() : `
         ${pslider('WgEmbouchure','Embouchure','--vn-expr')}${pslider('WgReedStiff','Reed Stiffness','--vn-expr')}

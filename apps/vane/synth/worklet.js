@@ -96,10 +96,21 @@ class VaneProcessor extends AudioWorkletProcessor {
     }
   }
 
-  process(_inputs, outputs) {
+  process(inputs, outputs) {
     const out = outputs[0];
     if (!this.ex || !out || out.length === 0) return true;
     const n = out[0].length;
+    // The microphone (or any input the page connects): its channels averaged, into the engine's input buffer,
+    // where the voice tracker reads it during vane_render. No input connected = no voice.
+    if (this.ex.vane_input_buffer) {
+      const inp = inputs && inputs[0];
+      if (inp && inp.length > 0 && inp[0].length >= n) {
+        const buf = new Float32Array(this.ex.memory.buffer, this.ex.vane_input_buffer(), n);
+        if (inp.length === 1) buf.set(inp[0].subarray(0, n));
+        else for (let i = 0; i < n; i++) { let s = 0; for (let c = 0; c < inp.length; c++) s += inp[c][i]; buf[i] = s / inp.length; }
+        if (!this.inputOn) { this.ex.vane_set_input_active(1); this.inputOn = true; }
+      } else if (this.inputOn) { this.ex.vane_set_input_active(0); this.inputOn = false; }
+    }
     this.ex.vane_render(n);
     // Re-derive the views each block: WASM memory can be detached/resized.
     // True stereo (unison width/chords pan sub-voices across the field);

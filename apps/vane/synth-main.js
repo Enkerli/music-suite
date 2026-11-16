@@ -72,6 +72,8 @@ const PARAM_MAP = { Cutoff: 1, Reso: 2, Output: 8, VelVCA: 9, Glide: 10,
                     SbMode: 55, SbAtk: 56, SbDec: 57, SbSus: 58, SbRel: 59,
                     // Waveguide model (0 MiniSax, 1 WindCore) and WindCore's character controls, each 0..1, in
                     // Vane's WindCore/character.json order (vane-dsp.cpp: kWindParam0 = 61).
+                    // The voice on the microphone (vane-dsp.cpp: [88..94]); the mic itself is the header's Mic chip.
+                    VoiceTongue: 88, VoiceChiff: 89, VoiceVowel: 90, VoiceUpper: 91, VoiceBreath: 92, VoicePitch: 93, VoiceTranspose: 94,
                     WgModel: 60,
                     WindMouth: 61, WindMouthDepth: 62, WindBite: 63, WindResponse: 64, WindWeight: 65, WindAir: 66, WindReed: 67, WindChamber: 68, WindBaffle: 69, WindCone: 70, WindHoles: 71, WindBell: 72, WindBody: 73, WindBodySize: 74, WindFingers: 75, WindTongue: 76, WindChiff: 77, WindChiffColor: 78, WindBloom: 79, WindScoop: 80, WindKeyNoise: 81, WindWobble: 82, WindShimmer: 83, WindDrift: 84, WindVibrato: 85, WindVibRate: 86, WindSlur: 87 };
 
@@ -382,7 +384,7 @@ async function ensureAudio() {
       ctx = new (window.AudioContext || window.webkitAudioContext)();
       ctx.onstatechange = () => reportAudioState();
       await ctx.audioWorklet.addModule(BASE + 'worklet.js?v=' + ASSET_V);
-      node = new AudioWorkletNode(ctx, 'vane-voice', { numberOfInputs: 0, outputChannelCount: [2] });
+      node = new AudioWorkletNode(ctx, 'vane-voice', { numberOfInputs: 1, outputChannelCount: [2] });
       node.connect(ctx.destination);
       // Control plane: workspace/bus `param` messages drive the voice (once).
       if (!busConnected) { connectVane({ post }); busConnected = true; }
@@ -415,6 +417,28 @@ function reportAudioState() {
                                     : 'click/tap the page to enable audio');
 }
 const startAudio = ensureAudio;   // existing call sites keep working
+
+// ── Microphone: a voice on the input (Voice controls, Voice Pitch, Input 1/2) ──
+// Off until asked for (the browser asks permission). Raw input: no echo cancellation, noise suppression or
+// automatic gain, which would fight the tracker. Use headphones: the synth is not subtracted from the mic.
+let micStream = null, micSource = null;
+async function setMic(on) {
+  if (on) {
+    await ensureAudio();
+    if (!ctx || !node) return false;
+    try {
+      micStream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false, channelCount: 1 } });
+    } catch (e) { setStatus('microphone unavailable: ' + (e && e.message || e)); return false; }
+    micSource = ctx.createMediaStreamSource(micStream);
+    micSource.connect(node);
+    setStatus('microphone on · headphones please');
+    return true;
+  }
+  if (micSource) { try { micSource.disconnect(); } catch {} micSource = null; }
+  if (micStream) { micStream.getTracks().forEach((t) => t.stop()); micStream = null; }
+  reportAudioState();
+  return false;
+}
 
 async function startMidi() {
   const res = await connect({ sysex: false }).catch((e) => ({ _err: e }));
@@ -544,18 +568,26 @@ function buildChrome() {
   midiBtn.style.cssText = 'color:var(--vn-muted);font-size:10px;cursor:pointer;text-transform:uppercase;letter-spacing:.04em';
   midiBtn.onclick = async () => { const n = await copyMidiLog(); const o = midiBtn.textContent; midiBtn.textContent = 'copied ' + n; setTimeout(() => { midiBtn.textContent = o; }, 1400); };
 
+  // Mic: the voice input (off by default; the browser asks for permission the first time)
+  const micBtn = document.createElement('span');
+  micBtn.textContent = '○ Mic';
+  micBtn.title = 'Use the microphone as the voice input (Voice controls in the WindCore panel, Voice Pitch, Input 1/2). Headphones please.';
+  micBtn.style.cssText = 'color:var(--vn-muted);font-size:10px;cursor:pointer;text-transform:uppercase;letter-spacing:.04em';
+  micBtn.onclick = async () => { const on = await setMic(!micStream); micBtn.textContent = on ? '● Mic' : '○ Mic'; micBtn.style.color = on ? 'var(--vn-text)' : 'var(--vn-muted)'; };
+
   const header = document.querySelector('.header');
   if (header) {
+    micBtn.className = 'chip';
     chip.className = 'chip'; chip.style.cursor = 'default';                 // reuse the page's chip styling
     velChip.className = 'chip';
     buildChip.className = 'chip';
     midiBtn.className = 'chip';
-    header.append(chip, velChip, midiBtn, buildChip);
+    header.append(chip, velChip, micBtn, midiBtn, buildChip);
   } else {                                   // defensive fallback — bottom corner, out of the way
     const bar = document.createElement('div');
     bar.style.cssText = 'position:fixed;bottom:8px;right:8px;z-index:9999;display:flex;gap:8px;align-items:center;' +
       'font:11px/1.4 system-ui;background:rgba(20,18,16,.85);color:#e8e2d6;padding:6px 10px;border-radius:8px';
-    bar.append(chip, velChip, midiBtn, buildChip);
+    bar.append(chip, velChip, micBtn, midiBtn, buildChip);
     document.body.appendChild(bar);
   }
 }
