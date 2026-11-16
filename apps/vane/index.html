@@ -1208,7 +1208,7 @@ function renderPatch(){
         <div class="pslider" style="grid-column:1/-1">
           <div class="top"><span class="lbl">Model</span></div>
           <div class="seg" style="width:100%">${["MiniSax","WindCore"].map((n,i)=>`<button class="${Math.round(state.patch.WgModel||0)===i?'active':''}" onclick="setChoice('WgModel',${i})" style="flex:1">${n}</button>`).join('')}</div>
-          <div class="num" style="color:var(--vn-muted);font-size:12px;padding-top:5px"><b style="color:var(--vn-text)">MiniSax</b> is Vane's first reed/bore model. <b style="color:var(--vn-text)">WindCore</b> is a reed, cone and mouth model with character controls (plugin builds only; this browser version plays MiniSax).</div>
+          <div class="num" style="color:var(--vn-muted);font-size:12px;padding-top:5px"><b style="color:var(--vn-text)">MiniSax</b> is Vane's first reed/bore model. <b style="color:var(--vn-text)">WindCore</b> (the default) is a reed, cone and mouth model with character controls, here and in the plugin. The voice controls need the plugin's audio input.</div>
         </div>
         ${Math.round(state.patch.WgModel||0)===1 ? windPanel() : `
         ${pslider('WgEmbouchure','Embouchure','--vn-expr')}${pslider('WgReedStiff','Reed Stiffness','--vn-expr')}

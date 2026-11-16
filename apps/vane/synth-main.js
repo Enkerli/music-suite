@@ -69,7 +69,11 @@ const PARAM_MAP = { Cutoff: 1, Reso: 2, Output: 8, VelVCA: 9, Glide: 10,
                     GlideMode: 53, GlideCurve: 54,
                     // Synthetic breath — the stand-in wind source for note-only
                     // input (a sequencer sends no breath, expression or pressure).
-                    SbMode: 55, SbAtk: 56, SbDec: 57, SbSus: 58, SbRel: 59 };
+                    SbMode: 55, SbAtk: 56, SbDec: 57, SbSus: 58, SbRel: 59,
+                    // Waveguide model (0 MiniSax, 1 WindCore) and WindCore's character controls, each 0..1, in
+                    // Vane's WindCore/character.json order (vane-dsp.cpp: kWindParam0 = 61).
+                    WgModel: 60,
+                    WindMouth: 61, WindMouthDepth: 62, WindBite: 63, WindResponse: 64, WindWeight: 65, WindAir: 66, WindReed: 67, WindChamber: 68, WindBaffle: 69, WindCone: 70, WindHoles: 71, WindBell: 72, WindBody: 73, WindBodySize: 74, WindFingers: 75, WindTongue: 76, WindChiff: 77, WindChiffColor: 78, WindBloom: 79, WindScoop: 80, WindKeyNoise: 81, WindWobble: 82, WindShimmer: 83, WindDrift: 84, WindVibrato: 85, WindVibRate: 86, WindSlur: 87 };
 
 // Rotating-chord sequence parsing — the plugin's parseChordInterval semantics:
 // ';' separates harmony voices, ',' separates steps; each step is decimal
