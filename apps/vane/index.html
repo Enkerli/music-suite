@@ -1121,13 +1121,13 @@ function windSlider(c,color){
     <div class="num" style="color:var(--vn-muted);font-size:12px;padding-top:3px">${c.says}</div></div>`;
 }
 function windReset(){ for(const c of WIND.controls){ state.patch[c.key]=c.def; Bridge.send('setParam',{id:c.key,value:c.def}); } markDirty(); renderPatch(); }
-function windPanel(){
-  return WIND.groups.map((g,gi)=>`<div class="num" style="grid-column:1/-1;color:var(--vn-text);font-size:12px;padding-top:10px"><b>${g.label}</b> <span style="color:var(--vn-muted)">${g.hint}</span></div>`
-    + WIND.controls.filter(c=>c.group===g.id).map(c=>windSlider(c, gi%2 ? '--vn-breath' : '--vn-expr')).join('')).join('')
-    + `<div class="num" style="grid-column:1/-1;color:var(--vn-text);font-size:12px;padding-top:10px"><b>Voice</b> <span style="color:var(--vn-muted)">A voice on the audio input articulates the notes: the plugin's input, or in this browser version the Mic chip at the top (headphones please).</span></div>
+// The Voice controls: under WindCore when the reed sounds, under the Oscillator when it does not.
+function voicePanel(){
+  const osc=Math.round(state.patch.WaveguideOn)!==1;
+  return `<div class="num" style="grid-column:1/-1;color:var(--vn-text);font-size:12px;padding-top:10px"><b>Voice</b> <span style="color:var(--vn-muted)">A voice on the audio input articulates the notes: the plugin's input, or in this browser version the Mic chip at the top (headphones please).</span></div>
        <div class="pslider" style="grid-column:1/-1"><div class="top"><span class="lbl">Voice tongue</span></div>
          <div class="seg" style="width:100%">${["Off","On"].map((n,i)=>`<button class="${Math.round(state.patch.VoiceTongue||0)===i?'active':''}" onclick="setChoice('VoiceTongue',${i})" style="flex:1">${n}</button>`).join('')}</div>
-         <div class="num" style="color:var(--vn-muted);font-size:12px;padding-top:5px">On: the reed stops while your mouth is closed and starts again at each consonant ("t", "k", "p"), so with no voice there is no sound. </div></div>`
+         <div class="num" style="color:var(--vn-muted);font-size:12px;padding-top:5px">On: ${osc?'the oscillator is silent':'the reed stops'} while your mouth is closed and starts again at each consonant ("t", "k", "p"), so with no voice there is no sound. Each consonant also fires the Transient sample, if one is chosen. </div></div>`
     + `<div class="pslider" style="grid-column:1/-1"><div class="top"><span class="lbl">Voice pitch</span></div>
          <div class="seg" style="width:100%">${["Off","Notes","Glide"].map((n,i)=>`<button class="${Math.round(state.patch.VoicePitch||0)===i?'active':''}" onclick="setChoice('VoicePitch',${i})" style="flex:1">${n}</button>`).join('')}</div>
          <div class="num" style="color:var(--vn-muted);font-size:12px;padding-top:5px">Your sung pitch plays the notes, with no MIDI needed. Notes: a new note at each sung note (after a consonant, or on a clear move), with some of your pitch's movement as bend. Glide: the instrument follows your pitch continuously, smoothed by Voice pitch slew, with no re-attacks.</div></div>`
@@ -1139,12 +1139,17 @@ function windPanel(){
          <div class="seg" style="width:100%">${["Off","On"].map((n,i)=>`<button class="${Math.round(state.patch.VoiceMidiOut||0)===i?'active':''}" onclick="setChoice('VoiceMidiOut',${i})" style="flex:1">${n}</button>`).join('')}</div>
          <div class="num" style="color:var(--vn-muted);font-size:12px;padding-top:5px">Sends what your voice plays out of the plugin on channel 1, for other instruments: the notes and bends (with Voice pitch on), loudness as CC2, vowel as CC74, each consonant's brightness as CC71.</div></div>`
     + pslider('VoiceVowel','Voice vowel','--vn-expr')
-    + `<div class="num" style="grid-column:1/-1;color:var(--vn-muted);font-size:12px;padding:0 0 6px">The two vowel resonances sit on your own first two formants (any vowel) while your mouth is open, at this strength, up to 10 dB; it replaces Mouth shape and Mouth strength. Off at 0. For more, route Voice Vowel (back to front, scaled to the range you use), Voice Level or Voice Brightness in the modulation matrix.</div>`
-    + pslider('VoiceUpper','Voice upper formants','--vn-expr')
-    + `<div class="num" style="grid-column:1/-1;color:var(--vn-muted);font-size:12px;padding:0 0 6px">Adds your third and fourth formants to the first two on the vowel resonances: the vowel's upper colour, more continuous than two peaks. Needs Voice vowel above 0.</div>`
+    + `<div class="num" style="grid-column:1/-1;color:var(--vn-muted);font-size:12px;padding:0 0 6px">${osc?'Your first two formants set the Vowel filter (F1 opens it, F2 fronts it) at this strength, with the loudness kept the same; it works whether or not that filter is on, and replaces its Open and Front.':'The two vowel resonances sit on your own first two formants (any vowel) while your mouth is open, at this strength, up to 10 dB; it replaces Mouth shape and Mouth strength.'} Off at 0. For more, route Voice Vowel (back to front, scaled to the range you use), Voice Level or Voice Brightness in the modulation matrix.</div>`
+    + (osc ? '' : pslider('VoiceUpper','Voice upper formants','--vn-expr')   // WindCore's mouth only
+    + `<div class="num" style="grid-column:1/-1;color:var(--vn-muted);font-size:12px;padding:0 0 6px">Adds your third and fourth formants to the first two on the vowel resonances: the vowel's upper colour, more continuous than two peaks. Needs Voice vowel above 0.</div>`)
     + pslider('VoiceBreath','Voice breath follow','--vn-expr')
-    + `<div class="num" style="grid-column:1/-1;color:var(--vn-muted);font-size:12px;padding:0 0 6px">Your loudness is the breath: a quiet syllable is a quiet note, as with an envelope follower. Off at 0, where the breath is whatever your controller says. The sound trails your voice by about 50 ms.</div>`
-    + pslider('VoiceChiff','Voice onset noise','--vn-expr')
+    + `<div class="num" style="grid-column:1/-1;color:var(--vn-muted);font-size:12px;padding:0 0 6px">${osc?'Your loudness is the level: a quiet syllable is a quiet note, as with an envelope follower. Off at 0, where the level comes from velocity and the matrix (with neither, a voice patch needs this).':'Your loudness is the breath: a quiet syllable is a quiet note, as with an envelope follower. Off at 0, where the breath is whatever your controller says.'} The sound trails your voice by about 50 ms.</div>`
+    + (osc ? '' : pslider('VoiceChiff','Voice onset noise','--vn-expr'));   // WindCore's chiff
+}
+function windPanel(){
+  return WIND.groups.map((g,gi)=>`<div class="num" style="grid-column:1/-1;color:var(--vn-text);font-size:12px;padding-top:10px"><b>${g.label}</b> <span style="color:var(--vn-muted)">${g.hint}</span></div>`
+    + WIND.controls.filter(c=>c.group===g.id).map(c=>windSlider(c, gi%2 ? '--vn-breath' : '--vn-expr')).join('')).join('')
+    + voicePanel()
     + `<div class="pslider" style="grid-column:1/-1"><div class="seg" style="width:100%"><button onclick="windReset()" style="flex:1">Reset character to default</button></div>
        <div class="num" style="color:var(--vn-muted);font-size:12px;padding-top:5px">Tuning and level are corrected as each control moves, to within about 10 cents. Embouchure, Reed Stiffness and the other MiniSax sliders do nothing in WindCore, so they are hidden here.</div></div>`;
 }
@@ -1200,6 +1205,7 @@ function renderPatch(){
         <div class="seg">${["Detune","Chord"].map((n,i)=>`<button class="${Math.round(state.patch.UniMode)===i?'active':''}" onclick="setChoice('UniMode',${i})">${n}</button>`).join('')}</div></div>
       ${Math.round(state.patch.UniMode)===1 ? chordSeqEditorHTML() : pslider('UniDet','Uni Detune','--vn-slide')}
       ${pslider('UniWid','Uni Width','--vn-slide')}
+      ${Math.round(state.patch.WaveguideOn)===1 ? '' : voicePanel()}
     </div>
     <div class="group ${collapsed['Waveguide']?'collapsed':''}" data-grp="Waveguide">${gh('Waveguide')}
       <div class="pslider" style="grid-column:1/-1">
