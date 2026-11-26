@@ -528,7 +528,7 @@ preferences. The relevant keys hold JSON (or nested binary plists) as `Data`:
 | Key | Holds |
 |---|---|
 | `brainbud.scale` | JSON `{ description, intervals: [{ degree, quality, semitones }] }`, the scale BrainBud broadcasts |
-| `brainbud.key` | JSON `{ type, accidental }`: the key's letter (`type` 0 = C … 5 = A, 6 = B) and its accidental |
+| `brainbud.key` | JSON `{ type, accidental }`: `type` = the pitch class of the natural letter (C 0, D 2, E 4, F 5, G 7, A 9, B 11), `accidental` = semitones (B♭ = `{11, -1}`, F♯ = `{5, 1}`) |
 | `customScales` | binary plist: an array of user scales, same shape as `brainbud.scale` |
 | `scalePicker.favorites` | JSON: an array of scales |
 | `scaleFinder` | binary plist: `{ type: <scale>, key: <key> }` |
@@ -540,9 +540,9 @@ Observations:
   encoding: **0 diminished, 1 perfect, 2 minor, 3 major, 4 augmented**,
   consistent across every interval seen (P1 = 1, m2 = 2, M3 = 3, A4 = 4,
   d5 = 0). Codes for doubly-altered intervals are unseen.
-- **The accidental sign is unconfirmed.** The sample `brainbud.key` is
-  `{type: 5, accidental: 1}`: A with accidental +1, read as A♯ if positive
-  means sharp. Confirm by selecting B♭ in BrainBud and re-reading the key.
+- **Key encoding, confirmed** by selecting B♭ in BrainBud: `{type: 11,
+  accidental: -1}`. So `type` is the natural letter's pitch class, not a
+  letter index, and the earlier sample `{5, 1}` was F♯.
 - **Arbitrary sets are accepted.** The custom scale "Noodling" spells two
   intervals on degree 2 (m2 and M2) and two on degree 4 (P4 and A4). Since
   every interval also carries `semitones`, any 12-bit mask can be written
@@ -557,3 +557,10 @@ Observations:
 instead of a stale file, then send **PC 69 on ch 1** to the Bud apps. The
 next test is to write a non-catalogue set, such as Messiaen mode 3, and
 see whether ScaleBud 2 takes it.
+
+**Tooling:** `tools/budscale/budscale.py` reads and writes the shared scale
+as a suite mask (leftmost = LSB) and sends PC 69. It spells heptatonic sets
+structurally and other sets by a declared table. `messiaen3-test.sh` is
+the guided test: back up, write Messiaen mode 3 on C, the same set on B♭,
+then the same set with generic spelling (do the apps read `semitones` or
+degree/quality?), with a restore command at the end.
