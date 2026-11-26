@@ -495,3 +495,24 @@ The observation: PC 70 on ch 1 at every scale change, and no SysEx seen.
 If the scale lives in an App Group store, interop has to happen at the
 data-format level on the Mac, or through BrainBud's documented MIDI
 inputs, rather than on the wire.
+
+#### Result (2026-11-26)
+
+- **Trigger confirmed.** BrainBud was set to C Ionian ♯2 while ScaleBud 2
+  sat at its default, C major. `sendmidi dev "ScaleBud 2 MIDI In" ch 1 pc 69`
+  from an unrelated source then switched ScaleBud 2 to C Ionian ♯2. So the
+  program change carries no data and the scale lives elsewhere. (Wire value
+  69 = "70" in MIDI Monitor, which numbers programs from 1; ShowMIDI shows
+  the raw 69. `pc 70` does nothing.)
+- **Not documented in public repos.** Cem's open `MusicTheory` (Swift) has
+  no App Group, UserDefaults-suite or notification code. Its `Scale` is
+  `Codable` as `{ root, intervals, description }`, and its intervals are
+  *spelled* (quality + degree, semitones computed), which matches our
+  structural-spelling convention. The likeliest store is an App Group
+  container holding that encoding. Step 3 above, run on the Mac, will
+  confirm it.
+- **Interop path once it's confirmed:** read or write that store with a
+  small macOS bridge, then fire PC 69 on ch 1 to make the Bud apps reload.
+  Map `intervals` to a mask at the bridge with `@enkerli/theory`. The
+  spelling survives the trip, and arbitrary sets work as long as the Bud
+  apps accept arbitrary intervals.
