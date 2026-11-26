@@ -5,6 +5,10 @@
  * from source), plus @enkerli/ui's tokens.css, inlined into the template.
  *
  *   node examples/pcs-pads/build.mjs
+ *   node examples/pcs-pads/build.mjs --fragment <out.html>
+ *
+ * --fragment also writes the page without its doctype/html/head/body wrapper,
+ * for hosts that supply their own document skeleton (e.g. a published page).
  *
  * Fonts are not inlined; the token stacks fall back to system faces.
  */
@@ -32,3 +36,12 @@ const html = readFileSync(join(HERE, "src/template.html"), "utf8")
   .replace("/*__SCRIPT__*/", () => js);
 writeFileSync(join(HERE, "index.html"), html);
 console.log(`wrote examples/pcs-pads/index.html (${(html.length / 1024).toFixed(1)} KB)`);
+
+const at = process.argv.indexOf("--fragment");
+if (at > 0 && process.argv[at + 1]) {
+  const head = html.match(/<head>([\s\S]*)<\/head>/)[1]
+    .replace(/<meta charset[^>]*>\s*/, "").replace(/<meta name="viewport"[^>]*>\s*/, "");
+  const body = html.match(/<body>([\s\S]*)<\/body>/)[1];
+  writeFileSync(process.argv[at + 1], head.trim() + "\n" + body.trim() + "\n");
+  console.log(`wrote fragment ${process.argv[at + 1]}`);
+}

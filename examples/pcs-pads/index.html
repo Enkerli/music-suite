@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>PCS Pads</title>
+<meta name="claude:viewport-fit-sides" content="cover">
 <meta name="description" content="An eight-pad prototype of pitch-class-set selection: octal, two-page and interval entry, semantic moves, and quantised cueing.">
 <style>
 /**
@@ -210,7 +211,7 @@ body {
   font: var(--es-text-md)/1.45 var(--es-font-sans);
   -webkit-tap-highlight-color: transparent;
 }
-main { max-width: 1080px; margin: 0 auto; padding: var(--es-space-4) 16px var(--es-space-6); }
+main { max-width: 1080px; margin: 0 auto; padding-block: var(--es-space-4) var(--es-space-6); padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
 header { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--es-space-2) var(--es-space-4); margin-bottom: var(--es-space-4); }
 h1 { font-size: var(--es-text-xl); margin: 0; letter-spacing: -0.01em; }
 h2 { font-size: var(--es-text-sm); text-transform: uppercase; letter-spacing: 0.06em; color: var(--es-fg-muted); margin: 0 0 var(--es-space-2); font-weight: 600; }
