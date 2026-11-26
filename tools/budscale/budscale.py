@@ -11,7 +11,10 @@ tells the others to re-read it. See docs/HARDWARE_REPURPOSING.md §12.5.
     python3 budscale.py write --mask 3549 --root 0 --name "Messiaen mode 3"
     python3 budscale.py write --pcs 0,2,3,4,6,7,8,10,11 --root C
     python3 budscale.py write ... --spelling raw    # degree/quality left generic
+    python3 budscale.py write ... --register        # also add it to customScales (needed:
+                                                   #   ScaleBud 2 looks scales up by name)
     python3 budscale.py write ... --dry-run         # print the JSON, change nothing
+    python3 budscale.py unregister "Messiaen mode 3"
     python3 budscale.py write --json '{"description":…}' --root D   # exact JSON
     python3 budscale.py scales                     # the apps' own scales, as JSON
     python3 budscale.py doctor                     # disk vs cfprefsd, ownership
@@ -223,9 +226,45 @@ def _write(scale: dict, key: dict, args):
         print(f"\nbrainbud.scale = {scale_json}\nbrainbud.key   = {key_json}\n(dry run: nothing written)")
         return
     require_mac()
+    if getattr(args, "register", False):
+        register(scale)
     for k, v in (("brainbud.scale", scale_json), ("brainbud.key", key_json)):
         subprocess.run(["defaults", "write", DOMAIN, k, "-data", v.encode().hex()], check=True)
     print("written. Now send PC 69 on ch 1 (`budscale.py trigger`).")
+
+
+def _custom_scales() -> list:
+    d = load_plist(None)
+    return plistlib.loads(d["customScales"]) if "customScales" in d else []
+
+
+def _write_custom_scales(scales: list):
+    data = plistlib.dumps(scales, fmt=plistlib.FMT_BINARY)  # same encoding the apps use
+    subprocess.run(["defaults", "write", DOMAIN, "customScales", "-data", data.hex()], check=True)
+
+
+def register(scale: dict):
+    """Add (or replace, by description) a scale in the apps' customScales list.
+
+    ScaleBud 2 looks scales up by NAME (scale-bisect, 2026-11-26): a scale
+    whose description is in neither its catalogue nor customScales falls back
+    to major, whatever its intervals. Registering the name is what makes an
+    arbitrary set reachable.
+    """
+    scales = [sc for sc in _custom_scales() if sc.get("description") != scale["description"]]
+    scales.append({"intervals": scale["intervals"], "description": scale["description"]})
+    _write_custom_scales(scales)
+    print(f"registered {scale['description']!r} in customScales ({len(scales)} custom scales)")
+
+
+def cmd_unregister(args):
+    require_mac()
+    scales = _custom_scales()
+    kept = [sc for sc in scales if sc.get("description") != args.name]
+    if len(kept) == len(scales):
+        raise SystemExit(f"no custom scale named {args.name!r}")
+    _write_custom_scales(kept)
+    print(f"removed {args.name!r} ({len(kept)} custom scales left)")
 
 
 def cmd_scales(args):
@@ -290,8 +329,13 @@ def main():
     w.add_argument("--name", default="Custom set")
     w.add_argument("--spelling", choices=["structural", "raw"], default="structural")
     w.add_argument("--json", help="write this exact scale JSON (a string or a file) instead of --mask/--pcs")
+    w.add_argument("--register", action="store_true",
+                   help="also add the scale to customScales, so ScaleBud 2 can find it by name")
     w.add_argument("--dry-run", action="store_true")
     w.set_defaults(fn=cmd_write)
+    un = sub.add_parser("unregister", help="remove a scale from customScales by name")
+    un.add_argument("name")
+    un.set_defaults(fn=cmd_unregister)
     sc = sub.add_parser("scales", help="print the apps' own stored scales as exact JSON")
     sc.add_argument("--file", help="read a copied plist instead of the live domain")
     sc.set_defaults(fn=cmd_scales)

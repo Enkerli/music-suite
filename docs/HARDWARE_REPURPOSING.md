@@ -564,3 +564,26 @@ structurally and other sets by a declared table. `messiaen3-test.sh` is
 the guided test: back up, write Messiaen mode 3 on C, the same set on B♭,
 then the same set with generic spelling (do the apps read `semitones` or
 degree/quality?), with a restore command at the end.
+
+#### Bisect result (2026-11-26): ScaleBud 2 looks scales up by name
+
+| Write | Accepted? |
+|---|---|
+| The apps' own current scale, byte-for-byte, re-keyed to D | yes |
+| Dorian on D, our spelling, named "Dorian" | yes |
+| The same notes, named "Dorian (test)" | **no** (falls back to major) |
+| Their custom 8-note "PCO …", byte-for-byte | yes (the name is in `customScales`) |
+| Octatonic, ours, "Octatonic (test)" | no |
+| Messiaen mode 3, ours, 9 notes | no |
+
+So the key is read directly, but the scale is resolved **by its
+`description`** against ScaleBud's catalogue and `customScales`. Our
+encoding is fine (step 2), and size isn't the gate. The way to an
+arbitrary set is to **register its name in `customScales`**
+(`budscale.py write … --register`). `register-test.sh` checks that,
+including whether a known name with different intervals uses ours or
+theirs, and whether ScaleBud 2 needs a relaunch to see a new custom scale.
+
+Separately, BrainBud's writes still reach the store (it held a fresh D♯
+Dorian), but its **PC 69 trigger** no longer reaches ScaleBud 2. That's a
+MIDI routing question, not a store one.
