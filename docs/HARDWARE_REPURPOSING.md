@@ -391,33 +391,19 @@ expressive-firmware experience (FM-1) make for a credible collaboration.
 
 ## 12. Shared harmonic state across devices (added 2026-11-26)
 
-### 12.1 What exists elsewhere: nothing confirmed
+### 12.1 External interchange formats
 
-The rumour is that the Deluge and Move signal scale changes to each other
-in both directions, per device group. **I found nothing confirming it** in
-the sources checked on 2026-11-26:
+No public standard for exchanging key or scale between devices was found
+(as of 2026-11-26). Move, Live 12, Link, the Deluge community firmware and
+the MIDI Association's profiles were all checked. Whatever format appears,
+the suite should be able to translate to and from it, and stay a superset
+of it (arbitrary masks, cueing, groups). Until then, design to the suite's
+own form below.
 
-- **Move:** the manual and the beta release notes up to 2.1.10b1 describe
-  Key & Scale as an on-device setting saved with the Set.
-- **Live 12:** the scale is a per-Set setting that Live's own scale-aware
-  devices follow. It changes through clips and uses named scales only:
-  "Live's Scales are not editable (yet)" (CDM, 2026-03).
-- **Link:** carries tempo, beat, phase, start/stop and arrangement
-  position, never key.
-- **Deluge community firmware:** to 1.3.x and the 2026-11 nightlies, scales
-  belong to the song or clip. `LEARN+SCALE` makes a user scale from the
-  clip's notes, so arbitrary masks exist *internally*, but no cross-device
-  message is documented.
-- **MIDI Association / AMEI:** no key or scale Profile was found. The Piano
-  Profile has a tuning/temperament controller, which is about tuning, not
-  key.
-- **BrainBud (Cem Olcay):** a key and scale controller whose MIDI drives the
-  other Bud apps. Its message format is undocumented, so capture it with a
-  MIDI monitor.
-
-**Settle it empirically:** monitor the MIDI from a Move and from a Deluge
-while changing the scale. If something is sent, write a translation
-adapter for it. Whatever it is, the suite should stay a **superset**.
+**BrainBud (Cem Olcay)** is an existing key/scale source to test. On macOS
+its MIDI output shows the same Program Change (ch 1, #70) whatever scale is
+selected. That suggests the scale itself travels out of band, with the
+program change only as a trigger. See the test plan in §12.5.
 
 ### 12.2 The suite is already the superset, on paper
 
@@ -442,8 +428,7 @@ hardware and performance:
    (Link or MIDI clock). This is the setlist feature too: a setlist is an
    ordered list of cued scales.
 3. **No grouping.** Add an optional group id so two device groups on one
-   bus can sit in different keys. This would also map onto the rumoured
-   per-group behaviour, if it exists.
+   bus can sit in different keys.
 
 **Design rule: broadcast states, not commands.** A transformation (see
 §12.4) is computed *on the device that performs it*, and the result goes
@@ -485,3 +470,28 @@ current one, so each can be a single gesture with no mode switch:
 All of these are pure functions mask → mask, a natural fit for
 `@enkerli/theory`. Each device then needs only "apply move *n*" plus the
 broadcast from §12.2.
+
+### 12.5 BrainBud test plan
+
+The observation: PC 70 on ch 1 at every scale change, and no SysEx seen.
+
+1. **Rule out the monitor.** Check that MIDI Monitor's SysEx filter is on
+   and that "spy on output to destinations" is enabled. An app can send
+   straight to destinations and bypass its own virtual source.
+2. **The decisive test.** Send PC 70 on ch 1 to ScaleBud 2 from an
+   *unrelated* source (any MIDI utility), after changing BrainBud's scale.
+   If ScaleBud 2 still follows BrainBud, the scale is shared out of band
+   and the PC is only a "go read it" ping.
+3. **Find the store.** Look in `~/Library/Group Containers/` for a shared
+   container of Cem Olcay's apps. Diff its plists (`defaults read` or
+   `plutil -p`) before and after a scale change. `fs_usage -w -f filesys`
+   on the BrainBud process shows what it writes.
+4. **Inside a host.** Load BrainBud as an AUv3 MIDI effect (in Logic, AUM
+   or similar) and monitor what it passes downstream. Plugin-to-plugin
+   output may differ from what the standalone app sends.
+5. **The PC number.** Check whether #70 ever changes, e.g. with a different
+   key, scale family or preset slot.
+
+If the scale lives in an App Group store, interop has to happen at the
+data-format level on the Mac, or through BrainBud's documented MIDI
+inputs, rather than on the wire.
