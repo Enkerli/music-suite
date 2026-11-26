@@ -529,7 +529,7 @@ preferences. The relevant keys hold JSON (or nested binary plists) as `Data`:
 |---|---|
 | `brainbud.scale` | JSON `{ description, intervals: [{ degree, quality, semitones }] }`, the scale BrainBud broadcasts |
 | `brainbud.key` | JSON `{ type, accidental }`: `type` = the pitch class of the natural letter (C 0, D 2, E 4, F 5, G 7, A 9, B 11), `accidental` = semitones (B♭ = `{11, -1}`, F♯ = `{5, 1}`) |
-| `customScales` | binary plist: an array of user scales, same shape as `brainbud.scale` |
+| `customScales` | binary plist: **ScaleBud's library of user scales** (ScaleBud is the app that creates and holds new scales, per Cem's documentation); same shape as `brainbud.scale` |
 | `scalePicker.favorites` | JSON: an array of scales |
 | `scaleFinder` | binary plist: `{ type: <scale>, key: <key> }` |
 
@@ -615,3 +615,11 @@ count are the ones stored under that name. So, for a bridge:
   ScaleBud).
 - **Clutter:** every new set adds a custom scale. A bridge should prune its
   own (`PCS …`) entries.
+
+**Ownership and contact.** ScaleBud owns `customScales`; BrainBud selects
+from catalogue ∪ ScaleBud's library by name. Cem Olcay has seen this
+experiment (2026-11-26) and responded, so open questions go to him first,
+not to more reverse engineering: the catalogue's exact names, the
+interval-quality encoding (including doubly altered intervals), how
+same-named entries take precedence (custom vs catalogue), and whether a
+supported way in is planned.
