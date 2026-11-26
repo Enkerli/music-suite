@@ -518,3 +518,42 @@ inputs, rather than on the wire.
   Map `intervals` to a mask at the bridge with `@enkerli/theory`. The
   spelling survives the trip, and arbitrary sets work as long as the Bud
   apps accept arbitrary intervals.
+
+#### The store, found (2026-11-26)
+
+`~/Library/Group Containers/group.bud/Library/Preferences/group.bud.plist`:
+an **App Group shared by Cem Olcay's Bud apps**, read through ordinary
+preferences. The relevant keys hold JSON (or nested binary plists) as `Data`:
+
+| Key | Holds |
+|---|---|
+| `brainbud.scale` | JSON `{ description, intervals: [{ degree, quality, semitones }] }`, the scale BrainBud broadcasts |
+| `brainbud.key` | JSON `{ type, accidental }`: the key's letter (`type` 0 = C … 5 = A, 6 = B) and its accidental |
+| `customScales` | binary plist: an array of user scales, same shape as `brainbud.scale` |
+| `scalePicker.favorites` | JSON: an array of scales |
+| `scaleFinder` | binary plist: `{ type: <scale>, key: <key> }` |
+
+Observations:
+
+- **The quality codes are not today's public `MusicTheory` enum** (where
+  minor = −1, perfect = 0, major = 1). The stored data uses an older
+  encoding: **0 diminished, 1 perfect, 2 minor, 3 major, 4 augmented**,
+  consistent across every interval seen (P1 = 1, m2 = 2, M3 = 3, A4 = 4,
+  d5 = 0). Codes for doubly-altered intervals are unseen.
+- **The accidental sign is unconfirmed.** The sample `brainbud.key` is
+  `{type: 5, accidental: 1}`: A with accidental +1, read as A♯ if positive
+  means sharp. Confirm by selecting B♭ in BrainBud and re-reading the key.
+- **Arbitrary sets are accepted.** The custom scale "Noodling" spells two
+  intervals on degree 2 (m2 and M2) and two on degree 4 (P4 and A4). Since
+  every interval also carries `semitones`, any 12-bit mask can be written
+  as long as each pitch class gets a plausible degree and quality.
+- **Spelling is a real field here,** unlike a bare mask. A writer should
+  spell structurally (CONVENTIONS.md) where a heptatonic spelling exists
+  and fall back to a declared policy otherwise. The reader can ignore
+  spelling and take `semitones` → mask.
+
+**Bridge recipe:** write `brainbud.scale` / `brainbud.key` through
+`defaults write` against that plist path, so cfprefsd sees the change
+instead of a stale file, then send **PC 69 on ch 1** to the Bud apps. The
+next test is to write a non-catalogue set, such as Messiaen mode 3, and
+see whether ScaleBud 2 takes it.
