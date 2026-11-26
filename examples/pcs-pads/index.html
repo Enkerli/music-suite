@@ -1,0 +1,379 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PCS Pads</title>
+<meta name="description" content="An eight-pad prototype of pitch-class-set selection: octal, two-page and interval entry, semantic moves, and quantised cueing.">
+<style>
+/**
+ * @enkerli/ui — design tokens v0.2: the "paper & ink" language.
+ *
+ * Codified from the suite's two most mature UIs rather than invented:
+ * Vane (warm cream surfaces, warm dark counterpart, per-dimension accent
+ * colors, Inter/JetBrains Mono, soft 20/14/10 radii) and DrawnQurve
+ * (the same paper palette — its --paper-bg IS Vane's panel2 — plus serif
+ * and hand display faces). See packages/ui/DESIGN.md.
+ *
+ * Theming: LIGHT IS THE DEFAULT design target; dark is a first-class
+ * variant. Resolution order: [data-theme="light"|"dark"] wins; otherwise
+ * the OS preference applies. theme.js provides the persisted toggle.
+ *
+ * Accessibility ground rules encoded here:
+ *  - color is never the only channel (dimension dots pair with labels)
+ *  - touch targets ≥ 44px on coarse pointers (controls scale up)
+ *  - motion respects prefers-reduced-motion
+ */
+
+/* Fonts are loaded separately via '@enkerli/ui/fonts.css' (self-hosted, SIL
+   OFL) — kept out of tokens.css so text-injected consumers don't runtime-fetch
+   a bundler-relative @import. Each app imports fonts.css the way its build
+   wants it (bundled url() for vite, injected text + dist/fonts for esbuild). */
+
+:root {
+  /* ── Type ────────────────────────────────────────────────────────── */
+  --es-font-sans: "Inter Tight", Inter, -apple-system, BlinkMacSystemFont,
+                  "SF Pro Text", "Segoe UI", system-ui, sans-serif;
+  --es-font-mono: "JetBrains Mono", "SF Mono", ui-monospace, Menlo, Consolas, monospace;
+  /* Optional display voices (DrawnQurve's flavor — opt-in per app) */
+  --es-font-serif: "Domine", Georgia, "Iowan Old Style", serif;
+  --es-font-hand: "Caveat", "Segoe Script", cursive;
+
+  --es-text-xs: 0.6875rem;  /* 11px — dense plugin labels */
+  --es-text-sm: 0.8125rem;  /* 13px */
+  --es-text-md: 1rem;       /* 16px — body */
+  --es-text-lg: 1.25rem;
+  --es-text-xl: 1.5625rem;
+
+  /* ── Spacing ─────────────────────────────────────────────────────── */
+  --es-space-1: 0.25rem;
+  --es-space-2: 0.5rem;
+  --es-space-3: 0.75rem;
+  --es-space-4: 1rem;
+  --es-space-6: 1.5rem;
+  --es-gap: 10px;
+
+  /* ── Shape (the Vane radii) ──────────────────────────────────────── */
+  --es-radius-lg: 20px;
+  --es-radius-md: 14px;
+  --es-radius-sm: 10px;
+  --es-shadow: 0 6px 22px rgba(28, 25, 20, 0.05);
+
+  /* ── Interaction ─────────────────────────────────────────────────── */
+  --es-ctl-h: 32px;            /* control height; scales up on touch */
+  --es-touch-target: 44px;
+  --es-section-header: 28px;   /* collapsed-section header (PitchFold grammar) */
+  --es-focus-ring: 2px solid var(--es-accent);
+  --es-focus-offset: 2px;
+
+  /* ── Motion ──────────────────────────────────────────────────────── */
+  --es-motion-fast: 120ms ease-out;
+  --es-motion-base: 200ms ease-out;
+
+  /* ── Expressive-dimension semantics (Vane vocabulary, suite-wide;
+        pairs with manifold's controller dimensions). Always pair the
+        color with a label or dot — never color alone. ───────────────── */
+  --es-dim-breath: #4b86c7;   --es-dim-breath-tint: #dde8f4;
+  --es-dim-expr: #2d9d8a;     --es-dim-expr-tint: #d6ebe6;
+  --es-dim-pressure: #d28330; --es-dim-pressure-tint: #f4e3cf;
+  --es-dim-slide: #a35bbf;    --es-dim-slide-tint: #ecdcf2;
+  --es-dim-bend: #c39529;     --es-dim-bend-tint: #f1e6c3;
+  --es-dim-vel: #7a4cff;
+
+  /* ── Pitch-class palette — the canonical Exquis "Chromeful" identity
+        (Alex's hardware-validated scheme; provenance + derivation in
+        tools/make-pc-palette.mjs). ONE hue per pc — C yellow, C♯ purple,
+        D green, D♯ rose, E cyan, F orange, F♯ blue, G spring, G♯ magenta,
+        A green, A♯ red, B azure — expressed two ways:
+         · --es-pc-pad-* : the EXACT vivid Exquis LED colours, for dark /
+           pad surfaces, with --es-pc-pad-ink-* (black or white per pad,
+           chosen for legibility exactly as the Exquis does).
+         · --es-pc-* : the same hue tone-mapped to ≥3:1 (WCAG 1.4.11) on
+           chips against the theme surfaces — this :root carries the light
+           (paper) set; the dark blocks override. Hue is preserved; only
+           lightness moves to satisfy contrast. ─────────────────────────── */
+  --es-pc-0: #919108;  --es-pc-1: #7f0df2;  --es-pc-2: #09a309;
+  --es-pc-3: #f24060;  --es-pc-4: #089b9b;  --es-pc-5: #d7710c;
+  --es-pc-6: #0d0df2;  --es-pc-7: #0ba05c;  --es-pc-8: #f20df2;
+  --es-pc-9: #0ba236;  --es-pc-10: #f20d0d; --es-pc-11: #0d7ff2;
+  /* exact Exquis pad colours (dark/LED surfaces) */
+  --es-pc-pad-0: #f2f20d;  --es-pc-pad-1: #7f0df2;  --es-pc-pad-2: #0df20d;
+  --es-pc-pad-3: #f24060;  --es-pc-pad-4: #0df2f2;  --es-pc-pad-5: #f27f0d;
+  --es-pc-pad-6: #0d0df2;  --es-pc-pad-7: #40f2a0;  --es-pc-pad-8: #f20df2;
+  --es-pc-pad-9: #0dbf40;  --es-pc-pad-10: #f20d0d; --es-pc-pad-11: #0d7ff2;
+  /* per-pad ink (black/white, ≥4.4:1 on its pad) */
+  --es-pc-pad-ink-0: #0d0d0d;  --es-pc-pad-ink-1: #ffffff;  --es-pc-pad-ink-2: #0d0d0d;
+  --es-pc-pad-ink-3: #0d0d0d;  --es-pc-pad-ink-4: #0d0d0d;  --es-pc-pad-ink-5: #0d0d0d;
+  --es-pc-pad-ink-6: #ffffff;  --es-pc-pad-ink-7: #0d0d0d;  --es-pc-pad-ink-8: #0d0d0d;
+  --es-pc-pad-ink-9: #0d0d0d;  --es-pc-pad-ink-10: #000000; --es-pc-pad-ink-11: #0d0d0d;
+  /* pad-ink-10 is true black: the A♯ red is the dimmest pad, and #0d0d0d
+     lands at 4.48:1 — a hair under AA small-text; #000 clears 4.8:1. */
+}
+
+/* ── Paper (light) — the default design target ─────────────────────── */
+:root,
+:root[data-theme="light"] {
+  --es-bg: #f5f2eb;          /* paper */
+  --es-bg-raised: #fcfbf7;   /* panel */
+  --es-bg-sunken: #efebe2;   /* field / well */
+  --es-fg: #2d2b27;          /* ink */
+  --es-fg-2: #4b463e;
+  --es-fg-muted: #6b665b;    /* ≥4.5:1 on bg, bg-raised AND bg-sunken (was
+                                #736e62, which hit 4.26 on sunken — apps
+                                legitimately put muted text on wells) */
+  --es-fg-faint: #b3ac9e;    /* disabled ink ONLY (WCAG-exempt) — never for
+                                content; replaces --vn-muted-2 / PAPER.ink30 */
+  --es-border: #ddd6ca;      /* decorative — separation, not identification */
+  --es-border-soft: #eae3d4;
+  --es-border-strong: #9d8967; /* ≥3:1 — boundaries that identify a control */
+  --es-accent: #2f66a5;      /* breath blue, deepened further (a11y pass):
+                                usable as SMALL TEXT ≥4.5:1 on bg, raised and
+                                sunken — links, chips, readouts — while white
+                                text on it stays ≥4.5:1 and it stays ≥3:1 vs
+                                paper as a focus ring (the graphic dim-breath
+                                hue stays #4b86c7) */
+  --es-accent-fg: #ffffff;
+  --es-danger: #b3403a;        /* destructive actions; ≥3:1 on both surfaces */
+  color-scheme: light;
+}
+
+/* ── Warm dark ─────────────────────────────────────────────────────── */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --es-bg: #1a1814;
+    --es-bg-raised: #221f1a;
+    --es-bg-sunken: #14130f;
+    --es-fg: #e8e1d2;
+    --es-fg-2: #cfc7b5;
+    --es-fg-muted: #908672;    /* ≥4.5:1 on bg and bg-raised */
+    --es-fg-faint: #5f584a;    /* disabled ink ONLY (WCAG-exempt) */
+    --es-border: #38332b;
+    --es-border-soft: #2b2620;
+    --es-border-strong: #736958; /* ≥3:1 — boundaries that identify a control */
+    --es-accent: #6da3df;
+    --es-accent-fg: #14130f;
+    --es-danger: #cf6a5e;        /* destructive actions; ≥3:1 on both surfaces */
+    /* pc palette: the Exquis hues, kept vivid on the dark surfaces
+       (only C♯ and F♯ lifted to clear the near-black). */
+    --es-pc-0: #f2f20d;  --es-pc-1: #902ef4;  --es-pc-2: #0df20d;
+    --es-pc-3: #f24060;  --es-pc-4: #0df2f2;  --es-pc-5: #f27f0d;
+    --es-pc-6: #5151f6;  --es-pc-7: #40f2a0;  --es-pc-8: #f20df2;
+    --es-pc-9: #0dbf40;  --es-pc-10: #f20d0d; --es-pc-11: #0d7ff2;
+    --es-shadow: 0 6px 22px rgba(0, 0, 0, 0.28);
+    color-scheme: dark;
+  }
+}
+
+:root[data-theme="dark"] {
+  --es-bg: #1a1814;
+  --es-bg-raised: #221f1a;
+  --es-bg-sunken: #14130f;
+  --es-fg: #e8e1d2;
+  --es-fg-2: #cfc7b5;
+  --es-fg-muted: #908672;    /* ≥4.5:1 on bg and bg-raised */
+  --es-fg-faint: #5f584a;    /* disabled ink ONLY (WCAG-exempt) */
+  --es-border: #38332b;
+  --es-border-soft: #2b2620;
+  --es-border-strong: #736958; /* ≥3:1 — boundaries that identify a control */
+  --es-accent: #6da3df;
+  --es-accent-fg: #14130f;
+  --es-danger: #cf6a5e;        /* destructive actions; ≥3:1 on both surfaces */
+  /* pc palette: the Exquis hues, kept vivid on the dark surfaces
+     (only C♯ and F♯ lifted to clear the near-black). */
+  --es-pc-0: #f2f20d;  --es-pc-1: #902ef4;  --es-pc-2: #0df20d;
+  --es-pc-3: #f24060;  --es-pc-4: #0df2f2;  --es-pc-5: #f27f0d;
+  --es-pc-6: #5151f6;  --es-pc-7: #40f2a0;  --es-pc-8: #f20df2;
+  --es-pc-9: #0dbf40;  --es-pc-10: #f20d0d; --es-pc-11: #0d7ff2;
+  --es-shadow: 0 6px 22px rgba(0, 0, 0, 0.28);
+  color-scheme: dark;
+}
+
+/* ── Touch scaling (the Vane --ctl-h pattern) ──────────────────────── */
+@media (pointer: coarse) {
+  :root {
+    --es-ctl-h: 44px;
+    --es-gap: 12px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --es-motion-fast: 0ms;
+    --es-motion-base: 0ms;
+  }
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body {
+  background: var(--es-bg); color: var(--es-fg);
+  font: var(--es-text-md)/1.45 var(--es-font-sans);
+  -webkit-tap-highlight-color: transparent;
+}
+main { max-width: 1080px; margin: 0 auto; padding: var(--es-space-4) 16px var(--es-space-6); }
+header { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--es-space-2) var(--es-space-4); margin-bottom: var(--es-space-4); }
+h1 { font-size: var(--es-text-xl); margin: 0; letter-spacing: -0.01em; }
+h2 { font-size: var(--es-text-sm); text-transform: uppercase; letter-spacing: 0.06em; color: var(--es-fg-muted); margin: 0 0 var(--es-space-2); font-weight: 600; }
+.muted { color: var(--es-fg-muted); }
+.lede { margin: 0; color: var(--es-fg-2); font-size: var(--es-text-sm); }
+
+.layout { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: var(--es-space-6); align-items: start; }
+@media (max-width: 760px) { .layout { grid-template-columns: minmax(0, 1fr); } }
+
+.card { background: var(--es-bg-raised); border: 1px solid var(--es-border-soft); border-radius: var(--es-radius-lg); padding: var(--es-space-4); box-shadow: var(--es-shadow); }
+.stack > * + * { margin-top: var(--es-space-4); }
+
+button { font: inherit; color: inherit; }
+.chips { display: flex; flex-wrap: wrap; gap: var(--es-space-1); }
+.chips button, .btn {
+  min-height: 36px; padding: 0 var(--es-space-3); border-radius: 999px;
+  border: 1px solid var(--es-border); background: var(--es-bg); cursor: pointer;
+  font-size: var(--es-text-sm);
+}
+.chips button[aria-pressed="true"], .btn[aria-pressed="true"] { background: var(--es-accent); color: var(--es-accent-fg); border-color: var(--es-accent); }
+.btn:disabled { opacity: 0.45; cursor: default; }
+@media (pointer: coarse) { .chips button, .btn { min-height: var(--es-touch-target, 44px); } }
+:focus-visible { outline: 2px solid var(--es-focus-ring, var(--es-accent)); outline-offset: 2px; }
+
+/* ── The instrument: eight pads around a centre ── */
+.device { position: relative; width: min(100%, 440px); aspect-ratio: 1; margin: var(--es-space-2) auto 0; }
+.device::before { content: ""; position: absolute; inset: 4%; border-radius: 50%; background: var(--es-bg-sunken); border: 1px solid var(--es-border-soft); }
+.pad, .centre {
+  position: absolute; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  border-radius: 50%; border: 1px solid var(--es-border); background: var(--es-bg-raised);
+  cursor: pointer; touch-action: none; user-select: none; padding: 4px; text-align: center;
+  transition: background var(--es-motion-fast, 120ms), transform var(--es-motion-fast, 120ms);
+}
+.pad { width: 22%; aspect-ratio: 1; left: var(--x); top: var(--y); transform: translate(-50%, -50%); }
+.pad:active, .pad.flash { transform: translate(-50%, -50%) scale(0.94); background: var(--es-pc-pad-0, var(--es-accent)); }
+.pad.lit { background: var(--es-accent); color: var(--es-accent-fg); border-color: var(--es-accent); }
+.pad.hint { box-shadow: inset 0 0 0 2px var(--es-accent); }
+.pad:disabled { opacity: 0.4; cursor: default; }
+.centre { width: 30%; aspect-ratio: 1; left: 35%; top: 35%; background: var(--es-bg); border-width: 2px; }
+.centre.held { background: var(--es-fg); color: var(--es-bg); }
+.pad-label { font-weight: 650; font-size: clamp(0.8rem, 3.4vw, 1.05rem); line-height: 1.1; }
+.pad-sub { font-size: var(--es-text-xs); color: inherit; opacity: 0.75; line-height: 1.15; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+.centre .pad-sub { max-width: 90%; }
+.entry { text-align: center; font-family: var(--es-font-mono); font-size: var(--es-text-sm); min-height: 1.5em; margin-top: var(--es-space-2); }
+
+/* ── Transport ── */
+.transport { display: flex; flex-wrap: wrap; align-items: center; gap: var(--es-space-2) var(--es-space-3); }
+.transport label { font-size: var(--es-text-sm); display: inline-flex; align-items: center; gap: var(--es-space-1); }
+.transport input[type=number] { width: 4.5em; min-height: 32px; border-radius: var(--es-radius-sm); border: 1px solid var(--es-border); background: var(--es-bg); color: var(--es-fg); padding: 0 6px; font: inherit; }
+.beats { display: grid; grid-template-columns: repeat(16, 1fr); gap: 3px; margin-top: var(--es-space-3); }
+.beat { height: 8px; border-radius: 3px; background: var(--es-border-soft); }
+.beat.downbeat { background: var(--es-border-strong); }
+.beat.now { background: var(--es-accent); }
+
+/* ── Ring ── */
+.ring svg { width: min(100%, 300px); display: block; margin: 0 auto; overflow: visible; }
+.ring-track { fill: none; stroke: var(--es-border-soft); stroke-width: 0.6; }
+.ring-shape { fill: var(--es-accent); fill-opacity: 0.14; stroke: var(--es-accent); stroke-width: 0.6; }
+.ring-shape.next { fill: none; stroke: var(--es-fg-muted); stroke-dasharray: 1.6 1.2; }
+.node { cursor: pointer; }
+.node circle { fill: var(--es-bg); stroke: var(--es-border-strong); stroke-width: 0.5; }
+.node text { font-size: 3.6px; text-anchor: middle; fill: var(--es-fg-muted); font-family: var(--es-font-sans); pointer-events: none; }
+.node.on circle { fill: var(--es-accent); stroke: var(--es-accent); }
+.node.on text { fill: var(--es-accent-fg); font-weight: 700; }
+.node.cued circle { stroke: var(--es-fg); stroke-width: 0.9; stroke-dasharray: 1.4 0.9; }
+.node.root circle { stroke: var(--es-fg); stroke-width: 1.3; }
+.node:focus-visible { outline: none; }
+.node:focus-visible circle { stroke: var(--es-focus-ring, var(--es-fg)); stroke-width: 1.4; }
+
+.name { font-size: var(--es-text-lg); font-weight: 650; text-align: center; margin: var(--es-space-2) 0 0; }
+.next-line { text-align: center; font-size: var(--es-text-sm); display: flex; justify-content: center; align-items: center; gap: var(--es-space-2); flex-wrap: wrap; }
+dl.facts { display: grid; grid-template-columns: auto 1fr; gap: 2px var(--es-space-3); margin: 0; font-size: var(--es-text-sm); }
+dl.facts dt { color: var(--es-fg-muted); }
+dl.facts dd { margin: 0; font-family: var(--es-font-mono); overflow-wrap: anywhere; }
+
+ul.list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; max-height: 240px; overflow: auto; }
+ul.list button { width: 100%; text-align: left; border: 0; background: transparent; padding: 6px 8px; border-radius: var(--es-radius-sm); cursor: pointer; font-size: var(--es-text-sm); }
+ul.list button:hover { background: var(--es-bg-sunken); }
+ul.list button[aria-pressed="true"] { background: var(--es-bg-sunken); font-weight: 650; }
+ul.list li.muted { font-size: var(--es-text-xs); padding: 4px 8px; }
+.cols { display: grid; grid-template-columns: 1fr 1fr; gap: var(--es-space-4); }
+@media (max-width: 520px) { .cols { grid-template-columns: 1fr; } }
+
+details summary { cursor: pointer; font-size: var(--es-text-sm); color: var(--es-fg-2); }
+.opts { display: flex; flex-direction: column; gap: var(--es-space-2); margin-top: var(--es-space-2); font-size: var(--es-text-sm); }
+.opts select { min-height: 32px; border-radius: var(--es-radius-sm); border: 1px solid var(--es-border); background: var(--es-bg); color: var(--es-fg); font: inherit; max-width: 100%; }
+.help { font-size: var(--es-text-sm); color: var(--es-fg-2); }
+.help kbd { font-family: var(--es-font-mono); font-size: var(--es-text-xs); border: 1px solid var(--es-border); border-bottom-width: 2px; border-radius: 4px; padding: 0 4px; background: var(--es-bg); }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>PCS Pads</h1>
+    <p class="lede">Eight pads and a centre button, the way an Orba or a Lightpad would select pitch-class sets.</p>
+  </header>
+
+  <div class="layout">
+    <section class="card" aria-labelledby="inst-h">
+      <h2 id="inst-h">Instrument</h2>
+      <div class="chips" id="mode-chips" role="group" aria-label="Mode"></div>
+      <div class="device">
+        <div id="pads"></div>
+        <button type="button" class="centre" id="centre" aria-label="Centre button: tap for the mode's action, hold to choose a mode"></button>
+      </div>
+      <p class="entry" id="entry" aria-live="polite"></p>
+      <p class="help">
+        <kbd>1</kbd>–<kbd>8</kbd> pads · <kbd>C</kbd> or <kbd>Space</kbd> centre (hold it, then a pad, to change mode) ·
+        <kbd>Esc</kbd> cancel cue · <kbd>Enter</kbd> start/stop.
+        In Octal, type the digits <kbd>0</kbd>–<kbd>7</kbd> (C Ionian is 5 6 2 5); the outlined pad keeps the current set.
+      </p>
+    </section>
+
+    <div class="stack">
+      <section class="card" aria-labelledby="set-h">
+        <h2 id="set-h">Set</h2>
+        <div class="ring" id="ring"></div>
+        <p class="name" id="name"></p>
+        <p class="next-line"><span class="muted">Up next:</span> <span id="next"></span>
+          <button type="button" class="btn" id="cancel">Cancel</button></p>
+        <dl class="facts" id="facts"></dl>
+        <p class="help">Click a note on the ring to add or remove it; Shift-click a member to make it the root.</p>
+      </section>
+
+      <section class="card" aria-labelledby="time-h">
+        <h2 id="time-h">When changes apply</h2>
+        <div class="chips" id="quantum" role="group" aria-label="Apply changes"></div>
+        <div class="transport" style="margin-top: var(--es-space-3)">
+          <button type="button" class="btn" id="play" aria-pressed="false">Start</button>
+          <label>BPM <input type="number" id="bpm" min="40" max="240" value="100"></label>
+          <label><input type="checkbox" id="click"> Click</label>
+          <label><input type="checkbox" id="preview" checked> Arpeggio on change</label>
+        </div>
+        <div class="beats" id="beats" aria-hidden="true"></div>
+        <p class="help">Loop = four bars of 4/4. A cue waits for its boundary; a coarser boundary also counts (a loop is a bar is a beat).</p>
+      </section>
+
+      <section class="card cols" aria-label="Related sets">
+        <div><h2>Light → dark</h2><ul class="list" id="ladder"></ul></div>
+        <div><h2>One semitone away</h2><ul class="list" id="neighbours"></ul></div>
+      </section>
+
+      <section class="card">
+        <details>
+          <summary>MIDI out (optional)</summary>
+          <div class="opts">
+            <button type="button" class="btn" id="midi-enable">Enable MIDI</button>
+            <label>Output <select id="midi-port" disabled><option value="">None</option></select></label>
+            <label><input type="checkbox" id="send-notes" checked> Send played notes</label>
+            <label><input type="checkbox" id="send-scale" checked> Send each applied set as a suite <code>scale</code> message (SysEx 0x7D)</label>
+            <span class="muted" id="midi-status"></span>
+          </div>
+        </details>
+      </section>
+    </div>
+  </div>
+  <p class="sr-only" id="live" aria-live="polite"></p>
+</main>
+<script type="module">
+function x(e){return(e%12+12)%12}var se=4095;function A(e){if(!Number.isInteger(e)||e<0||e>se)throw new RangeError(`PCS mask must be an integer in 0..4095, got ${e}`)}function E(e){A(e);let t=[];for(let n=0;n<12;n++)e&1<<n&&t.push(n);return t}function b(e,t){return(e&1<<x(t))!==0}function I(e){let t=0;for(let n=e;n;n&=n-1)t++;return t}function h(e,t){A(e);let n=x(t);return n===0?e:(e<<n|e>>12-n)&se}function Le(e){return A(e),[e&7,e>>3&7,e>>6&7,e>>9&7]}function De(e){if(e.length!==4||e.some(t=>!Number.isInteger(t)||t<0||t>7))throw new RangeError(`octal entry needs exactly four digits 0..7, got [${e.join(",")}]`);return e[0]|e[1]<<3|e[2]<<6|e[3]<<9}function L(e){return Le(e).join("")}var V={digits:[]};function ie(e,t){if(!Number.isInteger(t)||t<0||t>7)throw new RangeError(`pad must be 0..7, got ${t}`);let n=[...e.digits,t];return n.length<4?{entry:{digits:n},mask:null}:{entry:{digits:[]},mask:De(n)}}function ue(e){return{digits:e.digits.slice(0,-1)}}function T(e,t){if(!Number.isInteger(t)||t<0||t>7)throw new RangeError(`pad must be 0..7, got ${t}`);let n=e*8+t;return n<12?n:null}function ce(e,t,n){A(e);let r=T(t,n);return r===null?e:e^1<<r}function le(e,t){return A(e),Array.from({length:8},(n,r)=>{let a=T(t,r);return a===null?null:b(e,a)})}function H(e,t){A(e);let n=x(t);if(!b(e,n))return null;let r=E(h(e,-n));return r.map((a,s)=>(r[s+1]??12)-a)}function Be(e,t){let n=0,r=1;for(let a of t){if(!Number.isInteger(a)||a<1)throw new RangeError(`steps must be positive integers, got ${a}`);if(n+=a,n>12)throw new RangeError(`steps [${t.join(",")}] pass the octave`);n<12&&(r|=1<<n)}return h(r,e)}function de(e,t){if(!Number.isInteger(t)||t<0||t>7)throw new RangeError(`pad must be 0..7, got ${t}`);let n=t+1,r=e.steps.reduce((s,i)=>s+i,0)+n;if(r>12)return{entry:e,mask:null,refused:!0};let a=[...e.steps,n];return r<12?{entry:{root:e.root,steps:a},mask:null,refused:!1}:{entry:{root:e.root,steps:[]},mask:Be(e.root,a),refused:!1}}function F(e,t){return{mask:h(e.mask,t),root:x(e.root+t)}}function D(e){A(e);for(let t=1;t<=12;t++)if(h(e,t)===e)return t;return 12}function me(e){return Array.from({length:D(e)},(t,n)=>h(e,n))}function N(e,t){return E(h(e,-t)).reduce((n,r)=>n+r,0)}function fe(e,t=1){if(A(e.mask),e.mask===0)return e;for(let n=1;n<=12;n++){let r=x(e.root+t*n);if(b(e.mask,r))return{mask:e.mask,root:r}}return e}function G(e){A(e.mask);let t=x(e.root);if(!b(e.mask,t))return[];let n=new Set;for(let r of E(e.mask))n.add(h(e.mask,t-r));return[...n].sort((r,a)=>N(a,t)-N(r,t)||r-a)}function K(e,t,n=!1){let r=G(e),a=r.indexOf(e.mask);if(a<0)return e;let s=a-t;if(s<0||s>=r.length){if(!n)return e;s=(s+r.length)%r.length}return{mask:r[s],root:e.root}}var pe=145,ge=137;function Q(e){A(e);for(let t=0;t<12;t++){if(h(pe,t)===e)return{root:t,quality:"major"};if(h(ge,t)===e)return{root:t,quality:"minor"}}return null}function B(e,t){let n=Q(e);if(!n)return null;let r=n.quality==="major",[a,s]=t==="P"?[0,!r]:t==="L"?[r?4:8,!r]:[r?9:3,!r],i=x(n.root+a);return{mask:h(s?pe:ge,i),root:i}}function Y(e){A(e);let t=[];for(let n of E(e))for(let r of[-1,1]){let a=x(n+r);b(e,a)||t.push({mask:e&~(1<<n)|1<<a,from:n,to:a})}return t.sort((n,r)=>n.mask-r.mask||n.from-r.from)}var ae={now:0,beat:1,bar:2,loop:3};function be(e){return{current:e,next:null,at:"now"}}function ye(e,t,n){return n==="now"?{current:t,next:null,at:"now"}:{current:e.current,next:t,at:n}}function J(e){return{current:e.current,next:null,at:"now"}}function he(e,t){return!e.next||ae[e.at]>ae[t]?{state:e,changed:!1}:{state:{current:e.next,next:null,at:"now"},changed:!0}}var j=["proggenie","midicurator","serpe","vane","drawnqurve","pitchfold","exquisite-fingerings","pickpcs","chord-dictionary","drums","rnd-companion","external"];var je=["envelope","envelopeVersion","id","kind","format","formatVersion","title","app","savedAt","provenance"],gt=[...je,"creator","facets","tags","payload","payloadRef"];var W="enkerli-suite",Ae=1,_e=["scale","chord","progression","pattern","manifest","param","command","note"],we=["ratio","percent","count","semitone","cents","pc","pc-mask","rhythm-mask","bpm","ms","hz","db","bool","enum"],ve=["set","report","observe"];function Ue(){return globalThis.crypto?.randomUUID?.()??`msg${Date.now().toString(36)}-${Math.floor(Math.random()*1e9).toString(36)}`}function Ve(){return new Date().toISOString().replace(/\.\d{3}Z$/,"Z")}function Ee(e,t,n,r={}){return{protocol:W,v:Ae,id:r.id??Ue(),from:e,to:r.to??"*",sentAt:r.sentAt??Ve(),type:t,body:n}}var He=/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})$/;function $(e){return typeof e=="object"&&e!==null&&!Array.isArray(e)}function Fe(e){let t=[],n=r=>t.push(r);if(!$(e))return{ok:!1,errors:["message: not an object"]};if(e.protocol!==W&&n(`protocol: must be "${W}"`),(!Number.isInteger(e.v)||e.v<1)&&n("v: integer \u2265 1 required"),(typeof e.id!="string"||e.id.length<8)&&n("id: string \u2265 8 chars required"),j.includes(e.from)||n(`from: not in the app vocabulary (${String(e.from)})`),e.to!=="*"&&!j.includes(e.to)&&n(`to: "*" or an app id required (${String(e.to)})`),(typeof e.sentAt!="string"||!He.test(e.sentAt))&&n("sentAt: absolute ISO 8601 required"),_e.includes(e.type)||n(`type: not a known message type (${String(e.type)})`),!$(e.body))n("body: object required");else{let r=e.body,a=(s,i)=>Number.isInteger(s)&&s>=0&&s<2**i;switch(e.type){case"scale":a(r.mask,12)||n("body.mask: 12-bit integer required (leftmost = LSB)"),r.root!==void 0&&!(Number.isInteger(r.root)&&r.root>=0&&r.root<=11)&&n("body.root: pitch class 0\u201311 required");break;case"chord":r.pcs!==void 0&&!a(r.pcs,12)&&n("body.pcs: 12-bit integer required"),r.notes!==void 0&&(!Array.isArray(r.notes)||r.notes.some(s=>!Number.isInteger(s)||s<0||s>127))&&n("body.notes: array of MIDI notes 0\u2013127 required"),r.pcs===void 0&&r.notes===void 0&&r.symbol===void 0&&n("body: chord needs at least one of pcs / notes / symbol");break;case"progression":$(r.prog)||n("body.prog: the canonical Progression object required");break;case"pattern":{if((!Number.isInteger(r.steps)||r.steps<1||r.steps>128)&&n("body.steps: integer 1\u2013128 required"),(!Number.isInteger(r.mask)||r.mask<0)&&n("body.mask: non-negative integer required (leftmost = LSB)"),r.lanes!==void 0){if(!Array.isArray(r.lanes)||r.lanes.length===0){n("body.lanes: non-empty array of lanes required when present");break}r.lanes.length>16&&n("body.lanes: at most 16 lanes"),r.lanes.forEach((i,f)=>{if(!$(i)){n(`body.lanes[${f}]: object required`);return}(!Number.isInteger(i.steps)||i.steps<1||i.steps>128)&&n(`body.lanes[${f}].steps: integer 1\u2013128 required`),(!Number.isInteger(i.mask)||i.mask<0)&&n(`body.lanes[${f}].mask: non-negative integer required`),i.accents!==void 0&&(!Number.isInteger(i.accents)||i.accents<0)&&n(`body.lanes[${f}].accents: non-negative integer mask required`),i.longs!==void 0&&(!Number.isInteger(i.longs)||i.longs<0)&&n(`body.lanes[${f}].longs: non-negative integer mask required`),i.lsRatio!==void 0&&(typeof i.lsRatio!="number"||!(i.lsRatio>0))&&n(`body.lanes[${f}].lsRatio: positive number required`),i.note!==void 0&&(!Number.isInteger(i.note)||i.note<0||i.note>127)&&n(`body.lanes[${f}].note: integer 0\u2013127 required`)});let s=r.lanes[0];$(s)&&(s.steps!==r.steps||s.mask!==r.mask)&&n("body.lanes[0] must match body.steps/body.mask \u2014 they describe the same lane")}break}case"manifest":Ke(r,n);break;case"param":Qe(r,n);break;case"command":(typeof r.name!="string"||r.name.length===0)&&n("body.name: non-empty command name required"),r.args!==void 0&&!$(r.args)&&n("body.args: object of named arguments required");break;case"note":(!Array.isArray(r.notes)||r.notes.length===0||r.notes.some(s=>!Number.isInteger(s)||s<0||s>127))&&n("body.notes: non-empty array of MIDI notes 0\u2013127 required"),r.velocity!==void 0&&!(Number.isInteger(r.velocity)&&r.velocity>=0&&r.velocity<=127)&&n("body.velocity: integer 0\u2013127 required"),r.channel!==void 0&&!(Number.isInteger(r.channel)&&r.channel>=1&&r.channel<=16)&&n("body.channel: integer 1\u201316 required"),r.gate!==void 0&&r.gate!=="on"&&r.gate!=="off"&&n('body.gate: "on" or "off" required'),r.durationMs!==void 0&&!(typeof r.durationMs=="number"&&r.durationMs>0)&&n("body.durationMs: positive number required"),r.env!==void 0&&!(Array.isArray(r.env)&&r.env.every(s=>typeof s=="object"&&s!==null&&typeof s.at=="number"&&typeof s.value=="number"))&&n("body.env: array of {at, value} numbers required"),r.glideMs!==void 0&&!(typeof r.glideMs=="number"&&r.glideMs>=0)&&n("body.glideMs: non-negative number required");break}}return{ok:t.length===0,errors:t}}var Ge=new Set(we);function ke(e,t,n,r){if(!$(e)){n(`${t}: object required`);return}(typeof e[r]!="string"||e[r].length===0)&&n(`${t}.${r}: non-empty string required`),r==="id"&&e.label!==void 0&&typeof e.label!="string"&&n(`${t}.label: string required`),Ge.has(e.unit)||n(`${t}.unit: one of ${we.join("|")} required (${String(e.unit)})`);let a=["min","max","default"];for(let s of a)(typeof e[s]!="number"||!Number.isFinite(e[s]))&&n(`${t}.${s}: finite number required`);typeof e.min=="number"&&typeof e.max=="number"&&e.min>e.max&&n(`${t}: min must be \u2264 max`),typeof e.default=="number"&&typeof e.min=="number"&&typeof e.max=="number"&&(e.default<e.min||e.default>e.max)&&n(`${t}.default: must be within [min, max]`),e.step!==void 0&&(typeof e.step!="number"||e.step<=0)&&n(`${t}.step: positive number required`),e.scale!==void 0&&e.scale!=="linear"&&e.scale!=="log"&&n(`${t}.scale: "linear" or "log" required`),e.scale==="log"&&typeof e.min=="number"&&e.min<=0&&n(`${t}: log scale requires min > 0`),e.unit==="enum"&&(!Array.isArray(e.values)||e.values.length===0)&&n(`${t}: enum unit requires a non-empty values[]`)}function Ke(e,t){if(j.includes(e.app)||t(`body.app: not in the app vocabulary (${String(e.app)})`),(!Number.isInteger(e.v)||e.v<1)&&t("body.v: integer \u2265 1 required"),!Array.isArray(e.params))t("body.params: array required");else{let n=new Set;e.params.forEach((r,a)=>{ke(r,`body.params[${a}]`,t,"id");let s=$(r)?r.id:void 0;typeof s=="string"&&(n.has(s)&&t(`body.params[${a}].id: duplicate "${s}"`),n.add(s))})}Array.isArray(e.commands)?e.commands.forEach((n,r)=>{if(!$(n)){t(`body.commands[${r}]: object required`);return}(typeof n.name!="string"||n.name.length===0)&&t(`body.commands[${r}].name: non-empty string required`),typeof n.label!="string"&&t(`body.commands[${r}].label: string required`),n.args!==void 0&&(Array.isArray(n.args)?n.args.forEach((a,s)=>ke(a,`body.commands[${r}].args[${s}]`,t,"id")):t(`body.commands[${r}].args: array required`))}):t("body.commands: array required")}function Qe(e,t){e.mode!==void 0&&!ve.includes(e.mode)&&t(`body.mode: one of ${ve.join("|")} required`);let n=e.id!==void 0,r=e.params!==void 0;n===r&&t("body: exactly one of single (id+value) or batch (params[]) required"),n&&((typeof e.id!="string"||e.id.length===0)&&t("body.id: non-empty string required"),(typeof e.value!="number"||!Number.isFinite(e.value))&&t("body.value: finite number required")),r&&(!Array.isArray(e.params)||e.params.length===0?t("body.params: non-empty array required"):e.params.forEach((a,s)=>{!$(a)||typeof a.id!="string"||a.id.length===0?t(`body.params[${s}].id: non-empty string required`):(typeof a.value!="number"||!Number.isFinite(a.value))&&t(`body.params[${s}].value: finite number required`)}))}function Ye(e){let t=Math.ceil(e.length/7),n=new Uint8Array(e.length+t),r=0;for(let a=0;a<t;a++){let s=a*7,i=Math.min(7,e.length-s),f=0;for(let d=0;d<i;d++)e[s+d]&128&&(f|=1<<d);n[r++]=f;for(let d=0;d<i;d++)n[r++]=e[s+d]&127}return n}var Je=240,Ze=247,We=125,Se=[69,75];var ze=720;function Z(e,t){e.push(t>>7&127,t&127)}function $e(e,t={}){let n=Fe(e);if(!n.ok)throw new Error(`invalid suite message: ${n.errors.join("; ")}`);let r=Math.max(1,t.chunkBytes??ze),a=new TextEncoder().encode(JSON.stringify(e)),s=Math.max(1,Math.ceil(a.length/r));if(s>16383)throw new Error("message too large (chunk total exceeds 14 bits)");let i=(t.msgId??Math.floor(Math.random()*16384))&16383,f=[];for(let d=0;d<s;d++){let c=a.subarray(d*r,(d+1)*r),p=[Je,We,Se[0],Se[1],Ae];Z(p,i),Z(p,d),Z(p,s),f.push(Uint8Array.from([...p,...Ye(c),Ze]))}return f}var Xe=["C","C\u266F","D","E\u266D","E","F","F\u266F","G","A\u266D","A","B\u266D","B"],g=e=>Xe[(e%12+12)%12],l=e=>e.reduce((t,n)=>t|1<<n,0),xe=[["Ionian",l([0,2,4,5,7,9,11])],["Dorian",l([0,2,3,5,7,9,10])],["Phrygian",l([0,1,3,5,7,8,10])],["Lydian",l([0,2,4,6,7,9,11])],["Mixolydian",l([0,2,4,5,7,9,10])],["Aeolian",l([0,2,3,5,7,8,10])],["Locrian",l([0,1,3,5,6,8,10])],["harmonic minor",l([0,2,3,5,7,8,11])],["melodic minor",l([0,2,3,5,7,9,11])],["Lydian dominant",l([0,2,4,6,7,9,10])],["altered",l([0,1,3,4,6,8,10])],["Phrygian dominant",l([0,1,4,5,7,8,10])],["major pentatonic",l([0,2,4,7,9])],["minor pentatonic",l([0,3,5,7,10])],["blues",l([0,3,5,6,7,10])],["whole tone",l([0,2,4,6,8,10])],["octatonic (half-whole)",l([0,1,3,4,6,7,9,10])],["octatonic (whole-half)",l([0,2,3,5,6,8,9,11])],["augmented scale",l([0,3,4,7,8,11])],["major triad",l([0,4,7])],["minor triad",l([0,3,7])],["diminished triad",l([0,3,6])],["augmented triad",l([0,4,8])],["diminished seventh",l([0,3,6,9])],["chromatic",4095]];function k(e){if(e.mask===0)return"empty set";let t=h(e.mask,-e.root),n=xe.find(([,r])=>r===t);if(n&&b(e.mask,e.root))return`${g(e.root)} ${n[0]}`;for(let r of E(e.mask)){let a=xe.find(([,s])=>s===h(e.mask,-r));if(a)return`${g(r)} ${a[0]}`}return`${I(e.mask)}-note set`}var q=[{id:"play",label:"Play"},{id:"octal",label:"Octal"},{id:"pages",label:"Two-page"},{id:"intervals",label:"Intervals"},{id:"moves",label:"Moves"},{id:"favourites",label:"Favourites"}],et=[{mask:l([0,2,4,5,7,9,11]),root:0},{mask:l([0,2,4,5,7,9,11]),root:2},{mask:l([0,2,4,5,7,9,11]),root:9},{mask:l([0,2,3,5,7,8,11]),root:0},{mask:l([0,2,3,5,7,9,11]),root:0},{mask:l([0,2,4,7,9]),root:0},{mask:l([0,2,4,6,8,10]),root:0},{mask:l([0,1,3,4,6,7,9,10]),root:0}],Pe={get(e){try{return localStorage.getItem(e)}catch{return null}},set(e,t){try{localStorage.setItem(e,t)}catch{}}};function tt(){try{let e=JSON.parse(Pe.get("pcs-pads.favourites")??"null");if(Array.isArray(e)&&e.length===8&&e.every(t=>Number.isInteger(t?.mask)&&Number.isInteger(t?.root)))return e}catch{}return et.map(e=>({...e}))}var o={cs:be({mask:l([0,2,4,5,7,9,11]),root:0}),quantum:"bar",mode:"octal",page:0,octal:V,intervals:{root:0,steps:[]},favourites:tt(),storing:!1,neighbourIndex:0,holding:!1,holdUsed:!1,holdStart:0,playing:!1,bpm:100,beat:-1,message:""},S=()=>o.cs.next??o.cs.current;function C(e,t){return e===0||b(e,t)?{mask:e,root:t}:{mask:e,root:E(e)[0]}}function w(e,t){let n=o.cs.current;o.cs=ye(o.cs,e,o.quantum),o.quantum==="now"?(v(`${t}: ${k(e)}`),Ie(n)):v(`${t}: ${k(e)} cued for the next ${o.quantum}`),y()}function Ie(e){let t=o.cs.current;(t.mask!==e.mask||t.root!==e.root)&&(ut(t),u.preview.checked&&Ne(t))}var ee=[{label:"Lighter",run:e=>K(e,1)},{label:"Darker",run:e=>K(e,-1)},{label:"Relative",run:e=>fe(e,1)},{label:"+5th",run:e=>F(e,7)},{label:"\u22125th",run:e=>F(e,-7)},{label:"P",run:e=>B(e.mask,"P")},{label:"L",run:e=>B(e.mask,"L")},{label:"R",run:e=>B(e.mask,"R")}];function ne(e,t){let n=H(e.mask,e.root);if(!n||n.length===0)return null;let r=[0];for(let s of n.slice(0,-1))r.push(r[r.length-1]+s);let a=Math.floor(t/r.length);return 60+e.root+r[t%r.length]+12*a}function nt(){let e=S();if(o.holding)return Array.from({length:8},(t,n)=>q[n]?{label:q[n].label,lit:q[n].id===o.mode}:{label:"",disabled:!0});switch(o.mode){case"play":{let t=o.cs.current;return Array.from({length:8},(n,r)=>{let a=ne(t,r);return a===null?{label:"\u2014",disabled:!0}:{label:g(a),sub:`${r+1}`}})}case"octal":{let t=L(e.mask),n=o.octal.digits.length;return Array.from({length:8},(r,a)=>({label:String(a),sub:`${a&1?"\u25CF":"\u25CB"}${a&2?"\u25CF":"\u25CB"}${a&4?"\u25CF":"\u25CB"}`,hint:Number(t[n])===a}))}case"pages":return le(e.mask,o.page).map((t,n)=>{let r=T(o.page,n);return r===null?{label:"",disabled:!0}:{label:g(r),lit:!!t}});case"intervals":{let t=o.intervals.steps.reduce((n,r)=>n+r,0);return Array.from({length:8},(n,r)=>({label:`+${r+1}`,disabled:t+r+1>12}))}case"moves":{let t=Q(e.mask)!==null;return ee.map((n,r)=>{let a=n.run(e),s=!a||a.mask===e.mask&&a.root===e.root;return{label:n.label,sub:a&&!s?k(a):r>=5&&!t?"triads only":"\u2014",disabled:s}})}case"favourites":return o.favourites.map((t,n)=>({label:`${n+1}`,sub:k(t),lit:t.mask===o.cs.current.mask&&t.root===o.cs.current.root}))}}function O(e){if(o.holding){let n=q[e];n&&(o.mode=n.id,o.holdUsed=!0,Te(),v(`${n.label} mode`),y());return}let t=S();switch(o.mode){case"play":{let n=ne(o.cs.current,e);n!==null&&(Ce(n),te(e));return}case"octal":{let n=ie(o.octal,e);o.octal=n.entry,n.mask!==null?w(C(n.mask,t.root),`Octal ${L(n.mask)}`):y();return}case"pages":{let n=ce(t.mask,o.page,e);n!==t.mask&&w(C(n,t.root),`${b(n,T(o.page,e))?"Added":"Removed"} ${g(T(o.page,e))}`);return}case"intervals":{o.intervals.steps.length===0&&(o.intervals={root:t.root,steps:[]});let n=de(o.intervals,e);o.intervals=n.entry,n.refused&&v(`+${e+1} would pass the octave`),n.mask!==null?w({mask:n.mask,root:n.entry.root},"Intervals"):y();return}case"moves":{let n=ee[e].run(t);n&&(n.mask!==t.mask||n.root!==t.root)&&w(n,ee[e].label);return}case"favourites":{o.storing?(o.favourites[e]={...o.cs.current},Pe.set("pcs-pads.favourites",JSON.stringify(o.favourites)),o.storing=!1,v(`Stored ${k(o.cs.current)} in slot ${e+1}`),y()):w({...o.favourites[e]},`Favourite ${e+1}`);return}}}function re(){switch(o.mode){case"pages":o.page=o.page===0?1:0,v(`Page ${o.page+1}: ${o.page===0?"C to G":"A\u266D to B"}`);break;case"octal":o.octal=ue(o.octal),v("Backspace");break;case"intervals":o.intervals={root:S().root,steps:[]},v("Interval entry cleared");break;case"favourites":o.storing=!o.storing,v(o.storing?"Tap a pad to store the current set":"Store cancelled");break;case"moves":{let e=Y(S().mask);if(e.length){let t=e[o.neighbourIndex++%e.length];w(C(t.mask,S().root),`Neighbour ${g(t.from)}\u2192${g(t.to)}`);return}break}case"play":Ne(o.cs.current);break}y()}var rt={play:"arpeggio",octal:"\u232B",pages:"page",intervals:"clear",moves:"neighbour",favourites:"store"};function Te(){o.octal=V,o.intervals={root:S().root,steps:[]},o.storing=!1}var _;function U(){o.beat++;let e=o.beat%16===0?"loop":o.beat%4===0?"bar":"beat",t=o.cs.current,n=he(o.cs,e);o.cs=n.state,u.click.checked&&at(e!=="beat"),n.changed&&(v(`Now: ${k(o.cs.current)}`),Ie(t)),y()}function Me(e){o.playing=e,clearInterval(_),e&&(o.beat=-1,U(),_=window.setInterval(U,6e4/o.bpm)),y()}var ot=null,qe=()=>ot??=new AudioContext;function Ce(e,t=0,n=.35){it(e,n);let r=qe(),a=r.currentTime+t,s=r.createOscillator(),i=r.createGain();s.type="triangle",s.frequency.value=440*2**((e-69)/12),i.gain.setValueAtTime(0,a),i.gain.linearRampToValueAtTime(.18,a+.01),i.gain.exponentialRampToValueAtTime(1e-4,a+n),s.connect(i).connect(r.destination),s.start(a),s.stop(a+n+.05)}function Ne(e){let t=I(e.mask);for(let n=0;n<=t;n++){let r=ne(e,n);r!==null&&Ce(r,n*.09,.25)}}function at(e){let t=qe(),n=t.createOscillator(),r=t.createGain();n.frequency.value=e?1760:1320,r.gain.setValueAtTime(.08,t.currentTime),r.gain.exponentialRampToValueAtTime(1e-4,t.currentTime+.04),n.connect(r).connect(t.destination),n.start(),n.stop(t.currentTime+.05)}var P=null,R=null;async function st(){if(!("requestMIDIAccess"in navigator)){u.midiStatus.textContent="Web MIDI not available in this browser.";return}try{R=await navigator.requestMIDIAccess({sysex:!0})}catch{try{R=await navigator.requestMIDIAccess(),u.midiStatus.textContent="No SysEx permission: notes only."}catch{u.midiStatus.textContent="MIDI access refused.";return}}let e=()=>{let t=u.midiPort.value;u.midiPort.replaceChildren(new Option("None",""));for(let n of R.outputs.values())u.midiPort.add(new Option(n.name??n.id,n.id));u.midiPort.value=[...u.midiPort.options].some(n=>n.value===t)?t:""};e(),R.onstatechange=e,u.midiPort.disabled=!1}function it(e,t){!P||!u.sendNotes.checked||(P.send([144,e,100]),P.send([128,e,0],performance.now()+t*1e3))}function ut(e){if(!(!P||!u.sendScale.checked))try{let t=Ee("external","scale",{mask:e.mask,root:e.root,name:k(e)});for(let n of $e(t))P.send(n)}catch(t){u.midiStatus.textContent=`Could not send the scale: ${t.message}`}}var m=e=>document.getElementById(e),u={ring:m("ring"),pads:m("pads"),centre:m("centre"),modeChips:m("mode-chips"),name:m("name"),facts:m("facts"),next:m("next"),cancel:m("cancel"),entry:m("entry"),live:m("live"),play:m("play"),bpm:m("bpm"),beats:m("beats"),quantum:m("quantum"),ladder:m("ladder"),neighbours:m("neighbours"),preview:m("preview"),click:m("click"),midiPort:m("midi-port"),midiStatus:m("midi-status"),midiEnable:m("midi-enable"),sendNotes:m("send-notes"),sendScale:m("send-scale")};function v(e){o.message=e,u.live.textContent=e}var oe=[];function ct(){for(let e=0;e<8;e++){let t=document.createElement("button");t.className="pad",t.type="button";let n=e/8*2*Math.PI-Math.PI/2;t.style.setProperty("--x",`${50+38*Math.cos(n)}%`),t.style.setProperty("--y",`${50+38*Math.sin(n)}%`),t.addEventListener("pointerdown",r=>{r.preventDefault(),O(e)}),t.addEventListener("keydown",r=>{(r.key==="Enter"||r.key===" ")&&(r.preventDefault(),r.stopPropagation(),O(e))}),oe.push(t),u.pads.append(t)}}function te(e){let t=oe[e];t.classList.add("flash"),setTimeout(()=>t.classList.remove("flash"),140)}function z(){o.holding||(o.holding=!0,o.holdUsed=!1,o.holdStart=performance.now(),Re=window.setTimeout(y,250))}var Re;function X(){if(!o.holding)return;clearTimeout(Re);let e=performance.now()-o.holdStart<250;o.holding=!1,e&&!o.holdUsed?re():y()}function lt(){let e=o.cs.current,t=o.cs.next,n=S(),r=42,a=`<svg viewBox="0 0 100 100" role="img" aria-label="Pitch-class ring: ${E(e.mask).map(g).join(", ")||"empty"}">`;a+=`<circle cx="50" cy="50" r="${r}" class="ring-track"/>`;let s=i=>E(i).map(f=>{let d=f/12*2*Math.PI-Math.PI/2;return`${50+r*Math.cos(d)},${50+r*Math.sin(d)}`}).join(" ");I(e.mask)>1&&(a+=`<polygon points="${s(e.mask)}" class="ring-shape"/>`),t&&I(t.mask)>1&&(a+=`<polygon points="${s(t.mask)}" class="ring-shape next"/>`);for(let i=0;i<12;i++){let f=i/12*2*Math.PI-Math.PI/2,d=50+r*Math.cos(f),c=50+r*Math.sin(f),p=b(e.mask,i),M=t?b(t.mask,i):!1,Oe=["node",p?"on":"",M?"cued":"",i===e.root&&p?"root":""].join(" ");a+=`<g class="${Oe}" data-pc="${i}" tabindex="0" role="button" aria-pressed="${b(n.mask,i)}" aria-label="${g(i)}${p?", in set":""}${M?", in cued set":""}"><circle cx="${d}" cy="${c}" r="5.6"/><text x="${d}" y="${c}" dy="0.35em">${g(i)}</text></g>`}return a+"</svg>"}function y(){let e=o.cs.current,t=o.cs.next;u.ring.innerHTML=lt(),u.name.textContent=k(e);let n=H(e.mask,e.root),r=[["Notes",E(e.mask).map(g).join(" ")||"\u2014"],["Mask",`${e.mask}`],["Octal taps",L(e.mask).split("").join(" ")],["Steps",n?n.join(" "):"root not in set"],["Cardinality",`${I(e.mask)}`],["Transpositions",`${D(e.mask)}`],["Brightness",b(e.mask,e.root)?`${N(e.mask,e.root)}`:"\u2014"]];u.facts.innerHTML=r.map(([c,p])=>`<dt>${c}</dt><dd>${p}</dd>`).join(""),u.next.textContent=t?`${k(t)} \xB7 at the next ${o.cs.at}`:"nothing cued",u.cancel.disabled=!t,u.entry.textContent=o.holding?"Choose a mode":o.mode==="octal"?`Octal: ${[0,1,2,3].map(c=>o.octal.digits[c]??"_").join(" ")}`:o.mode==="intervals"?`Steps from ${g(o.intervals.steps.length?o.intervals.root:S().root)}: ${o.intervals.steps.join(" + ")||"\u2026"} (${12-o.intervals.steps.reduce((c,p)=>c+p,0)} left)`:o.mode==="pages"?`Page ${o.page+1} of 2 \xB7 ${o.page===0?"C to G":"A\u266D to B"}`:o.mode==="favourites"?o.storing?"Storing: tap a slot":"Tap to recall":o.mode==="moves"?"Moves build on the cued set, if any":"Pads play the current set's degrees",nt().forEach((c,p)=>{let M=oe[p];M.innerHTML=`<span class="pad-label">${c.label}</span>${c.sub?`<span class="pad-sub">${c.sub}</span>`:""}`,M.classList.toggle("lit",!!c.lit),M.classList.toggle("hint",!!c.hint),M.disabled=!!c.disabled&&!o.holding,M.setAttribute("aria-label",`Pad ${p+1}: ${c.label}${c.sub?`, ${c.sub}`:""}${c.lit?", lit":""}`)}),u.centre.classList.toggle("held",o.holding),u.centre.innerHTML=`<span class="pad-label">${o.holding?"modes":q.find(c=>c.id===o.mode).label}</span><span class="pad-sub">tap: ${rt[o.mode]} \xB7 hold: modes</span>`,u.modeChips.querySelectorAll("button").forEach(c=>c.setAttribute("aria-pressed",String(c.dataset.mode===o.mode))),u.quantum.querySelectorAll("button").forEach(c=>c.setAttribute("aria-pressed",String(c.dataset.q===o.quantum))),u.play.textContent=o.playing?"Stop":"Start",u.play.setAttribute("aria-pressed",String(o.playing));let a=o.beat<0?-1:o.beat%16;u.beats.innerHTML=Array.from({length:16},(c,p)=>`<span class="beat${p%4===0?" downbeat":""}${p===a?" now":""}"></span>`).join("");let s=S(),i=G(s);u.ladder.innerHTML=i.length?i.map(c=>{let p={mask:c,root:s.root};return`<li><button type="button" data-mask="${c}" aria-pressed="${c===s.mask}">${k(p)} <span class="muted">${N(c,s.root)}</span></button></li>`}).join(""):'<li class="muted">The root is not in the set.</li>';let f=Y(s.mask);u.neighbours.innerHTML=f.map(c=>`<li><button type="button" data-mask="${c.mask}">${g(c.from)}\u2192${g(c.to)} <span class="muted">${k(C(c.mask,s.root))}</span></button></li>`).join("");let d=D(s.mask);d<12&&d>1&&u.neighbours.insertAdjacentHTML("afterbegin",`<li class="muted">Limited transposition: ${d} distinct (${me(s.mask).length} masks)</li>`)}function dt(){ct(),u.centre.addEventListener("pointerdown",e=>{e.preventDefault(),z()}),u.centre.addEventListener("pointerup",X),u.centre.addEventListener("pointerleave",()=>{o.holding&&X()}),u.centre.addEventListener("click",e=>{e.detail===0&&re()});for(let e of q){let t=document.createElement("button");t.type="button",t.dataset.mode=e.id,t.textContent=e.label,t.addEventListener("click",()=>{o.mode=e.id,Te(),v(`${e.label} mode`),y()}),u.modeChips.append(t)}for(let e of["now","beat","bar","loop"]){let t=document.createElement("button");t.type="button",t.dataset.q=e,t.textContent=e==="now"?"Now":`Next ${e}`,t.addEventListener("click",()=>{o.quantum=e,y()}),u.quantum.append(t)}u.ring.addEventListener("click",e=>{let t=e.target.closest("[data-pc]");if(!t)return;let n=Number(t.getAttribute("data-pc")),r=S();if(e.altKey||e.shiftKey){b(r.mask,n)&&w({mask:r.mask,root:n},`Root ${g(n)}`);return}let a=r.mask^1<<n;w(C(a,r.root),`${b(a,n)?"Added":"Removed"} ${g(n)}`)}),u.ring.addEventListener("keydown",e=>{e.key!=="Enter"&&e.key!==" "||(e.preventDefault(),e.stopPropagation(),e.target.dispatchEvent(new MouseEvent("click",{bubbles:!0,shiftKey:e.shiftKey,altKey:e.altKey})))}),u.ladder.addEventListener("click",e=>{let t=e.target.closest("[data-mask]");t&&w({mask:Number(t.dataset.mask),root:S().root},"Mode")}),u.neighbours.addEventListener("click",e=>{let t=e.target.closest("[data-mask]");t&&w(C(Number(t.dataset.mask),S().root),"Neighbour")}),u.cancel.addEventListener("click",()=>{o.cs=J(o.cs),v("Cue cancelled"),y()}),u.play.addEventListener("click",()=>Me(!o.playing)),u.bpm.addEventListener("change",()=>{o.bpm=Math.min(240,Math.max(40,Number(u.bpm.value)||100)),u.bpm.value=String(o.bpm),o.playing&&(clearInterval(_),_=window.setInterval(U,6e4/o.bpm))}),u.midiEnable.addEventListener("click",()=>{u.midiEnable.disabled=!0,st()}),u.midiPort.addEventListener("change",()=>{P=R?.outputs.get(u.midiPort.value)??null,u.midiStatus.textContent=P?`Sending to ${P.name}.`:""}),document.addEventListener("keydown",e=>{let t=e.target;if(t.matches("input, select, textarea"))return;let n=o.mode==="octal"&&!o.holding;n&&e.key>="0"&&e.key<="7"&&!e.repeat?(O(Number(e.key)),te(Number(e.key))):!n&&e.key>="1"&&e.key<="8"&&!e.repeat?(O(Number(e.key)-1),te(Number(e.key)-1)):(e.key==="c"||e.key==="C")&&!e.repeat?z():e.key===" "&&!e.repeat&&!t.closest("button, [role=button]")?(e.preventDefault(),z()):e.key==="Escape"?(o.cs=J(o.cs),o.storing=!1,v("Cue cancelled"),y()):e.key==="Enter"&&t===document.body&&Me(!o.playing)}),document.addEventListener("keyup",e=>{(e.key===" "||e.key==="c"||e.key==="C")&&o.holding&&(e.preventDefault(),X())}),y()}dt();window.pcsPads={app:o,tapPad:O,centreTap:re,propose:w,tick:U,nameOf:k};
+
+</script>
+</body>
+</html>
