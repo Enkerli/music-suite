@@ -450,8 +450,10 @@ pcs 0–2, and within a digit pc 3k is the low bit.
 (Each group is written pc-ascending, so pad value = b₀ + 2b₁ + 4b₂.)
 Ionian and Lydian differ only in the two middle taps, which is where F and
 F♯ live. Neighbouring sets share taps, so the gesture can become muscle
-memory. **Pin this with a test vector from `@enkerli/theory`** before any
-firmware implements it.
+memory. **Implemented and pinned:** `@enkerli/theory` `pcsSelect.ts` with
+`vectors/pcs-select.json`. These cover octal, two-page and interval
+entry, every move in §12.4 except PitchFold, and the cueing model in
+§12.2.
 
 ### 12.4 Semantic switching: a separate layer from entry
 

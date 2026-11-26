@@ -1,0 +1,1585 @@
+{
+ "description": "Cross-language vectors for PCS selection (src/pcsSelect.ts): octal / two-page / interval entry, transposition and limited transposition, relative and parallel modes (light ↔ dark), neo-Riemannian P/L/R, parsimonious neighbours, and quantised cueing. Bit order: leftmost = LSB, pc i = bit i (C Ionian = 2741; 2773 is C Lydian). Octal digits in tap order, first digit = pcs 0–2. Regenerate with gen-pcs-select-vectors.mjs; do not hand-edit.",
+ "octal": [
+  {
+   "name": "empty",
+   "pcs": [],
+   "mask": 0,
+   "digits": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "octal": "0000"
+  },
+  {
+   "name": "{C}",
+   "pcs": [
+    0
+   ],
+   "mask": 1,
+   "digits": [
+    1,
+    0,
+    0,
+    0
+   ],
+   "octal": "1000"
+  },
+  {
+   "name": "{B}",
+   "pcs": [
+    11
+   ],
+   "mask": 2048,
+   "digits": [
+    0,
+    0,
+    0,
+    4
+   ],
+   "octal": "0004"
+  },
+  {
+   "name": "chromatic",
+   "pcs": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11
+   ],
+   "mask": 4095,
+   "digits": [
+    7,
+    7,
+    7,
+    7
+   ],
+   "octal": "7777"
+  },
+  {
+   "name": "C major triad",
+   "pcs": [
+    0,
+    4,
+    7
+   ],
+   "mask": 145,
+   "digits": [
+    1,
+    2,
+    2,
+    0
+   ],
+   "octal": "1220"
+  },
+  {
+   "name": "C Ionian",
+   "pcs": [
+    0,
+    2,
+    4,
+    5,
+    7,
+    9,
+    11
+   ],
+   "mask": 2741,
+   "digits": [
+    5,
+    6,
+    2,
+    5
+   ],
+   "octal": "5625"
+  },
+  {
+   "name": "C Lydian",
+   "pcs": [
+    0,
+    2,
+    4,
+    6,
+    7,
+    9,
+    11
+   ],
+   "mask": 2773,
+   "digits": [
+    5,
+    2,
+    3,
+    5
+   ],
+   "octal": "5235"
+  },
+  {
+   "name": "F Ionian",
+   "pcs": [
+    0,
+    2,
+    4,
+    5,
+    7,
+    9,
+    10
+   ],
+   "mask": 1717,
+   "digits": [
+    5,
+    6,
+    2,
+    3
+   ],
+   "octal": "5623"
+  },
+  {
+   "name": "C harmonic minor",
+   "pcs": [
+    0,
+    2,
+    3,
+    5,
+    7,
+    8,
+    11
+   ],
+   "mask": 2477,
+   "digits": [
+    5,
+    5,
+    6,
+    4
+   ],
+   "octal": "5564"
+  },
+  {
+   "name": "C major pentatonic",
+   "pcs": [
+    0,
+    2,
+    4,
+    7,
+    9
+   ],
+   "mask": 661,
+   "digits": [
+    5,
+    2,
+    2,
+    1
+   ],
+   "octal": "5221"
+  },
+  {
+   "name": "whole tone (C)",
+   "pcs": [
+    0,
+    2,
+    4,
+    6,
+    8,
+    10
+   ],
+   "mask": 1365,
+   "digits": [
+    5,
+    2,
+    5,
+    2
+   ],
+   "octal": "5252"
+  },
+  {
+   "name": "octatonic half-whole (C)",
+   "pcs": [
+    0,
+    1,
+    3,
+    4,
+    6,
+    7,
+    9,
+    10
+   ],
+   "mask": 1755,
+   "digits": [
+    3,
+    3,
+    3,
+    3
+   ],
+   "octal": "3333"
+  }
+ ],
+ "octalEntry": [
+  {
+   "taps": [
+    5,
+    6,
+    2,
+    5
+   ],
+   "masks": [
+    null,
+    null,
+    null,
+    2741
+   ],
+   "pending": []
+  },
+  {
+   "taps": [
+    5,
+    6,
+    2,
+    5,
+    5,
+    2,
+    3,
+    5
+   ],
+   "masks": [
+    null,
+    null,
+    null,
+    2741,
+    null,
+    null,
+    null,
+    2773
+   ],
+   "pending": []
+  },
+  {
+   "taps": [
+    5,
+    6,
+    7,
+    "⌫",
+    2,
+    5
+   ],
+   "masks": [
+    null,
+    null,
+    null,
+    null,
+    null,
+    2741
+   ],
+   "pending": []
+  },
+  {
+   "taps": [
+    0,
+    0,
+    0
+   ],
+   "masks": [
+    null,
+    null,
+    null
+   ],
+   "pending": [
+    0,
+    0,
+    0
+   ]
+  }
+ ],
+ "twoPage": [
+  {
+   "taps": [
+    [
+     0,
+     0
+    ],
+    [
+     0,
+     2
+    ],
+    [
+     0,
+     4
+    ],
+    [
+     0,
+     5
+    ],
+    [
+     0,
+     7
+    ],
+    [
+     1,
+     1
+    ],
+    [
+     1,
+     3
+    ]
+   ],
+   "mask": 2741,
+   "page0": [
+    true,
+    false,
+    true,
+    false,
+    true,
+    true,
+    false,
+    true
+   ],
+   "page1": [
+    false,
+    true,
+    false,
+    true,
+    null,
+    null,
+    null,
+    null
+   ]
+  },
+  {
+   "taps": [
+    [
+     0,
+     0
+    ],
+    [
+     0,
+     0
+    ]
+   ],
+   "mask": 0,
+   "page0": [
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false
+   ],
+   "page1": [
+    false,
+    false,
+    false,
+    false,
+    null,
+    null,
+    null,
+    null
+   ]
+  },
+  {
+   "taps": [
+    [
+     1,
+     4
+    ],
+    [
+     1,
+     7
+    ],
+    [
+     0,
+     1
+    ]
+   ],
+   "mask": 2,
+   "page0": [
+    false,
+    true,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false
+   ],
+   "page1": [
+    false,
+    false,
+    false,
+    false,
+    null,
+    null,
+    null,
+    null
+   ]
+  }
+ ],
+ "intervals": [
+  {
+   "name": "C Ionian",
+   "mask": 2741,
+   "root": 0,
+   "steps": [
+    2,
+    2,
+    1,
+    2,
+    2,
+    2,
+    1
+   ]
+  },
+  {
+   "name": "F Ionian",
+   "mask": 1717,
+   "root": 5,
+   "steps": [
+    2,
+    2,
+    1,
+    2,
+    2,
+    2,
+    1
+   ]
+  },
+  {
+   "name": "C major triad",
+   "mask": 145,
+   "root": 0,
+   "steps": [
+    4,
+    3,
+    5
+   ]
+  },
+  {
+   "name": "C major triad from E",
+   "mask": 145,
+   "root": 4,
+   "steps": [
+    3,
+    5,
+    4
+   ]
+  },
+  {
+   "name": "{C}",
+   "mask": 1,
+   "root": 0,
+   "steps": [
+    12
+   ]
+  },
+  {
+   "name": "C major triad from D (absent)",
+   "mask": 145,
+   "root": 2,
+   "steps": null
+  }
+ ],
+ "intervalEntry": [
+  {
+   "root": 0,
+   "pads": [
+    1,
+    1,
+    0,
+    1,
+    1,
+    1,
+    0
+   ],
+   "results": [
+    {
+     "mask": null,
+     "refused": false
+    },
+    {
+     "mask": null,
+     "refused": false
+    },
+    {
+     "mask": null,
+     "refused": false
+    },
+    {
+     "mask": null,
+     "refused": false
+    },
+    {
+     "mask": null,
+     "refused": false
+    },
+    {
+     "mask": null,
+     "refused": false
+    },
+    {
+     "mask": 2741,
+     "refused": false
+    }
+   ],
+   "pending": []
+  },
+  {
+   "root": 9,
+   "pads": [
+    2,
+    3,
+    4
+   ],
+   "results": [
+    {
+     "mask": null,
+     "refused": false
+    },
+    {
+     "mask": null,
+     "refused": false
+    },
+    {
+     "mask": 529,
+     "refused": false
+    }
+   ],
+   "pending": []
+  },
+  {
+   "root": 0,
+   "pads": [
+    7,
+    7,
+    3
+   ],
+   "results": [
+    {
+     "mask": null,
+     "refused": false
+    },
+    {
+     "mask": null,
+     "refused": true
+    },
+    {
+     "mask": 257,
+     "refused": false
+    }
+   ],
+   "pending": []
+  }
+ ],
+ "transpose": [
+  {
+   "from": {
+    "mask": 2741,
+    "root": 0
+   },
+   "n": 7,
+   "to": {
+    "mask": 2773,
+    "root": 7
+   }
+  },
+  {
+   "from": {
+    "mask": 2741,
+    "root": 0
+   },
+   "n": -1,
+   "to": {
+    "mask": 3418,
+    "root": 11
+   }
+  },
+  {
+   "from": {
+    "mask": 145,
+    "root": 0
+   },
+   "n": 11,
+   "to": {
+    "mask": 2120,
+    "root": 11
+   }
+  },
+  {
+   "from": {
+    "mask": 1365,
+    "root": 0
+   },
+   "n": 2,
+   "to": {
+    "mask": 1365,
+    "root": 2
+   }
+  },
+  {
+   "from": {
+    "mask": 1,
+    "root": 0
+   },
+   "n": 12,
+   "to": {
+    "mask": 1,
+    "root": 0
+   }
+  }
+ ],
+ "periods": [
+  {
+   "name": "empty",
+   "mask": 0,
+   "period": 1,
+   "transpositions": [
+    0
+   ]
+  },
+  {
+   "name": "{C}",
+   "mask": 1,
+   "period": 12,
+   "transpositions": [
+    1,
+    2,
+    4,
+    8,
+    16,
+    32,
+    64,
+    128,
+    256,
+    512,
+    1024,
+    2048
+   ]
+  },
+  {
+   "name": "{B}",
+   "mask": 2048,
+   "period": 12,
+   "transpositions": [
+    2048,
+    1,
+    2,
+    4,
+    8,
+    16,
+    32,
+    64,
+    128,
+    256,
+    512,
+    1024
+   ]
+  },
+  {
+   "name": "chromatic",
+   "mask": 4095,
+   "period": 1,
+   "transpositions": [
+    4095
+   ]
+  },
+  {
+   "name": "C major triad",
+   "mask": 145,
+   "period": 12,
+   "transpositions": [
+    145,
+    290,
+    580,
+    1160,
+    2320,
+    545,
+    1090,
+    2180,
+    265,
+    530,
+    1060,
+    2120
+   ]
+  },
+  {
+   "name": "C Ionian",
+   "mask": 2741,
+   "period": 12,
+   "transpositions": [
+    2741,
+    1387,
+    2774,
+    1453,
+    2906,
+    1717,
+    3434,
+    2773,
+    1451,
+    2902,
+    1709,
+    3418
+   ]
+  },
+  {
+   "name": "C Lydian",
+   "mask": 2773,
+   "period": 12,
+   "transpositions": [
+    2773,
+    1451,
+    2902,
+    1709,
+    3418,
+    2741,
+    1387,
+    2774,
+    1453,
+    2906,
+    1717,
+    3434
+   ]
+  },
+  {
+   "name": "F Ionian",
+   "mask": 1717,
+   "period": 12,
+   "transpositions": [
+    1717,
+    3434,
+    2773,
+    1451,
+    2902,
+    1709,
+    3418,
+    2741,
+    1387,
+    2774,
+    1453,
+    2906
+   ]
+  },
+  {
+   "name": "C harmonic minor",
+   "mask": 2477,
+   "period": 12,
+   "transpositions": [
+    2477,
+    859,
+    1718,
+    3436,
+    2777,
+    1459,
+    2918,
+    1741,
+    3482,
+    2869,
+    1643,
+    3286
+   ]
+  },
+  {
+   "name": "C major pentatonic",
+   "mask": 661,
+   "period": 12,
+   "transpositions": [
+    661,
+    1322,
+    2644,
+    1193,
+    2386,
+    677,
+    1354,
+    2708,
+    1321,
+    2642,
+    1189,
+    2378
+   ]
+  },
+  {
+   "name": "whole tone (C)",
+   "mask": 1365,
+   "period": 2,
+   "transpositions": [
+    1365,
+    2730
+   ]
+  },
+  {
+   "name": "octatonic half-whole (C)",
+   "mask": 1755,
+   "period": 3,
+   "transpositions": [
+    1755,
+    3510,
+    2925
+   ]
+  },
+  {
+   "name": "augmented triad",
+   "mask": 273,
+   "period": 4,
+   "transpositions": [
+    273,
+    546,
+    1092,
+    2184
+   ]
+  },
+  {
+   "name": "diminished seventh",
+   "mask": 585,
+   "period": 3,
+   "transpositions": [
+    585,
+    1170,
+    2340
+   ]
+  },
+  {
+   "name": "tritone dyad",
+   "mask": 65,
+   "period": 6,
+   "transpositions": [
+    65,
+    130,
+    260,
+    520,
+    1040,
+    2080
+   ]
+  },
+  {
+   "name": "Messiaen mode 3",
+   "mask": 3549,
+   "period": 4,
+   "transpositions": [
+    3549,
+    3003,
+    1911,
+    3822
+   ]
+  },
+  {
+   "name": "Messiaen mode 4",
+   "mask": 2535,
+   "period": 6,
+   "transpositions": [
+    2535,
+    975,
+    1950,
+    3900,
+    3705,
+    3315
+   ]
+  }
+ ],
+ "parallel": [
+  {
+   "name": "C Ionian",
+   "mask": 2741,
+   "root": 0,
+   "modes": [
+    2773,
+    2741,
+    1717,
+    1709,
+    1453,
+    1451,
+    1387
+   ],
+   "brightness": [
+    39,
+    38,
+    37,
+    36,
+    35,
+    34,
+    33
+   ]
+  },
+  {
+   "name": "C harmonic minor",
+   "mask": 2477,
+   "root": 0,
+   "modes": [
+    2777,
+    2869,
+    1741,
+    2477,
+    1459,
+    1643,
+    859
+   ],
+   "brightness": [
+    40,
+    39,
+    37,
+    36,
+    35,
+    34,
+    31
+   ]
+  },
+  {
+   "name": "C major pentatonic",
+   "mask": 661,
+   "root": 0,
+   "modes": [
+    1321,
+    1193,
+    1189,
+    677,
+    661
+   ],
+   "brightness": [
+    26,
+    25,
+    24,
+    23,
+    22
+   ]
+  },
+  {
+   "name": "whole tone (C)",
+   "mask": 1365,
+   "root": 0,
+   "modes": [
+    1365
+   ],
+   "brightness": [
+    30
+   ]
+  },
+  {
+   "name": "C major triad from D (absent)",
+   "mask": 145,
+   "root": 2,
+   "modes": [],
+   "brightness": []
+  }
+ ],
+ "parallelSteps": [
+  {
+   "from": {
+    "mask": 2741,
+    "root": 0
+   },
+   "dir": 1,
+   "wrap": false,
+   "to": {
+    "mask": 2773,
+    "root": 0
+   }
+  },
+  {
+   "from": {
+    "mask": 2741,
+    "root": 0
+   },
+   "dir": -1,
+   "wrap": false,
+   "to": {
+    "mask": 1717,
+    "root": 0
+   }
+  },
+  {
+   "from": {
+    "mask": 2773,
+    "root": 0
+   },
+   "dir": 1,
+   "wrap": false,
+   "to": {
+    "mask": 2773,
+    "root": 0
+   }
+  },
+  {
+   "from": {
+    "mask": 2773,
+    "root": 0
+   },
+   "dir": 1,
+   "wrap": true,
+   "to": {
+    "mask": 1387,
+    "root": 0
+   }
+  },
+  {
+   "from": {
+    "mask": 1387,
+    "root": 0
+   },
+   "dir": -1,
+   "wrap": true,
+   "to": {
+    "mask": 2773,
+    "root": 0
+   }
+  }
+ ],
+ "relative": [
+  {
+   "from": {
+    "mask": 2741,
+    "root": 0
+   },
+   "dir": 1,
+   "to": {
+    "mask": 2741,
+    "root": 2
+   }
+  },
+  {
+   "from": {
+    "mask": 2741,
+    "root": 0
+   },
+   "dir": -1,
+   "to": {
+    "mask": 2741,
+    "root": 11
+   }
+  },
+  {
+   "from": {
+    "mask": 2741,
+    "root": 11
+   },
+   "dir": 1,
+   "to": {
+    "mask": 2741,
+    "root": 0
+   }
+  },
+  {
+   "from": {
+    "mask": 145,
+    "root": 2
+   },
+   "dir": 1,
+   "to": {
+    "mask": 145,
+    "root": 4
+   }
+  },
+  {
+   "from": {
+    "mask": 0,
+    "root": 3
+   },
+   "dir": 1,
+   "to": {
+    "mask": 0,
+    "root": 3
+   }
+  }
+ ],
+ "riemann": [
+  {
+   "name": "C major",
+   "mask": 145,
+   "op": "P",
+   "to": {
+    "mask": 137,
+    "root": 0
+   }
+  },
+  {
+   "name": "C major",
+   "mask": 145,
+   "op": "L",
+   "to": {
+    "mask": 2192,
+    "root": 4
+   }
+  },
+  {
+   "name": "C major",
+   "mask": 145,
+   "op": "R",
+   "to": {
+    "mask": 529,
+    "root": 9
+   }
+  },
+  {
+   "name": "A minor",
+   "mask": 529,
+   "op": "P",
+   "to": {
+    "mask": 530,
+    "root": 9
+   }
+  },
+  {
+   "name": "A minor",
+   "mask": 529,
+   "op": "L",
+   "to": {
+    "mask": 545,
+    "root": 5
+   }
+  },
+  {
+   "name": "A minor",
+   "mask": 529,
+   "op": "R",
+   "to": {
+    "mask": 145,
+    "root": 0
+   }
+  },
+  {
+   "name": "F♯ major",
+   "mask": 1090,
+   "op": "P",
+   "to": {
+    "mask": 578,
+    "root": 6
+   }
+  },
+  {
+   "name": "F♯ major",
+   "mask": 1090,
+   "op": "L",
+   "to": {
+    "mask": 1058,
+    "root": 10
+   }
+  },
+  {
+   "name": "F♯ major",
+   "mask": 1090,
+   "op": "R",
+   "to": {
+    "mask": 1096,
+    "root": 3
+   }
+  },
+  {
+   "name": "E♭ minor",
+   "mask": 1096,
+   "op": "P",
+   "to": {
+    "mask": 1160,
+    "root": 3
+   }
+  },
+  {
+   "name": "E♭ minor",
+   "mask": 1096,
+   "op": "L",
+   "to": {
+    "mask": 2120,
+    "root": 11
+   }
+  },
+  {
+   "name": "E♭ minor",
+   "mask": 1096,
+   "op": "R",
+   "to": {
+    "mask": 1090,
+    "root": 6
+   }
+  },
+  {
+   "name": "C Ionian (not a triad)",
+   "mask": 2741,
+   "op": "P",
+   "to": null
+  },
+  {
+   "name": "C Ionian (not a triad)",
+   "mask": 2741,
+   "op": "L",
+   "to": null
+  },
+  {
+   "name": "C Ionian (not a triad)",
+   "mask": 2741,
+   "op": "R",
+   "to": null
+  }
+ ],
+ "parsimony": [
+  {
+   "name": "C major triad",
+   "mask": 145,
+   "neighbours": [
+    {
+     "mask": 81,
+     "from": 7,
+     "to": 6
+    },
+    {
+     "mask": 137,
+     "from": 4,
+     "to": 3
+    },
+    {
+     "mask": 146,
+     "from": 0,
+     "to": 1
+    },
+    {
+     "mask": 161,
+     "from": 4,
+     "to": 5
+    },
+    {
+     "mask": 273,
+     "from": 7,
+     "to": 8
+    },
+    {
+     "mask": 2192,
+     "from": 0,
+     "to": 11
+    }
+   ]
+  },
+  {
+   "name": "C Ionian",
+   "mask": 2741,
+   "neighbours": [
+    {
+     "mask": 1717,
+     "from": 11,
+     "to": 10
+    },
+    {
+     "mask": 2485,
+     "from": 9,
+     "to": 8
+    },
+    {
+     "mask": 2677,
+     "from": 7,
+     "to": 6
+    },
+    {
+     "mask": 2733,
+     "from": 4,
+     "to": 3
+    },
+    {
+     "mask": 2739,
+     "from": 2,
+     "to": 1
+    },
+    {
+     "mask": 2742,
+     "from": 0,
+     "to": 1
+    },
+    {
+     "mask": 2745,
+     "from": 2,
+     "to": 3
+    },
+    {
+     "mask": 2773,
+     "from": 5,
+     "to": 6
+    },
+    {
+     "mask": 2869,
+     "from": 7,
+     "to": 8
+    },
+    {
+     "mask": 3253,
+     "from": 9,
+     "to": 10
+    }
+   ]
+  },
+  {
+   "name": "{C}",
+   "mask": 1,
+   "neighbours": [
+    {
+     "mask": 2,
+     "from": 0,
+     "to": 1
+    },
+    {
+     "mask": 2048,
+     "from": 0,
+     "to": 11
+    }
+   ]
+  },
+  {
+   "name": "chromatic",
+   "mask": 4095,
+   "neighbours": []
+  }
+ ],
+ "cueing": [
+  {
+   "start": {
+    "mask": 2741,
+    "root": 0
+   },
+   "events": [
+    {
+     "cue": {
+      "mask": 2773,
+      "root": 7
+     },
+     "at": "bar"
+    },
+    {
+     "boundary": "beat"
+    },
+    {
+     "boundary": "beat"
+    },
+    {
+     "boundary": "bar"
+    }
+   ],
+   "after": [
+    {
+     "current": {
+      "mask": 2741,
+      "root": 0
+     },
+     "next": {
+      "mask": 2773,
+      "root": 7
+     },
+     "at": "bar"
+    },
+    {
+     "current": {
+      "mask": 2741,
+      "root": 0
+     },
+     "next": {
+      "mask": 2773,
+      "root": 7
+     },
+     "at": "bar"
+    },
+    {
+     "current": {
+      "mask": 2741,
+      "root": 0
+     },
+     "next": {
+      "mask": 2773,
+      "root": 7
+     },
+     "at": "bar"
+    },
+    {
+     "current": {
+      "mask": 2773,
+      "root": 7
+     },
+     "next": null,
+     "at": "now"
+    }
+   ]
+  },
+  {
+   "start": {
+    "mask": 2741,
+    "root": 0
+   },
+   "events": [
+    {
+     "cue": {
+      "mask": 2773,
+      "root": 7
+     },
+     "at": "loop"
+    },
+    {
+     "boundary": "bar"
+    },
+    {
+     "cue": {
+      "mask": 2741,
+      "root": 2
+     },
+     "at": "loop"
+    },
+    {
+     "boundary": "loop"
+    }
+   ],
+   "after": [
+    {
+     "current": {
+      "mask": 2741,
+      "root": 0
+     },
+     "next": {
+      "mask": 2773,
+      "root": 7
+     },
+     "at": "loop"
+    },
+    {
+     "current": {
+      "mask": 2741,
+      "root": 0
+     },
+     "next": {
+      "mask": 2773,
+      "root": 7
+     },
+     "at": "loop"
+    },
+    {
+     "current": {
+      "mask": 2741,
+      "root": 0
+     },
+     "next": {
+      "mask": 2741,
+      "root": 2
+     },
+     "at": "loop"
+    },
+    {
+     "current": {
+      "mask": 2741,
+      "root": 2
+     },
+     "next": null,
+     "at": "now"
+    }
+   ]
+  },
+  {
+   "start": {
+    "mask": 2741,
+    "root": 0
+   },
+   "events": [
+    {
+     "cue": {
+      "mask": 2773,
+      "root": 7
+     },
+     "at": "beat"
+    },
+    {
+     "boundary": "loop"
+    }
+   ],
+   "after": [
+    {
+     "current": {
+      "mask": 2741,
+      "root": 0
+     },
+     "next": {
+      "mask": 2773,
+      "root": 7
+     },
+     "at": "beat"
+    },
+    {
+     "current": {
+      "mask": 2773,
+      "root": 7
+     },
+     "next": null,
+     "at": "now"
+    }
+   ]
+  },
+  {
+   "start": {
+    "mask": 2741,
+    "root": 0
+   },
+   "events": [
+    {
+     "cue": {
+      "mask": 2773,
+      "root": 7
+     },
+     "at": "bar"
+    },
+    {
+     "cancel": true
+    },
+    {
+     "boundary": "bar"
+    }
+   ],
+   "after": [
+    {
+     "current": {
+      "mask": 2741,
+      "root": 0
+     },
+     "next": {
+      "mask": 2773,
+      "root": 7
+     },
+     "at": "bar"
+    },
+    {
+     "current": {
+      "mask": 2741,
+      "root": 0
+     },
+     "next": null,
+     "at": "now"
+    },
+    {
+     "current": {
+      "mask": 2741,
+      "root": 0
+     },
+     "next": null,
+     "at": "now"
+    }
+   ]
+  },
+  {
+   "start": {
+    "mask": 2741,
+    "root": 0
+   },
+   "events": [
+    {
+     "cue": {
+      "mask": 2773,
+      "root": 7
+     },
+     "at": "now"
+    }
+   ],
+   "after": [
+    {
+     "current": {
+      "mask": 2773,
+      "root": 7
+     },
+     "next": null,
+     "at": "now"
+    }
+   ]
+  }
+ ]
+}
