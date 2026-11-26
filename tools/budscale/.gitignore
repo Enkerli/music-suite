@@ -1,3 +1,5 @@
 # Backups of a personal preferences domain: never commit.
 group.bud.*.plist
 __pycache__/
+results-*.txt
+own-scales.jsonl

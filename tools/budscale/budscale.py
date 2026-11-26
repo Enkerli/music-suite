@@ -12,6 +12,9 @@ tells the others to re-read it. See docs/HARDWARE_REPURPOSING.md §12.5.
     python3 budscale.py write --pcs 0,2,3,4,6,7,8,10,11 --root C
     python3 budscale.py write ... --spelling raw    # degree/quality left generic
     python3 budscale.py write ... --dry-run         # print the JSON, change nothing
+    python3 budscale.py write --json '{"description":…}' --root D   # exact JSON
+    python3 budscale.py scales                     # the apps' own scales, as JSON
+    python3 budscale.py doctor                     # disk vs cfprefsd, ownership
     python3 budscale.py trigger                    # PC 69 via sendmidi
     python3 budscale.py restore <backup.plist>
 
@@ -191,6 +194,12 @@ def cmd_restore(args):
 
 def cmd_write(args):
     pc_root, key = parse_root(args.root)
+    if args.json:
+        # Exact scale JSON, untouched: a known-good value copied from the
+        # apps' own store, to separate "how we write" from "what we write".
+        text = open(args.json).read() if os.path.exists(args.json) else args.json
+        scale = json.loads(text)
+        return _write(scale, key, args)
     if args.mask is not None:
         mask = args.mask
     elif args.pcs:
@@ -203,6 +212,10 @@ def cmd_write(args):
         raise SystemExit(f"the root ({pc_root}) is not in the set {mask_to_pcs(mask)}")
     rel = sorted((pc - pc_root) % 12 for pc in mask_to_pcs(mask))
     scale = {"description": args.name, "intervals": spell(rel, args.spelling)}
+    return _write(scale, key, args)
+
+
+def _write(scale: dict, key: dict, args):
     scale_json = json.dumps(scale, separators=(",", ":"))
     key_json = json.dumps(key, separators=(",", ":"))
     print(describe(scale, key))
@@ -213,6 +226,42 @@ def cmd_write(args):
     for k, v in (("brainbud.scale", scale_json), ("brainbud.key", key_json)):
         subprocess.run(["defaults", "write", DOMAIN, k, "-data", v.encode().hex()], check=True)
     print("written. Now send PC 69 on ch 1 (`budscale.py trigger`).")
+
+
+def cmd_scales(args):
+    """Print the apps' own stored scales as exact JSON, one per line, for --json."""
+    d = load_plist(args.file)
+    seen = []
+    for k in ("brainbud.scale",):
+        if k in d:
+            seen.append((k, decode(d[k])))
+    for k in ("customScales", "scalePicker.favorites"):
+        for sc in decode(d.get(k, b"[]")) if k in d else []:
+            seen.append((k, sc))
+    if "scaleFinder" in d:
+        seen.append(("scaleFinder", decode(d["scaleFinder"])["type"]))
+    for k, sc in seen:
+        print(f"# {k}: {sc.get('description')} ({len(sc['intervals'])} notes)")
+        print(json.dumps(sc, separators=(",", ":")))
+
+
+def cmd_doctor(args):
+    """Does what cfprefsd serves match what is on disk? Who owns the file?"""
+    require_mac()
+    st = os.stat(PLIST)
+    print(f"file   {PLIST}\n       mode {oct(st.st_mode & 0o7777)} uid {st.st_uid} "
+          f"(you are {os.getuid()}) modified {time.ctime(st.st_mtime)}")
+    with open(PLIST, "rb") as f:
+        disk = plistlib.load(f)
+    served = load_plist(None)
+    for k in ("brainbud.scale", "brainbud.key"):
+        a, b_ = disk.get(k), served.get(k)
+        same = a == b_
+        print(f"{k:15s} {'same' if same else 'DIFFERENT'} on disk and in cfprefsd")
+        if not same:
+            print(f"   disk:   {decode(a) if a is not None else None}\n   served: {decode(b_) if b_ is not None else None}")
+    print("\nIf they differ, or BrainBud's changes stop reaching the file: quit the Bud apps,")
+    print("restore the backup, run `killall cfprefsd` (it restarts on its own), relaunch the apps.")
 
 
 def cmd_trigger(args):
@@ -240,8 +289,14 @@ def main():
     w.add_argument("--root", default="C", help="C, Bb, F#, B♭ … or a pitch class number")
     w.add_argument("--name", default="Custom set")
     w.add_argument("--spelling", choices=["structural", "raw"], default="structural")
+    w.add_argument("--json", help="write this exact scale JSON (a string or a file) instead of --mask/--pcs")
     w.add_argument("--dry-run", action="store_true")
     w.set_defaults(fn=cmd_write)
+    sc = sub.add_parser("scales", help="print the apps' own stored scales as exact JSON")
+    sc.add_argument("--file", help="read a copied plist instead of the live domain")
+    sc.set_defaults(fn=cmd_scales)
+    dr = sub.add_parser("doctor", help="compare the file on disk with what cfprefsd serves")
+    dr.set_defaults(fn=cmd_doctor)
     t = sub.add_parser("trigger", help="send PC 69 so the Bud apps re-read")
     t.add_argument("--device", default="ScaleBud 2 MIDI In")
     t.set_defaults(fn=cmd_trigger)
