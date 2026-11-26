@@ -386,3 +386,102 @@ etc.) until the software investigation shows they're needed.**
 **Natural first contact:** the Artiphon preservation project. Its goals
 overlap heavily with this plan, and two stock Orba 1 units plus
 expressive-firmware experience (FM-1) make for a credible collaboration.
+
+---
+
+## 12. Shared harmonic state across devices (added 2026-11-26)
+
+### 12.1 What exists elsewhere: nothing confirmed
+
+The rumour is that the Deluge and Move signal scale changes to each other
+in both directions, per device group. **I found nothing confirming it** in
+the sources checked on 2026-11-26:
+
+- **Move:** the manual and the beta release notes up to 2.1.10b1 describe
+  Key & Scale as an on-device setting saved with the Set.
+- **Live 12:** the scale is a per-Set setting that Live's own scale-aware
+  devices follow. It changes through clips and uses named scales only:
+  "Live's Scales are not editable (yet)" (CDM, 2026-03).
+- **Link:** carries tempo, beat, phase, start/stop and arrangement
+  position, never key.
+- **Deluge community firmware:** to 1.3.x and the 2026-11 nightlies, scales
+  belong to the song or clip. `LEARN+SCALE` makes a user scale from the
+  clip's notes, so arbitrary masks exist *internally*, but no cross-device
+  message is documented.
+- **MIDI Association / AMEI:** no key or scale Profile was found. The Piano
+  Profile has a tuning/temperament controller, which is about tuning, not
+  key.
+- **BrainBud (Cem Olcay):** a key and scale controller whose MIDI drives the
+  other Bud apps. Its message format is undocumented, so capture it with a
+  MIDI monitor.
+
+**Settle it empirically:** monitor the MIDI from a Move and from a Deluge
+while changing the scale. If something is sent, write a translation
+adapter for it. Whatever it is, the suite should stay a **superset**.
+
+### 12.2 The suite is already the superset, on paper
+
+`@enkerli/protocol`'s `scale` message (`ScaleBody { mask, root?, name? }`)
+carries **any** 12-bit mask, leftmost = LSB. Three gaps remain for
+hardware and performance:
+
+1. **Too heavy for small devices.** A JSON envelope inside 7-in-8-packed
+   SysEx is fine for apps and plugins. It's too much for FM-1 firmware, an
+   Orba patch, or Littlefoot, and Littlefoot can't send long SysEx at all.
+   *Candidate compact form:* **NRPN**, whose 14-bit value holds a whole
+   12-bit mask. One NRPN number carries the mask and another the root,
+   with an optional third for "when" (below). CCs are the one thing every
+   device here can send and receive. The JSON message stays canonical, and
+   a bridge translates between the two. (The parameter numbers are to be
+   chosen; check them against `CONTROL_PLANE.md` before fixing any.)
+2. **No "when".** Every message applies immediately. Performance needs
+   **cueing**: while you play in one PCS, you silently pick the next, and
+   it takes effect on the next bar, loop or phrase, as in a clip launcher.
+   *Candidate:* `ScaleBody.at`, either `"now"` or a quantum
+   (`"beat"` / `"bar"` / `"loop"`), resolved against the shared beat grid
+   (Link or MIDI clock). This is the setlist feature too: a setlist is an
+   ordered list of cued scales.
+3. **No grouping.** Add an optional group id so two device groups on one
+   bus can sit in different keys. This would also map onto the rumoured
+   per-group behaviour, if it exists.
+
+**Design rule: broadcast states, not commands.** A transformation (see
+§12.4) is computed *on the device that performs it*, and the result goes
+out as a plain mask and root. Receivers never need to know what "one step
+darker" means, a device that joins late picks up the current state, and
+the message stays idempotent.
+
+### 12.3 Four octal digits
+
+Four octal digits cover all 4096 sets, and each tap is just a pad index
+(0–7). **Digit order follows CONVENTIONS.md:** the first digit tapped is
+pcs 0–2, and within a digit pc 3k is the low bit.
+
+| Set | pcs 0–2 · 3–5 · 6–8 · 9–11 | Taps | Decimal |
+|---|---|---|---|
+| C Ionian | `101 · 011 · 010 · 101` | **5 6 2 5** | 2741 |
+| C Lydian | `101 · 010 · 110 · 101` | **5 2 3 5** | 2773 |
+
+(Each group is written pc-ascending, so pad value = b₀ + 2b₁ + 4b₂.)
+Ionian and Lydian differ only in the two middle taps, which is where F and
+F♯ live. Neighbouring sets share taps, so the gesture can become muscle
+memory. **Pin this with a test vector from `@enkerli/theory`** before any
+firmware implements it.
+
+### 12.4 Semantic switching: a separate layer from entry
+
+Octal entry *names* a set. Semantic moves *derive* the next set from the
+current one, so each can be a single gesture with no mode switch:
+
+| Family | Move |
+|---|---|
+| Modes of one collection | Brighter / darker (Lydian → … → Locrian); same mask, rotated root |
+| Transposition | ±1 semitone, ±fifth; the mask rotates |
+| Neo-Riemannian (triads) | P, L, R and their compounds |
+| Limited transposition | Messiaen modes: step within a mode's distinct transpositions |
+| Parsimony | Nearest set that moves one pc by one semitone |
+| PitchFold | Its folding operation as one more move |
+
+All of these are pure functions mask → mask, a natural fit for
+`@enkerli/theory`. Each device then needs only "apply move *n*" plus the
+broadcast from §12.2.
