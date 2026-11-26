@@ -587,3 +587,31 @@ theirs, and whether ScaleBud 2 needs a relaunch to see a new custom scale.
 Separately, BrainBud's writes still reach the store (it held a fresh D♯
 Dorian), but its **PC 69 trigger** no longer reaches ScaleBud 2. That's a
 MIDI routing question, not a store one.
+
+#### Register test (2026-11-26): arbitrary sets work, by name
+
+First run: invalid, because ScaleBud 2's MIDI input was no longer connected to
+anything, so no trigger arrived. Second run, after relaunching and
+reconnecting:
+
+| Question | Answer |
+|---|---|
+| A. Messiaen mode 3's notes under the name "Dorian" | ScaleBud 2 showed **C Dorian**: a known name brings its *own* intervals, and ours are ignored |
+| B1. Register "Messiaen mode 3" in `customScales`, then select it | **Works, with no relaunch** (9 notes) |
+| B2. After relaunching ScaleBud 2 | Still there, and listed among its own scales |
+| C. BrainBud still sends the trigger; ScaleBud 2's input reconnected | yes, so the earlier "BrainBud no longer drives it" was routing |
+
+**The model:** `brainbud.key` is read directly; `brainbud.scale` is a
+*reference by name* into catalogue ∪ `customScales`, and the intervals that
+count are the ones stored under that name. So, for a bridge:
+
+- **A name is an identity.** Registering an existing name with new intervals
+  must replace that entry (`--register` does, by description), or ScaleBud
+  keeps the old notes.
+- **Name arbitrary sets by their mask** so names cannot collide or drift.
+  The suite's canonical decimal mask does this (`PCS 3549`), optionally with
+  a friendly suffix. Catalogue sets should use the catalogue's own name
+  (harvest it from `MusicTheory`'s `ScaleType` list and check each against
+  ScaleBud).
+- **Clutter:** every new set adds a custom scale. A bridge should prune its
+  own (`PCS …`) entries.
